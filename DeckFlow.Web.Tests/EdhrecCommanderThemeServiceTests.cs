@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using System.Net.Http.Headers;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.CutLab;
@@ -103,6 +104,21 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetThemeCardNamesAsync_SameCommanderAndTheme_UsesMemoryCache()
+    {
+        const string body = """{"container":{"json_dict":{"cardlists":[[{"name":"Sol Ring"},{"name":"Arcane Signet"}]]}}}""";
+        var handler = new RecordingHandler(Response(HttpStatusCode.OK, body));
+        var service = CreateService(handler);
+
+        var first = await service.GetThemeCardNamesAsync("Atraxa", "counters");
+        var second = await service.GetThemeCardNamesAsync("Atraxa", "counters");
+
+        Assert.Equal(["Sol Ring", "Arcane Signet"], first);
+        Assert.Equal(first, second);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
     public async Task DiskCache_SecondCall_SendsIfNoneMatch_And304ServesCachedBody()
     {
         var handler = new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12)), "etag-1"), new HttpResponseMessage(HttpStatusCode.NotModified));
@@ -111,6 +127,37 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
         Assert.Equal(first.Themes, second.Themes);
         Assert.Equal(2, handler.CallCount);
         Assert.Equal("etag-1", handler.Requests[1].IfNoneMatch);
+    }
+
+    [Fact]
+    public async Task DiskCache_FetchFailure_ServesFreshCachedBody()
+    {
+        var handler = new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12))), Response(HttpStatusCode.InternalServerError, "nope"));
+        var first = await CreateService(handler).GetCommanderThemesAsync("Atraxa");
+        var second = await CreateService(handler).GetCommanderThemesAsync("Atraxa");
+        Assert.False(second.IsUnavailable);
+        Assert.Equal(first.Themes, second.Themes);
+    }
+
+    [Fact]
+    public async Task DiskCache_FetchFailure_DoesNotServeExpiredCachedBody()
+    {
+        var directory = Path.Combine(_root, "artifacts", "edhrec-themes");
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(Path.Combine(directory, "atraxa.json"), "{\"Body\":\"" + Taglinks(("counters", "Counters", 12)).Replace("\"", "\\\"") + "\",\"ETag\":null,\"WrittenAtUtc\":\"2000-01-01T00:00:00+00:00\"}");
+        var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.InternalServerError, "nope"))).GetCommanderThemesAsync("Atraxa");
+        Assert.True(result.IsUnavailable);
+    }
+
+    [Fact]
+    public async Task DiskCache_ConcurrentWrites_PublishesValidCompleteEntry()
+    {
+        var handler = new RecordingHandler(Enumerable.Range(0, 8).Select(_ => Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12)))).ToArray());
+        var service = CreateService(handler);
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => service.GetCommanderThemesAsync("Atraxa")));
+        var contents = await File.ReadAllTextAsync(Path.Combine(_root, "artifacts", "edhrec-themes", "atraxa.json"));
+        using JsonDocument document = JsonDocument.Parse(contents);
+        Assert.Equal(Taglinks(("counters", "Counters", 12)), document.RootElement.GetProperty("Body").GetString());
     }
 
     [Fact]

@@ -1024,7 +1024,11 @@ internal sealed class CutLabPageService : ICutLabPageService
         bool isFirstPresentation = priorProfile is null;
 
         IReadOnlyList<CutLabCommanderTheme> checkedThemes;
-        if (isFirstPresentation && requestedThemeSlugs.Count == 0)
+        if (planThemeResult.IsUnavailable)
+        {
+            checkedThemes = priorProfile?.CommanderThemes ?? [];
+        }
+        else if (isFirstPresentation && requestedThemeSlugs.Count == 0)
         {
             checkedThemes = EdhrecCommanderThemeService.SelectDefaultThemes(planThemeResult.Themes);
         }

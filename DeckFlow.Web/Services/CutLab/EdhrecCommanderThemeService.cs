@@ -34,12 +34,14 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     internal const int PreselectMaximumThemes = 3;
     internal const int MaxResponseBytes = 4 * 1024 * 1024;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
+    // Why: transient upstream failures should retain a recently known-good disk response, but never indefinitely stale EDHREC data.
+    internal static readonly TimeSpan DiskCacheFallbackMaxAge = TimeSpan.FromDays(7);
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ResiliencePipeline<RestResponse> _pipeline;
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<EdhrecCommanderThemeService>? _logger;
     private readonly string _cacheRoot;
-    private bool _cacheWriteFailureLogged;
+    private int _cacheWriteFailureLogged;
 
     /// <summary>Creates an EDHREC service using the named client and resilience pipeline.</summary>
     public EdhrecCommanderThemeService(IHttpClientFactory httpClientFactory, ResiliencePipelineProvider<string> pipelineProvider, IMemoryCache memoryCache, IWebHostEnvironment environment, ILogger<EdhrecCommanderThemeService>? logger = null)
@@ -88,13 +90,17 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         cancellationToken.ThrowIfCancellationRequested();
         var commanderSlug = EdhrecCardLookup.Slugify(commanderName);
         if (!IsValidSlug(commanderSlug) || !IsValidSlug(themeSlug)) return [];
+        var cacheKey = $"cutlab:edhrec:themecards:{commanderSlug}:{themeSlug}";
+        if (_memoryCache.TryGetValue<IReadOnlyList<string>>(cacheKey, out var cached) && cached is not null) return cached;
         var body = await FetchAsync($"commanders/{commanderSlug}/{themeSlug}.json", commanderSlug + "__" + themeSlug + ".json", cancellationToken).ConfigureAwait(false);
         if (body is null) return [];
         try
         {
             using var document = JsonDocument.Parse(body);
             if (!document.RootElement.TryGetProperty("container", out var container) || !container.TryGetProperty("json_dict", out var dict) || !dict.TryGetProperty("cardlists", out var lists) || lists.ValueKind != JsonValueKind.Array) return [];
-            return lists.EnumerateArray().SelectMany(x => x.ValueKind == JsonValueKind.Array ? x.EnumerateArray() : []).Where(x => x.ValueKind == JsonValueKind.Object && x.TryGetProperty("name", out _)).Select(x => x.GetProperty("name").GetString()).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Cast<string>().ToList();
+            IReadOnlyList<string> parsed = lists.EnumerateArray().SelectMany(x => x.ValueKind == JsonValueKind.Array ? x.EnumerateArray() : []).Where(x => x.ValueKind == JsonValueKind.Object && x.TryGetProperty("name", out _)).Select(x => x.GetProperty("name").GetString()).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Cast<string>().ToList();
+            if (parsed.Count > 0) _memoryCache.Set(cacheKey, parsed, CacheDuration);
+            return parsed;
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { _logger?.LogWarning(ex, "EDHREC theme page had an unexpected JSON shape"); return []; }
@@ -108,23 +114,28 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
     private async Task<string?> FetchAsync(string resource, string fileName, CancellationToken cancellationToken)
     {
+        CacheEntry? cached = null;
         try
         {
             var cachePath = GetCachePath(fileName);
-            var cached = ReadCache(cachePath);
+            cached = ReadCache(cachePath);
             var client = new RestClient(_httpClientFactory.CreateClient("edhrec"));
             var request = new RestRequest(resource, Method.Get);
             if (!string.IsNullOrWhiteSpace(cached?.ETag)) request.AddHeader("If-None-Match", cached.ETag);
             var response = await _pipeline.ExecuteAsync(async ct => await client.ExecuteAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
             if ((int)response.StatusCode == 304 && cached is not null) return cached.Body;
             if ((int)response.StatusCode == 403 && response.Content?.Contains("AccessDenied", StringComparison.OrdinalIgnoreCase) == true) { _logger?.LogDebug("EDHREC page absent: {Resource}", resource); return null; }
-            if (!response.IsSuccessful || string.IsNullOrWhiteSpace(response.Content) || response.Content.Length > MaxResponseBytes) return null;
-            WriteCache(cachePath, new CacheEntry(response.Content, response.Headers?.FirstOrDefault(x => string.Equals(x.Name, "ETag", StringComparison.OrdinalIgnoreCase))?.Value?.ToString()));
+            if (!response.IsSuccessful) return GetUsableCachedBody(cached);
+            if (string.IsNullOrWhiteSpace(response.Content) || response.Content.Length > MaxResponseBytes) return null;
+            WriteCache(cachePath, new CacheEntry(response.Content, response.Headers?.FirstOrDefault(x => string.Equals(x.Name, "ETag", StringComparison.OrdinalIgnoreCase))?.Value?.ToString(), DateTimeOffset.UtcNow));
             return response.Content;
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { _logger?.LogWarning(ex, "EDHREC fetch failed for {Resource}", resource); return null; }
+        catch (Exception ex) { _logger?.LogWarning(ex, "EDHREC fetch failed for {Resource}", resource); return GetUsableCachedBody(cached); }
     }
+
+    private static string? GetUsableCachedBody(CacheEntry? cached)
+        => cached is not null && DateTimeOffset.UtcNow - cached.WrittenAtUtc <= DiskCacheFallbackMaxAge ? cached.Body : null;
 
     private static bool IsValidSlug(string slug) => SlugPattern().IsMatch(slug);
     private string GetCachePath(string fileName)
@@ -140,10 +151,19 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     }
     private void WriteCache(string path, CacheEntry entry)
     {
-        try { Directory.CreateDirectory(_cacheRoot); File.WriteAllText(path, JsonSerializer.Serialize(entry)); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { if (!_cacheWriteFailureLogged) { _cacheWriteFailureLogged = true; _logger?.LogWarning(ex, "Unable to write EDHREC disk cache"); } }
+        try
+        {
+            Directory.CreateDirectory(_cacheRoot);
+            string temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(entry));
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            if (Interlocked.Exchange(ref _cacheWriteFailureLogged, 1) == 0) _logger?.LogWarning(ex, "Unable to write EDHREC disk cache");
+        }
     }
-    private sealed record CacheEntry(string Body, string? ETag);
+    private sealed record CacheEntry(string Body, string? ETag, DateTimeOffset WrittenAtUtc);
     [GeneratedRegex("^[a-z0-9-]+$", RegexOptions.CultureInvariant)] private static partial Regex SlugPattern();
 }
 

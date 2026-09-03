@@ -158,6 +158,22 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_ThemeServiceUnavailable_PreservesPriorCheckedThemes()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var themeService = new FakeEdhrecCommanderThemeService { ThemesResult = new EdhrecThemeResult([], true) };
+        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(BuildResolvedCards(entries)), new FakeBanListService([]), themeService: themeService);
+        var priorState = new CutLabState { Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { CommanderThemes = [new CutLabCommanderTheme { Slug = "voltron" }, new CutLabCommanderTheme { Slug = "stax" }] } } };
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool", CutLabStateJson = CutLabStateSerializer.Serialize(priorState) };
+
+        var result = await service.ProcessAsync(request);
+
+        CutLabPlanProfile profile = result.State!.Intent.PlanProfile!;
+        Assert.Equal(["stax", "voltron"], profile.CommanderThemes.Select(theme => theme.Slug).OrderBy(slug => slug));
+        Assert.True(profile.CommanderThemesUnavailable);
+    }
+
+    [Fact]
     public async Task ProcessAsync_CardTextByCardName_UsesDisplayNameKeyAndResolvedFields()
     {
         const string commanderName = "Atraxa, Praetors' Voice";

@@ -1120,9 +1120,14 @@
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-plan-panel">
                 <summary class="cutlab-collapsible__summary">Plan profile</summary>
+                <form method="post" action="@Url.Content("~/cut-lab/plan-apply")" data-cut-lab-plan-form>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                    <input type="hidden" name="PlanPanelPosted" value="true" />
                 <div class="panel-heading">
                     <div>
-                        <h2>Plan profile</h2>
+                        <!-- Why: this duplication recurs across the file; a coordinated fix for all sections is separate, out-of-scope work. -->
+                        <h2 aria-hidden="true">Plan profile</h2>
                         <p>Check what this deck actually does. Every box changes how Cut Lab protects, reorders, and flags cards in your working list — nothing here is cosmetic.</p>
                     </div>
                 </div>
@@ -1166,6 +1171,8 @@
                         }
                     </fieldset>
                 </div>
+                    <noscript><button type="submit" class="run-button">Apply plan</button></noscript>
+                </form>
             </details>
         </section>
 

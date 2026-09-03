@@ -1164,7 +1164,7 @@ public sealed class CutLabApiControllerTests
         {
             Intent = baseState.Intent with
             {
-                PlanProfile = new CutLabPlanProfile { GenericStrategies = ["combo"] },
+                PlanProfile = new CutLabPlanProfile { GenericStrategies = ["combo"], CommanderThemes = [new CutLabCommanderTheme { Slug = "voltron" }, new CutLabCommanderTheme { Slug = "stax" }] },
             },
         };
 
@@ -1176,7 +1176,10 @@ public sealed class CutLabApiControllerTests
         Assert.IsType<CutLabPlanApplyApiResponse>(ok.Value);
         CutLabPlanProfile rebuilt = patchBuilder.LastState!.Intent.PlanProfile!;
         Assert.Equal(["combo"], rebuilt.GenericStrategies);
+        Assert.Equal(["stax", "voltron"], rebuilt.CommanderThemes.Select(theme => theme.Slug).OrderBy(slug => slug));
         Assert.True(rebuilt.CommanderThemesUnavailable);
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(((CutLabPlanApplyApiResponse)ok.Value).Patch.CutLabStateJson)!;
+        Assert.Equal(["stax", "voltron"], roundTripped.Intent.PlanProfile!.CommanderThemes.Select(theme => theme.Slug).OrderBy(slug => slug));
     }
 
     private static CutLabApiController CreateController(

@@ -29,10 +29,13 @@ public interface ICutLabPlanAffinityFactory
 /// </summary>
 public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
 {
-    // Why: bounds the server-side request amplification a single Cut Lab request can trigger against
-    // EDHREC (T-08-06-01). The checked-plus-unchecked slug set is truncated to this maximum after
-    // validation and deduplication, before any card-list request is issued.
-    internal const int MaxThemeMembershipFetches = 12;
+    // Why: bounds checked-theme requests independently from the unchecked-theme probe fill below,
+    // so a single checked theme cannot trigger a dozen additional off-plan-probe fetches (CR-03/IN-05).
+    internal const int MaxCheckedThemeFetches = 12;
+
+    // Why: WR-07's off-plan-package detector only needs a representative sample of unchecked themes,
+    // not the checked cap's full budget -- this stays deliberately small.
+    internal const int MaxOffPlanProbeFetches = 3;
 
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> EmptyThemeCardsBySlug =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
@@ -110,12 +113,12 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
         IReadOnlyList<CutLabCommanderTheme> allKnownThemes)
     {
         HashSet<string> knownSlugs = new(allKnownThemes.Select(theme => theme.Slug), StringComparer.OrdinalIgnoreCase);
-        List<string> bounded = new(MaxThemeMembershipFetches);
+        List<string> bounded = new(MaxCheckedThemeFetches + MaxOffPlanProbeFetches);
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (string slug in checkedThemes.Select(theme => theme.Slug))
         {
-            if (bounded.Count >= MaxThemeMembershipFetches)
+            if (bounded.Count >= MaxCheckedThemeFetches)
             {
                 return bounded;
             }
@@ -126,9 +129,10 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
             }
         }
 
+        var offPlanProbeCount = 0;
         foreach (string slug in allKnownThemes.Select(theme => theme.Slug))
         {
-            if (bounded.Count >= MaxThemeMembershipFetches)
+            if (offPlanProbeCount >= MaxOffPlanProbeFetches)
             {
                 return bounded;
             }
@@ -136,6 +140,7 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
             if (seen.Add(slug))
             {
                 bounded.Add(slug);
+                offPlanProbeCount++;
             }
         }
 

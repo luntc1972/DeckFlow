@@ -63,8 +63,19 @@ public sealed class CutLabController : Controller
                 // PlanStrategies/PlanThemes in its POST body. Backfill them from the carried-forward
                 // state so reprocessing does not silently wipe or reset the user's checked plan.
                 CutLabState priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-                request.PlanStrategies = priorState.Intent.PlanProfile?.GenericStrategies ?? [];
-                request.PlanThemes = priorState.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
+                if (!request.PlanPanelPosted && request.PlanStrategies.Count == 0 && request.PlanThemes.Count == 0)
+                {
+                    request.PlanStrategies = priorState.Intent.PlanProfile?.GenericStrategies ?? [];
+                    request.PlanThemes = priorState.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
+                }
+                if (string.IsNullOrWhiteSpace(request.PrimaryPlan))
+                {
+                    request.PrimaryPlan = priorState.Intent.PrimaryPlan;
+                }
+                if (string.IsNullOrWhiteSpace(request.SecondaryPlan))
+                {
+                    request.SecondaryPlan = priorState.Intent.SecondaryPlan ?? string.Empty;
+                }
             }
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
@@ -82,6 +93,49 @@ public sealed class CutLabController : Controller
         {
             _logger.LogError(exception, "Cut Lab processing failed.");
             return CutLabView(request, error: "Something went wrong processing the pool. Try again.");
+        }
+    }
+
+    /// <summary>Applies posted plan selections and re-renders the full page for the no-JS fallback.</summary>
+    /// <param name="request">Posted Cut Lab form fields.</param>
+    [HttpPost("/cut-lab/plan-apply")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> PlanApply(CutLabRequest request)
+    {
+        request ??= new CutLabRequest();
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson))
+        {
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            IReadOnlyList<string> planStrategies = request.PlanStrategies;
+            IReadOnlyList<string> planThemes = request.PlanThemes;
+            RehydrateIntakeRequestFromState(request, state);
+            // Why: RehydrateIntakeRequestFromState would otherwise replace this action's just-posted plan selections with the prior state's selections.
+            request.PlanStrategies = planStrategies;
+            request.PlanThemes = planThemes;
+
+            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+            return View("CutLab", CutLabViewModel.From(request, result));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CutLabView(request, error: exception.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            return CutLabView(request, error: "The request timed out. Try again.");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cut Lab plan apply fallback failed.");
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
     }
 

@@ -96,7 +96,7 @@ public sealed class CutLabPlanAffinityFactoryTests
         var result = await factory.BuildAsync(profile, [Card("Card")], ["Krenko, Mob Boss"]);
 
         Assert.NotNull(result);
-        Assert.Equal(CutLabPlanAffinityFactory.MaxThemeMembershipFetches, themeService.ThemeCardCalls.Count);
+        Assert.Equal(1 + CutLabPlanAffinityFactory.MaxOffPlanProbeFetches, themeService.ThemeCardCalls.Count);
         string[] requestedSlugs = themeService.ThemeCardCalls.Select(call => call.ThemeSlug).ToArray();
         Assert.Equal(requestedSlugs.Length, requestedSlugs.Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Contains("theme-01", requestedSlugs);

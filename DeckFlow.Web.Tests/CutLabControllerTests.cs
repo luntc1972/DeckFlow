@@ -367,6 +367,98 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task PlanApply_PostedSelections_PreservesPostedSelectionsInsteadOfPriorState()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        CutLabState state = CreateState() with
+        {
+            Intent = CreateState().Intent with
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    GenericStrategies = ["control"],
+                    CommanderThemes = [new CutLabCommanderTheme { Slug = "flicker", DisplayName = "Flicker" }],
+                },
+            },
+        };
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+            PlanPanelPosted = true,
+            PlanStrategies = ["combo"],
+            PlanThemes = ["tokens"],
+        };
+
+        var result = await controller.PlanApply(request);
+
+        Assert.Equal(["combo"], service.LastRequest!.PlanStrategies);
+        Assert.Equal(["tokens"], service.LastRequest.PlanThemes);
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Contains(model.PlanPanel.StrategyRows, row => row.Slug == "combo" && row.IsChecked);
+        Assert.Contains(model.PlanPanel.ThemeRows, row => row.Slug == "tokens" && row.IsChecked);
+    }
+
+    [Fact]
+    public async Task Process_WithDeckTextAndPriorState_BackfillsPlanSelectionsFromState()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        CutLabState state = CreateState() with
+        {
+            Intent = CreateState().Intent with
+            {
+                PlanProfile = new CutLabPlanProfile { GenericStrategies = ["combo"] },
+            },
+        };
+
+        await controller.Process(new CutLabRequest { DeckText = "1 Zur the Enchanter", CutLabStateJson = CutLabStateSerializer.Serialize(state) });
+
+        Assert.Equal(["combo"], service.LastRequest!.PlanStrategies);
+    }
+
+    [Fact]
+    public async Task Process_WithDeckTextAndPostedPlanSelections_PreservesPostedSelectionsInsteadOfBackfilling()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        CutLabState state = CreateState() with
+        {
+            Intent = CreateState().Intent with
+            {
+                PlanProfile = new CutLabPlanProfile { GenericStrategies = ["control"] },
+            },
+        };
+        var request = new CutLabRequest
+        {
+            DeckText = "1 Zur the Enchanter",
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+            PlanStrategies = ["combo"],
+        };
+
+        await controller.Process(request);
+
+        Assert.Equal(["combo"], service.LastRequest!.PlanStrategies);
+    }
+
+    [Fact]
+    public async Task Process_WithBlankPlansAndPriorState_PreservesPrimaryAndSecondaryPlans()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        CutLabState state = CreateState() with
+        {
+            Intent = CreateState().Intent with { PrimaryPlan = "Combo finish", SecondaryPlan = "Control backup" },
+        };
+
+        await controller.Process(new CutLabRequest { DeckText = "1 Zur the Enchanter", CutLabStateJson = CutLabStateSerializer.Serialize(state) });
+
+        Assert.Equal("Combo finish", service.LastRequest!.PrimaryPlan);
+        Assert.Equal("Control backup", service.LastRequest.SecondaryPlan);
+    }
+
+    [Fact]
     public async Task RestartRounds_RemovesOnlyRound1AndRound2RejectedOrDeferredDecisionsBeforeReRender()
     {
         var service = new StateAwareCutLabPageService();
@@ -957,10 +1049,22 @@ public sealed class CutLabControllerTests
             }
 
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            state = state with
+            {
+                Intent = state.Intent with
+                {
+                    PlanProfile = new CutLabPlanProfile
+                    {
+                        GenericStrategies = request.PlanStrategies,
+                        CommanderThemes = request.PlanThemes.Select(slug => new CutLabCommanderTheme { Slug = slug, DisplayName = slug }).ToArray(),
+                    },
+                },
+            };
             return Task.FromResult(new CutLabProcessResult
             {
                 State = state,
                 SerializedStateJson = request.CutLabStateJson,
+                AvailableCommanderThemes = state.Intent.PlanProfile.CommanderThemes,
                 CardCount = 100,
                 HasResult = true,
                 IsLegal = true,
