@@ -135,6 +135,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     private readonly ICutLabFloorResolver _floorResolver;
     private readonly IFeatureFlagCache? _featureFlags;
     private readonly ILogger<CutLabPageService> _logger;
+    private readonly ICutLabPlanAffinityFactory _planAffinityFactory;
 
     /// <summary>Creates the Cut Lab page service.</summary>
     /// <param name="deckEntryLoader">Deck loader for URL/paste imports.</param>
@@ -148,6 +149,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     /// <param name="logger">Optional logger for non-blocking diagnostics.</param>
     /// <param name="featureFlags">Optional feature-flag cache for dark-launching commander-aware floor defaults.</param>
     /// <param name="floorResolver">Optional shared floor resolver used to re-derive defaults per request.</param>
+    /// <param name="planAffinityFactory">Optional shared plan-affinity factory used to resolve the checked plan profile against the pool.</param>
     public CutLabPageService(
         IDeckEntryLoader deckEntryLoader,
         IScryfallCardResolver cardResolver,
@@ -159,7 +161,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         ICutLabSimulationService? simulationService = null,
         ILogger<CutLabPageService>? logger = null,
         IFeatureFlagCache? featureFlags = null,
-        ICutLabFloorResolver? floorResolver = null)
+        ICutLabFloorResolver? floorResolver = null,
+        ICutLabPlanAffinityFactory? planAffinityFactory = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(cardResolver);
@@ -185,6 +188,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         _logger = logger ?? NullLogger<CutLabPageService>.Instance;
         _floorResolver = floorResolver
             ?? new CutLabFloorResolver(_manabaseBaseline, _cedhBaseline, _roleFloorBaseline, _featureFlags);
+        _planAffinityFactory = planAffinityFactory ?? NullCutLabPlanAffinityFactory.Instance;
     }
 
     /// <summary>
@@ -507,12 +511,18 @@ internal sealed class CutLabPageService : ICutLabPageService
             }
         }
 
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = await _planAffinityFactory.BuildAsync(
+            state.Intent.PlanProfile,
+            analysisContext.AnalyzedCards,
+            commanderResolution.CommanderNames,
+            cancellationToken).ConfigureAwait(false);
         (CutLabStructuralFindingsResult findings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
             derivedWorkingList,
             analysisContext,
             floorByRole,
             state.Decisions,
-            IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey));
+            IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey),
+            planAffinities: planAffinities);
 
         CutLabMetricSnapshot? currentSnapshot = null;
         int? currentActualLands = null;

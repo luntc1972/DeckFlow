@@ -24,6 +24,7 @@ public sealed class CutLabApiController : ControllerBase
     private readonly ICutLabWhatifService _whatifService;
     private readonly IFeatureFlagCache _featureFlags;
     private readonly ILogger<CutLabApiController> _logger;
+    private readonly ICutLabPlanAffinityFactory _planAffinityFactory;
 
     /// <summary>Creates the Cut Lab API controller.</summary>
     /// <param name="contextBuilder">Shared analysis-context builder reused by intake and decision flows.</param>
@@ -33,6 +34,7 @@ public sealed class CutLabApiController : ControllerBase
     /// <param name="whatifService">Shared what-if preview service reused by API and no-JS swap flows.</param>
     /// <param name="featureFlags">Feature-flag cache used to gate the functional-twins detector.</param>
     /// <param name="logger">Logger used for non-fatal API warnings.</param>
+    /// <param name="planAffinityFactory">Optional shared plan-affinity factory used to resolve the checked plan profile against the pool.</param>
     public CutLabApiController(
         ICutLabAnalysisContextBuilder contextBuilder,
         ICutLabFloorResolver floorResolver,
@@ -40,7 +42,8 @@ public sealed class CutLabApiController : ControllerBase
         ICutLabSimulationService simulationService,
         ICutLabWhatifService whatifService,
         IFeatureFlagCache featureFlags,
-        ILogger<CutLabApiController> logger)
+        ILogger<CutLabApiController> logger,
+        ICutLabPlanAffinityFactory? planAffinityFactory = null)
     {
         _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
         _floorResolver = floorResolver ?? throw new ArgumentNullException(nameof(floorResolver));
@@ -49,6 +52,7 @@ public sealed class CutLabApiController : ControllerBase
         _whatifService = whatifService ?? throw new ArgumentNullException(nameof(whatifService));
         _featureFlags = featureFlags ?? throw new ArgumentNullException(nameof(featureFlags));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _planAffinityFactory = planAffinityFactory ?? NullCutLabPlanAffinityFactory.Instance;
     }
 
     /// <summary>Applies one Cut Lab decision and returns the next proposal payload.</summary>
@@ -103,12 +107,18 @@ public sealed class CutLabApiController : ControllerBase
                     floor => floor.Role,
                     floor => floor.Floor,
                     StringComparer.OrdinalIgnoreCase);
+            IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = await _planAffinityFactory.BuildAsync(
+                state.Intent.PlanProfile,
+                beforeContext.AnalyzedCards,
+                commanderNames,
+                cancellationToken).ConfigureAwait(false);
             (_, CutLabRoundPlan beforeRoundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
                 beforeWorkingList,
                 beforeContext,
                 floorByRole,
                 state.Decisions,
-                twinsEnabled);
+                twinsEnabled,
+                planAffinities: planAffinities);
 
             string roundKey = DetermineRoundKey(state, request, beforeRoundPlan);
             IReadOnlyList<CutLabDecideFloorWarningDto> floorWarnings = request.Decision == CutLabDecideAction.Accept
