@@ -44,6 +44,24 @@ public sealed class CutLabViewRenderTests
     }
 
     [Fact]
+    public async Task ResultView_RendersPlanPanelInsideNoJsApplyFormWithStrategyCatalog()
+    {
+        CutLabViewModel model = BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase)) with
+        {
+            PlanPanel = CutLabViewModel.BuildPlanPanel(null, [], false),
+        };
+        string html = await RenderAsync(model);
+
+        int formStart = html.IndexOf("action=\"/cut-lab/plan-apply\"", StringComparison.Ordinal);
+        int panelStart = html.IndexOf("data-cut-lab-plan-panel", StringComparison.Ordinal);
+
+        Assert.True(formStart >= 0 && formStart < panelStart, "The plan panel should be enclosed by its apply form.");
+        Assert.Equal(12, html.Split("name=\"PlanStrategies\"", StringSplitOptions.None).Length - 1);
+        Assert.Contains("data-cut-lab-plan-zero-notice", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ResultView_RendersLockPoolStickySummaryWithDistinctTargets()
     {
         var model = new CutLabViewModel
