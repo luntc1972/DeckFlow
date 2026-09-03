@@ -999,13 +999,28 @@ internal sealed class CutLabPageService : ICutLabPageService
         CutLabRequest request,
         CutLabPlanProfile? priorProfile,
         EdhrecThemeResult planThemeResult)
+        => BuildPlanProfile(request.PlanStrategies ?? [], request.PlanThemes ?? [], priorProfile, planThemeResult);
+
+    /// <summary>
+    /// Filters posted strategy and theme slugs into a validated <see cref="CutLabPlanProfile"/> — shared by
+    /// the intake form projection above and the <c>/api/cut-lab/plan-apply</c> round trip, which posts the
+    /// checked slugs already embedded in the client-carried session state rather than in a
+    /// <see cref="CutLabRequest"/>. Strategy slugs are dropped unless they resolve against
+    /// <c>DeckPlanStrategyCatalog</c>; theme slugs are dropped unless they resolve against the commander's
+    /// EDHREC-fetched theme list, which also supplies the authoritative display name and deck count for any
+    /// slug that survives (T-08-07-01).
+    /// </summary>
+    internal static CutLabPlanProfile BuildPlanProfile(
+        IReadOnlyList<string> requestedStrategySlugs,
+        IReadOnlyList<string> requestedThemeSlugs,
+        CutLabPlanProfile? priorProfile,
+        EdhrecThemeResult planThemeResult)
     {
-        IReadOnlyList<string> resolvedStrategies = (request.PlanStrategies ?? [])
+        IReadOnlyList<string> resolvedStrategies = requestedStrategySlugs
             .Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        IReadOnlyList<string> requestedThemeSlugs = request.PlanThemes ?? [];
         bool isFirstPresentation = priorProfile is null;
 
         IReadOnlyList<CutLabCommanderTheme> checkedThemes;

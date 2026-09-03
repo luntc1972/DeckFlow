@@ -982,6 +982,203 @@ public sealed class CutLabApiControllerTests
             CancellationToken.None));
     }
 
+    [Fact]
+    public void PostPlanApplyAsync_UsesCutLabFeatureFlagGate()
+    {
+        MethodInfo? method = typeof(CutLabApiController).GetMethod(nameof(CutLabApiController.PostPlanApplyAsync), BindingFlags.Public | BindingFlags.Instance);
+
+        Assert.NotNull(method);
+        FeatureFlagGateAttribute? gate = method!.GetCustomAttribute<FeatureFlagGateAttribute>();
+        Assert.NotNull(gate);
+        Assert.Equal("tool.cut-lab.enabled", gate!.Key);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_ReturnsForbidden_WhenOriginIsCrossSite()
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            new FakeSimulationService(),
+            patchBuilder,
+            sameOrigin: false);
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
+            new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) },
+            CancellationToken.None);
+
+        ObjectResult forbidden = Assert.IsType<ObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, forbidden.StatusCode);
+        Assert.Null(patchBuilder.LastState);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task PostPlanApplyAsync_ReturnsBadRequest_WhenStateJsonMissing(string stateJson)
+    {
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService());
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
+            new CutLabPlanApplyApiRequest { CutLabStateJson = stateJson },
+            CancellationToken.None);
+
+        BadRequestObjectResult badRequest = Assert.IsType<BadRequestObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_ReturnsBadRequest_WhenPostedStateIsGarbage()
+    {
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService());
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
+            new CutLabPlanApplyApiRequest { CutLabStateJson = "{not json" },
+            CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(response.Result);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_ReturnsBadRequest_WhenPoolIsEmpty()
+    {
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService());
+        CutLabState emptyPoolState = CreateState(pool: []);
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
+            new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(emptyPoolState) },
+            CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(response.Result);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_EmptyProfile_RebuildsEmptyProfile_AndReturnsPatchCarryingRoundTrippedState()
+    {
+        FakeEdhrecCommanderThemeService themeService = new()
+        {
+            ThemesResult = new EdhrecThemeResult([], false),
+        };
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            new FakeSimulationService(),
+            patchBuilder,
+            themeService: themeService);
+
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
+        {
+            Intent = baseState.Intent with { PlanProfile = new CutLabPlanProfile() },
+        };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
+            new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(ok.Value);
+
+        Assert.NotNull(patchBuilder.LastState);
+        CutLabPlanProfile rebuilt = patchBuilder.LastState!.Intent.PlanProfile!;
+        Assert.Empty(rebuilt.GenericStrategies);
+        Assert.Empty(rebuilt.CommanderThemes);
+        Assert.False(rebuilt.CommanderThemesUnavailable);
+
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson);
+        Assert.NotNull(roundTripped.Intent.PlanProfile);
+        Assert.Empty(roundTripped.Intent.PlanProfile!.GenericStrategies);
+        Assert.Empty(roundTripped.Intent.PlanProfile.CommanderThemes);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_NonEmptyProfile_FiltersUnknownSlugs_ResolvesKnownThemeFromEdhrec_AndReturnsPatchState()
+    {
+        CutLabCommanderTheme knownTheme = new() { Slug = "theme-a", DisplayName = "Theme A", DeckCount = 42 };
+        FakeEdhrecCommanderThemeService themeService = new()
+        {
+            ThemesResult = new EdhrecThemeResult([knownTheme], false),
+        };
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            new FakeSimulationService(),
+            patchBuilder,
+            themeService: themeService);
+
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
+        {
+            Intent = baseState.Intent with
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    GenericStrategies = ["combo", "not-a-real-strategy"],
+                    CommanderThemes =
+                    [
+                        new CutLabCommanderTheme { Slug = "theme-a" },
+                        new CutLabCommanderTheme { Slug = "unknown-theme" },
+                    ],
+                },
+            },
+        };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
+            new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(ok.Value);
+
+        Assert.NotNull(patchBuilder.LastState);
+        CutLabPlanProfile rebuilt = patchBuilder.LastState!.Intent.PlanProfile!;
+        Assert.Equal(["combo"], rebuilt.GenericStrategies);
+        CutLabCommanderTheme rebuiltTheme = Assert.Single(rebuilt.CommanderThemes);
+        Assert.Equal("theme-a", rebuiltTheme.Slug);
+        Assert.Equal("Theme A", rebuiltTheme.DisplayName);
+        Assert.Equal(42, rebuiltTheme.DeckCount);
+        Assert.False(rebuilt.CommanderThemesUnavailable);
+        Assert.Equal(["Commander"], themeService.CommanderThemeCalls);
+
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson);
+        Assert.Equal(["combo"], roundTripped.Intent.PlanProfile!.GenericStrategies);
+        Assert.Equal("theme-a", Assert.Single(roundTripped.Intent.PlanProfile.CommanderThemes).Slug);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_ThemeServiceUnavailable_MarksProfileUnavailable_AndStillAppliesStrategies()
+    {
+        FakeEdhrecCommanderThemeService themeService = new()
+        {
+            ThemesResult = new EdhrecThemeResult([], true),
+        };
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            new FakeSimulationService(),
+            patchBuilder,
+            themeService: themeService);
+
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
+        {
+            Intent = baseState.Intent with
+            {
+                PlanProfile = new CutLabPlanProfile { GenericStrategies = ["combo"] },
+            },
+        };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
+            new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        Assert.IsType<CutLabPlanApplyApiResponse>(ok.Value);
+        CutLabPlanProfile rebuilt = patchBuilder.LastState!.Intent.PlanProfile!;
+        Assert.Equal(["combo"], rebuilt.GenericStrategies);
+        Assert.True(rebuilt.CommanderThemesUnavailable);
+    }
+
     private static CutLabApiController CreateController(
         FakeAnalysisContextBuilder builder,
         FakeSimulationService simulation,
@@ -989,7 +1186,8 @@ public sealed class CutLabApiControllerTests
         bool sameOrigin = true,
         ICutLabWhatifService? whatifService = null,
         ICutLabFloorResolver? floorResolver = null,
-        IFeatureFlagCache? featureFlags = null)
+        IFeatureFlagCache? featureFlags = null,
+        IEdhrecCommanderThemeService? themeService = null)
     {
         ICutLabFloorResolver resolvedFloorResolver = floorResolver ?? new PassThroughFloorResolver();
         IFeatureFlagCache resolvedFeatureFlags = featureFlags ?? new FakeFeatureFlagCache(new Dictionary<string, bool>
@@ -1003,7 +1201,8 @@ public sealed class CutLabApiControllerTests
             simulation,
             whatifService ?? new FakeCutLabWhatifService(),
             resolvedFeatureFlags,
-            NullLogger<CutLabApiController>.Instance)
+            NullLogger<CutLabApiController>.Instance,
+            themeService: themeService)
         {
             ControllerContext = new ControllerContext
             {

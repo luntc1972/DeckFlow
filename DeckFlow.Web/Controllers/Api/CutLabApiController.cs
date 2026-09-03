@@ -25,6 +25,7 @@ public sealed class CutLabApiController : ControllerBase
     private readonly IFeatureFlagCache _featureFlags;
     private readonly ILogger<CutLabApiController> _logger;
     private readonly ICutLabPlanAffinityFactory _planAffinityFactory;
+    private readonly IEdhrecCommanderThemeService _themeService;
 
     /// <summary>Creates the Cut Lab API controller.</summary>
     /// <param name="contextBuilder">Shared analysis-context builder reused by intake and decision flows.</param>
@@ -35,6 +36,7 @@ public sealed class CutLabApiController : ControllerBase
     /// <param name="featureFlags">Feature-flag cache used to gate the functional-twins detector.</param>
     /// <param name="logger">Logger used for non-fatal API warnings.</param>
     /// <param name="planAffinityFactory">Optional shared plan-affinity factory used to resolve the checked plan profile against the pool.</param>
+    /// <param name="themeService">Optional EDHREC commander-theme source used to re-validate the plan panel's checked theme slugs on apply.</param>
     public CutLabApiController(
         ICutLabAnalysisContextBuilder contextBuilder,
         ICutLabFloorResolver floorResolver,
@@ -43,7 +45,8 @@ public sealed class CutLabApiController : ControllerBase
         ICutLabWhatifService whatifService,
         IFeatureFlagCache featureFlags,
         ILogger<CutLabApiController> logger,
-        ICutLabPlanAffinityFactory? planAffinityFactory = null)
+        ICutLabPlanAffinityFactory? planAffinityFactory = null,
+        IEdhrecCommanderThemeService? themeService = null)
     {
         _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
         _floorResolver = floorResolver ?? throw new ArgumentNullException(nameof(floorResolver));
@@ -53,6 +56,7 @@ public sealed class CutLabApiController : ControllerBase
         _featureFlags = featureFlags ?? throw new ArgumentNullException(nameof(featureFlags));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _planAffinityFactory = planAffinityFactory ?? NullCutLabPlanAffinityFactory.Instance;
+        _themeService = themeService ?? NullEdhrecCommanderThemeService.Instance;
     }
 
     /// <summary>Applies one Cut Lab decision and returns the next proposal payload.</summary>
@@ -394,6 +398,96 @@ public sealed class CutLabApiController : ControllerBase
             Patch = patch with { NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas) },
             CutLabStateJson = patch.CutLabStateJson,
         });
+    }
+
+    /// <summary>Re-validates a posted plan-panel profile against the catalog and the commander's fetched EDHREC themes, and returns the resulting UI patch.</summary>
+    /// <param name="request">Plan-apply request payload carrying the client-updated session state.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The server-authored live UI patch for the re-validated plan profile.</returns>
+    [HttpPost("plan-apply")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    [ProducesResponseType(typeof(CutLabPlanApplyApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<CutLabPlanApplyApiResponse>> PostPlanApplyAsync([FromBody] CutLabPlanApplyApiRequest request, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
+        if (request is null)
+        {
+            return BadRequest(new { Message = "Request body is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson))
+        {
+            return BadRequest(new { Message = "Cut Lab state is required." });
+        }
+
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            if (state.Pool.Count == 0)
+            {
+                return BadRequest(new { Message = InvalidStateMessage });
+            }
+
+            IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
+            bool twinsEnabled = IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey);
+            EdhrecThemeResult planThemeResult = await FetchPlanThemeResultAsync(commanderNames, cancellationToken).ConfigureAwait(false);
+
+            CutLabPlanProfile? postedProfile = state.Intent.PlanProfile;
+            CutLabPlanProfile rebuiltProfile = CutLabPageService.BuildPlanProfile(
+                postedProfile?.GenericStrategies ?? [],
+                postedProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [],
+                postedProfile,
+                planThemeResult);
+
+            state = state with { Intent = state.Intent with { PlanProfile = rebuiltProfile } };
+
+            CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
+                state,
+                state.Intent.PlayExperience,
+                commanderNames,
+                twinsEnabled,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            return Ok(new CutLabPlanApplyApiResponse { Patch = patch });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            _logger.LogWarning(exception, "Cut Lab plan-apply API request failed.");
+            return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
+        }
+    }
+
+    // Why: the plan panel needs a live re-fetch on every apply — the checked theme slugs must be
+    // validated against the commander's CURRENT EDHREC theme list, not trusted from the client, and
+    // this endpoint has no cached copy of that list the way the page render does.
+    private async Task<EdhrecThemeResult> FetchPlanThemeResultAsync(IReadOnlyList<string> commanderNames, CancellationToken cancellationToken)
+    {
+        string? commanderName = commanderNames.Count > 0 ? commanderNames[0] : null;
+        if (string.IsNullOrWhiteSpace(commanderName))
+        {
+            return new EdhrecThemeResult([], true);
+        }
+
+        try
+        {
+            return await _themeService.GetCommanderThemesAsync(commanderName, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Cut Lab: plan-apply EDHREC theme lookup failed; continuing unavailable.");
+            return new EdhrecThemeResult([], true);
+        }
     }
 
     // Why: IsEnabled defaults a missing key ON; dark launch requires missing keys to land OFF.

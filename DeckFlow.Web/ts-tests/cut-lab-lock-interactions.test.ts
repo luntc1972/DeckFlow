@@ -19,6 +19,7 @@ interface CutLabPackageSnapshot {
 interface CutLabIntentSnapshot {
   primaryPlan: string;
   secondaryPlan: string | null;
+  planProfile: unknown | null;
   bracket: number | null;
   playExperience: string;
   includeSideboard: boolean;
@@ -117,6 +118,7 @@ describe('DeckFlowCutLab', () => {
       intent: {
         primaryPlan: 'Stick Atraxa and snowball card advantage.',
         secondaryPlan: 'Protect the board with proliferate value.',
+        planProfile: null,
         bracket: 4,
         playExperience: 'Focused',
         includeSideboard: false,
@@ -142,7 +144,7 @@ describe('DeckFlowCutLab', () => {
     });
 
     expect(json).toBe(
-      '{"commander":"Atraxa, Praetors\' Voice","pool":[{"name":"Atraxa, Praetors\' Voice","quantity":1,"typeLine":"Legendary Creature — Angel Horror","isCommander":true,"isLocked":true,"packageId":null},{"name":"Command Tower","quantity":1,"typeLine":"Land","isCommander":false,"isLocked":true,"packageId":"pkg-lands-1"}],"packages":[{"id":"pkg-lands-1","name":"Mana base","locked":true}],"decisions":[],"intent":{"primaryPlan":"Stick Atraxa and snowball card advantage.","secondaryPlan":"Protect the board with proliferate value.","bracket":4,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[{"role":"interaction-targeted","floor":15,"isUserSet":true}],"goals":{"commanderByTurn":3,"engineByTurn":2,"representativeLineByTurn":4}}',
+      '{"commander":"Atraxa, Praetors\' Voice","pool":[{"name":"Atraxa, Praetors\' Voice","quantity":1,"typeLine":"Legendary Creature — Angel Horror","isCommander":true,"isLocked":true,"packageId":null},{"name":"Command Tower","quantity":1,"typeLine":"Land","isCommander":false,"isLocked":true,"packageId":"pkg-lands-1"}],"packages":[{"id":"pkg-lands-1","name":"Mana base","locked":true}],"decisions":[],"intent":{"primaryPlan":"Stick Atraxa and snowball card advantage.","secondaryPlan":"Protect the board with proliferate value.","planProfile":null,"bracket":4,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[{"role":"interaction-targeted","floor":15,"isUserSet":true}],"goals":{"commanderByTurn":3,"engineByTurn":2,"representativeLineByTurn":4}}',
     );
   });
 
@@ -154,6 +156,7 @@ describe('DeckFlowCutLab', () => {
       intent: {
         primaryPlan: 'Trim to the cleanest control shell.',
         secondaryPlan: null,
+        planProfile: null,
         bracket: 3,
         playExperience: 'Focused',
         includeSideboard: false,
@@ -168,7 +171,7 @@ describe('DeckFlowCutLab', () => {
     });
 
     expect(json).toBe(
-      '{"commander":"Zur the Enchanter","pool":[],"packages":[],"decisions":[],"intent":{"primaryPlan":"Trim to the cleanest control shell.","secondaryPlan":null,"bracket":3,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[],"goals":{"commanderByTurn":4,"engineByTurn":3,"representativeLineByTurn":5}}',
+      '{"commander":"Zur the Enchanter","pool":[],"packages":[],"decisions":[],"intent":{"primaryPlan":"Trim to the cleanest control shell.","secondaryPlan":null,"planProfile":null,"bracket":3,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[],"goals":{"commanderByTurn":4,"engineByTurn":3,"representativeLineByTurn":5}}',
     );
   });
 
@@ -350,6 +353,7 @@ describe('DeckFlowCutLab', () => {
     expect(parsed.intent).toEqual({
       primaryPlan: 'Keep the control shell intact.',
       secondaryPlan: 'Win through inevitability.',
+      planProfile: null,
       bracket: 3,
       playExperience: 'Focused',
       includeSideboard: false,

@@ -22,7 +22,7 @@
         [
             new WorkflowStepTab(1, "Process", IsComplete: Model.HasResult),
             new WorkflowStepTab(2, "Decide", IsComplete: cardsRemainingToTarget == 0),
-            new WorkflowStepTab(3, "Plan", IsComplete: false, IsEnabled: false),
+            new WorkflowStepTab(3, "Plan", IsComplete: false, IsEnabled: true),
             new WorkflowStepTab(4, "Goals", IsComplete: true),
             new WorkflowStepTab(5, "Export", IsComplete: Model.Export.HasExport, IsEnabled: currentCount == 100, SubmitFormId: "cut-lab-export-form"),
         ]);
@@ -169,20 +169,6 @@
         <label for="cut-lab-deck-text">Paste a decklist (one card per line)</label>
         <textarea id="cut-lab-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
                   placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
-    </div>
-
-    <div class="field">
-        <label for="cut-lab-primary-plan">Primary plan</label>
-        <p class="manabase-help">How the deck actually wins — its main line.</p>
-        <textarea id="cut-lab-primary-plan" name="PrimaryPlan" rows="2" spellcheck="true"
-                  placeholder="e.g. Resolve Zur, then tutor up and protect a Thassa's Oracle win.">@Model.Request.PrimaryPlan</textarea>
-    </div>
-
-    <div class="field">
-        <label for="cut-lab-secondary-plan">Secondary plan <span>(optional)</span></label>
-        <p class="manabase-help">A backup line if the primary gets answered. Optional.</p>
-        <textarea id="cut-lab-secondary-plan" name="SecondaryPlan" rows="2" spellcheck="true"
-                  placeholder="e.g. Grind card advantage with enchantress draw and close with commander damage.">@Model.Request.SecondaryPlan</textarea>
     </div>
 
     <fieldset class="manabase-segmented" role="radiogroup">
@@ -1132,6 +1118,55 @@
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-plan-panel">
+                <summary class="cutlab-collapsible__summary">Plan profile</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Plan profile</h2>
+                        <p>Check what this deck actually does. Every box changes how Cut Lab protects, reorders, and flags cards in your working list — nothing here is cosmetic.</p>
+                    </div>
+                </div>
+                <div class="cut-lab-plan-panel" data-cut-lab-plan-panel>
+                    @if (Model.PlanPanel.ZeroSelectionNotice)
+                    {
+                        <p class="cut-lab-plan-panel__zero-notice" role="status" data-cut-lab-plan-zero-notice>With nothing checked, the cut engine behaves exactly as it does today.</p>
+                    }
+                    <fieldset class="cut-lab-plan-panel__strategies">
+                        <legend>Generic strategies</legend>
+                        @foreach (var row in Model.PlanPanel.StrategyRows)
+                        {
+                            <label class="cut-lab-plan-panel__row">
+                                <input type="checkbox" name="PlanStrategies" value="@row.Slug" checked="@(row.IsChecked ? "checked" : null)" data-cut-lab-plan-checkbox />
+                                <span class="cut-lab-plan-panel__row-body">
+                                    <span class="cut-lab-plan-panel__row-name">@row.DisplayName</span>
+                                    <span class="cut-lab-plan-panel__row-definition">@row.Definition</span>
+                                    <span class="cut-lab-plan-panel__row-consequence">@row.Consequence</span>
+                                </span>
+                            </label>
+                        }
+                    </fieldset>
+                    <fieldset class="cut-lab-plan-panel__themes">
+                        <legend>Commander themes</legend>
+                        @if (Model.PlanPanel.CommanderThemesUnavailable)
+                        {
+                            <p class="cut-lab-plan-panel__themes-unavailable">Commander themes couldn't be loaded from EDHREC right now. The generic strategies above still apply.</p>
+                        }
+                        else
+                        {
+                            @foreach (var theme in Model.PlanPanel.ThemeRows)
+                            {
+                                <label class="cut-lab-plan-panel__row">
+                                    <input type="checkbox" name="PlanThemes" value="@theme.Slug" checked="@(theme.IsChecked ? "checked" : null)" data-cut-lab-plan-checkbox />
+                                    <span class="cut-lab-plan-panel__row-body">
+                                        <span class="cut-lab-plan-panel__row-name">@theme.DisplayName</span>
+                                        <span class="cut-lab-plan-panel__row-definition">@theme.DeckCount decks on EDHREC</span>
+                                    </span>
+                                </label>
+                            }
+                        }
+                    </fieldset>
+                </div>
+            </details>
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">
