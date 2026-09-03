@@ -12,12 +12,13 @@ using RestSharp;
 
 namespace DeckFlow.Web.Services.Http
 {
+
     /// <summary>
     /// Registers per-service Polly v8 ResiliencePipeline&lt;RestResponse&gt; instances into the
     /// IResiliencePipelineRegistry&lt;string&gt; per the tuning matrix locked in 01-CONTEXT.md (D-04).
     /// Pipelines are constructed once at composition time (Program.cs) and resolved per-service
     /// via ResiliencePipelineProvider&lt;string&gt;.GetPipeline&lt;RestResponse&gt;(name) (D-05) - never
-/// rebuilt per call. Replaces the keyed-services attribute approach (checker B2).
+    /// rebuilt per call. Replaces the keyed-services attribute approach (checker B2).
     /// </summary>
     public static class ResiliencePipelineFactory
     {
