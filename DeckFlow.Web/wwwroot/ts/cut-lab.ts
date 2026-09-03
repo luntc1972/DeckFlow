@@ -316,6 +316,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const primarySectionIdsByStep = new Map<number, string>([
     [1, 'cut-lab-section-lock-pool'],
     [2, 'cut-lab-section-cut-rounds'],
+    [3, 'cut-lab-section-plan-panel'],
     [4, 'cut-lab-section-goals'],
     [5, 'cut-lab-section-export'],
   ]);
@@ -1424,7 +1425,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const commanderFromRow = rows.find(row => row.dataset.cutLabCommander === 'true')?.dataset.cutLabCard ?? '';
     const bracketInput = document.querySelector<HTMLInputElement>('input[name="Bracket"]:checked');
     const bracketValue = bracketInput?.value.trim() ?? '';
-    const secondaryPlan = readNamedFieldValue('SecondaryPlan');
+    // Why: Phase 8 removed the PrimaryPlan/SecondaryPlan textareas from the intake form, but an
+    // in-flight legacy session may still carry non-empty values for them in persisted state.
+    // readNamedFieldValue would return '' for an absent control, silently wiping those legacy
+    // values on the next round trip. Preserve the persisted value whenever the control itself is
+    // absent from the DOM, and only read live from the DOM when the control still exists (PLPR-01).
+    const primaryPlanField = document.querySelector<HTMLInputElement | HTMLTextAreaElement>('[name="PrimaryPlan"]');
+    const secondaryPlanField = document.querySelector<HTMLInputElement | HTMLTextAreaElement>('[name="SecondaryPlan"]');
+    const primaryPlan = primaryPlanField ? primaryPlanField.value : (persistedState?.intent?.primaryPlan ?? '');
+    const secondaryPlanRaw: string | null = secondaryPlanField
+      ? secondaryPlanField.value
+      : (persistedState?.intent?.secondaryPlan ?? null);
 
     return {
       commander: commanderFromRow || selectedCommander?.value.trim() || '',
@@ -1453,8 +1464,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       quantityAdjustments: Array.isArray(persistedState?.quantityAdjustments) ? persistedState.quantityAdjustments : [],
       baselineSnapshot: persistedState?.baselineSnapshot,
       intent: {
-        primaryPlan: readNamedFieldValue('PrimaryPlan'),
-        secondaryPlan: secondaryPlan === '' ? null : secondaryPlan,
+        primaryPlan,
+        secondaryPlan: secondaryPlanRaw === '' ? null : secondaryPlanRaw,
         // Why: the plan panel lives outside this form (D-1's explicit-apply design), so there is
         // no DOM control to read the checked profile from here. Carry the last-applied profile
         // forward from persisted state so a reprocess submission (new deck text, changed
@@ -1478,11 +1489,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         representativeLineByTurn: clampGoalValue(getGoalInput('representative-line') ?? document.createElement('input'), 4),
       },
     };
-  };
-
-  const readNamedFieldValue = (name: string): string => {
-    const element = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${name}"]`);
-    return element?.value ?? '';
   };
 
   const readCheckedValue = (name: string): string => {

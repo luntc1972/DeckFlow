@@ -1264,4 +1264,33 @@ describe('cut-lab proposal enhancement', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Sol Ring');
   });
+
+  // Why: Phase 8 removed the PrimaryPlan/SecondaryPlan textareas from the intake form, but a
+  // session persisted before that change can still carry non-empty legacy values. Confirms
+  // buildSnapshotFromDom preserves persistedState.intent.primaryPlan/secondaryPlan when their
+  // controls are absent, rather than reading an empty DOM field and silently wiping them on the
+  // next serialize (PLPR-01).
+  it('preserves legacy primaryPlan and secondaryPlan when their controls are absent from the DOM', () => {
+    const legacyStateJson = '{"commander":"Zur the Enchanter","pool":[],"packages":[],"decisions":[],'
+      + '"intent":{"primaryPlan":"Grind card advantage with Zur tutors.",'
+      + '"secondaryPlan":"Close with a reanimated finisher.","bracket":3,"playExperience":"Focused",'
+      + '"includeSideboard":false,"includeMaybeboard":false},"roleFloors":[],'
+      + '"goals":{"commanderByTurn":3,"engineByTurn":2,"representativeLineByTurn":4}}';
+
+    document.body.innerHTML = `
+      <form data-cache-key="cut-lab">
+        <input type="hidden" name="CutLabStateJson" value='${legacyStateJson}' />
+        <input type="radio" name="Bracket" value="3" checked />
+        <input type="radio" name="PlayExperience" value="Focused" checked />
+      </form>
+    `;
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const stateInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
+    expect(stateInput?.value).toBeTruthy();
+    const parsed = JSON.parse(stateInput!.value) as { intent: { primaryPlan: string; secondaryPlan: string | null } };
+    expect(parsed.intent.primaryPlan).toBe('Grind card advantage with Zur tutors.');
+    expect(parsed.intent.secondaryPlan).toBe('Close with a reanimated finisher.');
+  });
 });

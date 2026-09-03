@@ -62,19 +62,17 @@ const getScenarioRow = (page: Page, scenarioName: string): Locator =>
     has: page.locator('strong.cutlab-scenarios__name', { hasText: scenarioName }),
   });
 
-const fillImportForm = async (page: Page, primaryPlan: string): Promise<void> => {
+const fillImportForm = async (page: Page): Promise<void> => {
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await page.locator('#cut-lab-primary-plan').fill(primaryPlan);
-  await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
   await clickManabasePillRadio(page, 'Bracket', '4');
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
 };
 
-const importPool = async (page: Page, primaryPlan: string): Promise<void> => {
+const importPool = async (page: Page): Promise<void> => {
   await page.goto(`${baseUrl}/cut-lab`);
   await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await fillImportForm(page, primaryPlan);
+  await fillImportForm(page);
   await page.getByRole('button', { name: 'Import pool' }).click();
 
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
@@ -199,7 +197,7 @@ const clearCutLabSessionCache = async (page: Page): Promise<void> => {
 };
 
 const tuneToExactHundredWithAddedBasic = async (page: Page): Promise<void> => {
-  await importPool(page, 'Protect the control shell, then trim to the cleanest Zur line.');
+  await importPool(page);
   await waitForCutRounds(page);
   await acceptUntilRemainingBySingleCopyCuts(page, 2);
 
@@ -220,7 +218,7 @@ const tuneToExactHundredWithAddedBasic = async (page: Page): Promise<void> => {
 };
 
 const tuneToExactHundredWithExistingBasics = async (page: Page): Promise<void> => {
-  await importPool(page, 'Protect the control shell, then trim to the cleanest Zur line.');
+  await importPool(page);
   await waitForCutRounds(page);
   await acceptUntilRemainingBySingleCopyCuts(page, 2);
 
@@ -279,7 +277,6 @@ test('exports tuned CUT and ADD counts after trimming a basic and adding a new b
 
 test('tunes to exactly 100 with basic steppers, then reloads a saved scenario with adjustments intact', async ({ page }) => {
   const scenarioName = 'Exact 100 tuned';
-  const freshPrimaryPlan = 'Fresh import only: favor mana density before trimming.';
 
   await tuneToExactHundredWithExistingBasics(page);
   await expandMobileCollapsibles(page);
@@ -312,19 +309,17 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
     }
   });
 
-  await fillImportForm(page, freshPrimaryPlan);
+  await fillImportForm(page);
   await page.getByRole('button', { name: 'Import pool' }).click();
   await waitForCutRounds(page);
   await expandMobileCollapsibles(page);
 
-  await expect(page.locator('#cut-lab-primary-plan')).toHaveValue(freshPrimaryPlan);
   await expect(page.locator('[data-cut-lab-sticky-remaining]')).not.toHaveText('0 to cut');
 
   await getScenarioRow(page, scenarioName).getByRole('button', { name: 'Load' }).click();
 
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('#cut-lab-primary-plan')).toHaveValue('Protect the control shell, then trim to the cleanest Zur line.');
   await expect(page.locator('.cutlab-proposal__heading')).toHaveText('You\'re at 100 cards');
   await expect(tunerRow(page, 'Island').locator('[data-cut-lab-quantity-value]')).toHaveText('33');
   await expect(tunerRow(page, 'Swamp').locator('[data-cut-lab-quantity-value]')).toHaveText('21');

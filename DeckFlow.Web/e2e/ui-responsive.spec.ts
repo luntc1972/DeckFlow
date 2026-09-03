@@ -149,7 +149,6 @@ test('Cut Lab mobile workflow stepper shows its short step names', async ({ page
 
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(cutLabPool);
-  await page.locator('#cut-lab-primary-plan').fill('Protect the control shell.');
   await page.getByRole('button', { name: 'Import pool' }).click();
 
   const nav = page.locator('.prompt-step-nav');

@@ -56,8 +56,6 @@ const importPool = async (page: Page): Promise<void> => {
   await expect(page.locator('h1')).toHaveText('Cut Lab');
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
-  await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
   await clickManabasePillRadio(page, 'Bracket', '4');
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
@@ -90,8 +88,6 @@ test('/cut-lab renders the intake, intent controls, and hidden state field when 
   await expect(mainStateInput).toHaveCount(1);
   await expect(page.locator('#cut-lab-input-source')).toBeVisible();
   await expect(page.locator('#cut-lab-deck-url')).toBeVisible();
-  await expect(page.locator('#cut-lab-primary-plan')).toBeVisible();
-  await expect(page.locator('#cut-lab-secondary-plan')).toBeVisible();
   await expect(page.locator('input[name="Bracket"][value="1"]')).toBeVisible();
   await expect(page.locator('input[name="PlayExperience"][value="Focused"]')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'No pool imported yet' })).toBeVisible();
@@ -121,7 +117,6 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await expect(hiddenState).toHaveValue(/"name":"Fast mana"/);
 
   await page.locator('details.cutlab-intake > summary').click();
-  await page.locator('#cut-lab-primary-plan').fill('Protect the mana and tutor core before trimming.');
   await page.getByRole('button', { name: 'Import pool' }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });

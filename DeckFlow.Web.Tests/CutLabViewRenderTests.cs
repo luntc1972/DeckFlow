@@ -27,8 +27,11 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabViewRenderTests
 {
     [Fact]
-    public async Task ResultView_RendersReservedPlanStepAsIncompleteAndUnavailable()
+    public async Task ResultView_RendersPlanStepAsEnabledNowThatThePanelIsFilled()
     {
+        // Phase 7 reserved this step disabled (e89e2744); Phase 8's plan panel (08-07) now fills
+        // it, so the step is enabled while still not "complete" — there is no completion state for
+        // a profile that is legitimately all-unchecked.
         string html = await RenderAsync(BuildTwinBadgeModel(
             cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase)));
 
@@ -36,7 +39,7 @@ public sealed class CutLabViewRenderTests
         Assert.True(planTabEnd >= 0, "The Plan workflow tab should render.");
         string planTab = html.Substring(Math.Max(0, planTabEnd - 300), 300);
 
-        Assert.Contains("aria-disabled=\"true\"", planTab, StringComparison.Ordinal);
+        Assert.Contains("aria-disabled=\"false\"", planTab, StringComparison.Ordinal);
         Assert.DoesNotContain("is-complete", planTab, StringComparison.Ordinal);
     }
 

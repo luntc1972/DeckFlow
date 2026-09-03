@@ -4685,6 +4685,77 @@ input[data-cut-lab-floor] {
   margin-top: 0.25rem;
 }
 
+.cut-lab-plan-panel {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.cut-lab-plan-panel__zero-notice {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--muted, inherit);
+}
+
+.cut-lab-plan-panel__strategies,
+.cut-lab-plan-panel__themes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.cut-lab-plan-panel__strategies legend,
+.cut-lab-plan-panel__themes legend {
+  grid-column: 1 / -1;
+  padding: 0 0.25rem;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.cut-lab-plan-panel__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.cut-lab-plan-panel__row input[type="checkbox"] {
+  margin-top: 0.2rem;
+  min-width: 1.1rem;
+  min-height: 1.1rem;
+}
+
+.cut-lab-plan-panel__row-body {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.cut-lab-plan-panel__row-name {
+  font-weight: 600;
+}
+
+.cut-lab-plan-panel__row-definition,
+.cut-lab-plan-panel__row-consequence {
+  font-size: var(--fs-sm);
+  color: var(--muted, inherit);
+}
+
+.cut-lab-plan-panel__themes-unavailable {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted, inherit);
+}
+
 .cutlab-collapsible {
   display: block;
 }
@@ -4787,9 +4858,9 @@ input[data-cut-lab-floor]:focus-visible {
 .df-select__trigger:focus-visible,
 button.cutlab-role-chip:focus-visible,
 [data-cut-lab-lock-role]:focus-visible,
-#cut-lab-primary-plan:focus-visible,
 #cut-lab-deck-text:focus-visible,
-input[data-cut-lab-floor]:focus-visible {
+input[data-cut-lab-floor]:focus-visible,
+.cut-lab-plan-panel__row input[type="checkbox"]:focus-visible {
   outline-color: var(--ink);
 }
 
@@ -5256,6 +5327,11 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
   }
 
   .cutlab-export__copy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cut-lab-plan-panel__strategies,
+  .cut-lab-plan-panel__themes {
     grid-template-columns: 1fr;
   }
 
