@@ -36,19 +36,23 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
     private readonly ICutLabAnalysisContextBuilder _analysisContextBuilder;
     private readonly ICutLabSimulationService _simulationService;
     private readonly ICutLabFloorResolver _floorResolver;
+    private readonly ICutLabPlanAffinityFactory _planAffinityFactory;
 
     /// <summary>Creates the Cut Lab live-patch builder.</summary>
     /// <param name="analysisContextBuilder">Shared Cut Lab analysis-context builder.</param>
     /// <param name="simulationService">Shared Cut Lab simulation service.</param>
     /// <param name="floorResolver">Shared floor resolver reused across Cut Lab transports.</param>
+    /// <param name="planAffinityFactory">Optional shared plan-affinity factory used to resolve the checked plan profile against the pool.</param>
     public CutLabUiPatchBuilder(
         ICutLabAnalysisContextBuilder analysisContextBuilder,
         ICutLabSimulationService simulationService,
-        ICutLabFloorResolver floorResolver)
+        ICutLabFloorResolver floorResolver,
+        ICutLabPlanAffinityFactory? planAffinityFactory = null)
     {
         _analysisContextBuilder = analysisContextBuilder ?? throw new ArgumentNullException(nameof(analysisContextBuilder));
         _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
         _floorResolver = floorResolver ?? throw new ArgumentNullException(nameof(floorResolver));
+        _planAffinityFactory = planAffinityFactory ?? NullCutLabPlanAffinityFactory.Instance;
     }
 
     /// <inheritdoc />
@@ -81,12 +85,18 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                 floor => floor.Role,
                 floor => floor.Floor,
                 StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = await _planAffinityFactory.BuildAsync(
+            state.Intent.PlanProfile,
+            context.AnalyzedCards,
+            commanderNames,
+            cancellationToken).ConfigureAwait(false);
         (CutLabStructuralFindingsResult findings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
             workingList,
             context,
             floorByRole,
             state.Decisions,
-            twinsEnabled);
+            twinsEnabled,
+            planAffinities: planAffinities);
         CutLabSimulationResult snapshotResult = await _simulationService.BuildSnapshotResult(
             workingList,
             playExperience,
