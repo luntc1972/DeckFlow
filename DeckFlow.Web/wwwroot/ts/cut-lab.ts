@@ -13,9 +13,25 @@ interface CutLabPackageSnapshot {
   locked: boolean;
 }
 
+interface CutLabPlanProfileThemeSnapshot {
+  slug: string;
+  displayName?: string;
+  deckCount?: number;
+}
+
+interface CutLabPlanProfileSnapshot {
+  genericStrategies: string[];
+  commanderThemes: CutLabPlanProfileThemeSnapshot[];
+  commanderThemesUnavailable?: boolean;
+}
+
 interface CutLabIntentSnapshot {
   primaryPlan: string;
   secondaryPlan: string | null;
+  // Why: null means the plan panel has never been presented (server may pre-check top themes);
+  // a non-null profile — even with empty arrays — means it was presented and the user's checked
+  // set, however sparse, is authoritative. See CutLabPageService.BuildPlanProfile (PLPR-02).
+  planProfile: CutLabPlanProfileSnapshot | null;
   bracket: number | null;
   playExperience: string;
   includeSideboard: boolean;
@@ -259,6 +275,7 @@ const cutLabAdjustApiEndpoint = '/api/cut-lab/adjust';
 const cutLabRestartRoundsApiEndpoint = '/api/cut-lab/restart-rounds';
 const cutLabWhatifApiEndpoint = '/api/cut-lab/whatif';
 const cutLabWhatifCommitApiEndpoint = '/api/cut-lab/whatif/commit';
+const cutLabPlanApplyApiEndpoint = '/api/cut-lab/plan-apply';
 const cutLabDecisionTimeoutMs = 20000;
 const cutLabDecisionBusyCopy = 'Recalculating…';
 const cutLabDecisionErrorCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
@@ -762,6 +779,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         intent: {
           primaryPlan: snapshot.intent.primaryPlan,
           secondaryPlan: snapshot.intent.secondaryPlan,
+          planProfile: snapshot.intent.planProfile ?? null,
           bracket: snapshot.intent.bracket,
           playExperience: snapshot.intent.playExperience,
           includeSideboard: snapshot.intent.includeSideboard,
@@ -877,9 +895,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let restartRoundsHandlersAttached = false;
   let scenarioHandlersAttached = false;
   let whatifHandlersAttached = false;
+  let planPanelHandlersAttached = false;
   let decisionSubmitInFlight = false;
   let adjustSubmitInFlight = false;
   let whatifSubmitInFlight = false;
+  let planApplySubmitInFlight = false;
   let copyHandlersAttached = false;
   let cardModalHandlersAttached = false;
   let cardTextByCardNameCache: Record<string, CutLabCardTextEntry> | null = null;
@@ -902,6 +922,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getStateInput = (form: HTMLFormElement): HTMLInputElement | null =>
     form.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
+
+  const getPlanPanelRoot = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('[data-cut-lab-plan-panel]');
+
+  const getPlanPanelCheckboxes = (name: 'PlanStrategies' | 'PlanThemes'): HTMLInputElement[] =>
+    Array.from(document.querySelectorAll<HTMLInputElement>(`[data-cut-lab-plan-panel] input[name="${name}"]`));
 
   const getDecisionStateInputs = (): HTMLInputElement[] =>
     Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]'));
@@ -1429,6 +1455,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       intent: {
         primaryPlan: readNamedFieldValue('PrimaryPlan'),
         secondaryPlan: secondaryPlan === '' ? null : secondaryPlan,
+        // Why: the plan panel lives outside this form (D-1's explicit-apply design), so there is
+        // no DOM control to read the checked profile from here. Carry the last-applied profile
+        // forward from persisted state so a reprocess submission (new deck text, changed
+        // bracket/experience) does not silently wipe or reset it.
+        planProfile: persistedState?.intent?.planProfile ?? null,
         bracket: bracketValue === '' ? null : Number.parseInt(bracketValue, 10),
         playExperience: readCheckedValue('PlayExperience'),
         includeSideboard: readCheckedBoolean('IncludeSideboard'),
@@ -3651,6 +3682,107 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
+  const buildCheckedPlanProfileSnapshot = (): CutLabPlanProfileSnapshot => ({
+    genericStrategies: getPlanPanelCheckboxes('PlanStrategies')
+      .filter(checkbox => checkbox.checked)
+      .map(checkbox => checkbox.value),
+    commanderThemes: getPlanPanelCheckboxes('PlanThemes')
+      .filter(checkbox => checkbox.checked)
+      .map(checkbox => ({ slug: checkbox.value })),
+  });
+
+  const setPlanPanelBusyState = (root: HTMLElement): (() => void) => {
+    root.setAttribute('aria-busy', 'true');
+    const checkboxes = [...getPlanPanelCheckboxes('PlanStrategies'), ...getPlanPanelCheckboxes('PlanThemes')];
+    const originallyDisabled = checkboxes.map(checkbox => checkbox.disabled);
+    checkboxes.forEach(checkbox => {
+      checkbox.disabled = true;
+    });
+
+    return () => {
+      root.removeAttribute('aria-busy');
+      checkboxes.forEach((checkbox, index) => {
+        checkbox.disabled = originallyDisabled[index];
+      });
+    };
+  };
+
+  // Why: the plan panel sits outside the intake form (D-1's explicit-apply design) — checking or
+  // unchecking a box performs its own round trip to /api/cut-lab/plan-apply immediately, rather
+  // than waiting for a form submission the panel isn't part of. This reuses the decide/restart
+  // transport shape: JSON POST, RequestVerificationToken, same-origin endpoint, busy/error
+  // handling and applyServerPatch (T-08-07-03).
+  const handlePlanPanelChange = async (): Promise<void> => {
+    if (planApplySubmitInFlight) {
+      return;
+    }
+
+    const root = getPlanPanelRoot();
+    const form = getForm();
+    const persistedState = tryReadSerializedState();
+    if (!root || !form || !persistedState) {
+      return;
+    }
+
+    const stateInput = getStateInput(form);
+    if (!stateInput) {
+      return;
+    }
+
+    const nextState: Partial<CutLabStateSnapshot> = {
+      ...persistedState,
+      intent: {
+        ...(persistedState.intent as CutLabIntentSnapshot),
+        planProfile: buildCheckedPlanProfileSnapshot(),
+      },
+    };
+
+    planApplySubmitInFlight = true;
+    clearDecisionError();
+
+    const antiForgeryToken = getAntiForgeryToken(form);
+    const restoreBusyState = setPlanPanelBusyState(root);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (antiForgeryToken !== '') {
+        headers.RequestVerificationToken = antiForgeryToken;
+      }
+
+      const response = await fetch(cutLabPlanApplyApiEndpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ cutLabStateJson: JSON.stringify(nextState) }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        renderDecisionError(form, await readErrorMessage(response));
+        return;
+      }
+
+      const data = await response.json() as CutLabPatchResponse;
+      if (!data.patch?.cutLabStateJson) {
+        renderDecisionError(form, cutLabDecisionErrorCopy);
+        return;
+      }
+
+      applyServerPatch(data.patch, antiForgeryToken);
+    } catch (error) {
+      renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'
+        ? cutLabDecisionTimeoutCopy
+        : cutLabDecisionErrorCopy);
+    } finally {
+      window.clearTimeout(timeoutId);
+      planApplySubmitInFlight = false;
+      restoreBusyState();
+    }
+  };
+
   const extractAdjustPayload = (form: HTMLFormElement): { cutLabStateJson: string; cardName: string; delta: number; isAddedBasic: boolean } | null => {
     const stateInput = getStateInput(form);
     const cardNameField = form.querySelector<HTMLInputElement | HTMLSelectElement>('[name="CardName"]');
@@ -4297,6 +4429,35 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  // Why: registered alongside the other step-scoped handlers in initializeCutLab so the plan
+  // panel — Phase 7's reserved wizard slot 3 — participates in the same delegated-listener
+  // pattern as the rest of the wizard's steps, rather than a bespoke bootstrap path.
+  const attachPlanPanelChangeHandler = (): void => {
+    if (planPanelHandlersAttached) {
+      return;
+    }
+
+    const root = getPlanPanelRoot();
+    if (!root) {
+      return;
+    }
+
+    planPanelHandlersAttached = true;
+
+    root.addEventListener('change', event => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') {
+        return;
+      }
+
+      if (target.name !== 'PlanStrategies' && target.name !== 'PlanThemes') {
+        return;
+      }
+
+      void handlePlanPanelChange();
+    });
+  };
+
   const attachScenarioHandlers = (): void => {
     if (scenarioHandlersAttached) {
       return;
@@ -4562,6 +4723,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     attachGoalSubmitHandler();
     attachScenarioHandlers();
     attachWhatifSubmitHandler();
+    attachPlanPanelChangeHandler();
     attachCopyHandlers();
     attachCardModalHandlers();
     attachSubmitHandler();

@@ -56,6 +56,16 @@ public sealed class CutLabController : Controller
                 CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
                 RehydrateIntakeRequestFromState(request, state);
             }
+            else if (!string.IsNullOrWhiteSpace(request.CutLabStateJson))
+            {
+                // Why: the plan panel sits outside this form (D-1's explicit-apply design), so a
+                // reprocess submission (new deck text, changed bracket/experience) never carries
+                // PlanStrategies/PlanThemes in its POST body. Backfill them from the carried-forward
+                // state so reprocessing does not silently wipe or reset the user's checked plan.
+                CutLabState priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+                request.PlanStrategies = priorState.Intent.PlanProfile?.GenericStrategies ?? [];
+                request.PlanThemes = priorState.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
+            }
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
             return View("CutLab", CutLabViewModel.From(request, result));
