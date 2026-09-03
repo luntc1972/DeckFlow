@@ -144,6 +144,7 @@ public sealed class CutLabApiController : ControllerBase
                 afterPreResolvedCards,
                 afterPoolKey,
                 floorWarnings,
+                planAffinities,
                 cancellationToken).ConfigureAwait(false);
             return Ok(BuildDecideApiResponse(patch));
         }
@@ -455,7 +456,13 @@ public sealed class CutLabApiController : ControllerBase
                 twinsEnabled,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
-            return Ok(new CutLabPlanApplyApiResponse { Patch = patch });
+            return Ok(new CutLabPlanApplyApiResponse
+            {
+                Patch = patch,
+                AppliedStrategies = rebuiltProfile.GenericStrategies,
+                AppliedThemes = rebuiltProfile.CommanderThemes.Select(theme => theme.Slug).ToArray(),
+                CommanderThemesUnavailable = rebuiltProfile.CommanderThemesUnavailable,
+            });
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {

@@ -212,6 +212,9 @@ interface CutLabUiPatch {
 
 interface CutLabPatchResponse {
   patch?: CutLabUiPatch | null;
+  appliedStrategies?: string[];
+  appliedThemes?: string[];
+  commanderThemesUnavailable?: boolean;
 }
 
 interface ScenarioIndexEntry {
@@ -901,6 +904,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let adjustSubmitInFlight = false;
   let whatifSubmitInFlight = false;
   let planApplySubmitInFlight = false;
+  let planApplyPendingChange = false;
   let copyHandlersAttached = false;
   let cardModalHandlersAttached = false;
   let cardTextByCardNameCache: Record<string, CutLabCardTextEntry> | null = null;
@@ -3697,6 +3701,26 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       .map(checkbox => ({ slug: checkbox.value })),
   });
 
+  const syncPlanPanel = (appliedStrategies: string[], appliedThemes: string[]): void => {
+    const strategySlugs = new Set(appliedStrategies.map(slug => slug.toLowerCase()));
+    const themeSlugs = new Set(appliedThemes.map(slug => slug.toLowerCase()));
+    getPlanPanelCheckboxes('PlanStrategies').forEach(checkbox => {
+      checkbox.checked = strategySlugs.has(checkbox.value.toLowerCase());
+    });
+    getPlanPanelCheckboxes('PlanThemes').forEach(checkbox => {
+      checkbox.checked = themeSlugs.has(checkbox.value.toLowerCase());
+    });
+  };
+
+  const renderPlanPanelError = (root: HTMLElement, message: string): void => {
+    const error = document.createElement('p');
+    error.className = 'form-validation-error';
+    error.setAttribute('role', 'alert');
+    error.setAttribute('data-cut-lab-decision-error', '');
+    error.textContent = message;
+    root.prepend(error);
+  };
+
   const setPlanPanelBusyState = (root: HTMLElement): (() => void) => {
     root.setAttribute('aria-busy', 'true');
     const checkboxes = [...getPlanPanelCheckboxes('PlanStrategies'), ...getPlanPanelCheckboxes('PlanThemes')];
@@ -3720,6 +3744,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   // handling and applyServerPatch (T-08-07-03).
   const handlePlanPanelChange = async (): Promise<void> => {
     if (planApplySubmitInFlight) {
+      planApplyPendingChange = true;
       return;
     }
 
@@ -3767,25 +3792,30 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       });
 
       if (!response.ok) {
-        renderDecisionError(form, await readErrorMessage(response));
+        renderPlanPanelError(root, await readErrorMessage(response));
         return;
       }
 
       const data = await response.json() as CutLabPatchResponse;
       if (!data.patch?.cutLabStateJson) {
-        renderDecisionError(form, cutLabDecisionErrorCopy);
+        renderPlanPanelError(root, cutLabDecisionErrorCopy);
         return;
       }
 
       applyServerPatch(data.patch, antiForgeryToken);
+      syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? []);
     } catch (error) {
-      renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'
+      renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
         : cutLabDecisionErrorCopy);
     } finally {
       window.clearTimeout(timeoutId);
       planApplySubmitInFlight = false;
       restoreBusyState();
+      if (planApplyPendingChange) {
+        planApplyPendingChange = false;
+        void handlePlanPanelChange();
+      }
     }
   };
 

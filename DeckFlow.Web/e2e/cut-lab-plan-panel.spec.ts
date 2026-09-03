@@ -127,19 +127,22 @@ const reimportPool = async (page: Page): Promise<void> => {
 // change fires its own round trip to /api/cut-lab/plan-apply, so wait for that response (not just
 // the click) before reading anything the response is expected to have changed.
 const togglePlanCheckbox = async (page: Page, checkbox: ReturnType<Page['locator']>): Promise<void> => {
-  await Promise.all([
-    page.waitForResponse((response) => response.url().includes('/api/cut-lab/plan-apply')),
-    checkbox.click(),
-  ]);
+  await checkbox.click();
+  await expect(checkbox).toBeDisabled();
+  await expect(checkbox).not.toBeDisabled();
 };
 
 const clearAllPlanCheckboxes = async (page: Page): Promise<void> => {
   const checkedBoxes = page.locator('[data-cut-lab-plan-panel] input[data-cut-lab-plan-checkbox]:checked');
-  let remaining = await checkedBoxes.count();
-  while (remaining > 0) {
+  const maxIterations = 32;
+  for (let i = 0; i < maxIterations; i += 1) {
+    const remaining = await checkedBoxes.count();
+    if (remaining === 0) {
+      return;
+    }
     await togglePlanCheckbox(page, checkedBoxes.first());
-    remaining = await checkedBoxes.count();
   }
+  throw new Error('plan checkboxes did not clear within 32 toggles');
 };
 
 const readProposedCardName = async (page: Page): Promise<string> => {
