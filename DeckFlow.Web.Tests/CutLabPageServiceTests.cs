@@ -65,6 +65,99 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_UnknownPlanStrategySlug_IsDiscardedFromPlanProfile()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            PlanStrategies = ["combo", "not-a-real-strategy"],
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.NotNull(result.State?.Intent.PlanProfile);
+        Assert.Contains("combo", result.State!.Intent.PlanProfile!.GenericStrategies);
+        Assert.DoesNotContain("not-a-real-strategy", result.State.Intent.PlanProfile!.GenericStrategies);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_FirstPresentation_PreChecksTopThemesAboveFivePercentShare()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var themeService = new FakeEdhrecCommanderThemeService
+        {
+            ThemesResult = new EdhrecThemeResult(
+                [
+                    new CutLabCommanderTheme { Slug = "superfriends", DisplayName = "Superfriends", DeckCount = 500 },
+                    new CutLabCommanderTheme { Slug = "counters", DisplayName = "Counters", DeckCount = 300 },
+                    new CutLabCommanderTheme { Slug = "lifegain", DisplayName = "Lifegain", DeckCount = 150 },
+                    new CutLabCommanderTheme { Slug = "control", DisplayName = "Control", DeckCount = 50 },
+                ],
+                false),
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            themeService: themeService);
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        IReadOnlyList<string> checkedSlugs = result.State!.Intent.PlanProfile!.CommanderThemes
+            .Select(theme => theme.Slug)
+            .ToArray();
+        Assert.Equal(["superfriends", "counters", "lifegain"], checkedSlugs);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_AlreadyPresentedEmptyProfile_DoesNotReCheckDefaultThemes()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var themeService = new FakeEdhrecCommanderThemeService
+        {
+            ThemesResult = new EdhrecThemeResult(
+                [
+                    new CutLabCommanderTheme { Slug = "superfriends", DisplayName = "Superfriends", DeckCount = 500 },
+                ],
+                false),
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            themeService: themeService);
+        var priorState = new CutLabState
+        {
+            Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile() },
+        };
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.NotNull(result.State?.Intent.PlanProfile);
+        Assert.Empty(result.State!.Intent.PlanProfile!.CommanderThemes);
+    }
+
+    [Fact]
     public async Task ProcessAsync_CardTextByCardName_UsesDisplayNameKeyAndResolvedFields()
     {
         const string commanderName = "Atraxa, Praetors' Voice";

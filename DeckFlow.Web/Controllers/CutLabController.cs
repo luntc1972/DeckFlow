@@ -418,6 +418,8 @@ public sealed class CutLabController : Controller
         request.DeckText = BuildDeckText(state);
         request.PrimaryPlan = state.Intent.PrimaryPlan;
         request.SecondaryPlan = state.Intent.SecondaryPlan ?? string.Empty;
+        request.PlanStrategies = state.Intent.PlanProfile?.GenericStrategies ?? [];
+        request.PlanThemes = state.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
         request.Bracket = state.Intent.Bracket;
         request.PlayExperience = state.Intent.PlayExperience;
         request.IncludeSideboard = state.Intent.IncludeSideboard;

@@ -21,6 +21,12 @@ public sealed class CutLabRequest
     /// <summary>Optional secondary plan supporting the primary plan.</summary>
     public string SecondaryPlan { get; set; } = string.Empty;
 
+    /// <summary>Checked generic plan-strategy slugs, form-bound from the plan panel.</summary>
+    public IReadOnlyList<string> PlanStrategies { get; set; } = [];
+
+    /// <summary>Checked EDHREC commander-theme slugs, form-bound from the plan panel.</summary>
+    public IReadOnlyList<string> PlanThemes { get; set; } = [];
+
     /// <summary>Optional target Commander bracket for the finished deck.</summary>
     public int? Bracket { get; set; }
 

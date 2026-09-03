@@ -320,6 +320,53 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task Decide_StateOnlyRequest_RestoresPlanProfileSelectionsOntoRequest()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
+        {
+            Intent = baseState.Intent with
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    GenericStrategies = ["combo", "control"],
+                    CommanderThemes =
+                    [
+                        new CutLabCommanderTheme { Slug = "flicker", DisplayName = "Flicker", DeckCount = 120 },
+                    ],
+                },
+            },
+        };
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+        };
+
+        await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept, CutLabCutRoundEngine.Round1Key);
+
+        Assert.Equal(["combo", "control"], service.LastRequest!.PlanStrategies);
+        Assert.Equal(["flicker"], service.LastRequest.PlanThemes);
+    }
+
+    [Fact]
+    public async Task Decide_StateOnlyRequest_NullPlanProfileRestoresEmptyPlanSelections()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+        };
+
+        await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept, CutLabCutRoundEngine.Round1Key);
+
+        Assert.Empty(service.LastRequest!.PlanStrategies);
+        Assert.Empty(service.LastRequest.PlanThemes);
+    }
+
+    [Fact]
     public async Task RestartRounds_RemovesOnlyRound1AndRound2RejectedOrDeferredDecisionsBeforeReRender()
     {
         var service = new StateAwareCutLabPageService();
