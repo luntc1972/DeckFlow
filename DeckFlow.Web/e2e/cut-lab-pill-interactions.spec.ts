@@ -63,7 +63,6 @@ test('individual card pills lock cards and Lock All stays readable in Commander 
 
     await page.locator('#cut-lab-input-source').selectOption('PasteText');
     await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-    await page.locator('#cut-lab-primary-plan').fill('Protect the control shell.');
     await page.getByRole('button', { name: 'Import pool' }).click();
     await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
@@ -122,7 +121,6 @@ test('card modal meta shows power and toughness for creature cards', async ({ pa
 
     await page.locator('#cut-lab-input-source').selectOption('PasteText');
     await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-    await page.locator('#cut-lab-primary-plan').fill('Protect the control shell.');
     await page.getByRole('button', { name: 'Import pool' }).click();
     await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
@@ -144,7 +142,6 @@ test('structural evidence pills lock the canonical pool checkbox and inert spans
 
     await page.locator('#cut-lab-input-source').selectOption('PasteText');
     await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-    await page.locator('#cut-lab-primary-plan').fill('Protect the control shell.');
     await page.getByRole('button', { name: 'Import pool' }).click();
     await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });

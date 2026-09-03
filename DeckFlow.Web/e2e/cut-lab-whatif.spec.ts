@@ -51,8 +51,6 @@ const importPool = async (page: Page): Promise<void> => {
 const fillImportForm = async (page: Page): Promise<void> => {
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
-  await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
   await clickManabasePillRadio(page, 'Bracket', '4');
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
 };
@@ -62,8 +60,6 @@ const fillImportFormNoJs = async (page: Page): Promise<void> => {
   await page.locator('#cut-lab-deck-text').evaluate((element, value) => {
     (element as HTMLTextAreaElement).value = value;
   }, oversizedPool);
-  await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
-  await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
   await clickManabasePillRadio(page, 'Bracket', '4');
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
 };

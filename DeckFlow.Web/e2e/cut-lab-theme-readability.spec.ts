@@ -83,8 +83,6 @@ const importPool = async (page: Page): Promise<void> => {
   await expect(page.locator('h1')).toHaveText('Cut Lab');
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
-  await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
   await clickManabasePillRadio(page, 'Bracket', '4');
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
@@ -427,7 +425,9 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     const lockAllPill = page.locator('[data-cut-lab-lock-role="lands"]');
     const roleChip = landsGroup.locator('button.cutlab-role-chip').first();
     const selectTrigger = page.locator('.df-select__trigger').first();
-    const planInput = page.locator('#cut-lab-primary-plan');
+    const planStrategyRow = page.locator('.cut-lab-plan-panel__row').first();
+    const planStrategyCheckbox = planStrategyRow.locator('input[type="checkbox"]');
+    const planStrategyDefinition = planStrategyRow.locator('.cut-lab-plan-panel__row-definition');
     const decisionButton = page.locator('.cutlab-decision-btn--accept').first();
 
     await expect(packagePanel, `${theme.name}: Fast mana package panel should exist for CLUP-19 package coverage`).toBeVisible();
@@ -444,10 +444,14 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await page.locator('details.cutlab-intake > summary').click();
     // The enhanced df-select trigger renders normal form-control text, so it must clear 4.5 AA.
     await assertContrastFloor(theme.name, 'input source select trigger', selectTrigger, 4.5);
-    // Plan textareas render editable body text, so the normal-text AA floor is 4.5.
-    await assertContrastFloor(theme.name, 'primary plan input', planInput, 4.5);
     await assertFocusIndicatorContrast(theme.name, 'input source select trigger', page, selectTrigger, 3.0);
-    await assertFocusIndicatorContrast(theme.name, 'primary plan input', page, planInput, 3.0);
+
+    await expandCutLabSection(page, 'cut-lab-section-plan-panel');
+    // Plan panel strategy definitions render explanatory body copy, so the normal-text AA floor is 4.5.
+    await assertContrastFloor(theme.name, 'plan panel strategy definition', planStrategyDefinition, 4.5);
+    await assertFocusIndicatorContrast(theme.name, 'plan panel strategy checkbox', page, planStrategyCheckbox, 3.0);
+    await page.getByRole('tab', { name: 'Process' }).click();
+
     await assertFocusIndicatorContrast(theme.name, 'Lock All lands pill', page, lockAllPill, 3.0);
     await assertFocusIndicatorContrast(theme.name, 'Lands role chip', page, roleChip, 3.0);
     await assertFocusIndicatorContrast(theme.name, 'Fast mana package toggle', page, packageToggle, 3.0);

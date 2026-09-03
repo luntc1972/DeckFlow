@@ -37,10 +37,10 @@ let heldLock: LockHandle | null = null;
 
 test.describe.configure({ mode: 'serial' });
 
-const importPool = async (page: Page, primaryPlan: string): Promise<void> => {
+const importPool = async (page: Page, bracket: string): Promise<void> => {
   await page.goto(`${baseUrl}/cut-lab`);
   await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await fillImportForm(page, primaryPlan);
+  await fillImportForm(page, bracket);
   await page.getByRole('button', { name: 'Import pool' }).click();
 
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
@@ -48,12 +48,10 @@ const importPool = async (page: Page, primaryPlan: string): Promise<void> => {
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
-const fillImportForm = async (page: Page, primaryPlan: string): Promise<void> => {
+const fillImportForm = async (page: Page, bracket: string): Promise<void> => {
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await page.locator('#cut-lab-primary-plan').fill(primaryPlan);
-  await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
-  await clickManabasePillRadio(page, 'Bracket', '4');
+  await clickManabasePillRadio(page, 'Bracket', bracket);
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
 };
 
@@ -125,11 +123,11 @@ test.afterEach(async ({ page }) => {
 });
 
 test('saves a named scenario, then restores the saved session after a fresh import', async ({ page }) => {
-  const savedPrimaryPlan = 'Protect the control shell, then trim to the cleanest Zur line.';
-  const freshPrimaryPlan = 'Fresh import only: favor mana density before trimming.';
+  const savedBracket = '4';
+  const freshBracket = '1';
   const scenarioName = 'Locked tutor line';
 
-  await importPool(page, savedPrimaryPlan);
+  await importPool(page, savedBracket);
   await page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]').check();
   await waitForCutRounds(page);
   const acceptedCard = await acceptCurrentProposal(page);
@@ -159,7 +157,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
       stateInput.value = '';
     }
   });
-  await fillImportForm(page, freshPrimaryPlan);
+  await fillImportForm(page, freshBracket);
   await page.getByRole('button', { name: 'Import pool' }).click();
   await waitForCutRounds(page);
   await expandMobileCollapsibles(page);
@@ -168,7 +166,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await expect(page.locator('.cutlab-cuts-made__row')).toHaveCount(0);
   await expect(page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]')).not.toBeChecked();
   await expect(page.locator('input[data-cut-lab-goal="commander"]')).toHaveValue('3');
-  await expect(page.locator('#cut-lab-primary-plan')).toHaveValue(freshPrimaryPlan);
+  await expect(page.locator(`input[name="Bracket"][value="${freshBracket}"]`)).toBeChecked();
 
   await Promise.all([
     page.waitForNavigation(),
@@ -178,7 +176,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandMobileCollapsibles(page);
-  await expect(page.locator('#cut-lab-primary-plan')).toHaveValue(savedPrimaryPlan);
+  await expect(page.locator(`input[name="Bracket"][value="${savedBracket}"]`)).toBeChecked();
   await expect(page.locator('input[data-cut-lab-goal="commander"]')).toHaveValue('5');
   await expect(page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
@@ -188,7 +186,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
 });
 
 test('blocks the 21st saved scenario with the documented cap message', async ({ page }) => {
-  await importPool(page, 'Save-cap coverage for local scenario storage.');
+  await importPool(page, '4');
   await waitForCutRounds(page);
   await expandMobileCollapsibles(page);
 

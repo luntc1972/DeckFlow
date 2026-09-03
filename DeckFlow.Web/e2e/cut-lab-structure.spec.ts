@@ -56,8 +56,6 @@ const importPool = async (page: Page): Promise<void> => {
   await expect(page.locator('h1')).toHaveText('Cut Lab');
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await page.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
-  await page.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
   await clickManabasePillRadio(page, 'Bracket', '4');
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
@@ -446,8 +444,6 @@ test('submits the accept form through the no-JS fallback and re-renders with the
       document.querySelector('[data-sync-panel="cut-lab-deck-url"]')?.classList.add('hidden');
     });
     await noJsPage.locator('#cut-lab-deck-text').fill(oversizedPool);
-    await noJsPage.locator('#cut-lab-primary-plan').fill('Protect the control shell, then trim to the cleanest Zur line.');
-    await noJsPage.locator('#cut-lab-secondary-plan').fill('Keep the fast mana package intact.');
     await clickManabasePillRadio(noJsPage, 'Bracket', '4');
     await clickManabasePillRadio(noJsPage, 'PlayExperience', 'Focused');
     await noJsPage.getByRole('button', { name: 'Import pool' }).click();
