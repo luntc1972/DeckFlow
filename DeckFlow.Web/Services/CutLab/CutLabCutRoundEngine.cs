@@ -196,6 +196,7 @@ public static class CutLabCutRoundEngine
     /// <param name="round3DeltaMagnitudes">Optional pure ordering hint for round 3 tradeoff magnitude.</param>
     /// <param name="floorByRole">Optional effective role floors used to rank the locked-overshoot advisory by headroom.</param>
     /// <param name="roleCounts">Optional in-pool role counts used to rank the locked-overshoot advisory by headroom.</param>
+    /// <param name="planAffinities">Optional plan affinity keyed by normalized card name.</param>
     /// <returns>The ordered queue, top proposal, and cards still remaining to target.</returns>
     public static CutLabRoundPlan BuildQueue(
         IReadOnlyList<CutLabRoundInputCard> workingList,
@@ -204,7 +205,8 @@ public static class CutLabCutRoundEngine
         int cardsToCutTarget,
         IReadOnlyDictionary<string, double>? round3DeltaMagnitudes = null,
         IReadOnlyDictionary<string, int>? floorByRole = null,
-        IReadOnlyDictionary<string, int>? roleCounts = null)
+        IReadOnlyDictionary<string, int>? roleCounts = null,
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null)
     {
         ArgumentNullException.ThrowIfNull(workingList);
         ArgumentNullException.ThrowIfNull(findings);
@@ -268,9 +270,11 @@ public static class CutLabCutRoundEngine
             .Select(card => (card, TallyFor(findingTallies, card.Name)))
             .ToArray();
 
+        // Why: Plan affinity sits below combo protection and above finding tally deliberately: the user's declared plan is a stronger statement of intent than a structural finding count, but combo membership is a hard structural fact that outranks both.
         IReadOnlyList<CutLabRoundQueueItem> round1 = firstPassCards
             .Where(entry => entry.Tally.Count >= 2)
             .OrderBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenBy(entry => PlanAffinityRank(planAffinities, entry.Card.Name))
             .ThenByDescending(entry => entry.Tally.Count)
             .ThenBy(entry => entry.Card.ManaValue)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
@@ -280,6 +284,7 @@ public static class CutLabCutRoundEngine
         IReadOnlyList<CutLabRoundQueueItem> round2 = firstPassCards
             .Where(entry => entry.Tally.Count == 1)
             .OrderBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenBy(entry => PlanAffinityRank(planAffinities, entry.Card.Name))
             .ThenBy(entry => entry.Card.ManaValue)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(entry => ToQueueItem(entry.Card.Name, Round2Key, entry.Tally))
@@ -288,6 +293,7 @@ public static class CutLabCutRoundEngine
         IReadOnlyList<CutLabRoundQueueItem> round3 = firstPassCards
             .Where(entry => entry.Tally.Count == 0)
             .OrderBy(entry => ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
+            .ThenBy(entry => PlanAffinityRank(planAffinities, entry.Card.Name))
             .ThenBy(entry => Round3DeltaMagnitudeFor(round3DeltaMagnitudes, entry.Card.Name))
             .ThenBy(entry => entry.Card.ManaValue)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
@@ -375,6 +381,7 @@ public static class CutLabCutRoundEngine
     /// <param name="decisions">Current decision history.</param>
     /// <param name="twinsEnabled"><c>true</c> when the <c>analysis.cut-lab.functional-twins</c> flag is on for this request.</param>
     /// <param name="round3DeltaMagnitudes">Optional pure ordering hint for round 3 tradeoff magnitude.</param>
+    /// <param name="planAffinities">Optional plan affinity keyed by normalized card name.</param>
     /// <returns>The structural findings and the corresponding round plan.</returns>
     internal static (CutLabStructuralFindingsResult Findings, CutLabRoundPlan RoundPlan) BuildFindingsAndRoundPlan(
         IReadOnlyList<CutLabPoolCard> workingList,
@@ -382,7 +389,8 @@ public static class CutLabCutRoundEngine
         IReadOnlyDictionary<string, int> floorByRole,
         IReadOnlyList<CutLabDecision> decisions,
         bool twinsEnabled,
-        IReadOnlyDictionary<string, double>? round3DeltaMagnitudes = null)
+        IReadOnlyDictionary<string, double>? round3DeltaMagnitudes = null,
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null)
     {
         ArgumentNullException.ThrowIfNull(workingList);
         ArgumentNullException.ThrowIfNull(context);
@@ -399,7 +407,8 @@ public static class CutLabCutRoundEngine
                 .SelectMany(membership => membership.CompleteCombos)
                 .Distinct()
                 .ToArray(),
-            twinsEnabled: twinsEnabled);
+            twinsEnabled: twinsEnabled,
+            planAffinities: planAffinities);
         CutLabRoundPlan roundPlan = BuildQueue(
             BuildInputs(workingList, context.AnalyzedCards),
             findings,
@@ -407,7 +416,8 @@ public static class CutLabCutRoundEngine
             workingList.Sum(card => card.Quantity) - TargetDeckSize,
             round3DeltaMagnitudes,
             floorByRole,
-            context.RoleCounts);
+            context.RoleCounts,
+            planAffinities);
         return (findings, roundPlan);
     }
 
@@ -490,6 +500,10 @@ public static class CutLabCutRoundEngine
     // remaining keys. 0 = not a combo piece (proposed first), 1 = combo piece (proposed last).
     private static int ComboProtectionRank(IReadOnlySet<string> comboProtectedCardNames, string cardName)
         => comboProtectedCardNames.Contains(CutLabCardNames.Normalize(cardName)) ? 1 : 0;
+
+    // Why: This returns a sort rank rather than a bool so it can sit in an OrderBy chain without inverting later keys; 0 means off-plan and is proposed first, while the value is bounded by CutLabPlanAffinityResolver.OnPlanScoreCap so a card matching every checked box can never be demoted past the combo-protection tier.
+    private static int PlanAffinityRank(IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities, string cardName)
+        => planAffinities is null ? 0 : CutLabPlanAffinityResolver.For(planAffinities, cardName).Score;
 
     private static bool IsSecondPassRound(string roundKey)
         => roundKey is SecondPassDeferredKey or SecondPassRejectedKey;

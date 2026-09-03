@@ -26,6 +26,9 @@ public enum CutLabFindingKind
 
     /// <summary>Three or more distinct cards fill the same role at the same exact mana value with the same primary card type, so they compete for one slot.</summary>
     FunctionalTwins,
+
+    /// <summary>Unchecked theme support occupies enough cards to be a stranded package.</summary>
+    StrandedOffPlanPackage,
 }
 
 /// <summary>Combo badge state attached to structural finding evidence when combo context applies.</summary>
@@ -152,6 +155,9 @@ public static class CutLabStructuralFindings
     // Why: Two cards at the same cost and type is a normal pair, not redundancy worth a cut recommendation; three is the point at which the pool is over-invested in one slot. This is TWIN-01's threshold and it is the only knob in the detector.
     private const int TwinGroupMinimumCards = 3;
 
+    // Why: Below four cards an off-plan cluster is incidental overlap rather than a package the deck is actually paying for, and four matches the design spec's default which planning left standing.
+    internal const int StrandedOffPlanPackageThreshold = 4;
+
     private const string LandsRole = "lands";
     private const string RampRole = "ramp";
     private const string DrawRole = "draw";
@@ -190,6 +196,7 @@ public static class CutLabStructuralFindings
     /// <param name="categoryDataAvailable"><see langword="true"/> when category lookup ran (even if it found nothing); <see langword="false"/> when lookup failed/was unavailable.</param>
     /// <param name="completeCombos">Resolved complete combos present in the pool when combo lookup succeeded.</param>
     /// <param name="twinsEnabled"><see langword="true"/> when the <c>analysis.cut-lab.functional-twins</c> flag is on. Defaults to <see langword="false"/> so a call site that has not been wired produces pre-Phase-4 behavior rather than silently shipping the detector.</param>
+    /// <param name="planAffinities">Optional plan affinity keyed by normalized card name.</param>
     public static CutLabStructuralFindingsResult Compute(
         IReadOnlyList<CutLabAnalyzedCard> pool,
         IReadOnlyList<SpellbookAlmostCombo> nearCombos,
@@ -197,7 +204,8 @@ public static class CutLabStructuralFindings
         bool comboDataAvailable,
         bool categoryDataAvailable,
         IReadOnlyList<SpellbookCombo>? completeCombos = null,
-        bool twinsEnabled = false)
+        bool twinsEnabled = false,
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null)
     {
         ArgumentNullException.ThrowIfNull(pool);
         ArgumentNullException.ThrowIfNull(nearCombos);
@@ -229,7 +237,43 @@ public static class CutLabStructuralFindings
             findings.AddRange(ComputeFunctionalTwins(pool));
         }
 
+        if (planAffinities is not null)
+        {
+            findings.AddRange(ComputeStrandedOffPlanPackage(pool, planAffinities));
+        }
+
         return new CutLabStructuralFindingsResult(findings, comboDataAvailable, categoryDataAvailable);
+    }
+
+    private static IEnumerable<CutLabFinding> ComputeStrandedOffPlanPackage(
+        IReadOnlyList<CutLabAnalyzedCard> pool,
+        IReadOnlyDictionary<string, CutLabPlanAffinity> planAffinities)
+    {
+        IEnumerable<(CutLabAnalyzedCard Card, string Theme)> candidates = pool
+            .Select(card => (Card: card, Affinity: CutLabPlanAffinityResolver.For(planAffinities, card.Name)))
+            .Where(entry => !entry.Affinity.IsOnPlan)
+            .SelectMany(entry => entry.Affinity.OffPlanThemes.Select(theme => (entry.Card, Theme: theme)));
+
+        foreach (IGrouping<string, (CutLabAnalyzedCard Card, string Theme)> group in candidates
+            .GroupBy(entry => entry.Theme, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal))
+        {
+            CutLabAnalyzedCard[] cards = group
+                .GroupBy(entry => CutLabCardNames.Normalize(entry.Card.Name), CutLabCardNames.Comparer)
+                .Select(identity => identity.OrderBy(entry => entry.Card.Name, StringComparer.Ordinal).First().Card)
+                .OrderByDescending(card => card.ManaValue)
+                .ThenBy(card => card.Name, StringComparer.Ordinal)
+                .ToArray();
+
+            if (cards.Length >= StrandedOffPlanPackageThreshold)
+            {
+                yield return new CutLabFinding(
+                    CutLabFindingKind.StrandedOffPlanPackage,
+                    "Stranded off-plan package",
+                    $"{cards.Length} cards support {group.Key} — not in your plan.",
+                    cards.Select(card => new CutLabFindingEvidence(card.Name, card.ManaValue)).ToArray());
+            }
+        }
     }
 
     private static IEnumerable<CutLabFinding> ComputeCurveCongestion(IReadOnlyList<CutLabAnalyzedCard> pool)
