@@ -1,3 +1,4 @@
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Research;
 using DeckFlow.Web.Models.CutLab;
@@ -8,6 +9,27 @@ namespace DeckFlow.Web.Services.CutLab;
 /// <summary>Pure bracket- and play-experience-derived default floor rules for the nine Cut Lab roles.</summary>
 public static class CutLabFloorDefaults
 {
+    // Why: these generalize the design spec's worked examples (combo raises tutoring and protection;
+    // combat raises the wincon creature count) across all twelve strategies. Values stay deliberately
+    // small because bracket bands and commander p25 remain the base; the omitted land role is resolved
+    // through ResolveLandsDefault's separate Phase 2 baseline chain.
+    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> PlanFloorDeltas =
+        new Dictionary<string, IReadOnlyDictionary<string, int>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["combo"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["protection"] = 1, ["wincons"] = 1 },
+            ["aristocrats"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["engines"] = 1, ["payoffs"] = 1 },
+            ["voltron"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["protection"] = 2 },
+            ["tokens"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["payoffs"] = 1 },
+            ["spellslinger"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["draw"] = 1 },
+            ["stax"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["interaction-mass"] = 1, ["protection"] = 1 },
+            ["reanimator"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["engines"] = 1 },
+            ["landfall"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["ramp"] = 1 },
+            ["lifegain"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["payoffs"] = 1 },
+            ["counters"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["payoffs"] = 1 },
+            ["combat"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["wincons"] = 1 },
+            ["control"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["interaction-targeted"] = 1, ["interaction-mass"] = 1 },
+        };
+
     /// <summary>[ASSUMED] Fallback lands floor when no baseline row is available.</summary>
     public const int FallbackLands = 36;
 
@@ -50,6 +72,7 @@ public static class CutLabFloorDefaults
     /// <param name="cedhBaseline">Optional commander-keyed cEDH lands baseline provider.</param>
     /// <param name="roleFloorBaseline">Optional commander-keyed role-floor baseline provider.</param>
     /// <param name="priorFloors">Previously persisted user floor entries from the working session.</param>
+    /// <param name="planProfile">Optional checked generic strategies that can raise their named role floors.</param>
     /// <returns>One resolved floor row per Cut Lab role.</returns>
     public static IReadOnlyList<CutLabResolvedFloor> ResolveDefaults(
         int? declaredBracket,
@@ -59,11 +82,14 @@ public static class CutLabFloorDefaults
         IManabaseBaselineProvider? baseline,
         ICedhLandBaselineProvider? cedhBaseline,
         IRoleFloorBaselineProvider? roleFloorBaseline,
-        IReadOnlyList<CutLabRoleFloor> priorFloors)
+        IReadOnlyList<CutLabRoleFloor> priorFloors,
+        CutLabPlanProfile? planProfile = null)
     {
         ArgumentNullException.ThrowIfNull(playExperience);
         ArgumentNullException.ThrowIfNull(commanderNames);
         ArgumentNullException.ThrowIfNull(priorFloors);
+
+        IReadOnlyDictionary<string, int> planDeltas = ResolvePlanDeltas(planProfile);
 
         int resolvedBracket = ResolveBracket(declaredBracket, playExperience, out bool bracketWasFallback);
         int landsDefault = ResolveLandsDefault(resolvedBracket, commanderNames, baseline, cedhBaseline);
@@ -104,6 +130,8 @@ public static class CutLabFloorDefaults
             // chain would delete that guardrail outright. Both numbers stay visible because they answer
             // different questions.
             int effectiveDefault = Math.Max(bracketValue, commanderValue ?? 0);
+            int planDelta = planDeltas[role];
+            effectiveDefault = Math.Clamp(effectiveDefault + planDelta, 0, CutLabFloorRules.MaxFloor);
 
             bool isUserSet = userOverrides.TryGetValue(role, out CutLabRoleFloor? overrideFloor);
             resolved.Add(new CutLabResolvedFloor
@@ -116,7 +144,34 @@ public static class CutLabFloorDefaults
                 CommanderValue = commanderValue,
                 ResolvedBracket = resolvedBracket,
                 BracketWasFallback = bracketWasFallback,
+                PlanDelta = planDelta,
             });
+        }
+
+        return resolved;
+    }
+
+    /// <summary>Resolves checked strategy raises, composing overlapping role deltas by maximum.</summary>
+    internal static IReadOnlyDictionary<string, int> ResolvePlanDeltas(CutLabPlanProfile? planProfile)
+    {
+        var resolved = CutLabFloorRules.RoleKeys.ToDictionary(role => role, _ => 0, StringComparer.Ordinal);
+        if (planProfile is null)
+        {
+            return resolved;
+        }
+
+        foreach (string slug in planProfile.GenericStrategies)
+        {
+            if (!DeckPlanStrategyCatalog.TryGetBySlug(slug, out DeckPlanStrategyEntry strategy)
+                || !PlanFloorDeltas.TryGetValue(strategy.Slug, out IReadOnlyDictionary<string, int>? deltas))
+            {
+                continue;
+            }
+
+            foreach ((string role, int delta) in deltas)
+            {
+                resolved[role] = Math.Max(resolved[role], delta);
+            }
         }
 
         return resolved;
@@ -253,4 +308,7 @@ public sealed record CutLabResolvedFloor
 
     /// <summary>True when the bracket was derived or normalized instead of taken directly from a 2-5 declaration.</summary>
     public bool BracketWasFallback { get; init; }
+
+    /// <summary>Strategy-plan raise applied after bracket and commander default resolution.</summary>
+    public int PlanDelta { get; init; }
 }

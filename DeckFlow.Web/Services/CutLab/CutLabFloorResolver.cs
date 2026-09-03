@@ -56,6 +56,7 @@ public sealed class CutLabFloorResolver : ICutLabFloorResolver
             _manabaseBaseline,
             _cedhBaseline,
             commanderFloorsEnabled ? _roleFloorBaseline : null,
-            state.RoleFloors);
+            state.RoleFloors,
+            state.Intent.PlanProfile);
     }
 }

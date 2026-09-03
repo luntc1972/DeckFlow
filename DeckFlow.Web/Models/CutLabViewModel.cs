@@ -557,6 +557,7 @@ public sealed record CutLabViewModel
                     CommanderDisplay = commanderDisplay,
                     Floor = floor.Floor,
                     DefaultValue = floor.DefaultValue,
+                    PlanDelta = floor.PlanDelta,
                     IsUserSet = floor.IsUserSet,
                     AtFloor = inPoolCount <= floor.Floor + 1,
                     SourceLabel = sourceLabel,
@@ -1212,6 +1213,9 @@ public sealed record CutLabFloorRowView
 
     /// <summary>Freshly derived default value before user override merge.</summary>
     public int DefaultValue { get; init; }
+
+    /// <summary>Strategy-plan raise applied to the derived default.</summary>
+    public int PlanDelta { get; init; }
 
     /// <summary>True when the user has explicitly overridden the floor.</summary>
     public bool IsUserSet { get; init; }
