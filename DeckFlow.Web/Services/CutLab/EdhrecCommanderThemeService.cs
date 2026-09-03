@@ -58,6 +58,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     /// <inheritdoc />
     public async Task<EdhrecThemeResult> GetCommanderThemesAsync(string commanderName, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var slug = EdhrecCardLookup.Slugify(commanderName);
         if (!IsValidSlug(slug))
         {
@@ -84,6 +85,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     /// <inheritdoc />
     public async Task<IReadOnlyList<string>> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var commanderSlug = EdhrecCardLookup.Slugify(commanderName);
         if (!IsValidSlug(commanderSlug) || !IsValidSlug(themeSlug)) return [];
         var body = await FetchAsync($"commanders/{commanderSlug}/{themeSlug}.json", commanderSlug + "__" + themeSlug + ".json", cancellationToken).ConfigureAwait(false);
