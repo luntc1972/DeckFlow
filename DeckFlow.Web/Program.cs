@@ -187,6 +187,7 @@ public partial class Program
             builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabPageService, DeckFlow.Web.Services.CutLab.CutLabPageService>();
             builder.Services.AddScoped<ICutLabFloorResolver, CutLabFloorResolver>();
             builder.Services.AddDeckFlowCutLabServices();
+            builder.Services.AddSingleton<IEdhrecCommanderThemeService, EdhrecCommanderThemeService>();
             builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabWhatifService, DeckFlow.Web.Services.CutLab.CutLabWhatifService>();
             builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabExportService, DeckFlow.Web.Services.CutLab.CutLabExportService>();
             builder.Services.AddScoped<IDeckConvertService>(sp =>
