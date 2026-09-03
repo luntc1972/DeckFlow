@@ -188,11 +188,20 @@ public sealed record CutLabRoleFloor
 /// <summary>Serializable declared intent for the finished 100-card deck.</summary>
 public sealed record CutLabIntent
 {
-    /// <summary>Required primary plan for the intended finished deck.</summary>
+    /// <summary>
+    /// Legacy free-text primary plan. Retained only so in-flight sessions deserialize; superseded by
+    /// <see cref="PlanProfile"/>.
+    /// </summary>
     public string PrimaryPlan { get; init; } = string.Empty;
 
-    /// <summary>Optional secondary plan supporting the primary plan.</summary>
+    /// <summary>
+    /// Legacy free-text secondary plan supporting <see cref="PrimaryPlan"/>. Retained only so
+    /// in-flight sessions deserialize; superseded by <see cref="PlanProfile"/>.
+    /// </summary>
     public string? SecondaryPlan { get; init; }
+
+    /// <summary>Machine-readable plan profile — checked generic strategies and commander themes.</summary>
+    public CutLabPlanProfile? PlanProfile { get; init; }
 
     /// <summary>Optional target Commander bracket for the finished deck.</summary>
     public int? Bracket { get; init; }
@@ -222,4 +231,40 @@ public sealed record CutLabIntent
             IncludeMaybeboard = true;
         }
     }
+}
+
+/// <summary>
+/// Machine-readable plan profile driving Cut Lab's protect/reorder/floor/finding effects — checked
+/// generic strategies and commander-specific EDHREC themes. A default-constructed instance (empty
+/// lists, <see cref="CommanderThemesUnavailable"/> false) is the zero-checkbox no-op shape every
+/// downstream consumer treats identically to a <see langword="null"/> <see cref="CutLabIntent.PlanProfile"/>.
+/// </summary>
+public sealed record CutLabPlanProfile
+{
+    /// <summary>
+    /// Checked generic strategy slugs, resolved against <c>DeckPlanStrategyCatalog</c>. Defaults to
+    /// an empty list, which behaves as a no-op.
+    /// </summary>
+    public IReadOnlyList<string> GenericStrategies { get; init; } = [];
+
+    /// <summary>
+    /// Checked EDHREC commander themes. Defaults to an empty list, which behaves as a no-op.
+    /// </summary>
+    public IReadOnlyList<CutLabCommanderTheme> CommanderThemes { get; init; } = [];
+
+    /// <summary>True when the EDHREC commander-theme lookup failed and the commander-theme section is unavailable.</summary>
+    public bool CommanderThemesUnavailable { get; init; }
+}
+
+/// <summary>Serializable checked EDHREC commander theme.</summary>
+public sealed record CutLabCommanderTheme
+{
+    /// <summary>EDHREC theme slug (URL key).</summary>
+    public string Slug { get; init; } = string.Empty;
+
+    /// <summary>Display name for the theme.</summary>
+    public string DisplayName { get; init; } = string.Empty;
+
+    /// <summary>Deck count for this theme in the EDHREC corpus.</summary>
+    public int DeckCount { get; init; }
 }
