@@ -29,6 +29,7 @@ namespace DeckFlow.Web.Services.Http
         public static IServiceCollection AddDeckFlowResiliencePipelines(this IServiceCollection services)
         {
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "banlist", builder => BuildBanList(builder));
+            DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "edhrec", builder => BuildEdhrec(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "spellbook", builder => BuildSpellbook(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "tagger", builder => BuildTagger(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "tagger-post", builder => BuildTaggerPost(builder));
@@ -48,6 +49,20 @@ namespace DeckFlow.Web.Services.Http
                     .Handle<Exception>(static ex => IsTransientException(ex)),
             })
             .AddTimeout(TimeSpan.FromSeconds(5));
+
+        /// <summary>EDHREC static CDN: retry transient failures only, no shared circuit breaker.</summary>
+        private static void BuildEdhrec(ResiliencePipelineBuilder<RestResponse> builder) => builder
+            .AddRetry(new RetryStrategyOptions<RestResponse>
+            {
+                MaxRetryAttempts = 2,
+                Delay = TimeSpan.FromMilliseconds(200),
+                BackoffType = DelayBackoffType.Constant,
+                // Why: 403 is deliberately not transient, so S3 AccessDenied is never retried.
+                ShouldHandle = new PredicateBuilder<RestResponse>()
+                    .HandleResult(static r => IsTransientFailure(r))
+                    .Handle<Exception>(static ex => IsTransientException(ex)),
+            })
+            .AddTimeout(TimeSpan.FromSeconds(10));
 
         /// <summary>Spellbook: Retry(3, exponential+jitter), AttemptTimeout(10s), CB(50% / 30s).</summary>
         private static void BuildSpellbook(ResiliencePipelineBuilder<RestResponse> builder) => builder

@@ -31,6 +31,13 @@ public static class HttpClientServiceCollectionExtensions
             c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
         });
 
+        services.AddHttpClient("edhrec", c =>
+        {
+            c.BaseAddress = new Uri("https://json.edhrec.com/pages/");
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+            c.Timeout = TimeSpan.FromSeconds(15);
+        });
+
         services.AddHttpClient("commander-spellbook", c =>
         {
             c.BaseAddress = new Uri("https://backend.commanderspellbook.com/");
