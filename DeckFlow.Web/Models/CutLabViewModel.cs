@@ -1,3 +1,4 @@
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Research;
 using DeckFlow.Web.Models.CutLab;
@@ -150,6 +151,9 @@ public sealed record CutLabViewModel
 
     /// <summary>Role floor rows rendered in the fixed Cut Lab order.</summary>
     public IReadOnlyList<CutLabFloorRowView> FloorRows { get; init; } = [];
+
+    /// <summary>The plan-panel checkbox view: generic strategies, commander themes, and their checked state.</summary>
+    public CutLabPlanPanelView PlanPanel { get; init; } = new();
 
     /// <summary>Aggregate floor feasibility advisory, or null when the resolved floor set fits a 100-card deck.</summary>
     public CutLabFloorFeasibilityResult? FloorFeasibility { get; init; }
@@ -319,6 +323,7 @@ public sealed record CutLabViewModel
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
         CutLabFloorFeasibilityResult? floorFeasibility = CutLabFloorFeasibility.Evaluate(result.ResolvedFloors);
+        CutLabPlanPanelView planPanel = BuildPlanPanel(result.State?.Intent.PlanProfile, result.AvailableCommanderThemes, result.CommanderThemesUnavailable);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = result.CardTextByCardName;
@@ -375,6 +380,7 @@ public sealed record CutLabViewModel
             CategoryDataUnavailable = result.HasResult && !result.Findings.CategoryDataAvailable,
             FloorRows = floorRows,
             FloorFeasibility = floorFeasibility,
+            PlanPanel = planPanel,
             CommanderFloorsEnabled = result.CommanderFloorsEnabled,
             GoalRows = goalRows,
             StickyBar = stickyBar,
@@ -567,6 +573,52 @@ public sealed record CutLabViewModel
                 };
             })
             .ToArray();
+    }
+
+    internal static CutLabPlanPanelView BuildPlanPanel(
+        CutLabPlanProfile? planProfile,
+        IReadOnlyList<CutLabCommanderTheme> availableThemes,
+        bool commanderThemesUnavailable)
+    {
+        HashSet<string> checkedStrategySlugs = new(
+            planProfile?.GenericStrategies ?? [],
+            StringComparer.OrdinalIgnoreCase);
+        HashSet<string> checkedThemeSlugs = new(
+            (planProfile?.CommanderThemes ?? []).Select(theme => theme.Slug),
+            StringComparer.OrdinalIgnoreCase);
+
+        IReadOnlyList<CutLabPlanStrategyRowView> strategyRows = DeckPlanStrategyCatalog.Entries
+            .Select(entry => new CutLabPlanStrategyRowView
+            {
+                Slug = entry.Slug,
+                DisplayName = entry.DisplayName,
+                Definition = entry.Definition,
+                Consequence = entry.Consequence,
+                IsChecked = checkedStrategySlugs.Contains(entry.Slug),
+            })
+            .ToArray();
+
+        int totalThemeDeckCount = availableThemes.Sum(theme => theme.DeckCount);
+        IReadOnlyList<CutLabPlanThemeRowView> themeRows = availableThemes
+            .Select(theme => new CutLabPlanThemeRowView
+            {
+                Slug = theme.Slug,
+                DisplayName = theme.DisplayName,
+                DeckCount = theme.DeckCount,
+                SharePercent = totalThemeDeckCount > 0 ? (double)theme.DeckCount / totalThemeDeckCount * 100 : 0,
+                IsChecked = checkedThemeSlugs.Contains(theme.Slug),
+            })
+            .ToArray();
+
+        bool zeroSelectionNotice = strategyRows.All(row => !row.IsChecked) && themeRows.All(row => !row.IsChecked);
+
+        return new CutLabPlanPanelView
+        {
+            StrategyRows = strategyRows,
+            ThemeRows = themeRows,
+            CommanderThemesUnavailable = commanderThemesUnavailable,
+            ZeroSelectionNotice = zeroSelectionNotice,
+        };
     }
 
     private static IReadOnlyList<CutLabGoalRowView> BuildGoalRows(
@@ -1228,6 +1280,60 @@ public sealed record CutLabFloorRowView
 
     /// <summary>Tooltip sentence describing the floor's default provenance.</summary>
     public string SourceDetail { get; init; } = string.Empty;
+}
+
+/// <summary>Plan-panel view: the twelve generic strategy checkboxes, the commander theme checkboxes, and derived display flags.</summary>
+public sealed record CutLabPlanPanelView
+{
+    /// <summary>One row per fixed generic strategy, in catalog declaration order.</summary>
+    public IReadOnlyList<CutLabPlanStrategyRowView> StrategyRows { get; init; } = [];
+
+    /// <summary>One row per known EDHREC commander theme, ordered by deck count descending.</summary>
+    public IReadOnlyList<CutLabPlanThemeRowView> ThemeRows { get; init; } = [];
+
+    /// <summary>True when the EDHREC commander-theme lookup failed or no commander is known.</summary>
+    public bool CommanderThemesUnavailable { get; init; }
+
+    /// <summary>True when nothing at all is checked, so the panel must state the engine is a no-op.</summary>
+    public bool ZeroSelectionNotice { get; init; }
+}
+
+/// <summary>One generic-strategy checkbox row.</summary>
+public sealed record CutLabPlanStrategyRowView
+{
+    /// <summary>Stable catalog slug, posted as the checkbox value.</summary>
+    public string Slug { get; init; } = string.Empty;
+
+    /// <summary>User-facing strategy name.</summary>
+    public string DisplayName { get; init; } = string.Empty;
+
+    /// <summary>One-line plain-language definition of the strategy.</summary>
+    public string Definition { get; init; } = string.Empty;
+
+    /// <summary>One-line mechanical consequence of checking this strategy.</summary>
+    public string Consequence { get; init; } = string.Empty;
+
+    /// <summary>True when this strategy is currently checked.</summary>
+    public bool IsChecked { get; init; }
+}
+
+/// <summary>One commander-theme checkbox row.</summary>
+public sealed record CutLabPlanThemeRowView
+{
+    /// <summary>EDHREC theme slug, posted as the checkbox value.</summary>
+    public string Slug { get; init; } = string.Empty;
+
+    /// <summary>User-facing theme name.</summary>
+    public string DisplayName { get; init; } = string.Empty;
+
+    /// <summary>EDHREC deck count for this theme.</summary>
+    public int DeckCount { get; init; }
+
+    /// <summary>This theme's share of the commander's total known-theme deck count, as a percent (0-100).</summary>
+    public double SharePercent { get; init; }
+
+    /// <summary>True when this theme is currently checked.</summary>
+    public bool IsChecked { get; init; }
 }
 
 /// <summary>View-ready goal row including editable turn target and baseline/current trend.</summary>

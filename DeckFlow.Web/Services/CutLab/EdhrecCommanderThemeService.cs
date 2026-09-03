@@ -146,3 +146,19 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     private sealed record CacheEntry(string Body, string? ETag);
     [GeneratedRegex("^[a-z0-9-]+$", RegexOptions.CultureInvariant)] private static partial Regex SlugPattern();
 }
+
+/// <summary>
+/// Null-object fallback used when no <see cref="IEdhrecCommanderThemeService"/> is supplied (e.g.
+/// direct-construction tests). Always reports the commander-theme lookup as unavailable, matching
+/// the fail-open "EDHREC could not be reached" branch.
+/// </summary>
+internal sealed class NullEdhrecCommanderThemeService : IEdhrecCommanderThemeService
+{
+    public static NullEdhrecCommanderThemeService Instance { get; } = new();
+
+    public Task<EdhrecThemeResult> GetCommanderThemesAsync(string commanderName, CancellationToken cancellationToken = default)
+        => Task.FromResult(new EdhrecThemeResult([], true));
+
+    public Task<IReadOnlyList<string>> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<string>>([]);
+}

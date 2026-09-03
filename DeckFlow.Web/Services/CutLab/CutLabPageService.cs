@@ -1,3 +1,4 @@
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
@@ -109,6 +110,16 @@ public sealed record CutLabProcessResult
 
     /// <summary>True when a result state is available for rendering.</summary>
     public bool HasResult { get; init; }
+
+    /// <summary>
+    /// All known EDHREC commander themes for the resolved commander, ordered by deck count
+    /// descending, for the plan panel's full checkbox list (not just the checked subset carried in
+    /// <see cref="CutLabState.Intent"/>'s <c>PlanProfile</c>).
+    /// </summary>
+    public IReadOnlyList<CutLabCommanderTheme> AvailableCommanderThemes { get; init; } = [];
+
+    /// <summary>True when the EDHREC commander-theme lookup for the plan panel was unavailable.</summary>
+    public bool CommanderThemesUnavailable { get; init; }
 }
 
 /// <summary>Default Cut Lab page-service orchestrator.</summary>
@@ -136,6 +147,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     private readonly IFeatureFlagCache? _featureFlags;
     private readonly ILogger<CutLabPageService> _logger;
     private readonly ICutLabPlanAffinityFactory _planAffinityFactory;
+    private readonly IEdhrecCommanderThemeService _themeService;
 
     /// <summary>Creates the Cut Lab page service.</summary>
     /// <param name="deckEntryLoader">Deck loader for URL/paste imports.</param>
@@ -150,6 +162,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     /// <param name="featureFlags">Optional feature-flag cache for dark-launching commander-aware floor defaults.</param>
     /// <param name="floorResolver">Optional shared floor resolver used to re-derive defaults per request.</param>
     /// <param name="planAffinityFactory">Optional shared plan-affinity factory used to resolve the checked plan profile against the pool.</param>
+    /// <param name="themeService">Optional EDHREC commander-theme source used to build the plan panel's theme list and resolve checked theme slugs.</param>
     public CutLabPageService(
         IDeckEntryLoader deckEntryLoader,
         IScryfallCardResolver cardResolver,
@@ -162,7 +175,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         ILogger<CutLabPageService>? logger = null,
         IFeatureFlagCache? featureFlags = null,
         ICutLabFloorResolver? floorResolver = null,
-        ICutLabPlanAffinityFactory? planAffinityFactory = null)
+        ICutLabPlanAffinityFactory? planAffinityFactory = null,
+        IEdhrecCommanderThemeService? themeService = null)
     {
         ArgumentNullException.ThrowIfNull(deckEntryLoader);
         ArgumentNullException.ThrowIfNull(cardResolver);
@@ -189,6 +203,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         _floorResolver = floorResolver
             ?? new CutLabFloorResolver(_manabaseBaseline, _cedhBaseline, _roleFloorBaseline, _featureFlags);
         _planAffinityFactory = planAffinityFactory ?? NullCutLabPlanAffinityFactory.Instance;
+        _themeService = themeService ?? NullEdhrecCommanderThemeService.Instance;
     }
 
     /// <summary>
@@ -322,8 +337,9 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson, request.Bracket);
+        EdhrecThemeResult planThemeResult = await FetchPlanThemeResultAsync(commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
         var preAnalysisState = CutLabLockRules.EnforceCommanderLock(
-            BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []));
+            BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, [], planThemeResult));
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
         IReadOnlyList<ScryfallCardData> preResolvedCards = resolvedEntries
             .Select(entry => entry.Card)
@@ -394,7 +410,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             resolvedEntries = finalResolvedEntries;
 
             preAnalysisState = CutLabLockRules.EnforceCommanderLock(
-                BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, []));
+                BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, [], planThemeResult));
             derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
             preResolvedCards = resolvedEntries
                 .Select(entry => entry.Card)
@@ -630,7 +646,35 @@ internal sealed class CutLabPageService : ICutLabPageService
             CurrentTargetLands = currentTargetLands,
             CommanderFloorsEnabled = commanderFloorsEnabled,
             HasResult = true,
+            AvailableCommanderThemes = planThemeResult.Themes,
+            CommanderThemesUnavailable = planThemeResult.IsUnavailable,
         };
+    }
+
+    // Why: the plan panel needs the full known-theme list (for its checkbox rows) on every render,
+    // not only when a theme is checked, so this fetch runs unconditionally rather than being gated
+    // behind a non-empty PlanProfile like the plan-affinity factory's fetch is.
+    private async Task<EdhrecThemeResult> FetchPlanThemeResultAsync(IReadOnlyList<string> commanderNames, CancellationToken cancellationToken)
+    {
+        string? commanderName = commanderNames.Count > 0 ? commanderNames[0] : null;
+        if (string.IsNullOrWhiteSpace(commanderName))
+        {
+            return new EdhrecThemeResult([], true);
+        }
+
+        try
+        {
+            return await _themeService.GetCommanderThemesAsync(commanderName, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Cut Lab: EDHREC commander theme list fetch failed for plan panel ({CommanderName})", commanderName);
+            return new EdhrecThemeResult([], true);
+        }
     }
 
     // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
@@ -883,7 +927,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
         IReadOnlyList<string> commanderNames,
         CutLabRequest request,
-        IReadOnlyList<CutLabResolvedFloor> resolvedFloors)
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
+        EdhrecThemeResult planThemeResult)
     {
         var priorCards = priorState.Pool
             .GroupBy(card => CutLabCardNames.Normalize(card.Name), CutLabCardNames.Comparer)
@@ -937,11 +982,53 @@ internal sealed class CutLabPageService : ICutLabPageService
             {
                 PrimaryPlan = request.PrimaryPlan,
                 SecondaryPlan = string.IsNullOrWhiteSpace(request.SecondaryPlan) ? null : request.SecondaryPlan,
+                PlanProfile = BuildPlanProfile(request, priorState.Intent.PlanProfile, planThemeResult),
                 Bracket = request.Bracket,
                 PlayExperience = request.PlayExperience,
                 IncludeSideboard = request.IncludeSideboard,
                 IncludeMaybeboard = request.IncludeMaybeboard,
             },
+        };
+    }
+
+    // Why: PlanProfile == null means "the plan panel has never been presented for this session" and
+    // is the only signal that authorizes the top-three default preselection (PLPR-02). Once a
+    // profile exists — even an intentionally empty one — a request that carries no PlanThemes means
+    // the user cleared every box, not that defaults should be re-applied (D-1 in the plan doc).
+    private static CutLabPlanProfile BuildPlanProfile(
+        CutLabRequest request,
+        CutLabPlanProfile? priorProfile,
+        EdhrecThemeResult planThemeResult)
+    {
+        IReadOnlyList<string> resolvedStrategies = (request.PlanStrategies ?? [])
+            .Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        IReadOnlyList<string> requestedThemeSlugs = request.PlanThemes ?? [];
+        bool isFirstPresentation = priorProfile is null;
+
+        IReadOnlyList<CutLabCommanderTheme> checkedThemes;
+        if (isFirstPresentation && requestedThemeSlugs.Count == 0)
+        {
+            checkedThemes = EdhrecCommanderThemeService.SelectDefaultThemes(planThemeResult.Themes);
+        }
+        else
+        {
+            Dictionary<string, CutLabCommanderTheme> knownThemesBySlug = planThemeResult.Themes
+                .ToDictionary(theme => theme.Slug, StringComparer.OrdinalIgnoreCase);
+            checkedThemes = requestedThemeSlugs
+                .Where(slug => knownThemesBySlug.ContainsKey(slug))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(slug => knownThemesBySlug[slug])
+                .ToArray();
+        }
+
+        return new CutLabPlanProfile
+        {
+            GenericStrategies = resolvedStrategies,
+            CommanderThemes = checkedThemes,
+            CommanderThemesUnavailable = planThemeResult.IsUnavailable,
         };
     }
 
