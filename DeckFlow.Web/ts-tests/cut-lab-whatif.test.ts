@@ -87,8 +87,6 @@ const buildFixture = (): void => {
   document.body.innerHTML = `
     <form data-cache-key="cut-lab">
       <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
-      <textarea name="PrimaryPlan">Stay lean.</textarea>
-      <textarea name="SecondaryPlan"></textarea>
       <input type="radio" name="Bracket" value="3" checked />
       <input type="radio" name="PlayExperience" value="Focused" checked />
       <input type="checkbox" name="IncludeSideboard" value="true" />

@@ -104,8 +104,6 @@ describe('cut-lab scenario storage', () => {
             representativeLineByTurn: 4,
           },
         })}' />
-        <textarea name="PrimaryPlan">Trim to exactly 100.</textarea>
-        <textarea name="SecondaryPlan"></textarea>
         <input type="radio" name="Bracket" value="4" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <input data-cut-lab-goal="commander" value="3" />
