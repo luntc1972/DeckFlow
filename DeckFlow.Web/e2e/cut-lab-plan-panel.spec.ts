@@ -104,6 +104,8 @@ function sqlite(sql: string): string {
   }).trim();
 }
 
+const q = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+
 const importPool = async (page: Page): Promise<void> => {
   await page.goto('/cut-lab');
   await expect(page.locator('h1')).toHaveText('Cut Lab');
@@ -219,6 +221,10 @@ test('commander themes render sorted with at most three pre-checked, or the unav
   if ((await unavailable.count()) > 0) {
     await expect(unavailable).toBeVisible();
     testInfo.annotations.push({ type: 'commander-theme-branch', description: 'unavailable' });
+    expect(
+      process.env.E2E_REQUIRE_EDHREC === '1',
+      'EDHREC theme branch required but got the unavailable branch (E2E_REQUIRE_EDHREC=1)',
+    ).toBe(false);
     return;
   }
 
@@ -269,12 +275,13 @@ test('checking a generic strategy the pool matches changes the proposed cut', as
   test.skip(!existsSync(categoryDbPath), 'category-knowledge.db not present; server has not initialized it yet.');
 
   let observationSeeded = false;
+  let observationSeedFailure: 'cli-unavailable' | 'seed-failed' | null = null;
   try {
     const normalizedCardName = engineEffectCardName.toLowerCase();
     sqlite(
-      `INSERT OR IGNORE INTO cards (normalized_card_name, display_name) VALUES ('${normalizedCardName}', '${engineEffectCardName}');`,
+      `INSERT OR IGNORE INTO cards (normalized_card_name, display_name) VALUES (${q(normalizedCardName)}, ${q(engineEffectCardName)});`,
     );
-    const cardId = Number(sqlite(`SELECT id FROM cards WHERE normalized_card_name='${normalizedCardName}';`));
+    const cardId = Number(sqlite(`SELECT id FROM cards WHERE normalized_card_name=${q(normalizedCardName)};`));
     expect(cardId, 'the seeded card row should resolve to an id').toBeGreaterThan(0);
 
     // INSERT OR IGNORE (never DELETE-cleaned): both chromium-desktop and chromium-mobile run this
@@ -286,13 +293,20 @@ test('checking a generic strategy the pool matches changes the proposed cut', as
       `INSERT OR IGNORE INTO card_category_observations
          (source_id, card_id, card_name, category, board, deck_count, count, last_seen_utc)
        VALUES
-         (${engineEffectSourceId}, ${cardId}, '${engineEffectCardName}', '${engineEffectCategoryLabel}', 'mainboard', 1, 1, '2026-01-01T00:00:00Z');`,
+         (${engineEffectSourceId}, ${cardId}, ${q(engineEffectCardName)}, ${q(engineEffectCategoryLabel)}, 'mainboard', 1, 1, '2026-01-01T00:00:00Z');`,
     );
     observationSeeded = true;
-  } catch {
+  } catch (error: unknown) {
+    console.warn('plan-panel category seed failed:', error);
+    observationSeedFailure = (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'cli-unavailable' : 'seed-failed';
     observationSeeded = false;
   }
-  test.skip(!observationSeeded, 'sqlite3 CLI unavailable; cannot seed a deterministic category match.');
+  test.skip(
+    !observationSeeded,
+    observationSeedFailure === 'cli-unavailable'
+      ? 'sqlite3 CLI unavailable; cannot seed a deterministic category match.'
+      : 'sqlite3 category seed failed; see plan-panel category seed failed diagnostic.',
+  );
 
   await importPool(page);
   await expandMobileCollapsibles(page);
