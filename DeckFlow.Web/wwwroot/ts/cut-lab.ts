@@ -3767,13 +3767,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
-  const buildCheckedPlanProfileSnapshot = (): CutLabPlanProfileSnapshot => ({
+  const buildCheckedPlanProfileSnapshot = (commanderThemesUnavailable?: boolean): CutLabPlanProfileSnapshot => ({
     genericStrategies: getPlanPanelCheckboxes('PlanStrategies')
       .filter(checkbox => checkbox.checked)
       .map(checkbox => checkbox.value),
     commanderThemes: getPlanPanelCheckboxes('PlanThemes')
       .filter(checkbox => checkbox.checked)
       .map(checkbox => ({ slug: checkbox.value })),
+    commanderThemesUnavailable,
   });
 
   const syncPlanPanel = (appliedStrategies: string[], appliedThemes: string[]): void => {
@@ -3838,7 +3839,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       ...persistedState,
       intent: {
         ...(persistedState.intent as CutLabIntentSnapshot),
-        planProfile: buildCheckedPlanProfileSnapshot(),
+        planProfile: buildCheckedPlanProfileSnapshot(persistedState.intent?.planProfile?.commanderThemesUnavailable),
       },
     };
 

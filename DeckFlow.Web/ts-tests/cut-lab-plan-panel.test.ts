@@ -54,6 +54,29 @@ const buildFixture = (): HTMLInputElement => {
 };
 
 describe('cut-lab plan panel', () => {
+  it('carries persisted commander theme outage state into plan apply', async () => {
+    buildFixture();
+    const persistedState = {
+      intent: {
+        planProfile: {
+          genericStrategies: [],
+          commanderThemes: [{ slug: 'theme-a' }],
+          commanderThemesUnavailable: true,
+        },
+      },
+    };
+    document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!.value = JSON.stringify(persistedState);
+    document.querySelectorAll<HTMLInputElement>('input[name="PlanThemes"]').forEach(input => { input.checked = false; });
+    fetchMock.mockResolvedValueOnce(response(['kept'], []));
+
+    document.querySelector<HTMLInputElement>('input[value="dropped"]')!.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+
+    const request = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const postedState = JSON.parse(request.cutLabStateJson);
+    expect(postedState.intent.planProfile.commanderThemesUnavailable).toBe(true);
+  });
+
   it('applies changes after the plan-panel root is replaced', async () => {
     buildFixture();
     const panel = document.querySelector('[data-cut-lab-plan-panel]')!;
