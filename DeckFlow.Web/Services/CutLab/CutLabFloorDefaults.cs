@@ -13,7 +13,7 @@ public static class CutLabFloorDefaults
     // combat raises the wincon creature count) across all twelve strategies. Values stay deliberately
     // small because bracket bands and commander p25 remain the base; the omitted land role is resolved
     // through ResolveLandsDefault's separate Phase 2 baseline chain.
-    private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> PlanFloorDeltas =
+    internal static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, int>> PlanFloorDeltas =
         new Dictionary<string, IReadOnlyDictionary<string, int>>(StringComparer.OrdinalIgnoreCase)
         {
             ["combo"] = new Dictionary<string, int>(StringComparer.Ordinal) { ["protection"] = 1, ["wincons"] = 1 },
@@ -170,6 +170,12 @@ public static class CutLabFloorDefaults
 
             foreach ((string role, int delta) in deltas)
             {
+                // Why: table entries are hand-maintained and must never turn a configuration typo into a render-path 500.
+                if (!resolved.ContainsKey(role))
+                {
+                    continue;
+                }
+
                 resolved[role] = Math.Max(resolved[role], delta);
             }
         }
@@ -297,7 +303,7 @@ public sealed record CutLabResolvedFloor
     /// <summary>Freshly derived effective default before any user override merge; resets restore this max(bracket, commander) value.</summary>
     public int DefaultValue { get; init; }
 
-    /// <summary>Freshly derived bracket-and-plan default before commander-aware max() resolution.</summary>
+    /// <summary>Bracket band before commander-aware max() resolution and before the plan delta is applied.</summary>
     public int BracketValue { get; init; }
 
     /// <summary>Freshly derived commander-specific floor when one matched; otherwise null.</summary>

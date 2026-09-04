@@ -33,16 +33,25 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     // Why: planning retained these product defaults for unobtrusive initial selection.
     internal const int PreselectMaximumThemes = 3;
     internal const int MaxResponseBytes = 4 * 1024 * 1024;
+    // Why: HttpClient bounds response bytes; this remains a defense against unexpectedly large text.
+    internal const int MaxResponseCharacters = 4 * 1024 * 1024;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
+    private static readonly TimeSpan EmptyThemeCardCacheDuration = TimeSpan.FromMinutes(5);
     // Why: transient upstream failures should retain a recently known-good disk response, but never indefinitely stale EDHREC data.
     internal static readonly TimeSpan DiskCacheFallbackMaxAge = TimeSpan.FromDays(7);
     private static readonly TimeSpan DiskCacheSweepMinimumInterval = TimeSpan.FromMinutes(5);
     private readonly IHttpClientFactory _httpClientFactory;
+
     private readonly ResiliencePipeline<RestResponse> _pipeline;
+
     private readonly IMemoryCache _memoryCache;
+
     private readonly ILogger<EdhrecCommanderThemeService>? _logger;
+
     private readonly string _cacheRoot;
+
     private int _cacheWriteFailureLogged;
+
     private long _lastCacheSweepUtcTicks;
 
     /// <summary>Creates an EDHREC service using the named client and resilience pipeline.</summary>
@@ -63,49 +72,128 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     public async Task<EdhrecThemeResult> GetCommanderThemesAsync(string commanderName, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var slug = EdhrecCardLookup.Slugify(commanderName);
+        string slug = EdhrecCardLookup.Slugify(commanderName);
+
         if (!IsValidSlug(slug))
         {
             _logger?.LogWarning("Rejected invalid EDHREC commander slug for {CommanderName}", commanderName);
             return new([], true);
         }
-        var cacheKey = "cutlab:edhrec:themes:" + slug;
-        if (_memoryCache.TryGetValue<EdhrecThemeResult>(cacheKey, out var cached) && cached is not null) return cached;
-        var body = await FetchAsync($"commanders/{slug}.json", slug + ".json", cancellationToken).ConfigureAwait(false);
-        if (body is null) return new([], true);
+
+        string cacheKey = "cutlab:edhrec:themes:" + slug;
+
+        if (_memoryCache.TryGetValue<EdhrecThemeResult>(cacheKey, out EdhrecThemeResult? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        string? body = await FetchAsync($"commanders/{slug}.json", slug + ".json", cancellationToken).ConfigureAwait(false);
+
+        if (body is null)
+        {
+            return new([], true);
+        }
+
         try
         {
             using var document = JsonDocument.Parse(body);
-            if (!document.RootElement.TryGetProperty("panels", out var panels) || !panels.TryGetProperty("taglinks", out var tags) || tags.ValueKind != JsonValueKind.Array) return new([], true);
-            var result = tags.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Object).Select(x => new CutLabCommanderTheme { Slug = x.TryGetProperty("slug", out var s) ? s.GetString() ?? "" : "", DisplayName = x.TryGetProperty("value", out var v) ? v.GetString() ?? "" : "", DeckCount = x.TryGetProperty("count", out var c) && c.TryGetInt32(out var n) ? n : 0 }).Where(x => IsValidSlug(x.Slug) && !string.IsNullOrWhiteSpace(x.DisplayName)).OrderByDescending(x => x.DeckCount).ThenBy(x => x.Slug, StringComparer.Ordinal).ToList();
-            var parsed = new EdhrecThemeResult(result, false);
+
+            if (!document.RootElement.TryGetProperty("panels", out JsonElement panels) ||
+                !panels.TryGetProperty("taglinks", out JsonElement tags) ||
+                tags.ValueKind != JsonValueKind.Array)
+            {
+                return new([], true);
+            }
+
+            List<CutLabCommanderTheme> themes = tags
+                .EnumerateArray()
+                .Where(tag => tag.ValueKind == JsonValueKind.Object)
+                .Select(tag => new CutLabCommanderTheme
+                {
+                    Slug = tag.TryGetProperty("slug", out JsonElement slugElement) ? slugElement.GetString() ?? string.Empty : string.Empty,
+                    DisplayName = tag.TryGetProperty("value", out JsonElement displayNameElement) ? displayNameElement.GetString() ?? string.Empty : string.Empty,
+                    DeckCount = tag.TryGetProperty("count", out JsonElement deckCountElement) && deckCountElement.TryGetInt32(out int deckCount) ? deckCount : 0,
+                })
+                .Where(theme => IsValidSlug(theme.Slug) && !string.IsNullOrWhiteSpace(theme.DisplayName))
+                .OrderByDescending(theme => theme.DeckCount)
+                .ThenBy(theme => theme.Slug, StringComparer.Ordinal)
+                .ToList();
+            var parsed = new EdhrecThemeResult(themes, false);
             _memoryCache.Set(cacheKey, parsed, CacheDuration);
             return parsed;
         }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { _logger?.LogWarning(ex, "EDHREC commander page had an unexpected JSON shape"); return new([], true); }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "EDHREC commander page had an unexpected JSON shape");
+            return new([], true);
+        }
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<string>> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var commanderSlug = EdhrecCardLookup.Slugify(commanderName);
-        if (!IsValidSlug(commanderSlug) || !IsValidSlug(themeSlug)) return [];
-        var cacheKey = $"cutlab:edhrec:themecards:{commanderSlug}:{themeSlug}";
-        if (_memoryCache.TryGetValue<IReadOnlyList<string>>(cacheKey, out var cached) && cached is not null) return cached;
-        var body = await FetchAsync($"commanders/{commanderSlug}/{themeSlug}.json", commanderSlug + "__" + themeSlug + ".json", cancellationToken).ConfigureAwait(false);
-        if (body is null) return [];
+        string commanderSlug = EdhrecCardLookup.Slugify(commanderName);
+
+        if (!IsValidSlug(commanderSlug) || !IsValidSlug(themeSlug))
+        {
+            return [];
+        }
+
+        string cacheKey = $"cutlab:edhrec:themecards:{commanderSlug}:{themeSlug}";
+
+        if (_memoryCache.TryGetValue<IReadOnlyList<string>>(cacheKey, out IReadOnlyList<string>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        string? body = await FetchAsync($"commanders/{commanderSlug}/{themeSlug}.json", commanderSlug + "__" + themeSlug + ".json", cancellationToken).ConfigureAwait(false);
+
+        if (body is null)
+        {
+            return [];
+        }
+
         try
         {
             using var document = JsonDocument.Parse(body);
-            if (!document.RootElement.TryGetProperty("container", out var container) || !container.TryGetProperty("json_dict", out var dict) || !dict.TryGetProperty("cardlists", out var lists) || lists.ValueKind != JsonValueKind.Array) return [];
-            IReadOnlyList<string> parsed = lists.EnumerateArray().SelectMany(x => x.ValueKind == JsonValueKind.Array ? x.EnumerateArray() : []).Where(x => x.ValueKind == JsonValueKind.Object && x.TryGetProperty("name", out _)).Select(x => x.GetProperty("name").GetString()).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Cast<string>().ToList();
-            if (parsed.Count > 0) _memoryCache.Set(cacheKey, parsed, CacheDuration);
+
+            if (!document.RootElement.TryGetProperty("container", out JsonElement container) ||
+                !container.TryGetProperty("json_dict", out JsonElement dictionary) ||
+                !dictionary.TryGetProperty("cardlists", out JsonElement cardLists) ||
+                cardLists.ValueKind != JsonValueKind.Array)
+            {
+                return [];
+            }
+
+            IReadOnlyList<string> parsed = cardLists
+                .EnumerateArray()
+                .Where(cardList => cardList.ValueKind == JsonValueKind.Array)
+                .SelectMany(cardList => cardList.EnumerateArray())
+                .Where(card => card.ValueKind == JsonValueKind.Object && card.TryGetProperty("name", out _))
+                .Select(card => card.GetProperty("name").GetString())
+                .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Cast<string>()
+                .ToList();
+
+            // Why: an empty parse can be legitimate or an upstream shape change; avoid request storms while retrying soon.
+            _memoryCache.Set(cacheKey, parsed, parsed.Count > 0 ? CacheDuration : EmptyThemeCardCacheDuration);
             return parsed;
         }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { _logger?.LogWarning(ex, "EDHREC theme page had an unexpected JSON shape"); return []; }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "EDHREC theme page had an unexpected JSON shape");
+            return [];
+        }
     }
 
     internal static IReadOnlyList<CutLabCommanderTheme> SelectDefaultThemes(IReadOnlyList<CutLabCommanderTheme> themes)
@@ -123,34 +211,84 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             cached = ReadCache(cachePath);
             var client = new RestClient(_httpClientFactory.CreateClient("edhrec"));
             var request = new RestRequest(resource, Method.Get);
-            if (!string.IsNullOrWhiteSpace(cached?.ETag)) request.AddHeader("If-None-Match", cached.ETag);
+            if (!string.IsNullOrWhiteSpace(cached?.ETag))
+            {
+                request.AddHeader("If-None-Match", cached.ETag);
+            }
+
             var response = await _pipeline.ExecuteAsync(async ct => await client.ExecuteAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
-            if ((int)response.StatusCode == 304 && cached is not null) return cached.Body;
-            if ((int)response.StatusCode == 403 && response.Content?.Contains("AccessDenied", StringComparison.OrdinalIgnoreCase) == true) { _logger?.LogDebug("EDHREC page absent: {Resource}", resource); return null; }
-            if (!response.IsSuccessful) return GetUsableCachedBody(cached);
-            if (string.IsNullOrWhiteSpace(response.Content) || response.Content.Length > MaxResponseBytes) return null;
-            WriteCache(cachePath, new CacheEntry(response.Content, response.Headers?.FirstOrDefault(x => string.Equals(x.Name, "ETag", StringComparison.OrdinalIgnoreCase))?.Value?.ToString(), DateTimeOffset.UtcNow));
+
+            if ((int)response.StatusCode == 304 && cached is not null)
+            {
+                // Why: revalidation confirms this entry remains fresh, so retain its offline fallback.
+                WriteCache(cachePath, cached with { WrittenAtUtc = DateTimeOffset.UtcNow });
+                return cached.Body;
+            }
+
+            if ((int)response.StatusCode == 403 && response.Content?.Contains("AccessDenied", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                _logger?.LogDebug("EDHREC page absent: {Resource}", resource);
+                return null;
+            }
+
+            if (!response.IsSuccessful)
+            {
+                return GetUsableCachedBody(cached);
+            }
+
+            if (string.IsNullOrWhiteSpace(response.Content) || response.Content.Length > MaxResponseCharacters)
+            {
+                return null;
+            }
+
+            string? eTag = response.Headers?
+                .FirstOrDefault(header => string.Equals(header.Name, "ETag", StringComparison.OrdinalIgnoreCase))?
+                .Value?
+                .ToString();
+            WriteCache(cachePath, new CacheEntry(response.Content, eTag, DateTimeOffset.UtcNow));
             return response.Content;
         }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { _logger?.LogWarning(ex, "EDHREC fetch failed for {Resource}", resource); return GetUsableCachedBody(cached); }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "EDHREC fetch failed for {Resource}", resource);
+            return GetUsableCachedBody(cached);
+        }
     }
 
     private static string? GetUsableCachedBody(CacheEntry? cached)
         => cached is not null && DateTimeOffset.UtcNow - cached.WrittenAtUtc <= DiskCacheFallbackMaxAge ? cached.Body : null;
 
     private static bool IsValidSlug(string slug) => SlugPattern().IsMatch(slug);
+
     private string GetCachePath(string fileName)
     {
-        var path = Path.GetFullPath(Path.Combine(_cacheRoot, fileName));
-        if (!path.StartsWith(_cacheRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal)) throw new InvalidOperationException("EDHREC cache path escaped its root.");
+        string path = Path.GetFullPath(Path.Combine(_cacheRoot, fileName));
+
+        if (!path.StartsWith(_cacheRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("EDHREC cache path escaped its root.");
+        }
+
         return path;
     }
+
     private CacheEntry? ReadCache(string path)
     {
-        try { return File.Exists(path) ? JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(path)) : null; }
-        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { _logger?.LogWarning(ex, "Unable to read EDHREC disk cache"); return null; }
+        try
+        {
+            return File.Exists(path) ? JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(path)) : null;
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            _logger?.LogWarning(ex, "Unable to read EDHREC disk cache");
+            return null;
+        }
     }
+
     private void WriteCache(string path, CacheEntry entry)
     {
         try
@@ -163,15 +301,27 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            if (Interlocked.Exchange(ref _cacheWriteFailureLogged, 1) == 0) _logger?.LogWarning(ex, "Unable to write EDHREC disk cache");
+            if (Interlocked.Exchange(ref _cacheWriteFailureLogged, 1) == 0)
+            {
+                _logger?.LogWarning(ex, "Unable to write EDHREC disk cache");
+            }
         }
     }
+
     private void SweepExpiredCacheEntries()
     {
-        var now = DateTime.UtcNow;
-        var previousSweepTicks = Interlocked.Read(ref _lastCacheSweepUtcTicks);
-        if (previousSweepTicks != 0 && now.Ticks - previousSweepTicks < DiskCacheSweepMinimumInterval.Ticks) return;
-        if (Interlocked.CompareExchange(ref _lastCacheSweepUtcTicks, now.Ticks, previousSweepTicks) != previousSweepTicks) return;
+        DateTime now = DateTime.UtcNow;
+        long previousSweepTicks = Interlocked.Read(ref _lastCacheSweepUtcTicks);
+
+        if (previousSweepTicks != 0 && now.Ticks - previousSweepTicks < DiskCacheSweepMinimumInterval.Ticks)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _lastCacheSweepUtcTicks, now.Ticks, previousSweepTicks) != previousSweepTicks)
+        {
+            return;
+        }
 
         try
         {
@@ -179,7 +329,10 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             {
                 try
                 {
-                    if (File.GetLastWriteTimeUtc(cachePath) < now - DiskCacheFallbackMaxAge) File.Delete(cachePath);
+                    if (File.GetLastWriteTimeUtc(cachePath) < now - DiskCacheFallbackMaxAge)
+                    {
+                        File.Delete(cachePath);
+                    }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -193,7 +346,9 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         }
     }
     private sealed record CacheEntry(string Body, string? ETag, DateTimeOffset WrittenAtUtc);
-    [GeneratedRegex("^[a-z0-9-]+$", RegexOptions.CultureInvariant)] private static partial Regex SlugPattern();
+
+    [GeneratedRegex("^[a-z0-9-]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex SlugPattern();
 }
 
 /// <summary>

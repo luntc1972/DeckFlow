@@ -37,6 +37,10 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
     // not the checked cap's full budget -- this stays deliberately small.
     internal const int MaxOffPlanProbeFetches = 3;
 
+    // Why: theme fetches are bounded in count but not time; this prevents a cold EDHREC cache
+    // from holding a Cut Lab request open for the cumulative duration of every sequential fetch.
+    internal static readonly TimeSpan TotalThemeFetchBudget = TimeSpan.FromSeconds(20);
+
     private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> EmptyThemeCardsBySlug =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
@@ -96,9 +100,25 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
 
         IReadOnlyList<string> boundedSlugs = BuildBoundedSlugs(planProfile.CommanderThemes, themeResult.Themes);
         Dictionary<string, IReadOnlyList<string>> themeCardNamesBySlug = new(StringComparer.OrdinalIgnoreCase);
+        using CancellationTokenSource themeFetchBudgetCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        themeFetchBudgetCancellation.CancelAfter(TotalThemeFetchBudget);
         foreach (string slug in boundedSlugs)
         {
-            themeCardNamesBySlug[slug] = await FetchThemeCardNamesAsync(commanderName, slug, cancellationToken).ConfigureAwait(false);
+            if (themeFetchBudgetCancellation.IsCancellationRequested)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                break;
+            }
+
+            try
+            {
+                themeCardNamesBySlug[slug] = await FetchThemeCardNamesAsync(commanderName, slug, themeFetchBudgetCancellation.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (themeFetchBudgetCancellation.IsCancellationRequested)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                break;
+            }
         }
 
         return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, themeCardNamesBySlug, themeResult.Themes);

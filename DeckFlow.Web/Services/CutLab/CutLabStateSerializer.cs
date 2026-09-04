@@ -16,6 +16,10 @@ public static class CutLabStateSerializer
     private const int MaxOriginalEntries = 200;
     // Why: mirrors the decision-history headroom while remaining comfortably under the byte cap.
     private const int MaxQuantityAdjustments = 300;
+    // Why: this matches the fixed strategy catalog and prevents client state from expanding role scans.
+    private const int MaxGenericStrategies = 12;
+    // Why: commander themes are external data, so retain ample user choice without unbounded scans.
+    private const int MaxCommanderThemes = 50;
     // Why: a 150-card pool bounds any single legal copy delta.
     private const int MaxCopyDelta = 150;
 
@@ -76,6 +80,24 @@ public static class CutLabStateSerializer
                     .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
                     .Take(MaxOriginalEntries)
                     .ToArray(),
+                Intent = state.Intent with
+                {
+                    PlanProfile = state.Intent.PlanProfile is { } planProfile
+                        ? planProfile with
+                        {
+                            GenericStrategies = planProfile.GenericStrategies
+                                .Where(strategy => !string.IsNullOrWhiteSpace(strategy))
+                                .Distinct(StringComparer.OrdinalIgnoreCase)
+                                .Take(MaxGenericStrategies)
+                                .ToArray(),
+                            CommanderThemes = planProfile.CommanderThemes
+                                .Where(theme => !string.IsNullOrWhiteSpace(theme.Slug))
+                                .DistinctBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
+                                .Take(MaxCommanderThemes)
+                                .ToArray(),
+                        }
+                        : null,
+                },
             };
 
             return CutLabGoalRules.ClampGoals(CutLabFloorRules.ClampFloors(CutLabLockRules.EnforceCommanderLock(state), bracketOverride));

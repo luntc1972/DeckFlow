@@ -212,9 +212,23 @@ interface CutLabUiPatch {
 
 interface CutLabPatchResponse {
   patch?: CutLabUiPatch | null;
+  resolvedFloors?: CutLabFloorRow[];
   appliedStrategies?: string[];
   appliedThemes?: string[];
   commanderThemesUnavailable?: boolean;
+}
+
+interface CutLabFloorRow {
+  roleKey: string;
+  inPoolCount: number;
+  bracketValue: number;
+  commanderDisplay: string;
+  floor: number;
+  defaultValue: number;
+  planDelta: number;
+  isUserSet: boolean;
+  sourceLabel: string;
+  sourceDetail: string;
 }
 
 interface ScenarioIndexEntry {
@@ -1364,6 +1378,64 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const atFloor = inPoolCount <= floor + 1;
     marker.classList.toggle('hidden', !atFloor);
     marker.textContent = '· at floor';
+  };
+
+  const refreshResolvedFloors = (resolvedFloors: CutLabFloorRow[]): void => {
+    const rowsByRole = new Map(getFloorRows().map(({ row }) => [row.dataset.cutLabFloorRow, row]));
+
+    resolvedFloors.forEach(floor => {
+      const row = rowsByRole.get(floor.roleKey);
+      if (!row) {
+        return;
+      }
+
+      row.dataset.cutLabFloorCount = `${floor.inPoolCount}`;
+      row.dataset.cutLabFloorDefault = `${floor.defaultValue}`;
+      const countLabel = row.querySelector<HTMLElement>('[data-cut-lab-floor-count-label]');
+      const bracketCell = row.querySelector<HTMLElement>('td[data-label="Bracket"]');
+      const commanderCell = row.querySelector<HTMLElement>('td[data-label="Commander"]');
+      const defaultLabel = row.querySelector<HTMLElement>('[data-cut-lab-floor-source-default]');
+      const resetButton = row.querySelector<HTMLButtonElement>('[data-cut-lab-floor-reset]');
+      const input = row.querySelector<HTMLInputElement>('input[data-cut-lab-floor]');
+
+      if (countLabel) {
+        countLabel.textContent = `${floor.inPoolCount} in pool`;
+      }
+      if (bracketCell) {
+        bracketCell.textContent = `${floor.bracketValue}`;
+      }
+      if (commanderCell) {
+        commanderCell.textContent = floor.commanderDisplay;
+      }
+      if (defaultLabel) {
+        defaultLabel.textContent = floor.sourceLabel;
+        defaultLabel.title = floor.sourceDetail;
+      }
+      if (resetButton) {
+        resetButton.dataset.cutLabFloorDefault = `${floor.defaultValue}`;
+      }
+      if (input) {
+        input.value = `${floor.floor}`;
+      }
+
+      setFloorUserSetState(row, floor.isUserSet);
+      updateFloorRowMarker(row, floor.floor);
+
+      const planDeltaBadge = row.querySelector<HTMLElement>('[data-cut-lab-floor-plan-delta-badge]');
+      if (floor.planDelta > 0) {
+        if (planDeltaBadge) {
+          planDeltaBadge.textContent = `+${floor.planDelta} from plan`;
+        } else {
+          const badge = document.createElement('span');
+          badge.className = 'kb-chip cutlab-floor-badge--plan-delta';
+          badge.dataset.cutLabFloorPlanDeltaBadge = '';
+          badge.textContent = `+${floor.planDelta} from plan`;
+          resetButton?.before(badge);
+        }
+      } else {
+        planDeltaBadge?.remove();
+      }
+    });
   };
 
   const setRoleLockButtonState = (button: HTMLButtonElement, isPressed: boolean): void => {
@@ -3805,6 +3877,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       applyServerPatch(data.patch, antiForgeryToken);
+      refreshResolvedFloors(data.resolvedFloors ?? []);
       syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? []);
     } catch (error) {
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
