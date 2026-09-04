@@ -136,7 +136,7 @@ const togglePlanCheckbox = async (page: Page, checkbox: ReturnType<Page['locator
     const response = await applied;
     expect(response.ok()).toBe(true);
   } finally {
-    await applied.catch(() => undefined);
+    applied.catch(() => undefined);
   }
   await expect(checkbox).toBeEnabled();
 };
