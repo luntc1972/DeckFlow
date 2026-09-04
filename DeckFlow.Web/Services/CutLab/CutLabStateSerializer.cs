@@ -60,6 +60,9 @@ public static class CutLabStateSerializer
             var state = JsonSerializer.Deserialize<CutLabState>(json, Options) ?? new CutLabState();
             state = state with
             {
+                Pool = state.Pool
+                    .Where(card => card is not null && !string.IsNullOrWhiteSpace(card.Name))
+                    .ToArray(),
                 Packages = state.Packages
                     .Where(package => package is not null && !string.IsNullOrWhiteSpace(package.Name))
                     .Take(MaxPackages)
@@ -80,6 +83,10 @@ public static class CutLabStateSerializer
                     .Where(entry => entry is not null && !string.IsNullOrWhiteSpace(entry.Name))
                     .Take(MaxOriginalEntries)
                     .ToArray(),
+                RoleFloors = state.RoleFloors
+                    .Where(floor => floor is not null && !string.IsNullOrWhiteSpace(floor.Role))
+                    .ToArray(),
+                Goals = state.Goals ?? new CutLabGoalSettings(),
                 Intent = state.Intent with
                 {
                     PlanProfile = state.Intent.PlanProfile is { } planProfile

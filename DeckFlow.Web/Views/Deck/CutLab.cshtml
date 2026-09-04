@@ -1127,7 +1127,6 @@
                 <form method="post" action="@Url.Content("~/cut-lab/plan-apply")" id="cut-lab-plan-form" data-cut-lab-plan-form>
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                    <input type="hidden" name="PlanPanelPosted" value="true" />
                 <div class="panel-heading">
                     <div>
                         <!-- Why: this duplication recurs across the file; a coordinated fix for all sections is separate, out-of-scope work. -->

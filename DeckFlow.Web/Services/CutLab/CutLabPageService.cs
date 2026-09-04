@@ -1035,7 +1035,11 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<CutLabCommanderTheme> checkedThemes;
         if (planThemeResult.IsUnavailable)
         {
-            checkedThemes = priorProfile?.CommanderThemes ?? [];
+            // Why: an outage must not let posted display metadata survive, and must not silently
+            // clear a selection the user made while EDHREC was reachable. Preserve slugs, strip metadata.
+            checkedThemes = (priorProfile?.CommanderThemes ?? [])
+                .Select(theme => new CutLabCommanderTheme { Slug = theme.Slug })
+                .ToArray();
         }
         else if (isFirstPresentation && requestedThemeSlugs.Count == 0)
         {

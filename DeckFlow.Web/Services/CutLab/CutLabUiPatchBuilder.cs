@@ -19,7 +19,7 @@ public interface ICutLabUiPatchBuilder
     /// <param name="floorWarnings">Optional current-proposal floor warnings that should be preserved as-is.</param>
     /// <param name="planAffinities">Optional plan affinities already computed for the current state.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The server-authored live UI patch for the provided state.</returns>
+    /// <returns>The server-authored live UI patch for the provided state, including computed resolved floor rows.</returns>
     Task<CutLabUiPatchDto> BuildAsync(
         CutLabState state,
         string playExperience,

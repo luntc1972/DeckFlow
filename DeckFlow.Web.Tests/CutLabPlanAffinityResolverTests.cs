@@ -8,9 +8,9 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabPlanAffinityResolverTests
 {
     [Fact]
-    public void Resolve_CardInCheckedTheme_IsOnPlan()
+    public void Resolve_CardInCheckedTheme_UsesKnownThemeDisplayName_WhenProfileMetadataWasStripped()
     {
-        var result = Resolve([Card("Theme Card"), Card("Unmatched")], Profile(themes: [Theme("theme-a", "Theme A")]), Lists(("theme-a", ["Theme Card"])), [Theme("theme-a", "Theme A")]);
+        var result = Resolve([Card("Theme Card"), Card("Unmatched")], Profile(themes: [Theme("theme-a", string.Empty)]), Lists(("theme-a", ["Theme Card"])), [Theme("theme-a", "Theme A")]);
 
         Assert.True(CutLabPlanAffinityResolver.For(result, "Theme Card").IsOnPlan);
         Assert.Equal(["Theme A"], CutLabPlanAffinityResolver.For(result, "Theme Card").OnPlanThemes);

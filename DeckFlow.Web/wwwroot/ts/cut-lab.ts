@@ -186,6 +186,7 @@ interface CutLabUiPatch {
   cardsRemaining: number;
   actualLands?: number;
   targetLands?: number;
+  resolvedFloors?: CutLabFloorRow[];
   canBuildExport: boolean;
   cardTextByCardName?: Record<string, CutLabCardTextEntry>;
   nextProposal: CutLabDecisionNextProposal | null;
@@ -212,7 +213,6 @@ interface CutLabUiPatch {
 
 interface CutLabPatchResponse {
   patch?: CutLabUiPatch | null;
-  resolvedFloors?: CutLabFloorRow[];
   appliedStrategies?: string[];
   appliedThemes?: string[];
   commanderThemesUnavailable?: boolean;
@@ -3877,7 +3877,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       applyServerPatch(data.patch, antiForgeryToken);
-      refreshResolvedFloors(data.resolvedFloors ?? []);
+      refreshResolvedFloors(data.patch.resolvedFloors ?? []);
       syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? []);
     } catch (error) {
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
