@@ -36,12 +36,14 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
     // Why: transient upstream failures should retain a recently known-good disk response, but never indefinitely stale EDHREC data.
     internal static readonly TimeSpan DiskCacheFallbackMaxAge = TimeSpan.FromDays(7);
+    private static readonly TimeSpan DiskCacheSweepMinimumInterval = TimeSpan.FromMinutes(5);
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ResiliencePipeline<RestResponse> _pipeline;
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<EdhrecCommanderThemeService>? _logger;
     private readonly string _cacheRoot;
     private int _cacheWriteFailureLogged;
+    private long _lastCacheSweepUtcTicks;
 
     /// <summary>Creates an EDHREC service using the named client and resilience pipeline.</summary>
     public EdhrecCommanderThemeService(IHttpClientFactory httpClientFactory, ResiliencePipelineProvider<string> pipelineProvider, IMemoryCache memoryCache, IWebHostEnvironment environment, ILogger<EdhrecCommanderThemeService>? logger = null)
@@ -157,10 +159,37 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             string temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             File.WriteAllText(temporaryPath, JsonSerializer.Serialize(entry));
             File.Move(temporaryPath, path, overwrite: true);
+            SweepExpiredCacheEntries();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             if (Interlocked.Exchange(ref _cacheWriteFailureLogged, 1) == 0) _logger?.LogWarning(ex, "Unable to write EDHREC disk cache");
+        }
+    }
+    private void SweepExpiredCacheEntries()
+    {
+        var now = DateTime.UtcNow;
+        var previousSweepTicks = Interlocked.Read(ref _lastCacheSweepUtcTicks);
+        if (previousSweepTicks != 0 && now.Ticks - previousSweepTicks < DiskCacheSweepMinimumInterval.Ticks) return;
+        if (Interlocked.CompareExchange(ref _lastCacheSweepUtcTicks, now.Ticks, previousSweepTicks) != previousSweepTicks) return;
+
+        try
+        {
+            foreach (var cachePath in Directory.EnumerateFiles(_cacheRoot, "*.json"))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(cachePath) < now - DiskCacheFallbackMaxAge) File.Delete(cachePath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    _logger?.LogDebug(ex, "Unable to evict expired EDHREC disk cache entry");
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger?.LogWarning(ex, "Unable to sweep expired EDHREC disk cache entries");
         }
     }
     private sealed record CacheEntry(string Body, string? ETag, DateTimeOffset WrittenAtUtc);

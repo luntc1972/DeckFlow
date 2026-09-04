@@ -161,6 +161,22 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DiskCache_Write_EvictsExpiredEntries()
+    {
+        var cacheDirectory = Path.Combine(_root, "artifacts", "edhrec-themes");
+        Directory.CreateDirectory(cacheDirectory);
+        var expiredPath = Path.Combine(cacheDirectory, "expired.json");
+        await File.WriteAllTextAsync(expiredPath, "{}");
+        File.SetLastWriteTimeUtc(expiredPath, DateTime.UtcNow - EdhrecCommanderThemeService.DiskCacheFallbackMaxAge - TimeSpan.FromMinutes(1));
+
+        var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12))))).GetCommanderThemesAsync("Atraxa");
+
+        Assert.False(result.IsUnavailable);
+        Assert.False(File.Exists(expiredPath));
+        Assert.True(File.Exists(Path.Combine(cacheDirectory, "atraxa.json")));
+    }
+
+    [Fact]
     public async Task DiskCache_WriteFailure_StillReturnsResult()
     {
         var service = CreateService(new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12)))), "/proc/deckflow-tests");
