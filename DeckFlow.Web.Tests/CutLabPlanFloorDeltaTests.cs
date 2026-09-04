@@ -74,6 +74,28 @@ public sealed class CutLabPlanFloorDeltaTests
     }
 
     [Fact]
+    public void PlanFloorDeltas_EveryStrategyConsequenceNamesEveryRaisedRole()
+    {
+        foreach (DeckPlanStrategyEntry strategy in DeckPlanStrategyCatalog.Entries)
+        {
+            Assert.True(
+                CutLabFloorDefaults.PlanFloorDeltas.TryGetValue(strategy.Slug, out IReadOnlyDictionary<string, int>? deltas));
+            Assert.All(deltas!.Keys, role =>
+            {
+                // Why: role keys are plural ("engines", "payoffs") but prose sometimes reads
+                // more naturally in the singular ("raises the engine floor") -- tolerate either
+                // so this drift guard catches real category mismatches, not grammar.
+                string roleWord = role.Split('-')[0];
+                string singular = roleWord.EndsWith('s') ? roleWord[..^1] : roleWord;
+                Assert.True(
+                    strategy.Consequence.Contains(roleWord, StringComparison.OrdinalIgnoreCase)
+                        || strategy.Consequence.Contains(singular, StringComparison.OrdinalIgnoreCase),
+                    $"Strategy '{strategy.Slug}' consequence does not name raised role '{role}'.");
+            });
+        }
+    }
+
+    [Fact]
     public void Deserialize_PlanProfileWithCommanderThemes_PreservesNonBlankUniqueSlugs()
     {
         CutLabState state = new()

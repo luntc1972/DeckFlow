@@ -102,6 +102,7 @@ public sealed class CutLabApiController : ControllerBase
                     {
                         PlanProfile = postedPlanProfile with
                         {
+                            CommanderThemesUnavailable = false,
                             GenericStrategies = postedPlanProfile.GenericStrategies
                                 .Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
                                 .Distinct(StringComparer.OrdinalIgnoreCase)
