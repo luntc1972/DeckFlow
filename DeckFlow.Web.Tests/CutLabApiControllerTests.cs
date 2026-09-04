@@ -36,7 +36,6 @@ public sealed class CutLabApiControllerTests
             new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
             new PassThroughFloorResolver(),
             null!,
-            new FakeSimulationService(),
             new FakeCutLabWhatifService(),
             new FakeFeatureFlagCache(new Dictionary<string, bool>
             {
@@ -52,7 +51,6 @@ public sealed class CutLabApiControllerTests
             new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
             new PassThroughFloorResolver(),
             new TrackingPatchBuilder(),
-            new FakeSimulationService(),
             new FakeCutLabWhatifService(),
             null!,
             NullLogger<CutLabApiController>.Instance));
@@ -1211,7 +1209,6 @@ public sealed class CutLabApiControllerTests
             builder,
             resolvedFloorResolver,
             patchBuilder ?? new CutLabUiPatchBuilder(builder, simulation, resolvedFloorResolver),
-            simulation,
             whatifService ?? new FakeCutLabWhatifService(),
             resolvedFeatureFlags,
             NullLogger<CutLabApiController>.Instance,

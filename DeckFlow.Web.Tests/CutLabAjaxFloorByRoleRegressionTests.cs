@@ -360,7 +360,6 @@ public sealed class CutLabAjaxFloorByRoleRegressionTests
             analysisBuilder,
             floorResolver,
             patchBuilder ?? new CutLabUiPatchBuilder(analysisBuilder, new FakeSimulationService(), floorResolver),
-            new FakeSimulationService(),
             whatifService ?? new FakeCutLabWhatifService(),
             resolvedFeatureFlags,
             NullLogger<CutLabApiController>.Instance)

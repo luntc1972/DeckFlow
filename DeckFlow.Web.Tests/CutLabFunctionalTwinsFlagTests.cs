@@ -219,7 +219,6 @@ public sealed class CutLabFunctionalTwinsFlagTests
             contextBuilder,
             floorResolver,
             new CutLabUiPatchBuilder(contextBuilder, new FakeSimulationService(), floorResolver),
-            new FakeSimulationService(),
             new FakeCutLabWhatifService(),
             flagCache,
             NullLogger<CutLabApiController>.Instance)

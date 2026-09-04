@@ -531,7 +531,6 @@ public sealed class CutLabWhatifTests
             contextBuilder,
             floorResolver,
             new CutLabUiPatchBuilder(contextBuilder, simulationService, floorResolver),
-            simulationService,
             whatifService,
             featureFlags,
             NullLogger<CutLabApiController>.Instance)

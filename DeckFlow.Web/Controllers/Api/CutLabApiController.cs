@@ -30,7 +30,6 @@ public sealed class CutLabApiController : ControllerBase
     /// <param name="contextBuilder">Shared analysis-context builder reused by intake and decision flows.</param>
     /// <param name="floorResolver">Shared floor resolver reused across Cut Lab transports.</param>
     /// <param name="patchBuilder">Shared UI patch builder reused by mutation endpoints.</param>
-    /// <param name="simulationService">Validated to preserve the established constructor signature for positional callers.</param>
     /// <param name="whatifService">Shared what-if preview service reused by API and no-JS swap flows.</param>
     /// <param name="featureFlags">Feature-flag cache used to gate the functional-twins detector.</param>
     /// <param name="logger">Logger used for non-fatal API warnings.</param>
@@ -40,7 +39,6 @@ public sealed class CutLabApiController : ControllerBase
         ICutLabAnalysisContextBuilder contextBuilder,
         ICutLabFloorResolver floorResolver,
         ICutLabUiPatchBuilder patchBuilder,
-        ICutLabSimulationService simulationService,
         ICutLabWhatifService whatifService,
         IFeatureFlagCache featureFlags,
         ILogger<CutLabApiController> logger,
@@ -50,8 +48,6 @@ public sealed class CutLabApiController : ControllerBase
         _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
         _floorResolver = floorResolver ?? throw new ArgumentNullException(nameof(floorResolver));
         _patchBuilder = patchBuilder ?? throw new ArgumentNullException(nameof(patchBuilder));
-        // Why: Positional test callers retain this constructor shape while proposal simulation moved to CutLabUiPatchBuilder.
-        ArgumentNullException.ThrowIfNull(simulationService);
         _whatifService = whatifService ?? throw new ArgumentNullException(nameof(whatifService));
         _featureFlags = featureFlags ?? throw new ArgumentNullException(nameof(featureFlags));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
