@@ -4729,6 +4729,11 @@ input[data-cut-lab-floor] {
   cursor: pointer;
 }
 
+.cut-lab-plan-panel__row:has(> input:checked) {
+  border-color: var(--accent);
+  background: var(--panel-alt, var(--panel));
+}
+
 .cut-lab-plan-panel__row input[type="checkbox"] {
   margin-top: 0.2rem;
   min-width: 1.1rem;

@@ -8,7 +8,7 @@ namespace DeckFlow.Web.Services.CutLab;
 /// </summary>
 public sealed record CutLabPlanAffinity(
     IReadOnlyList<string> OnPlanThemes,
-    IReadOnlyList<string> OffPlanThemes,
+    IReadOnlyList<CutLabPlanAffinityTheme> OffPlanThemes,
     IReadOnlyList<string> OnPlanStrategies,
     int Score)
 {
@@ -19,12 +19,15 @@ public sealed record CutLabPlanAffinity(
     public static CutLabPlanAffinity Neutral { get; } = new([], [], [], 0);
 }
 
+/// <summary>Identifies an unchecked commander theme supporting a pool card.</summary>
+public sealed record CutLabPlanAffinityTheme(string Slug, string DisplayName);
+
 /// <summary>
 /// Resolves checked strategy and commander-theme membership for a Cut Lab pool.
 /// </summary>
 public static class CutLabPlanAffinityResolver
 {
-    // Why: The cap bounds how far a heavily-on-plan card can be pushed toward the back of the proposal queue, so a card matching every checked box cannot outrank the combo-protection demotion that must stay the dominant key (see CutLabCutRoundEngine.ComboProtectionRank). Three is the smallest value that still distinguishes "matches one box", "matches two", and "matches three or more".
+    // Why: ComboProtectionRank remains the dominant proposal tier because CutLabCutRoundEngine applies it as the primary OrderBy key and plan affinity only as ThenBy. This cap separately keeps "matches one box", "matches two", and "matches three or more" distinguishable without unbounded growth.
     internal const int OnPlanScoreCap = 3;
 
     /// <summary>Resolves plan affinity for every card in <paramref name="pool"/>.</summary>
@@ -95,9 +98,9 @@ public static class CutLabPlanAffinityResolver
             .Where(theme => IsThemeMember(theme.Slug, normalizedName, normalizedThemeCards))
             .Select(theme => theme.DisplayName)
             .ToArray();
-        string[] offPlanThemeNames = offPlanThemes
+        CutLabPlanAffinityTheme[] resolvedOffPlanThemes = offPlanThemes
             .Where(theme => IsThemeMember(theme.Slug, normalizedName, normalizedThemeCards))
-            .Select(theme => theme.DisplayName)
+            .Select(theme => new CutLabPlanAffinityTheme(theme.Slug, theme.DisplayName))
             .ToArray();
         string[] onPlanStrategies = checkedStrategies
             .Where(strategy => DeckPlanStrategyCatalog.MatchesCategories(strategy, card.Categories))
@@ -105,9 +108,9 @@ public static class CutLabPlanAffinityResolver
             .ToArray();
         int score = Math.Min(onPlanThemes.Length + onPlanStrategies.Length, OnPlanScoreCap);
 
-        return score == 0 && offPlanThemeNames.Length == 0
+        return score == 0 && resolvedOffPlanThemes.Length == 0
             ? CutLabPlanAffinity.Neutral
-            : new CutLabPlanAffinity(onPlanThemes, offPlanThemeNames, onPlanStrategies, score);
+            : new CutLabPlanAffinity(onPlanThemes, resolvedOffPlanThemes, onPlanStrategies, score);
     }
 
     private static bool IsThemeMember(string slug, string normalizedName, IReadOnlyDictionary<string, HashSet<string>> normalizedThemeCards) =>

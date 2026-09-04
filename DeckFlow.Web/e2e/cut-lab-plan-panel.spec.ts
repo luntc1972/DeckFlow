@@ -140,7 +140,17 @@ const clearAllPlanCheckboxes = async (page: Page): Promise<void> => {
     if (remaining === 0) {
       return;
     }
-    await togglePlanCheckbox(page, checkedBoxes.first());
+    // Resolve a stable, name+value-keyed locator before clicking: `checkedBoxes.first()` is
+    // filtered by `:checked`, which re-evaluates on every action -- once the click below
+    // unchecks the box, the same locator would stop matching it, and the disabled/enabled
+    // assertions inside togglePlanCheckbox would fail with "element(s) not found". `value`
+    // alone is not unique either -- a generic strategy slug and an EDHREC theme slug can
+    // collide (e.g. both named "stax"), so key on both attributes.
+    const target = checkedBoxes.first();
+    const name = await target.getAttribute('name');
+    const value = await target.getAttribute('value');
+    const stableCheckbox = page.locator(`[data-cut-lab-plan-panel] input[data-cut-lab-plan-checkbox][name="${name}"][value="${value}"]`);
+    await togglePlanCheckbox(page, stableCheckbox);
   }
   throw new Error('plan checkboxes did not clear within 32 toggles');
 };
@@ -221,7 +231,7 @@ test('commander themes render sorted with at most three pre-checked, or the unav
   const deckCounts: number[] = [];
   for (let index = 0; index < themeCount; index += 1) {
     const definitionText = await themeRows.nth(index).locator('.cut-lab-plan-panel__row-definition').textContent();
-    const match = definitionText?.match(/(\d+)\s+decks on EDHREC/);
+    const match = definitionText?.match(/(\d+)\s+decks\s*\([\d.]+%\)\s+on EDHREC/);
     expect(match, `theme row ${index} should show a deck count`).not.toBeNull();
     deckCounts.push(Number(match![1]));
   }

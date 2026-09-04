@@ -1084,6 +1084,9 @@ public sealed class CutLabApiControllerTests
         Assert.Empty(rebuilt.GenericStrategies);
         Assert.Empty(rebuilt.CommanderThemes);
         Assert.False(rebuilt.CommanderThemesUnavailable);
+        Assert.Empty(body.AppliedStrategies);
+        Assert.Empty(body.AppliedThemes);
+        Assert.False(body.CommanderThemesUnavailable);
 
         CutLabState roundTripped = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson);
         Assert.NotNull(roundTripped.Intent.PlanProfile);
@@ -1139,6 +1142,9 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(42, rebuiltTheme.DeckCount);
         Assert.False(rebuilt.CommanderThemesUnavailable);
         Assert.Equal(["Commander"], themeService.CommanderThemeCalls);
+        Assert.Equal(["combo"], body.AppliedStrategies);
+        Assert.Equal(["theme-a"], body.AppliedThemes);
+        Assert.False(body.CommanderThemesUnavailable);
 
         CutLabState roundTripped = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson);
         Assert.Equal(["combo"], roundTripped.Intent.PlanProfile!.GenericStrategies);
@@ -1178,6 +1184,10 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(["combo"], rebuilt.GenericStrategies);
         Assert.Equal(["stax", "voltron"], rebuilt.CommanderThemes.Select(theme => theme.Slug).OrderBy(slug => slug));
         Assert.True(rebuilt.CommanderThemesUnavailable);
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(ok.Value);
+        Assert.Equal(["combo"], body.AppliedStrategies);
+        Assert.Equal(["stax", "voltron"], body.AppliedThemes.OrderBy(slug => slug));
+        Assert.True(body.CommanderThemesUnavailable);
         CutLabState roundTripped = CutLabStateSerializer.Deserialize(((CutLabPlanApplyApiResponse)ok.Value).Patch.CutLabStateJson)!;
         Assert.Equal(["stax", "voltron"], roundTripped.Intent.PlanProfile!.CommanderThemes.Select(theme => theme.Slug).OrderBy(slug => slug));
     }

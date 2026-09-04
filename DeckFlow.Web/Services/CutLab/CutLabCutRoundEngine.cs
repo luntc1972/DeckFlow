@@ -501,7 +501,7 @@ public static class CutLabCutRoundEngine
     private static int ComboProtectionRank(IReadOnlySet<string> comboProtectedCardNames, string cardName)
         => comboProtectedCardNames.Contains(CutLabCardNames.Normalize(cardName)) ? 1 : 0;
 
-    // Why: This returns a sort rank rather than a bool so it can sit in an OrderBy chain without inverting later keys; 0 means off-plan and is proposed first, while the value is bounded by CutLabPlanAffinityResolver.OnPlanScoreCap so a card matching every checked box can never be demoted past the combo-protection tier.
+    // Why: This returns a sort rank rather than a bool so it can sit in an OrderBy chain without inverting later keys; 0 means off-plan and is proposed first. ComboProtectionRank remains the dominant tier because it is the primary OrderBy key and this rank is only a ThenBy key. OnPlanScoreCap separately keeps one, two, and three-or-more matching signals distinguishable without unbounded growth.
     private static int PlanAffinityRank(IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities, string cardName)
         => planAffinities is null ? 0 : CutLabPlanAffinityResolver.For(planAffinities, cardName).Score;
 

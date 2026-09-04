@@ -3755,8 +3755,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    const stateInput = getStateInput(form);
-    if (!stateInput) {
+    if (!getStateInput(form)) {
       return;
     }
 
@@ -4465,23 +4464,19 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
-  // Why: registered alongside the other step-scoped handlers in initializeCutLab so the plan
-  // panel — Phase 7's reserved wizard slot 3 — participates in the same delegated-listener
-  // pattern as the rest of the wizard's steps, rather than a bespoke bootstrap path.
   const attachPlanPanelChangeHandler = (): void => {
     if (planPanelHandlersAttached) {
       return;
     }
 
-    const root = getPlanPanelRoot();
-    if (!root) {
-      return;
-    }
-
     planPanelHandlersAttached = true;
 
-    root.addEventListener('change', event => {
+    document.addEventListener('change', event => {
       const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.closest('[data-cut-lab-plan-panel]')) {
+        return;
+      }
+
       if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') {
         return;
       }

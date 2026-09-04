@@ -249,15 +249,16 @@ public static class CutLabStructuralFindings
         IReadOnlyList<CutLabAnalyzedCard> pool,
         IReadOnlyDictionary<string, CutLabPlanAffinity> planAffinities)
     {
-        IEnumerable<(CutLabAnalyzedCard Card, string Theme)> candidates = pool
+        IEnumerable<(CutLabAnalyzedCard Card, string Slug, string DisplayName)> candidates = pool
             .Select(card => (Card: card, Affinity: CutLabPlanAffinityResolver.For(planAffinities, card.Name)))
             .Where(entry => !entry.Affinity.IsOnPlan)
-            .SelectMany(entry => entry.Affinity.OffPlanThemes.Select(theme => (entry.Card, Theme: theme)));
+            .SelectMany(entry => entry.Affinity.OffPlanThemes.Select(theme => (entry.Card, theme.Slug, theme.DisplayName)));
 
-        foreach (IGrouping<string, (CutLabAnalyzedCard Card, string Theme)> group in candidates
-            .GroupBy(entry => entry.Theme, StringComparer.Ordinal)
-            .OrderBy(group => group.Key, StringComparer.Ordinal))
+        foreach (IGrouping<string, (CutLabAnalyzedCard Card, string Slug, string DisplayName)> group in candidates
+            .GroupBy(entry => entry.Slug, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.First().DisplayName, StringComparer.Ordinal))
         {
+            string displayName = group.First().DisplayName;
             CutLabAnalyzedCard[] cards = group
                 .GroupBy(entry => CutLabCardNames.Normalize(entry.Card.Name), CutLabCardNames.Comparer)
                 .Select(identity => identity.OrderBy(entry => entry.Card.Name, StringComparer.Ordinal).First().Card)
@@ -270,7 +271,7 @@ public static class CutLabStructuralFindings
                 yield return new CutLabFinding(
                     CutLabFindingKind.StrandedOffPlanPackage,
                     "Stranded off-plan package",
-                    $"{cards.Length} cards support {group.Key} — not in your plan.",
+                    $"{cards.Length} cards support {displayName} — not in your plan.",
                     cards.Select(card => new CutLabFindingEvidence(card.Name, card.ManaValue)).ToArray());
             }
         }

@@ -11,6 +11,7 @@ internal static class CutLabFindingPresenter
         CutLabFindingKind.WeakFloorCase,
         CutLabFindingKind.ComboProtected,
         CutLabFindingKind.FunctionalTwins,
+        CutLabFindingKind.StrandedOffPlanPackage,
     ];
 
     /// <summary>Builds view-ready finding rows from structural findings.</summary>
@@ -35,7 +36,7 @@ internal static class CutLabFindingPresenter
     }
 
     /// <summary>
-    /// Builds grouped finding blocks, merging WeakFloorCase, ComboProtected and FunctionalTwins
+    /// Builds grouped finding blocks, merging WeakFloorCase, ComboProtected, FunctionalTwins and StrandedOffPlanPackage
     /// items into one section per kind while every other kind keeps its own single-item section.
     /// </summary>
     internal static IReadOnlyList<CutLabFindingGroupView> BuildFindingGroups(IReadOnlyList<CutLabFindingView> findings)

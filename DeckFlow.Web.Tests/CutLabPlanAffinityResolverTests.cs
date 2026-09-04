@@ -25,7 +25,7 @@ public sealed class CutLabPlanAffinityResolverTests
 
         var affinity = CutLabPlanAffinityResolver.For(result, "Theme Card");
         Assert.False(affinity.IsOnPlan);
-        Assert.Equal(["Theme A"], affinity.OffPlanThemes);
+        Assert.Equal(["Theme A"], affinity.OffPlanThemes.Select(theme => theme.DisplayName));
         Assert.Equal(0, affinity.Score);
         Assert.Equal(0, result.Values.Count(value => value.IsOnPlan));
         Assert.Equal(2, result.Values.Count(value => !value.IsOnPlan));
