@@ -817,6 +817,34 @@ public sealed class CutLabStateSerializerTests
         Assert.Empty(state.Intent.PlanProfile!.CommanderThemes);
     }
 
+    [Theory]
+    [InlineData("{\"pool\":null}", false)]
+    [InlineData("{\"packages\":null}", false)]
+    [InlineData("{\"decisions\":null}", false)]
+    [InlineData("{\"quantityAdjustments\":null}", false)]
+    [InlineData("{\"originalEntries\":null}", false)]
+    [InlineData("{\"roleFloors\":null}", false)]
+    [InlineData("{\"intent\":{\"planProfile\":{\"genericStrategies\":null}}}", true)]
+    [InlineData("{\"intent\":{\"planProfile\":{\"commanderThemes\":null}}}", true)]
+    public void Deserialize_NullCollection_RestoresEmptyState(string json, bool hasPlanProfile)
+    {
+        CutLabState state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Empty(state.Pool);
+        Assert.Empty(state.Packages);
+        Assert.Empty(state.Decisions);
+        Assert.Empty(state.QuantityAdjustments);
+        Assert.Empty(state.OriginalEntries);
+        Assert.Empty(state.RoleFloors);
+        if (hasPlanProfile)
+        {
+            Assert.NotNull(state.Intent);
+            Assert.NotNull(state.Intent.PlanProfile);
+            Assert.Empty(state.Intent.PlanProfile!.GenericStrategies);
+            Assert.Empty(state.Intent.PlanProfile.CommanderThemes);
+        }
+    }
+
     private static CutLabMetricSnapshot CreateBaselineSnapshot()
         => new()
         {
