@@ -79,8 +79,6 @@ const buildFixture = (): void => {
   document.body.innerHTML = `
     <form data-cache-key="cut-lab" data-cut-lab-decide-action="/cut-lab/decide" data-cut-lab-decide-api="/api/cut-lab/decide">
       <input type="hidden" name="CutLabStateJson" value="{&quot;version&quot;:1}" />
-      <textarea name="PrimaryPlan">Keep the interaction dense.</textarea>
-      <textarea name="SecondaryPlan"></textarea>
       <input type="radio" name="Bracket" value="3" checked />
       <input type="radio" name="PlayExperience" value="Focused" checked />
       <table>
