@@ -60,18 +60,18 @@ public static class CutLabStateSerializer
             var state = JsonSerializer.Deserialize<CutLabState>(json, Options) ?? new CutLabState();
             state = state with
             {
-                Pool = state.Pool
+                Pool = (state.Pool ?? [])
                     .Where(card => card is not null && !string.IsNullOrWhiteSpace(card.Name))
                     .ToArray(),
-                Packages = state.Packages
+                Packages = (state.Packages ?? [])
                     .Where(package => package is not null && !string.IsNullOrWhiteSpace(package.Name))
                     .Take(MaxPackages)
                     .ToArray(),
-                Decisions = state.Decisions
+                Decisions = (state.Decisions ?? [])
                     .Where(decision => decision is not null && !string.IsNullOrWhiteSpace(decision.CardName))
                     .Take(MaxDecisions)
                     .ToArray(),
-                QuantityAdjustments = state.QuantityAdjustments
+                QuantityAdjustments = (state.QuantityAdjustments ?? [])
                     .Where(adjustment => adjustment is not null && !string.IsNullOrWhiteSpace(adjustment.Name))
                     .Select(adjustment => adjustment with
                     {
@@ -79,11 +79,11 @@ public static class CutLabStateSerializer
                     })
                     .Take(MaxQuantityAdjustments)
                     .ToArray(),
-                OriginalEntries = state.OriginalEntries
+                OriginalEntries = (state.OriginalEntries ?? [])
                     .Where(entry => entry is not null && !string.IsNullOrWhiteSpace(entry.Name))
                     .Take(MaxOriginalEntries)
                     .ToArray(),
-                RoleFloors = state.RoleFloors
+                RoleFloors = (state.RoleFloors ?? [])
                     .Where(floor => floor is not null && !string.IsNullOrWhiteSpace(floor.Role))
                     .ToArray(),
                 Goals = state.Goals ?? new CutLabGoalSettings(),
@@ -92,7 +92,7 @@ public static class CutLabStateSerializer
                     PlanProfile = state.Intent?.PlanProfile is { } planProfile
                         ? planProfile with
                         {
-                            GenericStrategies = planProfile.GenericStrategies
+                            GenericStrategies = (planProfile.GenericStrategies ?? [])
                                 .Where(strategy => !string.IsNullOrWhiteSpace(strategy))
                                 .Distinct(StringComparer.OrdinalIgnoreCase)
                                 .Take(MaxGenericStrategies)
