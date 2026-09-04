@@ -28,6 +28,27 @@ public interface ICutLabUiPatchBuilder
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
         CancellationToken cancellationToken = default);
+
+    /// <inheritdoc cref="BuildAsync(CutLabState, string, IReadOnlyList{string}, bool, IReadOnlyList{ScryfallCardData}, string, IReadOnlyList{CutLabDecideFloorWarningDto}, CancellationToken)" />
+    Task<CutLabUiPatchDto> BuildAsync(
+        CutLabState state,
+        string playExperience,
+        IReadOnlyList<string> commanderNames,
+        bool twinsEnabled,
+        IReadOnlyList<ScryfallCardData>? preResolvedCards,
+        string? poolKey,
+        IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
+        CancellationToken cancellationToken = default)
+        => BuildAsync(
+            state,
+            playExperience,
+            commanderNames,
+            twinsEnabled,
+            preResolvedCards,
+            poolKey,
+            floorWarnings,
+            cancellationToken);
 }
 
 /// <summary>Default Cut Lab live-patch projection service.</summary>
@@ -65,6 +86,28 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
         CancellationToken cancellationToken = default)
+        => await BuildAsync(
+            state,
+            playExperience,
+            commanderNames,
+            twinsEnabled,
+            preResolvedCards,
+            poolKey,
+            floorWarnings,
+            planAffinities: null,
+            cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<CutLabUiPatchDto> BuildAsync(
+        CutLabState state,
+        string playExperience,
+        IReadOnlyList<string> commanderNames,
+        bool twinsEnabled,
+        IReadOnlyList<ScryfallCardData>? preResolvedCards,
+        string? poolKey,
+        IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(playExperience);
@@ -85,7 +128,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                 floor => floor.Role,
                 floor => floor.Floor,
                 StringComparer.OrdinalIgnoreCase);
-        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = await _planAffinityFactory.BuildAsync(
+        planAffinities ??= await _planAffinityFactory.BuildAsync(
             state.Intent.PlanProfile,
             context.AnalyzedCards,
             commanderNames,

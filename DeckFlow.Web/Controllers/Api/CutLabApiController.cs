@@ -144,6 +144,7 @@ public sealed class CutLabApiController : ControllerBase
                 afterPreResolvedCards,
                 afterPoolKey,
                 floorWarnings,
+                planAffinities,
                 cancellationToken).ConfigureAwait(false);
             return Ok(BuildDecideApiResponse(patch));
         }
