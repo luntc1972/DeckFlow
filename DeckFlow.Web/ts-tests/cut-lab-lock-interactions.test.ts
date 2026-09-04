@@ -176,11 +176,11 @@ describe('DeckFlowCutLab', () => {
   });
 
   it('toggles matching role rows, syncs aria-pressed, and writes live role floors to CutLabStateJson', () => {
-    const legacyStateJson = '{"commander":"Atraxa, Praetors\\\' Voice","pool":[{"name":"Atraxa, Praetors\\\' Voice","quantity":1,"typeLine":"Legendary Creature — Angel Horror","isCommander":true,"isLocked":true,"packageId":null},{"name":"Command Tower","quantity":1,"typeLine":"Land","isCommander":false,"isLocked":true,"packageId":"pkg-lands-1"}],"packages":[{"id":"pkg-lands-1","name":"Mana base","locked":true}],"decisions":[],"intent":{"primaryPlan":"Stick Atraxa and snowball card advantage.","secondaryPlan":"Protect the board with proliferate value.","bracket":4,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[{"role":"interaction","floor":15,"isUserSet":true}],"goals":{"commanderByTurn":3,"engineByTurn":2,"representativeLineByTurn":4}}';
+    const legacyStateJson = '{"commander":"Atraxa, Praetors\' Voice","pool":[{"name":"Atraxa, Praetors\' Voice","quantity":1,"typeLine":"Legendary Creature — Angel Horror","isCommander":true,"isLocked":true,"packageId":null},{"name":"Command Tower","quantity":1,"typeLine":"Land","isCommander":false,"isLocked":true,"packageId":"pkg-lands-1"}],"packages":[{"id":"pkg-lands-1","name":"Mana base","locked":true}],"decisions":[],"intent":{"primaryPlan":"Stick Atraxa and snowball card advantage.","secondaryPlan":"Protect the board with proliferate value.","bracket":4,"playExperience":"Focused","includeSideboard":false,"includeMaybeboard":false},"roleFloors":[{"role":"interaction","floor":15,"isUserSet":true}],"goals":{"commanderByTurn":3,"engineByTurn":2,"representativeLineByTurn":4}}';
 
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
-        <input type="hidden" name="CutLabStateJson" value='${legacyStateJson}' />
+        <input type="hidden" name="CutLabStateJson" value="" />
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <p class="prompt-size-note"><span data-cut-lab-lock-count></span></p>
@@ -271,6 +271,9 @@ describe('DeckFlowCutLab', () => {
         </table>
       </form>
     `;
+
+    const stateInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]');
+    if (stateInput) stateInput.value = legacyStateJson;
 
     document.dispatchEvent(new Event('DOMContentLoaded'));
 
