@@ -17,6 +17,7 @@ public interface ICutLabUiPatchBuilder
     /// <param name="preResolvedCards">Optional resolved card payloads that can seed analysis.</param>
     /// <param name="poolKey">Optional precomputed pool key for the derived working list.</param>
     /// <param name="floorWarnings">Optional current-proposal floor warnings that should be preserved as-is.</param>
+    /// <param name="planAffinities">Optional plan affinities already computed for the current state.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The server-authored live UI patch for the provided state.</returns>
     Task<CutLabUiPatchDto> BuildAsync(
@@ -27,17 +28,6 @@ public interface ICutLabUiPatchBuilder
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
-        CancellationToken cancellationToken = default);
-
-    /// <inheritdoc cref="BuildAsync(CutLabState, string, IReadOnlyList{string}, bool, IReadOnlyList{ScryfallCardData}, string, IReadOnlyList{CutLabDecideFloorWarningDto}, CancellationToken)" />
-    Task<CutLabUiPatchDto> BuildAsync(
-        CutLabState state,
-        string playExperience,
-        IReadOnlyList<string> commanderNames,
-        bool twinsEnabled,
-        IReadOnlyList<ScryfallCardData>? preResolvedCards,
-        string? poolKey,
-        IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
         CancellationToken cancellationToken = default);
 }
@@ -76,27 +66,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
-        CancellationToken cancellationToken = default)
-        => await BuildAsync(
-            state,
-            playExperience,
-            commanderNames,
-            twinsEnabled,
-            preResolvedCards,
-            poolKey,
-            floorWarnings,
-            planAffinities: null,
-            cancellationToken).ConfigureAwait(false);
-
-    /// <inheritdoc />
-    public async Task<CutLabUiPatchDto> BuildAsync(
-        CutLabState state,
-        string playExperience,
-        IReadOnlyList<string> commanderNames,
-        bool twinsEnabled,
-        IReadOnlyList<ScryfallCardData>? preResolvedCards,
-        string? poolKey,
-        IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
         CancellationToken cancellationToken = default)
     {
@@ -114,7 +83,8 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             preResolvedCards,
             resolvedPoolKey,
             cancellationToken).ConfigureAwait(false);
-        IReadOnlyDictionary<string, int> floorByRole = _floorResolver.Resolve(state, context.CommanderManaValue, commanderNames)
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors = _floorResolver.Resolve(state, context.CommanderManaValue, commanderNames);
+        IReadOnlyDictionary<string, int> floorByRole = resolvedFloors
             .ToDictionary(
                 floor => floor.Role,
                 floor => floor.Floor,
@@ -168,6 +138,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             CardTextByCardName = BuildPopupCardTextPatch(state.Pool),
             NextProposal = BuildNextProposal(roundPlan, findings),
             ProposalDeltas = proposalDeltas,
+            ResolvedFloors = CutLabResolvedFloorDto.Create(resolvedFloors, context.RoleCounts, playExperience),
             FloorWarnings = floorWarnings ?? BuildFloorWarningsForNextProposal(workingList, context, floorByRole, roundPlan),
             CutsMade = BuildCutsMade(state.Decisions),
             StructuralFindings = BuildStructuralFindings(findings),

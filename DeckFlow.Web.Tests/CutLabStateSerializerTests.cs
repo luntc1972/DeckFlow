@@ -753,6 +753,18 @@ public sealed class CutLabStateSerializerTests
         Assert.True(Encoding.UTF8.GetByteCount(json) < CutLabStateSerializer.MaxUploadBytes);
     }
 
+    [Fact]
+    public void Deserialize_NullCommanderTheme_DropsNullElement()
+    {
+        const string json = """
+            {"intent":{"planProfile":{"commanderThemes":[null]}}}
+            """;
+
+        CutLabState state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Empty(state.Intent.PlanProfile!.CommanderThemes);
+    }
+
     private static CutLabMetricSnapshot CreateBaselineSnapshot()
         => new()
         {

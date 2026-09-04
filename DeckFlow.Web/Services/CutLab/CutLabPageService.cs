@@ -1044,7 +1044,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         else
         {
             Dictionary<string, CutLabCommanderTheme> knownThemesBySlug = planThemeResult.Themes
-                .ToDictionary(theme => theme.Slug, StringComparer.OrdinalIgnoreCase);
+                .GroupBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
             checkedThemes = requestedThemeSlugs
                 .Where(slug => knownThemesBySlug.ContainsKey(slug))
                 .Distinct(StringComparer.OrdinalIgnoreCase)

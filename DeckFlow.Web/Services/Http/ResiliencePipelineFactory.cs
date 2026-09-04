@@ -23,6 +23,7 @@ namespace DeckFlow.Web.Services.Http
     public static class ResiliencePipelineFactory
     {
         internal static readonly TimeSpan ScryfallTotalTimeout = TimeSpan.FromSeconds(30);
+        internal static readonly TimeSpan EdhrecTotalTimeout = TimeSpan.FromSeconds(12);
 
         internal const int ScryfallMaxRetryAttempts = 2;
 
@@ -53,6 +54,11 @@ namespace DeckFlow.Web.Services.Http
 
         /// <summary>EDHREC static CDN: retry transient failures only, no shared circuit breaker.</summary>
         private static void BuildEdhrec(ResiliencePipelineBuilder<RestResponse> builder) => builder
+            .AddTimeout(new TimeoutStrategyOptions
+            {
+                Timeout = EdhrecTotalTimeout,
+                Name = "edhrec-total",
+            })
             .AddRetry(new RetryStrategyOptions<RestResponse>
             {
                 MaxRetryAttempts = 2,

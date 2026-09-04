@@ -1,3 +1,5 @@
+using System.Globalization;
+using DeckFlow.Core.Research;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.CutLab;
 
@@ -20,6 +22,9 @@ public sealed record CutLabUiPatchDto
 
     /// <summary>Target lands in the current working-pool simulation, when available.</summary>
     public double? TargetLands { get; init; }
+
+    /// <summary>Resolved role-floor rows for synchronizing the floor table.</summary>
+    public IReadOnlyList<CutLabResolvedFloorDto> ResolvedFloors { get; init; } = [];
 
     /// <summary>True when the current working list is eligible for export.</summary>
     public bool CanBuildExport { get; init; }
@@ -134,4 +139,84 @@ public sealed record CutLabLockedOvershootGroupDto
 
     /// <summary>Suggested card names in rank order for this role bucket.</summary>
     public IReadOnlyList<string> CardNames { get; init; } = [];
+}
+
+/// <summary>API contract for a resolved role-floor row.</summary>
+public sealed record CutLabResolvedFloorDto
+{
+    /// <summary>Creates API floor rows from resolved domain floors and current role counts.</summary>
+    public static IReadOnlyList<CutLabResolvedFloorDto> Create(
+        IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
+        IReadOnlyDictionary<string, int> countsByRole,
+        string playExperience)
+        => resolvedFloors.Select(floor =>
+        {
+            int inPoolCount = countsByRole.TryGetValue(floor.Role, out int count) ? count : 0;
+            bool supportsCommanderFloor = RoleFloorBaseline.AdoptedRoleKeys.Contains(floor.Role, StringComparer.OrdinalIgnoreCase);
+            string commanderDisplay = supportsCommanderFloor
+                ? floor.CommanderValue?.ToString(CultureInfo.InvariantCulture) ?? "—"
+                : "n/a";
+            string sourceLabel = floor.CommanderValue is int commander && commander > floor.BracketValue
+                ? "Commander"
+                : "Bracket";
+
+            return new CutLabResolvedFloorDto
+            {
+                RoleKey = floor.Role,
+                InPoolCount = inPoolCount,
+                BracketValue = floor.BracketValue,
+                CommanderDisplay = commanderDisplay,
+                Floor = floor.Floor,
+                DefaultValue = floor.DefaultValue,
+                PlanDelta = floor.PlanDelta,
+                IsUserSet = floor.IsUserSet,
+                SourceLabel = sourceLabel,
+                SourceDetail = floor.BracketWasFallback
+                    ? $"Default: {floor.DefaultValue} — based on {FallbackSource(playExperience)}"
+                    : $"Default for B{floor.ResolvedBracket}: {floor.DefaultValue}",
+            };
+        }).ToArray();
+
+    /// <summary>Role identifier used by the floor table.</summary>
+    public string RoleKey { get; init; } = string.Empty;
+
+    /// <summary>Current number of cards in the role.</summary>
+    public int InPoolCount { get; init; }
+
+    /// <summary>Resolved bracket contribution.</summary>
+    public int BracketValue { get; init; }
+
+    /// <summary>Formatted commander contribution.</summary>
+    public string CommanderDisplay { get; init; } = string.Empty;
+
+    /// <summary>Effective floor.</summary>
+    public int Floor { get; init; }
+
+    /// <summary>Default floor before user override.</summary>
+    public int DefaultValue { get; init; }
+
+    /// <summary>Plan-profile adjustment to the floor.</summary>
+    public int PlanDelta { get; init; }
+
+    /// <summary>Whether the user explicitly set the floor.</summary>
+    public bool IsUserSet { get; init; }
+
+    /// <summary>Label identifying the effective floor source.</summary>
+    public string SourceLabel { get; init; } = string.Empty;
+
+    /// <summary>Tooltip describing the default floor source.</summary>
+    public string SourceDetail { get; init; } = string.Empty;
+
+    private static string FallbackSource(string playExperience)
+        => playExperience switch
+        {
+            "cEDH / High-Power" => "high-power baseline",
+            "Optimized / High-Power" => "high-power baseline",
+            "High-Power" => "high-power baseline",
+            "Optimized" => "high-power baseline",
+            "Focused" => "focused baseline",
+            "Mid-Power" => "mid-power baseline",
+            "Casual" => "casual baseline",
+            _ => "selected play-experience baseline",
+        };
 }

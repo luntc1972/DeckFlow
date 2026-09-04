@@ -61,15 +61,15 @@ public static class CutLabStateSerializer
             state = state with
             {
                 Packages = state.Packages
-                    .Where(package => !string.IsNullOrWhiteSpace(package.Name))
+                    .Where(package => package is not null && !string.IsNullOrWhiteSpace(package.Name))
                     .Take(MaxPackages)
                     .ToArray(),
                 Decisions = state.Decisions
-                    .Where(decision => !string.IsNullOrWhiteSpace(decision.CardName))
+                    .Where(decision => decision is not null && !string.IsNullOrWhiteSpace(decision.CardName))
                     .Take(MaxDecisions)
                     .ToArray(),
                 QuantityAdjustments = state.QuantityAdjustments
-                    .Where(adjustment => !string.IsNullOrWhiteSpace(adjustment.Name))
+                    .Where(adjustment => adjustment is not null && !string.IsNullOrWhiteSpace(adjustment.Name))
                     .Select(adjustment => adjustment with
                     {
                         Delta = Math.Clamp(adjustment.Delta, -MaxCopyDelta, MaxCopyDelta),
@@ -77,7 +77,7 @@ public static class CutLabStateSerializer
                     .Take(MaxQuantityAdjustments)
                     .ToArray(),
                 OriginalEntries = state.OriginalEntries
-                    .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
+                    .Where(entry => entry is not null && !string.IsNullOrWhiteSpace(entry.Name))
                     .Take(MaxOriginalEntries)
                     .ToArray(),
                 Intent = state.Intent with
@@ -91,7 +91,7 @@ public static class CutLabStateSerializer
                                 .Take(MaxGenericStrategies)
                                 .ToArray(),
                             CommanderThemes = planProfile.CommanderThemes
-                                .Where(theme => !string.IsNullOrWhiteSpace(theme.Slug))
+                                .Where(theme => theme is not null && !string.IsNullOrWhiteSpace(theme.Slug))
                                 .DistinctBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
                                 .Take(MaxCommanderThemes)
                                 .ToArray(),
