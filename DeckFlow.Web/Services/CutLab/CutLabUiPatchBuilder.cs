@@ -39,16 +39,7 @@ public interface ICutLabUiPatchBuilder
         string? poolKey,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
-        CancellationToken cancellationToken = default)
-        => BuildAsync(
-            state,
-            playExperience,
-            commanderNames,
-            twinsEnabled,
-            preResolvedCards,
-            poolKey,
-            floorWarnings,
-            cancellationToken);
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Default Cut Lab live-patch projection service.</summary>
