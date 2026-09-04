@@ -840,6 +840,10 @@
                                 <td data-label="Source">
                                     <span class="cutlab-floor-source-default @(row.IsUserSet ? "hidden" : string.Empty)" data-cut-lab-floor-source-default title="@row.SourceDetail">@row.SourceLabel</span>
                                     <span class="kb-chip cutlab-floor-badge--adjusted @(row.IsUserSet ? string.Empty : "hidden")" data-cut-lab-floor-adjusted-badge>Adjusted</span>
+                                    @if (row.PlanDelta > 0)
+                                    {
+                                        <span class="kb-chip cutlab-floor-badge--plan-delta" data-cut-lab-floor-plan-delta-badge>+@row.PlanDelta from plan</span>
+                                    }
                                     <button type="button"
                                             class="cutlab-floor-reset @(row.IsUserSet ? string.Empty : "hidden")"
                                             data-cut-lab-floor-reset="@row.RoleKey"
@@ -1164,7 +1168,7 @@
                                     <input type="checkbox" name="PlanThemes" value="@theme.Slug" checked="@(theme.IsChecked ? "checked" : null)" data-cut-lab-plan-checkbox />
                                     <span class="cut-lab-plan-panel__row-body">
                                         <span class="cut-lab-plan-panel__row-name">@theme.DisplayName</span>
-                                        <span class="cut-lab-plan-panel__row-definition">@theme.DeckCount decks on EDHREC</span>
+                                        <span class="cut-lab-plan-panel__row-definition">@theme.DeckCount decks (@theme.SharePercent.ToString("0.#")%) on EDHREC</span>
                                     </span>
                                 </label>
                             }

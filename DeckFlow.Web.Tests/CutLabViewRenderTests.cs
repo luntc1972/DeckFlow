@@ -288,6 +288,63 @@ public sealed class CutLabViewRenderTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ResultView_RendersPlanDeltaBadgeOnlyWhenPlanRaisedTheFloor()
+    {
+        var model = BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase)) with
+        {
+            CommanderFloorsEnabled = true,
+            FloorRows =
+            [
+                new CutLabFloorRowView
+                {
+                    RoleKey = "engines", DisplayLabel = "Engines", InPoolCount = 5, BracketValue = 4,
+                    CommanderValue = null, SupportsCommanderFloor = true, CommanderDisplay = "-", Floor = 6,
+                    DefaultValue = 6, PlanDelta = 2, IsUserSet = false, AtFloor = false, SourceLabel = "Bracket",
+                    SourceDetail = "Default for B3: 6",
+                },
+                new CutLabFloorRowView
+                {
+                    RoleKey = "wincons", DisplayLabel = "Wincons", InPoolCount = 2, BracketValue = 2,
+                    CommanderValue = null, SupportsCommanderFloor = false, CommanderDisplay = "n/a", Floor = 2,
+                    DefaultValue = 2, PlanDelta = 0, IsUserSet = false, AtFloor = true, SourceLabel = "Bracket",
+                    SourceDetail = "Default for B3: 2",
+                },
+            ],
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("+2 from plan", ExtractFloorRowMarkup(html, "engines"), StringComparison.Ordinal);
+        Assert.DoesNotContain("from plan", ExtractFloorRowMarkup(html, "wincons"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ResultView_RendersThemeShareAlongsideDeckCount()
+    {
+        var model = BuildTwinBadgeModel(
+            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase)) with
+        {
+            PlanPanel = new CutLabPlanPanelView
+            {
+                ThemeRows =
+                [
+                    new CutLabPlanThemeRowView
+                    {
+                        Slug = "aristocrats", DisplayName = "Aristocrats", DeckCount = 340, SharePercent = 42.65,
+                        IsChecked = false,
+                    },
+                ],
+                CommanderThemesUnavailable = false,
+            },
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("340 decks (42.7%) on EDHREC", html, StringComparison.Ordinal);
+    }
+
     private const string HeliodRawName = "Heliod, Sun-Crowned";
 
     private static readonly string HeliodNormalizedName = CutLabCardNames.Normalize(HeliodRawName);
@@ -422,6 +479,21 @@ public sealed class CutLabViewRenderTests
 
         int rowEnd = html.IndexOf("</tr>", rowStart, StringComparison.Ordinal);
         Assert.True(rowEnd >= 0, $"Could not find closing </tr> for '{cardName}'.");
+
+        return html.Substring(rowStart, rowEnd + "</tr>".Length - rowStart);
+    }
+
+    private static string ExtractFloorRowMarkup(string html, string roleKey)
+    {
+        string marker = $"data-cut-lab-floor-row=\"{roleKey}\"";
+        int rowStart = html.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(rowStart >= 0, $"Could not find floor row for '{roleKey}'.");
+
+        rowStart = html.LastIndexOf("<tr", rowStart, StringComparison.Ordinal);
+        Assert.True(rowStart >= 0, $"Could not find opening <tr> for '{roleKey}'.");
+
+        int rowEnd = html.IndexOf("</tr>", rowStart, StringComparison.Ordinal);
+        Assert.True(rowEnd >= 0, $"Could not find closing </tr> for '{roleKey}'.");
 
         return html.Substring(rowStart, rowEnd + "</tr>".Length - rowStart);
     }

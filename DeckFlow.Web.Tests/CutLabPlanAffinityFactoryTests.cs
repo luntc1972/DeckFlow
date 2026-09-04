@@ -65,7 +65,7 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         Assert.NotNull(result);
         Assert.True(CutLabPlanAffinityResolver.For(result!, "On Plan Card").IsOnPlan);
-        Assert.Contains("Theme B", CutLabPlanAffinityResolver.For(result!, "Off Plan Card").OffPlanThemes);
+        Assert.Contains(CutLabPlanAffinityResolver.For(result!, "Off Plan Card").OffPlanThemes, theme => theme.DisplayName == "Theme B");
         Assert.Equal(["Krenko, Mob Boss"], themeService.CommanderThemeCalls);
         Assert.Equal(2, themeService.ThemeCardCalls.Count);
         Assert.Contains(("Krenko, Mob Boss", "theme-a"), themeService.ThemeCardCalls);

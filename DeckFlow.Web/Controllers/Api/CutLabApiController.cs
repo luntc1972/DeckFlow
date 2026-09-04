@@ -20,7 +20,6 @@ public sealed class CutLabApiController : ControllerBase
     private readonly ICutLabAnalysisContextBuilder _contextBuilder;
     private readonly ICutLabFloorResolver _floorResolver;
     private readonly ICutLabUiPatchBuilder _patchBuilder;
-    private readonly ICutLabSimulationService _simulationService;
     private readonly ICutLabWhatifService _whatifService;
     private readonly IFeatureFlagCache _featureFlags;
     private readonly ILogger<CutLabApiController> _logger;
@@ -31,7 +30,7 @@ public sealed class CutLabApiController : ControllerBase
     /// <param name="contextBuilder">Shared analysis-context builder reused by intake and decision flows.</param>
     /// <param name="floorResolver">Shared floor resolver reused across Cut Lab transports.</param>
     /// <param name="patchBuilder">Shared UI patch builder reused by mutation endpoints.</param>
-    /// <param name="simulationService">Simulation service used for proposal deltas.</param>
+    /// <param name="simulationService">Validated to preserve the established constructor signature for positional callers.</param>
     /// <param name="whatifService">Shared what-if preview service reused by API and no-JS swap flows.</param>
     /// <param name="featureFlags">Feature-flag cache used to gate the functional-twins detector.</param>
     /// <param name="logger">Logger used for non-fatal API warnings.</param>
@@ -51,7 +50,8 @@ public sealed class CutLabApiController : ControllerBase
         _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
         _floorResolver = floorResolver ?? throw new ArgumentNullException(nameof(floorResolver));
         _patchBuilder = patchBuilder ?? throw new ArgumentNullException(nameof(patchBuilder));
-        _simulationService = simulationService ?? throw new ArgumentNullException(nameof(simulationService));
+        // Why: Positional test callers retain this constructor shape while proposal simulation moved to CutLabUiPatchBuilder.
+        ArgumentNullException.ThrowIfNull(simulationService);
         _whatifService = whatifService ?? throw new ArgumentNullException(nameof(whatifService));
         _featureFlags = featureFlags ?? throw new ArgumentNullException(nameof(featureFlags));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -144,7 +144,6 @@ public sealed class CutLabApiController : ControllerBase
                 afterPreResolvedCards,
                 afterPoolKey,
                 floorWarnings,
-                planAffinities,
                 cancellationToken).ConfigureAwait(false);
             return Ok(BuildDecideApiResponse(patch));
         }
@@ -635,34 +634,4 @@ public sealed class CutLabApiController : ControllerBase
             })
             .ToArray();
 
-    private static IReadOnlyList<CutLabDecideCutRecordDto> BuildCutsMade(IReadOnlyList<CutLabDecision> decisions)
-        => decisions
-            .Where(decision => decision.Kind == CutLabDecisionKind.Accepted)
-            .OrderByDescending(decision => decision.Ordinal)
-            .Select(decision => new CutLabDecideCutRecordDto
-            {
-                CardName = decision.CardName,
-                RoundKey = decision.Round,
-                RoundLabel = CutLabCutRoundEngine.LabelFor(decision.Round),
-                Ordinal = decision.Ordinal,
-            })
-            .ToArray();
-
-    private static IReadOnlyList<CutLabDecideFindingGroupDto> BuildStructuralFindings(CutLabStructuralFindingsResult findings)
-        => CutLabFindingPresenter.BuildFindingGroups(CutLabFindingPresenter.BuildFindings(findings.Findings))
-            .Select(group => new CutLabDecideFindingGroupDto
-            {
-                Kind = group.Kind,
-                Heading = group.Heading,
-                Items = group.Items
-                    .Select(item => new CutLabDecideFindingDto
-                    {
-                        Kind = item.Kind,
-                        Heading = item.Heading,
-                        Lead = item.Lead,
-                        Evidence = item.Evidence,
-                    })
-                    .ToArray(),
-            })
-            .ToArray();
 }
