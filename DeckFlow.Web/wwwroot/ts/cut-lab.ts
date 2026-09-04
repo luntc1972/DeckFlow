@@ -3791,6 +3791,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  const revertPlanPanel = (): void => {
+    const persisted = tryReadSerializedState();
+    const profile = (persisted?.intent as CutLabIntentSnapshot | undefined)?.planProfile;
+    syncPlanPanel(
+      profile?.genericStrategies ?? [],
+      (profile?.commanderThemes ?? []).map(theme => theme.slug));
+  };
+
   const renderPlanPanelError = (root: HTMLElement, message: string): void => {
     const error = document.createElement('p');
     error.className = 'form-validation-error';
@@ -3871,6 +3879,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       if (!response.ok) {
         renderPlanPanelError(root, await readErrorMessage(response));
+        revertPlanPanel();
         return;
       }
 
@@ -3887,6 +3896,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
         : cutLabDecisionErrorCopy);
+      revertPlanPanel();
     } finally {
       window.clearTimeout(timeoutId);
       planApplySubmitInFlight = false;

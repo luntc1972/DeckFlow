@@ -54,6 +54,30 @@ const buildFixture = (): HTMLInputElement => {
 };
 
 describe('cut-lab plan panel', () => {
+  it('reverts a rejected plan-panel toggle to persisted state', async () => {
+    const checkbox = buildFixture();
+    document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!.value = JSON.stringify({
+      intent: { planProfile: { genericStrategies: ['dropped'], commanderThemes: [] } },
+    });
+    fetchMock.mockResolvedValueOnce({ ok: false, text: async () => 'Rejected' });
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    expect(checkbox.checked).toBe(true);
+  });
+
+  it('reverts a plan-panel toggle when fetch rejects', async () => {
+    const checkbox = buildFixture();
+    document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!.value = JSON.stringify({
+      intent: { planProfile: { genericStrategies: ['dropped'], commanderThemes: [] } },
+    });
+    fetchMock.mockRejectedValueOnce(new Error('offline'));
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    expect(checkbox.checked).toBe(true);
+  });
+
   it('preserves persisted commander themes when the outage omits theme checkboxes', async () => {
     buildFixture();
     const persistedState = {
