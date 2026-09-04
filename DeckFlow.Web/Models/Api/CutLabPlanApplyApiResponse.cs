@@ -7,7 +7,7 @@ public sealed record CutLabPlanApplyApiResponse
     public CutLabUiPatchDto Patch { get; init; } = new();
 
     /// <summary>Resolved role-floor rows for synchronizing the floor table after plan application.</summary>
-    public IReadOnlyList<CutLabFloorRowView> ResolvedFloors { get; init; } = [];
+    public IReadOnlyList<CutLabResolvedFloorDto> ResolvedFloors { get; init; } = [];
 
     /// <summary>Validated generic strategy slugs applied to the persisted profile.</summary>
     public IReadOnlyList<string> AppliedStrategies { get; init; } = [];

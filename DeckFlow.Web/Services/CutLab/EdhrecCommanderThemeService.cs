@@ -36,6 +36,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     // Why: HttpClient bounds response bytes; this remains a defense against unexpectedly large text.
     internal const int MaxResponseCharacters = 4 * 1024 * 1024;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(1);
+    private static readonly TimeSpan UnavailableCacheDuration = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan EmptyThemeCardCacheDuration = TimeSpan.FromMinutes(5);
     // Why: transient upstream failures should retain a recently known-good disk response, but never indefinitely stale EDHREC data.
     internal static readonly TimeSpan DiskCacheFallbackMaxAge = TimeSpan.FromDays(7);
@@ -73,14 +74,13 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     {
         cancellationToken.ThrowIfCancellationRequested();
         string slug = EdhrecCardLookup.Slugify(commanderName);
+        string cacheKey = "cutlab:edhrec:themes:" + slug;
 
         if (!IsValidSlug(slug))
         {
             _logger?.LogWarning("Rejected invalid EDHREC commander slug for {CommanderName}", commanderName);
-            return new([], true);
+            return CacheUnavailableResult(cacheKey);
         }
-
-        string cacheKey = "cutlab:edhrec:themes:" + slug;
 
         if (_memoryCache.TryGetValue<EdhrecThemeResult>(cacheKey, out EdhrecThemeResult? cached) && cached is not null)
         {
@@ -91,7 +91,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
         if (body is null)
         {
-            return new([], true);
+            return CacheUnavailableResult(cacheKey);
         }
 
         try
@@ -102,7 +102,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
                 !panels.TryGetProperty("taglinks", out JsonElement tags) ||
                 tags.ValueKind != JsonValueKind.Array)
             {
-                return new([], true);
+                return CacheUnavailableResult(cacheKey);
             }
 
             List<CutLabCommanderTheme> themes = tags
@@ -117,6 +117,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
                 .Where(theme => IsValidSlug(theme.Slug) && !string.IsNullOrWhiteSpace(theme.DisplayName))
                 .OrderByDescending(theme => theme.DeckCount)
                 .ThenBy(theme => theme.Slug, StringComparer.Ordinal)
+                .DistinctBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             var parsed = new EdhrecThemeResult(themes, false);
             _memoryCache.Set(cacheKey, parsed, CacheDuration);
@@ -129,8 +130,15 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         catch (Exception ex)
         {
             _logger?.LogWarning(ex, "EDHREC commander page had an unexpected JSON shape");
-            return new([], true);
+            return CacheUnavailableResult(cacheKey);
         }
+    }
+
+    private EdhrecThemeResult CacheUnavailableResult(string cacheKey)
+    {
+        var unavailable = new EdhrecThemeResult([], true);
+        _memoryCache.Set(cacheKey, unavailable, UnavailableCacheDuration);
+        return unavailable;
     }
 
     /// <inheritdoc />

@@ -1119,8 +1119,9 @@ public sealed class CutLabApiControllerTests
             ThemesResult = new EdhrecThemeResult([], false),
         };
         TrackingPatchBuilder patchBuilder = new();
+        FakeAnalysisContextBuilder analysisContextBuilder = new(_ => CreateAnalysisContext());
         CutLabApiController controller = CreateController(
-            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            analysisContextBuilder,
             new FakeSimulationService(),
             patchBuilder,
             themeService: themeService);
@@ -1146,6 +1147,9 @@ public sealed class CutLabApiControllerTests
         Assert.Empty(body.AppliedStrategies);
         Assert.Empty(body.AppliedThemes);
         Assert.False(body.CommanderThemesUnavailable);
+        Assert.Equal(0, analysisContextBuilder.BuildCalls);
+        CutLabResolvedFloorDto resolvedFloor = Assert.Single(body.ResolvedFloors);
+        Assert.Equal("patch-only", resolvedFloor.RoleKey);
 
         CutLabState roundTripped = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson);
         Assert.NotNull(roundTripped.Intent.PlanProfile);
@@ -1241,14 +1245,14 @@ public sealed class CutLabApiControllerTests
         Assert.IsType<CutLabPlanApplyApiResponse>(ok.Value);
         CutLabPlanProfile rebuilt = patchBuilder.LastState!.Intent.PlanProfile!;
         Assert.Equal(["combo"], rebuilt.GenericStrategies);
-        Assert.Equal(["stax", "voltron"], rebuilt.CommanderThemes.Select(theme => theme.Slug).OrderBy(slug => slug));
+        Assert.Empty(rebuilt.CommanderThemes);
         Assert.True(rebuilt.CommanderThemesUnavailable);
         CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(ok.Value);
         Assert.Equal(["combo"], body.AppliedStrategies);
-        Assert.Equal(["stax", "voltron"], body.AppliedThemes.OrderBy(slug => slug));
+        Assert.Empty(body.AppliedThemes);
         Assert.True(body.CommanderThemesUnavailable);
         CutLabState roundTripped = CutLabStateSerializer.Deserialize(((CutLabPlanApplyApiResponse)ok.Value).Patch.CutLabStateJson)!;
-        Assert.Equal(["stax", "voltron"], roundTripped.Intent.PlanProfile!.CommanderThemes.Select(theme => theme.Slug).OrderBy(slug => slug));
+        Assert.Empty(roundTripped.Intent.PlanProfile!.CommanderThemes);
     }
 
     private static CutLabApiController CreateController(
@@ -1582,20 +1586,6 @@ public sealed class CutLabApiControllerTests
             IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
             string? poolKey = null,
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
-            CancellationToken cancellationToken = default)
-        {
-            LastState = state;
-            return Task.FromResult(CreatePatch(state));
-        }
-
-        public Task<CutLabUiPatchDto> BuildAsync(
-            CutLabState state,
-            string playExperience,
-            IReadOnlyList<string> commanderNames,
-            bool twinsEnabled,
-            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
-            string? poolKey = null,
-            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
             IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
             CancellationToken cancellationToken = default)
         {
@@ -1608,6 +1598,16 @@ public sealed class CutLabApiControllerTests
             => new()
             {
                 CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                ResolvedFloors =
+                [
+                    new CutLabResolvedFloorDto
+                    {
+                        RoleKey = "patch-only",
+                        CommanderDisplay = "n/a",
+                        SourceLabel = "Bracket",
+                        SourceDetail = "Patch builder floor",
+                    },
+                ],
                 WhatifCardInOptions = ["Cut Card"],
                 NextProposal = new CutLabDecideNextProposalDto
                 {
@@ -1626,17 +1626,6 @@ public sealed class CutLabApiControllerTests
             string playExperience,
             IReadOnlyList<string> commanderNames,
             bool twinsEnabled,
-            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
-            string? poolKey = null,
-            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult(Patch);
-
-        public Task<CutLabUiPatchDto> BuildAsync(
-            CutLabState state,
-            string playExperience,
-            IReadOnlyList<string> commanderNames,
-            bool twinsEnabled,
             IReadOnlyList<ScryfallCardData>? preResolvedCards,
             string? poolKey,
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
@@ -1647,17 +1636,6 @@ public sealed class CutLabApiControllerTests
 
     private sealed class ThrowingPatchBuilder : ICutLabUiPatchBuilder
     {
-        public Task<CutLabUiPatchDto> BuildAsync(
-            CutLabState state,
-            string playExperience,
-            IReadOnlyList<string> commanderNames,
-            bool twinsEnabled,
-            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
-            string? poolKey = null,
-            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
-            CancellationToken cancellationToken = default)
-            => throw new InvalidOperationException("boom");
-
         public Task<CutLabUiPatchDto> BuildAsync(
             CutLabState state,
             string playExperience,
