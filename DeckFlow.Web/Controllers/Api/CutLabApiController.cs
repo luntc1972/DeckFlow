@@ -113,6 +113,9 @@ public sealed class CutLabApiController : ControllerBase
                                 .DistinctBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
                                 .Select(theme => new CutLabCommanderTheme { Slug = theme.Slug })
                                 .ToArray(),
+                            // Why: this client-writable flag must not survive the trust boundary;
+                            // nothing server-side may treat it as authoritative.
+                            CommanderThemesUnavailable = false,
                         },
                     },
                 };
