@@ -129,6 +129,11 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
             }
         }
 
+        if (bounded.Count == 0)
+        {
+            return bounded;
+        }
+
         var offPlanProbeCount = 0;
         foreach (string slug in allKnownThemes.Select(theme => theme.Slug))
         {

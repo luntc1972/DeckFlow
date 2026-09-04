@@ -33,6 +33,21 @@ public sealed class CutLabPlanAffinityFactoryTests
     }
 
     [Fact]
+    public async Task BuildAsync_NoCheckedThemes_DoesNotFetchUncheckedThemeCards()
+    {
+        var themeService = new FakeEdhrecCommanderThemeService
+        {
+            ThemesResult = new EdhrecThemeResult([Theme("theme-01", "Theme 1"), Theme("theme-02", "Theme 2")], false),
+        };
+        var factory = new CutLabPlanAffinityFactory(themeService);
+
+        var result = await factory.BuildAsync(Profile(themes: [Theme("unknown", "Unknown")]), [Card("Card")], ["Krenko, Mob Boss"]);
+
+        Assert.NotNull(result);
+        Assert.Empty(themeService.ThemeCardCalls);
+    }
+
+    [Fact]
     public async Task BuildAsync_StrategiesOnly_ReturnsMap_AndIssuesNoThemeCardRequests()
     {
         var themeService = new FakeEdhrecCommanderThemeService();
