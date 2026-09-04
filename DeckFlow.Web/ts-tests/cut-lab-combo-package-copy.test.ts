@@ -10,8 +10,6 @@ describe('cut-lab combo label and package helper copy', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
-        <textarea name="PrimaryPlan">Keep the fast mana package intact.</textarea>
-        <textarea name="SecondaryPlan"></textarea>
         <input type="radio" name="Bracket" value="4" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <table>

@@ -29,8 +29,6 @@ const renderPortableSessionDom = (): void => {
       <input id="cut-lab-deck-url" name="DeckUrl" value="https://www.moxfield.com/decks/current" />
       <textarea id="cut-lab-deck-text" name="DeckText">1 Current Card</textarea>
       <input type="hidden" name="CutLabStateJson" value="" />
-      <textarea name="PrimaryPlan">Keep the engine package intact.</textarea>
-      <textarea name="SecondaryPlan"></textarea>
       <input type="radio" name="Bracket" value="4" checked />
       <input type="radio" name="PlayExperience" value="Focused" checked />
       <input data-cut-lab-goal="commander" value="3" />

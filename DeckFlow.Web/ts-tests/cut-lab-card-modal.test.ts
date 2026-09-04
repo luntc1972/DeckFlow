@@ -41,8 +41,6 @@ const buildFixture = (): void => {
     <form data-cache-key="cut-lab">
       <input type="hidden" name="CutLabStateJson" value="" />
       <input type="hidden" name="CutLabStateJson" value="" />
-      <textarea name="PrimaryPlan">Keep the interaction dense.</textarea>
-      <textarea name="SecondaryPlan"></textarea>
       <input type="radio" name="Bracket" value="3" checked />
       <input type="radio" name="PlayExperience" value="Focused" checked />
       <table>
@@ -143,8 +141,6 @@ describe('cut-lab card modal', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
-        <textarea name="PrimaryPlan"></textarea>
-        <textarea name="SecondaryPlan"></textarea>
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <table>
