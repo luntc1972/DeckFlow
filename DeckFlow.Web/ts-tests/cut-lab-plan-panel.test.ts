@@ -54,6 +54,30 @@ const buildFixture = (): HTMLInputElement => {
 };
 
 describe('cut-lab plan panel', () => {
+  it('reverts optimistic checkbox changes when apply responds not ok', async () => {
+    buildFixture();
+    fetchMock.mockResolvedValueOnce({ ok: false, text: async () => 'Profile failed' });
+
+    document.querySelector<HTMLInputElement>('input[value="kept"]')!.click();
+    document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.click();
+    await flush();
+
+    expect(document.querySelector<HTMLInputElement>('input[value="kept"]')!.checked).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.checked).toBe(false);
+  });
+
+  it('reverts optimistic checkbox changes when apply rejects', async () => {
+    buildFixture();
+    fetchMock.mockRejectedValueOnce(new Error('Network failed'));
+
+    document.querySelector<HTMLInputElement>('input[value="kept"]')!.click();
+    document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.click();
+    await flush();
+
+    expect(document.querySelector<HTMLInputElement>('input[value="kept"]')!.checked).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.checked).toBe(false);
+  });
+
   it('preserves persisted commander themes when the outage omits theme checkboxes', async () => {
     buildFixture();
     const persistedState = {
