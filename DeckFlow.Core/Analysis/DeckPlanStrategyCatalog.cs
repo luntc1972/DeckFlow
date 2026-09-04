@@ -116,7 +116,7 @@ public static class DeckPlanStrategyCatalog
             "stax",
             "Stax",
             "Wins by taxing and locking down opponents' resources while the deck operates around the restriction.",
-            "Protects tax effects and hatebears, and raises the interaction floor.",
+            "Protects tax effects and hatebears, and raises the mass-interaction and protection floors.",
             ["stax", "tax", "hatebear", "prison", "lock"]),
         new DeckPlanStrategyEntry(
             DeckPlanStrategy.Reanimator,
