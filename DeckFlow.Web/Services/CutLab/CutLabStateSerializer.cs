@@ -87,9 +87,9 @@ public static class CutLabStateSerializer
                     .Where(floor => floor is not null && !string.IsNullOrWhiteSpace(floor.Role))
                     .ToArray(),
                 Goals = state.Goals ?? new CutLabGoalSettings(),
-                Intent = state.Intent with
+                Intent = (state.Intent ?? new CutLabIntent()) with
                 {
-                    PlanProfile = state.Intent.PlanProfile is { } planProfile
+                    PlanProfile = state.Intent?.PlanProfile is { } planProfile
                         ? planProfile with
                         {
                             GenericStrategies = planProfile.GenericStrategies
@@ -97,7 +97,7 @@ public static class CutLabStateSerializer
                                 .Distinct(StringComparer.OrdinalIgnoreCase)
                                 .Take(MaxGenericStrategies)
                                 .ToArray(),
-                            CommanderThemes = planProfile.CommanderThemes
+                            CommanderThemes = (planProfile.CommanderThemes ?? [])
                                 .Where(theme => theme is not null && !string.IsNullOrWhiteSpace(theme.Slug))
                                 .DistinctBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
                                 .Take(MaxCommanderThemes)

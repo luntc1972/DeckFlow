@@ -791,6 +791,32 @@ public sealed class CutLabStateSerializerTests
         Assert.Equal(CutLabGoalDefaults.RepresentativeLineByTurn, state.Goals.RepresentativeLineByTurn);
     }
 
+    [Fact]
+    public void Deserialize_NullIntent_RestoresDefaults()
+    {
+        CutLabState state = CutLabStateSerializer.Deserialize("{\"intent\":null}");
+
+        Assert.NotNull(state.Intent);
+    }
+
+    [Fact]
+    public void Deserialize_NullPlanProfile_PreservesValidIntent()
+    {
+        CutLabState state = CutLabStateSerializer.Deserialize("{\"intent\":{\"planProfile\":null}}");
+
+        Assert.NotNull(state.Intent);
+        Assert.Null(state.Intent.PlanProfile);
+    }
+
+    [Fact]
+    public void Deserialize_NullCommanderThemes_RestoresEmptyThemes()
+    {
+        CutLabState state = CutLabStateSerializer.Deserialize("{\"intent\":{\"planProfile\":{\"commanderThemes\":null}}}");
+
+        Assert.NotNull(state.Intent);
+        Assert.Empty(state.Intent.PlanProfile!.CommanderThemes);
+    }
+
     private static CutLabMetricSnapshot CreateBaselineSnapshot()
         => new()
         {

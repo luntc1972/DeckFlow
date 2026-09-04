@@ -1269,6 +1269,33 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(["voltron", "stax"], roundTripped.Intent.PlanProfile!.CommanderThemes.Select(theme => theme.Slug));
     }
 
+    [Fact]
+    public void BuildPlanProfile_ThemesRecoverAfterPriorOutageWithNoPostedThemes_PreservesSlugsAndRestoresMetadata()
+    {
+        CutLabCommanderTheme voltron = new() { Slug = "voltron", DisplayName = "Voltron", DeckCount = 42 };
+        CutLabCommanderTheme stax = new() { Slug = "stax", DisplayName = "Stax", DeckCount = 24 };
+        CutLabPlanProfile priorProfile = new()
+        {
+            CommanderThemes =
+            [
+                new CutLabCommanderTheme { Slug = "voltron" },
+                new CutLabCommanderTheme { Slug = "stax" },
+            ],
+            CommanderThemesUnavailable = true,
+        };
+
+        CutLabPlanProfile rebuilt = CutLabPageService.BuildPlanProfile(
+            [],
+            [],
+            priorProfile,
+            new EdhrecThemeResult([voltron, stax], false));
+
+        Assert.Equal(["voltron", "stax"], rebuilt.CommanderThemes.Select(theme => theme.Slug));
+        Assert.Equal(["Voltron", "Stax"], rebuilt.CommanderThemes.Select(theme => theme.DisplayName));
+        Assert.Equal([42, 24], rebuilt.CommanderThemes.Select(theme => theme.DeckCount));
+        Assert.False(rebuilt.CommanderThemesUnavailable);
+    }
+
     private static CutLabApiController CreateController(
         FakeAnalysisContextBuilder builder,
         FakeSimulationService simulation,

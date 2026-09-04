@@ -1041,6 +1041,21 @@ internal sealed class CutLabPageService : ICutLabPageService
                 .Select(theme => new CutLabCommanderTheme { Slug = theme.Slug })
                 .ToArray();
         }
+        else if (requestedThemeSlugs.Count == 0 && priorProfile?.CommanderThemesUnavailable == true)
+        {
+            // Why: the theme fieldset was suppressed on the render that produced this post, so an empty
+            // post means nothing was shown to check, not that the user cleared their selection. EDHREC has
+            // recovered, so re-validate prior slugs and re-attach the authoritative display metadata.
+            Dictionary<string, CutLabCommanderTheme> recoveredKnownThemesBySlug = planThemeResult.Themes
+                .GroupBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
+            checkedThemes = (priorProfile.CommanderThemes ?? [])
+                .Select(theme => theme.Slug)
+                .Where(slug => recoveredKnownThemesBySlug.ContainsKey(slug))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(slug => recoveredKnownThemesBySlug[slug])
+                .ToArray();
+        }
         else if (isFirstPresentation && requestedThemeSlugs.Count == 0)
         {
             checkedThemes = EdhrecCommanderThemeService.SelectDefaultThemes(planThemeResult.Themes);
