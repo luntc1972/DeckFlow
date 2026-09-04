@@ -922,6 +922,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getRestartRoundsForm = (): HTMLFormElement | null =>
     document.querySelector<HTMLFormElement>('form[data-cut-lab-restart-rounds-form]');
 
+  const getPlanApplySubmitButton = (): HTMLButtonElement | null =>
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-plan-apply-submit]');
+
   const getCutLabRestartRoundsApi = (): string =>
     getRestartRoundsForm()?.dataset.cutLabRestartRoundsApi?.trim() || cutLabRestartRoundsApiEndpoint;
 
@@ -4742,6 +4745,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const form = getForm();
     if (!form) {
       return;
+    }
+
+    const planApplySubmitButton = getPlanApplySubmitButton();
+    if (planApplySubmitButton) {
+      planApplySubmitButton.hidden = true;
     }
 
     attachRowHandlers();

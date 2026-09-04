@@ -181,8 +181,6 @@ describe('DeckFlowCutLab', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value='${legacyStateJson}' />
-        <textarea name="PrimaryPlan">Keep the control shell intact.</textarea>
-        <textarea name="SecondaryPlan">Win through inevitability.</textarea>
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <p class="prompt-size-note"><span data-cut-lab-lock-count></span></p>
@@ -350,9 +348,12 @@ describe('DeckFlowCutLab', () => {
       },
     ]);
     expect(parsed.packages).toEqual([]);
+    // Why: Phase 8 removed the PrimaryPlan/SecondaryPlan textareas from this fixture (WR-11) —
+    // buildSnapshotFromDom now falls back to the persisted legacyStateJson's intent values
+    // instead of reading a DOM control that no longer exists in production.
     expect(parsed.intent).toEqual({
-      primaryPlan: 'Keep the control shell intact.',
-      secondaryPlan: 'Win through inevitability.',
+      primaryPlan: 'Stick Atraxa and snowball card advantage.',
+      secondaryPlan: 'Protect the board with proliferate value.',
       planProfile: null,
       bracket: 3,
       playExperience: 'Focused',
@@ -377,8 +378,6 @@ describe('DeckFlowCutLab', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
-        <textarea name="PrimaryPlan">Keep the lands online.</textarea>
-        <textarea name="SecondaryPlan"></textarea>
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <details class="cutlab-role-group" open>
@@ -449,8 +448,6 @@ describe('DeckFlowCutLab', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
-        <textarea name="PrimaryPlan">Keep the lands online.</textarea>
-        <textarea name="SecondaryPlan"></textarea>
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <details class="cutlab-role-group" open>
@@ -521,8 +518,6 @@ describe('DeckFlowCutLab', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
-        <textarea name="PrimaryPlan">Keep the lands online.</textarea>
-        <textarea name="SecondaryPlan"></textarea>
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <details class="cutlab-role-group" open>
@@ -623,8 +618,6 @@ describe('DeckFlowCutLab', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
-        <textarea name="PrimaryPlan">Keep the mana base stable.</textarea>
-        <textarea name="SecondaryPlan"></textarea>
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <table>

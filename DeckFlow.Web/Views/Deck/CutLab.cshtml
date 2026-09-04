@@ -1124,7 +1124,7 @@
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-plan-panel">
                 <summary class="cutlab-collapsible__summary">Plan profile</summary>
-                <form method="post" action="@Url.Content("~/cut-lab/plan-apply")" data-cut-lab-plan-form>
+                <form method="post" action="@Url.Content("~/cut-lab/plan-apply")" id="cut-lab-plan-form" data-cut-lab-plan-form>
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
                     <input type="hidden" name="PlanPanelPosted" value="true" />
@@ -1175,7 +1175,7 @@
                         }
                     </fieldset>
                 </div>
-                    <noscript><button type="submit" class="run-button">Apply plan</button></noscript>
+                    <button type="submit" class="run-button" data-cut-lab-plan-apply-submit>Apply plan</button>
                 </form>
             </details>
         </section>

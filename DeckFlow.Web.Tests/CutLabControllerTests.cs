@@ -401,6 +401,28 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task PlanApply_PostedSelections_RoundTripIntoReRenderedState()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+            PlanPanelPosted = true,
+            PlanStrategies = ["combo"],
+            PlanThemes = ["tokens"],
+        };
+
+        var result = await controller.PlanApply(request);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        CutLabState restoredState = CutLabStateSerializer.Deserialize(model.CutLabStateJson);
+        Assert.Equal(["combo"], restoredState.Intent.PlanProfile!.GenericStrategies);
+        Assert.Equal(["tokens"], restoredState.Intent.PlanProfile.CommanderThemes.Select(theme => theme.Slug));
+    }
+
+    [Fact]
     public async Task Process_WithDeckTextAndPriorState_BackfillsPlanSelectionsFromState()
     {
         var service = new StateAwareCutLabPageService();
@@ -1063,7 +1085,7 @@ public sealed class CutLabControllerTests
             return Task.FromResult(new CutLabProcessResult
             {
                 State = state,
-                SerializedStateJson = request.CutLabStateJson,
+                SerializedStateJson = CutLabStateSerializer.Serialize(state),
                 AvailableCommanderThemes = state.Intent.PlanProfile.CommanderThemes,
                 CardCount = 100,
                 HasResult = true,

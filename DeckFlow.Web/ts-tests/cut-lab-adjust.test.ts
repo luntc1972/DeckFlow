@@ -181,8 +181,6 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
     <div class="error-banner hidden" role="alert"></div>
     <form data-cache-key="cut-lab">
       <input type="hidden" name="CutLabStateJson" value='${stateJson}' />
-      <textarea name="PrimaryPlan">Hit exactly 100.</textarea>
-      <textarea name="SecondaryPlan"></textarea>
       <input type="radio" name="Bracket" value="3" checked />
       <input type="radio" name="PlayExperience" value="Focused" checked />
       <table>

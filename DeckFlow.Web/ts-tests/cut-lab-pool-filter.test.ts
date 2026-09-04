@@ -27,8 +27,6 @@ describe('DeckFlowCutLab pool filter', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
-        <textarea name="PrimaryPlan">Keep the mana and engine intact.</textarea>
-        <textarea name="SecondaryPlan"></textarea>
         <input type="radio" name="Bracket" value="3" checked />
         <input type="radio" name="PlayExperience" value="Focused" checked />
         <p class="prompt-size-note"><span data-cut-lab-lock-count>3 cards in pool · 2 locked</span></p>
