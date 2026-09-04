@@ -74,6 +74,28 @@ public sealed class CutLabPlanFloorDeltaTests
     }
 
     [Fact]
+    public void PlanFloorDeltas_EveryStrategyConsequenceNamesARaisedRole()
+    {
+        foreach (DeckPlanStrategyEntry strategy in DeckPlanStrategyCatalog.Entries)
+        {
+            Assert.True(
+                CutLabFloorDefaults.PlanFloorDeltas.TryGetValue(strategy.Slug, out IReadOnlyDictionary<string, int>? deltas));
+            Assert.All(deltas!.Keys, role =>
+            {
+                // Why: role keys can be plural ("engines", "payoffs") while prose may use
+                // the singular ("raises the engine floor"); check every raised role without
+                // treating a grammar difference as category drift.
+                string roleWord = role.Split('-')[^1];
+                string stem = role.Split('-')[0];
+                Assert.True(
+                    strategy.Consequence.Contains(roleWord, StringComparison.OrdinalIgnoreCase)
+                    || strategy.Consequence.Contains(Singularize(stem), StringComparison.OrdinalIgnoreCase),
+                    $"{strategy.Slug} raises '{role}' but its consequence copy never names it.");
+            });
+        }
+    }
+
+    [Fact]
     public void Deserialize_PlanProfileWithCommanderThemes_PreservesNonBlankUniqueSlugs()
     {
         CutLabState state = new()
@@ -182,6 +204,8 @@ public sealed class CutLabPlanFloorDeltaTests
         Assert.True(combined > combo);
         Assert.Equal(voltron, combined);
     }
+
+    private static string Singularize(string word) => word.EndsWith('s') ? word[..^1] : word;
 
     private static IReadOnlyList<CutLabResolvedFloor> Resolve(CutLabPlanProfile? planProfile = null, IReadOnlyList<CutLabRoleFloor>? priorFloors = null, IRoleFloorBaselineProvider? roleFloorBaseline = null) =>
         CutLabFloorDefaults.ResolveDefaults(3, "Focused", 3, [], null, null, roleFloorBaseline, priorFloors ?? [], planProfile);
