@@ -4731,7 +4731,8 @@ input[data-cut-lab-floor] {
 
 .cut-lab-plan-panel__row:has(> input:checked) {
   border-color: var(--accent);
-  background: var(--panel-alt, var(--panel));
+  /* Why: --panel-alt is not a DeckFlow theme token; the guild forks only expose --panel/--line/--accent, so tint the existing panel with the accent rather than inventing a per-theme variable. */
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
 }
 
 .cut-lab-plan-panel__row input[type="checkbox"] {

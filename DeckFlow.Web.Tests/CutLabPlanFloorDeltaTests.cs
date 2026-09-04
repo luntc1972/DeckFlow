@@ -60,6 +60,67 @@ public sealed class CutLabPlanFloorDeltaTests
     }
 
     [Fact]
+    public void PlanFloorDeltas_CatalogEntries_UseOnlyCanonicalRoleKeys()
+    {
+        foreach (DeckPlanStrategyEntry strategy in DeckPlanStrategyCatalog.Entries)
+        {
+            if (!CutLabFloorDefaults.PlanFloorDeltas.TryGetValue(strategy.Slug, out IReadOnlyDictionary<string, int>? deltas))
+            {
+                continue;
+            }
+
+            Assert.All(deltas.Keys, role => Assert.Contains(role, CutLabFloorRules.RoleKeys, StringComparer.Ordinal));
+        }
+    }
+
+    [Fact]
+    public void Deserialize_PlanProfileWithCommanderThemes_PreservesNonBlankUniqueSlugs()
+    {
+        CutLabState state = new()
+        {
+            Intent = new CutLabIntent
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    CommanderThemes =
+                    [
+                        new CutLabCommanderTheme { Slug = "stax" },
+                        new CutLabCommanderTheme { Slug = "voltron" },
+                    ],
+                    CommanderThemesUnavailable = true,
+                },
+            },
+        };
+
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(state));
+
+        Assert.Equal(["stax", "voltron"], roundTripped.Intent.PlanProfile!.CommanderThemes.Select(theme => theme.Slug));
+    }
+
+    [Fact]
+    public void Deserialize_PlanProfile_BoundsAndDeduplicatesUntrustedCollections()
+    {
+        CutLabState state = new()
+        {
+            Intent = new CutLabIntent
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    GenericStrategies = [.. Enumerable.Range(0, 13).Select(index => $"strategy-{index}"), "STRATEGY-0", " "],
+                    CommanderThemes = [.. Enumerable.Range(0, 51).Select(index => new CutLabCommanderTheme { Slug = $"theme-{index}" }), new CutLabCommanderTheme { Slug = "THEME-0" }, new CutLabCommanderTheme { Slug = " " }],
+                },
+            },
+        };
+
+        CutLabPlanProfile profile = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(state)).Intent.PlanProfile!;
+
+        Assert.Equal(12, profile.GenericStrategies.Count);
+        Assert.Equal(50, profile.CommanderThemes.Count);
+        Assert.Equal(profile.GenericStrategies.Count, profile.GenericStrategies.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(profile.CommanderThemes.Count, profile.CommanderThemes.Select(theme => theme.Slug).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Fact]
     public void ResolveDefaults_NoProfile_ByteIdenticalToTodaysRows()
     {
         var current = Resolve();

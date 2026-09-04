@@ -6,6 +6,9 @@ public sealed record CutLabPlanApplyApiResponse
     /// <summary>Server-authored live UI patch for the post-apply state.</summary>
     public CutLabUiPatchDto Patch { get; init; } = new();
 
+    /// <summary>Resolved role-floor rows for synchronizing the floor table after plan application.</summary>
+    public IReadOnlyList<CutLabFloorRowView> ResolvedFloors { get; init; } = [];
+
     /// <summary>Validated generic strategy slugs applied to the persisted profile.</summary>
     public IReadOnlyList<string> AppliedStrategies { get; init; } = [];
 

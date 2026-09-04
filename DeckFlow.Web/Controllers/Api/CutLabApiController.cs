@@ -1,3 +1,4 @@
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
@@ -88,6 +89,26 @@ public sealed class CutLabApiController : ControllerBase
             if (state.Pool.Count == 0)
             {
                 return BadRequest(new { Message = InvalidStateMessage });
+            }
+
+            CutLabPlanProfile? postedPlanProfile = state.Intent.PlanProfile;
+            if (postedPlanProfile is not null)
+            {
+                // Why: decide accepts serialized client state, so generic slugs must cross the
+                // same catalog trust boundary as they do during the MVC and plan-apply flows.
+                state = state with
+                {
+                    Intent = state.Intent with
+                    {
+                        PlanProfile = postedPlanProfile with
+                        {
+                            GenericStrategies = postedPlanProfile.GenericStrategies
+                                .Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
+                                .Distinct(StringComparer.OrdinalIgnoreCase)
+                                .ToArray(),
+                        },
+                    },
+                };
             }
 
             IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
@@ -455,8 +476,8 @@ public sealed class CutLabApiController : ControllerBase
             CutLabPlanProfile rebuiltProfile = CutLabPageService.BuildPlanProfile(
                 postedProfile?.GenericStrategies ?? [],
                 postedProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [],
-                postedProfile,
-                planThemeResult);
+                priorProfile: postedProfile,
+                planThemeResult: planThemeResult);
 
             state = state with { Intent = state.Intent with { PlanProfile = rebuiltProfile } };
 
@@ -466,10 +487,19 @@ public sealed class CutLabApiController : ControllerBase
                 commanderNames,
                 twinsEnabled,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<CutLabPoolCard> workingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
+            CutLabAnalysisContext context = await _contextBuilder.BuildAsync(
+                workingList,
+                state.Intent.PlayExperience,
+                commanderNames,
+                poolKey: CutLabResolvedCardCache.ComputePoolKey(workingList),
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<CutLabResolvedFloor> resolvedFloors = _floorResolver.Resolve(state, context.CommanderManaValue, commanderNames);
 
             return Ok(new CutLabPlanApplyApiResponse
             {
                 Patch = patch,
+                ResolvedFloors = CutLabViewModel.BuildFloorRows(resolvedFloors, context.RoleCounts, state.Intent.PlayExperience),
                 AppliedStrategies = rebuiltProfile.GenericStrategies,
                 AppliedThemes = rebuiltProfile.CommanderThemes.Select(theme => theme.Slug).ToArray(),
                 CommanderThemesUnavailable = rebuiltProfile.CommanderThemesUnavailable,

@@ -1248,7 +1248,7 @@ public sealed record CutLabFloorRowView
     /// <summary>Current number of pool cards filling the role.</summary>
     public int InPoolCount { get; init; }
 
-    /// <summary>The bracket-and-plan derived number for the Bracket column.</summary>
+    /// <summary>Bracket band before commander-aware max() resolution and before the plan delta is applied.</summary>
     public int BracketValue { get; init; }
 
     /// <summary>The commander p25 floor when one was found; otherwise null.</summary>

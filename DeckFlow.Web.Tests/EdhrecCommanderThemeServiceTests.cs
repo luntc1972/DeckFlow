@@ -62,7 +62,7 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     [Fact]
     public async Task GetCommanderThemesAsync_OversizeBody_RejectedWithoutParsing()
     {
-        var body = new string('x', EdhrecCommanderThemeService.MaxResponseBytes + 1);
+        var body = new string('x', EdhrecCommanderThemeService.MaxResponseCharacters + 1);
         var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.OK, body))).GetCommanderThemesAsync("Atraxa");
         Assert.True(result.IsUnavailable);
         Assert.Empty(result.Themes);
@@ -119,14 +119,33 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetThemeCardNamesAsync_EmptyValidResult_UsesShortMemoryCache()
+    {
+        const string body = """{"container":{"json_dict":{"cardlists":[]}}}""";
+        var handler = new RecordingHandler(Response(HttpStatusCode.OK, body));
+        var service = CreateService(handler);
+
+        var first = await service.GetThemeCardNamesAsync("Atraxa", "counters");
+        var second = await service.GetThemeCardNamesAsync("Atraxa", "counters");
+
+        Assert.Empty(first);
+        Assert.Empty(second);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
     public async Task DiskCache_SecondCall_SendsIfNoneMatch_And304ServesCachedBody()
     {
         var handler = new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12)), "etag-1"), new HttpResponseMessage(HttpStatusCode.NotModified));
         var first = await CreateService(handler).GetCommanderThemesAsync("Atraxa");
+        var cachePath = Path.Combine(_root, "artifacts", "edhrec-themes", "atraxa.json");
+        var staleTime = DateTime.UtcNow - TimeSpan.FromDays(1);
+        File.SetLastWriteTimeUtc(cachePath, staleTime);
         var second = await CreateService(handler).GetCommanderThemesAsync("Atraxa");
         Assert.Equal(first.Themes, second.Themes);
         Assert.Equal(2, handler.CallCount);
         Assert.Equal("etag-1", handler.Requests[1].IfNoneMatch);
+        Assert.True(File.GetLastWriteTimeUtc(cachePath) > staleTime);
     }
 
     [Fact]

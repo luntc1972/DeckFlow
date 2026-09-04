@@ -1,4 +1,5 @@
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.CutLab;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DeckFlow.Web.Extensions;
@@ -35,6 +36,7 @@ public static class HttpClientServiceCollectionExtensions
         {
             c.BaseAddress = new Uri("https://json.edhrec.com/pages/");
             c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+            c.MaxResponseContentBufferSize = EdhrecCommanderThemeService.MaxResponseBytes;
             c.Timeout = TimeSpan.FromSeconds(15);
         });
 

@@ -338,6 +338,7 @@ internal sealed class CutLabPageService : ICutLabPageService
 
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson, request.Bracket);
         EdhrecThemeResult planThemeResult = await FetchPlanThemeResultAsync(commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<string> initialCommanderNames = commanderResolution.CommanderNames;
         var preAnalysisState = CutLabLockRules.EnforceCommanderLock(
             BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, [], planThemeResult));
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
@@ -386,9 +387,18 @@ internal sealed class CutLabPageService : ICutLabPageService
 
         List<ResolvedCutLabEntry> finalResolvedEntries = ReconcileResolvedEntries(resolvedEntries, finalResolvedCards);
         bool recoveredDuringBuild = resolvedEntries.Zip(finalResolvedEntries, (before, after) => before.Card is null && after.Card is not null).Any(static recovered => recovered);
+        bool commanderIdentityChanged = false;
         if (upperBoundValidationDeferred || recoveredDuringBuild)
         {
             commanderResolution = ResolveCommanderSelection(finalResolvedEntries, request.SelectedCommander);
+            commanderIdentityChanged = !initialCommanderNames.SequenceEqual(commanderResolution.CommanderNames, StringComparer.OrdinalIgnoreCase);
+            if (commanderIdentityChanged)
+            {
+                // Why: final recovery can change commander identity, so theme validation must not
+                // retain results fetched for the earlier commander resolution snapshot.
+                planThemeResult = await FetchPlanThemeResultAsync(commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
+            }
+
             nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
             try
             {
@@ -402,11 +412,10 @@ internal sealed class CutLabPageService : ICutLabPageService
             }
         }
 
-        if (recoveredDuringBuild)
+        if (recoveredDuringBuild || commanderIdentityChanged)
         {
-            // BuildAsync can recover cards after both intake passes have failed. Rebuild every
-            // commander-dependent value from that final snapshot so locks, counts, roles, floors,
-            // and the picker cannot retain facts from an earlier resolution attempt.
+            // Why: BuildAsync recovery or a final commander change can invalidate every
+            // commander-dependent value retained from the earlier resolution snapshot.
             resolvedEntries = finalResolvedEntries;
 
             preAnalysisState = CutLabLockRules.EnforceCommanderLock(
