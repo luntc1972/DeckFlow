@@ -106,7 +106,7 @@ public sealed class CutLabApiController : ControllerBase
                                 .Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
                                 .Distinct(StringComparer.OrdinalIgnoreCase)
                                 .ToArray(),
-                            // Why: the factory re-resolves display metadata from the server-fetched theme list;
+                            // Why: the resolver re-resolves display metadata from the server-fetched theme list;
                             // nothing downstream may read a name or count the client chose.
                             CommanderThemes = postedPlanProfile.CommanderThemes
                                 .Where(theme => theme is not null && !string.IsNullOrWhiteSpace(theme.Slug))
@@ -187,7 +187,7 @@ public sealed class CutLabApiController : ControllerBase
                 cancellationToken).ConfigureAwait(false);
             return Ok(BuildDecideApiResponse(patch));
         }
-        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or NullReferenceException)
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab decide API request failed.");
             return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
@@ -247,7 +247,7 @@ public sealed class CutLabApiController : ControllerBase
                 CardsRemaining = patch.CardsRemaining,
             }));
         }
-        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or NullReferenceException)
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab adjust API request failed.");
             return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(BadRequest(new { Message = CutLabMessages.NoChangeMessage }));
@@ -302,7 +302,7 @@ public sealed class CutLabApiController : ControllerBase
 
             return Ok(BuildDecideApiResponse(patch));
         }
-        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or NullReferenceException)
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab restart rounds API request failed.");
             return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
@@ -362,7 +362,7 @@ public sealed class CutLabApiController : ControllerBase
                 CutLabStateJson = null,
             });
         }
-        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or NullReferenceException)
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab what-if preview API request failed.");
             return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
@@ -409,7 +409,7 @@ public sealed class CutLabApiController : ControllerBase
                 .CommitSwapAsync(state, request.CardOut, request.CardIn, cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or NullReferenceException)
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab what-if commit API request failed.");
             return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
@@ -483,7 +483,7 @@ public sealed class CutLabApiController : ControllerBase
             CutLabPlanProfile rebuiltProfile = CutLabPageService.BuildPlanProfile(
                 postedProfile?.GenericStrategies ?? [],
                 postedProfile?.CommanderThemes.Where(theme => theme is not null).Select(theme => theme.Slug).ToArray() ?? [],
-                priorProfile: planThemeResult.IsUnavailable ? null : postedProfile,
+                priorProfile: postedProfile,
                 planThemeResult: planThemeResult);
 
             state = state with { Intent = state.Intent with { PlanProfile = rebuiltProfile } };
@@ -497,13 +497,12 @@ public sealed class CutLabApiController : ControllerBase
             return Ok(new CutLabPlanApplyApiResponse
             {
                 Patch = patch,
-                ResolvedFloors = patch.ResolvedFloors,
                 AppliedStrategies = rebuiltProfile.GenericStrategies,
                 AppliedThemes = rebuiltProfile.CommanderThemes.Select(theme => theme.Slug).ToArray(),
                 CommanderThemesUnavailable = rebuiltProfile.CommanderThemesUnavailable,
             });
         }
-        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or NullReferenceException)
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
         {
             _logger.LogWarning(exception, "Cut Lab plan-apply API request failed.");
             return BadRequest(new { Message = CutLabMessages.NoChangeMessage });

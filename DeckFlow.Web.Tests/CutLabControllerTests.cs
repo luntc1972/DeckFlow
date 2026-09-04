@@ -1,3 +1,4 @@
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Infrastructure;
@@ -19,6 +20,28 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabController"/> covering the empty form and process error branches.</summary>
 public sealed class CutLabControllerTests
 {
+    [Fact]
+    public void PlanFloorDeltas_EveryStrategyConsequenceNamesARaisedRole()
+    {
+        foreach (DeckPlanStrategyEntry strategy in DeckPlanStrategyCatalog.Entries)
+        {
+            Assert.True(
+                CutLabFloorDefaults.PlanFloorDeltas.TryGetValue(strategy.Slug, out IReadOnlyDictionary<string, int>? deltas));
+            Assert.Contains(
+                deltas!.Keys,
+                role =>
+                {
+                    // Why: role keys are plural ("engines", "payoffs") but prose sometimes reads
+                    // more naturally in the singular ("raises the engine floor") -- tolerate either
+                    // so this drift guard catches real category mismatches, not grammar.
+                    string roleWord = role.Split('-')[0];
+                    string singular = roleWord.EndsWith('s') ? roleWord[..^1] : roleWord;
+                    return strategy.Consequence.Contains(roleWord, StringComparison.OrdinalIgnoreCase)
+                        || strategy.Consequence.Contains(singular, StringComparison.OrdinalIgnoreCase);
+                });
+        }
+    }
+
     [Fact]
     public void Index_ReturnsViewWithCutLabTabActive()
     {
@@ -385,7 +408,6 @@ public sealed class CutLabControllerTests
         var request = new CutLabRequest
         {
             CutLabStateJson = CutLabStateSerializer.Serialize(state),
-            PlanPanelPosted = true,
             PlanStrategies = ["combo"],
             PlanThemes = ["tokens"],
         };
@@ -408,7 +430,6 @@ public sealed class CutLabControllerTests
         var request = new CutLabRequest
         {
             CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
-            PlanPanelPosted = true,
             PlanStrategies = ["combo"],
             PlanThemes = ["tokens"],
         };

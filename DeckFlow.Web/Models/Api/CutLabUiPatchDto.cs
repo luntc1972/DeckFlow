@@ -23,8 +23,8 @@ public sealed record CutLabUiPatchDto
     /// <summary>Target lands in the current working-pool simulation, when available.</summary>
     public double? TargetLands { get; init; }
 
-    /// <summary>Resolved role-floor rows for synchronizing the floor table.</summary>
-    public IReadOnlyList<CutLabResolvedFloorDto> ResolvedFloors { get; init; } = [];
+    /// <summary>Resolved role-floor rows for synchronizing the floor table, or null when not computed on this code path.</summary>
+    public IReadOnlyList<CutLabResolvedFloorDto>? ResolvedFloors { get; init; }
 
     /// <summary>True when the current working list is eligible for export.</summary>
     public bool CanBuildExport { get; init; }
@@ -154,9 +154,17 @@ public sealed record CutLabResolvedFloorDto
             int inPoolCount = countsByRole.TryGetValue(floor.Role, out int count) ? count : 0;
             bool supportsCommanderFloor = RoleFloorBaseline.AdoptedRoleKeys.Contains(floor.Role, StringComparer.OrdinalIgnoreCase);
             string commanderDisplay = supportsCommanderFloor
-                ? floor.CommanderValue?.ToString(CultureInfo.InvariantCulture) ?? "—"
+                ? floor.CommanderValue?.ToString(CultureInfo.InvariantCulture)
+                    // Why: per D-08 the shipped snapshot cannot distinguish "commander absent from the corpus"
+                    // from "commander present, role did not clear the bar", so the UI must not claim to.
+                    ?? "—"
+                // Why: D-12 requires `n/a` for structurally out-of-scope roles because a bare dash would
+                // imply the tool looked and found nothing, when lands was deliberately pulled at the
+                // Phase 2 checkpoint and interaction-mass/protection were ruled out for insufficient breadth.
                 : "n/a";
             string sourceLabel = floor.CommanderValue is int commander && commander > floor.BracketValue
+                // Why: the label names which number actually drove the effective default, so a tie reads as
+                // Bracket because the bracket band alone already produced that number.
                 ? "Commander"
                 : "Bracket";
 
@@ -208,15 +216,12 @@ public sealed record CutLabResolvedFloorDto
     public string SourceDetail { get; init; } = string.Empty;
 
     private static string FallbackSource(string playExperience)
-        => playExperience switch
+    {
+        if (!string.IsNullOrWhiteSpace(playExperience))
         {
-            "cEDH / High-Power" => "high-power baseline",
-            "Optimized / High-Power" => "high-power baseline",
-            "High-Power" => "high-power baseline",
-            "Optimized" => "high-power baseline",
-            "Focused" => "focused baseline",
-            "Mid-Power" => "mid-power baseline",
-            "Casual" => "casual baseline",
-            _ => "selected play-experience baseline",
-        };
+            return playExperience;
+        }
+
+        return "your play experience";
+    }
 }

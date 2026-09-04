@@ -49,6 +49,14 @@ public static class CutLabPlanAffinityResolver
         Dictionary<string, HashSet<string>> normalizedThemeCards = BuildThemeCardIndex(themeCardNamesBySlug);
         HashSet<string> checkedThemeSlugs = new(planProfile.CommanderThemes.Select(theme => theme.Slug), StringComparer.OrdinalIgnoreCase);
         HashSet<string> checkedStrategySlugs = new(planProfile.GenericStrategies, StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, CutLabCommanderTheme> knownThemesBySlug = allKnownThemes
+            .GroupBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<CutLabCommanderTheme> checkedThemes = planProfile.CommanderThemes
+            .Select(theme => knownThemesBySlug.TryGetValue(theme.Slug, out CutLabCommanderTheme? knownTheme)
+                ? knownTheme
+                : new CutLabCommanderTheme { Slug = theme.Slug })
+            .ToArray();
         IReadOnlyList<CutLabCommanderTheme> offPlanThemes = allKnownThemes
             .Where(theme => !checkedThemeSlugs.Contains(theme.Slug))
             .ToArray();
@@ -58,7 +66,7 @@ public static class CutLabPlanAffinityResolver
 
         return CutLabCardNames.ToLastWinsDictionary(pool, card => card.Name, card => ResolveCard(
             card,
-            planProfile.CommanderThemes,
+            checkedThemes,
             offPlanThemes,
             checkedStrategies,
             normalizedThemeCards));

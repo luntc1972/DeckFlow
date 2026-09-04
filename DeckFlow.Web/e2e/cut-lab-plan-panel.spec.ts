@@ -129,9 +129,15 @@ const reimportPool = async (page: Page): Promise<void> => {
 // change fires its own round trip to /api/cut-lab/plan-apply, so wait for that response (not just
 // the click) before reading anything the response is expected to have changed.
 const togglePlanCheckbox = async (page: Page, checkbox: ReturnType<Page['locator']>): Promise<void> => {
-  const applied = page.waitForResponse(r => r.url().includes("/api/cut-lab/plan-apply"));
-  await checkbox.click();
-  await applied;
+  const applied = page.waitForResponse(r =>
+    r.url().includes("/api/cut-lab/plan-apply") && r.request().method() === "POST");
+  try {
+    await checkbox.click();
+    const response = await applied;
+    expect(response.ok()).toBe(true);
+  } finally {
+    await applied.catch(() => undefined);
+  }
   await expect(checkbox).toBeEnabled();
 };
 

@@ -63,7 +63,7 @@ public sealed class CutLabController : Controller
                 // PlanStrategies/PlanThemes in its POST body. Backfill them from the carried-forward
                 // state so reprocessing does not silently wipe or reset the user's checked plan.
                 CutLabState priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-                if (!request.PlanPanelPosted && request.PlanStrategies.Count == 0 && request.PlanThemes.Count == 0)
+                if (request.PlanStrategies.Count == 0 && request.PlanThemes.Count == 0)
                 {
                     request.PlanStrategies = priorState.Intent.PlanProfile?.GenericStrategies ?? [];
                     request.PlanThemes = priorState.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];

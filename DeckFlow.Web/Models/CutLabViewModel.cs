@@ -1,6 +1,7 @@
 using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Research;
+using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.CutLab;
 using System.Globalization;
@@ -533,43 +534,28 @@ public sealed record CutLabViewModel
         IReadOnlyDictionary<string, int> countsByRole,
         string playExperience)
     {
+        IReadOnlyList<CutLabResolvedFloorDto> floorDtos = CutLabResolvedFloorDto.Create(resolvedFloors, countsByRole, playExperience);
+
         return resolvedFloors
-            .Select(floor =>
+            .Zip(floorDtos, (floor, floorDto) =>
             {
-                int inPoolCount = countsByRole.TryGetValue(floor.Role, out int count) ? count : 0;
                 bool supportsCommanderFloor = RoleFloorBaseline.AdoptedRoleKeys.Contains(floor.Role, StringComparer.OrdinalIgnoreCase);
-                string commanderDisplay = supportsCommanderFloor
-                    ? floor.CommanderValue?.ToString(CultureInfo.InvariantCulture)
-                        // Why: per D-08 the shipped snapshot cannot distinguish "commander absent from the corpus"
-                        // from "commander present, role did not clear the bar", so the UI must not claim to.
-                        ?? "—"
-                    // Why: D-12 requires `n/a` for structurally out-of-scope roles because a bare dash would
-                    // imply the tool looked and found nothing, when lands was deliberately pulled at the
-                    // Phase 2 checkpoint and interaction-mass/protection were ruled out for insufficient breadth.
-                    : "n/a";
-                string sourceLabel = floor.CommanderValue is int commander && commander > floor.BracketValue
-                    // Why: the label names which number actually drove the effective default, so a tie reads as
-                    // Bracket because the bracket band alone already produced that number.
-                    ? "Commander"
-                    : "Bracket";
                 return new CutLabFloorRowView
                 {
-                    RoleKey = floor.Role,
+                    RoleKey = floorDto.RoleKey,
                     DisplayLabel = DisplayLabelFor(floor.Role),
-                    InPoolCount = inPoolCount,
-                    BracketValue = floor.BracketValue,
+                    InPoolCount = floorDto.InPoolCount,
+                    BracketValue = floorDto.BracketValue,
                     CommanderValue = floor.CommanderValue,
                     SupportsCommanderFloor = supportsCommanderFloor,
-                    CommanderDisplay = commanderDisplay,
-                    Floor = floor.Floor,
-                    DefaultValue = floor.DefaultValue,
-                    PlanDelta = floor.PlanDelta,
-                    IsUserSet = floor.IsUserSet,
-                    AtFloor = inPoolCount <= floor.Floor + 1,
-                    SourceLabel = sourceLabel,
-                    SourceDetail = floor.BracketWasFallback
-                        ? $"Default: {floor.DefaultValue} — based on {FallbackSource(playExperience)}"
-                        : $"Default for B{floor.ResolvedBracket}: {floor.DefaultValue}",
+                    CommanderDisplay = floorDto.CommanderDisplay,
+                    Floor = floorDto.Floor,
+                    DefaultValue = floorDto.DefaultValue,
+                    PlanDelta = floorDto.PlanDelta,
+                    IsUserSet = floorDto.IsUserSet,
+                    AtFloor = floorDto.InPoolCount <= floorDto.Floor + 1,
+                    SourceLabel = floorDto.SourceLabel,
+                    SourceDetail = floorDto.SourceDetail,
                 };
             })
             .ToArray();
@@ -1155,15 +1141,6 @@ public sealed record CutLabViewModel
     private static string DirectionVerbFor(CutLabMetricDirection direction)
         => direction == CutLabMetricDirection.Down ? "lowers" : "raises";
 
-    private static string FallbackSource(string playExperience)
-    {
-        if (!string.IsNullOrWhiteSpace(playExperience))
-        {
-            return playExperience;
-        }
-
-        return "your play experience";
-    }
 }
 
 /// <summary>View-ready slot-competition group for one fixed Cut Lab role.</summary>

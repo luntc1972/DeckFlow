@@ -81,14 +81,14 @@ public static class DeckPlanStrategyCatalog
             "combo",
             "Combo",
             "Wins by assembling a specific card combination that generates an infinite or game-ending effect.",
-            "Protects tutors and combo pieces, and raises the tutor/protection floor.",
+            "Protects tutors and combo pieces, and raises the protection and wincons floors.",
             ["combo", "tutor"]),
         new DeckPlanStrategyEntry(
             DeckPlanStrategy.Aristocrats,
             "aristocrats",
             "Aristocrats",
             "Wins by repeatedly sacrificing creatures for incremental value and life loss.",
-            "Protects sacrifice outlets and drains, and raises the interaction floor.",
+            "Protects sacrifice outlets and drains, and raises the engines and payoffs floors.",
             ["sacrifice", "sac outlet", "aristocrat", "drain", "recursion"]),
         new DeckPlanStrategyEntry(
             DeckPlanStrategy.Voltron,
@@ -109,7 +109,7 @@ public static class DeckPlanStrategyCatalog
             "spellslinger",
             "Spellslinger",
             "Wins through volume of instants and sorceries, triggering prowess and magecraft payoffs.",
-            "Protects cheap spells and payoffs, and raises the engine floor.",
+            "Protects cheap spells and payoffs, and raises the draw floor.",
             ["spellslinger", "prowess", "storm", "magecraft", "instant", "sorcery"]),
         new DeckPlanStrategyEntry(
             DeckPlanStrategy.Stax,
