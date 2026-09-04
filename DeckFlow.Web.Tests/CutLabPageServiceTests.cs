@@ -171,6 +171,9 @@ public sealed class CutLabPageServiceTests
         CutLabPlanProfile profile = result.State!.Intent.PlanProfile!;
         Assert.Equal(["stax", "voltron"], profile.CommanderThemes.Select(theme => theme.Slug).OrderBy(slug => slug));
         Assert.True(profile.CommanderThemesUnavailable);
+
+        CutLabState roundTrippedState = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(result.State));
+        Assert.Equal(["stax", "voltron"], roundTrippedState.Intent.PlanProfile!.CommanderThemes.Select(theme => theme.Slug).OrderBy(slug => slug));
     }
 
     [Fact]
