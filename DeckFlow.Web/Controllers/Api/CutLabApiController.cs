@@ -132,6 +132,21 @@ public sealed class CutLabApiController : ControllerBase
                 fullPool,
                 afterWorkingList,
                 beforeContext.ResolvedCards);
+            if (request.Decision == CutLabDecideAction.Restore)
+            {
+                CutLabAnalysisContext afterContext = await _contextBuilder.BuildAsync(
+                    afterWorkingList,
+                    state.Intent.PlayExperience,
+                    commanderNames,
+                    afterPreResolvedCards,
+                    afterPoolKey,
+                    cancellationToken).ConfigureAwait(false);
+                planAffinities = await _planAffinityFactory.BuildAsync(
+                    state.Intent.PlanProfile,
+                    afterContext.AnalyzedCards,
+                    commanderNames,
+                    cancellationToken).ConfigureAwait(false);
+            }
             CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
                 state,
                 state.Intent.PlayExperience,

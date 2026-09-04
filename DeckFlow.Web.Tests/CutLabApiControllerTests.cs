@@ -446,6 +446,67 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostDecideAsync_Restore_RebuildsPlanAffinitiesForRestoredCard()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Arcane Signet", quantity: 1),
+                Card("Counterspell", quantity: 99),
+            ],
+            decisions:
+            [
+                new CutLabDecision
+                {
+                    CardName = "Arcane Signet",
+                    Kind = CutLabDecisionKind.Deferred,
+                    Round = CutLabCutRoundEngine.Round2Key,
+                    Ordinal = 1,
+                },
+                new CutLabDecision
+                {
+                    CardName = "Arcane Signet",
+                    Kind = CutLabDecisionKind.Rejected,
+                    Round = CutLabCutRoundEngine.Round3Key,
+                    Ordinal = 2,
+                },
+                new CutLabDecision
+                {
+                    CardName = "Arcane Signet",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 3,
+                },
+        ]);
+        TrackingPatchBuilder patchBuilder = new();
+        FakeAnalysisContextBuilder builder = new(workingList => CreateAnalysisContext(workingList));
+        builder.SeedCachedResolvedCards(state.Pool);
+        PerCardPlanAffinityFactory planAffinityFactory = new();
+        CutLabApiController controller = CreateController(
+            builder,
+            new FakeSimulationService(),
+            patchBuilder,
+            planAffinityFactory: planAffinityFactory);
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Restore,
+            },
+            CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(response.Result);
+        Assert.NotNull(patchBuilder.LastPlanAffinities);
+        Assert.Contains("Arcane Signet", planAffinityFactory.LastAnalyzedCardNames);
+        CutLabPlanAffinity affinity = Assert.Single(patchBuilder.LastPlanAffinities, pair => pair.Key == "Arcane Signet").Value;
+        Assert.True(affinity.IsOnPlan);
+        Assert.Equal(2, affinity.Score);
+    }
+
+    [Fact]
     public async Task PostRestartRoundsAsync_RemovesOnlyRound1AndRound2RejectedOrDeferredDecisions()
     {
         CutLabState state = CreateState(
@@ -1198,6 +1259,7 @@ public sealed class CutLabApiControllerTests
         ICutLabWhatifService? whatifService = null,
         ICutLabFloorResolver? floorResolver = null,
         IFeatureFlagCache? featureFlags = null,
+        ICutLabPlanAffinityFactory? planAffinityFactory = null,
         IEdhrecCommanderThemeService? themeService = null)
     {
         ICutLabFloorResolver resolvedFloorResolver = floorResolver ?? new PassThroughFloorResolver();
@@ -1212,6 +1274,7 @@ public sealed class CutLabApiControllerTests
             whatifService ?? new FakeCutLabWhatifService(),
             resolvedFeatureFlags,
             NullLogger<CutLabApiController>.Instance,
+            planAffinityFactory: planAffinityFactory,
             themeService: themeService)
         {
             ControllerContext = new ControllerContext
@@ -1479,9 +1542,37 @@ public sealed class CutLabApiControllerTests
         }
     }
 
+    private sealed class PerCardPlanAffinityFactory : ICutLabPlanAffinityFactory
+    {
+        private int _buildCalls;
+
+        public IReadOnlyList<string> LastAnalyzedCardNames { get; private set; } = [];
+
+        public Task<IReadOnlyDictionary<string, CutLabPlanAffinity>?> BuildAsync(
+            CutLabPlanProfile? planProfile,
+            IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
+            IReadOnlyList<string> commanderNames,
+            CancellationToken cancellationToken = default)
+        {
+            _buildCalls++;
+            if (_buildCalls == 1)
+            {
+                return Task.FromResult<IReadOnlyDictionary<string, CutLabPlanAffinity>?>(null);
+            }
+
+            LastAnalyzedCardNames = analyzedCards.Select(card => card.Name).ToArray();
+            return Task.FromResult<IReadOnlyDictionary<string, CutLabPlanAffinity>?>(new Dictionary<string, CutLabPlanAffinity>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Arcane Signet"] = new(["artifacts"], [], [], 2),
+            });
+        }
+    }
+
     private sealed class TrackingPatchBuilder : ICutLabUiPatchBuilder
     {
         public CutLabState? LastState { get; private set; }
+
+        public IReadOnlyDictionary<string, CutLabPlanAffinity>? LastPlanAffinities { get; private set; }
 
         public Task<CutLabUiPatchDto> BuildAsync(
             CutLabState state,
@@ -1494,12 +1585,36 @@ public sealed class CutLabApiControllerTests
             CancellationToken cancellationToken = default)
         {
             LastState = state;
-            return Task.FromResult(new CutLabUiPatchDto
+            return Task.FromResult(CreatePatch(state));
+        }
+
+        public Task<CutLabUiPatchDto> BuildAsync(
+            CutLabState state,
+            string playExperience,
+            IReadOnlyList<string> commanderNames,
+            bool twinsEnabled,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
+            string? poolKey = null,
+            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
+            IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
+            CancellationToken cancellationToken = default)
+        {
+            LastState = state;
+            LastPlanAffinities = planAffinities;
+            return Task.FromResult(CreatePatch(state));
+        }
+
+        private static CutLabUiPatchDto CreatePatch(CutLabState state)
+            => new()
             {
                 CutLabStateJson = CutLabStateSerializer.Serialize(state),
                 WhatifCardInOptions = ["Cut Card"],
-            });
-        }
+                NextProposal = new CutLabDecideNextProposalDto
+                {
+                    CardName = "Counterspell",
+                    RoundKey = CutLabCutRoundEngine.Round1Key,
+                },
+            };
     }
 
     private sealed class ProposalPatchBuilder : ICutLabUiPatchBuilder
@@ -1516,6 +1631,18 @@ public sealed class CutLabApiControllerTests
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(Patch);
+
+        public Task<CutLabUiPatchDto> BuildAsync(
+            CutLabState state,
+            string playExperience,
+            IReadOnlyList<string> commanderNames,
+            bool twinsEnabled,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards,
+            string? poolKey,
+            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
+            IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(Patch);
     }
 
     private sealed class ThrowingPatchBuilder : ICutLabUiPatchBuilder
@@ -1528,6 +1655,18 @@ public sealed class CutLabApiControllerTests
             IReadOnlyList<ScryfallCardData>? preResolvedCards = null,
             string? poolKey = null,
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
+            CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("boom");
+
+        public Task<CutLabUiPatchDto> BuildAsync(
+            CutLabState state,
+            string playExperience,
+            IReadOnlyList<string> commanderNames,
+            bool twinsEnabled,
+            IReadOnlyList<ScryfallCardData>? preResolvedCards,
+            string? poolKey,
+            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
+            IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities,
             CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("boom");
     }
