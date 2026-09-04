@@ -3767,14 +3767,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
-  const buildCheckedPlanProfileSnapshot = (commanderThemesUnavailable?: boolean): CutLabPlanProfileSnapshot => ({
+  const buildCheckedPlanProfileSnapshot = (
+    persistedProfile?: CutLabPlanProfileSnapshot | null,
+    themeCheckboxes: HTMLInputElement[] = getPlanPanelCheckboxes('PlanThemes'),
+  ): CutLabPlanProfileSnapshot => ({
     genericStrategies: getPlanPanelCheckboxes('PlanStrategies')
       .filter(checkbox => checkbox.checked)
       .map(checkbox => checkbox.value),
-    commanderThemes: getPlanPanelCheckboxes('PlanThemes')
-      .filter(checkbox => checkbox.checked)
-      .map(checkbox => ({ slug: checkbox.value })),
-    commanderThemesUnavailable,
+    commanderThemes: themeCheckboxes.length === 0
+      ? persistedProfile?.commanderThemes ?? []
+      : themeCheckboxes.filter(checkbox => checkbox.checked).map(checkbox => ({ slug: checkbox.value })),
+    commanderThemesUnavailable: themeCheckboxes.length === 0 ? persistedProfile?.commanderThemesUnavailable : undefined,
   });
 
   const syncPlanPanel = (appliedStrategies: string[], appliedThemes: string[]): void => {
@@ -3839,7 +3842,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       ...persistedState,
       intent: {
         ...(persistedState.intent as CutLabIntentSnapshot),
-        planProfile: buildCheckedPlanProfileSnapshot(persistedState.intent?.planProfile?.commanderThemesUnavailable),
+        planProfile: buildCheckedPlanProfileSnapshot(persistedState.intent?.planProfile),
       },
     };
 

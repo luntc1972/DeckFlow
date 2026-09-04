@@ -54,7 +54,31 @@ const buildFixture = (): HTMLInputElement => {
 };
 
 describe('cut-lab plan panel', () => {
-  it('carries persisted commander theme outage state into plan apply', async () => {
+  it('preserves persisted commander themes when the outage omits theme checkboxes', async () => {
+    buildFixture();
+    const persistedState = {
+      intent: {
+        planProfile: {
+          genericStrategies: [],
+          commanderThemes: [{ slug: 'theme-a' }],
+          commanderThemesUnavailable: true,
+        },
+      },
+    };
+    document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!.value = JSON.stringify(persistedState);
+    document.querySelectorAll<HTMLInputElement>('input[name="PlanThemes"]').forEach(input => { input.closest('label')!.remove(); });
+    fetchMock.mockResolvedValueOnce(response(['kept'], []));
+
+    document.querySelector<HTMLInputElement>('input[value="dropped"]')!.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+
+    const request = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const postedState = JSON.parse(request.cutLabStateJson);
+    expect(postedState.intent.planProfile.commanderThemes).toEqual([{ slug: 'theme-a' }]);
+    expect(postedState.intent.planProfile.commanderThemesUnavailable).toBe(true);
+  });
+
+  it('clears commander themes when rendered theme checkboxes are all unchecked', async () => {
     buildFixture();
     const persistedState = {
       intent: {
@@ -74,7 +98,7 @@ describe('cut-lab plan panel', () => {
 
     const request = JSON.parse(fetchMock.mock.calls[0][1].body);
     const postedState = JSON.parse(request.cutLabStateJson);
-    expect(postedState.intent.planProfile.commanderThemesUnavailable).toBe(true);
+    expect(postedState.intent.planProfile.commanderThemes).toEqual([]);
   });
 
   it('applies changes after the plan-panel root is replaced', async () => {
