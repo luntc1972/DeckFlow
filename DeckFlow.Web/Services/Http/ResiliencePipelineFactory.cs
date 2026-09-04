@@ -23,7 +23,8 @@ namespace DeckFlow.Web.Services.Http
     public static class ResiliencePipelineFactory
     {
         internal static readonly TimeSpan ScryfallTotalTimeout = TimeSpan.FromSeconds(30);
-        internal static readonly TimeSpan EdhrecTotalTimeout = TimeSpan.FromSeconds(12);
+        internal static readonly TimeSpan EdhrecTotalTimeout = TimeSpan.FromSeconds(14);
+        internal static readonly TimeSpan EdhrecAttemptTimeout = TimeSpan.FromSeconds(4);
 
         internal const int ScryfallMaxRetryAttempts = 2;
 
@@ -53,23 +54,28 @@ namespace DeckFlow.Web.Services.Http
             .AddTimeout(TimeSpan.FromSeconds(5));
 
         /// <summary>EDHREC static CDN: retry transient failures only, no shared circuit breaker.</summary>
-        private static void BuildEdhrec(ResiliencePipelineBuilder<RestResponse> builder) => builder
-            .AddTimeout(new TimeoutStrategyOptions
-            {
-                Timeout = EdhrecTotalTimeout,
-                Name = "edhrec-total",
-            })
-            .AddRetry(new RetryStrategyOptions<RestResponse>
-            {
-                MaxRetryAttempts = 2,
-                Delay = TimeSpan.FromMilliseconds(200),
-                BackoffType = DelayBackoffType.Constant,
-                // Why: 403 is deliberately not transient, so S3 AccessDenied is never retried.
-                ShouldHandle = new PredicateBuilder<RestResponse>()
-                    .HandleResult(static r => IsTransientFailure(r))
-                    .Handle<Exception>(static ex => IsTransientException(ex)),
-            })
-            .AddTimeout(TimeSpan.FromSeconds(10));
+        internal static void BuildEdhrec(
+            ResiliencePipelineBuilder<RestResponse> builder,
+            TimeSpan? totalTimeout = null,
+            TimeSpan? attemptTimeout = null,
+            TimeSpan? retryDelay = null) => builder
+                // Why: the total budget must cover all three 4-second attempts plus retry delays.
+                .AddTimeout(new TimeoutStrategyOptions
+                {
+                    Timeout = totalTimeout ?? EdhrecTotalTimeout,
+                    Name = "edhrec-total",
+                })
+                .AddRetry(new RetryStrategyOptions<RestResponse>
+                {
+                    MaxRetryAttempts = 2,
+                    Delay = retryDelay ?? TimeSpan.FromMilliseconds(200),
+                    BackoffType = DelayBackoffType.Constant,
+                    // Why: 403 is deliberately not transient, so S3 AccessDenied is never retried.
+                    ShouldHandle = new PredicateBuilder<RestResponse>()
+                        .HandleResult(static r => IsTransientFailure(r))
+                        .Handle<Exception>(static ex => IsTransientException(ex)),
+                })
+                .AddTimeout(attemptTimeout ?? EdhrecAttemptTimeout);
 
         /// <summary>Spellbook: Retry(3, exponential+jitter), AttemptTimeout(10s), CB(50% / 30s).</summary>
         private static void BuildSpellbook(ResiliencePipelineBuilder<RestResponse> builder) => builder

@@ -340,7 +340,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         EdhrecThemeResult planThemeResult = await FetchPlanThemeResultAsync(commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<string> initialCommanderNames = commanderResolution.CommanderNames;
         var preAnalysisState = CutLabLockRules.EnforceCommanderLock(
-            BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, [], planThemeResult));
+            BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult));
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
         IReadOnlyList<ScryfallCardData> preResolvedCards = resolvedEntries
             .Select(entry => entry.Card)
@@ -419,7 +419,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             resolvedEntries = finalResolvedEntries;
 
             preAnalysisState = CutLabLockRules.EnforceCommanderLock(
-                BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, [], planThemeResult));
+                BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult));
             derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
             preResolvedCards = resolvedEntries
                 .Select(entry => entry.Card)
@@ -936,7 +936,6 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
         IReadOnlyList<string> commanderNames,
         CutLabRequest request,
-        IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
         EdhrecThemeResult planThemeResult)
     {
         var priorCards = priorState.Pool
@@ -978,15 +977,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             BaselineSnapshot = priorState.BaselineSnapshot,
             BaselineActualLands = priorState.BaselineActualLands,
             BaselineTargetLands = priorState.BaselineTargetLands,
-            RoleFloors = resolvedFloors
-                .Where(floor => floor.IsUserSet)
-                .Select(floor => new CutLabRoleFloor
-                {
-                    Role = floor.Role,
-                    Floor = floor.Floor,
-                    IsUserSet = true,
-                })
-                .ToArray(),
+            // Why: persisted floors are restored from priorState and resolved downstream.
+            RoleFloors = [],
             Intent = new CutLabIntent
             {
                 PrimaryPlan = request.PrimaryPlan,
