@@ -23,7 +23,10 @@ namespace DeckFlow.Web.Services.Http
     public static class ResiliencePipelineFactory
     {
         internal static readonly TimeSpan ScryfallTotalTimeout = TimeSpan.FromSeconds(30);
-        internal static readonly TimeSpan EdhrecTotalTimeout = TimeSpan.FromSeconds(12);
+        // Why: total must stay >= attempts * per-attempt, and the client's own HttpClient.Timeout must
+        // stay above per-attempt, or a slow-but-responding EDHREC starves every retry (WR-03).
+        internal static readonly TimeSpan EdhrecTotalTimeout = TimeSpan.FromSeconds(15);
+        internal static readonly TimeSpan EdhrecAttemptTimeout = TimeSpan.FromSeconds(5);
 
         internal const int ScryfallMaxRetryAttempts = 2;
 
@@ -69,7 +72,11 @@ namespace DeckFlow.Web.Services.Http
                     .HandleResult(static r => IsTransientFailure(r))
                     .Handle<Exception>(static ex => IsTransientException(ex)),
             })
-            .AddTimeout(TimeSpan.FromSeconds(10));
+            .AddTimeout(new TimeoutStrategyOptions
+            {
+                Timeout = EdhrecAttemptTimeout,
+                Name = "edhrec-attempt",
+            });
 
         /// <summary>Spellbook: Retry(3, exponential+jitter), AttemptTimeout(10s), CB(50% / 30s).</summary>
         private static void BuildSpellbook(ResiliencePipelineBuilder<RestResponse> builder) => builder

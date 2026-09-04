@@ -60,6 +60,16 @@ public sealed class ResiliencePipelineFactoryTests
     }
 
     [Fact]
+    public void EdhrecBudget_CoversAllAttemptsWithPerAttemptTimeout()
+    {
+        const int maxRetryAttempts = 2;
+
+        Assert.True(
+            ResiliencePipelineFactory.EdhrecTotalTimeout >=
+            (maxRetryAttempts + 1) * ResiliencePipelineFactory.EdhrecAttemptTimeout);
+    }
+
+    [Fact]
     public async Task ScryfallTimeout_UsesTotalBudgetAcrossRetries()
     {
         var builder = new ResiliencePipelineBuilder<RestResponse>();
