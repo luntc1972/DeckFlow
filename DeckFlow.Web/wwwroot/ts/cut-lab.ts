@@ -3838,6 +3838,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    const persistedPlanProfile = persistedState.intent?.planProfile;
+    const persistedStrategySlugs = persistedPlanProfile?.genericStrategies ?? [];
+    const persistedThemeSlugs = (persistedPlanProfile?.commanderThemes ?? []).map(theme => theme.slug);
     const nextState: Partial<CutLabStateSnapshot> = {
       ...persistedState,
       intent: {
@@ -3871,6 +3874,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       if (!response.ok) {
         renderPlanPanelError(root, await readErrorMessage(response));
+        syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs);
         return;
       }
 
@@ -3887,6 +3891,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
         : cutLabDecisionErrorCopy);
+      syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs);
     } finally {
       window.clearTimeout(timeoutId);
       planApplySubmitInFlight = false;
