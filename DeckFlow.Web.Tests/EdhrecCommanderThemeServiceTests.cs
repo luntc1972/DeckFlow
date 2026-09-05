@@ -209,10 +209,10 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     [Fact]
     public async Task DiskCache_WriteFailure_StillReturnsResult()
     {
-        var cacheDirectory = Path.Combine(_root, "content", "artifacts", "edhrec-themes");
+        var cacheDirectory = Path.Combine(_root, "artifacts", "edhrec-themes");
         Directory.CreateDirectory(cacheDirectory);
         Directory.CreateDirectory(Path.Combine(cacheDirectory, "atraxa.json"));
-        var service = CreateService(new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12)))), Path.Combine(_root, "content"));
+        var service = CreateService(new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12)))));
         var result = await service.GetCommanderThemesAsync("Atraxa");
         Assert.False(result.IsUnavailable);
         Assert.Single(result.Themes);
@@ -222,13 +222,13 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     [Fact]
     public async Task SweepExpiredCacheEntries_RemovesStaleTemporaryFiles()
     {
-        var cacheDirectory = Path.Combine(_root, "content", "artifacts", "edhrec-themes");
+        var cacheDirectory = Path.Combine(_root, "artifacts", "edhrec-themes");
         Directory.CreateDirectory(cacheDirectory);
         var temporaryPath = Path.Combine(cacheDirectory, "atraxa.json.stale.tmp");
         await File.WriteAllTextAsync(temporaryPath, "stale");
         File.SetLastWriteTimeUtc(temporaryPath, DateTime.UtcNow - EdhrecCommanderThemeService.DiskCacheFallbackMaxAge - TimeSpan.FromMinutes(1));
 
-        await CreateService(new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12)))), Path.Combine(_root, "content")).GetCommanderThemesAsync("Atraxa");
+        await CreateService(new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12))))).GetCommanderThemesAsync("Atraxa");
 
         Assert.False(File.Exists(temporaryPath));
     }
