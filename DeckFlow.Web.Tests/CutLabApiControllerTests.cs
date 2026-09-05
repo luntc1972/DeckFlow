@@ -1313,6 +1313,47 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostDecideAsync_PriorOutageFlagSet_PreservesFlagAndCheckedThemesThroughDecision()
+    {
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
+        {
+            Intent = baseState.Intent with
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    GenericStrategies = ["combo"],
+                    CommanderThemes =
+                    [
+                        new CutLabCommanderTheme { Slug = "voltron" },
+                        new CutLabCommanderTheme { Slug = "stax" },
+                    ],
+                    CommanderThemesUnavailable = true,
+                },
+            },
+        };
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
+            new FakeSimulationService());
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabDecideApiResponse body = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson);
+        CutLabPlanProfile profile = roundTripped.Intent.PlanProfile!;
+        Assert.Equal(["voltron", "stax"], profile.CommanderThemes.Select(theme => theme.Slug));
+        Assert.True(profile.CommanderThemesUnavailable);
+    }
+
+    [Fact]
     public async Task PostPlanApplyAsync_ThemeServiceRecovered_EmptyPostedThemesAfterOutageRender_PreservesPriorSelection()
     {
         FakeEdhrecCommanderThemeService themeService = new()
