@@ -192,22 +192,31 @@ public sealed class CutLabPlanAffinityFactoryTests
     }
 
     [Fact]
-    public async Task BuildAsync_ThemeFetchBudgetExpiresAfterOneSlug_DiscardsAllResolvedMembership()
+    public async Task BuildAsync_ThemeFetchBudgetExpiresAfterCheckedSlugResolved_KeepsResolvedMembership()
     {
-        var themeService = new FakeEdhrecCommanderThemeService
+        TimeSpan originalBudget = CutLabPlanAffinityFactory.TotalThemeFetchBudget;
+        CutLabPlanAffinityFactory.TotalThemeFetchBudget = TimeSpan.FromMilliseconds(50);
+        try
         {
-            ThemesResult = new EdhrecThemeResult([Theme("theme-a", "Theme A"), Theme("theme-b", "Theme B")], false),
-            CardsBySlug = Lists(("theme-a", ["On Plan Card"])),
-            BlockAfterFirstThemeFetch = true,
-        };
-        var result = await new CutLabPlanAffinityFactory(themeService).BuildAsync(
-            Profile(themes: [Theme("theme-a", "Theme A")]),
-            [Card("On Plan Card")],
-            ["Krenko, Mob Boss"]);
+            var themeService = new FakeEdhrecCommanderThemeService
+            {
+                ThemesResult = new EdhrecThemeResult([Theme("theme-a", "Theme A"), Theme("theme-b", "Theme B")], false),
+                CardsBySlug = Lists(("theme-a", ["On Plan Card"])),
+                BlockAfterFirstThemeFetch = true,
+            };
+            var result = await new CutLabPlanAffinityFactory(themeService).BuildAsync(
+                Profile(themes: [Theme("theme-a", "Theme A")]),
+                [Card("On Plan Card")],
+                ["Krenko, Mob Boss"]);
 
-        Assert.NotNull(result);
-        Assert.False(CutLabPlanAffinityResolver.For(result!, "On Plan Card").IsOnPlan);
-        Assert.Empty(CutLabPlanAffinityResolver.For(result!, "On Plan Card").OffPlanThemes);
+            Assert.NotNull(result);
+            Assert.True(CutLabPlanAffinityResolver.For(result!, "On Plan Card").IsOnPlan);
+            Assert.Empty(CutLabPlanAffinityResolver.For(result!, "On Plan Card").OffPlanThemes);
+        }
+        finally
+        {
+            CutLabPlanAffinityFactory.TotalThemeFetchBudget = originalBudget;
+        }
     }
 
     [Fact]

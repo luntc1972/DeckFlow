@@ -482,9 +482,6 @@ public sealed class CutLabApiController : ControllerBase
         }
     }
 
-    // Why: the plan panel needs a live re-fetch on every apply — the checked theme slugs must be
-    // validated against the commander's CURRENT EDHREC theme list, not trusted from the client, and
-    // this endpoint has no cached copy of that list the way the page render does.
     // Why: IsEnabled defaults a missing key ON; dark launch requires missing keys to land OFF.
     private bool IsFlagOn(string key)
         => _featureFlags.Snapshot().TryGetValue(key, out bool enabled) && enabled;
