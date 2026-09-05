@@ -3771,8 +3771,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const buildCheckedPlanProfileSnapshot = (
     persistedProfile?: CutLabPlanProfileSnapshot | null,
     themeCheckboxes: HTMLInputElement[] = getPlanPanelCheckboxes('PlanThemes'),
+    strategyCheckboxes: HTMLInputElement[] = getPlanPanelCheckboxes('PlanStrategies'),
   ): CutLabPlanProfileSnapshot => ({
-    genericStrategies: getPlanPanelCheckboxes('PlanStrategies')
+    genericStrategies: strategyCheckboxes
       .filter(checkbox => checkbox.checked)
       .map(checkbox => checkbox.value),
     commanderThemes: themeCheckboxes.length === 0
@@ -3784,15 +3785,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const syncPlanPanel = (appliedStrategies: string[], appliedThemes: string[]): void => {
     const strategySlugs = new Set(appliedStrategies.map(slug => slug.toLowerCase()));
     const themeSlugs = new Set(appliedThemes.map(slug => slug.toLowerCase()));
-    getPlanPanelCheckboxes('PlanStrategies').forEach(checkbox => {
+    const strategyCheckboxes = getPlanPanelCheckboxes('PlanStrategies');
+    const themeCheckboxes = getPlanPanelCheckboxes('PlanThemes');
+    strategyCheckboxes.forEach(checkbox => {
       checkbox.checked = strategySlugs.has(checkbox.value.toLowerCase());
     });
-    getPlanPanelCheckboxes('PlanThemes').forEach(checkbox => {
+    themeCheckboxes.forEach(checkbox => {
       checkbox.checked = themeSlugs.has(checkbox.value.toLowerCase());
     });
     const notice = document.querySelector<HTMLElement>('[data-cut-lab-plan-zero-notice]');
     if (notice) {
-      const anyChecked = [...getPlanPanelCheckboxes('PlanStrategies'), ...getPlanPanelCheckboxes('PlanThemes')]
+      const anyChecked = [...strategyCheckboxes, ...themeCheckboxes]
         .some(checkbox => checkbox.checked);
       notice.classList.toggle('hidden', anyChecked);
     }
