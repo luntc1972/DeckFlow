@@ -3449,6 +3449,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
     reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson);
     reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
+    refreshResolvedFloors(patch.resolvedFloors ?? []);
     updateLockedCountChip();
   };
 
@@ -3791,14 +3792,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
-  const revertPlanPanel = (): void => {
-    const persisted = tryReadSerializedState();
-    const profile = (persisted?.intent as CutLabIntentSnapshot | undefined)?.planProfile;
-    syncPlanPanel(
-      profile?.genericStrategies ?? [],
-      (profile?.commanderThemes ?? []).map(theme => theme.slug));
-  };
-
   const renderPlanPanelError = (root: HTMLElement, message: string): void => {
     const error = document.createElement('p');
     error.className = 'form-validation-error';
@@ -3846,6 +3839,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    const persistedPlanProfile = persistedState.intent?.planProfile;
+    const persistedStrategySlugs = persistedPlanProfile?.genericStrategies ?? [];
+    const persistedThemeSlugs = (persistedPlanProfile?.commanderThemes ?? []).map(theme => theme.slug);
     const nextState: Partial<CutLabStateSnapshot> = {
       ...persistedState,
       intent: {
@@ -3879,24 +3875,24 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       if (!response.ok) {
         renderPlanPanelError(root, await readErrorMessage(response));
-        revertPlanPanel();
+        syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs);
         return;
       }
 
       const data = await response.json() as CutLabPatchResponse;
       if (!data.patch?.cutLabStateJson) {
         renderPlanPanelError(root, cutLabDecisionErrorCopy);
+        syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs);
         return;
       }
 
       applyServerPatch(data.patch, antiForgeryToken);
-      refreshResolvedFloors(data.patch.resolvedFloors ?? []);
       syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? []);
     } catch (error) {
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
         : cutLabDecisionErrorCopy);
-      revertPlanPanel();
+      syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs);
     } finally {
       window.clearTimeout(timeoutId);
       planApplySubmitInFlight = false;
@@ -4837,6 +4833,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const planApplySubmitButton = getPlanApplySubmitButton();
     if (planApplySubmitButton) {
       planApplySubmitButton.hidden = true;
+      planApplySubmitButton.disabled = true;
     }
 
     attachRowHandlers();

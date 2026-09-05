@@ -1270,6 +1270,139 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostPlanApplyAsync_ThemeServiceUnavailable_EmptyPostedThemes_PreservesPriorSelection()
+    {
+        FakeEdhrecCommanderThemeService themeService = new()
+        {
+            ThemesResult = new EdhrecThemeResult([], true),
+        };
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            new FakeSimulationService(),
+            patchBuilder,
+            themeService: themeService);
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
+        {
+            Intent = baseState.Intent with
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    GenericStrategies = ["combo"],
+                    CommanderThemes =
+                    [
+                        new CutLabCommanderTheme { Slug = "voltron" },
+                        new CutLabCommanderTheme { Slug = "stax" },
+                    ],
+                    CommanderThemesUnavailable = true,
+                },
+            },
+        };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
+            new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(ok.Value);
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson);
+        CutLabPlanProfile profile = roundTripped.Intent.PlanProfile!;
+        Assert.Equal(["voltron", "stax"], profile.CommanderThemes.Select(theme => theme.Slug));
+        Assert.True(profile.CommanderThemesUnavailable);
+    }
+
+    [Fact]
+    public async Task PostDecideAsync_PriorOutageFlagSet_PreservesFlagAndCheckedThemesThroughDecision()
+    {
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
+        {
+            Intent = baseState.Intent with
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    GenericStrategies = ["combo"],
+                    CommanderThemes =
+                    [
+                        new CutLabCommanderTheme { Slug = "voltron" },
+                        new CutLabCommanderTheme { Slug = "stax" },
+                    ],
+                    CommanderThemesUnavailable = true,
+                },
+            },
+        };
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
+            new FakeSimulationService());
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabDecideApiResponse body = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson);
+        CutLabPlanProfile profile = roundTripped.Intent.PlanProfile!;
+        Assert.Equal(["voltron", "stax"], profile.CommanderThemes.Select(theme => theme.Slug));
+        Assert.True(profile.CommanderThemesUnavailable);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_ThemeServiceRecovered_EmptyPostedThemesAfterOutageRender_PreservesPriorSelection()
+    {
+        FakeEdhrecCommanderThemeService themeService = new()
+        {
+            ThemesResult = new EdhrecThemeResult(
+            [
+                new CutLabCommanderTheme { Slug = "voltron", DisplayName = "Voltron", DeckCount = 42 },
+                new CutLabCommanderTheme { Slug = "stax", DisplayName = "Stax", DeckCount = 24 },
+            ], false),
+        };
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            new FakeSimulationService(),
+            patchBuilder,
+            themeService: themeService);
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
+        {
+            Intent = baseState.Intent with
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    GenericStrategies = ["combo"],
+                    CommanderThemes =
+                    [
+                        new CutLabCommanderTheme { Slug = "voltron" },
+                        new CutLabCommanderTheme { Slug = "stax" },
+                    ],
+                    CommanderThemesUnavailable = true,
+                },
+            },
+        };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
+            new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(ok.Value);
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson);
+        CutLabCommanderTheme[] themes = roundTripped.Intent.PlanProfile!.CommanderThemes.ToArray();
+        Assert.Equal(["voltron", "stax"], themes.Select(theme => theme.Slug));
+        Assert.Equal(["Voltron", "Stax"], themes.Select(theme => theme.DisplayName));
+        Assert.Equal([42, 24], themes.Select(theme => theme.DeckCount));
+        Assert.False(roundTripped.Intent.PlanProfile.CommanderThemesUnavailable);
+    }
+
+    [Fact]
     public void BuildPlanProfile_ThemesRecoverAfterPriorOutageWithNoPostedThemes_PreservesSlugsAndRestoresMetadata()
     {
         CutLabCommanderTheme voltron = new() { Slug = "voltron", DisplayName = "Voltron", DeckCount = 42 };

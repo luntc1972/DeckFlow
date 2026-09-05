@@ -98,7 +98,7 @@ public sealed class CutLabStrandedOffPlanPackageTests
     }
 
     [Fact]
-    public void Finding_ContributesToRoundOneTally()
+    public void Finding_DoesNotContributeToRoundOneTally()
     {
         CutLabFinding finding = Assert.Single(Find(4));
         CutLabStructuralFindingsResult findings = new([finding, new(CutLabFindingKind.CurveCongestion, "Curve", "Curve", [new("Card 1", 1)])], false, false);
@@ -108,8 +108,8 @@ public sealed class CutLabStrandedOffPlanPackageTests
             [],
             1);
 
-        Assert.Equal("round-1", Assert.Single(plan.Queue).RoundKey);
-        Assert.Equal(2, Assert.Single(plan.Queue).FindingCount);
+        Assert.Equal("round-2", Assert.Single(plan.Queue).RoundKey);
+        Assert.Equal(1, Assert.Single(plan.Queue).FindingCount);
     }
 
     [Fact]

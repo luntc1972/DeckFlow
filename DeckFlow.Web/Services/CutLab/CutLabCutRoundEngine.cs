@@ -116,6 +116,9 @@ public static class CutLabCutRoundEngine
     // for being a combo piece: the protective finding scored 0 while its punitive twin scored +1,
     // so combo-dense cards sorted to the top of round 1. Combo findings inform the user; they never
     // promote a card up the cut queue. Both still render in the UI.
+    // StrandedOffPlanPackage is a role-wide warning that attaches uniformly to every card in an
+    // off-plan package. PlanAffinityRank already carries the per-card signal, so this finding ranks
+    // nothing against anything.
     // FunctionalTwins is deliberately absent because its evidence is per-card selective: a specific
     // role at a specific exact mana value and a specific primary type, not a role-wide warning that
     // attaches uniformly to every member of a role.
@@ -126,6 +129,7 @@ public static class CutLabCutRoundEngine
             CutLabFindingKind.RedundantFinishers,
             CutLabFindingKind.ComboProtected,
             CutLabFindingKind.EnablerStarved,
+            CutLabFindingKind.StrandedOffPlanPackage,
             CutLabFindingKind.FunctionalTwins,
         };
 

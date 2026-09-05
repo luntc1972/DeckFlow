@@ -8,6 +8,42 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabStateSerializer"/> covering round-trip, tamper defense, and size/error handling.</summary>
 public sealed class CutLabStateSerializerTests
 {
+    [Theory]
+    [InlineData("pool")]
+    [InlineData("packages")]
+    [InlineData("decisions")]
+    [InlineData("quantityAdjustments")]
+    [InlineData("originalEntries")]
+    [InlineData("roleFloors")]
+    public void Deserialize_ExplicitNullCollection_ReturnsEmptyCollection(string propertyName)
+    {
+        var state = CutLabStateSerializer.Deserialize($"{{\"{propertyName}\":null}}");
+
+        Assert.NotNull(GetCollection(state, propertyName));
+        Assert.Empty(GetCollection(state, propertyName));
+    }
+
+    [Fact]
+    public void Deserialize_ExplicitNullGenericStrategies_ReturnsEmptyCollection()
+    {
+        var state = CutLabStateSerializer.Deserialize("{\"intent\":{\"planProfile\":{\"genericStrategies\":null}}}");
+
+        Assert.NotNull(state.Intent.PlanProfile.GenericStrategies);
+        Assert.Empty(state.Intent.PlanProfile.GenericStrategies);
+    }
+
+    private static System.Collections.IEnumerable GetCollection(CutLabState state, string propertyName) =>
+        propertyName switch
+        {
+            "pool" => state.Pool,
+            "packages" => state.Packages,
+            "decisions" => state.Decisions,
+            "quantityAdjustments" => state.QuantityAdjustments,
+            "originalEntries" => state.OriginalEntries,
+            "roleFloors" => state.RoleFloors,
+            _ => throw new ArgumentOutOfRangeException(nameof(propertyName)),
+        };
+
     [Fact]
     public void SerializeDeserialize_RoundTripsState_AndReLocksCommander()
     {

@@ -89,7 +89,19 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
             return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes);
         }
 
-        EdhrecThemeResult themeResult = await FetchCommanderThemesAsync(commanderName, cancellationToken).ConfigureAwait(false);
+        using CancellationTokenSource themeFetchBudgetCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        themeFetchBudgetCancellation.CancelAfter(TotalThemeFetchBudget);
+        EdhrecThemeResult themeResult;
+        try
+        {
+            themeResult = await FetchCommanderThemesAsync(commanderName, themeFetchBudgetCancellation.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (themeFetchBudgetCancellation.IsCancellationRequested)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes);
+        }
+
         if (themeResult.IsUnavailable || themeResult.Themes.Count == 0)
         {
             // Fail-open: the strategy layer still resolves, and there is no known-theme list to
@@ -100,8 +112,6 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
 
         IReadOnlyList<string> boundedSlugs = BuildBoundedSlugs(planProfile.CommanderThemes, themeResult.Themes);
         Dictionary<string, IReadOnlyList<string>> themeCardNamesBySlug = new(StringComparer.OrdinalIgnoreCase);
-        using CancellationTokenSource themeFetchBudgetCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        themeFetchBudgetCancellation.CancelAfter(TotalThemeFetchBudget);
         foreach (string slug in boundedSlugs)
         {
             if (themeFetchBudgetCancellation.IsCancellationRequested)
@@ -140,7 +150,7 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
         {
             if (bounded.Count >= MaxCheckedThemeFetches)
             {
-                return bounded;
+                break;
             }
 
             if (knownSlugs.Contains(slug) && seen.Add(slug))
