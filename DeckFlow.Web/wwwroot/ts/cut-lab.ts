@@ -296,7 +296,6 @@ const cutLabPlanApplyApiEndpoint = '/api/cut-lab/plan-apply';
 const cutLabDecisionTimeoutMs = 20000;
 const cutLabDecisionBusyCopy = 'Recalculating…';
 const cutLabDecisionErrorCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
-const cutLabDeltaUnavailableCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
 const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try again in a moment.';
 const cutLabWhatifPreviewErrorCopy = "Couldn't preview this swap — nothing changed. Try again.";
 const cutLabWhatifKeepErrorCopy = "Couldn't keep this swap — nothing changed. Try again.";
@@ -415,28 +414,38 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
-  const readCollapsedSectionIds = (): string[] | null => {
+  type CollapsedSectionStorageRead =
+    | { kind: 'absent' }
+    | { kind: 'unreadable' }
+    | { kind: 'ids'; ids: string[] };
+
+  const readCollapsedSectionStorage = (): CollapsedSectionStorageRead => {
     try {
       const storage = getLocalStorage();
       if (!storage) {
-        return null;
+        return { kind: 'unreadable' };
       }
 
       const raw = storage.getItem(CUT_LAB_SECTION_STORAGE_KEY);
       if (raw === null) {
-        return null;
+        return { kind: 'absent' };
       }
 
       const parsedIds = parseJsonStringArray(raw);
       if (parsedIds === null) {
-        return null;
+        return { kind: 'unreadable' };
       }
 
-      return dedupeIds(parsedIds);
+      return { kind: 'ids', ids: dedupeIds(parsedIds) };
     } catch {
       // Any storage/parse failure falls open to defaults.
-      return null;
+      return { kind: 'unreadable' };
     }
+  };
+
+  const readCollapsedSectionIds = (): string[] | null => {
+    const result = readCollapsedSectionStorage();
+    return result.kind === 'ids' ? result.ids : null;
   };
 
   const writeCollapsedSectionIds = (collapsedIds: string[]): void => {
@@ -471,16 +480,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   // Why: F-5-SIDE-EFFECT distinguishes genuine absence from malformed JSON and unavailable localStorage; only absence is a no-op.
   const isCollapsedSectionStorageKeyAbsent = (): boolean => {
-    const storage = getLocalStorage();
-    if (!storage) {
-      return false;
-    }
-
-    try {
-      return storage.getItem(CUT_LAB_SECTION_STORAGE_KEY) === null;
-    } catch {
-      return false;
-    }
+    return readCollapsedSectionStorage().kind === 'absent';
   };
 
   const applyInitialSectionCollapseState = (): void => {
@@ -2789,7 +2789,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     heading.appendChild(document.createTextNode('Proposed cut: '));
     heading.appendChild(createCardOpenButton(nextProposal.cardName, 'cutlab-card-link'));
     pinnedRow.appendChild(heading);
-    const glanceLine = nextProposal.glanceLine?.trim() || cutLabDeltaUnavailableCopy;
+    const glanceLine = nextProposal.glanceLine?.trim() || cutLabDecisionErrorCopy;
     pinnedRow.appendChild(createTextElement('p', 'cutlab-proposal__glance', glanceLine));
     pinnedHeader.appendChild(pinnedRow);
 
