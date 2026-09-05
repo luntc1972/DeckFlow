@@ -246,7 +246,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
             if (string.IsNullOrWhiteSpace(response.Content) || response.Content.Length > MaxResponseCharacters)
             {
-                return null;
+                return GetUsableCachedBody(cached);
             }
 
             string? eTag = response.Headers?
