@@ -337,7 +337,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         }
 
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson, request.Bracket);
-        EdhrecThemeResult planThemeResult = await FetchPlanThemeResultAsync(commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
+        EdhrecThemeResult planThemeResult = await CutLabSharedHelpers.FetchPlanThemeResultAsync(_themeService, _logger, commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<string> initialCommanderNames = commanderResolution.CommanderNames;
         var preAnalysisState = CutLabLockRules.EnforceCommanderLock(
             BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult));
@@ -396,7 +396,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             {
                 // Why: final recovery can change commander identity, so theme validation must not
                 // retain results fetched for the earlier commander resolution snapshot.
-                planThemeResult = await FetchPlanThemeResultAsync(commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
+                planThemeResult = await CutLabSharedHelpers.FetchPlanThemeResultAsync(_themeService, _logger, commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
             }
 
             nonCommanderCardCount = CountNonCommanderCards(analyzedEntries, commanderResolution.CommanderNames);
@@ -1162,7 +1162,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                 comboBadgeByCardName[normalizedCardName] = new CutLabComboBadgeView
                 {
                     BadgeState = ComboBadgeState.CompletePiece,
-                    Context = JoinCardNames(
+                    Context = CutLabSharedHelpers.JoinCardNames(
                         membership.CompleteCombos
                             .SelectMany(combo => combo.Results)
                             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1177,7 +1177,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                 comboBadgeByCardName[normalizedCardName] = new CutLabComboBadgeView
                 {
                     BadgeState = ComboBadgeState.NeedsPartner,
-                    Context = $"Needs {JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
+                    Context = $"Needs {CutLabSharedHelpers.JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
                 };
             }
         }
