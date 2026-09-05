@@ -177,15 +177,14 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             state.Decisions,
             twinsEnabled,
             planAffinities: planAffinities);
-        CutLabSimulationResult snapshotResult = snapshotResultTask is null
-            ? await _simulationService.BuildSnapshotResult(
-                workingList,
-                playExperience,
-                trialsOverride: ICutLabSimulationService.InLoopTrials,
-                poolKey: resolvedPoolKey,
-                goals: state.Goals,
-                cancellationToken: cancellationToken).ConfigureAwait(false)
-            : await snapshotResultTask.ConfigureAwait(false);
+        snapshotResultTask ??= _simulationService.BuildSnapshotResult(
+            workingList,
+            playExperience,
+            trialsOverride: ICutLabSimulationService.InLoopTrials,
+            poolKey: resolvedPoolKey,
+            goals: state.Goals,
+            cancellationToken: cancellationToken);
+        CutLabSimulationResult snapshotResult = await snapshotResultTask.ConfigureAwait(false);
         state = state with
         {
             Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, snapshotResult.CastabilityByCardName),
