@@ -371,9 +371,10 @@ public sealed class CutLabControllerTests
     {
         var service = new StateAwareCutLabPageService();
         var controller = CreateController(service);
-        CutLabState state = CreateState() with
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
         {
-            Intent = CreateState().Intent with
+            Intent = baseState.Intent with
             {
                 PlanProfile = new CutLabPlanProfile
                 {
@@ -442,9 +443,10 @@ public sealed class CutLabControllerTests
     {
         var service = new StateAwareCutLabPageService();
         var controller = CreateController(service);
-        CutLabState state = CreateState() with
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
         {
-            Intent = CreateState().Intent with
+            Intent = baseState.Intent with
             {
                 PlanProfile = new CutLabPlanProfile { GenericStrategies = ["combo"] },
             },
@@ -460,9 +462,10 @@ public sealed class CutLabControllerTests
     {
         var service = new StateAwareCutLabPageService();
         var controller = CreateController(service);
-        CutLabState state = CreateState() with
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
         {
-            Intent = CreateState().Intent with
+            Intent = baseState.Intent with
             {
                 PlanProfile = new CutLabPlanProfile { GenericStrategies = ["control"] },
             },
@@ -484,9 +487,10 @@ public sealed class CutLabControllerTests
     {
         var service = new StateAwareCutLabPageService();
         var controller = CreateController(service);
-        CutLabState state = CreateState() with
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
         {
-            Intent = CreateState().Intent with { PrimaryPlan = "Combo finish", SecondaryPlan = "Control backup" },
+            Intent = baseState.Intent with { PrimaryPlan = "Combo finish", SecondaryPlan = "Control backup" },
         };
 
         await controller.Process(new CutLabRequest { DeckText = "1 Zur the Enchanter", CutLabStateJson = CutLabStateSerializer.Serialize(state) });

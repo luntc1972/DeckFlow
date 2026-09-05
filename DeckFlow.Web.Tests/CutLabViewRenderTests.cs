@@ -26,14 +26,14 @@ namespace DeckFlow.Web.Tests;
 
 public sealed class CutLabViewRenderTests
 {
+    private static readonly IReadOnlyDictionary<string, CutLabCardTextView> EmptyCardTextByCardName = new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
     [Fact]
     public async Task ResultView_RendersPlanStepAsEnabledNowThatThePanelIsFilled()
     {
         // Phase 7 reserved this step disabled (e89e2744); Phase 8's plan panel (08-07) now fills
         // it, so the step is enabled while still not "complete" — there is no completion state for
         // a profile that is legitimately all-unchecked.
-        string html = await RenderAsync(BuildTwinBadgeModel(
-            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase)));
+        string html = await RenderAsync(BuildTwinBadgeModel());
 
         int planTabEnd = html.IndexOf("aria-label=\"Plan\"", StringComparison.Ordinal);
         Assert.True(planTabEnd >= 0, "The Plan workflow tab should render.");
@@ -191,8 +191,7 @@ public sealed class CutLabViewRenderTests
     [Fact]
     public async Task RenderAsync_NormalizedComboBadgeKey_RendersComboBadgeForMixedCasePunctuatedTwinName()
     {
-        var model = BuildTwinBadgeModel(
-            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+        var model = BuildTwinBadgeModel();
 
         string html = await RenderAsync(model);
 
@@ -220,8 +219,7 @@ public sealed class CutLabViewRenderTests
     [Fact]
     public async Task RenderAsync_NormalizedComboBadgeKey_AttachesComboContextToRawPoolCardWithoutCardText()
     {
-        var model = BuildTwinBadgeModel(
-            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+        var model = BuildTwinBadgeModel();
 
         string html = await RenderAsync(model);
 
@@ -235,8 +233,7 @@ public sealed class CutLabViewRenderTests
     [Fact]
     public async Task RenderAsync_FunctionalTwinsSection_RendersTheHelpNoteCopyVerbatim()
     {
-        var model = BuildTwinBadgeModel(
-            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+        var model = BuildTwinBadgeModel();
 
         string html = await RenderAsync(model);
 
@@ -260,8 +257,7 @@ public sealed class CutLabViewRenderTests
     [Fact]
     public async Task RenderAsync_FunctionalTwinsSection_DoesNotRenderLegacyWording()
     {
-        var model = BuildTwinBadgeModel(
-            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+        var model = BuildTwinBadgeModel();
 
         string html = await RenderAsync(model);
 
@@ -277,8 +273,7 @@ public sealed class CutLabViewRenderTests
     [Fact]
     public async Task RenderAsync_FunctionalTwinsSection_RendersStructuredRolesLine()
     {
-        var model = BuildTwinBadgeModel(
-            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase));
+        var model = BuildTwinBadgeModel();
 
         string html = await RenderAsync(model);
 
@@ -291,8 +286,7 @@ public sealed class CutLabViewRenderTests
     [Fact]
     public async Task ResultView_RendersPlanDeltaBadgeOnlyWhenPlanRaisedTheFloor()
     {
-        var model = BuildTwinBadgeModel(
-            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase)) with
+        var model = BuildTwinBadgeModel() with
         {
             CommanderFloorsEnabled = true,
             FloorRows =
@@ -323,8 +317,7 @@ public sealed class CutLabViewRenderTests
     [Fact]
     public async Task ResultView_RendersThemeShareAlongsideDeckCount()
     {
-        var model = BuildTwinBadgeModel(
-            cardTextByCardName: new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase)) with
+        var model = BuildTwinBadgeModel() with
         {
             PlanPanel = new CutLabPlanPanelView
             {
@@ -349,7 +342,7 @@ public sealed class CutLabViewRenderTests
 
     private static readonly string HeliodNormalizedName = CutLabCardNames.Normalize(HeliodRawName);
 
-    private static CutLabViewModel BuildTwinBadgeModel(IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName)
+    private static CutLabViewModel BuildTwinBadgeModel(IReadOnlyDictionary<string, CutLabCardTextView>? cardTextByCardName = null)
     {
         var twinFinding = new CutLabFindingView
         {
@@ -384,7 +377,7 @@ public sealed class CutLabViewRenderTests
                     Items = [twinFinding],
                 },
             ],
-            CardTextByCardName = cardTextByCardName,
+            CardTextByCardName = cardTextByCardName ?? EmptyCardTextByCardName,
             ComboBadgeByCardName = new Dictionary<string, CutLabComboBadgeView>(StringComparer.Ordinal)
             {
                 [HeliodNormalizedName] = new CutLabComboBadgeView

@@ -1,42 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { setToolEnabled } from './support/admin-tools';
-
-const cutLabPool = [
-  'Commander',
-  '1 Zur the Enchanter',
-  '',
-  'Deck',
-  '36 Plains',
-  '36 Island',
-  '20 Swamp',
-  '1 Sol Ring',
-  '1 Arcane Signet',
-  '1 Fellwar Stone',
-  '1 Mystic Remora',
-  '1 Rhystic Study',
-  '1 Swords to Plowshares',
-  '1 Path to Exile',
-  '1 Counterspell',
-  "1 Dovin's Veto",
-  '1 Demonic Tutor',
-  '1 Enlightened Tutor',
-  '1 Command Tower',
-  '1 Exotic Orchard',
-].join('\n');
+import { cutLabPool, gotoOk } from './fixtures/cut-lab-pool';
 
 // Guards the Phase-1 mobile UI changes so desktop behavior stays intact while
 // mobile-specific navigation, layout defaults, and overflow fixes remain covered.
-
-// Retries a navigation up to twice on a non-ok response. Under fullyParallel CI
-// the SQLite store can briefly return a 5xx ("database is locked") when many
-// workers hit pages at once; a re-navigate clears it. Mirrors scripts.spec.ts.
-async function gotoOk(page: import('@playwright/test').Page, route: string) {
-  let response = await page.goto(route);
-  for (let attempt = 0; attempt < 2 && !response?.ok(); attempt++) {
-    response = await page.goto(route);
-  }
-  return response;
-}
 
 test('tool nav collapses on mobile, expanded on desktop', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');

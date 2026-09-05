@@ -3,29 +3,7 @@ import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admi
 import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
-
-const oversizedPool = [
-  'Commander',
-  '1 Zur the Enchanter',
-  '',
-  'Deck',
-  '36 Plains',
-  '36 Island',
-  '20 Swamp',
-  '1 Sol Ring',
-  '1 Arcane Signet',
-  '1 Fellwar Stone',
-  '1 Mystic Remora',
-  '1 Rhystic Study',
-  '1 Swords to Plowshares',
-  '1 Path to Exile',
-  '1 Counterspell',
-  '1 Dovin\'s Veto',
-  '1 Demonic Tutor',
-  '1 Enlightened Tutor',
-  '1 Command Tower',
-  '1 Exotic Orchard',
-].join('\n');
+import { cutLabPool as oversizedPool } from './fixtures/cut-lab-pool';
 
 type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
