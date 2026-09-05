@@ -85,37 +85,10 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
             if (state.Pool.Count == 0)
             {
                 return BadRequest(new { Message = InvalidStateMessage });
-            }
-
-            CutLabPlanProfile? postedPlanProfile = state.Intent.PlanProfile;
-            if (postedPlanProfile is not null)
-            {
-                // Why: decide accepts serialized client state, so generic slugs must cross the
-                // same catalog trust boundary as they do during the MVC and plan-apply flows.
-                state = state with
-                {
-                    Intent = state.Intent with
-                    {
-                        PlanProfile = postedPlanProfile with
-                        {
-                            GenericStrategies = postedPlanProfile.GenericStrategies
-                                .Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
-                                .Distinct(StringComparer.OrdinalIgnoreCase)
-                                .ToArray(),
-                            // Why: the resolver re-resolves display metadata from the server-fetched theme list;
-                            // nothing downstream may read a name or count the client chose.
-                            CommanderThemes = postedPlanProfile.CommanderThemes
-                                .Where(theme => theme is not null && !string.IsNullOrWhiteSpace(theme.Slug))
-                                .DistinctBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
-                                .Select(theme => new CutLabCommanderTheme { Slug = theme.Slug })
-                                .ToArray(),
-                        },
-                    },
-                };
             }
 
             IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
@@ -150,7 +123,7 @@ public sealed class CutLabApiController : ControllerBase
 
             string roundKey = DetermineRoundKey(state, request, beforeRoundPlan);
             IReadOnlyList<CutLabDecideFloorWarningDto> floorWarnings = request.Decision == CutLabDecideAction.Accept
-                ? BuildFloorWarnings(beforeWorkingList, beforeContext, floorByRole, request.CardName)
+                ? CutLabSharedHelpers.BuildFloorWarnings(beforeWorkingList, beforeContext, floorByRole, request.CardName)
                 : [];
             state = CutLabDecisionApplier.Apply(state, request.CardName, request.Decision, roundKey);
 
@@ -225,7 +198,7 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
             if (state.Pool.Count == 0)
             {
                 return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(BadRequest(new { Message = InvalidStateMessage }));
@@ -283,7 +256,7 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
             if (state.Pool.Count == 0)
             {
                 return BadRequest(new { Message = InvalidStateMessage });
@@ -338,7 +311,7 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
             if (state.Pool.Count == 0)
             {
                 return BadRequest(new { Message = InvalidStateMessage });
@@ -399,7 +372,7 @@ public sealed class CutLabApiController : ControllerBase
         CutLabWhatifCommitResult result;
         try
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
             if (state.Pool.Count == 0)
             {
                 return BadRequest(new { Message = InvalidStateMessage });
@@ -469,7 +442,7 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
             if (state.Pool.Count == 0)
             {
                 return BadRequest(new { Message = InvalidStateMessage });
@@ -477,7 +450,7 @@ public sealed class CutLabApiController : ControllerBase
 
             IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
             bool twinsEnabled = IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey);
-            EdhrecThemeResult planThemeResult = await FetchPlanThemeResultAsync(commanderNames, cancellationToken).ConfigureAwait(false);
+            EdhrecThemeResult planThemeResult = await CutLabSharedHelpers.FetchPlanThemeResultAsync(_themeService, _logger, commanderNames, cancellationToken).ConfigureAwait(false);
 
             CutLabPlanProfile? postedProfile = state.Intent.PlanProfile;
             CutLabPlanProfile rebuiltProfile = CutLabPageService.BuildPlanProfile(
@@ -599,6 +572,34 @@ public sealed class CutLabApiController : ControllerBase
                     },
                 CutLabMessages.NoChangeMessage),
         };
+
+    private static CutLabState SanitizePlanProfile(CutLabState state)
+    {
+        CutLabPlanProfile? postedPlanProfile = state.Intent.PlanProfile;
+        if (postedPlanProfile is null)
+        {
+            return state;
+        }
+
+        return state with
+        {
+            Intent = state.Intent with
+            {
+                PlanProfile = postedPlanProfile with
+                {
+                    GenericStrategies = postedPlanProfile.GenericStrategies
+                        .Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray(),
+                    CommanderThemes = postedPlanProfile.CommanderThemes
+                        .Where(theme => theme is not null && !string.IsNullOrWhiteSpace(theme.Slug))
+                        .DistinctBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
+                        .Select(theme => new CutLabCommanderTheme { Slug = theme.Slug })
+                        .ToArray(),
+                },
+            },
+        };
+    }
 
     private static string DetermineRoundKey(CutLabState state, CutLabDecideApiRequest request, CutLabRoundPlan roundPlan)
     {
