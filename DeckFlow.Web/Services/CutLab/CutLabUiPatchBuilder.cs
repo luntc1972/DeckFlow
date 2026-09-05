@@ -151,11 +151,25 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                 floor => floor.Role,
                 floor => floor.Floor,
                 StringComparer.OrdinalIgnoreCase);
-        planAffinities ??= await _planAffinityFactory.BuildAsync(
-            state.Intent.PlanProfile,
-            context.AnalyzedCards,
-            commanderNames,
-            cancellationToken).ConfigureAwait(false);
+        Task<CutLabSimulationResult>? snapshotResultTask = null;
+        if (planAffinities is null)
+        {
+            Task<IReadOnlyDictionary<string, CutLabPlanAffinity>?> planAffinitiesTask = _planAffinityFactory.BuildAsync(
+                state.Intent.PlanProfile,
+                context.AnalyzedCards,
+                commanderNames,
+                cancellationToken);
+            // Why: context must warm the resolved-pool cache first; EDHREC affinity and snapshot work then are independent.
+            snapshotResultTask = _simulationService.BuildSnapshotResult(
+                workingList,
+                playExperience,
+                trialsOverride: ICutLabSimulationService.InLoopTrials,
+                poolKey: resolvedPoolKey,
+                goals: state.Goals,
+                cancellationToken: cancellationToken);
+            planAffinities = await planAffinitiesTask.ConfigureAwait(false);
+        }
+
         (CutLabStructuralFindingsResult findings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
             workingList,
             context,
@@ -163,13 +177,15 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             state.Decisions,
             twinsEnabled,
             planAffinities: planAffinities);
-        CutLabSimulationResult snapshotResult = await _simulationService.BuildSnapshotResult(
-            workingList,
-            playExperience,
-            trialsOverride: ICutLabSimulationService.InLoopTrials,
-            poolKey: resolvedPoolKey,
-            goals: state.Goals,
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+        CutLabSimulationResult snapshotResult = snapshotResultTask is null
+            ? await _simulationService.BuildSnapshotResult(
+                workingList,
+                playExperience,
+                trialsOverride: ICutLabSimulationService.InLoopTrials,
+                poolKey: resolvedPoolKey,
+                goals: state.Goals,
+                cancellationToken: cancellationToken).ConfigureAwait(false)
+            : await snapshotResultTask.ConfigureAwait(false);
         state = state with
         {
             Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, snapshotResult.CastabilityByCardName),
