@@ -7,16 +7,24 @@ namespace DeckFlow.Web.Services.CutLab;
 /// Describes how strongly a pool card supports the checked plan profile.
 /// </summary>
 public sealed record CutLabPlanAffinity(
-    IReadOnlyList<string> OnPlanThemes,
     IReadOnlyList<CutLabPlanAffinityTheme> OffPlanThemes,
-    IReadOnlyList<string> OnPlanStrategies,
     int Score)
 {
+    /// <summary>Initializes affinity while ignoring legacy on-plan display values.</summary>
+    public CutLabPlanAffinity(
+        IReadOnlyList<string> onPlanThemes,
+        IReadOnlyList<CutLabPlanAffinityTheme> offPlanThemes,
+        IReadOnlyList<string> onPlanStrategies,
+        int score)
+        : this(offPlanThemes, score)
+    {
+    }
+
     /// <summary>Gets whether this card matches at least one checked plan signal.</summary>
     public bool IsOnPlan => Score > 0;
 
     /// <summary>Gets the affinity used when no plan evidence applies.</summary>
-    public static CutLabPlanAffinity Neutral { get; } = new([], [], [], 0);
+    public static CutLabPlanAffinity Neutral { get; } = new([], 0);
 }
 
 /// <summary>Identifies an unchecked commander theme supporting a pool card.</summary>
@@ -102,23 +110,17 @@ public static class CutLabPlanAffinityResolver
         IReadOnlyDictionary<string, HashSet<string>> normalizedThemeCards)
     {
         string normalizedName = CutLabCardNames.Normalize(card.Name);
-        string[] onPlanThemes = checkedThemes
-            .Where(theme => IsThemeMember(theme.Slug, normalizedName, normalizedThemeCards))
-            .Select(theme => theme.DisplayName)
-            .ToArray();
+        int onPlanThemeCount = checkedThemes.Count(theme => IsThemeMember(theme.Slug, normalizedName, normalizedThemeCards));
         CutLabPlanAffinityTheme[] resolvedOffPlanThemes = offPlanThemes
             .Where(theme => IsThemeMember(theme.Slug, normalizedName, normalizedThemeCards))
             .Select(theme => new CutLabPlanAffinityTheme(theme.Slug, theme.DisplayName))
             .ToArray();
-        string[] onPlanStrategies = checkedStrategies
-            .Where(strategy => DeckPlanStrategyCatalog.MatchesCategories(strategy, card.Categories))
-            .Select(strategy => strategy.DisplayName)
-            .ToArray();
-        int score = Math.Min(onPlanThemes.Length + onPlanStrategies.Length, OnPlanScoreCap);
+        int onPlanStrategyCount = checkedStrategies.Count(strategy => DeckPlanStrategyCatalog.MatchesCategories(strategy, card.Categories));
+        int score = Math.Min(onPlanThemeCount + onPlanStrategyCount, OnPlanScoreCap);
 
         return score == 0 && resolvedOffPlanThemes.Length == 0
             ? CutLabPlanAffinity.Neutral
-            : new CutLabPlanAffinity(onPlanThemes, resolvedOffPlanThemes, onPlanStrategies, score);
+            : new CutLabPlanAffinity(resolvedOffPlanThemes, score);
     }
 
     private static bool IsThemeMember(string slug, string normalizedName, IReadOnlyDictionary<string, HashSet<string>> normalizedThemeCards) =>
