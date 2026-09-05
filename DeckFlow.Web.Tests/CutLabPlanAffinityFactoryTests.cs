@@ -119,6 +119,27 @@ public sealed class CutLabPlanAffinityFactoryTests
     }
 
     [Fact]
+    public async Task BuildAsync_CheckedThemesExceedingCap_FetchesOnlyCappedCheckedThemesAndOffPlanProbes()
+    {
+        CutLabCommanderTheme[] knownThemes = Enumerable.Range(1, CutLabPlanAffinityFactory.MaxCheckedThemeFetches + 3)
+            .Select(index => Theme($"theme-{index:00}", $"Theme {index}"))
+            .ToArray();
+        var themeService = new FakeEdhrecCommanderThemeService
+        {
+            ThemesResult = new EdhrecThemeResult(knownThemes, false),
+        };
+        var factory = new CutLabPlanAffinityFactory(themeService);
+        var profile = Profile(themes: knownThemes);
+
+        var result = await factory.BuildAsync(profile, [Card("Card")], ["Krenko, Mob Boss"]);
+
+        Assert.NotNull(result);
+        Assert.Equal(
+            CutLabPlanAffinityFactory.MaxCheckedThemeFetches + CutLabPlanAffinityFactory.MaxOffPlanProbeFetches,
+            themeService.ThemeCardCalls.Count);
+    }
+
+    [Fact]
     public async Task BuildAsync_CommanderThemesUnavailable_StrategyLayerStillResolves_AndNoOffPlanThemes()
     {
         var themeService = new FakeEdhrecCommanderThemeService

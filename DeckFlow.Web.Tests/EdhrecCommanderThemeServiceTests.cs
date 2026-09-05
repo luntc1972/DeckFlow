@@ -159,6 +159,17 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DiskCache_OversizedResponse_ServesFreshCachedBody()
+    {
+        var oversizedBody = new string('x', EdhrecCommanderThemeService.MaxResponseCharacters + 1);
+        var handler = new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("counters", "Counters", 12))), Response(HttpStatusCode.OK, oversizedBody));
+        var first = await CreateService(handler).GetCommanderThemesAsync("Atraxa");
+        var second = await CreateService(handler).GetCommanderThemesAsync("Atraxa");
+        Assert.False(second.IsUnavailable);
+        Assert.Equal(first.Themes, second.Themes);
+    }
+
+    [Fact]
     public async Task DiskCache_FetchFailure_DoesNotServeExpiredCachedBody()
     {
         var directory = Path.Combine(_root, "artifacts", "edhrec-themes");

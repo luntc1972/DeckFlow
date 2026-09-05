@@ -13,7 +13,7 @@ public sealed class CutLabPlanAffinityResolverTests
         var result = Resolve([Card("Theme Card"), Card("Unmatched")], Profile(themes: [Theme("theme-a", string.Empty)]), Lists(("theme-a", ["Theme Card"])), [Theme("theme-a", "Theme A")]);
 
         Assert.True(CutLabPlanAffinityResolver.For(result, "Theme Card").IsOnPlan);
-        Assert.Equal(["Theme A"], CutLabPlanAffinityResolver.For(result, "Theme Card").OnPlanThemes);
+        Assert.Equal(1, CutLabPlanAffinityResolver.For(result, "Theme Card").Score);
         Assert.Equal(1, result.Values.Count(affinity => affinity.IsOnPlan));
         Assert.Equal(1, result.Values.Count(affinity => !affinity.IsOnPlan));
     }
@@ -37,7 +37,7 @@ public sealed class CutLabPlanAffinityResolverTests
         var result = Resolve([Card("Tax", "tax"), Card("Unmatched")], Profile(strategies: ["stax"]), Lists(), []);
 
         Assert.True(CutLabPlanAffinityResolver.For(result, "Tax").IsOnPlan);
-        Assert.Equal(["Stax"], CutLabPlanAffinityResolver.For(result, "Tax").OnPlanStrategies);
+        Assert.Equal(1, CutLabPlanAffinityResolver.For(result, "Tax").Score);
         Assert.Equal(1, result.Values.Count(value => value.IsOnPlan));
         Assert.Equal(1, result.Values.Count(value => !value.IsOnPlan));
     }
@@ -86,7 +86,7 @@ public sealed class CutLabPlanAffinityResolverTests
         var affinity = CutLabPlanAffinityResolver.For(result, "Match");
         Assert.Equal(3, CutLabPlanAffinityResolver.OnPlanScoreCap);
         Assert.Equal(3, affinity.Score);
-        Assert.True(affinity.OnPlanThemes.Count + affinity.OnPlanStrategies.Count > CutLabPlanAffinityResolver.OnPlanScoreCap);
+        Assert.True(affinity.IsOnPlan);
         Assert.Equal(1, result.Values.Count(value => value.IsOnPlan));
         Assert.Equal(1, result.Values.Count(value => !value.IsOnPlan));
     }
@@ -136,10 +136,9 @@ public sealed class CutLabPlanAffinityResolverTests
         Assert.Equal(first.Keys, second.Keys);
         foreach (string key in first.Keys)
         {
-            Assert.Equal(first[key].OnPlanThemes, second[key].OnPlanThemes);
             Assert.Equal(first[key].OffPlanThemes, second[key].OffPlanThemes);
-            Assert.Equal(first[key].OnPlanStrategies, second[key].OnPlanStrategies);
             Assert.Equal(first[key].Score, second[key].Score);
+            Assert.Equal(first[key].IsOnPlan, second[key].IsOnPlan);
         }
     }
 

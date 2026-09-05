@@ -42,40 +42,73 @@ const flush = async (): Promise<void> => {
 
 const buildFixture = (): HTMLInputElement => {
   document.body.innerHTML = `
-    <form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /></form>
+    <form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /><button data-cut-lab-plan-apply-submit>Apply plan</button></form>
     <div data-cut-lab-plan-panel>
       <label><input type="checkbox" name="PlanStrategies" value="kept" />Kept</label>
       <label><input type="checkbox" name="PlanStrategies" value="dropped" checked />Dropped</label>
       <label><input type="checkbox" name="PlanThemes" value="theme-a" />Theme A</label>
       <label><input type="checkbox" name="PlanThemes" value="theme-b" checked />Theme B</label>
-    </div>`;
+    </div>
+    <div class="cutlab-proposal"></div>
+    <table><tbody><tr data-cut-lab-floor-row="ramp" data-cut-lab-floor-count="2" data-cut-lab-floor-default="1" data-cut-lab-floor-user-set="false"><td data-label="In pool"><span data-cut-lab-floor-count-label>2 in pool</span></td><td data-label="Floor"><input data-cut-lab-floor="ramp" value="1" /></td><td data-label="Source"><button data-cut-lab-floor-reset></button></td></tr></tbody></table>`;
   document.dispatchEvent(new Event('DOMContentLoaded'));
   return document.querySelector<HTMLInputElement>('input[value="dropped"]')!;
 };
 
 describe('cut-lab plan panel', () => {
-  it('reverts a rejected plan-panel toggle to persisted state', async () => {
-    const checkbox = buildFixture();
-    document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!.value = JSON.stringify({
-      intent: { planProfile: { genericStrategies: ['dropped'], commanderThemes: [] } },
-    });
-    fetchMock.mockResolvedValueOnce({ ok: false, text: async () => 'Rejected' });
-    checkbox.checked = false;
-    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  it('reverts optimistic checkbox changes when apply responds not ok', async () => {
+    buildFixture();
+    fetchMock.mockResolvedValueOnce({ ok: false, text: async () => 'Profile failed' });
+
+    document.querySelector<HTMLInputElement>('input[value="kept"]')!.click();
+    document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.click();
     await flush();
-    expect(checkbox.checked).toBe(true);
+
+    expect(document.querySelector<HTMLInputElement>('input[value="kept"]')!.checked).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.checked).toBe(false);
   });
 
-  it('reverts a plan-panel toggle when fetch rejects', async () => {
-    const checkbox = buildFixture();
-    document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!.value = JSON.stringify({
-      intent: { planProfile: { genericStrategies: ['dropped'], commanderThemes: [] } },
-    });
-    fetchMock.mockRejectedValueOnce(new Error('offline'));
-    checkbox.checked = false;
-    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  it('reverts optimistic checkbox changes when apply rejects', async () => {
+    buildFixture();
+    fetchMock.mockRejectedValueOnce(new Error('Network failed'));
+
+    document.querySelector<HTMLInputElement>('input[value="kept"]')!.click();
+    document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.click();
     await flush();
-    expect(checkbox.checked).toBe(true);
+
+    expect(document.querySelector<HTMLInputElement>('input[value="kept"]')!.checked).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.checked).toBe(false);
+  });
+
+  it('reverts optimistic checkbox changes when apply returns no patch state', async () => {
+    buildFixture();
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ patch: null }) });
+
+    document.querySelector<HTMLInputElement>('input[value="kept"]')!.click();
+    document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.click();
+    await flush();
+
+    expect(document.querySelector<HTMLInputElement>('input[value="kept"]')!.checked).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.checked).toBe(false);
+  });
+
+  it('disables the hidden plan apply submit button', () => {
+    buildFixture();
+
+    const button = document.querySelector<HTMLButtonElement>('[data-cut-lab-plan-apply-submit]')!;
+    expect(button.hidden).toBe(true);
+    expect(button.disabled).toBe(true);
+  });
+
+  it('refreshes resolved floors from a decision patch', async () => {
+    buildFixture();
+    document.body.insertAdjacentHTML('beforeend', `<form><input name="CutLabStateJson" value='${stateJson}' /><input name="CardName" value="Card" /><input name="Decision" value="accept" /><input name="__RequestVerificationToken" value="token" /><button type="submit">Accept</button></form>`);
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ patch: { ...patch, resolvedFloors: [{ roleKey: 'ramp', inPoolCount: 7, bracketValue: 2, commanderDisplay: 'None', floor: 2, defaultValue: 1, planDelta: 1, isUserSet: false, sourceLabel: 'Default', sourceDetail: 'Default for B2: 1' }] } }) });
+
+    document.querySelector<HTMLFormElement>('form:not([data-cache-key])')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-floor-count-label]')!.textContent).toBe('7 in pool');
   });
 
   it('preserves persisted commander themes when the outage omits theme checkboxes', async () => {
@@ -166,7 +199,7 @@ describe('cut-lab plan panel', () => {
 
     checkbox.dispatchEvent(new Event('change', { bubbles: true }));
     await flush();
-    expect(document.querySelector('[data-cut-lab-plan-panel] [data-cut-lab-decision-error]')?.textContent).not.toBe('');
+    expect(document.querySelector('[data-cut-lab-plan-panel] [data-cut-lab-decision-error]')?.textContent).toBe("Couldn't recalculate this cut — nothing changed. Try again.");
     expect(document.querySelector('.cutlab-proposal [data-cut-lab-decision-error]')).toBeNull();
   });
 });

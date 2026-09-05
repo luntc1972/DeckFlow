@@ -210,14 +210,12 @@ public static class DeckPlanStrategyCatalog
                     continue;
                 }
 
-                // Why: spike 002 found that "counterspell" contains the literal substring "counters"
-                // (c-o-u-n-t-e-r-s-p-e-l-l), which would otherwise wrongly satisfy the PlusOneCounters
-                // "counters" needle. A counterspell/countermagic tag must never count toward +1/+1
-                // counters, even though a real "Counters" or "+1/+1 Counters" tag still must.
+                // Why: the bare "counters" needle must not classify unrelated counter families as
+                // +1/+1 counters. Require the affirmative +1/+1 token rather than maintaining a
+                // growing deny-list of counter families.
                 if (entry.Strategy == DeckPlanStrategy.PlusOneCounters
                     && string.Equals(needle, "counters", StringComparison.OrdinalIgnoreCase)
-                    && (category.Contains("counterspell", StringComparison.OrdinalIgnoreCase)
-                        || category.Contains("countermagic", StringComparison.OrdinalIgnoreCase)))
+                    && !category.Contains("+1/+1", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }

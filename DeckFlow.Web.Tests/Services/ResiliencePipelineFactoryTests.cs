@@ -84,4 +84,32 @@ public sealed class ResiliencePipelineFactoryTests
                     return new RestResponse { StatusCode = HttpStatusCode.InternalServerError };
                 }));
     }
+
+    [Fact]
+    public async Task EdhrecTimeout_SlowAttempt_RetriesAndReturnsLaterSuccess()
+    {
+        var builder = new ResiliencePipelineBuilder<RestResponse>();
+        ResiliencePipelineFactory.BuildEdhrec(
+            builder,
+            TimeSpan.FromMilliseconds(200),
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+        var pipeline = builder.Build();
+        int attempts = 0;
+
+        RestResponse response = await pipeline.ExecuteAsync(
+            async cancellationToken =>
+            {
+                attempts++;
+                if (attempts == 1)
+                {
+                    await Task.Delay(40, cancellationToken);
+                }
+
+                return new RestResponse { StatusCode = HttpStatusCode.OK };
+            });
+
+        Assert.Equal(2, attempts);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 }
