@@ -660,32 +660,6 @@ internal sealed class CutLabPageService : ICutLabPageService
         };
     }
 
-    // Why: the plan panel needs the full known-theme list (for its checkbox rows) on every render,
-    // not only when a theme is checked, so this fetch runs unconditionally rather than being gated
-    // behind a non-empty PlanProfile like the plan-affinity factory's fetch is.
-    private async Task<EdhrecThemeResult> FetchPlanThemeResultAsync(IReadOnlyList<string> commanderNames, CancellationToken cancellationToken)
-    {
-        string? commanderName = commanderNames.Count > 0 ? commanderNames[0] : null;
-        if (string.IsNullOrWhiteSpace(commanderName))
-        {
-            return new EdhrecThemeResult([], true);
-        }
-
-        try
-        {
-            return await _themeService.GetCommanderThemesAsync(commanderName, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            _logger.LogWarning(exception, "Cut Lab: EDHREC commander theme list fetch failed for plan panel ({CommanderName})", commanderName);
-            return new EdhrecThemeResult([], true);
-        }
-    }
-
     // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
     // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
     private bool IsFlagOn(string key)
@@ -1019,10 +993,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         CutLabPlanProfile? priorProfile,
         EdhrecThemeResult planThemeResult)
     {
-        IReadOnlyList<string> resolvedStrategies = requestedStrategySlugs
-            .Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        IReadOnlyList<string> resolvedStrategies = ValidateStrategySlugs(requestedStrategySlugs);
 
         bool isFirstPresentation = priorProfile is null;
 
@@ -1076,6 +1047,11 @@ internal sealed class CutLabPageService : ICutLabPageService
             CommanderThemesUnavailable = planThemeResult.IsUnavailable,
         };
     }
+
+    internal static IReadOnlyList<string> ValidateStrategySlugs(IEnumerable<string> slugs)
+        => slugs.Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
     private static IReadOnlyDictionary<string, CutLabCardTextView> BuildCardTextByCardName(
         IReadOnlyList<CutLabPoolCard> pool,

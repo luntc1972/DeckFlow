@@ -414,7 +414,7 @@ public static class CutLabStructuralFindings
             yield return new CutLabFinding(
                 CutLabFindingKind.EnablerStarved,
                 "Enabler-starved cards",
-                $"{JoinCardNames(cardsInDeck)} are missing their {partnerLabel}: {JoinCardNames(missingCards)}.",
+                $"{CutLabSharedHelpers.JoinCardNames(cardsInDeck)} are missing their {partnerLabel}: {CutLabSharedHelpers.JoinCardNames(missingCards)}.",
                 cardsInDeck.Select(cardName => new CutLabFindingEvidence(cardName, null)).ToArray());
         }
     }
@@ -458,27 +458,13 @@ public static class CutLabStructuralFindings
             }
         }
 
-        Dictionary<IReadOnlyList<string>, List<(string RoleKey, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)>> groupsByEvidence = new(NormalizedNameSetComparer.Instance);
-        foreach ((string roleKey, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in qualifyingGroups)
-        {
-            IReadOnlyList<string> evidenceKey = cards.Select(card => CutLabCardNames.Normalize(card.Name))
-                .OrderBy(name => name, StringComparer.Ordinal)
-                .ToArray();
-            if (!groupsByEvidence.TryGetValue(evidenceKey, out List<(string RoleKey, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)>? groups))
-            {
-                groups = [];
-                groupsByEvidence.Add(evidenceKey, groups);
-            }
-
-            groups.Add((roleKey, manaValue, primaryType, cards));
-        }
-
-        List<(string RoleKeys, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)> canonicalGroups = groupsByEvidence.Values
+        List<(string RoleKeys, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)> canonicalGroups = qualifyingGroups
+            .GroupBy(group => group.Cards.Select(card => CutLabCardNames.Normalize(card.Name)).OrderBy(name => name, StringComparer.Ordinal).ToArray(), NormalizedNameSetComparer.Instance)
             .Select(groups => (
                 string.Join("|", groups.OrderBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKey)).Select(group => group.RoleKey)),
-                groups[0].ManaValue,
-                groups[0].PrimaryType,
-                groups[0].Cards))
+                groups.First().ManaValue,
+                groups.First().PrimaryType,
+                groups.First().Cards))
             .ToList();
 
         // Why: A normalized evidence-card set is one disclosure even when its cards share several roles.
@@ -529,8 +515,8 @@ public static class CutLabStructuralFindings
                 continue;
             }
 
-            string comboResults = JoinCardNames(combo.Results);
-            string lead = $"{JoinCardNames(cardsInPool)} are Combo piece cards for {comboResults}.";
+            string comboResults = CutLabSharedHelpers.JoinCardNames(combo.Results);
+            string lead = $"{CutLabSharedHelpers.JoinCardNames(cardsInPool)} are Combo piece cards for {comboResults}.";
             // Why: advisory copy is already authored in this detector tier for every other Lead string,
             // so keeping the round-1 guidance here avoids inventing a one-off presenter rule.
             lead = $"{lead} Cutting this in round 1 is inadvisable.";
@@ -576,7 +562,7 @@ public static class CutLabStructuralFindings
             yield return new CutLabFinding(
                 CutLabFindingKind.ComboProtected,
                 "Combo-protected cards",
-                $"{JoinCardNames(cardsInDeck)} are Needs {JoinCardNames(missingCards)} combo cards for {JoinCardNames(results)}.",
+                $"{CutLabSharedHelpers.JoinCardNames(cardsInDeck)} are Needs {CutLabSharedHelpers.JoinCardNames(missingCards)} combo cards for {CutLabSharedHelpers.JoinCardNames(results)}.",
                 cardsInDeck
                     .Select(cardName =>
                     {
@@ -597,15 +583,6 @@ public static class CutLabStructuralFindings
 
     private static int FloorFor(IReadOnlyDictionary<string, int> floors, string roleKey)
         => floors.TryGetValue(roleKey, out int floor) ? floor : 0;
-
-    private static string JoinCardNames(IReadOnlyList<string> cardNames)
-        => cardNames.Count switch
-        {
-            0 => string.Empty,
-            1 => cardNames[0],
-            2 => $"{cardNames[0]} and {cardNames[1]}",
-            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
-        };
 
     private static string ManaValueBucket(double manaValue)
     {
