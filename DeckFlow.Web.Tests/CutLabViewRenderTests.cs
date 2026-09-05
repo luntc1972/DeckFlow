@@ -27,6 +27,30 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabViewRenderTests
 {
     private static readonly IReadOnlyDictionary<string, CutLabCardTextView> EmptyCardTextByCardName = new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
+
+    [Fact]
+    public async Task ResultView_RendersFloorFeasibilityWarningAfterRoleFloorsHeading()
+    {
+        var model = BuildTwinBadgeModel() with
+        {
+            FloorFeasibility = new CutLabFloorFeasibilityResult
+            {
+                RequiredNonlandSlots = 68,
+                AvailableNonlandSlots = 63,
+                Deficit = 5,
+                LandsFloor = 36,
+            },
+        };
+
+        string html = await RenderAsync(model);
+
+        int headingIndex = html.IndexOf("<h2>Role floors</h2>", StringComparison.Ordinal);
+        int warningIndex = html.IndexOf("data-cut-lab-floor-feasibility", StringComparison.Ordinal);
+
+        Assert.True(headingIndex >= 0 && warningIndex >= 0);
+        Assert.True(headingIndex < warningIndex);
+    }
+
     [Fact]
     public async Task ResultView_RendersPlanStepAsEnabledNowThatThePanelIsFilled()
     {

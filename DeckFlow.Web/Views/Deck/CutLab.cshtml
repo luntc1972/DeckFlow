@@ -765,12 +765,6 @@
                 <summary class="cutlab-collapsible__summary">Role floors</summary>
                 <div class="panel-heading">
                     <div>
-                        @if (Model.FloorFeasibility is not null)
-                        {
-                            <div class="warning-banner" role="status" data-cut-lab-floor-feasibility>
-                                <p>@CutLabViewModel.BuildFloorFeasibilityMessage(Model.FloorFeasibility)</p>
-                            </div>
-                        }
                         @{
                             var roleFloorsBracketLabel = Model.Request.Bracket switch
                             {
@@ -785,6 +779,12 @@
                         <h2>Role floors</h2>
                         <p>Minimum counts the finished 100 should keep, derived from your bracket and play experience. Adjust any floor — later cut suggestions will warn you before breaking one, never silently.</p>
                         <p class="cutlab-role-floors-context">Defaults shown for <strong>@Model.Request.SelectedCommander</strong> — Bracket @Model.Request.Bracket (@roleFloorsBracketLabel) · @Model.Request.PlayExperience play.</p>
+                        @if (Model.FloorFeasibility is not null)
+                        {
+                            <div class="warning-banner" role="status" data-cut-lab-floor-feasibility>
+                                <p>@CutLabViewModel.BuildFloorFeasibilityMessage(Model.FloorFeasibility)</p>
+                            </div>
+                        }
                     </div>
                 </div>
             <div class="history-timeline__wrap">
