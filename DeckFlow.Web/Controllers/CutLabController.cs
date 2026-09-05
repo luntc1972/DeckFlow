@@ -122,7 +122,7 @@ public sealed class CutLabController : Controller
             request.PlanThemes = planThemes;
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            return View("CutLab", CutLabViewModel.From(request, result));
+            return View("CutLab", CutLabViewModel.From(request, result, currentStepOverride: 3));
         }
         catch (InvalidOperationException exception)
         {
@@ -298,7 +298,7 @@ public sealed class CutLabController : Controller
             request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            return View("CutLab", CutLabViewModel.From(request, result));
+            return View("CutLab", CutLabViewModel.From(request, result, currentStepOverride: 4));
         }
         catch (InvalidOperationException exception)
         {

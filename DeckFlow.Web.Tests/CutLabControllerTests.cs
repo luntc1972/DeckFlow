@@ -416,9 +416,26 @@ public sealed class CutLabControllerTests
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal(3, model.CurrentStepOverride);
         CutLabState restoredState = CutLabStateSerializer.Deserialize(model.CutLabStateJson);
         Assert.Equal(["combo"], restoredState.Intent.PlanProfile!.GenericStrategies);
         Assert.Equal(["tokens"], restoredState.Intent.PlanProfile.CommanderThemes.Select(theme => theme.Slug));
+    }
+
+    [Fact]
+    public async Task PlanApply_Success_ReturnsPlanStepOverride()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+        };
+
+        var result = await controller.PlanApply(request);
+
+        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal(3, model.CurrentStepOverride);
     }
 
     [Fact]
@@ -629,9 +646,26 @@ public sealed class CutLabControllerTests
         var model = Assert.IsType<CutLabViewModel>(view.Model);
         CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
         Assert.Equal(6, updatedState.Goals.CommanderByTurn);
+        Assert.Equal(4, model.CurrentStepOverride);
         CutLabGoalRowView commanderRow = Assert.Single(model.GoalRows, row => row.Kind == CutLabMetricKind.CommanderByTurn);
         Assert.Equal(6, commanderRow.TurnValue);
         Assert.Equal("Commander by turn 6", commanderRow.Label);
+    }
+
+    [Fact]
+    public async Task Goals_Success_ReturnsGoalsStepOverride()
+    {
+        var service = new GoalStateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+        };
+
+        var result = await controller.Goals(request);
+
+        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal(4, model.CurrentStepOverride);
     }
 
     [Fact]
