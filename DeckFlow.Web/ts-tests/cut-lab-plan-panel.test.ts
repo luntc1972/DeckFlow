@@ -42,13 +42,14 @@ const flush = async (): Promise<void> => {
 
 const buildFixture = (): HTMLInputElement => {
   document.body.innerHTML = `
-    <form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /></form>
+    <form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /><button data-cut-lab-plan-apply-submit>Apply plan</button></form>
     <div data-cut-lab-plan-panel>
       <label><input type="checkbox" name="PlanStrategies" value="kept" />Kept</label>
       <label><input type="checkbox" name="PlanStrategies" value="dropped" checked />Dropped</label>
       <label><input type="checkbox" name="PlanThemes" value="theme-a" />Theme A</label>
       <label><input type="checkbox" name="PlanThemes" value="theme-b" checked />Theme B</label>
-    </div>`;
+    </div>
+    <table><tbody><tr data-cut-lab-floor-row="ramp" data-cut-lab-floor-count="2" data-cut-lab-floor-default="1" data-cut-lab-floor-user-set="false"><td data-label="In pool"><span data-cut-lab-floor-count-label>2 in pool</span></td><td data-label="Floor"><input data-cut-lab-floor="ramp" value="1" /></td><td data-label="Source"><button data-cut-lab-floor-reset></button></td></tr></tbody></table>`;
   document.dispatchEvent(new Event('DOMContentLoaded'));
   return document.querySelector<HTMLInputElement>('input[value="dropped"]')!;
 };
@@ -76,6 +77,37 @@ describe('cut-lab plan panel', () => {
 
     expect(document.querySelector<HTMLInputElement>('input[value="kept"]')!.checked).toBe(false);
     expect(document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.checked).toBe(false);
+  });
+
+  it('reverts optimistic checkbox changes when apply returns no patch state', async () => {
+    buildFixture();
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ patch: null }) });
+
+    document.querySelector<HTMLInputElement>('input[value="kept"]')!.click();
+    document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.click();
+    await flush();
+
+    expect(document.querySelector<HTMLInputElement>('input[value="kept"]')!.checked).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('input[value="theme-a"]')!.checked).toBe(false);
+  });
+
+  it('disables the hidden plan apply submit button', () => {
+    buildFixture();
+
+    const button = document.querySelector<HTMLButtonElement>('[data-cut-lab-plan-apply-submit]')!;
+    expect(button.hidden).toBe(true);
+    expect(button.disabled).toBe(true);
+  });
+
+  it('refreshes resolved floors from a decision patch', async () => {
+    buildFixture();
+    document.body.insertAdjacentHTML('beforeend', `<form><input name="CutLabStateJson" value='${stateJson}' /><input name="CardName" value="Card" /><input name="Decision" value="accept" /><input name="__RequestVerificationToken" value="token" /><button type="submit">Accept</button></form>`);
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ patch: { ...patch, resolvedFloors: [{ roleKey: 'ramp', inPoolCount: 7, bracketValue: 2, commanderDisplay: 'None', floor: 2, defaultValue: 1, planDelta: 1, isUserSet: false, sourceLabel: 'Default', sourceDetail: 'Default for B2: 1' }] } }) });
+
+    document.querySelector<HTMLFormElement>('form:not([data-cache-key])')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-floor-count-label]')!.textContent).toBe('7 in pool');
   });
 
   it('preserves persisted commander themes when the outage omits theme checkboxes', async () => {
