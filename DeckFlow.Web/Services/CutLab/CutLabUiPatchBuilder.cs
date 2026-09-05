@@ -32,6 +32,68 @@ public interface ICutLabUiPatchBuilder
         CancellationToken cancellationToken = default);
 }
 
+internal static class CutLabSharedHelpers
+{
+    internal static IReadOnlyList<CutLabDecideFloorWarningDto> BuildFloorWarnings(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        CutLabAnalysisContext context,
+        IReadOnlyDictionary<string, int> floorByRole,
+        string cardName)
+    {
+        if (!context.RolesByCardName.TryGetValue(cardName, out IReadOnlyList<string>? roles))
+        {
+            return [];
+        }
+
+        int quantity = workingList.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase))?.Quantity ?? 1;
+        return CutLabFloorRules.Evaluate(context.RoleCounts, floorByRole, roles, cardName, quantity)
+            .Select(warning => new CutLabDecideFloorWarningDto
+            {
+                Role = warning.Role,
+                NewCount = warning.NewCount,
+                Floor = warning.Floor,
+                Message = warning.Message,
+            })
+            .ToArray();
+    }
+
+    internal static string JoinCardNames(IReadOnlyList<string> cardNames)
+        => cardNames.Count switch
+        {
+            0 => string.Empty,
+            1 => cardNames[0],
+            2 => $"{cardNames[0]} and {cardNames[1]}",
+            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
+        };
+
+    internal static async Task<EdhrecThemeResult> FetchPlanThemeResultAsync(
+        IEdhrecCommanderThemeService themeService,
+        ILogger logger,
+        IReadOnlyList<string> commanderNames,
+        CancellationToken cancellationToken)
+    {
+        string? commanderName = commanderNames.Count > 0 ? commanderNames[0] : null;
+        if (string.IsNullOrWhiteSpace(commanderName))
+        {
+            return new EdhrecThemeResult([], true);
+        }
+
+        try
+        {
+            return await themeService.GetCommanderThemesAsync(commanderName, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Cut Lab: plan EDHREC theme lookup failed; continuing unavailable.");
+            return new EdhrecThemeResult([], true);
+        }
+    }
+}
+
 /// <summary>Default Cut Lab live-patch projection service.</summary>
 public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
 {
@@ -248,7 +310,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             return [];
         }
 
-        return BuildFloorWarnings(workingList, context, floorByRole, roundPlan.NextProposal.CardName);
+        return CutLabSharedHelpers.BuildFloorWarnings(workingList, context, floorByRole, roundPlan.NextProposal.CardName);
     }
 
     private static IReadOnlyList<CutLabDecideFloorWarningDto> BuildFloorWarnings(
@@ -365,7 +427,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             return new CutLabDecideComboBadgeDto
             {
                 BadgeState = ComboBadgeState.CompletePiece,
-                Context = JoinCardNames(
+                Context = CutLabSharedHelpers.JoinCardNames(
                     membership.CompleteCombos
                         .SelectMany(combo => combo.Results)
                         .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -379,7 +441,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             return new CutLabDecideComboBadgeDto
             {
                 BadgeState = ComboBadgeState.NeedsPartner,
-                Context = $"Needs {JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
+                Context = $"Needs {CutLabSharedHelpers.JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
             };
         }
 
