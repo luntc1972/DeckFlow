@@ -49,6 +49,7 @@ const buildFixture = (): HTMLInputElement => {
       <label><input type="checkbox" name="PlanThemes" value="theme-a" />Theme A</label>
       <label><input type="checkbox" name="PlanThemes" value="theme-b" checked />Theme B</label>
     </div>
+    <div class="cutlab-proposal"></div>
     <table><tbody><tr data-cut-lab-floor-row="ramp" data-cut-lab-floor-count="2" data-cut-lab-floor-default="1" data-cut-lab-floor-user-set="false"><td data-label="In pool"><span data-cut-lab-floor-count-label>2 in pool</span></td><td data-label="Floor"><input data-cut-lab-floor="ramp" value="1" /></td><td data-label="Source"><button data-cut-lab-floor-reset></button></td></tr></tbody></table>`;
   document.dispatchEvent(new Event('DOMContentLoaded'));
   return document.querySelector<HTMLInputElement>('input[value="dropped"]')!;
@@ -198,7 +199,7 @@ describe('cut-lab plan panel', () => {
 
     checkbox.dispatchEvent(new Event('change', { bubbles: true }));
     await flush();
-    expect(document.querySelector('[data-cut-lab-plan-panel] [data-cut-lab-decision-error]')?.textContent).not.toBe('');
+    expect(document.querySelector('[data-cut-lab-plan-panel] [data-cut-lab-decision-error]')?.textContent).toBe("Couldn't recalculate this cut — nothing changed. Try again.");
     expect(document.querySelector('.cutlab-proposal [data-cut-lab-decision-error]')).toBeNull();
   });
 });
