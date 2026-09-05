@@ -30,7 +30,7 @@ public sealed class CutLabStrandedOffPlanPackageTests
     {
         IReadOnlyList<CutLabAnalyzedCard> pool = Cards(5);
         Dictionary<string, CutLabPlanAffinity> affinities = Affinities(pool);
-        affinities[CutLabCardNames.Normalize("Card 5")] = new(["Tokens"], [new("tokens", "Tokens")], [], 1);
+        affinities[CutLabCardNames.Normalize("Card 5")] = new([new("tokens", "Tokens")], 1);
 
         CutLabFinding finding = Assert.Single(Find(pool, affinities));
 
@@ -51,7 +51,7 @@ public sealed class CutLabStrandedOffPlanPackageTests
         Dictionary<string, CutLabPlanAffinity> affinities = Affinities(pool);
         foreach (string cardName in pool.Skip(4).Select(card => card.Name))
         {
-            affinities[CutLabCardNames.Normalize(cardName)] = new([], [new("zombies", "Zombies")], [], 0);
+            affinities[CutLabCardNames.Normalize(cardName)] = new([new("zombies", "Zombies")], 0);
         }
 
         CutLabFinding[] findings = Find(pool, affinities).ToArray();
@@ -65,10 +65,10 @@ public sealed class CutLabStrandedOffPlanPackageTests
         IReadOnlyList<CutLabAnalyzedCard> pool = Cards(4, "First").Concat(Cards(4, "Second")).ToArray();
         Dictionary<string, CutLabPlanAffinity> affinities = pool
             .Take(4)
-            .ToDictionary(card => CutLabCardNames.Normalize(card.Name), _ => new CutLabPlanAffinity([], [new("theme-one", "Shared Theme")], [], 0));
+            .ToDictionary(card => CutLabCardNames.Normalize(card.Name), _ => new CutLabPlanAffinity([new("theme-one", "Shared Theme")], 0));
         foreach (CutLabAnalyzedCard card in pool.Skip(4))
         {
-            affinities[CutLabCardNames.Normalize(card.Name)] = new([], [new("theme-two", "Shared Theme")], [], 0);
+            affinities[CutLabCardNames.Normalize(card.Name)] = new([new("theme-two", "Shared Theme")], 0);
         }
 
         CutLabFinding[] findings = Find(pool, affinities).ToArray();
@@ -142,7 +142,7 @@ public sealed class CutLabStrandedOffPlanPackageTests
         => Enumerable.Range(1, count).Select(index => new CutLabAnalyzedCard($"{prefix} {index}", index, false, [], [])).ToArray();
 
     private static Dictionary<string, CutLabPlanAffinity> Affinities(IReadOnlyList<CutLabAnalyzedCard> pool)
-        => pool.ToDictionary(card => CutLabCardNames.Normalize(card.Name), _ => new CutLabPlanAffinity([], [new("tokens", "Tokens")], [], 0));
+        => pool.ToDictionary(card => CutLabCardNames.Normalize(card.Name), _ => new CutLabPlanAffinity([new("tokens", "Tokens")], 0));
 
     private static IReadOnlyDictionary<string, int> Floors()
         => new Dictionary<string, int>();

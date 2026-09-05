@@ -112,11 +112,13 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
 
         IReadOnlyList<string> boundedSlugs = BuildBoundedSlugs(planProfile.CommanderThemes, themeResult.Themes);
         Dictionary<string, IReadOnlyList<string>> themeCardNamesBySlug = new(StringComparer.OrdinalIgnoreCase);
+        bool budgetExpired = false;
         foreach (string slug in boundedSlugs)
         {
             if (themeFetchBudgetCancellation.IsCancellationRequested)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                budgetExpired = true;
                 break;
             }
 
@@ -127,8 +129,15 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
             catch (OperationCanceledException) when (themeFetchBudgetCancellation.IsCancellationRequested)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                budgetExpired = true;
                 break;
             }
+        }
+
+        if (budgetExpired)
+        {
+            return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile,
+                new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase), themeResult.Themes);
         }
 
         return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, themeCardNamesBySlug, themeResult.Themes);

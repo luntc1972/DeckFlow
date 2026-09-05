@@ -10,16 +10,6 @@ public sealed record CutLabPlanAffinity(
     IReadOnlyList<CutLabPlanAffinityTheme> OffPlanThemes,
     int Score)
 {
-    /// <summary>Initializes affinity while ignoring legacy on-plan display values.</summary>
-    public CutLabPlanAffinity(
-        IReadOnlyList<string> onPlanThemes,
-        IReadOnlyList<CutLabPlanAffinityTheme> offPlanThemes,
-        IReadOnlyList<string> onPlanStrategies,
-        int score)
-        : this(offPlanThemes, score)
-    {
-    }
-
     /// <summary>Gets whether this card matches at least one checked plan signal.</summary>
     public bool IsOnPlan => Score > 0;
 

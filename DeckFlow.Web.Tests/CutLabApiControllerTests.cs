@@ -1741,7 +1741,7 @@ public sealed class CutLabApiControllerTests
             LastAnalyzedCardNames = analyzedCards.Select(card => card.Name).ToArray();
             return Task.FromResult<IReadOnlyDictionary<string, CutLabPlanAffinity>?>(new Dictionary<string, CutLabPlanAffinity>(StringComparer.OrdinalIgnoreCase)
             {
-                ["Arcane Signet"] = new(["artifacts"], [], [], 2),
+                ["Arcane Signet"] = new([], 2),
             });
         }
     }

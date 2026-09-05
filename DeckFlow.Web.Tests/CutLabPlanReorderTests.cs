@@ -127,7 +127,7 @@ public sealed class CutLabPlanReorderTests
         => new(entries.GroupBy(entry => entry.Kind).Select(group => new CutLabFinding(group.Key, group.Key.ToString(), group.Key.ToString(), group.Select(entry => new CutLabFindingEvidence(entry.Name, 1)).ToArray())).ToArray(), false, false);
 
     private static IReadOnlyDictionary<string, CutLabPlanAffinity> Affinities(params (string Name, int Score)[] entries)
-        => entries.ToDictionary(entry => CutLabCardNames.Normalize(entry.Name), entry => new CutLabPlanAffinity([], [], [], entry.Score));
+        => entries.ToDictionary(entry => CutLabCardNames.Normalize(entry.Name), entry => new CutLabPlanAffinity([], entry.Score));
 
     private static CutLabDecision Decision(string cardName, CutLabDecisionKind kind, int ordinal)
         => new() { CardName = cardName, Kind = kind, Round = "r", Ordinal = ordinal };

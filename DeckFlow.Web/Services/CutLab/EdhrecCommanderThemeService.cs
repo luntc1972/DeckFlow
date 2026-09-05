@@ -299,16 +299,17 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
     private void WriteCache(string path, CacheEntry entry)
     {
+        string temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
             Directory.CreateDirectory(_cacheRoot);
-            string temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             File.WriteAllText(temporaryPath, JsonSerializer.Serialize(entry));
             File.Move(temporaryPath, path, overwrite: true);
             SweepExpiredCacheEntries();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            try { File.Delete(temporaryPath); } catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException) { }
             if (Interlocked.Exchange(ref _cacheWriteFailureLogged, 1) == 0)
             {
                 _logger?.LogWarning(ex, "Unable to write EDHREC disk cache");
@@ -333,7 +334,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
         try
         {
-            foreach (var cachePath in Directory.EnumerateFiles(_cacheRoot, "*.json"))
+            foreach (var cachePath in Directory.EnumerateFiles(_cacheRoot, "*.json").Concat(Directory.EnumerateFiles(_cacheRoot, "*.tmp")))
             {
                 try
                 {
