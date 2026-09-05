@@ -6,6 +6,7 @@ import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admi
 import { getToolEnabled, setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
+import { cutLabPool as oversizedPool } from './fixtures/cut-lab-pool';
 
 // Live smoke spec for Phase 8's Cut Lab plan panel (checkbox plan-profile selection), gated on
 // 08-07's rendered panel and its /api/cut-lab/plan-apply round trip. This is the one artifact that
@@ -65,29 +66,6 @@ const engineEffectCardName = 'Command Tower';
 // file, so a fixed idempotent fixture row (like the shared `cards` row below) avoids a delete race
 // where one project's cleanup removes the row while the other project's test still needs it.
 const engineEffectCategoryLabel = 'Landfall test fixture';
-
-const oversizedPool = [
-  'Commander',
-  '1 Zur the Enchanter',
-  '',
-  'Deck',
-  '36 Plains',
-  '36 Island',
-  '20 Swamp',
-  '1 Sol Ring',
-  '1 Arcane Signet',
-  '1 Fellwar Stone',
-  '1 Mystic Remora',
-  '1 Rhystic Study',
-  '1 Swords to Plowshares',
-  '1 Path to Exile',
-  '1 Counterspell',
-  '1 Dovin\'s Veto',
-  '1 Demonic Tutor',
-  '1 Enlightened Tutor',
-  '1 Command Tower',
-  '1 Exotic Orchard',
-].join('\n');
 
 type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 

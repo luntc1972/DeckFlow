@@ -1282,23 +1282,7 @@ public sealed class CutLabApiControllerTests
             new FakeSimulationService(),
             patchBuilder,
             themeService: themeService);
-        CutLabState baseState = CreateState();
-        CutLabState state = baseState with
-        {
-            Intent = baseState.Intent with
-            {
-                PlanProfile = new CutLabPlanProfile
-                {
-                    GenericStrategies = ["combo"],
-                    CommanderThemes =
-                    [
-                        new CutLabCommanderTheme { Slug = "voltron" },
-                        new CutLabCommanderTheme { Slug = "stax" },
-                    ],
-                    CommanderThemesUnavailable = true,
-                },
-            },
-        };
+        CutLabState state = CreateStateWithUnavailableThemeProfile();
 
         ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
             new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) },
@@ -1315,23 +1299,7 @@ public sealed class CutLabApiControllerTests
     [Fact]
     public async Task PostDecideAsync_PriorOutageFlagSet_PreservesFlagAndCheckedThemesThroughDecision()
     {
-        CutLabState baseState = CreateState();
-        CutLabState state = baseState with
-        {
-            Intent = baseState.Intent with
-            {
-                PlanProfile = new CutLabPlanProfile
-                {
-                    GenericStrategies = ["combo"],
-                    CommanderThemes =
-                    [
-                        new CutLabCommanderTheme { Slug = "voltron" },
-                        new CutLabCommanderTheme { Slug = "stax" },
-                    ],
-                    CommanderThemesUnavailable = true,
-                },
-            },
-        };
+        CutLabState state = CreateStateWithUnavailableThemeProfile();
         CutLabApiController controller = CreateController(
             new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
             new FakeSimulationService());
@@ -1370,23 +1338,7 @@ public sealed class CutLabApiControllerTests
             new FakeSimulationService(),
             patchBuilder,
             themeService: themeService);
-        CutLabState baseState = CreateState();
-        CutLabState state = baseState with
-        {
-            Intent = baseState.Intent with
-            {
-                PlanProfile = new CutLabPlanProfile
-                {
-                    GenericStrategies = ["combo"],
-                    CommanderThemes =
-                    [
-                        new CutLabCommanderTheme { Slug = "voltron" },
-                        new CutLabCommanderTheme { Slug = "stax" },
-                    ],
-                    CommanderThemesUnavailable = true,
-                },
-            },
-        };
+        CutLabState state = CreateStateWithUnavailableThemeProfile();
 
         ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(
             new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) },
@@ -1482,6 +1434,27 @@ public sealed class CutLabApiControllerTests
                 Bracket = 3,
             },
         };
+
+    private static CutLabState CreateStateWithUnavailableThemeProfile()
+    {
+        CutLabState baseState = CreateState();
+        return baseState with
+        {
+            Intent = baseState.Intent with
+            {
+                PlanProfile = new CutLabPlanProfile
+                {
+                    GenericStrategies = ["combo"],
+                    CommanderThemes =
+                    [
+                        new CutLabCommanderTheme { Slug = "voltron" },
+                        new CutLabCommanderTheme { Slug = "stax" },
+                    ],
+                    CommanderThemesUnavailable = true,
+                },
+            },
+        };
+    }
 
     private static CutLabPoolCard Card(string name, int quantity = 1, bool isCommander = false, bool isLocked = false)
         => new()
