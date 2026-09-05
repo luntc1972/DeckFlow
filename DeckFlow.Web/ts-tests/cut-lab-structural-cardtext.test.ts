@@ -190,6 +190,8 @@ const buildPatch = (comboContext = 'Infinite cards'): CutLabPatchResponse => ({
 
 // Must stay character-identical to the Razor twins help note in Views/Deck/CutLab.cshtml.
 const twinsHelpNote = 'Slot Congestion means these cards share the same role, card type, and exact mana value. Treat them as review candidates, not automatic cuts — a card here may also be combo-protected.';
+// Must stay character-identical to the Razor enabler-starved help note in Views/Deck/CutLab.cshtml.
+const enablerStarvedHelpNote = 'A card here is only missing a partner for THIS combo line — it may still be fully live in another combo, and can also appear under Combo-protected.';
 
 const buildTwinsPatch = (): CutLabPatchResponse => {
   const response = buildPatch();
@@ -202,6 +204,27 @@ const buildTwinsPatch = (): CutLabPatchResponse => {
           kind: 'FunctionalTwins',
           heading: 'Slot Congestion',
           lead: 'Three interaction instants share the Targeted removal role, card type, and exact mana value 1 — treat them as review candidates, not an automatic cut.',
+          evidence: ['Counterspell'],
+          roles: ['Targeted removal'],
+        },
+      ],
+    },
+  ];
+
+  return response;
+};
+
+const buildEnablerStarvedPatch = (): CutLabPatchResponse => {
+  const response = buildPatch();
+  response.patch!.structuralFindings = [
+    {
+      kind: 'EnablerStarved',
+      heading: 'Enabler Starved',
+      items: [
+        {
+          kind: 'EnablerStarved',
+          heading: 'Enabler Starved',
+          lead: 'A card is missing a partner for this combo line.',
           evidence: ['Counterspell'],
           roles: ['Targeted removal'],
         },
@@ -283,6 +306,28 @@ describe('cut-lab structural card popup data', () => {
     const notes = document.querySelectorAll<HTMLElement>('[data-cut-lab-structural-findings-body] .cutlab-finding p.manabase-help');
     expect(notes.length).toBe(1);
     expect(notes[0]?.textContent).toBe(twinsHelpNote);
+  });
+
+  it('renderStructuralFindings_EnablerStarved_RendersSameHelpNoteAsRazorAfterAjaxDecide', async () => {
+    buildFixture();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => buildEnablerStarvedPatch(),
+    });
+
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+
+    form?.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true,
+      cancelable: true,
+      submitter: button ?? undefined,
+    }));
+    await flushDecisionSubmit();
+
+    const notes = document.querySelectorAll<HTMLElement>('[data-cut-lab-structural-findings-body] .cutlab-finding p.manabase-help');
+    expect(notes.length).toBe(1);
+    expect(notes[0]?.textContent).toBe(enablerStarvedHelpNote);
   });
 
   // Why: T-041-03. Pins the AJAX-rendered Slot Congestion copy and role line, and pins the
