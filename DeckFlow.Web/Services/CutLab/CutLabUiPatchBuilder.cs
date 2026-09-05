@@ -313,29 +313,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         return CutLabSharedHelpers.BuildFloorWarnings(workingList, context, floorByRole, roundPlan.NextProposal.CardName);
     }
 
-    private static IReadOnlyList<CutLabDecideFloorWarningDto> BuildFloorWarnings(
-        IReadOnlyList<CutLabPoolCard> workingList,
-        CutLabAnalysisContext context,
-        IReadOnlyDictionary<string, int> floorByRole,
-        string cardName)
-    {
-        if (!context.RolesByCardName.TryGetValue(cardName, out IReadOnlyList<string>? roles))
-        {
-            return [];
-        }
-
-        int quantity = workingList.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase))?.Quantity ?? 1;
-        return CutLabFloorRules.Evaluate(context.RoleCounts, floorByRole, roles, cardName, quantity)
-            .Select(warning => new CutLabDecideFloorWarningDto
-            {
-                Role = warning.Role,
-                NewCount = warning.NewCount,
-                Floor = warning.Floor,
-                Message = warning.Message,
-            })
-            .ToArray();
-    }
-
     private static CutLabDecideNextProposalDto BuildNextProposal(CutLabRoundPlan roundPlan, CutLabStructuralFindingsResult findings)
         => CutLabNextProposalBuilder.Build(roundPlan, findings);
 
@@ -536,15 +513,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         => roleAssignmentsByCardName.TryGetValue(cardName, out IReadOnlyList<string>? roles)
             ? string.Join(" · ", roles.Select(DisplayLabelFor))
             : string.Empty;
-
-    private static string JoinCardNames(IReadOnlyList<string> cardNames)
-        => cardNames.Count switch
-        {
-            0 => string.Empty,
-            1 => cardNames[0],
-            2 => $"{cardNames[0]} and {cardNames[1]}",
-            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
-        };
 
     private static string DisplayLabelFor(string roleKey)
         => CutLabRoleAssigner.DisplayLabelFor(roleKey);

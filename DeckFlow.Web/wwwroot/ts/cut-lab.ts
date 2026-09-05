@@ -3794,7 +3794,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (notice) {
       const anyChecked = [...getPlanPanelCheckboxes('PlanStrategies'), ...getPlanPanelCheckboxes('PlanThemes')]
         .some(checkbox => checkbox.checked);
-      notice.classList.toggle('is-hidden', anyChecked);
+      notice.classList.toggle('hidden', anyChecked);
     }
   };
 

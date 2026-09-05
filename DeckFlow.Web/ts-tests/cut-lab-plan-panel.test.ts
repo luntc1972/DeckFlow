@@ -48,6 +48,7 @@ const buildFixture = (): HTMLInputElement => {
       <label><input type="checkbox" name="PlanStrategies" value="dropped" checked />Dropped</label>
       <label><input type="checkbox" name="PlanThemes" value="theme-a" />Theme A</label>
       <label><input type="checkbox" name="PlanThemes" value="theme-b" checked />Theme B</label>
+      <p data-cut-lab-plan-zero-notice>With nothing checked</p>
     </div>
     <div class="cutlab-proposal"></div>
     <table><tbody><tr data-cut-lab-floor-row="ramp" data-cut-lab-floor-count="2" data-cut-lab-floor-default="1" data-cut-lab-floor-user-set="false"><td data-label="In pool"><span data-cut-lab-floor-count-label>2 in pool</span></td><td data-label="Floor"><input data-cut-lab-floor="ramp" value="1" /></td><td data-label="Source"><button data-cut-lab-floor-reset></button></td></tr></tbody></table>`;
@@ -56,6 +57,25 @@ const buildFixture = (): HTMLInputElement => {
 };
 
 describe('cut-lab plan panel', () => {
+  it('hides the zero-selection notice when checked and restores it when the last checkbox is unchecked', async () => {
+    const checkbox = buildFixture();
+    const notice = document.querySelector<HTMLElement>('[data-cut-lab-plan-zero-notice]')!;
+    expect(notice.classList.contains('hidden')).toBe(false);
+    fetchMock.mockResolvedValueOnce(response(['kept'], [])).mockResolvedValueOnce(response([], []));
+
+    checkbox.checked = false;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    expect(notice.classList.contains('hidden')).toBe(true);
+
+    checkbox.checked = false;
+    document.querySelectorAll<HTMLInputElement>('input[name="PlanStrategies"], input[name="PlanThemes"]')
+      .forEach(input => { input.checked = false; });
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush();
+    expect(notice.classList.contains('hidden')).toBe(false);
+  });
   it('reverts optimistic checkbox changes when apply responds not ok', async () => {
     buildFixture();
     fetchMock.mockResolvedValueOnce({ ok: false, text: async () => 'Profile failed' });

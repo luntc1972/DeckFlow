@@ -267,11 +267,8 @@ test('the zero-selection notice appears once every checkbox is cleared', async (
 
   await clearAllPlanCheckboxes(page);
 
-  // Why: /api/cut-lab/plan-apply's patch DTO only carries the cut-rounds/findings fields (proposal,
-  // deltas, structural findings, etc.) — it does not re-render the plan panel fragment itself, so
-  // the zero-selection notice (a server-rendered @if in the panel markup) only reflects the latest
-  // saved state on the next full page render. Re-import (the same resubmit-with-current-state
-  // round trip the persistence test below exercises) is how a real user would next see it settle.
+  // Why: re-import verifies the persisted zero-selection state after the immediate client-side
+  // update performed by syncPlanPanel following the plan-apply response.
   await reimportPool(page);
   await expandMobileCollapsibles(page);
 
