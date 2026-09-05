@@ -58,24 +58,8 @@ public sealed class CutLabController : Controller
             }
             else if (!string.IsNullOrWhiteSpace(request.CutLabStateJson))
             {
-                // Why: the plan panel sits outside this form (D-1's explicit-apply design), so a
-                // reprocess submission (new deck text, changed bracket/experience) never carries
-                // PlanStrategies/PlanThemes in its POST body. Backfill them from the carried-forward
-                // state so reprocessing does not silently wipe or reset the user's checked plan.
                 CutLabState priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-                if (request.PlanStrategies.Count == 0 && request.PlanThemes.Count == 0)
-                {
-                    request.PlanStrategies = priorState.Intent.PlanProfile?.GenericStrategies ?? [];
-                    request.PlanThemes = priorState.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
-                }
-                if (string.IsNullOrWhiteSpace(request.PrimaryPlan))
-                {
-                    request.PrimaryPlan = priorState.Intent.PrimaryPlan;
-                }
-                if (string.IsNullOrWhiteSpace(request.SecondaryPlan))
-                {
-                    request.SecondaryPlan = priorState.Intent.SecondaryPlan ?? string.Empty;
-                }
+                BackfillMissingPlanFieldsFromState(request, priorState);
             }
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
@@ -114,12 +98,7 @@ public sealed class CutLabController : Controller
         try
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-            IReadOnlyList<string> planStrategies = request.PlanStrategies;
-            IReadOnlyList<string> planThemes = request.PlanThemes;
-            RehydrateIntakeRequestFromState(request, state);
-            // Why: RehydrateIntakeRequestFromState would otherwise replace this action's just-posted plan selections with the prior state's selections.
-            request.PlanStrategies = planStrategies;
-            request.PlanThemes = planThemes;
+            RehydrateIntakeRequestFromState(request, state, preservePostedPlanProfile: true);
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
             return View("CutLab", CutLabViewModel.From(request, result, currentStepOverride: 3));
@@ -470,7 +449,13 @@ public sealed class CutLabController : Controller
         => string.Equals(intent, "preview", StringComparison.OrdinalIgnoreCase)
             || string.Equals(intent, "keep", StringComparison.OrdinalIgnoreCase);
 
-    private static void RehydrateIntakeRequestFromState(CutLabRequest request, CutLabState state)
+    /// <summary>
+    /// Rehydrates the request from state, because state is authoritative except for fields the caller explicitly owns.
+    /// </summary>
+    private static void RehydrateIntakeRequestFromState(
+        CutLabRequest request,
+        CutLabState state,
+        bool preservePostedPlanProfile = false)
     {
         if (!NeedsDeckInputRehydration(request, state))
         {
@@ -482,13 +467,40 @@ public sealed class CutLabController : Controller
         request.DeckText = BuildDeckText(state);
         request.PrimaryPlan = state.Intent.PrimaryPlan;
         request.SecondaryPlan = state.Intent.SecondaryPlan ?? string.Empty;
-        request.PlanStrategies = state.Intent.PlanProfile?.GenericStrategies ?? [];
-        request.PlanThemes = state.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
+        if (!preservePostedPlanProfile)
+        {
+            request.PlanStrategies = state.Intent.PlanProfile?.GenericStrategies ?? [];
+            request.PlanThemes = state.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
+        }
         request.Bracket = state.Intent.Bracket;
         request.PlayExperience = state.Intent.PlayExperience;
         request.IncludeSideboard = state.Intent.IncludeSideboard;
         request.IncludeMaybeboard = state.Intent.IncludeMaybeboard;
         request.SelectedCommander = state.Commander;
+    }
+
+    /// <summary>
+    /// Backfills missing plan fields from prior state, because the POST is authoritative and state is only a fallback.
+    /// </summary>
+    private static void BackfillMissingPlanFieldsFromState(CutLabRequest request, CutLabState priorState)
+    {
+        // Why: the plan panel sits outside this form (D-1's explicit-apply design), so a
+        // reprocess submission (new deck text, changed bracket/experience) never carries
+        // PlanStrategies/PlanThemes in its POST body. Backfill them from the carried-forward
+        // state so reprocessing does not silently wipe or reset the user's checked plan.
+        if (request.PlanStrategies.Count == 0 && request.PlanThemes.Count == 0)
+        {
+            request.PlanStrategies = priorState.Intent.PlanProfile?.GenericStrategies ?? [];
+            request.PlanThemes = priorState.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
+        }
+        if (string.IsNullOrWhiteSpace(request.PrimaryPlan))
+        {
+            request.PrimaryPlan = priorState.Intent.PrimaryPlan;
+        }
+        if (string.IsNullOrWhiteSpace(request.SecondaryPlan))
+        {
+            request.SecondaryPlan = priorState.Intent.SecondaryPlan ?? string.Empty;
+        }
     }
 
     private static bool NeedsDeckInputRehydration(CutLabRequest request, CutLabState state)
