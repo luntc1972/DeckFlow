@@ -192,6 +192,25 @@ public sealed class CutLabPlanAffinityFactoryTests
     }
 
     [Fact]
+    public async Task BuildAsync_ThemeFetchBudgetExpiresAfterOneSlug_DiscardsAllResolvedMembership()
+    {
+        var themeService = new FakeEdhrecCommanderThemeService
+        {
+            ThemesResult = new EdhrecThemeResult([Theme("theme-a", "Theme A"), Theme("theme-b", "Theme B")], false),
+            CardsBySlug = Lists(("theme-a", ["On Plan Card"])),
+            BlockAfterFirstThemeFetch = true,
+        };
+        var result = await new CutLabPlanAffinityFactory(themeService).BuildAsync(
+            Profile(themes: [Theme("theme-a", "Theme A")]),
+            [Card("On Plan Card")],
+            ["Krenko, Mob Boss"]);
+
+        Assert.NotNull(result);
+        Assert.False(CutLabPlanAffinityResolver.For(result!, "On Plan Card").IsOnPlan);
+        Assert.Empty(CutLabPlanAffinityResolver.For(result!, "On Plan Card").OffPlanThemes);
+    }
+
+    [Fact]
     public async Task BuildAsync_ResultKeys_ResolveThroughPlanAffinityResolverFor()
     {
         var themeService = new FakeEdhrecCommanderThemeService();
@@ -236,20 +255,26 @@ internal sealed class FakeEdhrecCommanderThemeService : IEdhrecCommanderThemeSer
     /// <summary>When set, <see cref="GetThemeCardNamesAsync"/> throws for this one slug (case-insensitive), simulating a single EDHREC failure.</summary>
     public string? ThrowForSlug { get; set; }
 
+    public bool BlockAfterFirstThemeFetch { get; set; }
+
     public Task<EdhrecThemeResult> GetCommanderThemesAsync(string commanderName, CancellationToken cancellationToken = default)
     {
         CommanderThemeCalls.Add(commanderName);
         return Task.FromResult(ThemesResult);
     }
 
-    public Task<IReadOnlyList<string>> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
     {
         ThemeCardCalls.Add((commanderName, themeSlug));
+        if (BlockAfterFirstThemeFetch && ThemeCardCalls.Count > 1)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
         if (string.Equals(ThrowForSlug, themeSlug, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException($"Simulated EDHREC failure for theme '{themeSlug}'.");
         }
 
-        return Task.FromResult(CardsBySlug.TryGetValue(themeSlug, out IReadOnlyList<string>? names) ? names : (IReadOnlyList<string>)[]);
+        return CardsBySlug.TryGetValue(themeSlug, out IReadOnlyList<string>? names) ? names : (IReadOnlyList<string>)[];
     }
 }

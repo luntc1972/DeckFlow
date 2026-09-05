@@ -485,29 +485,6 @@ public sealed class CutLabApiController : ControllerBase
     // Why: the plan panel needs a live re-fetch on every apply — the checked theme slugs must be
     // validated against the commander's CURRENT EDHREC theme list, not trusted from the client, and
     // this endpoint has no cached copy of that list the way the page render does.
-    private async Task<EdhrecThemeResult> FetchPlanThemeResultAsync(IReadOnlyList<string> commanderNames, CancellationToken cancellationToken)
-    {
-        string? commanderName = commanderNames.Count > 0 ? commanderNames[0] : null;
-        if (string.IsNullOrWhiteSpace(commanderName))
-        {
-            return new EdhrecThemeResult([], true);
-        }
-
-        try
-        {
-            return await _themeService.GetCommanderThemesAsync(commanderName, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            _logger.LogWarning(exception, "Cut Lab: plan-apply EDHREC theme lookup failed; continuing unavailable.");
-            return new EdhrecThemeResult([], true);
-        }
-    }
-
     // Why: IsEnabled defaults a missing key ON; dark launch requires missing keys to land OFF.
     private bool IsFlagOn(string key)
         => _featureFlags.Snapshot().TryGetValue(key, out bool enabled) && enabled;
@@ -618,29 +595,6 @@ public sealed class CutLabApiController : ControllerBase
             .FirstOrDefault(item => string.Equals(item.CardName, request.CardName, StringComparison.OrdinalIgnoreCase))
             ?.RoundKey
             ?? CutLabDecisionApplier.LatestRoundForCard(state, request.CardName);
-    }
-
-    private static IReadOnlyList<CutLabDecideFloorWarningDto> BuildFloorWarnings(
-        IReadOnlyList<CutLabPoolCard> workingList,
-        CutLabAnalysisContext context,
-        IReadOnlyDictionary<string, int> floorByRole,
-        string cardName)
-    {
-        if (!context.RolesByCardName.TryGetValue(cardName, out IReadOnlyList<string>? roles))
-        {
-            return [];
-        }
-
-        int quantity = workingList.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase))?.Quantity ?? 1;
-        return CutLabFloorRules.Evaluate(context.RoleCounts, floorByRole, roles, cardName, quantity)
-            .Select(warning => new CutLabDecideFloorWarningDto
-            {
-                Role = warning.Role,
-                NewCount = warning.NewCount,
-                Floor = warning.Floor,
-                Message = warning.Message,
-            })
-            .ToArray();
     }
 
     private static IReadOnlyList<ScryfallCardData>? BuildPartialResolvedSubset(
