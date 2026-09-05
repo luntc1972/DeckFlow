@@ -303,13 +303,28 @@ public static class CutLabCutRoundEngine
             .Select(entry => ToQueueItem(entry.Card.Name, Round3Key, entry.Tally))
             .ToArray();
 
-        IReadOnlyList<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)> deferredCards = eligibleCards
-            .Select(card => latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision)
-                ? (Card: card, Tally: TallyFor(findingTallies, card.Name), Decision: latestDecision)
-                : ((CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)?)null)
-            .Where(entry => entry is not null && entry.Value.Decision.Kind == CutLabDecisionKind.Deferred)
-            .Select(entry => entry!.Value)
-            .ToArray();
+        var deferredCardList = new List<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)>();
+        var rejectedCardList = new List<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)>();
+        foreach (CutLabRoundInputCard card in eligibleCards)
+        {
+            if (!latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision))
+            {
+                continue;
+            }
+
+            (CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision) entry =
+                (card, TallyFor(findingTallies, card.Name), latestDecision);
+            if (latestDecision.Kind == CutLabDecisionKind.Deferred)
+            {
+                deferredCardList.Add(entry);
+            }
+            else if (latestDecision.Kind == CutLabDecisionKind.Rejected)
+            {
+                rejectedCardList.Add(entry);
+            }
+        }
+
+        IReadOnlyList<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)> deferredCards = deferredCardList;
         IReadOnlyList<CutLabRoundQueueItem> deferredPass = deferredCards
             .OrderBy(entry => IsSecondPassRound(entry.Decision.Round) ? 1 : 0)
             .ThenBy(entry => IsSecondPassRound(entry.Decision.Round) ? 0 : ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
@@ -318,13 +333,7 @@ public static class CutLabCutRoundEngine
             .Select(entry => ToQueueItem(entry.Card.Name, SecondPassDeferredKey, entry.Tally))
             .ToArray();
 
-        IReadOnlyList<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)> rejectedCards = eligibleCards
-            .Select(card => latestDecisions.TryGetValue(card.Name, out CutLabDecision? latestDecision)
-                ? (Card: card, Tally: TallyFor(findingTallies, card.Name), Decision: latestDecision)
-                : ((CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)?)null)
-            .Where(entry => entry is not null && entry.Value.Decision.Kind == CutLabDecisionKind.Rejected)
-            .Select(entry => entry!.Value)
-            .ToArray();
+        IReadOnlyList<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)> rejectedCards = rejectedCardList;
         IReadOnlyList<CutLabRoundQueueItem> rejectedPass = rejectedCards
             .OrderBy(entry => IsSecondPassRound(entry.Decision.Round) ? 1 : 0)
             .ThenBy(entry => IsSecondPassRound(entry.Decision.Round) ? 0 : ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))

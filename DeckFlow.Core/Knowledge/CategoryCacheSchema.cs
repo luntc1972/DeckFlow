@@ -66,22 +66,9 @@ internal sealed class CategoryCacheSchema
         await command.ExecuteNonQueryAsync(cancellationToken);
 
         var deckQueueColumns = await GetTableColumnsAsync(connection, "deck_queue", cancellationToken);
-        if (!deckQueueColumns.Contains("content_hash"))
-        {
-            var addContentHashCommand = connection.CreateCommand();
-            addContentHashCommand.CommandText = "ALTER TABLE deck_queue ADD COLUMN content_hash TEXT NULL;";
-            try
-            {
-                await addContentHashCommand.ExecuteNonQueryAsync(cancellationToken);
-            }
-            catch (DbException exception) when (IsDuplicateColumn(exception))
-            {
-                _logger?.LogDebug(exception, "Ignoring concurrent duplicate content_hash column migration.");
-            }
-        }
-
         foreach (var (name, definition) in new[]
                  {
+                     ("content_hash", "TEXT NULL"),
                      ("archidekt_edh_bracket", "INTEGER NULL"),
                      ("archidekt_deck_format", "INTEGER NULL"),
                      ("archidekt_theorycrafted", "INTEGER NULL"),
@@ -100,7 +87,7 @@ internal sealed class CategoryCacheSchema
                 }
                 catch (DbException exception) when (IsDuplicateColumn(exception))
                 {
-                    _logger?.LogDebug(exception, "Ignoring concurrent duplicate deck_queue column migration.");
+                    _logger?.LogDebug(exception, "Ignoring concurrent duplicate {ColumnName} column migration on deck_queue.", name);
                 }
             }
         }
