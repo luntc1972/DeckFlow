@@ -113,7 +113,6 @@ public sealed class DeckPlanStrategyCatalogTests
     }
 
     [Theory]
-    [InlineData("Counters")]
     [InlineData("+1/+1 Counters")]
     public void MatchesCategories_CountersTag_MatchesPlusOneCounters(string category)
     {
@@ -122,6 +121,20 @@ public sealed class DeckPlanStrategyCatalogTests
         bool matches = DeckPlanStrategyCatalog.MatchesCategories(counters, [category]);
 
         Assert.True(matches);
+    }
+
+    [Theory]
+    [InlineData("-1/-1 Counters")]
+    [InlineData("Charge Counters")]
+    [InlineData("Poison Counters")]
+    [InlineData("Loyalty Counters")]
+    public void MatchesCategories_NonPlusOneCounterTag_DoesNotMatchPlusOneCounters(string category)
+    {
+        DeckPlanStrategyCatalog.TryGetBySlug("counters", out var counters);
+
+        bool matches = DeckPlanStrategyCatalog.MatchesCategories(counters, [category]);
+
+        Assert.False(matches);
     }
 
     [Fact]
