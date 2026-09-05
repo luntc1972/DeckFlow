@@ -455,7 +455,7 @@ public sealed class CutLabApiController : ControllerBase
             CutLabPlanProfile? postedProfile = state.Intent.PlanProfile;
             CutLabPlanProfile rebuiltProfile = CutLabPageService.BuildPlanProfile(
                 postedProfile?.GenericStrategies ?? [],
-                postedProfile?.CommanderThemes.Where(theme => theme is not null).Select(theme => theme.Slug).ToArray() ?? [],
+                postedProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [],
                 priorProfile: postedProfile,
                 planThemeResult: planThemeResult);
 
@@ -509,11 +509,13 @@ public sealed class CutLabApiController : ControllerBase
     }
 
     private static CutLabDecideApiResponse BuildDecideApiResponse(CutLabUiPatchDto patch)
-        => new()
+    {
+        CutLabDecideNextProposalDto? nextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas);
+        return new()
         {
-            Patch = patch with { NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas) },
+            Patch = patch with { NextProposal = nextProposal },
             CutLabStateJson = patch.CutLabStateJson,
-            NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas) ?? throw new InvalidOperationException("A decision response requires a next proposal."),
+            NextProposal = nextProposal ?? throw new InvalidOperationException("A decision response requires a next proposal."),
             ProposalDeltas = patch.ProposalDeltas,
             FloorWarnings = patch.FloorWarnings,
             CardsRemaining = patch.CardsRemaining,
@@ -522,6 +524,7 @@ public sealed class CutLabApiController : ControllerBase
             ComboDataAvailable = patch.ComboDataAvailable,
             CategoryDataAvailable = patch.CategoryDataAvailable,
         };
+    }
 
     private static CutLabDecideNextProposalDto? AddProposalGlance(
         CutLabDecideNextProposalDto? proposal,
@@ -561,10 +564,7 @@ public sealed class CutLabApiController : ControllerBase
             {
                 PlanProfile = postedPlanProfile with
                 {
-                    GenericStrategies = postedPlanProfile.GenericStrategies
-                        .Where(slug => DeckPlanStrategyCatalog.TryGetBySlug(slug, out _))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToArray(),
+                    GenericStrategies = CutLabPageService.ValidateStrategySlugs(postedPlanProfile.GenericStrategies),
                     CommanderThemes = postedPlanProfile.CommanderThemes
                         .Where(theme => theme is not null && !string.IsNullOrWhiteSpace(theme.Slug))
                         .DistinctBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)

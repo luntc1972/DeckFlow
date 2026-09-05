@@ -182,22 +182,8 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
         return bounded;
     }
 
-    private async Task<EdhrecThemeResult> FetchCommanderThemesAsync(string commanderName, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await _themeService.GetCommanderThemesAsync(commanderName, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            _logger?.LogWarning(exception, "Cut Lab: EDHREC commander theme list fetch failed for {CommanderName}", commanderName);
-            return new EdhrecThemeResult([], true);
-        }
-    }
+    private Task<EdhrecThemeResult> FetchCommanderThemesAsync(string commanderName, CancellationToken cancellationToken)
+        => CutLabSharedHelpers.FetchPlanThemeResultAsync(_themeService, _logger!, [commanderName], cancellationToken);
 
     private async Task<IReadOnlyList<string>> FetchThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken)
     {
