@@ -30,7 +30,9 @@ public sealed class CutLabPlanFloorDeltaTests
         var deltas = CutLabFloorDefaults.ResolvePlanDeltas(new CutLabPlanProfile { GenericStrategies = [slug] });
 
         Assert.All(expectedDeltas, expected => Assert.Equal(expected.Value, deltas[expected.Key]));
-        Assert.Contains(CutLabFloorRules.RoleKeys, role => !expectedDeltas.ContainsKey(role) && deltas[role] == 0);
+        Assert.All(
+            CutLabFloorRules.RoleKeys.Where(role => !expectedDeltas.ContainsKey(role)),
+            role => Assert.Equal(0, deltas[role]));
     }
 
     [Fact]
