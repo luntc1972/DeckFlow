@@ -182,7 +182,8 @@ internal sealed class DeckQueueRepository
             SELECT deck_id
             FROM deck_queue
             WHERE processed = 0 AND skipped = 0
-            ORDER BY inserted_utc
+            -- Why: inserted_utc is shared by every row in a queued batch, so id preserves FIFO order for ties.
+            ORDER BY inserted_utc, id
             LIMIT @count;
             """,
             new { count },
