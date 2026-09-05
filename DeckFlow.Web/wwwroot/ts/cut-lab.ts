@@ -2637,6 +2637,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
             'manabase-help',
             'Slot Congestion means these cards share the same role, card type, and exact mana value. Treat them as review candidates, not automatic cuts — a card here may also be combo-protected.',
           ));
+        } else if (group.kind === 'EnablerStarved') {
+          // Copy must stay character-identical to the Razor enabler-starved help note in CutLab.cshtml.
+          groupElement.appendChild(createTextElement(
+            'p',
+            'manabase-help',
+            'A card here is only missing a partner for THIS combo line — it may still be fully live in another combo, and can also appear under Combo-protected.',
+          ));
         }
 
         group.items.forEach(item => {
