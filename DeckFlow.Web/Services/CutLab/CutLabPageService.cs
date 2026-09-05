@@ -1031,8 +1031,11 @@ internal sealed class CutLabPageService : ICutLabPageService
         {
             // Why: an outage must not let posted display metadata survive, and must not silently
             // clear a selection the user made while EDHREC was reachable. Preserve slugs, strip metadata.
-            checkedThemes = (priorProfile?.CommanderThemes ?? [])
-                .Select(theme => new CutLabCommanderTheme { Slug = theme.Slug })
+            HashSet<string> priorSlugs = (priorProfile?.CommanderThemes ?? [])
+                .Select(theme => theme.Slug).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            checkedThemes = (requestedThemeSlugs.Count > 0 ? requestedThemeSlugs.Where(priorSlugs.Contains) : priorSlugs)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(slug => new CutLabCommanderTheme { Slug = slug })
                 .ToArray();
         }
         else if (requestedThemeSlugs.Count == 0 && priorProfile?.CommanderThemesUnavailable == true)

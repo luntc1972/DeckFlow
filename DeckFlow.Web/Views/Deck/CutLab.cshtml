@@ -1135,10 +1135,7 @@
                     </div>
                 </div>
                 <div class="cut-lab-plan-panel" data-cut-lab-plan-panel>
-                    @if (Model.PlanPanel.ZeroSelectionNotice)
-                    {
-                        <p class="cut-lab-plan-panel__zero-notice" role="status" data-cut-lab-plan-zero-notice>With nothing checked, the cut engine behaves exactly as it does today.</p>
-                    }
+                    <p class="cut-lab-plan-panel__zero-notice @(Model.PlanPanel.ZeroSelectionNotice ? "" : "is-hidden")" role="status" data-cut-lab-plan-zero-notice>With nothing checked, the cut engine behaves exactly as it does today.</p>
                     <fieldset class="cut-lab-plan-panel__strategies">
                         <legend>Generic strategies</legend>
                         @foreach (var row in Model.PlanPanel.StrategyRows)

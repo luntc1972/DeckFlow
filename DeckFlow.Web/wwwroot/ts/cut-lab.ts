@@ -3790,6 +3790,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     getPlanPanelCheckboxes('PlanThemes').forEach(checkbox => {
       checkbox.checked = themeSlugs.has(checkbox.value.toLowerCase());
     });
+    const notice = document.querySelector<HTMLElement>('[data-cut-lab-plan-zero-notice]');
+    if (notice) {
+      const anyChecked = [...getPlanPanelCheckboxes('PlanStrategies'), ...getPlanPanelCheckboxes('PlanThemes')]
+        .some(checkbox => checkbox.checked);
+      notice.classList.toggle('is-hidden', anyChecked);
+    }
   };
 
   const renderPlanPanelError = (root: HTMLElement, message: string): void => {
@@ -3887,7 +3893,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       applyServerPatch(data.patch, antiForgeryToken);
-      syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? []);
+      if (!planApplyPendingChange) {
+        syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? []);
+      }
     } catch (error) {
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
