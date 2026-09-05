@@ -506,6 +506,16 @@ internal sealed class CutLabPageService : ICutLabPageService
             };
         }
 
+        CutLabPlanProfile? planProfile = state.Intent.PlanProfile;
+        IReadOnlyList<CutLabAnalyzedCard> analyzedCards = analysisContext.AnalyzedCards;
+        IReadOnlyList<string> commanderNames = commanderResolution.CommanderNames;
+        // Why: EDHREC affinity inputs are stable; let its request overlap the throttled baseline build.
+        Task<IReadOnlyDictionary<string, CutLabPlanAffinity>?> planAffinitiesTask = _planAffinityFactory.BuildAsync(
+            planProfile,
+            analyzedCards,
+            commanderNames,
+            cancellationToken);
+
         if (state.BaselineSnapshot is null)
         {
             try
@@ -536,11 +546,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             }
         }
 
-        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = await _planAffinityFactory.BuildAsync(
-            state.Intent.PlanProfile,
-            analysisContext.AnalyzedCards,
-            commanderResolution.CommanderNames,
-            cancellationToken).ConfigureAwait(false);
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = await planAffinitiesTask.ConfigureAwait(false);
         (CutLabStructuralFindingsResult findings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
             derivedWorkingList,
             analysisContext,
