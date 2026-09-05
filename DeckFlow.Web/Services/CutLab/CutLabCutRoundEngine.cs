@@ -119,9 +119,8 @@ public static class CutLabCutRoundEngine
     // StrandedOffPlanPackage is a role-wide warning that attaches uniformly to every card in an
     // off-plan package. PlanAffinityRank already carries the per-card signal, so this finding ranks
     // nothing against anything.
-    // FunctionalTwins is deliberately absent because its evidence is per-card selective: a specific
-    // role at a specific exact mana value and a specific primary type, not a role-wide warning that
-    // attaches uniformly to every member of a role.
+    // FunctionalTwins is excluded because its evidence is supplemental and must not affect tally-based
+    // queue assignment; it remains available for direct finding display.
     private static readonly IReadOnlySet<CutLabFindingKind> ExcludedFindingKindsFromTally =
         new HashSet<CutLabFindingKind>
         {
@@ -258,7 +257,7 @@ public static class CutLabCutRoundEngine
             .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
             .Select(CutLabCardNames.Normalize)
             .ToHashSet(CutLabCardNames.Comparer);
-        IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings, workingList, comboProtectedCardNames);
+        IReadOnlyDictionary<string, CardFindingTally> findingTallies = BuildFindingTallies(findings.Findings);
 
         IReadOnlyList<CutLabRoundInputCard> eligibleCards = workingList
             .Where(card =>
@@ -426,9 +425,7 @@ public static class CutLabCutRoundEngine
     }
 
     private static IReadOnlyDictionary<string, CardFindingTally> BuildFindingTallies(
-        IReadOnlyList<CutLabFinding> findings,
-        IReadOnlyList<CutLabRoundInputCard> workingList,
-        IReadOnlySet<string> comboProtectedCardNames)
+        IReadOnlyList<CutLabFinding> findings)
     {
         Dictionary<string, CardFindingTallyBuilder> tallies = new(StringComparer.OrdinalIgnoreCase);
 
@@ -439,40 +436,13 @@ public static class CutLabCutRoundEngine
                 continue;
             }
 
-            HashSet<string> cardNamesInFinding;
-            if (finding.Kind == CutLabFindingKind.FunctionalTwins)
-            {
-                // Why: D-23 keeps general finding tallies raw (see the normalization warning in
-                // BuildQueue) while allowing normalized functional-twins evidence to reach every
-                // equivalent working-list entry.
-                IReadOnlySet<string> normalizedEvidenceNames = finding.Evidence
-                    .Select(evidence => evidence.CardName)
-                    .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
-                    .Select(CutLabCardNames.Normalize)
-                    .ToHashSet(CutLabCardNames.Comparer);
-                cardNamesInFinding = workingList
-                    .Select(card => card.Name)
-                    .Where(name => normalizedEvidenceNames.Contains(CutLabCardNames.Normalize(name)))
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            }
-            else
-            {
-                cardNamesInFinding = finding.Evidence
-                    .Select(evidence => evidence.CardName)
-                    .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            }
+            HashSet<string> cardNamesInFinding = finding.Evidence
+                .Select(evidence => evidence.CardName)
+                .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (string cardName in cardNamesInFinding)
             {
-                if (finding.Kind == CutLabFindingKind.FunctionalTwins
-                    && comboProtectedCardNames.Contains(CutLabCardNames.Normalize(cardName)))
-                {
-                    // Why: a complete combo piece remains eligible for its non-twins evidence, but
-                    // twins must not provide the extra tally that promotes it across round boundaries.
-                    continue;
-                }
-
                 if (!tallies.TryGetValue(cardName, out CardFindingTallyBuilder? tally))
                 {
                     tally = new CardFindingTallyBuilder();
