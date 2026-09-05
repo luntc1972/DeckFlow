@@ -3449,6 +3449,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
     reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson);
     reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
+    refreshResolvedFloors(patch.resolvedFloors ?? []);
     updateLockedCountChip();
   };
 
@@ -3881,11 +3882,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const data = await response.json() as CutLabPatchResponse;
       if (!data.patch?.cutLabStateJson) {
         renderPlanPanelError(root, cutLabDecisionErrorCopy);
+        syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs);
         return;
       }
 
       applyServerPatch(data.patch, antiForgeryToken);
-      refreshResolvedFloors(data.patch.resolvedFloors ?? []);
       syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? []);
     } catch (error) {
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
@@ -4832,6 +4833,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const planApplySubmitButton = getPlanApplySubmitButton();
     if (planApplySubmitButton) {
       planApplySubmitButton.hidden = true;
+      planApplySubmitButton.disabled = true;
     }
 
     attachRowHandlers();
