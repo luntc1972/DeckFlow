@@ -565,7 +565,8 @@ public sealed class MetaGapService : IMetaGapService
                 uniqueNames,
                 (name, ct) => _scryfallCardResolver.SearchFallbackCardAsync(name, ct),
                 normalizeForScryfall: false,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                batchFallbackStrategy: (names, ct) => _scryfallCardResolver.SearchFallbackCardsAsync(names, ct)).ConfigureAwait(false);
         }
         catch (ScryfallReferenceCollectionException exception)
         {
