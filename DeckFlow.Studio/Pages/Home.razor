@@ -106,12 +106,19 @@
 </div>
 
 @code {
-    // Why: link only to a surface that filters to the bucket. Published video-status and publish-state
-    // rows lack one today because Publish shows the pending export diff, not a published list. Direct
-    // Push's Awaiting Confirm resume card is exactly the pushed-hidden destination.
+    // Why: a bucket is linked only when a surface in this app filters to that slice AND the count
+    // shown can actually reach that surface's data. The harvested bucket fails the second half:
+    // these counts are built from content_site_index rows, and by the enum's own definition such a
+    // row is already past the harvested state, so the shared status mapper
+    // (VideoStatusResolver.FromContentRow) has no branch that can return it and the count is pinned
+    // at zero — pinned by HarvestedStatus_IsUnreachableFromAnIndexRow. Linking it would send an
+    // operator from a permanently-zero number to the pending-distill queue, a page fed by an
+    // entirely different source. The published video-status and publish-state rows stay unlinked
+    // for the original, still-correct reason: Publish shows the pending export diff, not a published
+    // list. Direct Push's Awaiting Confirm resume card is exactly the pushed-hidden destination.
     private static readonly (VideoStatus Status, string Label, string? Href)[] VideoStatusBuckets =
     {
-        (VideoStatus.Harvested, "Harvested", "/harvest"),
+        (VideoStatus.Harvested, "Harvested", null),
         (VideoStatus.Distilled, "Distilled", "/review?tab=pending"),
         (VideoStatus.Approved, "Approved", "/review?tab=approved"),
         (VideoStatus.Published, "Published", null),
