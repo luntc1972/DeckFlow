@@ -70,24 +70,28 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeAsync = executeAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
+                ScryfallEndpoint.Collection,
                 token => pipeline.ExecuteAsync(
                     async pollyCt => await client.ExecuteAsync<ScryfallCollectionResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
         _executeSearchAsync = executeSearchAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
+                ScryfallEndpoint.Search,
                 token => pipeline.ExecuteAsync(
                     async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
         _executeNamedAsync = executeNamedAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
+                ScryfallEndpoint.Named,
                 token => pipeline.ExecuteAsync(
                     async pollyCt => await client.ExecuteAsync<ScryfallCard>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
         _executeRulingsAsync = executeRulingsAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
+                ScryfallEndpoint.Rulings,
                 token => pipeline.ExecuteAsync(
                     async pollyCt => await client.ExecuteAsync<ScryfallRulingsResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),

@@ -35,7 +35,7 @@ public sealed class ScryfallThrottleTests
         var response = CreateResponse<int>(HttpStatusCode.OK);
         var calls = 0;
 
-        var result = await ScryfallThrottle.ExecuteAsync<int>(_ =>
+        var result = await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Collection, _ =>
         {
             calls++;
             return Task.FromResult(response);
@@ -52,7 +52,7 @@ public sealed class ScryfallThrottleTests
         var second = CreateResponse<int>(HttpStatusCode.OK);
         var calls = 0;
 
-        var result = await ScryfallThrottle.ExecuteAsync<int>(_ =>
+        var result = await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Collection, _ =>
         {
             calls++;
             return Task.FromResult(calls == 1 ? first : second);
@@ -68,7 +68,7 @@ public sealed class ScryfallThrottleTests
         var response = CreateResponse<int>(HttpStatusCode.TooManyRequests);
         var calls = 0;
 
-        var result = await ScryfallThrottle.ExecuteAsync<int>(_ =>
+        var result = await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Collection, _ =>
         {
             calls++;
             return Task.FromResult(response);
@@ -85,7 +85,7 @@ public sealed class ScryfallThrottleTests
         var response = CreateResponse<int>(HttpStatusCode.TooManyRequests, ("Retry-After", "60"));
         var calls = 0;
 
-        var result = await ScryfallThrottle.ExecuteAsync<int>(_ =>
+        var result = await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Collection, _ =>
         {
             calls++;
             return Task.FromResult(response);
@@ -101,7 +101,7 @@ public sealed class ScryfallThrottleTests
         var response = CreateResponse(HttpStatusCode.OK);
         var calls = 0;
 
-        var result = await ScryfallThrottle.ExecuteAsync(_ =>
+        var result = await ScryfallThrottle.ExecuteAsync(ScryfallEndpoint.Named, _ =>
         {
             calls++;
             return Task.FromResult(response);
@@ -118,7 +118,7 @@ public sealed class ScryfallThrottleTests
         var second = CreateResponse(HttpStatusCode.OK);
         var calls = 0;
 
-        var result = await ScryfallThrottle.ExecuteAsync(_ =>
+        var result = await ScryfallThrottle.ExecuteAsync(ScryfallEndpoint.Named, _ =>
         {
             calls++;
             return Task.FromResult(calls == 1 ? first : second);
@@ -134,7 +134,7 @@ public sealed class ScryfallThrottleTests
         var response = CreateResponse(HttpStatusCode.TooManyRequests);
         var calls = 0;
 
-        var result = await ScryfallThrottle.ExecuteAsync(_ =>
+        var result = await ScryfallThrottle.ExecuteAsync(ScryfallEndpoint.Named, _ =>
         {
             calls++;
             return Task.FromResult(response);
@@ -151,7 +151,7 @@ public sealed class ScryfallThrottleTests
         var response = CreateResponse(HttpStatusCode.TooManyRequests, ("Retry-After", "60"));
         var calls = 0;
 
-        var result = await ScryfallThrottle.ExecuteAsync(_ =>
+        var result = await ScryfallThrottle.ExecuteAsync(ScryfallEndpoint.Named, _ =>
         {
             calls++;
             return Task.FromResult(response);
@@ -178,7 +178,7 @@ public sealed class ScryfallThrottleTests
         var response = CreateResponse<int>(HttpStatusCode.OK);
         var calls = 0;
 
-        await ScryfallThrottle.ExecuteAsync<int>(_ =>
+        await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Collection, _ =>
         {
             calls++;
             return Task.FromResult(response);
@@ -186,7 +186,7 @@ public sealed class ScryfallThrottleTests
 
         var stopwatch = Stopwatch.StartNew();
 
-        await ScryfallThrottle.ExecuteAsync<int>(_ =>
+        await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Collection, _ =>
         {
             calls++;
             return Task.FromResult(response);

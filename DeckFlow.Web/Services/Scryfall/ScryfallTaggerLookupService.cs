@@ -166,6 +166,7 @@ public sealed class ScryfallTaggerLookupService : IScryfallTaggerLookupService
         request.AddQueryParameter("exact", cardName);
 
         var response = await ScryfallThrottle.ExecuteAsync(
+            ScryfallEndpoint.Named,
             ct => _scryfallPipeline.ExecuteAsync(
                 async pollyCt => await scryfallClient.ExecuteAsync(request, pollyCt).ConfigureAwait(false),
                 ct).AsTask(),
