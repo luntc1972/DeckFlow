@@ -1278,6 +1278,26 @@ namespace DeckFlow.Studio.Tests
             });
         }
 
+        // ── F-10: in-table actions opt out of the touch floor ──
+
+        [Fact]
+        public void TableActionButtons_CarryTheCompactClass()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                new[] { Vid("v1", "Sultai Cavern Deep Dive") },
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            BrowseChannel(cut);
+
+            cut.WaitForAssertion(() =>
+            {
+                var tableButtons = cut.FindAll("td button");
+                Assert.NotEmpty(tableButtons);
+                Assert.All(tableButtons, b => Assert.Contains("btn-table-action", b.ClassList));
+            });
+        }
+
         private (IRenderedComponent<Harvest> Cut, FakeContentKbOrchestrator Maint, RecordingHarvestOrchestrator Harv, StubLister Lister) RenderHarvest(
             IReadOnlyList<YouTubeChannelVideo> recent,
             MapBlockedStore blocked,
