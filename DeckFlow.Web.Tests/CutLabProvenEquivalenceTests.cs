@@ -38,6 +38,31 @@ public sealed class CutLabProvenEquivalenceTests
         Assert.Empty(result.Findings);
     }
 
+    // Why: CR-01 -- the generic incomplete-profile Theory above pairs every abstain row against a
+    // fixed partner whose mana cost/Oracle text already differ for an unrelated reason, so it never
+    // actually exercises the {X}-cost or alternative-cost guards. These two Facts give both cards a
+    // byte-identical profile apart from Oracle ID/name, so the guard is the only thing preventing a
+    // positive; deleting either guard line in IsCompleteProfile makes the matching test go red.
+    [Fact]
+    public void ComputeProvenEquivalence_XCostManaCost_AbstainsEvenWithByteIdenticalProfile()
+    {
+        CutLabStructuralFindingsResult result = Compute(
+            Card("Hangarback Walker", "hw-1", "{X}{X}", "Artifact Creature — Construct", "0", "0", [], [], "This creature enters with X +1/+1 counters on it."),
+            Card("Hangarback Clone", "hw-2", "{X}{X}", "Artifact Creature — Construct", "0", "0", [], [], "This creature enters with X +1/+1 counters on it."));
+
+        Assert.Empty(result.Findings);
+    }
+
+    [Fact]
+    public void ComputeProvenEquivalence_AlternativeCostOracleText_AbstainsEvenWithByteIdenticalProfile()
+    {
+        CutLabStructuralFindingsResult result = Compute(
+            Card("Security Rhox", "sr-1", "{2}{R}{G}", "Creature — Rhino Warrior", "5", "4", [], ["G", "R"], "You may pay {R}{G} rather than pay this spell's mana cost."),
+            Card("Rhox Clone", "sr-2", "{2}{R}{G}", "Creature — Rhino Warrior", "5", "4", [], ["G", "R"], "You may pay {R}{G} rather than pay this spell's mana cost."));
+
+        Assert.Empty(result.Findings);
+    }
+
     [Fact]
     public void ComputeProvenEquivalence_SameOracleId_Abstains()
     {

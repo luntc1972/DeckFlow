@@ -154,21 +154,21 @@
     {
       "id": "abstain-x-cost",
       "label": "abstain",
-      "rationale": "Hangarback Walker is a real X-cost creature; D-03 fails closed on any X or alternative-cost mana cost, so it never becomes eligible even though its remaining fields could otherwise match a hypothetical non-X clone.",
-      "source": "Scryfall API cards/named?exact=Hangarback%20Walker (fetched 2026-09-06)",
+      "rationale": "Hangarback Walker's clone shares a byte-identical complete profile (same mana cost, type line, power/toughness, Oracle text, keywords, color identity, role); only the shared {X}{X} mana cost differs from a resolved value. D-03 fails closed on any X-cost mana cost, so this pair never becomes eligible -- deleting the {X} guard turns this into a false positive because SemanticKey would otherwise match.",
+      "source": "Scryfall API cards/named?exact=Hangarback%20Walker (fetched 2026-09-06); partner is a constructed clone reusing the exact profile to isolate the X-cost guard.",
       "cards": [
-        { "name": "Hangarback Walker", "oracleId": "dde55256-5259-44e7-a267-fca45a7f0d04", "manaCost": "{X}{X}", "typeLine": "Artifact Creature — Construct", "power": "0", "toughness": "0", "keywords": [], "colorIdentity": [], "oracleText": "This creature enters with X +1/+1 counters on it.\nWhen this creature dies, create a 1/1 colorless Thopter artifact creature token with flying for each +1/+1 counter on this creature.\n{1}, {T}: Put a +1/+1 counter on this creature.", "layout": "normal", "roles": ["ramp"] },
-        { "name": "Hangarback Clone (Fixed Cost)", "oracleId": "synthetic-oracle-hangarback-clone", "manaCost": "{2}", "typeLine": "Artifact Creature — Construct", "power": "0", "toughness": "0", "keywords": [], "colorIdentity": [], "oracleText": "This creature enters with X +1/+1 counters on it.\nWhen this creature dies, create a 1/1 colorless Thopter artifact creature token with flying for each +1/+1 counter on this creature.\n{1}, {T}: Put a +1/+1 counter on this creature.", "layout": "normal", "roles": ["ramp"] }
+        { "name": "Hangarback Walker", "oracleId": "dde55256-5259-44e7-a267-fca45a7f0d04", "manaCost": "{X}{X}", "typeLine": "Artifact Creature — Construct", "power": "0", "toughness": "0", "keywords": [], "colorIdentity": [], "oracleText": "This creature enters with X +1/+1 counters on it.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Hangarback Clone (Same X Cost)", "oracleId": "synthetic-oracle-hangarback-clone", "manaCost": "{X}{X}", "typeLine": "Artifact Creature — Construct", "power": "0", "toughness": "0", "keywords": [], "colorIdentity": [], "oracleText": "This creature enters with X +1/+1 counters on it.", "layout": "normal", "roles": ["ramp"] }
       ]
     },
     {
       "id": "abstain-alternative-cost",
       "label": "abstain",
-      "rationale": "Security Rhox is a real creature whose Oracle text contains an alternative-cost clause ('rather than pay'); D-03 fails closed on that language regardless of how closely other fields might align with a hypothetical clone.",
-      "source": "Scryfall API cards/search?q=!\"Security Rhox\" (fetched 2026-09-06)",
+      "rationale": "Security Rhox's clone shares a byte-identical complete profile (same mana cost, type line, power/toughness, Oracle text, keywords, color identity, role), including the alternative-cost clause 'rather than pay'. D-03 fails closed on that language regardless of how closely other fields align -- deleting the alternative-cost guard turns this into a false positive because SemanticKey would otherwise match.",
+      "source": "Scryfall API cards/search?q=!\"Security Rhox\" (fetched 2026-09-06); partner is a constructed clone reusing the exact profile to isolate the alternative-cost guard.",
       "cards": [
         { "name": "Security Rhox", "oracleId": "dffc6785-31b0-487c-b9a0-980bca39753d", "manaCost": "{2}{R}{G}", "typeLine": "Creature — Rhino Warrior", "power": "5", "toughness": "4", "keywords": [], "colorIdentity": ["G", "R"], "oracleText": "You may pay {R}{G} rather than pay this spell's mana cost. Spend only mana produced by Treasures to cast it this way.", "layout": "normal", "roles": ["ramp"] },
-        { "name": "Rhox Clone (No Alt Cost)", "oracleId": "synthetic-oracle-rhox-clone", "manaCost": "{2}{R}{G}", "typeLine": "Creature — Rhino Warrior", "power": "5", "toughness": "4", "keywords": [], "colorIdentity": ["G", "R"], "oracleText": "Trample. When this creature enters, create a Treasure token.", "layout": "normal", "roles": ["ramp"] }
+        { "name": "Rhox Clone (Same Alt Cost Text)", "oracleId": "synthetic-oracle-rhox-clone", "manaCost": "{2}{R}{G}", "typeLine": "Creature — Rhino Warrior", "power": "5", "toughness": "4", "keywords": [], "colorIdentity": ["G", "R"], "oracleText": "You may pay {R}{G} rather than pay this spell's mana cost. Spend only mana produced by Treasures to cast it this way.", "layout": "normal", "roles": ["ramp"] }
       ]
     },
     {
