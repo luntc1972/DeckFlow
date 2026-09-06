@@ -264,7 +264,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 TypeLine = entry.TypeLine,
                 IsLocked = entry.IsLocked,
                 IsCommander = isCommander,
-                SemanticProfile = card.CardFaces is not { Count: > 0 }
+                SemanticProfile = card is not null && card.CardFaces is not { Count: > 0 }
                     ? new CutLabSemanticProfile(card.OracleId, card.ManaCost, card.TypeLine, card.Power, card.Toughness, card.Keywords, card.ColorIdentity, card.OracleText, card.Layout)
                     : null,
             });
