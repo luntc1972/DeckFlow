@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Net;
 using RestSharp;
@@ -5,20 +6,21 @@ using RestSharp;
 namespace DeckFlow.Web.Services;
 
 /// <summary>
-/// Process-wide Scryfall pacing and Retry-After retry helper.
-/// Keeps all Scryfall calls at or under the documented 2 req/sec (500ms) per-endpoint hard limit
-/// and recovers from brief 429s.
+/// Per-endpoint Scryfall pacing and Retry-After retry helper.
+/// Keeps every paced Scryfall endpoint at or under the documented 2 req/sec (500ms) hard limit
+/// and recovers from brief 429s. Each <see cref="ScryfallEndpoint"/> gets its own gate so that
+/// different endpoints are not serialized behind one another.
 /// </summary>
 internal static class ScryfallThrottle
 {
-    // Scryfall publishes a hard 2 requests/second (500ms) limit for /cards/collection,
-    // /cards/search, /cards/named, and /cards/random -- the four endpoints every flow behind
-    // this throttle calls (https://scryfall.com/docs/api/rate-limits). The previous 200ms figure
-    // was derived from that page's "all other methods" row (10 req/sec), which does not apply to
-    // these endpoints. This gate is process-wide, so 500ms is the application's global Scryfall
-    // floor across every caller, not a per-flow setting. See
+    // Scryfall publishes a hard 2 requests/second (500ms) limit per endpoint
+    // (https://scryfall.com/docs/api/rate-limits). The previous 200ms figure was derived from
+    // that page's "all other methods" row (10 req/sec), which does not apply to these endpoints.
+    // Each ScryfallEndpoint bucket enforces this floor independently -- callers pacing different
+    // endpoints no longer queue behind one another, but the floor itself is unchanged and uniform
+    // across every bucket. See
     // .planning/phases/111.1-cutlab-scryfall-burst-hotfix/111.1-PACING-MEASUREMENT.md for the
-    // measured added-latency cost of this change.
+    // measured added-latency cost of the original process-wide 500ms change.
     private static readonly TimeSpan MinInterval = TimeSpan.FromMilliseconds(500);
 
     // Honor Retry-After up to this cap before giving up. Extending to 30s means a single burst
@@ -37,19 +39,32 @@ internal static class ScryfallThrottle
     // attempts to ride out brief Cloudflare 429 spikes that the packet build flow tends to see.
     private const int MaxRetryAttempts = 2;
 
-    private static readonly SemaphoreSlim Gate = new(1, 1);
-    private static DateTime _lastCallUtc = DateTime.MinValue;
+    /// <summary>
+    /// Per-endpoint pacing state: an independent one-permit semaphore and last-call timestamp.
+    /// The <see cref="ScryfallEndpoint"/> key space is a closed 5-member enum, so this dictionary
+    /// cannot grow unboundedly from untrusted input.
+    /// </summary>
+    private sealed class EndpointGate
+    {
+        public SemaphoreSlim Semaphore { get; } = new(1, 1);
+
+        public DateTime LastCallUtc { get; set; } = DateTime.MinValue;
+    }
+
+    private static readonly ConcurrentDictionary<ScryfallEndpoint, EndpointGate> Gates = new();
 
     /// <summary>
-    /// Executes a Scryfall request under the shared throttle. If the response is 429 the call
-    /// is retried up to <see cref="MaxRetryAttempts"/> times, honoring Retry-After when present
-    /// (delta-seconds OR HTTP-date) and falling back to a short delay when the header is missing.
+    /// Executes a Scryfall request under that endpoint's own throttle gate. If the response is
+    /// 429 the call is retried up to <see cref="MaxRetryAttempts"/> times, honoring Retry-After
+    /// when present (delta-seconds OR HTTP-date) and falling back to a short delay when the
+    /// header is missing.
     /// </summary>
     public static async Task<RestResponse<T>> ExecuteAsync<T>(
+        ScryfallEndpoint endpoint,
         Func<CancellationToken, Task<RestResponse<T>>> execute,
         CancellationToken cancellationToken)
     {
-        var response = await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
+        var response = await ExecuteOnceAsync(endpoint, execute, cancellationToken).ConfigureAwait(false);
         for (var attempt = 0; attempt < MaxRetryAttempts && (int)response.StatusCode == 429; attempt++)
         {
             var delay = ResolveRetryDelay(ReadRetryAfter(response));
@@ -59,7 +74,7 @@ internal static class ScryfallThrottle
             }
 
             await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
-            response = await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
+            response = await ExecuteOnceAsync(endpoint, execute, cancellationToken).ConfigureAwait(false);
         }
 
         return response;
@@ -69,10 +84,11 @@ internal static class ScryfallThrottle
     /// Non-generic variant for callers that use the untyped RestResponse (e.g. GraphQL-style probes).
     /// </summary>
     public static async Task<RestResponse> ExecuteAsync(
+        ScryfallEndpoint endpoint,
         Func<CancellationToken, Task<RestResponse>> execute,
         CancellationToken cancellationToken)
     {
-        var response = await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
+        var response = await ExecuteOnceAsync(endpoint, execute, cancellationToken).ConfigureAwait(false);
         for (var attempt = 0; attempt < MaxRetryAttempts && (int)response.StatusCode == 429; attempt++)
         {
             var delay = ResolveRetryDelay(ReadRetryAfter(response));
@@ -82,32 +98,34 @@ internal static class ScryfallThrottle
             }
 
             await Task.Delay(delay.Value, cancellationToken).ConfigureAwait(false);
-            response = await ExecuteOnceAsync(execute, cancellationToken).ConfigureAwait(false);
+            response = await ExecuteOnceAsync(endpoint, execute, cancellationToken).ConfigureAwait(false);
         }
 
         return response;
     }
 
     private static async Task<RestResponse> ExecuteOnceAsync(
+        ScryfallEndpoint endpoint,
         Func<CancellationToken, Task<RestResponse>> execute,
         CancellationToken cancellationToken)
     {
-        await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var gate = Gates.GetOrAdd(endpoint, static _ => new EndpointGate());
+        await gate.Semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var elapsedSinceLast = DateTime.UtcNow - _lastCallUtc;
+            var elapsedSinceLast = DateTime.UtcNow - gate.LastCallUtc;
             if (elapsedSinceLast < MinInterval)
             {
                 await Task.Delay(MinInterval - elapsedSinceLast, cancellationToken).ConfigureAwait(false);
             }
 
             var result = await execute(cancellationToken).ConfigureAwait(false);
-            _lastCallUtc = DateTime.UtcNow;
+            gate.LastCallUtc = DateTime.UtcNow;
             return result;
         }
         finally
         {
-            Gate.Release();
+            gate.Semaphore.Release();
         }
     }
 
@@ -160,25 +178,27 @@ internal static class ScryfallThrottle
     }
 
     private static async Task<RestResponse<T>> ExecuteOnceAsync<T>(
+        ScryfallEndpoint endpoint,
         Func<CancellationToken, Task<RestResponse<T>>> execute,
         CancellationToken cancellationToken)
     {
-        await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var gate = Gates.GetOrAdd(endpoint, static _ => new EndpointGate());
+        await gate.Semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var elapsedSinceLast = DateTime.UtcNow - _lastCallUtc;
+            var elapsedSinceLast = DateTime.UtcNow - gate.LastCallUtc;
             if (elapsedSinceLast < MinInterval)
             {
                 await Task.Delay(MinInterval - elapsedSinceLast, cancellationToken).ConfigureAwait(false);
             }
 
             var result = await execute(cancellationToken).ConfigureAwait(false);
-            _lastCallUtc = DateTime.UtcNow;
+            gate.LastCallUtc = DateTime.UtcNow;
             return result;
         }
         finally
         {
-            Gate.Release();
+            gate.Semaphore.Release();
         }
     }
 

@@ -51,6 +51,7 @@ public sealed class DeckConvertService : IDeckConvertService
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeCollectionAsync = executeCollectionAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
+                ScryfallEndpoint.Collection,
                 token => pipeline.ExecuteAsync(
                     async pollyCt => await client.ExecuteAsync<ScryfallCollectionResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),

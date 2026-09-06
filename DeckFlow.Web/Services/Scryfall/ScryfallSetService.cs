@@ -66,12 +66,14 @@ public sealed partial class ScryfallSetService : IScryfallSetService
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeSetListAsync = executeSetListAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
+                ScryfallEndpoint.Sets,
                 token => pipeline.ExecuteAsync(
                     async pollyCt => await client.ExecuteAsync<ScryfallSetListResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
                 cancellationToken));
         _executeSearchAsync = executeSearchAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
+                ScryfallEndpoint.Search,
                 token => pipeline.ExecuteAsync(
                     async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),

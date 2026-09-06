@@ -51,6 +51,7 @@ public sealed class ScryfallCardSearchService : ICardSearchService
         var client = restClientOverride ?? scryfallRestClientFactory.Create();
         _executeAsync = executeAsyncOverride ?? ((request, cancellationToken) =>
             ScryfallThrottle.ExecuteAsync(
+                ScryfallEndpoint.Search,
                 token => pipeline.ExecuteAsync(
                     async pollyCt => await client.ExecuteAsync<ScryfallSearchResponse>(request, pollyCt).ConfigureAwait(false),
                     token).AsTask(),
