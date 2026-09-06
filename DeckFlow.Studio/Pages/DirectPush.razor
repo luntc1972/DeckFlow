@@ -14,15 +14,12 @@
 <h1 class="h4 fw-semibold">Publish to Production (Direct)</h1>
 <p class="text-muted">Push approved entries straight to production — upload artifacts to
 Render /data, then upsert the rows into the prod database. Artifacts first; the DB step
-unlocks only after every file uploads. New rows stay <strong>hidden</strong> until Stage 5
-confirms the deployed body matches; a row that is already visible stays <strong>visible</strong>
-and may briefly serve its prior body until the redeploy completes
-(expand&rarr;verify&rarr;contract, SYNC-09/D-06).</p>
+unlocks only after every file uploads.</p>
 <HelpPanel Title="Write approved entries straight to live production">
     <p class="mb-2">This is the direct-to-production publish path. It runs a staged flow that uploads artifacts, writes the live prod database, commits git durability, and only makes new rows visible after Stage 5 confirms the deployed body.</p>
     <ul class="mb-0 ps-3">
         <li>This page targets <strong>PRODUCTION</strong>; use Publish to Git when you want the safer default path.</li>
-        <li>New rows stay hidden until confirm succeeds, but already-visible rows can temporarily keep serving their prior body during redeploy.</li>
+        <li>Row visibility is governed by the production warning banner on this page — read it before you start Stage 1.</li>
     </ul>
 </HelpPanel>
 
@@ -118,13 +115,13 @@ and may briefly serve its prior body until the redeploy completes
         </div>
 
         @* ─── TARGET: PRODUCTION danger banner (always shown once configured) ─── *@
-        <div class="alert alert-danger py-2 mt-3">
+        <div id="direct-push-visibility-contract" class="alert alert-danger py-2 mt-3">
             <span class="oi oi-warning me-1" aria-hidden="true"></span>
             <strong>TARGET: PRODUCTION</strong> — Stages 1&ndash;3 write directly to the live site
             database and the Render /data disk. New rows stay <strong>hidden</strong> and
             awaiting-confirm until Stage 5 verifies the deploy; a row that is already visible stays
             <strong>visible</strong> and may briefly serve its prior body until the redeploy completes.
-            There is no undo.
+            There is no undo. (expand&rarr;verify&rarr;contract, SYNC-09/D-06)
             <strong>Stage 4 and Stage 5 are separate steps you click</strong> &mdash; Stage 4 commits
             the pushed bodies (and the re-exported index seed) to git and pushes <code>origin</code>;
             Stage 5 polls the deployed body and, only on a confirmed hash match, publishes the rows
@@ -148,11 +145,10 @@ and may briefly serve its prior body until the redeploy completes
                         <p class="text-muted small mb-2">
                             @_awaitingConfirmRows.Count row(s) already have content written to production
                             but have not been deploy-confirmed yet (e.g. this Studio session was reloaded
-                            mid-flow). New rows stay hidden until confirmed; already-visible rows stay
-                            visible and may briefly serve their prior body until the deploy confirms.
-                            Resume re-runs verify; when git-body serving is ON and rows still do not
+                            mid-flow). Resume re-runs verify; when git-body serving is ON and rows still do not
                             confirm, it can trigger one empty durability commit so Render redeploys
                             the already-committed tree. Then wait for Render healthy and Resume again.
+                            See <a href="#direct-push-visibility-contract">the production visibility contract</a> for what is and is not visible right now.
                         </p>
 
                         @if (!string.IsNullOrEmpty(_resumeVerifyError))
