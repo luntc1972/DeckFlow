@@ -117,4 +117,77 @@ public sealed class HomePageTests : BunitContext
             Assert.DoesNotContain(secret, cut.Markup);
         });
     }
+
+    // ── F-07: buckets link into their filtered destination ──────────────────
+
+    [Fact]
+    public void HarvestedBucket_LinksToHarvest()
+    {
+        var cut = RenderHome(CreateLinkBucketRows());
+        cut.WaitForAssertion(() => Assert.Equal("/harvest", cut.Find("[data-video-status='Harvested'] a").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void DistilledBucket_LinksToPendingReviewQueue()
+    {
+        var cut = RenderHome(CreateLinkBucketRows());
+        cut.WaitForAssertion(() => Assert.Equal("/review?tab=pending", cut.Find("[data-video-status='Distilled'] a").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void ApprovedBucket_LinksToApprovedReviewQueue()
+    {
+        var cut = RenderHome(CreateLinkBucketRows());
+        cut.WaitForAssertion(() => Assert.Equal("/review?tab=approved", cut.Find("[data-video-status='Approved'] a").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void PublishedBucket_RendersNoLink()
+    {
+        var cut = RenderHome(CreateLinkBucketRows());
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-video-status='Published'] a")));
+    }
+
+    [Fact]
+    public void NeverPublishedItem_LinksToPublish()
+    {
+        var cut = RenderHome(CreateLinkBucketRows());
+        cut.WaitForAssertion(() => Assert.Equal("/publish", cut.Find("[data-publish-state='NeverPublished'] a").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void PushedHiddenItem_LinksToDirectPush()
+    {
+        var cut = RenderHome(CreateLinkBucketRows());
+        cut.WaitForAssertion(() => Assert.Equal("/direct-push", cut.Find("[data-publish-state='PushedHidden'] a").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void LocalNewerItem_LinksToPublish()
+    {
+        var cut = RenderHome(CreateLinkBucketRows());
+        cut.WaitForAssertion(() => Assert.Equal("/publish", cut.Find("[data-publish-state='LocalNewer'] a").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void PublishedStateItem_RendersNoLink()
+    {
+        var cut = RenderHome(CreateLinkBucketRows());
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-publish-state='Published'] a")));
+    }
+
+    private static FakeContentSiteIndexStore CreateLinkBucketRows()
+    {
+        var pushedUtc = new DateTimeOffset(2026, 06, 20, 12, 0, 0, TimeSpan.Zero);
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.AddRange(
+        [
+            MakeYoutubeRow(1, "distilled", approvalStatus: "pending"),
+            MakeYoutubeRow(2, "pushed-hidden", approvalStatus: "approved", pushedToProdUtc: pushedUtc),
+            MakeYoutubeRow(3, "published", approvalStatus: "approved", pushedToProdUtc: pushedUtc, isVisible: true, indexedUtc: pushedUtc.AddMinutes(-5)),
+            MakeYoutubeRow(4, "local-newer", approvalStatus: "approved", pushedToProdUtc: pushedUtc, isVisible: true, indexedUtc: pushedUtc.AddMinutes(5)),
+        ]);
+
+        return store;
+    }
 }
