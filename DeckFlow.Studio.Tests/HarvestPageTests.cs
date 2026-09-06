@@ -1224,6 +1224,60 @@ namespace DeckFlow.Studio.Tests
             });
         }
 
+        // ── F-08: in-page section navigation ──
+
+        [Fact]
+        public void SectionNav_RendersFourJumpLinks()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                Array.Empty<YouTubeChannelVideo>(),
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            cut.WaitForAssertion(() =>
+            {
+                var links = cut.FindAll("nav.harvest-section-nav a");
+                Assert.Equal(4, links.Count);
+                Assert.Equal(
+                    new[] { "#harvest-browse", "#harvest-queue", "#harvest-run", "#harvest-distill" },
+                    links.Select(l => l.GetAttribute("href")).ToArray());
+            });
+        }
+
+        [Fact]
+        public void EverySectionNavTarget_ExistsOnThePage()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                Array.Empty<YouTubeChannelVideo>(),
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.NotNull(cut.Find("#harvest-browse"));
+                Assert.NotNull(cut.Find("#harvest-queue"));
+                Assert.NotNull(cut.Find("#harvest-run"));
+                Assert.NotNull(cut.Find("#harvest-distill"));
+            });
+        }
+
+        [Fact]
+        public void SectionNavTargets_AreProgrammaticallyFocusable()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                Array.Empty<YouTubeChannelVideo>(),
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            cut.WaitForAssertion(() =>
+            {
+                foreach (var id in new[] { "harvest-browse", "harvest-queue", "harvest-run", "harvest-distill" })
+                {
+                    Assert.Equal("-1", cut.Find($"#{id}").GetAttribute("tabindex"));
+                }
+            });
+        }
+
         private (IRenderedComponent<Harvest> Cut, FakeContentKbOrchestrator Maint, RecordingHarvestOrchestrator Harv, StubLister Lister) RenderHarvest(
             IReadOnlyList<YouTubeChannelVideo> recent,
             MapBlockedStore blocked,
