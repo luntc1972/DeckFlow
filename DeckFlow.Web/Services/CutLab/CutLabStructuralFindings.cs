@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Services.Manabase;
 
@@ -122,6 +124,14 @@ public sealed record CutLabAnalyzedCard(
 }
 
 /// <summary>Resolved Oracle fields used only for deterministic proven-equivalence evidence.</summary>
+/// <remarks>
+/// <c>OracleName</c> is the resolved Scryfall Oracle name, used to redact self-references from
+/// <c>OracleText</c> before hashing. Deliberately distinct from <see cref="CutLabAnalyzedCard.Name"/>,
+/// which is the user's decklist string and may differ from the canonical name (accents,
+/// apostrophe style, set suffix, alias import). Defaults to <see langword="null"/> so existing
+/// construction sites keep compiling; a null or blank value disables self-name redaction rather
+/// than guessing.
+/// </remarks>
 public sealed record CutLabSemanticProfile(
     string? OracleId,
     string? ManaCost,
@@ -131,7 +141,8 @@ public sealed record CutLabSemanticProfile(
     IReadOnlyList<string>? Keywords,
     IReadOnlyList<string>? ColorIdentity,
     string? OracleText,
-    string? Layout);
+    string? Layout,
+    string? OracleName = null);
 
 /// <summary>
 /// [ASSUMED] Computes Cut Lab's structural findings from the analyzed pool using fixed product
@@ -217,6 +228,7 @@ public static class CutLabStructuralFindings
     /// <param name="completeCombos">Resolved complete combos present in the pool when combo lookup succeeded.</param>
     /// <param name="twinsEnabled"><see langword="true"/> when the <c>analysis.cut-lab.functional-twins</c> flag is on. Defaults to <see langword="false"/> so a call site that has not been wired produces pre-Phase-4 behavior rather than silently shipping the detector.</param>
     /// <param name="planAffinities">Optional plan affinity keyed by normalized card name.</param>
+    /// <param name="provenEquivalenceEnabled"><see langword="true"/> when the <c>analysis.cut-lab.proven-equivalence</c> flag is on. Defaults to <see langword="false"/> so an unwired call site produces pre-Phase-9 behavior.</param>
     public static CutLabStructuralFindingsResult Compute(
         IReadOnlyList<CutLabAnalyzedCard> pool,
         IReadOnlyList<SpellbookAlmostCombo> nearCombos,
@@ -553,7 +565,7 @@ public static class CutLabStructuralFindings
 
     private static string SemanticKey(CutLabAnalyzedCard card, CutLabSemanticProfile profile) => string.Join(
         '\u001f',
-        NormalizeText(profile.OracleText!.Replace(card.Name, "<self>", StringComparison.OrdinalIgnoreCase)),
+        NormalizeText(RedactSelfName(profile.OracleText!, profile.OracleName)),
         NormalizeText(profile.ManaCost),
         NormalizeText(profile.TypeLine),
         NormalizeText(profile.Power),
@@ -562,7 +574,23 @@ public static class CutLabStructuralFindings
         string.Join('\u001e', profile.ColorIdentity!.OrderBy(color => color, StringComparer.OrdinalIgnoreCase).Select(NormalizeText)),
         string.Join('\u001e', card.Roles.OrderBy(role => role, StringComparer.OrdinalIgnoreCase).Select(NormalizeText)));
 
-    private static string NormalizeText(string value) => string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
+    // Why: CR-02 -- redaction must key off the resolved Oracle name (profile.OracleName), not the
+    // user-typed decklist string (card.Name), and must match on token boundaries. A plain
+    // case-insensitive substring Replace on a short/common name (e.g. "A") corrupts unrelated
+    // substrings inside the Oracle text ("h<self>s h<self>ste") and makes production behavior depend
+    // on how the user typed the card's name rather than on its canonical Oracle identity.
+    private static string RedactSelfName(string oracleText, string? oracleName) =>
+        string.IsNullOrWhiteSpace(oracleName)
+            ? oracleText
+            : Regex.Replace(
+                oracleText,
+                $@"\b{Regex.Escape(oracleName)}\b",
+                "<self>",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+                TimeSpan.FromMilliseconds(100));
+
+    private static string NormalizeText(string? value) =>
+        string.Join(' ', (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
 
     private static IEnumerable<CutLabFinding> ComputeComboProtected(
         IReadOnlyList<CutLabAnalyzedCard> pool,

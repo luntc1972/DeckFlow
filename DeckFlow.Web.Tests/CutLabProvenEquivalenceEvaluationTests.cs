@@ -136,6 +136,10 @@ public sealed class CutLabProvenEquivalenceEvaluationTests
     private static CutLabAnalyzedCard ToAnalyzedCard(FixtureCard card) =>
         new(card.Name, 1, false, card.Roles ?? [], [])
         {
+            // Why: the fixture's "name" field is the case's canonical card name (real Scryfall name
+            // for real cases, the constructed display name for synthetic cases), so it is also the
+            // correct OracleName for self-name redaction -- mirrors how CutLabAnalysisContextBuilder
+            // wires the resolved Scryfall Oracle name, never the pool entry's raw decklist string.
             SemanticProfile = new CutLabSemanticProfile(
                 card.OracleId,
                 card.ManaCost,
@@ -145,7 +149,8 @@ public sealed class CutLabProvenEquivalenceEvaluationTests
                 card.Keywords,
                 card.ColorIdentity,
                 card.OracleText,
-                card.Layout),
+                card.Layout,
+                OracleName: card.Name),
         };
 
     private static EvaluationResult Evaluate(FixtureCorpus corpus)
