@@ -1188,6 +1188,42 @@ namespace DeckFlow.Studio.Tests
             });
         }
 
+        // ── F-03: thumbnails carry a meaningful alternative text ──
+
+        [Fact]
+        public void ChannelBrowseThumbnail_AltNamesTheVideo()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                new[] { Vid("v1", "Sultai Cavern Deep Dive") },
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            BrowseChannel(cut);
+
+            cut.WaitForAssertion(() =>
+            {
+                var thumb = cut.Find("img[src*='img.youtube.com']");
+                Assert.Equal("Sultai Cavern Deep Dive thumbnail", thumb.GetAttribute("alt"));
+            });
+        }
+
+        [Fact]
+        public void NoThumbnailDeclaresItselfDecorative()
+        {
+            var (cut, _, _, _) = RenderHarvest(
+                new[] { Vid("v1", "Sultai Cavern Deep Dive") },
+                new MapBlockedStore(),
+                new MapSiteIndexStore());
+
+            BrowseChannel(cut);
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.NotEmpty(cut.FindAll("img[src*='img.youtube.com']"));
+                Assert.Empty(cut.FindAll("img[alt='']"));
+            });
+        }
+
         private (IRenderedComponent<Harvest> Cut, FakeContentKbOrchestrator Maint, RecordingHarvestOrchestrator Harv, StubLister Lister) RenderHarvest(
             IReadOnlyList<YouTubeChannelVideo> recent,
             MapBlockedStore blocked,
