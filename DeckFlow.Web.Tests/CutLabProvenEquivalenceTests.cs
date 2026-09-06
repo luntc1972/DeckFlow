@@ -63,12 +63,18 @@ public sealed class CutLabProvenEquivalenceTests
         Assert.Empty(result.Findings);
     }
 
+    // Why: CR-02 -- names must not be substrings of their own Oracle text (unlike the old "A"/"B" vs
+    // "A has haste."/"B has haste." pair), or a buggy self-name redaction could make the two profiles
+    // diverge for the wrong reason and mask whether the Distinct(OracleId) guard below ever executes.
+    // "Ramp Dork Prime" appears nowhere in the shared Oracle text, so with correct redaction (or no
+    // redaction at all) both cards land on an identical SemanticKey, making this a non-vacuous pin of
+    // the same-OracleId guard: deleting Distinct(OracleId).Count() != cards.Length turns this red.
     [Fact]
     public void ComputeProvenEquivalence_SameOracleId_Abstains()
     {
         CutLabStructuralFindingsResult result = Compute(
-            Card("A", "same", "{R}", "Creature — Goblin", "1", "1", ["Haste"], ["R"], "A has haste."),
-            Card("B", "same", "{R}", "Creature — Goblin", "1", "1", ["Haste"], ["R"], "B has haste."));
+            Card("Ramp Dork Prime", "same", "{1}{G}", "Creature — Elf Shaman", "2", "2", ["Reach"], ["G"], "When this creature enters, add {G}{G}."),
+            Card("Ramp Dork Prime (Alt Name)", "same", "{1}{G}", "Creature — Elf Shaman", "2", "2", ["Reach"], ["G"], "When this creature enters, add {G}{G}."));
 
         Assert.Empty(result.Findings);
     }
@@ -159,7 +165,10 @@ public sealed class CutLabProvenEquivalenceTests
     private static CutLabAnalyzedCard Card(string name, string oracleId, string manaCost, string typeLine, string power, string toughness, IReadOnlyList<string> keywords, IReadOnlyList<string> colorIdentity, string oracleText, string layout = "normal") =>
         new(name, 1, false, ["ramp"], [])
         {
-            SemanticProfile = new CutLabSemanticProfile(oracleId, manaCost, typeLine, power, toughness, keywords, colorIdentity, oracleText, layout),
+            // Why: OracleName mirrors name here because these hand-built profiles have no separate
+            // user-typed decklist string to diverge from; production wires it from the resolved
+            // Scryfall Oracle name (see CutLabAnalysisContextBuilder), never the pool entry's raw text.
+            SemanticProfile = new CutLabSemanticProfile(oracleId, manaCost, typeLine, power, toughness, keywords, colorIdentity, oracleText, layout, OracleName: name),
         };
 
     private static IReadOnlyDictionary<string, int> Floors() => new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);

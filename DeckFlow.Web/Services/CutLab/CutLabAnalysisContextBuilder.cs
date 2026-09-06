@@ -265,7 +265,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 IsLocked = entry.IsLocked,
                 IsCommander = isCommander,
                 SemanticProfile = card is not null && card.CardFaces is not { Count: > 0 }
-                    ? new CutLabSemanticProfile(card.OracleId, card.ManaCost, card.TypeLine, card.Power, card.Toughness, card.Keywords, card.ColorIdentity, card.OracleText, card.Layout)
+                    ? new CutLabSemanticProfile(card.OracleId, card.ManaCost, card.TypeLine, card.Power, card.Toughness, card.Keywords, card.ColorIdentity, card.OracleText, card.Layout, OracleName: card.Name)
                     : null,
             });
         }
