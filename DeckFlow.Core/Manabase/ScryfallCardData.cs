@@ -30,6 +30,14 @@ public sealed record ScryfallCardData
     [JsonPropertyName("oracle_text")]
     public string? OracleText { get; init; }
 
+    /// <summary>Scryfall's stable Oracle-card identifier; provenance, not a printing identifier.</summary>
+    [JsonPropertyName("oracle_id")]
+    public string? OracleId { get; init; }
+
+    /// <summary>Scryfall keyword abilities for this Oracle card.</summary>
+    [JsonPropertyName("keywords")]
+    public IReadOnlyList<string>? Keywords { get; init; }
+
     /// <summary>Scryfall <c>produced_mana</c> letters (e.g. ["U","R","G"]); colors this card can tap for.</summary>
     [JsonPropertyName("produced_mana")]
     public IReadOnlyList<string>? ProducedMana { get; init; }

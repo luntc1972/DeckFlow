@@ -50,6 +50,7 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("collector_number")] string? CollectorNumber,
     [property: JsonPropertyName("card_faces")] IReadOnlyList<ScryfallCardFace>? CardFaces = null,
     [property: JsonPropertyName("id")] string? Id = null,
+    [property: JsonPropertyName("oracle_id")] string? OracleId = null,
     [property: JsonPropertyName("layout")] string? Layout = null,
     [property: JsonPropertyName("released_at")] string? ReleasedAt = null,
     [property: JsonPropertyName("cmc")] double Cmc = 0,
