@@ -21,6 +21,34 @@ public sealed class CutLabProvenEquivalenceTests
         Assert.Equal(["Elvish Mystic", "Llanowar Elves"], finding.Evidence.Select(evidence => evidence.CardName));
     }
 
+    // Why (WR-11): the evaluation harness's old determinism check ("call Evaluate() twice in one
+    // process") cannot fail unless the code is non-deterministic in a way that would also break every
+    // other test -- it never exercised what WR-04 identified as the actual determinism risk: group
+    // and evidence ordering as a function of pool order. This pool has TWO independent equivalence
+    // groups (Ramp Dorks, Draw Sprites), so a first-appearance-order regression in
+    // ComputeProvenEquivalence would emit them in a different sequence when the pool is reversed;
+    // rendering to a comparable string and diffing forward vs. reversed input catches that directly.
+    [Fact]
+    public void ComputeProvenEquivalence_PoolOrderReversed_ProducesIdenticalRenderedOutput()
+    {
+        CutLabAnalyzedCard[] pool =
+        [
+            Card("Ramp Dork Alpha", "rd-1", "{1}{G}", "Creature — Elf Shaman", "2", "2", ["Reach"], ["G"], "When this creature enters, add {G}{G}."),
+            Card("Ramp Dork Beta", "rd-2", "{1}{G}", "Creature — Elf Shaman", "2", "2", ["Reach"], ["G"], "When this creature enters, add {G}{G}."),
+            Card("Draw Sprite Alpha", "ds-1", "{U}", "Creature — Faerie Wizard", "1", "1", [], ["U"], "When this creature enters, draw a card."),
+            Card("Draw Sprite Beta", "ds-2", "{U}", "Creature — Faerie Wizard", "1", "1", [], ["U"], "When this creature enters, draw a card."),
+        ];
+
+        string forward = Render(Compute(pool).Findings);
+        string reversed = Render(Compute(pool.Reverse().ToArray()).Findings);
+
+        Assert.Equal(forward, reversed);
+    }
+
+    private static string Render(IReadOnlyList<CutLabFinding> findings) => string.Join(
+        '|',
+        findings.Select(finding => $"{finding.Kind}:{finding.Lead}:{string.Join(',', finding.Evidence.Select(evidence => evidence.CardName))}"));
+
     // Why (WR-08): IsCompleteProfile previously required Power AND Toughness to be non-empty
     // unconditionally, which permanently excluded every non-creature (instant, sorcery, artifact,
     // enchantment, planeswalker) since Scryfall returns null P/T for them -- the class most likely to
