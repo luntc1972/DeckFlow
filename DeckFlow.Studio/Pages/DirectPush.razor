@@ -526,10 +526,9 @@ unlocks only after every file uploads.</p>
                     {
                         <div class="alert alert-success py-2 mt-3">
                             All @_rowResults.Count new/updated row(s) written to production and marked
-                            awaiting deploy confirmation — new rows are not yet visible; already-visible
-                            rows stay visible and may briefly serve their prior body until the redeploy
-                            completes. Unchanged rows were already up to date and were skipped.
-                            is_evergreen on existing rows was preserved.
+                            awaiting deploy confirmation. Unchanged rows were already up to date and
+                            were skipped. is_evergreen on existing rows was preserved.
+                            See <a href="#direct-push-visibility-contract">the production visibility contract</a> for what is and is not visible right now.
                         </div>
                     }
                 </div>
@@ -546,11 +545,10 @@ unlocks only after every file uploads.</p>
                         Commits the pushed bodies plus the re-exported content-KB index seed to the
                         git repo and pushes the current branch to <code>origin</code> (dropping
                         <code>[skip render]</code> once the <code>sync.directpush-gitbody</code> flag
-                        is ON, so a real Render redeploy can happen). New rows stay
-                        <strong>hidden</strong> and awaiting-confirm; a row that was already visible
-                        stays <strong>visible</strong> and may briefly serve its prior body until the
-                        redeploy completes &mdash; this step does not change visibility. Stage 5 below
-                        verifies the deployed body and makes new rows visible only after it confirms.
+                        is ON, so a real Render redeploy can happen). This step does not itself change
+                        visibility. Stage 5 below verifies the deployed body and makes new rows visible
+                        only after it confirms.
+                        See <a href="#direct-push-visibility-contract">the production visibility contract</a> for what is and is not visible right now.
                     </p>
 
                     @if (!string.IsNullOrEmpty(_gitError))
@@ -597,11 +595,10 @@ unlocks only after every file uploads.</p>
                             <div class="alert alert-success py-2 mt-3">
                                 Committed @_gitBodyCount @(_gitBodyCount == 1 ? "body" : "bodies")
                                 as <code>@_gitSha</code> and pushed to <code>origin/@_gitBranch</code>.
-                                New rows stay <strong>hidden</strong>; already-visible rows stay
-                                visible (serving their prior body until the redeploy completes). If
-                                this triggered a Render redeploy, wait for it to go healthy, then run
+                                If this triggered a Render redeploy, wait for it to go healthy, then run
                                 Stage 5 (Verify Deploy &amp; Publish) below to confirm and make new
                                 rows visible.
+                                See <a href="#direct-push-visibility-contract">the production visibility contract</a> for what is and is not visible right now.
                             </div>
                         }
                         else if (_gitPushed)
@@ -609,20 +606,19 @@ unlocks only after every file uploads.</p>
                             <div class="alert alert-success py-2 mt-3">
                                 No new commit needed — the bodies were already committed. Pushed your
                                 previously-unpushed durability commit(s) to
-                                <code>origin/@_gitBranch</code>. New rows stay
-                                <strong>hidden</strong>; already-visible rows stay visible until the
-                                redeploy completes — run Stage 5 (Verify Deploy &amp; Publish)
+                                <code>origin/@_gitBranch</code>. Run Stage 5 (Verify Deploy &amp; Publish)
                                 below once the deploy is healthy.
+                                See <a href="#direct-push-visibility-contract">the production visibility contract</a> for what is and is not visible right now.
                             </div>
                         }
                         else
                         {
                             <div class="alert alert-success py-2 mt-3">
                                 Already committed and in sync with <code>origin/@_gitBranch</code> —
-                                nothing to push. The bodies are git-durable; new rows stay
-                                <strong>hidden</strong> while already-visible rows stay visible — run
-                                Stage 5 (Verify Deploy &amp; Publish) below to confirm and make new
-                                rows visible.
+                                nothing to push. The bodies are git-durable — run Stage 5
+                                (Verify Deploy &amp; Publish) below to confirm and make new rows
+                                visible.
+                                See <a href="#direct-push-visibility-contract">the production visibility contract</a> for what is and is not visible right now.
                             </div>
                         }
                     }
