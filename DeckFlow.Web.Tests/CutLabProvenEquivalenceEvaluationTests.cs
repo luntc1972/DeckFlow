@@ -57,6 +57,12 @@ public sealed class CutLabProvenEquivalenceEvaluationTests
                 $"case '{testCase.Id}' has an unrecognized label: '{testCase.Label}'");
             Assert.True(testCase.Cards.Count >= 2, $"case '{testCase.Id}' needs at least two cards to express a relation");
         }
+
+        // Why (WR-12): a copy-paste duplicate id previously passed silently and would make failure
+        // messages from every other Fact in this class ambiguous (which of the two same-id cases
+        // failed?).
+        string[] ids = corpus.Cases.Select(testCase => testCase.Id).ToArray();
+        Assert.Equal(ids.Length, ids.Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
@@ -85,6 +91,28 @@ public sealed class CutLabProvenEquivalenceEvaluationTests
             && testCase.Cards.All(card => card.OracleId is { Length: > 0 } oracleId && !oracleId.StartsWith("synthetic-", StringComparison.Ordinal)));
 
         Assert.True(hasRealPositive, "no positive case has distinct, real (non-synthetic) Oracle IDs across all its cards");
+    }
+
+    [Fact]
+    public void Corpus_RealOracleIds_MatchScryfallUuidShape()
+    {
+        // Why (WR-12): "realness" was established only by a "synthetic-" prefix naming convention on
+        // constructed fixture cards -- any well-formed but fabricated UUID for a "real" card would
+        // pass silently. This doesn't verify the value against live Scryfall data (out of scope for a
+        // unit test; re-verifiable by hand from each case's "source" field), but it does catch a
+        // malformed or truncated id and documents the shape a real Oracle ID must have.
+        FixtureCorpus corpus = LoadCorpus();
+        string[] realOracleIds = corpus.Cases
+            .SelectMany(testCase => testCase.Cards)
+            .Select(card => card.OracleId)
+            .Where(oracleId => oracleId is { Length: > 0 } && !oracleId.StartsWith("synthetic-", StringComparison.Ordinal))
+            .Cast<string>()
+            .ToArray();
+
+        Assert.NotEmpty(realOracleIds);
+        Assert.All(realOracleIds, oracleId => Assert.Matches(
+            "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            oracleId));
     }
 
     [Fact]
