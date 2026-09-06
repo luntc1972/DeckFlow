@@ -1,1 +1,255 @@
-{ "cases": [] }
+{
+  "cases": [
+    {
+      "id": "positive-llanowar-vs-elvish",
+      "label": "equivalent",
+      "rationale": "Llanowar Elves and Elvish Mystic are real, independently printed cards with distinct Oracle IDs and byte-identical mana cost, type line, power/toughness, keywords, color identity, and Oracle text -- the canonical real-world functional reprint pair (D-02).",
+      "source": "Scryfall API cards/named?exact=Llanowar%20Elves; cards/named?exact=Elvish%20Mystic (fetched 2026-09-06)",
+      "cards": [
+        { "name": "Llanowar Elves", "oracleId": "68954295-54e3-4303-a6bc-fc4547a4e3a3", "manaCost": "{G}", "typeLine": "Creature — Elf Druid", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["G"], "oracleText": "{T}: Add {G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Elvish Mystic", "oracleId": "3f3b2c10-21f8-4e13-be83-4ef3fa36e123", "manaCost": "{G}", "typeLine": "Creature — Elf Druid", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["G"], "oracleText": "{T}: Add {G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "positive-llanowar-vs-fyndhorn",
+      "label": "equivalent",
+      "rationale": "Llanowar Elves and Fyndhorn Elves are a second real distinct-name pair from the same one-mana Elf Druid mana-dork family: distinct Oracle IDs, byte-identical full profile.",
+      "source": "Scryfall API cards/named?exact=Llanowar%20Elves; cards/named?exact=Fyndhorn%20Elves (fetched 2026-09-06)",
+      "cards": [
+        { "name": "Llanowar Elves", "oracleId": "68954295-54e3-4303-a6bc-fc4547a4e3a3", "manaCost": "{G}", "typeLine": "Creature — Elf Druid", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["G"], "oracleText": "{T}: Add {G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Fyndhorn Elves", "oracleId": "df317532-7d36-40fd-938f-e972749c8792", "manaCost": "{G}", "typeLine": "Creature — Elf Druid", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["G"], "oracleText": "{T}: Add {G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "positive-elvish-vs-fyndhorn",
+      "label": "equivalent",
+      "rationale": "Elvish Mystic and Fyndhorn Elves are the third pairwise combination from the same real functional-reprint family, proving the detector is not order- or pair-specific.",
+      "source": "Scryfall API cards/named?exact=Elvish%20Mystic; cards/named?exact=Fyndhorn%20Elves (fetched 2026-09-06)",
+      "cards": [
+        { "name": "Elvish Mystic", "oracleId": "3f3b2c10-21f8-4e13-be83-4ef3fa36e123", "manaCost": "{G}", "typeLine": "Creature — Elf Druid", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["G"], "oracleText": "{T}: Add {G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Fyndhorn Elves", "oracleId": "df317532-7d36-40fd-938f-e972749c8792", "manaCost": "{G}", "typeLine": "Creature — Elf Druid", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["G"], "oracleText": "{T}: Add {G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "positive-three-way-elf-family",
+      "label": "equivalent",
+      "rationale": "All three real Elf Druid mana dorks in one pool: proves the detector surfaces a single 3-way disclosure group over three distinct Oracle IDs, not just isolated pairs.",
+      "source": "Scryfall API cards/named?exact=Llanowar%20Elves; cards/named?exact=Elvish%20Mystic; cards/named?exact=Fyndhorn%20Elves (fetched 2026-09-06)",
+      "cards": [
+        { "name": "Llanowar Elves", "oracleId": "68954295-54e3-4303-a6bc-fc4547a4e3a3", "manaCost": "{G}", "typeLine": "Creature — Elf Druid", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["G"], "oracleText": "{T}: Add {G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Elvish Mystic", "oracleId": "3f3b2c10-21f8-4e13-be83-4ef3fa36e123", "manaCost": "{G}", "typeLine": "Creature — Elf Druid", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["G"], "oracleText": "{T}: Add {G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Fyndhorn Elves", "oracleId": "df317532-7d36-40fd-938f-e972749c8792", "manaCost": "{G}", "typeLine": "Creature — Elf Druid", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["G"], "oracleText": "{T}: Add {G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "negative-oracle-text-mismatch",
+      "label": "not-equivalent",
+      "rationale": "Complete, resolved profiles matching on cost, type line, power/toughness, keywords, color identity, and role, but diverging Oracle text ({G}{G} vs {C}{C} produced) -- a genuine functional difference must never surface as equivalence.",
+      "source": "Constructed negative fixture derived from a synthetic baseline ramp-creature profile; only Oracle text was varied to isolate this axis.",
+      "cards": [
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Ramp Dork Variant (Text)", "oracleId": "synthetic-oracle-variant-text", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {C}{C}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "negative-mana-cost-mismatch",
+      "label": "not-equivalent",
+      "rationale": "Same baseline profile except mana cost ({1}{G} vs {2}{G}); a real cost difference is a genuine functional difference and must not surface.",
+      "source": "Constructed negative fixture derived from the synthetic baseline ramp-creature profile; only mana cost was varied to isolate this axis.",
+      "cards": [
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Ramp Dork Variant (Cost)", "oracleId": "synthetic-oracle-variant-cost", "manaCost": "{2}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "negative-role-mismatch",
+      "label": "not-equivalent",
+      "rationale": "Same baseline Oracle profile but assigned different structural roles (ramp vs draw) by the deck's own role classifier; Roles are part of the equivalence key, so a role disagreement must not surface as equivalence even when the Oracle profile matches.",
+      "source": "Constructed negative fixture derived from the synthetic baseline ramp-creature profile; only the assigned structural role was varied to isolate this axis.",
+      "cards": [
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Ramp Dork Variant (Role)", "oracleId": "synthetic-oracle-variant-role", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["draw"] }
+      ]
+    },
+    {
+      "id": "negative-type-line-mismatch",
+      "label": "not-equivalent",
+      "rationale": "Same baseline profile except full type line (Elf Shaman vs Elf Warrior); a genuine creature-type difference must not surface.",
+      "source": "Constructed negative fixture derived from the synthetic baseline ramp-creature profile; only the type line was varied to isolate this axis.",
+      "cards": [
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Ramp Dork Variant (Type)", "oracleId": "synthetic-oracle-variant-type", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Warrior", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "negative-power-mismatch",
+      "label": "not-equivalent",
+      "rationale": "Same baseline profile except power (2 vs 3); a genuine stat difference must not surface as equivalence.",
+      "source": "Constructed negative fixture derived from the synthetic baseline ramp-creature profile; only power was varied to isolate this axis.",
+      "cards": [
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Ramp Dork Variant (Power)", "oracleId": "synthetic-oracle-variant-power", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "3", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "negative-toughness-mismatch",
+      "label": "not-equivalent",
+      "rationale": "Same baseline profile except toughness (2 vs 3); a genuine stat difference must not surface as equivalence.",
+      "source": "Constructed negative fixture derived from the synthetic baseline ramp-creature profile; only toughness was varied to isolate this axis.",
+      "cards": [
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Ramp Dork Variant (Toughness)", "oracleId": "synthetic-oracle-variant-toughness", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "3", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "negative-keywords-mismatch",
+      "label": "not-equivalent",
+      "rationale": "Same baseline profile except keywords (Reach vs Vigilance); a genuine keyword-ability difference must not surface as equivalence.",
+      "source": "Constructed negative fixture derived from the synthetic baseline ramp-creature profile; only keywords were varied to isolate this axis.",
+      "cards": [
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Ramp Dork Variant (Keywords)", "oracleId": "synthetic-oracle-variant-keywords", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Vigilance"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "negative-color-identity-mismatch",
+      "label": "not-equivalent",
+      "rationale": "Same baseline profile except color identity (G vs G/U); a genuine color-identity difference must not surface as equivalence.",
+      "source": "Constructed negative fixture derived from the synthetic baseline ramp-creature profile; only color identity was varied to isolate this axis.",
+      "cards": [
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Ramp Dork Variant (Color)", "oracleId": "synthetic-oracle-variant-color", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G", "U"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-same-oracle-id",
+      "label": "abstain",
+      "rationale": "Two working-list entries with different display strings resolve to the same underlying Oracle ID (e.g. an alias or flavor-name import); D-02 requires distinct Oracle IDs for a positive even when every other field matches, so this must never surface.",
+      "source": "Constructed defensive fixture; both entries pinned to one synthetic shared Oracle ID to isolate the same-OracleId guard.",
+      "cards": [
+        { "name": "Ramp Dork Prime", "oracleId": "synthetic-oracle-shared", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Ramp Dork Prime (Alt Name)", "oracleId": "synthetic-oracle-shared", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-non-normal-layout-transform",
+      "label": "abstain",
+      "rationale": "Delver of Secrets is a real double-faced transform card; its front-face profile would otherwise match a hypothetical clone, but D-03 fails closed on any non-normal layout, so it is excluded from eligibility regardless of its partner's completeness.",
+      "source": "Scryfall API cards/named?exact=Delver%20of%20Secrets (front face card_faces[0], fetched 2026-09-06)",
+      "cards": [
+        { "name": "Delver of Secrets", "oracleId": "edd531b9-f615-4399-8c8c-1c5e18c4acbf", "manaCost": "{U}", "typeLine": "Creature — Human Wizard", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["U"], "oracleText": "At the beginning of your upkeep, look at the top card of your library. You may reveal that card. If an instant or sorcery card is revealed this way, transform this creature.", "layout": "transform", "roles": ["ramp"] },
+        { "name": "Delver Clone (Normal Layout)", "oracleId": "synthetic-oracle-delver-clone", "manaCost": "{U}", "typeLine": "Creature — Human Wizard", "power": "1", "toughness": "1", "keywords": [], "colorIdentity": ["U"], "oracleText": "At the beginning of your upkeep, look at the top card of your library. You may reveal that card. If an instant or sorcery card is revealed this way, transform this creature.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-non-normal-layout-adventure-faces",
+      "label": "abstain",
+      "rationale": "Bonecrusher Giant is a real adventure card with a second castable face (Stomp); D-03 fails closed on any card with multiple faces / non-normal layout, so it never becomes positive evidence even though its front-face profile alone would otherwise match.",
+      "source": "Scryfall API cards/named?exact=Bonecrusher%20Giant (front face card_faces[0], fetched 2026-09-06)",
+      "cards": [
+        { "name": "Bonecrusher Giant", "oracleId": "d6d72f5f-8f5d-4180-b514-f22ff5482902", "manaCost": "{2}{R}", "typeLine": "Creature — Giant", "power": "4", "toughness": "3", "keywords": [], "colorIdentity": ["R"], "oracleText": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.", "layout": "adventure", "roles": ["ramp"] },
+        { "name": "Bonecrusher Clone (Normal Layout)", "oracleId": "synthetic-oracle-bonecrusher-clone", "manaCost": "{2}{R}", "typeLine": "Creature — Giant", "power": "4", "toughness": "3", "keywords": [], "colorIdentity": ["R"], "oracleText": "Whenever this creature becomes the target of a spell, this creature deals 2 damage to that spell's controller.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-x-cost",
+      "label": "abstain",
+      "rationale": "Hangarback Walker is a real X-cost creature; D-03 fails closed on any X or alternative-cost mana cost, so it never becomes eligible even though its remaining fields could otherwise match a hypothetical non-X clone.",
+      "source": "Scryfall API cards/named?exact=Hangarback%20Walker (fetched 2026-09-06)",
+      "cards": [
+        { "name": "Hangarback Walker", "oracleId": "dde55256-5259-44e7-a267-fca45a7f0d04", "manaCost": "{X}{X}", "typeLine": "Artifact Creature — Construct", "power": "0", "toughness": "0", "keywords": [], "colorIdentity": [], "oracleText": "This creature enters with X +1/+1 counters on it.\nWhen this creature dies, create a 1/1 colorless Thopter artifact creature token with flying for each +1/+1 counter on this creature.\n{1}, {T}: Put a +1/+1 counter on this creature.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Hangarback Clone (Fixed Cost)", "oracleId": "synthetic-oracle-hangarback-clone", "manaCost": "{2}", "typeLine": "Artifact Creature — Construct", "power": "0", "toughness": "0", "keywords": [], "colorIdentity": [], "oracleText": "This creature enters with X +1/+1 counters on it.\nWhen this creature dies, create a 1/1 colorless Thopter artifact creature token with flying for each +1/+1 counter on this creature.\n{1}, {T}: Put a +1/+1 counter on this creature.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-alternative-cost",
+      "label": "abstain",
+      "rationale": "Security Rhox is a real creature whose Oracle text contains an alternative-cost clause ('rather than pay'); D-03 fails closed on that language regardless of how closely other fields might align with a hypothetical clone.",
+      "source": "Scryfall API cards/search?q=!\"Security Rhox\" (fetched 2026-09-06)",
+      "cards": [
+        { "name": "Security Rhox", "oracleId": "dffc6785-31b0-487c-b9a0-980bca39753d", "manaCost": "{2}{R}{G}", "typeLine": "Creature — Rhino Warrior", "power": "5", "toughness": "4", "keywords": [], "colorIdentity": ["G", "R"], "oracleText": "You may pay {R}{G} rather than pay this spell's mana cost. Spend only mana produced by Treasures to cast it this way.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Rhox Clone (No Alt Cost)", "oracleId": "synthetic-oracle-rhox-clone", "manaCost": "{2}{R}{G}", "typeLine": "Creature — Rhino Warrior", "power": "5", "toughness": "4", "keywords": [], "colorIdentity": ["G", "R"], "oracleText": "Trample. When this creature enters, create a Treasure token.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-unresolved-missing-oracle-id",
+      "label": "abstain",
+      "rationale": "Card lacks a resolved Oracle ID (e.g. an unresolved Scryfall lookup); D-03 fails closed on any missing provenance field even when every other value would otherwise match.",
+      "source": "Constructed defensive fixture representing an unresolved Scryfall lookup; the partner reuses the synthetic baseline profile as the would-be match.",
+      "cards": [
+        { "name": "Unresolved Dork (No OracleId)", "oracleId": null, "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-unresolved-missing-mana-cost",
+      "label": "abstain",
+      "rationale": "Card lacks a resolved mana cost (e.g. an unresolved Scryfall lookup); D-03 fails closed on any missing provenance field even when every other value would otherwise match.",
+      "source": "Constructed defensive fixture representing an unresolved Scryfall lookup; the partner reuses the synthetic baseline profile as the would-be match.",
+      "cards": [
+        { "name": "Unresolved Dork (No ManaCost)", "oracleId": "synthetic-oracle-unresolved-cost", "manaCost": null, "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-unresolved-missing-type-line",
+      "label": "abstain",
+      "rationale": "Card lacks a resolved type line (e.g. an unresolved Scryfall lookup); D-03 fails closed on any missing provenance field even when every other value would otherwise match.",
+      "source": "Constructed defensive fixture representing an unresolved Scryfall lookup; the partner reuses the synthetic baseline profile as the would-be match.",
+      "cards": [
+        { "name": "Unresolved Dork (No TypeLine)", "oracleId": "synthetic-oracle-unresolved-type", "manaCost": "{1}{G}", "typeLine": null, "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-unresolved-missing-power",
+      "label": "abstain",
+      "rationale": "Card lacks a resolved power (e.g. an unresolved Scryfall lookup); D-03 fails closed on any missing provenance field even when every other value would otherwise match.",
+      "source": "Constructed defensive fixture representing an unresolved Scryfall lookup; the partner reuses the synthetic baseline profile as the would-be match.",
+      "cards": [
+        { "name": "Unresolved Dork (No Power)", "oracleId": "synthetic-oracle-unresolved-power", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": null, "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-unresolved-missing-toughness",
+      "label": "abstain",
+      "rationale": "Card lacks a resolved toughness (e.g. an unresolved Scryfall lookup); D-03 fails closed on any missing provenance field even when every other value would otherwise match.",
+      "source": "Constructed defensive fixture representing an unresolved Scryfall lookup; the partner reuses the synthetic baseline profile as the would-be match.",
+      "cards": [
+        { "name": "Unresolved Dork (No Toughness)", "oracleId": "synthetic-oracle-unresolved-toughness", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": null, "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-unresolved-missing-oracle-text",
+      "label": "abstain",
+      "rationale": "Card lacks resolved Oracle text (e.g. an unresolved Scryfall lookup); D-03 fails closed on any missing provenance field even when every other value would otherwise match.",
+      "source": "Constructed defensive fixture representing an unresolved Scryfall lookup; the partner reuses the synthetic baseline profile as the would-be match.",
+      "cards": [
+        { "name": "Unresolved Dork (No OracleText)", "oracleId": "synthetic-oracle-unresolved-text", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": null, "layout": "normal", "roles": ["ramp"] },
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-unresolved-missing-keywords",
+      "label": "abstain",
+      "rationale": "Card carries a null keywords collection (e.g. an unresolved Scryfall lookup); D-03 fails closed on any missing provenance field even when every other value would otherwise match.",
+      "source": "Constructed defensive fixture representing an unresolved Scryfall lookup; the partner reuses the synthetic baseline profile as the would-be match.",
+      "cards": [
+        { "name": "Unresolved Dork (No Keywords)", "oracleId": "synthetic-oracle-unresolved-keywords", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": null, "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-unresolved-missing-color-identity",
+      "label": "abstain",
+      "rationale": "Card carries a null color identity collection (e.g. an unresolved Scryfall lookup); D-03 fails closed on any missing provenance field even when every other value would otherwise match.",
+      "source": "Constructed defensive fixture representing an unresolved Scryfall lookup; the partner reuses the synthetic baseline profile as the would-be match.",
+      "cards": [
+        { "name": "Unresolved Dork (No ColorIdentity)", "oracleId": "synthetic-oracle-unresolved-color", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": null, "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    }
+  ]
+}
