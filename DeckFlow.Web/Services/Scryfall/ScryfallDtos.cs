@@ -36,6 +36,15 @@ public sealed record ScryfallCollectionResponse(
 /// <summary>
 /// Represents a Scryfall card payload.
 /// </summary>
+/// <remarks>
+/// WR-10: every parameter from <c>CardFaces</c> onward is optional (<c>string?</c> or has a
+/// default), and 51 call sites across the solution construct this positionally through
+/// <c>CardFaces</c> (index 11) then switch to named arguments for everything after. Inserting a new
+/// optional parameter anywhere before the end -- as <c>OracleId</c> once was, between <c>Id</c> and
+/// <c>Layout</c> -- would silently rebind every later positional argument at any call site that ever
+/// passes index 13+ positionally, with no compiler error. APPEND new optional parameters to the end
+/// of this list only; never insert.
+/// </remarks>
 public sealed record ScryfallCard(
     string Name,
     [property: JsonPropertyName("mana_cost")] string? ManaCost,
@@ -50,12 +59,12 @@ public sealed record ScryfallCard(
     [property: JsonPropertyName("collector_number")] string? CollectorNumber,
     [property: JsonPropertyName("card_faces")] IReadOnlyList<ScryfallCardFace>? CardFaces = null,
     [property: JsonPropertyName("id")] string? Id = null,
-    [property: JsonPropertyName("oracle_id")] string? OracleId = null,
     [property: JsonPropertyName("layout")] string? Layout = null,
     [property: JsonPropertyName("released_at")] string? ReleasedAt = null,
     [property: JsonPropertyName("cmc")] double Cmc = 0,
     [property: JsonPropertyName("produced_mana")] IReadOnlyList<string>? ProducedMana = null,
-    [property: JsonPropertyName("rarity")] string? Rarity = null);
+    [property: JsonPropertyName("rarity")] string? Rarity = null,
+    [property: JsonPropertyName("oracle_id")] string? OracleId = null);
 
 /// <summary>
 /// Container for a Scryfall rulings list response.
