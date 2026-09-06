@@ -110,12 +110,8 @@ public sealed class CutLabProvenEquivalenceEvaluationTests
         Assert.Equal("analysis.cut-lab.proven-equivalence", FeatureFlagCatalog.Descriptions.Keys.Single(key => key == CutLabStructuralFindings.ProvenEquivalenceFlagKey));
     }
 
-    /// <summary>
-    /// Runs the production predicate over one fixture case's cards in isolation and returns whether
-    /// it produced a <see cref="CutLabFindingKind.ProvenEquivalence"/> finding covering every card in
-    /// the case.
-    /// </summary>
-    private static bool PredictsEquivalent(FixtureCase testCase)
+    /// <summary>Runs the production predicate over one fixture case's cards in isolation.</summary>
+    private static CutLabFinding[] RunEquivalenceFindings(FixtureCase testCase)
     {
         IReadOnlyList<CutLabAnalyzedCard> pool = testCase.Cards.Select(ToAnalyzedCard).ToArray();
         CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
@@ -126,12 +122,28 @@ public sealed class CutLabProvenEquivalenceEvaluationTests
             categoryDataAvailable: true,
             provenEquivalenceEnabled: true);
 
-        CutLabFinding[] equivalenceFindings = result.Findings.Where(finding => finding.Kind == CutLabFindingKind.ProvenEquivalence).ToArray();
+        return result.Findings.Where(finding => finding.Kind == CutLabFindingKind.ProvenEquivalence).ToArray();
+    }
+
+    /// <summary>
+    /// Whether the production predicate produced a <see cref="CutLabFindingKind.ProvenEquivalence"/>
+    /// finding covering every card in the case (recall check for positive-labeled cases).
+    /// </summary>
+    private static bool PredictsEquivalent(FixtureCase testCase)
+    {
         HashSet<string> expectedNames = testCase.Cards.Select(card => card.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        return equivalenceFindings.Any(finding =>
+        return RunEquivalenceFindings(testCase).Any(finding =>
             finding.Evidence.Select(evidence => evidence.CardName).ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(expectedNames));
     }
+
+    /// <summary>
+    /// Whether the production predicate produced ANY <see cref="CutLabFindingKind.ProvenEquivalence"/>
+    /// finding over the case's cards (false-positive check for non-positive-labeled cases). Why:
+    /// PredictsEquivalent's full-set SetEquals would silently score a proper-subset false positive
+    /// on a 3+ card negative case as a correct abstention (WR-03); this checks presence, not shape.
+    /// </summary>
+    private static bool ProducesAnyEquivalence(FixtureCase testCase) => RunEquivalenceFindings(testCase).Length > 0;
 
     private static CutLabAnalyzedCard ToAnalyzedCard(FixtureCard card) =>
         new(card.Name, 1, false, card.Roles ?? [], [])
@@ -161,18 +173,24 @@ public sealed class CutLabProvenEquivalenceEvaluationTests
 
         foreach (FixtureCase testCase in corpus.Cases)
         {
-            bool predictedEquivalent = PredictsEquivalent(testCase);
             bool expectedEquivalent = testCase.Label == LabelEquivalent;
 
-            if (expectedEquivalent && predictedEquivalent)
+            // Why (WR-03): positive cases are scored on exact-set recall (PredictsEquivalent);
+            // non-positive cases are scored on presence of ANY equivalence finding
+            // (ProducesAnyEquivalence), so a multi-card negative where the detector matches a proper
+            // subset still counts as a false positive instead of silently passing as an abstention.
+            if (expectedEquivalent)
             {
-                truePositives++;
+                if (PredictsEquivalent(testCase))
+                {
+                    truePositives++;
+                }
+                else
+                {
+                    falseNegatives++;
+                }
             }
-            else if (expectedEquivalent && !predictedEquivalent)
-            {
-                falseNegatives++;
-            }
-            else if (!expectedEquivalent && predictedEquivalent)
+            else if (ProducesAnyEquivalence(testCase))
             {
                 falsePositives++;
             }
