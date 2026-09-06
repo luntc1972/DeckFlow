@@ -557,7 +557,21 @@ public static class CutLabStructuralFindings
                 .OrderBy(card => card.Name, StringComparer.Ordinal)
                 .ToArray();
 
-            if (cards.Length < 2 || cards.Select(card => card.SemanticProfile!.OracleId).Distinct(StringComparer.Ordinal).Count() != cards.Length)
+            if (cards.Length < 2)
+            {
+                continue;
+            }
+
+            // Why (WR-09): a shared Oracle ID between two members of an otherwise-valid group
+            // previously suppressed the whole group, dropping genuinely distinct members that satisfy
+            // D-02 alongside the ambiguous pair. Drop only the ambiguous members (any Oracle ID that
+            // is not unique within this group), then re-check the size floor on what remains.
+            CutLabAnalyzedCard[] distinctOracle = cards
+                .GroupBy(card => card.SemanticProfile!.OracleId, StringComparer.Ordinal)
+                .Where(oracleGroup => oracleGroup.Count() == 1)
+                .Select(oracleGroup => oracleGroup.Single())
+                .ToArray();
+            if (distinctOracle.Length < 2)
             {
                 continue;
             }
@@ -565,8 +579,8 @@ public static class CutLabStructuralFindings
             yield return new CutLabFinding(
                 CutLabFindingKind.ProvenEquivalence,
                 "Proven equivalence",
-                $"{cards.Length} distinct Oracle cards have an equal complete semantic profile — disclosure only; no member is preferred.",
-                cards.Select(card => new CutLabFindingEvidence(card.Name, card.ManaValue)).ToArray());
+                $"{distinctOracle.Length} distinct Oracle cards have an equal complete semantic profile — disclosure only; no member is preferred.",
+                distinctOracle.Select(card => new CutLabFindingEvidence(card.Name, card.ManaValue)).ToArray());
         }
     }
 

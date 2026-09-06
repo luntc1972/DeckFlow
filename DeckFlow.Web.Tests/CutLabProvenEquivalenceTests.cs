@@ -65,10 +65,10 @@ public sealed class CutLabProvenEquivalenceTests
 
     // Why: CR-02 -- names must not be substrings of their own Oracle text (unlike the old "A"/"B" vs
     // "A has haste."/"B has haste." pair), or a buggy self-name redaction could make the two profiles
-    // diverge for the wrong reason and mask whether the Distinct(OracleId) guard below ever executes.
+    // diverge for the wrong reason and mask whether the same-OracleId guard below ever executes.
     // "Ramp Dork Prime" appears nowhere in the shared Oracle text, so with correct redaction (or no
     // redaction at all) both cards land on an identical SemanticKey, making this a non-vacuous pin of
-    // the same-OracleId guard: deleting Distinct(OracleId).Count() != cards.Length turns this red.
+    // the guard: deleting the OracleId-uniqueness filter in ComputeProvenEquivalence turns this red.
     [Fact]
     public void ComputeProvenEquivalence_SameOracleId_Abstains()
     {
@@ -77,6 +77,24 @@ public sealed class CutLabProvenEquivalenceTests
             Card("Ramp Dork Prime (Alt Name)", "same", "{1}{G}", "Creature — Elf Shaman", "2", "2", ["Reach"], ["G"], "When this creature enters, add {G}{G}."));
 
         Assert.Empty(result.Findings);
+    }
+
+    // Why (WR-09): a shared Oracle ID between two members of an otherwise-valid group previously
+    // suppressed the WHOLE group; this pins the fix over a four-card group where exactly two share an
+    // Oracle ID -- the ambiguous pair drops out, but the two genuinely distinct members that satisfy
+    // D-02 still surface (rather than the whole four-card group vanishing).
+    [Fact]
+    public void ComputeProvenEquivalence_OneAmbiguousPairInLargerGroup_SurfacesOnlyTheDistinctMembers()
+    {
+        CutLabStructuralFindingsResult result = Compute(
+            Card("Ramp Dork Alpha", "shared-alias", "{1}{G}", "Creature — Elf Shaman", "2", "2", ["Reach"], ["G"], "When this creature enters, add {G}{G}."),
+            Card("Ramp Dork Alpha (Alt Name)", "shared-alias", "{1}{G}", "Creature — Elf Shaman", "2", "2", ["Reach"], ["G"], "When this creature enters, add {G}{G}."),
+            Card("Ramp Dork Beta", "distinct-oracle-1", "{1}{G}", "Creature — Elf Shaman", "2", "2", ["Reach"], ["G"], "When this creature enters, add {G}{G}."),
+            Card("Ramp Dork Gamma", "distinct-oracle-2", "{1}{G}", "Creature — Elf Shaman", "2", "2", ["Reach"], ["G"], "When this creature enters, add {G}{G}."));
+
+        CutLabFinding finding = Assert.Single(result.Findings);
+        Assert.Equal(CutLabFindingKind.ProvenEquivalence, finding.Kind);
+        Assert.Equal(["Ramp Dork Beta", "Ramp Dork Gamma"], finding.Evidence.Select(evidence => evidence.CardName));
     }
 
     [Fact]
