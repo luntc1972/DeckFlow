@@ -650,9 +650,9 @@
 
                 @* Cap display (D-02) *@
                 <div class="d-flex gap-3 align-items-center flex-wrap mb-2">
-                    <span>Monthly cap: <strong>$@_monthlyCap.ToString("F2")</strong></span>
-                    <span>Spent this month: <strong>$@_monthlySpent.ToString("F2")</strong></span>
-                    <span>Remaining: <strong class="@(_monthlyCap - _monthlySpent < 0 ? "text-danger" : "text-success")">$@((_monthlyCap - _monthlySpent).ToString("F2"))</strong></span>
+                    <span>Monthly cap: <strong>$@Usd2(_monthlyCap)</strong></span>
+                    <span>Spent this month: <strong>$@Usd2(_monthlySpent)</strong></span>
+                    <span>Remaining: <strong class="@(_monthlyCap - _monthlySpent < 0 ? "text-danger" : "text-success")">$@Usd2(_monthlyCap - _monthlySpent)</strong></span>
                 </div>
 
                 @* Session cap-raise control (D-03) *@
@@ -663,7 +663,7 @@
                                style="width:120px"
                                min="0" step="1"
                                @bind="_capRaiseInput"
-                               placeholder="@_monthlyCap.ToString("F2")" />
+                               placeholder="@Usd2(_monthlyCap)" />
                     </div>
                     <button class="btn btn-outline-secondary btn-sm"
                             @onclick="RaiseCapAsync"
@@ -819,16 +819,16 @@
                             <dt class="col-sm-5">Videos that would distill:</dt>
                             <dd class="col-sm-7">@_distillDryRunResult.WouldRun</dd>
                             <dt class="col-sm-5">Projected spend:</dt>
-                            <dd class="col-sm-7">$@_distillDryRunResult.ProjectedSpendUsd.ToString("F4") USD</dd>
+                            <dd class="col-sm-7">$@Usd4(_distillDryRunResult.ProjectedSpendUsd) USD</dd>
                             <dt class="col-sm-5">Monthly cap remaining:</dt>
-                            <dd class="col-sm-7">$@remaining.ToString("F2") USD</dd>
+                            <dd class="col-sm-7">$@Usd2(remaining) USD</dd>
                         </dl>
 
                         @if (capExceeded)
                         {
                             <div class="alert alert-danger py-2 mt-2 mb-0">
                                 <span class="oi oi-warning me-1" aria-hidden="true"></span>
-                                Projected spend ($@_distillDryRunResult.ProjectedSpendUsd.ToString("F4")) exceeds your monthly cap ($@_monthlyCap.ToString("F2")). Reduce selection or raise the cap.
+                                Projected spend ($@Usd4(_distillDryRunResult.ProjectedSpendUsd)) exceeds your monthly cap ($@Usd2(_monthlyCap)). Reduce selection or raise the cap.
                             </div>
                         }
                     </div>
@@ -908,7 +908,7 @@
                                 <dt class="col-sm-5">LLM calls:</dt>
                                 <dd class="col-sm-7">@_distillLiveResult.LlmCalls</dd>
                                 <dt class="col-sm-5">Actual spend:</dt>
-                                <dd class="col-sm-7">$@_distillLiveResult.LlmSpendUsd.ToString("F4") USD</dd>
+                                <dd class="col-sm-7">$@Usd4(_distillLiveResult.LlmSpendUsd) USD</dd>
                                 <dt class="col-sm-5">Videos filtered:</dt>
                                 <dd class="col-sm-7">@_distillLiveResult.VideosFiltered</dd>
                                 <dt class="col-sm-5">Failed:</dt>
