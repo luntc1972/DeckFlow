@@ -536,8 +536,14 @@ public static class CutLabStructuralFindings
     {
         CutLabAnalyzedCard[] eligible = pool.Where(card => !string.IsNullOrWhiteSpace(card.Name) && IsCompleteProfile(card.SemanticProfile)).ToArray();
 
-        foreach (IGrouping<string, CutLabAnalyzedCard> group in eligible.GroupBy(
-            card => SemanticKey(card, card.SemanticProfile!), StringComparer.Ordinal))
+        // Why (WR-04): every sibling detector in this file imposes a total order over its groups
+        // (ComputeCurveCongestion's BucketSortKey, ComputeStrandedOffPlanPackage's DisplayName,
+        // ComputeFunctionalTwins' three-key chain) so display order is stable across pool reorders
+        // and cuts. GroupBy alone yields first-appearance order, which shifts under those same
+        // conditions -- ordering by the group key restores EQUIV-04's determinism claim.
+        foreach (IGrouping<string, CutLabAnalyzedCard> group in eligible
+            .GroupBy(card => SemanticKey(card, card.SemanticProfile!), StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal))
         {
             CutLabAnalyzedCard[] cards = group
                 .GroupBy(card => CutLabCardNames.Normalize(card.Name), StringComparer.Ordinal)
