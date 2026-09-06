@@ -545,9 +545,15 @@ public static class CutLabStructuralFindings
             .GroupBy(card => SemanticKey(card, card.SemanticProfile!), StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.Ordinal))
         {
+            // Why (WR-05): an arbitrary First() over a GroupBy is stable in practice but not
+            // contractually, and CutLabEngineDeterminismTests requires identical output between
+            // identical runs -- ComputeFunctionalTwins already documents and fixes this exact pattern
+            // above; select the ordinally-first raw Name for each identity instead. Also matches every
+            // other Cut Lab dedup by passing CutLabCardNames.Comparer (currently the same object as
+            // StringComparer.Ordinal, but this keeps the single point of change intact).
             CutLabAnalyzedCard[] cards = group
-                .GroupBy(card => CutLabCardNames.Normalize(card.Name), StringComparer.Ordinal)
-                .Select(grouping => grouping.First())
+                .GroupBy(card => CutLabCardNames.Normalize(card.Name), CutLabCardNames.Comparer)
+                .Select(identity => identity.OrderBy(card => card.Name, StringComparer.Ordinal).First())
                 .OrderBy(card => card.Name, StringComparer.Ordinal)
                 .ToArray();
 
