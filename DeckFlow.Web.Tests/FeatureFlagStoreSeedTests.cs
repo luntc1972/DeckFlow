@@ -47,6 +47,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.manabase.focused-tier", false)] // focused tier dark launch; seed OFF or missing-key defaults ON
     [InlineData("analysis.cut-lab.commander-floors", false)] // Cut Lab commander-aware floors dark launch
     [InlineData("analysis.cut-lab.functional-twins", false)] // Cut Lab functional-twins dark launch
+    [InlineData("analysis.cut-lab.proven-equivalence", false)] // Cut Lab deterministic disclosure-only dark launch
     [InlineData("analysis.manabase.ritual-burst-mana", false)] // ritual-burst sim dark launch
     [InlineData("analysis.manabase.ritual-land-credit", false)] // ritual land-target dark launch
     [InlineData("analysis.manabase.scry-credit", true)] // cheap scry source credit default ON

@@ -12,12 +12,12 @@ public sealed class CutLabProvenEquivalenceTests
     public void ComputeProvenEquivalence_DistinctCompleteFunctionalReprints_ProducesDisclosureOnlyFinding()
     {
         CutLabStructuralFindingsResult result = Compute(
-            Card("Zodiac Rooster", "a1", "{3}{R}", "Creature — Bird", "2", "4", ["Flying"], ["R"], "Zodiac Rooster has flying."),
-            Card("Roc of Kher Ridges", "b2", "{3}{R}", "Creature — Bird", "2", "4", ["Flying"], ["R"], "Roc of Kher Ridges has flying."));
+            Card("Llanowar Elves", "a1", "{G}", "Creature — Elf Druid", "1", "1", [], ["G"], "{T}: Add {G}."),
+            Card("Elvish Mystic", "b2", "{G}", "Creature — Elf Druid", "1", "1", [], ["G"], "{T}: Add {G}."));
 
         CutLabFinding finding = Assert.Single(result.Findings);
         Assert.Equal(CutLabFindingKind.ProvenEquivalence, finding.Kind);
-        Assert.Equal(["Roc of Kher Ridges", "Zodiac Rooster"], finding.Evidence.Select(evidence => evidence.CardName));
+        Assert.Equal(["Elvish Mystic", "Llanowar Elves"], finding.Evidence.Select(evidence => evidence.CardName));
     }
 
     [Theory]

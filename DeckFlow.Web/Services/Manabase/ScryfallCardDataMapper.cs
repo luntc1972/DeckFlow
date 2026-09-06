@@ -23,6 +23,8 @@ public static class ScryfallCardDataMapper
             Cmc = card.Cmc,
             TypeLine = card.TypeLine,
             OracleText = card.OracleText,
+            OracleId = card.OracleId,
+            Keywords = card.Keywords,
             Power = card.Power,
             Toughness = card.Toughness,
             ProducedMana = card.ProducedMana,

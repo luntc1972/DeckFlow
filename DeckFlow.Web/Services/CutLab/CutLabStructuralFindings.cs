@@ -6,6 +6,8 @@ namespace DeckFlow.Web.Services.CutLab;
 /// <summary>Kinds of structural findings Cut Lab can surface for an analyzed pool.</summary>
 public enum CutLabFindingKind
 {
+    /// <summary>Complete deterministic evidence that distinct Oracle cards have matching semantic profiles.</summary>
+    ProvenEquivalence,
     /// <summary>A mana-value bucket holds too much of the nonland pool.</summary>
     CurveCongestion,
 
@@ -114,7 +116,22 @@ public sealed record CutLabAnalyzedCard(
 
     /// <summary>Whether the card is the resolved commander. Defaults to <see langword="false"/>.</summary>
     public bool IsCommander { get; init; }
+
+    /// <summary>Complete semantic provenance required for fail-closed equivalence evaluation.</summary>
+    public CutLabSemanticProfile? SemanticProfile { get; init; }
 }
+
+/// <summary>Resolved Oracle fields used only for deterministic proven-equivalence evidence.</summary>
+public sealed record CutLabSemanticProfile(
+    string? OracleId,
+    string? ManaCost,
+    string? TypeLine,
+    string? Power,
+    string? Toughness,
+    IReadOnlyList<string>? Keywords,
+    IReadOnlyList<string>? ColorIdentity,
+    string? OracleText,
+    string? Layout);
 
 /// <summary>
 /// [ASSUMED] Computes Cut Lab's structural findings from the analyzed pool using fixed product
@@ -130,6 +147,9 @@ public static class CutLabStructuralFindings
     /// </summary>
     // Why: The detector owns this shared gate because multiple consumers must coordinate its release posture.
     public const string FunctionalTwinsFlagKey = "analysis.cut-lab.functional-twins";
+
+    /// <summary>Dark-launch gate for disclosure-only complete-profile evidence.</summary>
+    public const string ProvenEquivalenceFlagKey = "analysis.cut-lab.proven-equivalence";
 
     // Why: A bucket needs a materially concentrated share before the curve read is worth surfacing.
     private const double CongestionShareThreshold = 0.30;
@@ -205,7 +225,8 @@ public static class CutLabStructuralFindings
         bool categoryDataAvailable,
         IReadOnlyList<SpellbookCombo>? completeCombos = null,
         bool twinsEnabled = false,
-        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null)
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
+        bool provenEquivalenceEnabled = false)
     {
         ArgumentNullException.ThrowIfNull(pool);
         ArgumentNullException.ThrowIfNull(nearCombos);
@@ -235,6 +256,11 @@ public static class CutLabStructuralFindings
         if (twinsEnabled)
         {
             findings.AddRange(ComputeFunctionalTwins(pool));
+        }
+
+        if (provenEquivalenceEnabled)
+        {
+            findings.AddRange(ComputeProvenEquivalence(pool));
         }
 
         if (planAffinities is not null)
@@ -493,6 +519,50 @@ public static class CutLabStructuralFindings
                 Roles: roleLabels);
         }
     }
+
+    private static IEnumerable<CutLabFinding> ComputeProvenEquivalence(IReadOnlyList<CutLabAnalyzedCard> pool)
+    {
+        CutLabAnalyzedCard[] eligible = pool.Where(card => !string.IsNullOrWhiteSpace(card.Name) && IsCompleteProfile(card.SemanticProfile)).ToArray();
+
+        foreach (IGrouping<string, CutLabAnalyzedCard> group in eligible.GroupBy(
+            card => SemanticKey(card, card.SemanticProfile!), StringComparer.Ordinal))
+        {
+            CutLabAnalyzedCard[] cards = group
+                .GroupBy(card => CutLabCardNames.Normalize(card.Name), StringComparer.Ordinal)
+                .Select(grouping => grouping.First())
+                .OrderBy(card => card.Name, StringComparer.Ordinal)
+                .ToArray();
+
+            if (cards.Length < 2 || cards.Select(card => card.SemanticProfile!.OracleId).Distinct(StringComparer.Ordinal).Count() != cards.Length)
+            {
+                continue;
+            }
+
+            yield return new CutLabFinding(
+                CutLabFindingKind.ProvenEquivalence,
+                "Proven equivalence",
+                $"{cards.Length} distinct Oracle cards have an equal complete semantic profile — disclosure only; no member is preferred.",
+                cards.Select(card => new CutLabFindingEvidence(card.Name, card.ManaValue)).ToArray());
+        }
+    }
+
+    private static bool IsCompleteProfile(CutLabSemanticProfile? profile) =>
+        profile is { OracleId: { Length: > 0 }, ManaCost: { Length: > 0 }, TypeLine: { Length: > 0 }, Power: { Length: > 0 }, Toughness: { Length: > 0 }, OracleText: { Length: > 0 }, Keywords: not null, ColorIdentity: not null, Layout: "normal" }
+        && !profile.ManaCost.Contains("{X}", StringComparison.OrdinalIgnoreCase)
+        && !profile.OracleText.Contains("rather than pay", StringComparison.OrdinalIgnoreCase);
+
+    private static string SemanticKey(CutLabAnalyzedCard card, CutLabSemanticProfile profile) => string.Join(
+        '\u001f',
+        NormalizeText(profile.OracleText!.Replace(card.Name, "<self>", StringComparison.OrdinalIgnoreCase)),
+        NormalizeText(profile.ManaCost),
+        NormalizeText(profile.TypeLine),
+        NormalizeText(profile.Power),
+        NormalizeText(profile.Toughness),
+        string.Join('\u001e', profile.Keywords!.OrderBy(keyword => keyword, StringComparer.OrdinalIgnoreCase).Select(NormalizeText)),
+        string.Join('\u001e', profile.ColorIdentity!.OrderBy(color => color, StringComparer.OrdinalIgnoreCase).Select(NormalizeText)),
+        string.Join('\u001e', card.Roles.OrderBy(role => role, StringComparer.OrdinalIgnoreCase).Select(NormalizeText)));
+
+    private static string NormalizeText(string value) => string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
 
     private static IEnumerable<CutLabFinding> ComputeComboProtected(
         IReadOnlyList<CutLabAnalyzedCard> pool,
