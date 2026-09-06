@@ -584,8 +584,18 @@ public static class CutLabStructuralFindings
         }
     }
 
+    // Why (WR-08): Scryfall returns power/toughness null for every non-creature, so requiring both to
+    // be non-empty unconditionally meant the detector could never fire for instants, sorceries,
+    // artifacts, enchantments, or planeswalkers -- the class most likely to contain true functional
+    // reprints in a Commander pool (Doom Blade / Terror, Counterspell variants, Rampant Growth
+    // variants). That conflated "field not applicable" with "field unresolved"; only the latter is
+    // what D-03 asks to fail closed on. Only require P/T for cards whose type line says Creature;
+    // SemanticKey already includes the full TypeLine, so a creature and non-creature profile can
+    // never collide on key even though non-creature P/T normalizes to the same empty string.
     private static bool IsCompleteProfile(CutLabSemanticProfile? profile) =>
-        profile is { OracleId: { Length: > 0 }, ManaCost: { Length: > 0 }, TypeLine: { Length: > 0 }, Power: { Length: > 0 }, Toughness: { Length: > 0 }, OracleText: { Length: > 0 }, Keywords: not null, ColorIdentity: not null, Layout: "normal" }
+        profile is { OracleId: { Length: > 0 }, ManaCost: { Length: > 0 }, TypeLine: { Length: > 0 }, OracleText: { Length: > 0 }, Keywords: not null, ColorIdentity: not null, Layout: "normal" }
+        && (!profile.TypeLine.Contains("Creature", StringComparison.OrdinalIgnoreCase)
+            || (profile.Power is { Length: > 0 } && profile.Toughness is { Length: > 0 }))
         && !profile.ManaCost.Contains("{X}", StringComparison.OrdinalIgnoreCase)
         && !profile.OracleText.Contains("rather than pay", StringComparison.OrdinalIgnoreCase);
 
