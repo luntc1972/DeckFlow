@@ -115,8 +115,23 @@ public sealed class CutLabProvenEquivalenceEvaluationTests
             oracleId));
     }
 
+    /// <summary>
+    /// Runs the evaluator over the full committed corpus and pins its four counters.
+    /// </summary>
+    /// <remarks>
+    /// WR-01 (honesty note): "Precision == 1.0" and "FalsePositives == 0" here are guaranteed by
+    /// construction, not evidence about real-world false-positive risk. Every not-equivalent/abstain
+    /// case in this corpus differs from its matched baseline in a field that is itself part of
+    /// SemanticKey (Oracle text, mana cost, type line, power, toughness, keywords, color identity, or
+    /// role), so there is currently no case where the fingerprint matches but the true label is not
+    /// "equivalent" -- what this method actually demonstrates is that every one of those fields is
+    /// load-bearing (mutating any single one flips a would-be positive to a negative), not that the
+    /// detector achieves 100% precision against realistic near-miss card pairs. If a genuine hard
+    /// negative (matching fingerprint, non-equivalent true label) is ever found in real Scryfall data,
+    /// it belongs in this corpus and this method's name/counters would then mean what they say.
+    /// </remarks>
     [Fact]
-    public void Evaluator_AgainstEveryFixtureCase_HasZeroFalsePositivesAndFullRecallAtPrecision1()
+    public void Evaluator_AgainstEveryFixtureCase_HasFullRecallAndEveryKeyFieldIsLoadBearing()
     {
         EvaluationResult first = Evaluate(LoadCorpus());
         EvaluationResult second = Evaluate(LoadCorpus());
