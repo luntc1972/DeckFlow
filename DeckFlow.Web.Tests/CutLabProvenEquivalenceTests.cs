@@ -1,3 +1,4 @@
+using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 
@@ -56,6 +57,76 @@ public sealed class CutLabProvenEquivalenceTests
 
         Assert.Empty(result.Findings);
     }
+
+    [Fact]
+    public void ComputeProvenEquivalence_DefaultParameterOmitted_StaysOff()
+    {
+        // Why: the call site omits provenEquivalenceEnabled entirely (no dark-launch gate wired to
+        // this pool at all), proving the C# default parameter value itself -- not just a caller that
+        // happens to pass false -- keeps the feature dark. Uses a pool that WOULD produce a finding
+        // if the parameter defaulted true, so this is non-vacuous.
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(ElfFamilyPool(), [], Floors(), true, true);
+
+        Assert.DoesNotContain(result.Findings, finding => finding.Kind == CutLabFindingKind.ProvenEquivalence);
+    }
+
+    [Fact]
+    public void BuildQueue_ProvenEquivalenceEnabledOrDisabled_ProducesIdenticalTallyQueueAndNextProposal()
+    {
+        IReadOnlyList<CutLabAnalyzedCard> pool = ElfFamilyPool();
+        CutLabStructuralFindingsResult enabledFindings = CutLabStructuralFindings.Compute(pool, [], Floors(), true, true, provenEquivalenceEnabled: true);
+        CutLabStructuralFindingsResult disabledFindings = CutLabStructuralFindings.Compute(pool, [], Floors(), true, true, provenEquivalenceEnabled: false);
+
+        // Why: prove the pair is non-vacuous -- ON must actually surface the disclosure finding that
+        // OFF omits, otherwise an identical-output assertion below would pass for the wrong reason.
+        Assert.Contains(enabledFindings.Findings, finding => finding.Kind == CutLabFindingKind.ProvenEquivalence);
+        Assert.DoesNotContain(disabledFindings.Findings, finding => finding.Kind == CutLabFindingKind.ProvenEquivalence);
+
+        IReadOnlyList<CutLabRoundInputCard> workingList = WorkingListFor(pool);
+        CutLabRoundPlan enabledPlan = CutLabCutRoundEngine.BuildQueue(workingList, enabledFindings, [], cardsToCutTarget: 1);
+        CutLabRoundPlan disabledPlan = CutLabCutRoundEngine.BuildQueue(workingList, disabledFindings, [], cardsToCutTarget: 1);
+
+        // Why: CutLabRoundQueueItem carries a DiscriminatingFindingKinds array, whose default record
+        // equality falls back to array reference equality (mirrors CutLabFunctionalTwinsFlagTests'
+        // own Flatten rationale) -- flatten to strings before comparing so this asserts on VALUES.
+        Assert.Equal(
+            disabledPlan.Queue.Select(Flatten).ToArray(),
+            enabledPlan.Queue.Select(Flatten).ToArray());
+        Assert.Equal(
+            disabledPlan.NextProposal is null ? null : Flatten(disabledPlan.NextProposal),
+            enabledPlan.NextProposal is null ? null : Flatten(enabledPlan.NextProposal));
+        Assert.Equal(disabledPlan.CardsRemainingToTarget, enabledPlan.CardsRemainingToTarget);
+    }
+
+    // Why: three real, independently printed one-mana Elf Druid mana dorks with distinct Oracle IDs
+    // and a byte-identical canonical fingerprint -- the same corpus family committed in
+    // proven-equivalence-cases.json, reused here so the ON/OFF comparison is non-vacuous.
+    private static IReadOnlyList<CutLabAnalyzedCard> ElfFamilyPool() =>
+    [
+        Card("Llanowar Elves", "68954295-54e3-4303-a6bc-fc4547a4e3a3", "{G}", "Creature — Elf Druid", "1", "1", [], ["G"], "{T}: Add {G}."),
+        Card("Elvish Mystic", "3f3b2c10-21f8-4e13-be83-4ef3fa36e123", "{G}", "Creature — Elf Druid", "1", "1", [], ["G"], "{T}: Add {G}."),
+        Card("Fyndhorn Elves", "df317532-7d36-40fd-938f-e972749c8792", "{G}", "Creature — Elf Druid", "1", "1", [], ["G"], "{T}: Add {G}."),
+    ];
+
+    private static IReadOnlyList<CutLabRoundInputCard> WorkingListFor(IReadOnlyList<CutLabAnalyzedCard> pool) =>
+        pool.Select(card => new CutLabRoundInputCard(
+            card.Name,
+            Quantity: 1,
+            TypeLine: card.SemanticProfile?.TypeLine ?? string.Empty,
+            IsCommander: false,
+            IsLocked: false,
+            ManaValue: card.ManaValue,
+            IsLand: false,
+            Roles: card.Roles,
+            Categories: card.Categories)).ToArray();
+
+    private static string Flatten(CutLabRoundQueueItem item) => string.Join(
+        '|',
+        item.CardName,
+        item.RoundKey,
+        item.RoundLabel,
+        item.FindingCount,
+        string.Join(',', item.DiscriminatingFindingKinds));
 
     private static CutLabStructuralFindingsResult Compute(params CutLabAnalyzedCard[] cards) =>
         CutLabStructuralFindings.Compute(cards, [], Floors(), true, true, provenEquivalenceEnabled: true);
