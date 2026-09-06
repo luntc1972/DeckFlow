@@ -30,6 +30,31 @@ public interface IScryfallCardResolver
     Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Batch-capable sibling of <see cref="SearchFallbackCardAsync"/>: resolves many exact-name misses
+    /// with as few <c>cards/search</c> requests as possible. Returns <c>null</c> (not an empty list)
+    /// only when the batched query itself was rejected (HTTP 400) -- a caller must then degrade to
+    /// per-card resolution over the SAME name list rather than treating a 400 as "nothing matched".
+    /// Every other outcome (including a 404, meaning every term missed) returns a non-null,
+    /// possibly-empty list. The default body preserves today's exact behavior for every implementer
+    /// that does not override it: it loops <see cref="SearchFallbackCardAsync"/> once per name, so
+    /// existing test doubles keep their current per-name call-count assertions with zero edits.
+    /// </summary>
+    async Task<IReadOnlyList<ScryfallCard>?> SearchFallbackCardsAsync(IReadOnlyList<string> cardNames, CancellationToken cancellationToken)
+    {
+        var results = new List<ScryfallCard>();
+        foreach (var cardName in cardNames)
+        {
+            var card = await SearchFallbackCardAsync(cardName, cancellationToken).ConfigureAwait(false);
+            if (card is not null)
+            {
+                results.Add(card);
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
     /// Resolves a single card by name: an exact collection lookup with a normalized-name match, falling
     /// back to the exact-name search when the collection misses. Returns null when nothing matches.
     /// </summary>
@@ -41,6 +66,10 @@ public interface IScryfallCardResolver
 /// </summary>
 public sealed class ScryfallCardResolver : IScryfallCardResolver
 {
+    // Why 60, not the collection path's 75: cards/search is a GET, so the batch is bounded by URL
+    // length rather than the collection endpoint's JSON body. See docs/decisions/0004 and 06-CONTEXT.md.
+    private const int SearchFallbackChunkSize = 60;
+
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> _executeCollectionAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> _executeSearchAsync;
     private readonly Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>> _executeNamedAsync;
@@ -187,6 +216,84 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
             $"Scryfall fallback lookup failed while resolving {cardName} with HTTP {(int)response.StatusCode}.",
             null,
             response.StatusCode);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<ScryfallCard>?> SearchFallbackCardsAsync(IReadOnlyList<string> cardNames, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(cardNames);
+
+        var trimmedNames = cardNames
+            .Select(name => name?.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!)
+            .ToList();
+
+        if (trimmedNames.Count == 0)
+        {
+            return Array.Empty<ScryfallCard>();
+        }
+
+        var results = new List<ScryfallCard>();
+        foreach (var chunk in ChunkFallbackNames(trimmedNames, SearchFallbackChunkSize))
+        {
+            var query = string.Join(" or ", chunk.Select(name => $"!\"{name}\""));
+            var request = new RestRequest("cards/search", Method.Get);
+            request.AddQueryParameter("q", query);
+            request.AddQueryParameter("unique", "cards");
+            request.AddQueryParameter("order", "name");
+
+            var response = await _executeSearchAsync(request, cancellationToken).ConfigureAwait(false);
+            if ((int)response.StatusCode >= 200 && (int)response.StatusCode < 300)
+            {
+                if (response.Data?.Data is { Count: > 0 } cards)
+                {
+                    results.AddRange(cards);
+                }
+
+                continue;
+            }
+
+            // Why: a search resource only 404s when EVERY term in the query missed. That is a
+            // legitimate all-miss outcome, not a rejected request, so it contributes zero cards to
+            // this chunk rather than degrading the whole batch.
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                continue;
+            }
+
+            // Why 400 returns the sentinel rather than throwing: a single malformed term must not
+            // cost the other names in this call their resolutions. The 400 sentinel signals the
+            // caller (MatchChunkAsync) to degrade the WHOLE still-unresolved set to the per-card
+            // path, which is the documented worst case of N+1 requests, never fewer resolutions
+            // than the per-card path alone would have produced.
+            if (response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                return null;
+            }
+
+            throw new HttpRequestException(
+                $"Scryfall batch fallback lookup failed with HTTP {(int)response.StatusCode}.",
+                null,
+                response.StatusCode);
+        }
+
+        return results;
+    }
+
+    private static IEnumerable<List<string>> ChunkFallbackNames(IReadOnlyList<string> values, int size)
+    {
+        for (var index = 0; index < values.Count; index += size)
+        {
+            var count = Math.Min(size, values.Count - index);
+            var chunk = new List<string>(count);
+            for (var itemIndex = 0; itemIndex < count; itemIndex++)
+            {
+                chunk.Add(values[index + itemIndex]);
+            }
+
+            yield return chunk;
+        }
     }
 
     /// <inheritdoc/>

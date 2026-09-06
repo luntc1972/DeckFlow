@@ -185,11 +185,21 @@ internal sealed partial class ScryfallReferenceResolver
     /// <param name="fallbackStrategy">Per-caller miss-handling strategy (e.g. printed-name-fallback vs exact-name-fallback).</param>
     /// <param name="normalizeForScryfall">Retained for caller compatibility; collection identifiers always use single-face names. Never affects the match key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="batchFallbackStrategy">
+    /// Optional opt-in batch-capable sibling of <paramref name="fallbackStrategy"/>: called once with
+    /// every still-unresolved name in a chunk instead of once per name. <c>null</c> means today's
+    /// behavior exactly -- the per-name loop runs unchanged. Only the exact-name strategy is batchable;
+    /// callers on the printing strategy must pass <c>null</c>. Deliberately pinned as the LAST
+    /// parameter (after <paramref name="cancellationToken"/>): the method already carries two optional
+    /// parameters in this shape, and inserting a new one earlier would silently re-bind the positional
+    /// arguments at existing call sites.
+    /// </param>
     internal async Task<ScryfallBatchResolution> ResolveBatchAsync(
         IReadOnlyList<string> requestNames,
         Func<string, CancellationToken, Task<ScryfallCard?>> fallbackStrategy,
         bool normalizeForScryfall = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<IReadOnlyList<string>, CancellationToken, Task<IReadOnlyList<ScryfallCard>?>>? batchFallbackStrategy = null)
     {
         ArgumentNullException.ThrowIfNull(requestNames);
         ArgumentNullException.ThrowIfNull(fallbackStrategy);
@@ -414,7 +424,73 @@ internal sealed partial class ScryfallReferenceResolver
                 }
             }
 
-            foreach (var unresolvedName in chunk.Where(name => !resolved.ContainsKey(name)))
+            var stillUnresolved = chunk.Where(name => !resolved.ContainsKey(name)).ToList();
+            if (stillUnresolved.Count == 0)
+            {
+                // Why: a chunk with zero misses issues no fallback request at all, batched or per-name.
+                return;
+            }
+
+            IReadOnlyList<string> residualNames = stillUnresolved;
+            if (batchFallbackStrategy is not null)
+            {
+                IReadOnlyList<ScryfallCard>? batchResults =
+                    await batchFallbackStrategy(stillUnresolved, cancellationToken).ConfigureAwait(false);
+
+                if (batchResults is not null)
+                {
+                    // Why the same unambiguous-on-both-sides discipline as the collection match-back
+                    // above (T-06-06): a key ambiguous on either side must match nothing rather than
+                    // matching arbitrarily. Every card NOT claimed here -- because its key collided
+                    // with another card's, or with another name's, or matched no name at all -- is
+                    // "unattributed" and is exactly the signal that a residual per-name retry can
+                    // recover something (see the divergent-name vector this guards, e.g. a printed
+                    // name resolving to a differently-named canonical card).
+                    var uniqueNameByKey = stillUnresolved
+                        .GroupBy(BatchMatchKey)
+                        .Where(group => group.Count() == 1)
+                        .ToDictionary(group => group.Key, group => group.First());
+
+                    var uniqueCardByKey = batchResults
+                        .GroupBy(card => BatchMatchKey(card.Name))
+                        .Where(group => group.Count() == 1)
+                        .ToDictionary(group => group.Key, group => group.First());
+
+                    var claimedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    var claimedCardCount = 0;
+                    foreach (var (key, card) in uniqueCardByKey)
+                    {
+                        if (!uniqueNameByKey.TryGetValue(key, out var requestName))
+                        {
+                            continue;
+                        }
+
+                        oracleNameMap[requestName] = card.Name;
+                        resolved[requestName] = new ScryfallReferenceResolution(
+                            requestName,
+                            card,
+                            ScryfallCollectionProtocolBand.Fallback);
+                        claimedNames.Add(requestName);
+                        claimedCardCount++;
+                    }
+
+                    var unattributedCount = batchResults.Count - claimedCardCount;
+                    residualNames = stillUnresolved.Where(name => !claimedNames.Contains(name)).ToList();
+
+                    if (unattributedCount == 0)
+                    {
+                        // Why: every remaining unmatched name is a genuine miss -- left unresolved
+                        // exactly as today, with no extra request. Retrying it per-name would only
+                        // re-confirm the miss at one throttled request each.
+                        return;
+                    }
+                }
+
+                // batchResults is null (the 400 sentinel): degrade -- residualNames is already the
+                // full stillUnresolved set, unchanged above.
+            }
+
+            foreach (var unresolvedName in residualNames)
             {
                 var fallbackCard = await fallbackStrategy(unresolvedName, cancellationToken).ConfigureAwait(false);
                 if (fallbackCard is null)

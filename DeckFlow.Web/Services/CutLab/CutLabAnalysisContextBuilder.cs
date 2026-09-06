@@ -486,7 +486,8 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                     // untouched: CutLabSimulationService and ManabaseAnalysisService call it as
                     // their ONLY collection attempt, where the POST is not redundant.
                     (name, ct) => _cardResolver.SearchFallbackCardAsync(name, ct),
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                    cancellationToken: cancellationToken,
+                    batchFallbackStrategy: (names, ct) => _cardResolver.SearchFallbackCardsAsync(names, ct)).ConfigureAwait(false);
                 HashSet<string> resolvedRequestNames = batchResolution.Resolutions
                     .Select(resolution => CutLabCardNames.Normalize(resolution.RequestName))
                     .ToHashSet(CutLabCardNames.Comparer);

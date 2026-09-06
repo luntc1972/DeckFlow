@@ -621,11 +621,15 @@ public sealed class CutLabAnalysisContextBuilderTests
     /// SC-1 (round-1 review W-3): built against a REAL <see cref="ScryfallCardResolver"/> (not the
     /// <see cref="CountingResolver"/> double) with counting collection/search delegate overrides, so the
     /// reduced live-call count is observed end-to-end through <c>ScryfallReferenceResolver</c>, not
-    /// merely inferred. OBSERVED RED TODAY: <c>collectionCalls == 4</c> (1 batch POST + 1 redundant
-    /// per-miss POST via <c>ResolveSingleAsync</c>) and <c>searchCalls == 3</c>.
+    /// merely inferred. Phase 6 wave 2: three misses in one chunk now cost exactly ONE batched
+    /// <c>cards/search</c> request (not one per miss), because <c>CutLabAnalysisContextBuilder</c>
+    /// passes <see cref="IScryfallCardResolver.SearchFallbackCardsAsync"/> as the batch delegate.
+    /// The chunk's all-miss outcome (the search override returns zero cards) leaves nothing
+    /// unattributed, so the residual per-name guard never opens and no second request is issued.
+    /// <c>collectionCalls == 1</c> (unchanged) and <c>searchCalls == 1</c> (was 3).
     /// </summary>
     [Fact]
-    public async Task ResolvePoolCardsAsync_BatchMiss_IssuesExactlyOneLiveCallPerMiss()
+    public async Task ResolvePoolCardsAsync_BatchMiss_IssuesExactlyOneLiveCallForAllMisses()
     {
         IReadOnlyList<CutLabPoolCard> workingList =
         [
@@ -661,7 +665,7 @@ public sealed class CutLabAnalysisContextBuilderTests
         await builder.ResolvePoolCardsAsync(workingList);
 
         Assert.Equal(1, collectionCalls);
-        Assert.Equal(3, searchCalls);
+        Assert.Equal(1, searchCalls);
     }
 
     /// <summary>

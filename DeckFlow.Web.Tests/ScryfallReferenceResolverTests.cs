@@ -1227,20 +1227,341 @@ public sealed class ScryfallReferenceResolverTests
         Assert.Empty(result.Resolutions);
     }
 
+    /// <summary>
+    /// SCRY-03 (Phase 6 wave 2, Task 1): three unresolved names in one chunk cost exactly ONE
+    /// batched <c>cards/search</c> call, not three, when a <c>batchFallbackStrategy</c> is supplied.
+    /// Each request name receives the card whose name keys to it; the per-name
+    /// <c>fallbackStrategy</c> must never be invoked once the batch resolves everything.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_BatchFallback_IssuesOneSearchForManyMisses()
+    {
+        var resolver = CreateResolver((_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>())));
+        var batchCallCount = 0;
+
+        Task<IReadOnlyList<ScryfallCard>?> BatchFallback(IReadOnlyList<string> names, CancellationToken _)
+        {
+            batchCallCount++;
+            Assert.Equal(3, names.Count);
+            return Task.FromResult<IReadOnlyList<ScryfallCard>?>(names.Select(CreateCard).ToList());
+        }
+
+        Task<ScryfallCard?> PerNameFallback(string name, CancellationToken _)
+            => throw new InvalidOperationException(
+                $"Per-name fallback must not be invoked for {name}; the batch pass resolves every name here.");
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Alpha Card", "Beta Card", "Gamma Card" },
+            PerNameFallback,
+            normalizeForScryfall: false,
+            CancellationToken.None,
+            batchFallbackStrategy: BatchFallback);
+
+        Assert.Equal(1, batchCallCount);
+        Assert.Equal(3, result.Resolutions.Count);
+        Assert.All(result.Resolutions, resolution => Assert.True(resolution.FromFallback));
+        Assert.Equal(
+            new[] { "Alpha Card", "Beta Card", "Gamma Card" },
+            result.Resolutions.Select(resolution => resolution.RequestName));
+        Assert.Equal(
+            new[] { "Alpha Card", "Beta Card", "Gamma Card" },
+            result.Resolutions.Select(resolution => resolution.Card.Name));
+    }
+
+    /// <summary>
+    /// SCRY-03: a chunk with ZERO misses (every name hits the collection response) issues no
+    /// <c>cards/search</c> request at all -- batched or otherwise. The batch delegate throws if
+    /// invoked, so this test fails loudly rather than silently passing on an unreachable assertion.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_BatchFallback_IssuesNoSearchWhenChunkHasNoMisses()
+    {
+        var resolver = CreateResolver((_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>
+        {
+            CreateCard("Sol Ring"),
+            CreateCard("Arcane Signet"),
+        })));
+
+        Task<IReadOnlyList<ScryfallCard>?> BatchFallback(IReadOnlyList<string> names, CancellationToken _)
+            => throw new InvalidOperationException("Batch fallback must not be invoked when the chunk has no misses.");
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Sol Ring", "Arcane Signet" },
+            static (_, _) => Task.FromResult<ScryfallCard?>(null),
+            normalizeForScryfall: false,
+            CancellationToken.None,
+            batchFallbackStrategy: BatchFallback);
+
+        Assert.Equal(2, result.Resolutions.Count);
+        Assert.All(result.Resolutions, resolution => Assert.False(resolution.FromFallback));
+    }
+
+    /// <summary>
+    /// SCRY-03/SCRY-04 divergence vector (BLOCK finding, 2026-09-05 blind verification): the
+    /// existing per-name loop performs NO name comparison, so a foreign printed name
+    /// ("Ya viene el coco") legitimately resolves to a differently-named canonical card
+    /// ("Perfect Defense // Denting Blows") -- <c>BatchMatchKey</c> cannot bridge two different card
+    /// names, so that hit is left unattributed by the batch match-back. This is exactly the signal
+    /// that must open the residual guard: the divergent name resolves through exactly ONE residual
+    /// per-name call, tagged Fallback, with its oracle-name-map entry intact. The two key-equal
+    /// names must NOT trigger any residual call of their own -- only the divergent name does.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_BatchFallback_ResolvesNameDivergentHitThroughResidualPerNamePass()
+    {
+        var resolver = CreateResolver((_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>())));
+        var perfectDefense = CreateCard("Perfect Defense // Denting Blows");
+        var perNameFallbackCalls = new List<string>();
+
+        Task<IReadOnlyList<ScryfallCard>?> BatchFallback(IReadOnlyList<string> names, CancellationToken _)
+            => Task.FromResult<IReadOnlyList<ScryfallCard>?>(new List<ScryfallCard>
+            {
+                CreateCard("Card B"),
+                CreateCard("Card C"),
+                perfectDefense,
+            });
+
+        Task<ScryfallCard?> PerNameFallback(string name, CancellationToken _)
+        {
+            perNameFallbackCalls.Add(name);
+            return Task.FromResult<ScryfallCard?>(perfectDefense);
+        }
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Ya viene el coco", "Card B", "Card C" },
+            PerNameFallback,
+            normalizeForScryfall: false,
+            CancellationToken.None,
+            batchFallbackStrategy: BatchFallback);
+
+        Assert.Equal(new[] { "Ya viene el coco" }, perNameFallbackCalls);
+        Assert.Equal(3, result.Resolutions.Count);
+        var divergent = result.Resolutions.Single(resolution => resolution.RequestName == "Ya viene el coco");
+        Assert.Equal("Perfect Defense // Denting Blows", divergent.Card.Name);
+        Assert.True(divergent.FromFallback);
+        Assert.True(result.OracleNameMap.TryGetValue("Ya viene el coco", out var oracleName));
+        Assert.Equal("Perfect Defense // Denting Blows", oracleName);
+    }
+
+    /// <summary>
+    /// SCRY-04, SC-5: a double-faced request name and a contrived single-slash spelling of the same
+    /// title are submitted in the SAME batch. <c>BatchMatchKey</c> preserves the slash exactly so
+    /// these stay distinct keys -- neither may cross-match the other's card.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_BatchFallback_MatchesDoubleFacedNameBackToItsRequestName()
+    {
+        var resolver = CreateResolver((_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>())));
+        var doubleFaced = CreateCard("Delver of Secrets // Insectile Aberration");
+        var singleSlash = CreateCard("Delver of Secrets / Insectile Aberration");
+
+        Task<IReadOnlyList<ScryfallCard>?> BatchFallback(IReadOnlyList<string> names, CancellationToken _)
+            => Task.FromResult<IReadOnlyList<ScryfallCard>?>(new List<ScryfallCard> { doubleFaced, singleSlash });
+
+        Task<ScryfallCard?> PerNameFallback(string name, CancellationToken _)
+            => throw new InvalidOperationException(
+                $"Per-name fallback must not be invoked for {name}; both names should match through the batch pass.");
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Delver of Secrets // Insectile Aberration", "Delver of Secrets / Insectile Aberration" },
+            PerNameFallback,
+            normalizeForScryfall: false,
+            CancellationToken.None,
+            batchFallbackStrategy: BatchFallback);
+
+        Assert.Equal(2, result.Resolutions.Count);
+        var doubleFacedResolution = result.Resolutions.Single(
+            resolution => resolution.RequestName == "Delver of Secrets // Insectile Aberration");
+        var singleSlashResolution = result.Resolutions.Single(
+            resolution => resolution.RequestName == "Delver of Secrets / Insectile Aberration");
+        Assert.Equal("Delver of Secrets // Insectile Aberration", doubleFacedResolution.Card.Name);
+        Assert.Equal("Delver of Secrets / Insectile Aberration", singleSlashResolution.Card.Name);
+    }
+
+    /// <summary>
+    /// SCRY-04, SC-5: <c>BatchMatchKey</c> deletes all punctuation, so a curly-apostrophe request
+    /// name and a straight-apostrophe returned card collapse to the same key and must match.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_BatchFallback_MatchesCurlyApostropheNameBackToItsRequestName()
+    {
+        var resolver = CreateResolver((_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>())));
+        var card = CreateCard("Smuggler's Copter");
+
+        Task<IReadOnlyList<ScryfallCard>?> BatchFallback(IReadOnlyList<string> names, CancellationToken _)
+            => Task.FromResult<IReadOnlyList<ScryfallCard>?>(new List<ScryfallCard> { card });
+
+        Task<ScryfallCard?> PerNameFallback(string name, CancellationToken _)
+            => throw new InvalidOperationException(
+                $"Per-name fallback must not be invoked for {name}; the batch pass should match this name.");
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Smuggler’s Copter" },
+            PerNameFallback,
+            normalizeForScryfall: false,
+            CancellationToken.None,
+            batchFallbackStrategy: BatchFallback);
+
+        var resolution = Assert.Single(result.Resolutions);
+        Assert.Equal("Smuggler's Copter", resolution.Card.Name);
+        Assert.True(resolution.FromFallback);
+    }
+
+    /// <summary>
+    /// SCRY-04, SC-4: a rejected batch query (HTTP 400) must not lose a card the per-card path would
+    /// have resolved. Built against a REAL <see cref="ScryfallCardResolver"/> so both
+    /// <see cref="IScryfallCardResolver.SearchFallbackCardsAsync"/> (the batch member, which returns
+    /// the 400 sentinel) and <see cref="IScryfallCardResolver.SearchFallbackCardAsync"/> (the
+    /// per-card residual retry) share the same search override, proving the degrade is a REAL
+    /// per-card retry over the whole remaining set, not an empty result or a partial subset.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_BatchFallback_DegradesToPerCardOnBadRequest()
+    {
+        var searchCallCount = 0;
+        var cardResolver = new ScryfallCardResolver(
+            new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
+            new FakeResiliencePipelineProvider(),
+            executeCollectionAsyncOverride: (_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>())),
+            executeSearchAsyncOverride: (request, _) =>
+            {
+                searchCallCount++;
+                if (searchCallCount == 1)
+                {
+                    // Why: the FIRST call is always the batch attempt (all 3 names joined with "or"),
+                    // which this test rejects to force the degrade.
+                    return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        Data = null,
+                    });
+                }
+
+                var name = ExtractSingleSearchName(request);
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(new List<ScryfallCard> { CreateCard(name) }),
+                });
+            });
+        var resolver = new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache());
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Alpha Card", "Beta Card", "Gamma Card" },
+            (name, ct) => cardResolver.SearchFallbackCardAsync(name, ct),
+            normalizeForScryfall: false,
+            CancellationToken.None,
+            batchFallbackStrategy: (names, ct) => cardResolver.SearchFallbackCardsAsync(names, ct));
+
+        Assert.Equal(4, searchCallCount);
+        Assert.Equal(3, result.Resolutions.Count);
+        Assert.All(result.Resolutions, resolution => Assert.True(resolution.FromFallback));
+        Assert.Equal(
+            new[] { "Alpha Card", "Beta Card", "Gamma Card" },
+            result.Resolutions.Select(resolution => resolution.RequestName));
+    }
+
+    /// <summary>
+    /// SCRY-04, SC-4: a search resource 404s ONLY when every term in the query missed. This is the
+    /// all-missed signal, not a rejection: zero resolutions, no exception, and the search override
+    /// called exactly ONCE -- the residual guard must NOT fire, because a 404 leaves nothing
+    /// unattributed (there are no cards in the response to attribute at all). Without the exact
+    /// call-count assertion, the all-miss case can silently regress to one request plus N.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_BatchFallback_TreatsNotFoundAsEveryTermMissed()
+    {
+        var searchCallCount = 0;
+        var cardResolver = new ScryfallCardResolver(
+            new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
+            new FakeResiliencePipelineProvider(),
+            executeCollectionAsyncOverride: (_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>())),
+            executeSearchAsyncOverride: (request, _) =>
+            {
+                searchCallCount++;
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.NotFound,
+                    Data = null,
+                });
+            });
+        var resolver = new ScryfallReferenceResolver(cardResolver, new ScryfallCollectionCardCache());
+
+        Task<ScryfallCard?> PerNameFallback(string name, CancellationToken _)
+            => throw new InvalidOperationException(
+                $"Per-name fallback must not be invoked for {name}; a 404 batch response is an all-missed result, not a rejection.");
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Alpha Card", "Beta Card", "Gamma Card" },
+            PerNameFallback,
+            normalizeForScryfall: false,
+            CancellationToken.None,
+            batchFallbackStrategy: (names, ct) => cardResolver.SearchFallbackCardsAsync(names, ct));
+
+        Assert.Equal(1, searchCallCount);
+        Assert.Empty(result.Resolutions);
+    }
+
+    /// <summary>
+    /// T-06-06 / SC-5: two distinct request names ("Smuggler's Copter", "Smugglers Copter") collapse
+    /// to the SAME <c>BatchMatchKey</c>. The batch pass must NEVER cross-match either of them --
+    /// a key ambiguous on the name side matches nothing, so the single returned card is left
+    /// unattributed and BOTH names fall through to the residual per-name pass, exactly as they do
+    /// today (resolved independently, never consulting a key at all). The outcome is deliberately
+    /// "resolved correctly", not "left unresolved" -- leaving them unresolved would be a regression
+    /// against today's per-name loop.
+    /// </summary>
+    [Fact]
+    public async Task ResolveBatchAsync_BatchFallback_AmbiguousMatchKeyResolvesBothNamesThroughResidualPass()
+    {
+        var resolver = CreateResolver((_, _) => Task.FromResult(CreateCollectionResponse(new List<ScryfallCard>())));
+        var curlyCard = CreateCard("Smuggler's Copter");
+        var straightCard = CreateCard("Smugglers Copter");
+
+        Task<IReadOnlyList<ScryfallCard>?> BatchFallback(IReadOnlyList<string> names, CancellationToken _)
+            => Task.FromResult<IReadOnlyList<ScryfallCard>?>(new List<ScryfallCard> { curlyCard });
+
+        var perNameCalls = new List<string>();
+        Task<ScryfallCard?> PerNameFallback(string name, CancellationToken _)
+        {
+            perNameCalls.Add(name);
+            return Task.FromResult<ScryfallCard?>(name == "Smuggler's Copter" ? curlyCard : straightCard);
+        }
+
+        var result = await resolver.ResolveBatchAsync(
+            new[] { "Smuggler's Copter", "Smugglers Copter" },
+            PerNameFallback,
+            normalizeForScryfall: false,
+            CancellationToken.None,
+            batchFallbackStrategy: BatchFallback);
+
+        Assert.Equal(2, perNameCalls.Count);
+        Assert.Contains("Smuggler's Copter", perNameCalls);
+        Assert.Contains("Smugglers Copter", perNameCalls);
+        Assert.Equal(2, result.Resolutions.Count);
+        var curlyResolution = result.Resolutions.Single(resolution => resolution.RequestName == "Smuggler's Copter");
+        var straightResolution = result.Resolutions.Single(resolution => resolution.RequestName == "Smugglers Copter");
+        Assert.Equal("Smuggler's Copter", curlyResolution.Card.Name);
+        Assert.Equal("Smugglers Copter", straightResolution.Card.Name);
+        Assert.True(curlyResolution.FromFallback);
+        Assert.True(straightResolution.FromFallback);
+    }
+
     private static ScryfallReferenceResolver CreateResolver(
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> executeCollectionAsync,
-        ScryfallCollectionCardCache? collectionCardCache = null)
+        ScryfallCollectionCardCache? collectionCardCache = null,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
     {
         var cardResolver = new ScryfallCardResolver(
             new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
             new FakeResiliencePipelineProvider(),
             executeCollectionAsyncOverride: executeCollectionAsync,
-            executeSearchAsyncOverride: (request, _) =>
+            executeSearchAsyncOverride: executeSearchAsync ?? ((request, _) =>
                 Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
                 {
                     StatusCode = HttpStatusCode.OK,
                     Data = new ScryfallSearchResponse(new List<ScryfallCard>()),
-                }),
+                })),
             executeNamedAsyncOverride: (request, _) =>
                 Task.FromResult(new RestResponse<ScryfallCard>(request)
                 {
@@ -1259,6 +1580,17 @@ public sealed class ScryfallReferenceResolverTests
             StatusCode = HttpStatusCode.OK,
             Data = new ScryfallCollectionResponse(cards, notFound ?? []),
         };
+
+    /// <summary>
+    /// Extracts the single card name from a per-name <c>SearchFallbackCardAsync</c> request's
+    /// <c>q=!"Name"</c> query parameter -- used only by tests that share one search override across
+    /// both the batched call and the residual per-card retries.
+    /// </summary>
+    private static string ExtractSingleSearchName(RestRequest request)
+    {
+        var query = request.Parameters.FirstOrDefault(parameter => parameter.Name == "q")?.Value?.ToString() ?? string.Empty;
+        return query.TrimStart('!').Trim('"');
+    }
 
     private static void AssertEquivalentBatchResolution(
         ScryfallBatchResolution expected,
