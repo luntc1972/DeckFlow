@@ -198,6 +198,57 @@ public sealed class ScryfallThrottleTests
         Assert.True(stopwatch.ElapsedMilliseconds >= 450, $"Expected at least ~450ms between calls, saw {stopwatch.ElapsedMilliseconds}ms.");
     }
 
+    /// <summary>
+    /// SCRY-01: proves the half of per-endpoint pacing SC-7 does not cover. Two calls supplying
+    /// DIFFERENT endpoint members must NOT be serialized behind one another once both buckets are
+    /// idle. Warms both buckets first, then ages them past MinInterval with a single shared delay
+    /// before timing, mirroring SC-7's asymmetric discipline in the opposite direction: this test
+    /// asserts an UPPER bound only and never a lower bound.
+    /// </summary>
+    [Fact]
+    public async Task ExecuteAsync_DoesNotSerializeCallsToDifferentEndpoints()
+    {
+        var response = CreateResponse<int>(HttpStatusCode.OK);
+        var calls = 0;
+
+        // Warm both buckets so neither timed call below is a first-ever call on a fresh gate.
+        await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Sets, _ =>
+        {
+            calls++;
+            return Task.FromResult(response);
+        }, CancellationToken.None);
+
+        await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Rulings, _ =>
+        {
+            calls++;
+            return Task.FromResult(response);
+        }, CancellationToken.None);
+
+        // Age both buckets past MinInterval AFTER warming - not before. Delaying first would pace
+        // the first timed call against its own warm-up call moments earlier, forcing it to wait out
+        // the full 500ms and failing the upper bound below even under a correct implementation.
+        await Task.Delay(600);
+
+        var stopwatch = Stopwatch.StartNew();
+
+        await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Sets, _ =>
+        {
+            calls++;
+            return Task.FromResult(response);
+        }, CancellationToken.None);
+
+        await ScryfallThrottle.ExecuteAsync<int>(ScryfallEndpoint.Rulings, _ =>
+        {
+            calls++;
+            return Task.FromResult(response);
+        }, CancellationToken.None);
+
+        stopwatch.Stop();
+
+        Assert.Equal(4, calls);
+        Assert.True(stopwatch.ElapsedMilliseconds < 450, $"Expected the two different-endpoint calls to complete well under 450ms, saw {stopwatch.ElapsedMilliseconds}ms.");
+    }
+
     private static RestResponse<T> CreateResponse<T>(HttpStatusCode statusCode, params (string name, string value)[] headers)
     {
         return new RestResponse<T>(new RestRequest("test"))
