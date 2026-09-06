@@ -147,13 +147,13 @@
                                             ? "Approve Entry disabled — artifact file missing"
                                             : "Approve Entry";
                                     }
-                                    <button class="btn btn-sm btn-outline-primary me-1"
+                                    <button class="btn btn-sm btn-outline-primary me-1 btn-table-action"
                                             @onclick='() => SetRowStatusAsync(vm, "approved")'
                                             disabled="@(vm.ApprovalStatus == "approved" || missing)"
                                             aria-label="@approveAriaLabel">
                                         Approve Entry
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger"
+                                    <button class="btn btn-sm btn-outline-danger btn-table-action"
                                             @onclick='() => SetRowStatusAsync(vm, "rejected")'
                                             disabled="@(vm.ApprovalStatus == "rejected")"
                                             aria-label="Reject Entry">
@@ -161,7 +161,7 @@
                                     </button>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-link p-0"
+                                    <button class="btn btn-sm btn-link p-0 btn-table-action"
                                             type="button"
                                             @onclick="() => ToggleExpand(vm)"
                                             aria-expanded="@vm.Expanded.ToString().ToLowerInvariant()"
