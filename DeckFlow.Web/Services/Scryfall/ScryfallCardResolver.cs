@@ -272,8 +272,13 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
                 return null;
             }
 
+            // Why this reuses SearchFallbackCardAsync's exact message template rather than a new
+            // "batch" wording: consuming services (e.g. DeckComparisonService, WR-01) rely on this
+            // substring to decide that a fallback-SEARCH failure is NOT a cards/collection-call
+            // failure, so it must propagate with its ORIGINAL, non-deck-labeled message exactly as
+            // the per-name method's failure does today.
             throw new HttpRequestException(
-                $"Scryfall batch fallback lookup failed with HTTP {(int)response.StatusCode}.",
+                $"Scryfall fallback lookup failed while resolving {string.Join(", ", chunk)} with HTTP {(int)response.StatusCode}.",
                 null,
                 response.StatusCode);
         }
