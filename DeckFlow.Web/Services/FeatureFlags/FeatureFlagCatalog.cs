@@ -45,7 +45,8 @@ public static class FeatureFlagCatalog
             ["tool.cut-lab.enabled"] =
                 "Cut Lab tool: intake an oversized (101–150 card) Commander pool, declare deck intent (primary/secondary plan, bracket, play experience), and lock cards, named packages, and role groups so later cut rounds can never propose them. Seeded OFF.",
             ["analysis.cut-lab.proven-equivalence"] =
-                "Disclosure-only deterministic Cut Lab evidence for complete distinct-card semantic profiles. Seeded OFF.",
+                "Disclosure-only deterministic Cut Lab evidence for complete distinct-card semantic profiles. " +
+                "NOT YET WIRED -- no runtime path reads this flag; toggling it currently has no effect. Seeded OFF.",
             ["service.scryfall-collection-cache.enabled"] =
                 "Cache individual Scryfall cards/collection results in process memory (24h TTL). Off makes every lookup hit Scryfall as before. Seeded OFF.",
             ["tool.card-lookup.enabled"] =
