@@ -189,10 +189,14 @@
                                                @onchange="() => vm.Selected = !vm.Selected"
                                                aria-label="Select @vm.Title" />
                                     </td>
+                                    @* F-03: the thumbnail is the only per-row content not otherwise reachable by a
+                                       user scanning by image; the title also appears as adjacent link text, so it
+                                       is heard twice by assistive tech, but an empty alt made the row invisible
+                                       to that user entirely. tabindex="-1" is unrelated to this comment. *@
                                     <td>
                                         <img src="https://img.youtube.com/vi/@vm.VideoId/default.jpg"
                                              width="40" height="30"
-                                             alt=""
+                                             alt="@vm.Title thumbnail"
                                              onerror="this.style.display='none'" />
                                     </td>
                                     <td>
@@ -369,7 +373,7 @@
                                     <td>
                                         <img src="https://img.youtube.com/vi/@vm.VideoId/default.jpg"
                                              width="40" height="30"
-                                             alt=""
+                                             alt="@vm.Title thumbnail"
                                              onerror="this.style.display='none'" />
                                     </td>
                                     <td>
