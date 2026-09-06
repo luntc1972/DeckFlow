@@ -967,6 +967,83 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Equal(workingList.Count, context.AnalyzedCards.Count);
     }
 
+    // Why (WR-07): every proven-equivalence unit test constructs CutLabSemanticProfile by hand, so
+    // nothing exercised the real chain ScryfallCard -> ScryfallCardDataMapper.ToCardData ->
+    // ScryfallCardData -> CutLabAnalysisContextBuilder.BuildAsync -> CutLabSemanticProfile. A future
+    // regression that drops OracleId, Keywords, or ColorIdentity in the mapper would pass every
+    // hand-built-profile test while silently breaking production. Also confirms OracleName is wired
+    // from the resolved Scryfall card, not the pool entry's raw decklist string.
+    [Fact]
+    public async Task BuildAsync_ResolvedSingleFacedCard_CarriesSemanticProfileVerbatimThroughTheRealMappingChain()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Ramp Dork", "Creature — Elf Shaman")];
+        ScryfallCard card = new(
+            "Ramp Dork",
+            "{1}{G}",
+            "Creature — Elf Shaman",
+            "When this creature enters, add {G}{G}.",
+            "2",
+            "2",
+            ["Reach"],
+            ["G"],
+            null,
+            null,
+            null,
+            OracleId: "oracle-ramp-dork",
+            Layout: "normal",
+            Cmc: 2);
+        var resolver = new CountingResolver([card]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+
+        CutLabAnalysisContext context = await builder.BuildAsync(workingList, "Focused", []);
+
+        CutLabAnalyzedCard analyzed = Assert.Single(context.AnalyzedCards);
+        Assert.NotNull(analyzed.SemanticProfile);
+        Assert.Equal("oracle-ramp-dork", analyzed.SemanticProfile!.OracleId);
+        Assert.Equal("{1}{G}", analyzed.SemanticProfile.ManaCost);
+        Assert.Equal(["Reach"], analyzed.SemanticProfile.Keywords);
+        Assert.Equal(["G"], analyzed.SemanticProfile.ColorIdentity);
+        Assert.Equal("2", analyzed.SemanticProfile.Power);
+        Assert.Equal("2", analyzed.SemanticProfile.Toughness);
+        Assert.Equal("normal", analyzed.SemanticProfile.Layout);
+        Assert.Equal("Ramp Dork", analyzed.SemanticProfile.OracleName);
+    }
+
+    // Why (WR-07): card.CardFaces is not { Count: > 0 } is D-03's only implementation of the
+    // "multiple faces" lock and had zero coverage; it is redundant with the Layout != "normal" check
+    // (covered by abstain-non-normal-layout-* fixture cases), so this pins that the redundancy is
+    // deliberate defense-in-depth rather than accidental dead code that could be removed unnoticed.
+    [Fact]
+    public async Task BuildAsync_MultiFacedResolvedCard_LeavesSemanticProfileNull()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Fable Face", "Creature — Human // Land")];
+        ScryfallCard card = new(
+            "Fable Face",
+            "{1}{G}",
+            "Creature — Human // Land",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            [
+                new ScryfallCardFace("Fable Face", "{1}{G}", "Creature — Human", "Text.", "1", "1"),
+                new ScryfallCardFace("Fable Back", null, "Land", "Text.", null, null),
+            ],
+            Layout: "transform",
+            Cmc: 2);
+        var resolver = new CountingResolver([card]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+
+        CutLabAnalysisContext context = await builder.BuildAsync(workingList, "Focused", []);
+
+        CutLabAnalyzedCard analyzed = Assert.Single(context.AnalyzedCards);
+        Assert.Null(analyzed.SemanticProfile);
+    }
+
     private static CutLabPoolCard PoolCard(string name, string typeLine, int quantity = 1, bool isCommander = false, bool isLocked = false)
         => new()
         {
