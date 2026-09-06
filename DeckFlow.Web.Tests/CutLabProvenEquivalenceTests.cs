@@ -21,6 +21,23 @@ public sealed class CutLabProvenEquivalenceTests
         Assert.Equal(["Elvish Mystic", "Llanowar Elves"], finding.Evidence.Select(evidence => evidence.CardName));
     }
 
+    // Why (WR-08): IsCompleteProfile previously required Power AND Toughness to be non-empty
+    // unconditionally, which permanently excluded every non-creature (instant, sorcery, artifact,
+    // enchantment, planeswalker) since Scryfall returns null P/T for them -- the class most likely to
+    // contain true functional reprints in a Commander pool. Pins that a non-creature profile with
+    // empty Power/Toughness is now treated as complete and can still surface a finding.
+    [Fact]
+    public void ComputeProvenEquivalence_NonCreatureWithNoPowerToughness_ProducesDisclosureOnlyFinding()
+    {
+        CutLabStructuralFindingsResult result = Compute(
+            Card("Synthetic Ramp Rite", "sr-a", "{1}{G}", "Sorcery", "", "", [], ["G"], "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."),
+            Card("Synthetic Verdant Rite", "sr-b", "{1}{G}", "Sorcery", "", "", [], ["G"], "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."));
+
+        CutLabFinding finding = Assert.Single(result.Findings);
+        Assert.Equal(CutLabFindingKind.ProvenEquivalence, finding.Kind);
+        Assert.Equal(["Synthetic Ramp Rite", "Synthetic Verdant Rite"], finding.Evidence.Select(evidence => evidence.CardName));
+    }
+
     [Theory]
     [InlineData("", "a1", "normal", "{R}", "Creature — Goblin", "1", "1", "Haste")]
     [InlineData("A", "", "normal", "{R}", "Creature — Goblin", "1", "1", "Haste")]

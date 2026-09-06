@@ -250,6 +250,26 @@
         { "name": "Unresolved Dork (No ColorIdentity)", "oracleId": "synthetic-oracle-unresolved-color", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": null, "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] },
         { "name": "Baseline Ramp Dork", "oracleId": "synthetic-oracle-base-01", "manaCost": "{1}{G}", "typeLine": "Creature — Elf Shaman", "power": "2", "toughness": "2", "keywords": ["Reach"], "colorIdentity": ["G"], "oracleText": "When this creature enters, add {G}{G}.", "layout": "normal", "roles": ["ramp"] }
       ]
+    },
+    {
+      "id": "positive-noncreature-synthetic-ramp-spell",
+      "label": "equivalent",
+      "rationale": "WR-08: IsCompleteProfile previously required Power AND Toughness to be non-empty unconditionally, which permanently excluded every non-creature (Scryfall returns null P/T for instants, sorceries, artifacts, enchantments, planeswalkers) -- the class most likely to contain true functional reprints. Two constructed Sorcery ramp spells with byte-identical Oracle text, mana cost, type line, keywords, and color identity, and no power/toughness prove the detector can now surface a non-creature equivalence once the P/T requirement is conditioned on the type line containing 'Creature'.",
+      "source": "Constructed positive fixture; two distinct synthetic non-creature Oracle IDs with a byte-identical profile to isolate the non-creature P/T relaxation.",
+      "cards": [
+        { "name": "Synthetic Ramp Rite", "oracleId": "synthetic-oracle-noncreature-ramp-a", "manaCost": "{1}{G}", "typeLine": "Sorcery", "power": null, "toughness": null, "keywords": [], "colorIdentity": ["G"], "oracleText": "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Synthetic Verdant Rite", "oracleId": "synthetic-oracle-noncreature-ramp-b", "manaCost": "{1}{G}", "typeLine": "Sorcery", "power": null, "toughness": null, "keywords": [], "colorIdentity": ["G"], "oracleText": "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", "layout": "normal", "roles": ["ramp"] }
+      ]
+    },
+    {
+      "id": "abstain-noncreature-same-oracle-id",
+      "label": "abstain",
+      "rationale": "WR-08: confirms the same-OracleId guard still applies to non-creature cards after the P/T relaxation -- two working-list entries with different display strings resolving to the same underlying Oracle ID must still abstain even when both are non-creatures with no power/toughness, so loosening the P/T requirement did not accidentally loosen D-02's distinct-Oracle-ID requirement too.",
+      "source": "Constructed defensive fixture; both entries pinned to one synthetic shared Oracle ID to isolate the same-OracleId guard for a non-creature type line.",
+      "cards": [
+        { "name": "Synthetic Ramp Rite Prime", "oracleId": "synthetic-oracle-noncreature-shared", "manaCost": "{1}{G}", "typeLine": "Sorcery", "power": null, "toughness": null, "keywords": [], "colorIdentity": ["G"], "oracleText": "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", "layout": "normal", "roles": ["ramp"] },
+        { "name": "Synthetic Ramp Rite Prime (Alt Name)", "oracleId": "synthetic-oracle-noncreature-shared", "manaCost": "{1}{G}", "typeLine": "Sorcery", "power": null, "toughness": null, "keywords": [], "colorIdentity": ["G"], "oracleText": "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", "layout": "normal", "roles": ["ramp"] }
+      ]
     }
   ]
 }
