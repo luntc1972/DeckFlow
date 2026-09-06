@@ -577,4 +577,22 @@ public sealed class ReviewPageTests : BunitContext
             MakeYoutubeRow(1, "pending", "pending"),
             MakeYoutubeRow(2, "approved", "approved"),
         ];
+
+    // ── F-10: in-table actions opt out of the touch floor ──
+
+    [Fact]
+    public void TableActionButtons_CarryTheCompactClass()
+    {
+        var row = MakeYoutubeRow(1, "vidJKL", "pending");
+        var (cut, _) = RenderReview(new[] { row });
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
+
+        cut.WaitForAssertion(() =>
+        {
+            var tableButtons = cut.FindAll("td button");
+            Assert.NotEmpty(tableButtons);
+            Assert.All(tableButtons, b => Assert.Contains("btn-table-action", b.ClassList));
+        });
+    }
 }
