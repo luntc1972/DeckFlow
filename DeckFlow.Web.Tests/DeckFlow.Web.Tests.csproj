@@ -31,6 +31,9 @@
     <Content Include="Manabase\avatar-facts.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Fixtures\CutLab\proven-equivalence-cases.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="..\DeckFlow.Web\Data\bracket-data.json" Link="Data\bracket-data.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
