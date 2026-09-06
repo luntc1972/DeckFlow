@@ -118,14 +118,7 @@ public sealed class HomePageTests : BunitContext
         });
     }
 
-    // ── F-07: buckets link into their filtered destination ──────────────────
-
-    [Fact]
-    public void HarvestedBucket_LinksToHarvest()
-    {
-        var cut = RenderHome(CreateLinkBucketRows());
-        cut.WaitForAssertion(() => Assert.Equal("/harvest", cut.Find("[data-video-status='Harvested'] a").GetAttribute("href")));
-    }
+    // ── F-07: buckets that link into the slice they count, and the ones deliberately left unlinked ──
 
     [Fact]
     public void DistilledBucket_LinksToPendingReviewQueue()
@@ -139,6 +132,39 @@ public sealed class HomePageTests : BunitContext
     {
         var cut = RenderHome(CreateLinkBucketRows());
         cut.WaitForAssertion(() => Assert.Equal("/review?tab=approved", cut.Find("[data-video-status='Approved'] a").GetAttribute("href")));
+    }
+
+    [Fact]
+    public void HarvestedBucket_RendersNoLink()
+    {
+        var cut = RenderHome(CreateLinkBucketRows());
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("[data-video-status='Harvested'] a")));
+    }
+
+    [Fact]
+    public void HarvestedStatus_IsUnreachableFromAnIndexRow()
+    {
+        // Why: the dashboard's buckets are counted from content_site_index rows, and by the enum's
+        // own definition a row of that kind is already past the harvested state, so the shared
+        // status mapper has no branch that can return it and this bucket's count cannot rise above
+        // zero — it must therefore not advertise a destination. If this fact ever fails, a branch
+        // returning the harvested state has been added, and at that point the bucket's destination
+        // and its link fact should both be restored.
+        string[] approvalStatuses = ["pending", "approved", "rejected", "", "harvested"];
+        DateTimeOffset?[] pushedTimestamps = [null, new DateTimeOffset(2026, 06, 20, 12, 0, 0, TimeSpan.Zero)];
+        bool[] visibilities = [false, true];
+
+        foreach (var approvalStatus in approvalStatuses)
+        {
+            foreach (var pushedToProdUtc in pushedTimestamps)
+            {
+                foreach (var isVisible in visibilities)
+                {
+                    var status = VideoStatusResolver.FromContentRow(approvalStatus, pushedToProdUtc, isVisible);
+                    Assert.NotEqual(VideoStatus.Harvested, status);
+                }
+            }
+        }
     }
 
     [Fact]
