@@ -636,11 +636,9 @@ unlocks only after every file uploads.</p>
                         Press this AFTER the Render deploy triggered by Stage 4 shows healthy (check
                         the Render dashboard). Polls the deployed <code>/app</code> body for each
                         pushed row and, ONLY for rows whose hash matches, stamps
-                        <code>pushed_to_prod_utc</code> and flips them visible (SYNC-09/D-06). Rows
-                        that do not confirm within the bounded retry window leave new rows hidden and
-                        awaiting-confirm, while already-visible rows remain visible and may serve
-                        their prior body meanwhile &mdash; re-run this stage (or use Resume above
-                        after reloading) once the deploy catches up.
+                        <code>pushed_to_prod_utc</code> and flips them visible (SYNC-09/D-06). Re-run
+                        this stage (or use Resume above after reloading) once the deploy catches up.
+                        See <a href="#direct-push-visibility-contract">the production visibility contract</a> for what is and is not visible right now.
                     </p>
 
                     @if (!string.IsNullOrEmpty(_verifyError))
@@ -687,10 +685,9 @@ unlocks only after every file uploads.</p>
                         {
                             <div class="alert alert-warning py-2 mt-3">
                                 @_notConfirmedResults.Count row(s) did NOT confirm within the retry
-                                window &mdash; new rows stay hidden and awaiting-confirm, while
-                                already-visible rows stay visible until the deploy confirms. The
-                                Render deploy may still be in progress; wait and re-run this stage
-                                (or use the Resume section above after reloading).
+                                window. The Render deploy may still be in progress; wait and re-run
+                                this stage (or use the Resume section above after reloading).
+                                See <a href="#direct-push-visibility-contract">the production visibility contract</a> for what is and is not visible right now.
                             </div>
                         }
 
