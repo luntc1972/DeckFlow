@@ -22,8 +22,18 @@
 
 <article class="content px-4">
 
+    <nav class="harvest-section-nav" aria-label="Harvest sections">
+        <a class="harvest-section-link" href="#harvest-browse">Browse</a>
+        <a class="harvest-section-link" href="#harvest-queue">Paste Queue</a>
+        <a class="harvest-section-link" href="#harvest-run">Harvest</a>
+        <a class="harvest-section-link" href="#harvest-distill">Distill</a>
+    </nav>
+
     @* ─── Section 1: Channel or Playlist Browse (HARV-01) ─── *@
-    <div class="card mt-4">
+    @* The negative tabindex on each section card below: a div is not natively focusable, so
+       without it a fragment jump from the sub-nav above moves the viewport but leaves keyboard
+       focus stranded at the top of the document. *@
+    <div class="card mt-4" id="harvest-browse" tabindex="-1">
         <div class="card-header">
             <h2 class="h5 fw-semibold mb-0">Browse Channel or Playlist</h2>
         </div>
@@ -192,7 +202,7 @@
                                     @* F-03: the thumbnail is the only per-row content not otherwise reachable by a
                                        user scanning by image; the title also appears as adjacent link text, so it
                                        is heard twice by assistive tech, but an empty alt made the row invisible
-                                       to that user entirely. tabindex="-1" is unrelated to this comment. *@
+                                       to that user entirely. *@
                                     <td>
                                         <img src="https://img.youtube.com/vi/@vm.VideoId/default.jpg"
                                              width="40" height="30"
@@ -300,7 +310,7 @@
     </div>
 
     @* ─── Section 2: URL/ID Paste Queue (HARV-02) ─── *@
-    <div class="card mt-4">
+    <div class="card mt-4" id="harvest-queue" tabindex="-1">
         <div class="card-header">
             <h2 class="h5 fw-semibold mb-0">URL / ID Paste Queue</h2>
         </div>
@@ -404,7 +414,7 @@
     <hr class="mt-4" />
 
     @* ─── Section 3: Harvest Trigger (HARV-04) ─── *@
-    <div class="card mt-4">
+    <div class="card mt-4" id="harvest-run" tabindex="-1">
         <div class="card-header">
             <h2 class="h5 fw-semibold mb-0">Harvest</h2>
         </div>
@@ -547,7 +557,7 @@
     </div>
 
     @* ─── Section 4: Distill Spend Gate (HARV-05) ─── *@
-    <div class="card mt-4">
+    <div class="card mt-4" id="harvest-distill" tabindex="-1">
         <div class="card-header">
             <h2 class="h5 fw-semibold mb-0">Distill</h2>
         </div>
