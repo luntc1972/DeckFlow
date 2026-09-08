@@ -741,9 +741,9 @@ internal static class RoleFloorResearchCommandRunner
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        for (int offset = 0; offset < uncachedNames.Count; offset += 75)
+        for (int offset = 0; offset < uncachedNames.Count; offset += ScryfallLimits.CollectionBatchSize)
         {
-            List<string> batchNames = uncachedNames.Skip(offset).Take(75).ToList();
+            List<string> batchNames = uncachedNames.Skip(offset).Take(ScryfallLimits.CollectionBatchSize).ToList();
             string[] batchIdentifiers = batchNames
                 .Select(CoreScryfallCollectionIdentifier.ToFaceIdentifier)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -753,7 +753,7 @@ internal static class RoleFloorResearchCommandRunner
             request.AddJsonBody(new { identifiers = batchIdentifiers.Select(cardName => (object)new { name = cardName }).ToArray() });
 
             RestResponse<ScryfallCollectionResponse>? response = await ExecuteWithScryfall429RetryAsync(
-                operationName: $"cards/collection batch {offset / 75 + 1}",
+                operationName: $"cards/collection batch {offset / ScryfallLimits.CollectionBatchSize + 1}",
                 operation: token => resolver.ExecuteCollectionAsync(request, token),
                 cancellationToken).ConfigureAwait(false);
             if (response is null)

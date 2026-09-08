@@ -370,22 +370,22 @@ internal static class EdhrecRoleGridCommandRunner
         // four other plans wrote across four waves, so extracting it now would be a merge hazard.
         // Unifying the two loops into one DeckFlow.Core component is a recorded follow-up, not this
         // plan's work.
-        for (int offset = 0; offset < uncachedNames.Count; offset += 75)
+        for (int offset = 0; offset < uncachedNames.Count; offset += ScryfallLimits.CollectionBatchSize)
         {
-            List<string> batchNames = uncachedNames.Skip(offset).Take(75).ToList();
+            List<string> batchNames = uncachedNames.Skip(offset).Take(ScryfallLimits.CollectionBatchSize).ToList();
             string[] batchIdentifiers = batchNames
                 .Select(CoreScryfallCollectionIdentifier.ToFaceIdentifier)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
             Console.WriteLine(FormattableString.Invariant(
-                $"Resolving Scryfall batch {offset / 75 + 1}/{Math.Max(1, (int)Math.Ceiling(uncachedNames.Count / 75.0))} ({Math.Min(offset + batchNames.Count, uncachedNames.Count)}/{uncachedNames.Count})."));
+                $"Resolving Scryfall batch {offset / ScryfallLimits.CollectionBatchSize + 1}/{Math.Max(1, (int)Math.Ceiling(uncachedNames.Count / (double)ScryfallLimits.CollectionBatchSize))} ({Math.Min(offset + batchNames.Count, uncachedNames.Count)}/{uncachedNames.Count})."));
 
             var request = new RestRequest("cards/collection", Method.Post);
             // Why: Scryfall cards/collection name identifiers match a single face name; combined A // B returns not_found.
             request.AddJsonBody(new { identifiers = batchIdentifiers.Select(cardName => (object)new { name = cardName }).ToArray() });
 
             RestResponse<ScryfallCollectionResponse>? response = await ExecuteWithScryfall429RetryAsync(
-                operationName: $"cards/collection batch {offset / 75 + 1}",
+                operationName: $"cards/collection batch {offset / ScryfallLimits.CollectionBatchSize + 1}",
                 operation: token => resolver.ExecuteCollectionAsync(request, token),
                 cancellationToken).ConfigureAwait(false);
             if (response is null)
