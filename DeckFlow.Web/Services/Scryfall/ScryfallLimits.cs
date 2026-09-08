@@ -4,7 +4,10 @@ namespace DeckFlow.Web.Services.Scryfall;
 /// Shared Scryfall API request limits. The <c>/cards/collection</c> endpoint accepts at most 75
 /// identifiers per request per the Scryfall API documentation.
 /// </summary>
-internal static class ScryfallLimits
+public static class ScryfallLimits
 {
-    internal const int CollectionBatchSize = 75;
+    /// <summary>
+    /// Maximum identifiers accepted by Scryfall's collection endpoint per request.
+    /// </summary>
+    public const int CollectionBatchSize = 75;
 }

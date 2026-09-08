@@ -1,3 +1,4 @@
+using DeckFlow.Web.Services.Scryfall;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -61,7 +62,7 @@ public sealed class CardLookupCache
     }
 
     /// <summary>
-    /// Caches a resolved <see cref="ScryfallCard"/> for 24 hours.
+    /// Caches a resolved <see cref="ScryfallCard"/> for <see cref="CachedNameResolution.PositiveCacheTtl"/>.
     /// </summary>
     /// <param name="cardName">The card name used for the lookup.</param>
     /// <param name="card">The resolved card object.</param>
@@ -70,14 +71,14 @@ public sealed class CardLookupCache
         var key = CacheKey(cardName);
         var options = new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24),
+            AbsoluteExpirationRelativeToNow = CachedNameResolution.PositiveCacheTtl,
             Size = 1,
         };
         _cache.Set(key, card, options);
     }
 
     /// <summary>
-    /// Caches a negative result (card not found on Scryfall) for 1 hour.
+    /// Caches a negative result (card not found on Scryfall) for <see cref="CachedNameResolution.NegativeCacheTtl"/>.
     /// </summary>
     /// <param name="cardName">The card name that failed to resolve.</param>
     public void SetNegative(string cardName)
@@ -85,7 +86,7 @@ public sealed class CardLookupCache
         var key = CacheKey(cardName);
         var options = new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1),
+            AbsoluteExpirationRelativeToNow = CachedNameResolution.NegativeCacheTtl,
             Size = 1,
         };
         _cache.Set(key, NegativeMarker, options);

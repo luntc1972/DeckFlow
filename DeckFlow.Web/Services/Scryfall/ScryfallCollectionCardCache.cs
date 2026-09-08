@@ -14,8 +14,8 @@ public sealed class ScryfallCollectionCardCache
     private const int CacheCapacityChars = 10_000_000;
     private const string FlagKey = "service.scryfall-collection-cache.enabled";
     internal const long StatisticsLogInterval = 1_000;
-    private static readonly TimeSpan PositiveTtl = TimeSpan.FromHours(24);
-    private static readonly TimeSpan CollectionMissTtl = TimeSpan.FromHours(1);
+    private static readonly TimeSpan PositiveTtl = CachedNameResolution.PositiveCacheTtl;
+    private static readonly TimeSpan CollectionMissTtl = CachedNameResolution.NegativeCacheTtl;
     private static readonly object CollectionMissMarker = new();
     private readonly IMemoryCache _cache;
     private readonly IFeatureFlagCache? _featureFlags;
