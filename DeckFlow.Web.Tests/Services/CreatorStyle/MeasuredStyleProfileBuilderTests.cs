@@ -55,7 +55,7 @@ public sealed class MeasuredStyleProfileBuilderTests
         Assert.Equal(SnailSeedCorpusFixture.Samples.Count, stored.MinDecks);
         Assert.False(stored.InsufficientSample);
         Assert.NotEmpty(stored.MeasuredMetrics);
-        Assert.All(stored.MeasuredMetrics, metric =>
+        Assert.All(stored.MeasuredMetrics.Where(metric => !metric.Metric.StartsWith("lift:", StringComparison.Ordinal)), metric =>
         {
             Assert.Equal(SnailSeedCorpusFixture.Samples.Count, metric.NumDecks);
             Assert.NotNull(metric.Distribution);
@@ -69,6 +69,7 @@ public sealed class MeasuredStyleProfileBuilderTests
 
         var liftMetric = stored.MeasuredMetrics.FirstOrDefault(metric => metric.Metric.StartsWith("lift:", StringComparison.Ordinal));
         Assert.NotNull(liftMetric);
+        Assert.Null(liftMetric.Distribution);
         Assert.Contains(stored.MeasuredMetrics, metric => metric.Metric == "category_ratio:ramp");
     }
 
@@ -91,7 +92,7 @@ public sealed class MeasuredStyleProfileBuilderTests
 
         var profile = await builder.BuildAsync(SnailSeedCorpusFixture.CreatorSlug, SnailSeedCorpusFixture.Platform);
 
-        Assert.All(profile.MeasuredMetrics, metric =>
+        Assert.All(profile.MeasuredMetrics.Where(metric => !metric.Metric.StartsWith("lift:", StringComparison.Ordinal)), metric =>
             Assert.Equal((double)SnailSeedCorpusFixture.Samples.Count, metric.Distribution!.EffectiveSampleSize));
     }
 
@@ -260,7 +261,7 @@ public sealed class MeasuredStyleProfileBuilderTests
             Assert.DoesNotContain(sample.Entries, entry => string.Equals(entry.Name, "Command Tower", StringComparison.OrdinalIgnoreCase));
         });
 
-        Assert.All(profile.MeasuredMetrics, metric =>
+        Assert.All(profile.MeasuredMetrics.Where(metric => !metric.Metric.StartsWith("lift:", StringComparison.Ordinal)), metric =>
         {
             Assert.Equal(SnailSeedCorpusFixture.Samples.Count, metric.NumDecks);
             Assert.NotNull(metric.Distribution);
@@ -271,7 +272,7 @@ public sealed class MeasuredStyleProfileBuilderTests
         double discriminatingPairLift = Assert.Single(profile.MeasuredMetrics, metric => metric.Metric == "lift:blink|tokens").Value;
         Assert.True(discriminatingPairLift > staplePairLift);
 
-        Assert.All(profile.MeasuredMetrics, metric => Assert.Equal(5.0, metric.Distribution!.EffectiveSampleSize));
+        Assert.All(profile.MeasuredMetrics.Where(metric => !metric.Metric.StartsWith("lift:", StringComparison.Ordinal)), metric => Assert.Equal(5.0, metric.Distribution!.EffectiveSampleSize));
         Assert.True(thinProfile.InsufficientSample);
     }
 
