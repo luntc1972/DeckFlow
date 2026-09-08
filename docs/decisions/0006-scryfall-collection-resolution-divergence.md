@@ -33,19 +33,30 @@ decision if a common abstraction proves worthwhile.
 
 Keep `CardLookupCache`, `ScryfallCollectionCardCache`, and `CachedNameResolution` as separate cache
 mechanisms. Merging them would either remove size isolation or impose size accounting on callers:
-`CardGroundingGuard` and `ScryfallCardNameGrounder` for card lookup, and `DeckConvertService` for
-collection resolution.
+`CardLookupService` for `CardLookupCache`; `ManabaseAnalysisService`, `CutLabPageService`,
+`ScryfallCardResolver`, `ScryfallReferenceResolver`, `ScryfallCacheStatisticsReporter`, and the
+three `DeckFlow.CLI` runners (`ManabaseCommandRunner`, `EdhrecRoleGridCommandRunner`,
+`RoleFloorResearchCommandRunner`) for `ScryfallCollectionCardCache`; and `CardGroundingGuard`,
+`ScryfallCardNameGrounder`, `CardLookupCache`, and `ScryfallCollectionCardCache` for
+`CachedNameResolution`.
 
 Share only values that are genuinely common. `ScryfallLimits.CollectionBatchSize` is the single
-collection batch-size declaration, read by `DeckConvertService`, `ManabaseAnalysisService`,
-`CardGroundingGuard`, `CardLookupService`, `ScryfallCollectionResolver`, and
-`DeckFlow.CLI.ManabaseCommandRunner`. `CachedNameResolution.PositiveCacheTtl` and
+collection batch-size declaration, read by `ManabaseAnalysisService`, `CardGroundingGuard`,
+`CardLookupService`, `ScryfallCollectionResolver`, `ScryfallReferenceResolver`, and the three
+`DeckFlow.CLI` runners `ManabaseCommandRunner`, `EdhrecRoleGridCommandRunner`, and
+`RoleFloorResearchCommandRunner`. `DeckConvertService` does not read the constant directly — it
+consumes it only indirectly, by passing entries through `ScryfallCollectionResolver`, the same
+path `CreatorStyleDeckAnalysis` uses. `CachedNameResolution.PositiveCacheTtl` and
 `NegativeCacheTtl` are the single 24-hour and 1-hour declarations, read by `CardGroundingGuard`,
 `ScryfallCardNameGrounder`, `CardLookupCache`, and `ScryfallCollectionCardCache`. Sharing values
 while retaining distinct mechanisms is intentional.
 
 `ScryfallLimits` is public rather than granting the CLI `InternalsVisibleTo`: that exposes exactly
-the one compile-time constant the CLI needs rather than every Web internal type.
+the one compile-time constant the CLI needs rather than every Web internal type. A `public const`
+is inlined into the referencing assembly at compile time, not read at runtime, so the
+single-declaration guarantee this ADR describes holds only for a full-solution rebuild; a partial
+rebuild that recompiles `DeckFlow.Web` without recompiling `DeckFlow.CLI` could leave the CLI
+running against a stale inlined value until it is rebuilt too.
 
 ## Consequences
 
@@ -86,3 +97,12 @@ the `ArchidektOwnerClient` tests cover that integration.
 comment proposed during research. The file is under active Cut Lab development on another branch, and
 a comment would create another merge-conflict surface. This ADR is the durable explanation. Its diff
 against `main` remains three insertions and three deletions, all from Phase 112.
+
+### ScryfallReferenceResolver.cs is now a Cycle 20 modified file
+
+Plan 113-04 deleted `ScryfallReferenceResolver.cs`'s duplicate private `ScryfallBatchSize` constant
+and repointed its four `Chunk()` call sites onto `ScryfallLimits.CollectionBatchSize`. Both the
+ROADMAP's 2026-09-05 amendment and this ADR's Cycle 21 Phase 6 merge census (above) previously rested
+on this file being untouched by Cycle 20; that is no longer true. The change is small (one deleted
+declaration, four single-token call-site edits, value-preserving) but it is a new file-level merge
+surface against Cycle 21 Phase 6 and is recorded here where the merge census already lives.
