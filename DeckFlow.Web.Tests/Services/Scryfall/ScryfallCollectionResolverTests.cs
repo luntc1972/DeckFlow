@@ -46,36 +46,46 @@ public sealed class ScryfallCollectionResolverTests
         Assert.Equal([card], result);
     }
 
+    /// <summary>
+    /// A full batch of distinct printings plus one case-variant duplicate of an existing printing
+    /// (76 raw identifiers) collapses to exactly one batch of 75 only if the resolver's printing-key
+    /// HashSet dedup is intact; deleting that dedup would push the raw count into a second batch.
+    /// </summary>
     [Fact]
-    public async Task ResolveCardsAsync_CaseVariantPrintings_CallsDelegateOnce()
+    public async Task ResolveCardsAsync_CaseVariantPrintingStraddlesBatchBoundary_CollapsesToOneCall()
     {
         int calls = 0;
-        await ScryfallCollectionResolver.ResolveCardsAsync(
-            [MakeEntry("Sol Ring", "CMR", "331"), MakeEntry("Sol Ring", "cmr", "331")],
-            (_, _) =>
-            {
-                calls++;
-                return Task.FromResult(MakeCollectionResponse(HttpStatusCode.OK, []));
-            },
-            "case dedup",
-            CancellationToken.None);
+        List<DeckEntry> entries = [.. MakeEntries(ScryfallLimits.CollectionBatchSize), MakeEntry("Card 1", "DFC", "1")];
+
+        await ScryfallCollectionResolver.ResolveCardsAsync(entries, (_, _) =>
+        {
+            calls++;
+            return Task.FromResult(MakeCollectionResponse(HttpStatusCode.OK, []));
+        }, "case dedup", CancellationToken.None);
 
         Assert.Equal(1, calls);
     }
 
+    /// <summary>
+    /// A full batch of distinct name-only entries plus one exact-duplicate name (76 raw identifiers)
+    /// collapses to exactly one batch of 75 only if the resolver's name-key HashSet dedup is intact;
+    /// deleting that dedup would push the raw count into a second batch.
+    /// </summary>
     [Fact]
-    public async Task ResolveCardsAsync_DuplicateNameOnlyEntries_CallsDelegateOnce()
+    public async Task ResolveCardsAsync_DuplicateNameOnlyEntryStraddlesBatchBoundary_CollapsesToOneCall()
     {
         int calls = 0;
-        await ScryfallCollectionResolver.ResolveCardsAsync(
-            [MakeEntry("Sol Ring", null, null), MakeEntry("Sol Ring", null, null)],
-            (_, _) =>
-            {
-                calls++;
-                return Task.FromResult(MakeCollectionResponse(HttpStatusCode.OK, []));
-            },
-            "name dedup",
-            CancellationToken.None);
+        List<DeckEntry> entries =
+        [
+            .. Enumerable.Range(1, ScryfallLimits.CollectionBatchSize).Select(index => MakeEntry($"Card {index}", null, null)),
+            MakeEntry("Card 1", null, null),
+        ];
+
+        await ScryfallCollectionResolver.ResolveCardsAsync(entries, (_, _) =>
+        {
+            calls++;
+            return Task.FromResult(MakeCollectionResponse(HttpStatusCode.OK, []));
+        }, "name dedup", CancellationToken.None);
 
         Assert.Equal(1, calls);
     }

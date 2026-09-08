@@ -233,18 +233,30 @@ public sealed class DeckConvertServiceTests
     }
 
     /// <summary>
-    /// Case-variant entries for one printing produce one Scryfall collection request.
+    /// A full batch of distinct printings plus one entry whose set code is a case variant of an
+    /// existing entry's (76 raw entries) collapses to exactly one batch of 75 in the end-to-end
+    /// <see cref="DeckConvertService"/> pipeline. NOTE (corrects the plan's premise, verified
+    /// empirically): <c>NormalizeNamesAsync</c>'s own (Set, Collector) grouping and the shared
+    /// <c>ScryfallCollectionResolver</c>'s HashSet dedup are each independently sufficient to
+    /// collapse a case-variant duplicate, since 113-01 rewired <see cref="DeckConvertService"/>
+    /// onto the shared resolver, which dedupes every input it receives regardless of whether the
+    /// caller pre-deduped. A case-variant duplicate is therefore caught by BOTH layers; disabling
+    /// either one alone leaves the other still collapsing it, so this test cannot be made sensitive
+    /// to just one layer (confirmed via the RED step: disabling either layer alone still passes,
+    /// disabling both together fails with an actual count of 2). Direct single-layer coverage of
+    /// the resolver's own dedup lives in <c>ScryfallCollectionResolverTests</c>.
     /// </summary>
     [Fact]
-    public async Task ConvertAsync_SendsOneCollectionRequest_WhenEntriesShareAPrinting()
+    public async Task ConvertAsync_CaseVariantSetCodeStraddlesBatchBoundary_SendsOneCollectionRequest()
     {
         var collectionCallCount = 0;
+        var entries = Enumerable.Range(0, ScryfallLimits.CollectionBatchSize)
+            .Select(index => MakeEntry($"Card {index}", "ltr", index.ToString()))
+            .ToList();
+        entries.Add(MakeEntry("Card 0 Duplicate", "LTR", "0"));
+
         var service = BuildService(
-            moxfieldEntries:
-            [
-                MakeEntry("First Card", "LTR", "2"),
-                MakeEntry("Second Card", "ltr", "2"),
-            ],
+            moxfieldEntries: entries,
             collectionResponse: MakeCollectionResponse([]),
             onCollectionCall: () => collectionCallCount++);
 
