@@ -56,7 +56,7 @@ public sealed class SubmittedDeckStatsBuilderTests
 
         SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
 
-        Assert.Equal(4d, result.Stats.Metrics["category_ratio:ramp"]);
+        Assert.Equal(0.8d, result.Stats.Metrics["category_ratio:ramp"]);
         Assert.Equal(2d, result.Stats.Metrics["combo_density:included_per_deck"]);
         Assert.Equal(["Card A", "Card B"], result.IncludedComboCardNames);
         Assert.Equal(5, result.Stats.DeckSize);
