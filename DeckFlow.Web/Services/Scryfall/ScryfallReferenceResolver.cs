@@ -85,8 +85,6 @@ internal sealed record ScryfallBatchResolution(
 /// </remarks>
 internal sealed partial class ScryfallReferenceResolver
 {
-    private const int ScryfallBatchSize = 75;
-
     private readonly IScryfallCollectionProtocol _collectionProtocol;
     private readonly ScryfallCollectionCardCache _collectionCardCache;
 
@@ -144,7 +142,7 @@ internal sealed partial class ScryfallReferenceResolver
 
         var groups = new List<IReadOnlyList<string>>();
         var coldNames = new List<string>();
-        foreach (var chunk in Chunk(requestNames, ScryfallBatchSize))
+        foreach (var chunk in Chunk(requestNames, ScryfallLimits.CollectionBatchSize))
         {
             var warmNames = new List<string>();
             foreach (var requestName in chunk)
@@ -166,7 +164,7 @@ internal sealed partial class ScryfallReferenceResolver
             }
         }
 
-        foreach (var chunk in Chunk(coldNames, ScryfallBatchSize))
+        foreach (var chunk in Chunk(coldNames, ScryfallLimits.CollectionBatchSize))
         {
             groups.Add(chunk);
         }
@@ -223,7 +221,7 @@ internal sealed partial class ScryfallReferenceResolver
         // pseudo-chunk could collide two cached cards that shared a key but never shared a response,
         // costing a fallback search. Only the COLD remainder is re-chunked.
         var coldNames = new List<string>();
-        foreach (var chunk in Chunk(requestNames, ScryfallBatchSize))
+        foreach (var chunk in Chunk(requestNames, ScryfallLimits.CollectionBatchSize))
         {
             var warmNames = new List<string>();
             var warmCards = new List<ScryfallCard>();
@@ -253,7 +251,7 @@ internal sealed partial class ScryfallReferenceResolver
             }
         }
 
-        foreach (var chunk in Chunk(coldNames, ScryfallBatchSize))
+        foreach (var chunk in Chunk(coldNames, ScryfallLimits.CollectionBatchSize))
         {
             string[] chunkIdentifiers = chunk
                 .Select(CoreScryfallCollectionIdentifier.ToFaceIdentifier)
