@@ -216,8 +216,10 @@ public sealed class MeasuredStyleProfileBuilder
 
         foreach (string category in categories)
         {
-            IReadOnlyList<double> perDeckValues = perDeckCounts
-                .Select(counts => counts.TryGetValue(category, out var count) ? (double)count : 0d)
+            IReadOnlyList<double> perDeckValues = samples
+                .Select((sample, index) => sample.CardCount == 0
+                    ? 0d
+                    : (perDeckCounts[index].TryGetValue(category, out var count) ? (double)count : 0d) / sample.CardCount)
                 .ToArray();
 
             metrics.Add(new MeasuredMetric
@@ -245,8 +247,7 @@ public sealed class MeasuredStyleProfileBuilder
             {
                 Metric = $"lift:{item.CategoryA}|{item.CategoryB}",
                 Value = item.Lift,
-                NumDecks = rawDeckCount,
-                Distribution = BuildDistribution([item.Lift], [1.0], effectiveSampleSize)
+                NumDecks = rawDeckCount
             })
             .ToList();
     }

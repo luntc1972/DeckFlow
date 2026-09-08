@@ -156,10 +156,11 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
         SubmittedDeckResolution resolution = await resolutionTask.ConfigureAwait(false);
 
         var metrics = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        int deckSize = analyzedEntries.Sum(entry => entry.Quantity);
         foreach (string category in ContentTagVocabulary.CardCategories)
         {
             metrics[$"category_ratio:{category}"] = categoryCounts.TryGetValue(category, out int count)
-                ? count
+                ? deckSize == 0 ? 0d : (double)count / deckSize
                 : 0d;
         }
 
@@ -176,7 +177,7 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
             Stats = new SubmittedDeckStats
             {
                 Metrics = metrics,
-                DeckSize = analyzedEntries.Sum(entry => entry.Quantity),
+                DeckSize = deckSize,
                 CommanderCount = analyzedEntries
                     .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
                     .Sum(entry => entry.Quantity)
