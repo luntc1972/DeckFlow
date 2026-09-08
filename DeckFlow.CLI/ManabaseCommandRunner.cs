@@ -20,9 +20,6 @@ namespace DeckFlow.CLI;
 /// </summary>
 internal static class ManabaseCommandRunner
 {
-    // Scryfall's collection endpoint accepts at most 75 identifiers per request.
-    private const int CollectionBatchSize = 75;
-
     // Only these boards belong in a Commander mana-base analysis; a sideboard / maybeboard
     // is not part of the 100-card deck and would skew the land target.
     private static readonly HashSet<string> AnalyzedBoards =
@@ -169,10 +166,10 @@ internal static class ManabaseCommandRunner
         var index = new ScryfallCardNameIndex();
         var notFound = new List<string>();
 
-        for (int offset = 0; offset < collectionRequest.Identifiers.Count; offset += CollectionBatchSize)
+        for (int offset = 0; offset < collectionRequest.Identifiers.Count; offset += ScryfallLimits.CollectionBatchSize)
         {
             var request = new ScryfallCollectionProtocolRequest(
-                collectionRequest.Identifiers.Skip(offset).Take(CollectionBatchSize).ToArray());
+                collectionRequest.Identifiers.Skip(offset).Take(ScryfallLimits.CollectionBatchSize).ToArray());
             ScryfallCollectionProtocolResponse response = await collectionProtocol.ResolveAsync(request).ConfigureAwait(false);
             if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || !response.HasPayload)
             {
