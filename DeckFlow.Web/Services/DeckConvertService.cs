@@ -110,44 +110,43 @@ public sealed class DeckConvertService : IDeckConvertService
 
     private async Task<IReadOnlyList<DeckEntry>> NormalizeNamesAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
     {
-        var distinctKeys = entries
+        var distinctEntries = entries
             .Where(e => !string.IsNullOrWhiteSpace(e.SetCode) && !string.IsNullOrWhiteSpace(e.CollectorNumber))
-            .Select(e => (Set: e.SetCode!.ToLowerInvariant(), Collector: e.CollectorNumber!.ToLowerInvariant()))
-            .Distinct()
+            .GroupBy(e => (Set: e.SetCode!.ToLowerInvariant(), Collector: e.CollectorNumber!.ToLowerInvariant()))
+            .Select(group => group.First() with { SetCode = group.Key.Set, CollectorNumber = group.Key.Collector })
             .ToList();
 
-        if (distinctKeys.Count == 0)
+        if (distinctEntries.Count == 0)
         {
             return entries;
         }
 
         var canonicalNames = new Dictionary<(string Set, string Collector), string>();
 
-        for (var i = 0; i < distinctKeys.Count; i += ScryfallLimits.CollectionBatchSize)
+        IReadOnlyList<ScryfallCard> resolvedCards;
+        try
         {
-            var batch = distinctKeys.Skip(i).Take(ScryfallLimits.CollectionBatchSize)
-                .Select(k => new ScryfallPrintingIdentifier(k.Set, k.Collector))
-                .ToList();
+            resolvedCards = await ScryfallCollectionResolver.ResolveCardsAsync(
+                distinctEntries,
+                _executeCollectionAsync,
+                "Moxfield to Archidekt name normalization",
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException)
+        {
+            // Why: Preserve conversion availability during Scryfall outages; creator-style relies on the shared resolver throwing.
+            return entries;
+        }
 
-            var restRequest = new RestRequest("cards/collection", Method.Post);
-            restRequest.AddJsonBody(new { identifiers = batch });
-
-            var response = await _executeCollectionAsync(restRequest, cancellationToken).ConfigureAwait(false);
-            if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300 || response.Data is null)
+        foreach (ScryfallCard card in resolvedCards)
+        {
+            if (string.IsNullOrWhiteSpace(card.SetCode) || string.IsNullOrWhiteSpace(card.CollectorNumber))
             {
                 continue;
             }
 
-            foreach (var card in response.Data.Data)
-            {
-                if (string.IsNullOrWhiteSpace(card.SetCode) || string.IsNullOrWhiteSpace(card.CollectorNumber))
-                {
-                    continue;
-                }
-
-                var key = (card.SetCode.ToLowerInvariant(), card.CollectorNumber.ToLowerInvariant());
-                canonicalNames.TryAdd(key, card.Name);
-            }
+            var key = (card.SetCode.ToLowerInvariant(), card.CollectorNumber.ToLowerInvariant());
+            canonicalNames.TryAdd(key, card.Name);
         }
 
         if (canonicalNames.Count == 0)
