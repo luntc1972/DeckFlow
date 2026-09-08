@@ -9,6 +9,7 @@ using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Scryfall;
 using RestSharp;
 using Xunit;
 
@@ -193,6 +194,85 @@ public sealed class DeckConvertServiceTests
         Assert.Contains("Commander", result.ConvertedText);
     }
 
+    /// <summary>
+    /// A non-successful Scryfall collection response leaves Moxfield entry names unchanged.
+    /// </summary>
+    [Fact]
+    public async Task ConvertAsync_ReturnsOriginalNames_WhenScryfallReturnsNon2xx()
+    {
+        var entries = new List<DeckEntry> { MakeEntry("Insectile Aberration", "ltr", "2") };
+        var service = BuildService(
+            moxfieldEntries: entries,
+            collectionResponse: new RestResponse<ScryfallCollectionResponse>(new RestRequest("cards/collection"))
+            {
+                StatusCode = HttpStatusCode.ServiceUnavailable
+            });
+
+        var result = await service.ConvertAsync(CreateMoxfieldToArchidektRequest());
+
+        Assert.Contains("Insectile Aberration", result.ConvertedText);
+    }
+
+    /// <summary>
+    /// A null Scryfall collection payload leaves Moxfield entry names unchanged.
+    /// </summary>
+    [Fact]
+    public async Task ConvertAsync_ReturnsOriginalNames_WhenScryfallReturnsNullData()
+    {
+        var entries = new List<DeckEntry> { MakeEntry("Insectile Aberration", "ltr", "2") };
+        var service = BuildService(
+            moxfieldEntries: entries,
+            collectionResponse: new RestResponse<ScryfallCollectionResponse>(new RestRequest("cards/collection"))
+            {
+                StatusCode = HttpStatusCode.OK
+            });
+
+        var result = await service.ConvertAsync(CreateMoxfieldToArchidektRequest());
+
+        Assert.Contains("Insectile Aberration", result.ConvertedText);
+    }
+
+    /// <summary>
+    /// Case-variant entries for one printing produce one Scryfall collection request.
+    /// </summary>
+    [Fact]
+    public async Task ConvertAsync_SendsOneCollectionRequest_WhenEntriesShareAPrinting()
+    {
+        var collectionCallCount = 0;
+        var service = BuildService(
+            moxfieldEntries:
+            [
+                MakeEntry("First Card", "LTR", "2"),
+                MakeEntry("Second Card", "ltr", "2"),
+            ],
+            collectionResponse: MakeCollectionResponse([]),
+            onCollectionCall: () => collectionCallCount++);
+
+        await service.ConvertAsync(CreateMoxfieldToArchidektRequest());
+
+        Assert.Equal(1, collectionCallCount);
+    }
+
+    /// <summary>
+    /// Printings beyond the shared collection batch size produce a second request.
+    /// </summary>
+    [Fact]
+    public async Task ConvertAsync_SendsTwoCollectionRequests_WhenDistinctPrintingsExceedBatchSize()
+    {
+        var collectionCallCount = 0;
+        var entries = Enumerable.Range(0, ScryfallLimits.CollectionBatchSize + 1)
+            .Select(index => MakeEntry($"Card {index}", "ltr", index.ToString()))
+            .ToList();
+        var service = BuildService(
+            moxfieldEntries: entries,
+            collectionResponse: MakeCollectionResponse([]),
+            onCollectionCall: () => collectionCallCount++);
+
+        await service.ConvertAsync(CreateMoxfieldToArchidektRequest());
+
+        Assert.Equal(2, collectionCallCount);
+    }
+
     private static DeckConvertService BuildService(
         List<DeckEntry>? moxfieldEntries = null,
         List<DeckEntry>? archidektEntries = null,
@@ -211,6 +291,15 @@ public sealed class DeckConvertServiceTests
                 return Task.FromResult(collectionResponse ?? MakeCollectionResponse([]));
             });
     }
+
+    private static DeckConvertRequest CreateMoxfieldToArchidektRequest() =>
+        new()
+        {
+            SourceFormat = "Moxfield",
+            TargetFormat = "Archidekt",
+            InputSource = DeckInputSource.PublicUrl,
+            DeckUrl = "https://moxfield.com/decks/test"
+        };
 
     private static DeckEntry MakeEntry(string name, string? setCode, string? collectorNumber) =>
         new()
