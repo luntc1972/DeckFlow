@@ -276,6 +276,213 @@ public sealed class MeasuredStyleProfileBuilderTests
         Assert.True(thinProfile.InsufficientSample);
     }
 
+    [Fact]
+    public async Task BuildAsync_DelegatesToBuildDetailedAsync_ReturningTheSameProfile()
+    {
+        // Why: BuildAsync must be a one-line delegation to BuildDetailedAsync so the two can never
+        // drift. Seed two slugs with byte-identical corpora and compare the profile each entry
+        // point produces for its own slug (ignoring the Slug field itself).
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync("delegate-direct", "delegate-direct", SnailSeedCorpusFixture.DeckSummaries, SnailSeedCorpusFixture.Samples);
+        await harness.SeedSourceAsync("delegate-detailed", "delegate-detailed", SnailSeedCorpusFixture.DeckSummaries, SnailSeedCorpusFixture.Samples);
+        await harness.SeedCategoriesAsync();
+        await harness.SeedBaselineAsync();
+        var builder = harness.CreateBuilder(new FakeCommanderSpellbookService(new Dictionary<string, CommanderSpellbookResult?>(StringComparer.Ordinal)));
+
+        CreatorStyleProfile viaBuildAsync = await builder.BuildAsync("delegate-direct", SnailSeedCorpusFixture.Platform);
+        MeasuredStyleBuildResult viaDetailed = await builder.BuildDetailedAsync("delegate-detailed", SnailSeedCorpusFixture.Platform);
+
+        Assert.Equal(viaBuildAsync.Platform, viaDetailed.Profile.Platform);
+        Assert.Equal(viaBuildAsync.MinDecks, viaDetailed.Profile.MinDecks);
+        Assert.Equal(viaBuildAsync.InsufficientSample, viaDetailed.Profile.InsufficientSample);
+        Assert.Equal(viaBuildAsync.UpdatedUtc, viaDetailed.Profile.UpdatedUtc);
+        Assert.True(viaBuildAsync.MeasuredMetrics.SequenceEqual(viaDetailed.Profile.MeasuredMetrics));
+    }
+
+    [Fact]
+    public async Task BuildDetailedAsync_ExposesFilteredSamplesAndResolvedCardCategoryMap()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync(
+            SnailSeedCorpusFixture.CreatorSlug,
+            SnailSeedCorpusFixture.Username,
+            SnailSeedCorpusFixture.DeckSummaries,
+            SnailSeedCorpusFixture.Samples);
+        await harness.SeedCategoriesAsync();
+        await harness.SeedBaselineAsync();
+        var builder = harness.CreateBuilder(new FakeCommanderSpellbookService(new Dictionary<string, CommanderSpellbookResult?>(StringComparer.Ordinal)));
+
+        MeasuredStyleBuildResult result = await builder.BuildDetailedAsync(SnailSeedCorpusFixture.CreatorSlug, SnailSeedCorpusFixture.Platform);
+
+        // FilterOversized-only output: none of the fixture decks exceed the 105-card cap, so every
+        // sample survives, and curated staples (Sol Ring) are still present because staple
+        // stripping happens after this stage, not before it.
+        // Note: SeedSourceAsync rewrites deck ids by substituting "snail" with the slug, so the
+        // stored/returned ids carry the slug's own name ("snail-seed-current-1", not
+        // "snail-current-1").
+        Assert.Equal(SnailSeedCorpusFixture.Samples.Count, result.Samples.Count);
+        var expectedDeckIds = SnailSeedCorpusFixture.Samples
+            .Select(sample => sample.DeckId.Replace("snail", SnailSeedCorpusFixture.CreatorSlug, StringComparison.Ordinal))
+            .OrderBy(id => id, StringComparer.Ordinal);
+        Assert.Equal(expectedDeckIds, result.Samples.Select(sample => sample.DeckId).OrderBy(id => id, StringComparer.Ordinal));
+        Assert.All(result.Samples, sample =>
+            Assert.Contains(sample.Entries, entry => string.Equals(entry.Name, "Sol Ring", StringComparison.OrdinalIgnoreCase)));
+
+        Assert.True(result.CardCategories.TryGetValue("Arcane Signet", out var arcaneSignetCategories));
+        Assert.Contains("ramp", arcaneSignetCategories!, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task BuildDetailedAsync_ExposesTheExactLoadedBaselineInstance()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync(
+            SnailSeedCorpusFixture.CreatorSlug,
+            SnailSeedCorpusFixture.Username,
+            SnailSeedCorpusFixture.DeckSummaries,
+            SnailSeedCorpusFixture.Samples);
+        await harness.SeedCategoriesAsync();
+        await harness.SeedBaselineAsync();
+        var builder = harness.CreateBuilder(new FakeCommanderSpellbookService(new Dictionary<string, CommanderSpellbookResult?>(StringComparer.Ordinal)));
+
+        MeasuredStyleBuildResult result = await builder.BuildDetailedAsync(SnailSeedCorpusFixture.CreatorSlug, SnailSeedCorpusFixture.Platform);
+
+        // Distinctive values pinned to the SeedBaselineAsync fixture (10 processed decks; "ramp"
+        // appears on baseline-1/2/3/4/7 = 5 of them) so this fails if the field is wired to a
+        // default/empty baseline or to some other query's result instead of the real load.
+        Assert.Equal(10, result.Baseline.TotalDecks);
+        Assert.True(result.Baseline.DecksWithCategory.TryGetValue("ramp", out var rampDeckCount));
+        Assert.Equal(5, rampDeckCount);
+    }
+
+    [Fact]
+    public async Task BuildDetailedAsync_RunsComboDensityThenKarstenMetricsSequentially_NeverConcurrently()
+    {
+        // Why (WR-03 regression guard): asserts an OBSERVABLE sequencing fact via blocking/tracking
+        // test doubles, not just the WR-03 comment's presence — a Task.WhenAll-style concurrent
+        // start over both metric builds must fail this fact even if the comment text survives.
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync(
+            SnailSeedCorpusFixture.CreatorSlug,
+            SnailSeedCorpusFixture.Username,
+            SnailSeedCorpusFixture.DeckSummaries,
+            SnailSeedCorpusFixture.Samples);
+        await harness.SeedCategoriesAsync();
+        await harness.SeedBaselineAsync();
+
+        var log = new List<string>();
+        var lockObject = new object();
+        var comboService = new SequencingTrackingCommanderSpellbookService(log, lockObject);
+        var scryfallResolver = new SequencingTrackingScryfallCardResolver(log, lockObject, TestHarness.BuildScryfallCardMap());
+        var builder = harness.CreateBuilder(comboService, scryfallResolverOverride: scryfallResolver);
+
+        await builder.BuildDetailedAsync(SnailSeedCorpusFixture.CreatorSlug, SnailSeedCorpusFixture.Platform);
+
+        Assert.Contains("combo", log);
+        Assert.Contains("karsten", log);
+        int lastComboIndex = log.LastIndexOf("combo");
+        int firstKarstenIndex = log.IndexOf("karsten");
+        Assert.True(
+            firstKarstenIndex > lastComboIndex,
+            $"Expected every combo-density call to complete before the first Karsten call started, " +
+            $"but observed order [{string.Join(", ", log)}] (last combo at {lastComboIndex}, first karsten at {firstKarstenIndex}).");
+    }
+
+    [Fact]
+    public async Task BuildAsync_AndBuildDetailedAsync_WhenBaselineLoadThrows_PropagateSameExceptionAndPersistNoProfile()
+    {
+        // Why: a reintroduced catch-and-continue path around the baseline load (substituting an
+        // empty/default baseline, as the source branch did) must fail this fact.
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await TestHarness.CreateAsync(now);
+        await harness.SeedSourceAsync("throws-direct", "throws-direct", SnailSeedCorpusFixture.DeckSummaries, SnailSeedCorpusFixture.Samples);
+        await harness.SeedSourceAsync("throws-detailed", "throws-detailed", SnailSeedCorpusFixture.DeckSummaries, SnailSeedCorpusFixture.Samples);
+        await harness.SeedCategoriesAsync();
+
+        // Deliberately corrupt (not merely missing) so this fails the same way in every
+        // environment, regardless of filesystem permissions: SQLite refuses to open a non-empty
+        // file that isn't a valid database, independent of OS write access.
+        string corruptDatabasePath = Path.Combine(harness.Directory, "corrupt-baseline.sqlite");
+        await File.WriteAllTextAsync(corruptDatabasePath, "deliberately not a sqlite database");
+        var throwingBaselineRepository = new CategoryKnowledgeRepository(corruptDatabasePath);
+
+        var builder = harness.CreateBuilder(
+            new FakeCommanderSpellbookService(new Dictionary<string, CommanderSpellbookResult?>(StringComparer.Ordinal)),
+            baselineRepositoryOverride: throwingBaselineRepository);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => builder.BuildAsync("throws-direct", SnailSeedCorpusFixture.Platform));
+        await Assert.ThrowsAnyAsync<Exception>(() => builder.BuildDetailedAsync("throws-detailed", SnailSeedCorpusFixture.Platform));
+
+        Assert.Null(await harness.ProfileStore.GetBySlugAsync("throws-direct"));
+        Assert.Null(await harness.ProfileStore.GetBySlugAsync("throws-detailed"));
+    }
+
+    private sealed class SequencingTrackingCommanderSpellbookService : ICommanderSpellbookService
+    {
+        private readonly List<string> _log;
+        private readonly object _lock;
+
+        public SequencingTrackingCommanderSpellbookService(List<string> log, object lockObject)
+        {
+            _log = log;
+            _lock = lockObject;
+        }
+
+        public async Task<CommanderSpellbookResult?> FindCombosAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
+        {
+            lock (_lock)
+            {
+                _log.Add("combo");
+            }
+
+            // Why: a short delay widens the window in which a wrongly-concurrent implementation
+            // would interleave a "karsten" log entry before every "combo" entry completes.
+            await Task.Delay(TimeSpan.FromMilliseconds(15), cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+    }
+
+    private sealed class SequencingTrackingScryfallCardResolver : IScryfallCardResolver
+    {
+        private readonly List<string> _log;
+        private readonly object _lock;
+        private readonly IReadOnlyDictionary<string, ScryfallCard> _cardsByName;
+
+        public SequencingTrackingScryfallCardResolver(List<string> log, object lockObject, IReadOnlyDictionary<string, ScryfallCard> cardsByName)
+        {
+            _log = log;
+            _lock = lockObject;
+            _cardsByName = cardsByName;
+        }
+
+        public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
+        {
+            lock (_lock)
+            {
+                _log.Add("karsten");
+            }
+
+            return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            {
+                StatusCode = HttpStatusCode.OK,
+                Data = new ScryfallCollectionResponse(_cardsByName.Values.ToList(), null)
+            });
+        }
+
+        public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => Task.FromResult(_cardsByName.TryGetValue(cardName, out var card) ? card : null);
+
+        public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
+            => SearchFallbackCardAsync(cardName, cancellationToken);
+
+        public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
+            => SearchFallbackCardAsync(cardName, cancellationToken);
+    }
+
     private sealed class TestHarness : IAsyncDisposable
     {
         private readonly Dictionary<string, IReadOnlyList<ArchidektDeckSummary>> _deckSummariesByUsername = new(StringComparer.Ordinal);
@@ -374,7 +581,10 @@ public sealed class MeasuredStyleProfileBuilderTests
             await SeedProcessedDeckAsync("baseline-10", "Commander Ten", ["tokens"]);
         }
 
-        public MeasuredStyleProfileBuilder CreateBuilder(ICommanderSpellbookService comboService)
+        public MeasuredStyleProfileBuilder CreateBuilder(
+            ICommanderSpellbookService comboService,
+            CategoryKnowledgeRepository? baselineRepositoryOverride = null,
+            IScryfallCardResolver? scryfallResolverOverride = null)
         {
             var ownerClient = new FakeOwnerClient(_deckSummariesByUsername);
             var importer = new FakeDeckImporter(_decksById);
@@ -392,12 +602,12 @@ public sealed class MeasuredStyleProfileBuilderTests
                 ["Young Pyromancer"] = ["tokens"]
             });
             var resolver = new CreatorDeckCategoryResolver(CategoryKnowledgeRepository, tagger);
-            var scryfallResolver = new FakeScryfallCardResolver(BuildScryfallCardMap());
+            var scryfallResolver = scryfallResolverOverride ?? new FakeScryfallCardResolver(BuildScryfallCardMap());
 
             return new MeasuredStyleProfileBuilder(
                 crawler,
                 resolver,
-                CategoryKnowledgeRepository,
+                baselineRepositoryOverride ?? CategoryKnowledgeRepository,
                 comboService,
                 scryfallResolver,
                 ProfileStore,
@@ -437,7 +647,7 @@ public sealed class MeasuredStyleProfileBuilderTests
             }
         }
 
-        private static Dictionary<string, ScryfallCard> BuildScryfallCardMap()
+        internal static Dictionary<string, ScryfallCard> BuildScryfallCardMap()
         {
             var cards = new Dictionary<string, ScryfallCard>(StringComparer.OrdinalIgnoreCase);
             foreach (CreatorDeckSample sample in SnailSeedCorpusFixture.Samples)

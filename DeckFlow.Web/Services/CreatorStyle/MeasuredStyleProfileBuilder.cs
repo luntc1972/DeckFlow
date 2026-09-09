@@ -110,6 +110,23 @@ public sealed class MeasuredStyleProfileBuilder
         string platform,
         CancellationToken cancellationToken = default)
     {
+        MeasuredStyleBuildResult result = await BuildDetailedAsync(creatorSlug, platform, cancellationToken).ConfigureAwait(false);
+        return result.Profile;
+    }
+
+    /// <summary>
+    /// Builds and persists a measured creator style profile for the supplied creator slug, and
+    /// additionally returns the crawl-derived inputs the profile was computed from.
+    /// </summary>
+    /// <param name="creatorSlug">Creator slug.</param>
+    /// <param name="platform">Creator platform identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The persisted profile together with its samples, card categories, and baseline.</returns>
+    public async Task<MeasuredStyleBuildResult> BuildDetailedAsync(
+        string creatorSlug,
+        string platform,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
         ArgumentException.ThrowIfNullOrWhiteSpace(platform);
 
@@ -176,7 +193,13 @@ public sealed class MeasuredStyleProfileBuilder
         };
 
         await _profileStore.UpsertAsync(profile, cancellationToken).ConfigureAwait(false);
-        return profile;
+        return new MeasuredStyleBuildResult
+        {
+            Profile = profile,
+            Samples = filteredSamples,
+            CardCategories = cardCategories,
+            Baseline = baseline
+        };
     }
 
     private static IReadOnlyList<StatedRuleCandidate> ToCandidates(IReadOnlyList<StatedRule> statedRules)
