@@ -43,249 +43,7 @@ public partial class Program
     {
         try
         {
-            var builder = CreateBuilder(args);
-            var logPath = Path.Combine(builder.Environment.ContentRootPath, "logs", "web-.log");
-
-            builder.Host.UseSerilog((context, services, configuration) =>
-            {
-                configuration
-                    .ReadFrom.Configuration(context.Configuration)
-                    .ReadFrom.Services(services)
-                    .Enrich.FromLogContext();
-
-                // Render only captures stdout/stderr in the service logs, so keep console logging on
-                // outside development as well as in development. The file sink remains available for
-                // the local logs directory and persistent disk snapshots.
-                configuration.WriteTo.Console();
-
-                configuration.WriteTo.File(logPath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14);
-            });
-
-            // Add services to the container.
-            builder.Services
-                .AddControllersWithViews()
-                .AddJsonOptions(options =>
-                {
-                    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-                });
-            builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
-            builder.Services.Configure<Microsoft.AspNetCore.Mvc.Razor.RazorViewEngineOptions>(options => options.ViewLocationExpanders.Add(new DeckFlow.Web.Controllers.DeckViewLocationExpander()));
-            builder.Services.AddMemoryCache();
-
-            // AI platform toggles. Gemini is hidden in the UI by default because the full
-            // packet frequently exceeds Gemini's paste limit (truncates instructions, produces
-            // degraded output). Flip DECKFLOW_GEMINI_ENABLED=true to expose it again.
-            builder.Services.Configure<AiPlatformOptions>(options =>
-            {
-                var raw = Environment.GetEnvironmentVariable("DECKFLOW_GEMINI_ENABLED");
-                options.GeminiEnabled = bool.TryParse(raw, out var enabled) && enabled;
-            });
-
-            // HTTP infrastructure: IHttpClientFactory-backed clients (D-01) + Polly v8 pipelines (D-03..05).
-            // Tagger uses a typed client with cookie-disabled SocketsHttpHandler (D-06); other three are named.
-            // Pipelines are registered into IResiliencePipelineRegistry<string> via AddResiliencePipeline<...>;
-            // services resolve them via ResiliencePipelineProvider<string> (no keyed-services attribute - checker B2).
-            builder.Services.AddDeckFlowHttpClients();
-
-            // Polly v8 pipelines registered into IResiliencePipelineRegistry<string>. Services resolve
-            // them via ResiliencePipelineProvider<string>.GetPipeline<RestResponse>(name) - D-05, B2.
-            builder.Services.AddDeckFlowResiliencePipelines();
-
-            builder.Services.AddDeckFlowScryfallServices();
-
-            // Why (WR-11, 112-REVIEWS.md): the creator-style engine has no controller wired to it
-            // yet (zero HTTP exposure) and its production seeds (content-kb/seed/creator-*.json)
-            // are still literally "[]", so registering its full DI graph unconditionally pays a
-            // real cost - an HttpClient, five singletons (two of them opening SQLite files via
-            // DeckFlowDatabaseConnectionFactory), and five scoped services - for a subsystem that
-            // cannot do anything yet. Gate it behind an explicit opt-in env var, mirroring the
-            // DECKFLOW_GEMINI_ENABLED pattern above, distinct from the tool.creator-style.enabled
-            // IFeatureFlagCache runtime flag (DB-backed, default-on-if-missing, meant for gating
-            // per-request reachability once a controller exists - not for skipping startup DI,
-            // which must resolve before the flag store's async load completes). A future phase
-            // that wires a controller and populates the seeds flips this on without touching
-            // Program.cs again.
-            if (IsCreatorStyleEnabled())
-            {
-                builder.Services.AddDeckFlowCreatorStyle(builder.Environment);
-            }
-
-            builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
-            builder.Services.AddSingleton<IGameChangerCatalogService, GameChangerCatalogService>();
-            builder.Services.AddSingleton<ICedhLandBaselineProvider, CedhLandBaselineProvider>();
-            builder.Services.AddSingleton<IRoleFloorBaselineProvider, RoleFloorBaselineProvider>();
-            builder.Services.AddSingleton<IManabaseBaselineProvider, ManabaseBaselineProvider>();
-            builder.Services.AddSingleton<IVersionService, VersionService>();
-            builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
-            // Why: foundation-only store registration for Phase 1; no consumer until Phase 3/4.
-            builder.Services.AddSingleton<IManabaseBaselineStore, ManabaseBaselineStore>();
-            builder.Services.AddSingleton<DeckFlow.Core.Content.IContentSiteIndexStore>(_ =>
-                new DeckFlow.Core.Content.ContentSiteIndexStore(
-                    DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
-            builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
-            builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
-            builder.Services.AddSingleton<DeckFlow.Core.Content.IContentArtifactBodyResolver, ContentKbArtifactBodyResolver>();
-            builder.Services.AddSingleton<DeckFlow.Core.Content.ContentBodyHashBackfill>();
-            builder.Services.AddSingleton<DeckFlow.Core.Content.ISeedKeyMembershipSource, WebSeedKeyMembershipSource>();
-            builder.Services.AddSingleton<DeckFlow.Core.Content.SeedManagedBackfill>();
-            builder.Services.AddSingleton<DeckFlow.Core.Content.PublishStateDeriver>();
-            builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
-            builder.Services.AddDeckFlowFeatureFlags();
-            builder.Services.AddDeckFlowTools();
-            builder.Services.AddDeckFlowHarvest(builder.Environment);
-            builder.Services.AddDeckFlowAnalytics(builder.Environment);
-
-            // Honor X-Forwarded-* headers from the reverse proxy so request.Scheme reflects
-            // the browser's https scheme, not the http hop from proxy to app. Without this,
-            // SameOriginRequestValidator sees scheme=http while Origin=https and rejects the request.
-            //
-            // Note (TD-04, Phase 03 SC #4, retrieved 2026-04-30): Render does not publish enumerable
-            // inbound proxy CIDR ranges (verified at https://render.com/docs/inbound-ip-rules and
-            // https://feedback.render.com/features/p/send-the-correct-xforwardedfor). Rather than
-            // trust an arbitrary upstream's X-Forwarded-For value to gate the feedback rate limit,
-            // the partition key (DeriveFeedbackPartitionKey, below) reads the immediate-peer IP
-            // directly. The default loopback trust list (127.0.0.1, ::1) is preserved here for
-            // Kestrel container-internal health checks; we do NOT clear it.
-            builder.Services.Configure<ForwardedHeadersOptions>(options =>
-            {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
-                    | ForwardedHeaders.XForwardedProto
-                    | ForwardedHeaders.XForwardedHost;
-                // Why: Render/Cloudflare proxy hops are not loopback, so the default KnownIPNetworks/KnownProxies
-                // would cause ForwardedHeadersMiddleware to ignore X-Forwarded-Proto and leave Request.Scheme=http
-                // (breaks https canonical/OG URLs + HTTPS redirect + same-origin CSRF). The container is only
-                // reachable via Render's ingress, so trusting the forwarded headers here is safe.
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
-            });
-
-            builder.Services.AddRateLimiter(options =>
-            {
-                options.AddPolicy("feedback-submit", httpContext =>
-                    RateLimitPartition.GetFixedWindowLimiter(
-                        DeriveFeedbackPartitionKey(httpContext),
-                        _ => new FixedWindowRateLimiterOptions
-                        {
-                            PermitLimit = 5,
-                            Window = TimeSpan.FromHours(1),
-                            QueueLimit = 0,
-                            AutoReplenishment = true,
-                        }));
-                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            });
-
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen(options =>
-            {
-                options.SwaggerDoc("v1", new OpenApiInfo
-                {
-                    Title = "Deck Sync Workbench API",
-                    Version = "v1",
-                    Description = "Card and commander category suggestion endpoints used by the UI."
-                });
-                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-                if (File.Exists(xmlPath))
-                {
-                    options.IncludeXmlComments(xmlPath);
-                }
-            });
-            builder.Services.AddDeckFlowPromptVariants();
-            builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
-            builder.Services.AddDeckFlowPacketServices();
-            builder.Services.AddSingleton<ArchidektCacheJobService>();
-            builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());
-            builder.Services.AddHostedService(sp => sp.GetRequiredService<ArchidektCacheJobService>());
-            builder.Services.AddSingleton<EdhrecCardLookup>();
-            builder.Services.AddSingleton<IEdhrecCardLookup>(sp => new CachingEdhrecCardLookup(sp.GetRequiredService<EdhrecCardLookup>()));
-            builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
-            builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
-            builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();
-            builder.Services.AddScoped<IDeckHistoryPageService, DeckHistoryPageService>();
-            builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabPageService, DeckFlow.Web.Services.CutLab.CutLabPageService>();
-            builder.Services.AddScoped<ICutLabFloorResolver, CutLabFloorResolver>();
-            builder.Services.AddDeckFlowCutLabServices();
-            builder.Services.AddSingleton<IEdhrecCommanderThemeService, EdhrecCommanderThemeService>();
-            builder.Services.AddScoped<ICutLabPlanAffinityFactory, CutLabPlanAffinityFactory>();
-            builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabWhatifService, DeckFlow.Web.Services.CutLab.CutLabWhatifService>();
-            builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabExportService, DeckFlow.Web.Services.CutLab.CutLabExportService>();
-            builder.Services.AddScoped<IDeckModulesPageService, DeckModulesPageService>();
-            builder.Services.AddDeckFlowDeckModulesAnalysisServices();
-            builder.Services.AddScoped<IDeckConvertService>(sp =>
-                new DeckConvertService(
-                    sp.GetRequiredService<IScryfallRestClientFactory>(),
-                    sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
-                    sp.GetRequiredService<IDeckEntryLoader>()));
-            builder.Services.AddScoped<IDeckEntryLoader, DeckEntryLoader>();
-            builder.Services.AddDeckFlowManabaseServices();
-            builder.Services.AddScoped<IBracketClassificationService>(sp =>
-                new BracketClassificationService(
-                    sp.GetRequiredService<IDeckEntryLoader>(),
-                    sp.GetRequiredService<ICommanderSpellbookService>(),
-                    sp.GetRequiredService<IGameChangerCatalogService>(),
-                    sp.GetRequiredService<BracketPromptVariantRegistry>(),
-                    sp.GetService<ILogger<BracketClassificationService>>()));
-            builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
-            builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
-
-            var app = builder.Build();
-
-            // Must run before any middleware that reads request.Scheme/Host (HttpsRedirection,
-            // security headers, SameOriginRequestValidator in controllers) so those see the
-            // browser's original scheme/host, not the proxy hop.
-            app.UseForwardedHeaders();
-
-            // Configure the HTTP request pipeline.
-            if (!app.Environment.IsDevelopment())
-            {
-                app.UseExceptionHandler("/Deck/Error");
-                app.UseHsts();
-            }
-
-            // UseExceptionHandler only covers thrown exceptions; a mistyped URL or a flag-gated
-            // 404 would otherwise render the bare framework page. Excluded for API paths so
-            // JSON callers keep getting an empty 404 body instead of an HTML document.
-            app.UseWhen(
-                context => !IsApiPath(context.Request.Path),
-                branch => branch.UseStatusCodePagesWithReExecute("/Deck/Error", "?code={0}"));
-
-            app.UseDeckFlowSecurityHeaders();
-
-            app.UseHttpsRedirection();
-            app.Use(async (context, next) =>
-            {
-                if (context.Request.Path.Equals("/extension-install.html", StringComparison.OrdinalIgnoreCase))
-                {
-                    context.Response.Redirect("/deckflow-bridge", permanent: true);
-                    return;
-                }
-
-                await next();
-            });
-            app.UseStaticFiles();
-            app.UseRouting();
-            app.UseAnalyticsMiddleware();   // D-12: after UseRouting (endpoint resolved), before MapControllers
-            app.UseSerilogRequestLogging();
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI(c =>
-                {
-                    c.SwaggerEndpoint("v1/swagger.json", "Deck Sync Workbench API v1");
-                    c.RoutePrefix = "swagger";
-                });
-            }
-
-            app.UseAuthorization();
-
-            app.UseRateLimiter();
-
-            app.UseWhen(
-                ctx => ctx.Request.Path.StartsWithSegments("/Admin"),
-                branch => branch.UseMiddleware<BasicAuthMiddleware>("DeckFlow Admin"));
-
-            app.MapControllers();
-            app.MapDefaultControllerRoute();
+            var app = BuildApp(args);
 
             static bool IsAutoBrowserDisabled()
             {
@@ -326,10 +84,14 @@ public partial class Program
             // under DECKFLOW_DATABASE_PROVIDER=Postgres these land on the same logical database,
             // and running them concurrently is a known race (duplicate key value violates unique
             // constraint "pg_type_typname_nsp_index") that would abort startup per CR-05. There is
-            // no benefit to running them concurrently — creator-style is a no-op when its feature
-            // flag is off (the default) — so the loads are sequenced instead.
+            // no benefit to running them concurrently, so the loads are sequenced instead. (Phase
+            // 114 note: creator-style's DI graph now registers unconditionally — see
+            // AddDeckFlowCreatorStyle below — so LoadCreatorStyleSeedAsync always resolves
+            // ICreatorStyleSeedLoader and always performs its file-read/deserialize pass over the
+            // still-empty creator-style-profiles.json / creator-deck-cache.json seeds; it is no
+            // longer a no-op gated by a feature flag.)
             await app.Services.GetRequiredService<IContentKbSeedLoader>().LoadIfPresentAsync();
-            await LoadCreatorStyleSeedIfEnabledAsync(app.Services);
+            await LoadCreatorStyleSeedAsync(app.Services);
             app.Logger.LogInformation("Content site-index schema ensured and seed load completed during startup.");
 
             // D-08: one-time deterministic body_sha256 backfill, third step after schema-ensure
@@ -398,6 +160,266 @@ public partial class Program
         }
     }
 
+    /// <summary>
+    /// Builds and fully configures the DeckFlow web host — every service registration plus the
+    /// entire middleware/routing pipeline — without starting it.
+    /// </summary>
+    /// <remarks>
+    /// Extracted (phase 114) as a testable seam: it adds no new package (avoids both
+    /// <c>Microsoft.AspNetCore.Mvc.Testing</c> and <c>Microsoft.AspNetCore.TestHost</c>, neither of
+    /// which this solution references — see
+    /// <c>DeckFlow.Web.Tests/Extensions/ProgramRegistersAllExtensionGroupsTests.cs</c>) and lets a
+    /// test build the real host via <see cref="BuildApp"/>, start it on an ephemeral loopback port,
+    /// and drive real HTTP requests at it with a plain <see cref="System.Net.Http.HttpClient"/> —
+    /// proving DI, middleware ordering, routing, and Razor rendering together, not each in
+    /// isolation. The async startup schema-ensure/seed-load/cache-warm sequence in <see cref="Main"/>
+    /// deliberately stays out of this method: it runs after the caller starts the host, not as part
+    /// of building it.
+    /// </remarks>
+    /// <param name="args">Command-line arguments.</param>
+    /// <returns>The built, fully configured <see cref="WebApplication"/>. The caller starts it.</returns>
+    internal static WebApplication BuildApp(string[] args)
+    {
+        var builder = CreateBuilder(args);
+        var logPath = Path.Combine(builder.Environment.ContentRootPath, "logs", "web-.log");
+
+        builder.Host.UseSerilog((context, services, configuration) =>
+        {
+            configuration
+                .ReadFrom.Configuration(context.Configuration)
+                .ReadFrom.Services(services)
+                .Enrich.FromLogContext();
+
+            // Render only captures stdout/stderr in the service logs, so keep console logging on
+            // outside development as well as in development. The file sink remains available for
+            // the local logs directory and persistent disk snapshots.
+            configuration.WriteTo.Console();
+
+            configuration.WriteTo.File(logPath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14);
+        });
+
+        // Add services to the container.
+        builder.Services
+            .AddControllersWithViews()
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            });
+        builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
+        builder.Services.Configure<Microsoft.AspNetCore.Mvc.Razor.RazorViewEngineOptions>(options => options.ViewLocationExpanders.Add(new DeckFlow.Web.Controllers.DeckViewLocationExpander()));
+        builder.Services.AddMemoryCache();
+
+        // AI platform toggles. Gemini is hidden in the UI by default because the full
+        // packet frequently exceeds Gemini's paste limit (truncates instructions, produces
+        // degraded output). Flip DECKFLOW_GEMINI_ENABLED=true to expose it again.
+        builder.Services.Configure<AiPlatformOptions>(options =>
+        {
+            var raw = Environment.GetEnvironmentVariable("DECKFLOW_GEMINI_ENABLED");
+            options.GeminiEnabled = bool.TryParse(raw, out var enabled) && enabled;
+        });
+
+        // HTTP infrastructure: IHttpClientFactory-backed clients (D-01) + Polly v8 pipelines (D-03..05).
+        // Tagger uses a typed client with cookie-disabled SocketsHttpHandler (D-06); other three are named.
+        // Pipelines are registered into IResiliencePipelineRegistry<string> via AddResiliencePipeline<...>;
+        // services resolve them via ResiliencePipelineProvider<string> (no keyed-services attribute - checker B2).
+        builder.Services.AddDeckFlowHttpClients();
+
+        // Polly v8 pipelines registered into IResiliencePipelineRegistry<string>. Services resolve
+        // them via ResiliencePipelineProvider<string>.GetPipeline<RestResponse>(name) - D-05, B2.
+        builder.Services.AddDeckFlowResiliencePipelines();
+
+        builder.Services.AddDeckFlowScryfallServices();
+
+        // Why (phase 114, WR-11 retired): the creator-style engine now has a controller wired to
+        // it — AdminCreatorStyleController at /Admin/CreatorStyle, reachable only behind the
+        // existing BasicAuth branch (Program.cs UseWhen("/Admin") below) — so the prior opt-in
+        // DECKFLOW_CREATOR_STYLE_ENABLED gate, which existed solely because the engine had zero
+        // HTTP exposure, no longer applies. Registration is unconditional, matching every other
+        // AddDeckFlow* extension call in this method; the underlying registrations are lazy
+        // factory delegates (no SQLite file is opened until something resolves a store), so the
+        // 512MB Render-tier cost this gate used to guard against is unaffected.
+        builder.Services.AddDeckFlowCreatorStyle(builder.Environment);
+
+        builder.Services.AddSingleton<IHelpContentService, HelpContentService>();
+        builder.Services.AddSingleton<IGameChangerCatalogService, GameChangerCatalogService>();
+        builder.Services.AddSingleton<ICedhLandBaselineProvider, CedhLandBaselineProvider>();
+        builder.Services.AddSingleton<IRoleFloorBaselineProvider, RoleFloorBaselineProvider>();
+        builder.Services.AddSingleton<IManabaseBaselineProvider, ManabaseBaselineProvider>();
+        builder.Services.AddSingleton<IVersionService, VersionService>();
+        builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
+        // Why: foundation-only store registration for Phase 1; no consumer until Phase 3/4.
+        builder.Services.AddSingleton<IManabaseBaselineStore, ManabaseBaselineStore>();
+        builder.Services.AddSingleton<DeckFlow.Core.Content.IContentSiteIndexStore>(_ =>
+            new DeckFlow.Core.Content.ContentSiteIndexStore(
+                DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
+        builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
+        builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
+        builder.Services.AddSingleton<DeckFlow.Core.Content.IContentArtifactBodyResolver, ContentKbArtifactBodyResolver>();
+        builder.Services.AddSingleton<DeckFlow.Core.Content.ContentBodyHashBackfill>();
+        builder.Services.AddSingleton<DeckFlow.Core.Content.ISeedKeyMembershipSource, WebSeedKeyMembershipSource>();
+        builder.Services.AddSingleton<DeckFlow.Core.Content.SeedManagedBackfill>();
+        builder.Services.AddSingleton<DeckFlow.Core.Content.PublishStateDeriver>();
+        builder.Services.AddSingleton<IAdminBruteForceTrackerStore, AdminBruteForceTrackerStore>();
+        builder.Services.AddDeckFlowFeatureFlags();
+        builder.Services.AddDeckFlowTools();
+        builder.Services.AddDeckFlowHarvest(builder.Environment);
+        builder.Services.AddDeckFlowAnalytics(builder.Environment);
+
+        // Honor X-Forwarded-* headers from the reverse proxy so request.Scheme reflects
+        // the browser's https scheme, not the http hop from proxy to app. Without this,
+        // SameOriginRequestValidator sees scheme=http while Origin=https and rejects the request.
+        //
+        // Note (TD-04, Phase 03 SC #4, retrieved 2026-04-30): Render does not publish enumerable
+        // inbound proxy CIDR ranges (verified at https://render.com/docs/inbound-ip-rules and
+        // https://feedback.render.com/features/p/send-the-correct-xforwardedfor). Rather than
+        // trust an arbitrary upstream's X-Forwarded-For value to gate the feedback rate limit,
+        // the partition key (DeriveFeedbackPartitionKey, below) reads the immediate-peer IP
+        // directly. The default loopback trust list (127.0.0.1, ::1) is preserved here for
+        // Kestrel container-internal health checks; we do NOT clear it.
+        builder.Services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                | ForwardedHeaders.XForwardedProto
+                | ForwardedHeaders.XForwardedHost;
+            // Why: Render/Cloudflare proxy hops are not loopback, so the default KnownIPNetworks/KnownProxies
+            // would cause ForwardedHeadersMiddleware to ignore X-Forwarded-Proto and leave Request.Scheme=http
+            // (breaks https canonical/OG URLs + HTTPS redirect + same-origin CSRF). The container is only
+            // reachable via Render's ingress, so trusting the forwarded headers here is safe.
+            options.KnownIPNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
+
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.AddPolicy("feedback-submit", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    DeriveFeedbackPartitionKey(httpContext),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromHours(1),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    }));
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        });
+
+        builder.Services.AddEndpointsApiExplorer();
+        builder.Services.AddSwaggerGen(options =>
+        {
+            options.SwaggerDoc("v1", new OpenApiInfo
+            {
+                Title = "Deck Sync Workbench API",
+                Version = "v1",
+                Description = "Card and commander category suggestion endpoints used by the UI."
+            });
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            if (File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath);
+            }
+        });
+        builder.Services.AddDeckFlowPromptVariants();
+        builder.Services.AddSingleton<ICategoryKnowledgeStore, CategoryKnowledgeStore>();
+        builder.Services.AddDeckFlowPacketServices();
+        builder.Services.AddSingleton<ArchidektCacheJobService>();
+        builder.Services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<ArchidektCacheJobService>());
+        builder.Services.AddSingleton<EdhrecCardLookup>();
+        builder.Services.AddSingleton<IEdhrecCardLookup>(sp => new CachingEdhrecCardLookup(sp.GetRequiredService<EdhrecCardLookup>()));
+        builder.Services.AddScoped<ICategorySuggestionService, CategorySuggestionService>();
+        builder.Services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
+        builder.Services.AddScoped<IDeckSyncService, DeckSyncService>();
+        builder.Services.AddScoped<IDeckHistoryPageService, DeckHistoryPageService>();
+        builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabPageService, DeckFlow.Web.Services.CutLab.CutLabPageService>();
+        builder.Services.AddScoped<ICutLabFloorResolver, CutLabFloorResolver>();
+        builder.Services.AddDeckFlowCutLabServices();
+        builder.Services.AddSingleton<IEdhrecCommanderThemeService, EdhrecCommanderThemeService>();
+        builder.Services.AddScoped<ICutLabPlanAffinityFactory, CutLabPlanAffinityFactory>();
+        builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabWhatifService, DeckFlow.Web.Services.CutLab.CutLabWhatifService>();
+        builder.Services.AddScoped<DeckFlow.Web.Services.CutLab.ICutLabExportService, DeckFlow.Web.Services.CutLab.CutLabExportService>();
+        builder.Services.AddScoped<IDeckModulesPageService, DeckModulesPageService>();
+        builder.Services.AddDeckFlowDeckModulesAnalysisServices();
+        builder.Services.AddScoped<IDeckConvertService>(sp =>
+            new DeckConvertService(
+                sp.GetRequiredService<IScryfallRestClientFactory>(),
+                sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
+                sp.GetRequiredService<IDeckEntryLoader>()));
+        builder.Services.AddScoped<IDeckEntryLoader, DeckEntryLoader>();
+        builder.Services.AddDeckFlowManabaseServices();
+        builder.Services.AddScoped<IBracketClassificationService>(sp =>
+            new BracketClassificationService(
+                sp.GetRequiredService<IDeckEntryLoader>(),
+                sp.GetRequiredService<ICommanderSpellbookService>(),
+                sp.GetRequiredService<IGameChangerCatalogService>(),
+                sp.GetRequiredService<BracketPromptVariantRegistry>(),
+                sp.GetService<ILogger<BracketClassificationService>>()));
+        builder.Services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
+        builder.Services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
+
+        var app = builder.Build();
+
+        // Must run before any middleware that reads request.Scheme/Host (HttpsRedirection,
+        // security headers, SameOriginRequestValidator in controllers) so those see the
+        // browser's original scheme/host, not the proxy hop.
+        app.UseForwardedHeaders();
+
+        // Configure the HTTP request pipeline.
+        if (!app.Environment.IsDevelopment())
+        {
+            app.UseExceptionHandler("/Deck/Error");
+            app.UseHsts();
+        }
+
+        // UseExceptionHandler only covers thrown exceptions; a mistyped URL or a flag-gated
+        // 404 would otherwise render the bare framework page. Excluded for API paths so
+        // JSON callers keep getting an empty 404 body instead of an HTML document.
+        app.UseWhen(
+            context => !IsApiPath(context.Request.Path),
+            branch => branch.UseStatusCodePagesWithReExecute("/Deck/Error", "?code={0}"));
+
+        app.UseDeckFlowSecurityHeaders();
+
+        app.UseHttpsRedirection();
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.Equals("/extension-install.html", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Response.Redirect("/deckflow-bridge", permanent: true);
+                return;
+            }
+
+            await next();
+        });
+        app.UseStaticFiles();
+        app.UseRouting();
+        app.UseAnalyticsMiddleware();   // D-12: after UseRouting (endpoint resolved), before MapControllers
+        app.UseSerilogRequestLogging();
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("v1/swagger.json", "Deck Sync Workbench API v1");
+                c.RoutePrefix = "swagger";
+            });
+        }
+
+        app.UseAuthorization();
+
+        app.UseRateLimiter();
+
+        app.UseWhen(
+            ctx => ctx.Request.Path.StartsWithSegments("/Admin"),
+            branch => branch.UseMiddleware<BasicAuthMiddleware>("DeckFlow Admin"));
+
+        app.MapControllers();
+        app.MapDefaultControllerRoute();
+
+        return app;
+    }
+
     internal static WebApplicationBuilder CreateBuilder(string[] args)
     {
         // Why: JSON reload watchers each consume a host-shared inotify instance
@@ -459,26 +481,15 @@ public partial class Program
         => path.StartsWithSegments("/api") || path.StartsWithSegments("/Admin/api");
 
     /// <summary>
-    /// Reads the DECKFLOW_CREATOR_STYLE_ENABLED opt-in switch that gates whether
-    /// <c>AddDeckFlowCreatorStyle</c> is registered at startup (WR-11, 112-REVIEWS.md). Defaults to
-    /// disabled (missing or unparseable values are treated as off), matching the
-    /// DECKFLOW_GEMINI_ENABLED precedent above — the creator-style engine has no HTTP entry point
-    /// yet, so opting in without also wiring a controller has no observable effect.
+    /// Loads the creator-style seed. <c>AddDeckFlowCreatorStyle</c> now registers unconditionally
+    /// (phase 114 retired the prior <c>DECKFLOW_CREATOR_STYLE_ENABLED</c> opt-in gate — see
+    /// <see cref="BuildApp"/>), so <see cref="ICreatorStyleSeedLoader"/> is resolvable on every
+    /// startup in every environment. Deliberately uses <c>GetService</c>, not
+    /// <c>GetRequiredService</c>: a caller that builds a minimal service provider without the
+    /// creator-style graph (e.g. a targeted unit test) must not throw here
+    /// (regression: exit-code-82 startup crash, 41cf7e31).
     /// </summary>
-    internal static bool IsCreatorStyleEnabled()
-    {
-        var raw = Environment.GetEnvironmentVariable("DECKFLOW_CREATOR_STYLE_ENABLED");
-        return bool.TryParse(raw, out var enabled) && enabled;
-    }
-
-    /// <summary>
-    /// Loads the creator-style seed when the engine's DI graph was registered this run
-    /// (see the <c>IsCreatorStyleEnabled</c> gate at the top of <see cref="Main"/>). Deliberately
-    /// uses <c>GetService</c>, not <c>GetRequiredService</c>: the registration gate is the single
-    /// source of truth, so this site must not re-read the env var and must not throw when the
-    /// engine is off (regression: exit-code-82 startup crash, 41cf7e31).
-    /// </summary>
-    internal static Task<int> LoadCreatorStyleSeedIfEnabledAsync(IServiceProvider services)
+    internal static Task<int> LoadCreatorStyleSeedAsync(IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(services);
         var loader = services.GetService<ICreatorStyleSeedLoader>();

@@ -161,6 +161,9 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-hub-card__title { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text); }
 .admin-shell .admin-hub-card__description { margin: 0; font-size: 0.85em; color: var(--muted); line-height: 1.35; }
 
+.admin-shell .admin-hub-personal-tools { margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border); }
+.admin-shell .admin-hub-personal-tools__title { margin: 0 0 4px; font-size: 1.1rem; font-weight: 600; color: var(--text); }
+
 .admin-shell .admin-section-header {
   display: flex;
   align-items: center;
