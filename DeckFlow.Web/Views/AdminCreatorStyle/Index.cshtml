@@ -1,0 +1,64 @@
+@using DeckFlow.Web.Models
+@model DeckFlow.Web.Controllers.Admin.AdminCreatorStyleViewModel
+@{
+    ViewData["Title"] = "Creator Style";
+    var isUrl = Model.DeckInputSource == DeckInputSource.PublicUrl;
+}
+
+<section class="admin-landing">
+    <h1>Creator Style</h1>
+    <p class="lede">Generate a creator-style critique packet for a submitted deck against a seeded creator profile. Operator-only — this page is never seen by end users.</p>
+
+    <form method="post" action="@Url.Content("~/Admin/CreatorStyle/Run")" class="result-panel">
+        @Html.AntiForgeryToken()
+
+        <div class="field">
+            <label for="creator-style-slug">Creator</label>
+            <select id="creator-style-slug" name="CreatorSlug">
+                <option value="">Select a creator&hellip;</option>
+                @foreach (var creator in Model.AvailableCreators)
+                {
+                    <option value="@creator.Slug" selected="@(string.Equals(Model.CreatorSlug, creator.Slug, StringComparison.Ordinal) ? "selected" : null)">@creator.Slug</option>
+                }
+            </select>
+        </div>
+
+        <div class="field">
+            <label for="creator-style-input-source">Input method</label>
+            <select id="creator-style-input-source" name="DeckInputSource" data-df-select>
+                <option value="@DeckInputSource.PublicUrl" selected="@(isUrl ? "selected" : null)">Use public deck URL</option>
+                <option value="@DeckInputSource.PasteText" selected="@(!isUrl ? "selected" : null)">Paste text</option>
+            </select>
+        </div>
+
+        <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="creator-style-deck-url">
+            <label for="creator-style-deck-url">Archidekt or Moxfield deck URL</label>
+            <input id="creator-style-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
+                   placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" value="@Model.DeckUrl" />
+        </div>
+
+        <div class="field @(isUrl ? "hidden" : string.Empty)" data-sync-panel="creator-style-deck-text">
+            <label for="creator-style-deck-text">Paste a decklist (one card per line)</label>
+            <textarea id="creator-style-deck-text" name="DeckText" rows="8" spellcheck="false" autocomplete="off"
+                      placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.DeckText</textarea>
+        </div>
+
+        <div class="field">
+            <label for="creator-style-format">Format</label>
+            <input id="creator-style-format" type="text" name="Format" spellcheck="false" autocomplete="off" value="@Model.Format" />
+        </div>
+
+        <button type="submit">Generate critique packet</button>
+    </form>
+
+    <div class="admin-result" data-creator-style-result>
+        @if (!string.IsNullOrWhiteSpace(Model.Notice))
+        {
+            <p class="admin-notice" data-creator-style-notice>@Model.Notice</p>
+        }
+        else if (!string.IsNullOrWhiteSpace(Model.ArtifactText))
+        {
+            <pre class="admin-artifact" data-creator-style-artifact>@Model.ArtifactText</pre>
+        }
+    </div>
+</section>
