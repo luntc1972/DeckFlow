@@ -43,6 +43,24 @@ public sealed class AdminLandingPersonalToolsViewTests
     }
 
     [Fact]
+    public async Task Index_RendersCreatorProfileLinkInPersonalToolsBlock()
+    {
+        string html = await RenderAsync();
+        var document = new HtmlParser().ParseDocument(html);
+
+        var anchors = document.QuerySelectorAll("a").OfType<IElement>();
+        var creatorProfileAnchor = anchors.FirstOrDefault(a =>
+            (a.GetAttribute("href") ?? string.Empty).EndsWith("/Admin/CreatorProfile", StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(creatorProfileAnchor);
+
+        var personalToolsContainer = document.QuerySelector(".admin-hub-personal-tools");
+        Assert.NotNull(personalToolsContainer);
+        Assert.True(
+            personalToolsContainer!.Contains(creatorProfileAnchor),
+            "Deck Tendencies link must be inside the Personal Tools container.");
+    }
+
+    [Fact]
     public async Task Index_PersonalToolsSectionIsASiblingOfAdminHubGrid_NotNestedInsideIt()
     {
         string html = await RenderAsync();
