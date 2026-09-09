@@ -266,8 +266,3 @@ internal sealed record MetaGapCacheInputs(
     int? MaxStanding,
     IReadOnlyList<int> SelectedReferenceIndexes,
     string TargetAiPlatformKey);
-
-internal sealed record CreatorStyleCacheInputs(
-    string CreatorSlug,
-    string NormalizedDeckSource,
-    string Format);
