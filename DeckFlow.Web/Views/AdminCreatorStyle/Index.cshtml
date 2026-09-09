@@ -56,7 +56,7 @@
         {
             <p class="admin-notice" data-creator-style-notice>@Model.Notice</p>
         }
-        else if (!string.IsNullOrWhiteSpace(Model.ArtifactText))
+        @if (!string.IsNullOrWhiteSpace(Model.ArtifactText))
         {
             <pre class="admin-artifact" data-creator-style-artifact>@Model.ArtifactText</pre>
         }
