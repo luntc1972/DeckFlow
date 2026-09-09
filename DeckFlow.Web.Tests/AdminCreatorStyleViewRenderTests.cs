@@ -383,9 +383,6 @@ public sealed class AdminCreatorStyleViewRenderTests
 
         public List<CreatorStyleRequest> Requests { get; } = new();
 
-        public Task<string?> TryComputeCacheKeyAsync(CreatorStyleRequest request, CancellationToken cancellationToken)
-            => Task.FromResult<string?>(null);
-
         public Task<CreatorStylePacketResult> BuildAsync(CreatorStyleRequest request, CancellationToken cancellationToken = default)
         {
             Requests.Add(request);
@@ -400,8 +397,6 @@ public sealed class AdminCreatorStyleViewRenderTests
 
     private sealed class ThrowingCreatorStylePacketService : ICreatorStylePacketService
     {
-        public Task<string?> TryComputeCacheKeyAsync(CreatorStyleRequest request, CancellationToken cancellationToken)
-            => Task.FromResult<string?>(null);
 
         public Task<CreatorStylePacketResult> BuildAsync(CreatorStyleRequest request, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Simulated packet service failure.");
