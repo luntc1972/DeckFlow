@@ -6,6 +6,28 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.09.3 — Personal Tools: Admin-Only Creator Style and Deck Tendencies (2026-09-09)
+
+New admin-only tools, both reachable only through the existing `/Admin` BasicAuth branch (no public
+route, no feature flag, no tool tile):
+- **Creator Style (`/Admin/CreatorStyle`)**: an operator picks a seeded creator and pastes or links a
+  deck; the tool builds a style critique against that creator's profile. With the profile seed store
+  currently empty, the page still renders its full picker and deck-input form and shows an
+  operator-facing "no profiles seeded" message where the critique would go — this is expected, not a
+  bug, until a future phase populates real seed data.
+- **Deck Tendencies (`/Admin/CreatorProfile`)**: an operator submits a creator's slug, platform
+  username, and platform; DeckFlow crawls their public decks, measures a style profile, and renders a
+  deck-tendencies report (per-deck rows, repeated non-commander and commander-board cards, and
+  quantity-weighted category tendencies) on the same page. Re-submitting the same identity preserves
+  the prior crawl timestamp; changing the username, platform, or setting force-refresh re-crawls.
+- The `/Admin` landing page's Personal Tools section links both.
+
+Retired: the `tool.creator-style.enabled` public feature flag, its `ToolRegistry` entry, its sitemap
+and SEO-path entries, and its public help topic — these predate this milestone's 2026-07-19 legal
+review, which turned public creator-crawl off as a feature. Nothing named above was ever reachable in
+production; this release removes the dead plumbing and the dead tests that pinned it, rather than
+carrying either forward.
+
 ### 2026.09.2 — Scryfall Batching, Proven-Equivalence Evidence, Protection Vocabulary (2026-09-07)
 
 Card classification, affecting Mana Base and Deck Analysis:
