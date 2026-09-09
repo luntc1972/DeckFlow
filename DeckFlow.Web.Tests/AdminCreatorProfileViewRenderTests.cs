@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Reflection;
+using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 using DeckFlow.Web.Controllers.Admin;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -70,6 +73,116 @@ public sealed class AdminCreatorProfileViewRenderTests
         Assert.DoesNotContain("id=\"creator-profile-repeat-cards\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("id=\"creator-profile-repeat-commanders\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("id=\"creator-profile-category-tendencies\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Index_PopulatedProfileAndReport_RendersMetricsAndAllFourReportCollections()
+    {
+        var profile = new CreatorStyleProfile
+        {
+            Slug = "snail",
+            Platform = "archidekt",
+            MinDecks = 7,
+            InsufficientSample = false,
+            MeasuredMetrics =
+            [
+                new MeasuredMetric { Metric = "category_ratio:ramp", Value = 12.3456, NumDecks = 7 },
+            ],
+            UpdatedUtc = new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero),
+        };
+        var report = new DeckTendenciesReport
+        {
+            DeckCount = 2,
+            Decks =
+            [
+                new DeckTendencyDeckRow
+                {
+                    DeckId = "deck-1",
+                    DeckName = "Snail Kicks",
+                    CardCount = 100,
+                    FolderName = "Brew Box",
+                    Commanders = ["Atraxa, Praetors' Voice"],
+                },
+            ],
+            RepeatCards =
+            [
+                new RepeatCardRow { CardName = "Sol Ring", DeckCount = 2, Frequency = 1.0, IsPersonalStaple = true },
+            ],
+            RepeatCommanders =
+            [
+                new RepeatCardRow { CardName = "Atraxa, Praetors' Voice", DeckCount = 2, Frequency = 1.0, IsPersonalStaple = false },
+            ],
+            CategoryTendencies =
+            [
+                new CategoryTendencyRow { Category = "Ramp", AverageCountPerDeck = 2.5, PresenceRatio = 1.0 },
+            ],
+        };
+        var vm = new AdminCreatorProfileViewModel { Profile = profile, Report = report };
+
+        string html = await RenderAsync(vm);
+
+        Assert.Contains("category_ratio:ramp", html, StringComparison.Ordinal);
+        Assert.Contains("Snail Kicks", html, StringComparison.Ordinal);
+        Assert.Contains("Sol Ring", html, StringComparison.Ordinal);
+        Assert.Contains("Atraxa, Praetors&#x27; Voice", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Ramp", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"creator-profile-decks\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"creator-profile-repeat-cards\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"creator-profile-repeat-commanders\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"creator-profile-category-tendencies\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Run_CarriesValidateAntiForgeryTokenAttribute()
+    {
+        MethodInfo runMethod = typeof(AdminCreatorProfileController).GetMethod(nameof(AdminCreatorProfileController.Run))!;
+
+        var attributes = runMethod.GetCustomAttributes(inherit: false);
+
+        Assert.Contains(attributes, a => a.GetType().Name == "ValidateAntiForgeryTokenAttribute");
+    }
+
+    [Fact]
+    public async Task Index_UntrustedUpstreamStringsContainingMarkup_AreHtmlEncoded()
+    {
+        const string malicious = "<script>alert('x')</script>";
+        var profile = new CreatorStyleProfile
+        {
+            Slug = "snail",
+            Platform = "archidekt",
+            MinDecks = 7,
+            UpdatedUtc = new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero),
+        };
+        var report = new DeckTendenciesReport
+        {
+            DeckCount = 1,
+            Decks =
+            [
+                new DeckTendencyDeckRow
+                {
+                    DeckId = "deck-1",
+                    DeckName = malicious,
+                    CardCount = 100,
+                    FolderName = malicious,
+                    Commanders = [malicious],
+                },
+            ],
+            RepeatCards =
+            [
+                new RepeatCardRow { CardName = malicious, DeckCount = 2, Frequency = 1.0, IsPersonalStaple = false },
+            ],
+            RepeatCommanders = [],
+            CategoryTendencies =
+            [
+                new CategoryTendencyRow { Category = malicious, AverageCountPerDeck = 1.0, PresenceRatio = 1.0 },
+            ],
+        };
+        var vm = new AdminCreatorProfileViewModel { Profile = profile, Report = report };
+
+        string html = await RenderAsync(vm);
+
+        Assert.DoesNotContain("<script>alert('x')</script>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<script>", html, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<string> RenderAsync(AdminCreatorProfileViewModel model)
