@@ -7,7 +7,6 @@ using DeckFlow.Core.Normalization;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CreatorStyle;
-using DeckFlow.Web.Services.FeatureFlags;
 using System.Globalization;
 using Xunit;
 
@@ -230,84 +229,6 @@ public sealed class CreatorStylePacketServiceTests
 
         Assert.True(result.GroundingDegraded);
         Assert.Equal(UpstreamOutageNotice, result.Notice);
-    }
-
-    [Fact]
-    public async Task TryComputeCacheKeyAsync_FlagOn_ReturnsNull()
-    {
-        var request = CreateCacheRequest();
-        CreatorStylePacketService sut = CreateSut(flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool>
-        {
-            [CreatorStylePacketService.CreatorStyleToolEnabledFlag] = true,
-        }));
-
-        string? key = await sut.TryComputeCacheKeyAsync(request, CancellationToken.None);
-
-        Assert.Null(key);
-    }
-
-    [Fact]
-    public async Task TryComputeCacheKeyAsync_FlagMissingFromSnapshot_DefaultsOnReturnsNull()
-    {
-        // WR-07 regression: an unseeded flag store must default the tool-enabled flag ON,
-        // matching Program.cs's documented default-on-if-missing semantics for
-        // tool.creator-style.enabled, not the "missing == off" behavior this used to fall back to.
-        var request = CreateCacheRequest();
-        CreatorStylePacketService sut = CreateSut(flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool>()));
-
-        string? key = await sut.TryComputeCacheKeyAsync(request, CancellationToken.None);
-
-        Assert.Null(key);
-    }
-
-    [Fact]
-    public async Task TryComputeCacheKeyAsync_FlagOff_Returns64CharacterKey()
-    {
-        var request = CreateCacheRequest();
-        CreatorStylePacketService sut = CreateSut(flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool>
-        {
-            [CreatorStylePacketService.CreatorStyleToolEnabledFlag] = false,
-        }));
-
-        string? key = await sut.TryComputeCacheKeyAsync(request, CancellationToken.None);
-
-        Assert.NotNull(key);
-        Assert.Equal(64, key!.Length);
-    }
-
-    [Fact]
-    public async Task BuildAsync_FlagFlipsOffMidRequest_WriteSideSkipsCacheBasedOnLatchedBypass()
-    {
-        var packetCache = new PacketSessionCache();
-        var request = CreateCacheRequest();
-        CreatorStylePacketService sut = CreateSut(
-            packetCache: packetCache,
-            flagCache: new FlipAfterNSnapshotsFeatureFlagCache(CreatorStylePacketService.CreatorStyleToolEnabledFlag, trueCallCount: 1),
-            analysis: CreateAnalysis(
-                deckSize: 99,
-                entries:
-                [
-                    DeckEntry("Commander One", 1, "commander"),
-                    DeckEntry("Arcane Signet", 1, "mainboard"),
-                ]),
-            creatorDecks:
-            [
-                CreatorDeck("deck-1", "trusted-folder", "ok", "Commander One", "Arcane Signet"),
-            ]);
-
-        CreatorStylePacketResult result = await sut.BuildAsync(request, CancellationToken.None);
-
-        Assert.NotEmpty(result.ArtifactText);
-
-        CreatorStylePacketService probe = CreateSut(
-            packetCache: packetCache,
-            flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool>
-            {
-                [CreatorStylePacketService.CreatorStyleToolEnabledFlag] = false,
-            }));
-        string? cacheKey = await probe.TryComputeCacheKeyAsync(request, CancellationToken.None);
-        Assert.NotNull(cacheKey);
-        Assert.False(packetCache.TryGet<CreatorStylePacketResult>(cacheKey!, out _));
     }
 
     [Theory]
@@ -1074,9 +995,7 @@ public sealed class CreatorStylePacketServiceTests
         Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>>? buildWhitelistAsync = null,
         Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>>? getCreatorDecksAsync = null,
         Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult>? scoreRubricFunc = null,
-        Action<IReadOnlyList<FusedTarget>>? onScoreTargets = null,
-        PacketSessionCache? packetCache = null,
-        IFeatureFlagCache? flagCache = null)
+        Action<IReadOnlyList<FusedTarget>>? onScoreTargets = null)
     {
         CreatorStyleProfile defaultProfile = profile ?? CreateProfile("alpha");
         SubmittedDeckAnalysis defaultAnalysis = analysis ?? CreateAnalysis(
@@ -1110,59 +1029,7 @@ public sealed class CreatorStylePacketServiceTests
             {
                 onScoreTargets?.Invoke(targets);
                 return scoreRubric ?? defaultRubric;
-            }),
-            packetCache: packetCache,
-            flagCache: flagCache);
-    }
-
-    private static CreatorStyleRequest CreateCacheRequest()
-        => new()
-        {
-            CreatorSlug = "alpha",
-            DeckText = "1 Arcane Signet",
-            Format = "Commander",
-        };
-
-    private sealed class FakeFeatureFlagCache : IFeatureFlagCache
-    {
-        public FakeFeatureFlagCache(IReadOnlyDictionary<string, bool> flags)
-        {
-            Flags = new Dictionary<string, bool>(flags, StringComparer.Ordinal);
-        }
-
-        public Dictionary<string, bool> Flags { get; }
-
-        public bool IsEnabled(string key) => Snapshot().TryGetValue(key, out bool enabled) && enabled;
-
-        public IReadOnlyDictionary<string, bool> Snapshot() => Flags;
-
-        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
-
-    private sealed class FlipAfterNSnapshotsFeatureFlagCache : IFeatureFlagCache
-    {
-        private readonly string _flagKey;
-        private readonly int _trueCallCount;
-        private int _callCount;
-
-        public FlipAfterNSnapshotsFeatureFlagCache(string flagKey, int trueCallCount)
-        {
-            _flagKey = flagKey;
-            _trueCallCount = trueCallCount;
-        }
-
-        public bool IsEnabled(string key) => Snapshot().TryGetValue(key, out bool enabled) && enabled;
-
-        public IReadOnlyDictionary<string, bool> Snapshot()
-        {
-            _callCount++;
-            return new Dictionary<string, bool>(StringComparer.Ordinal)
-            {
-                [_flagKey] = _callCount <= _trueCallCount,
-            };
-        }
-
-        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+            }));
     }
 
     private static async Task<string> WithCultureAsync(CultureInfo culture, Func<Task<string>> action)
