@@ -201,6 +201,14 @@ public partial class Program
         // Add services to the container.
         builder.Services
             .AddControllersWithViews()
+            // Why (phase 114): the default ApplicationPartManager seeds itself from
+            // Assembly.GetEntryAssembly(), which is DeckFlow.Web.dll in production but the test
+            // host process (e.g. "testhost") when BuildApp is invoked from a unit test — Task 3's
+            // production-host fact does exactly that. Without an explicit application part, every
+            // attribute-routed controller in this assembly silently 404s under a test host, even
+            // though nothing is wrong with the routes themselves. Explicit and harmless in
+            // production (Assembly.GetEntryAssembly() already includes this assembly there).
+            .AddApplicationPart(typeof(Program).Assembly)
             .AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
