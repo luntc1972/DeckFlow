@@ -7,7 +7,6 @@ using DeckFlow.Web.Models;
 using System.Globalization;
 using System.Text;
 using DeckFlow.Web.Services;
-using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -18,15 +17,6 @@ namespace DeckFlow.Web.Services.CreatorStyle;
 /// </summary>
 public interface ICreatorStylePacketService
 {
-    /// <summary>
-    /// Computes the creator-style packet cache key for the supplied request, or <see langword="null"/>
-    /// when the request should bypass <see cref="PacketSessionCache"/>.
-    /// </summary>
-    /// <param name="request">Current creator-style request.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The canonical packet cache key, or <see langword="null"/> when cache bypass is active.</returns>
-    Task<string?> TryComputeCacheKeyAsync(CreatorStyleRequest request, CancellationToken cancellationToken);
-
     /// <summary>
     /// Builds a deterministic creator-style artifact packet for the supplied request.
     /// </summary>
@@ -118,23 +108,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
     private const int MaxUserTextLength = 200;
     private const string CritiqueInstruction = "Critique this deck ONLY using the cards provided above. Do not invent, suggest, or reference any card that is not listed here.";
     private const string SupersededVerdict = "superseded";
-    internal const string CreatorStyleToolEnabledFlag = "tool.creator-style.enabled";
-
-    // Why (WR-15 tracking note, see WR-08 in 112-REVIEW.md): CreatorStyleToolEnabledFlag is the
-    // sole gate that makes this service reachable at all - every packet built here necessarily
-    // has the flag ON, so registering it as "prompt mutating" makes ShouldBypassPacketCache()
-    // return true unconditionally in every state this code can actually run in. That makes
-    // PacketSessionCache's read/write wiring for this tool a total no-op today, not the
-    // conditional no-op the comment below used to claim. Left unresolved pending a maintainer
-    // decision between two mutually exclusive fixes (either drop this flag from the list below,
-    // which would also require rewriting the three tests in CreatorStylePacketServiceTests.cs
-    // that currently pin today's always-bypass behavior as intentional, or delete the cache
-    // wiring and CreatorStyleCacheInputs entirely) - see 112-REVIEW-FIX.md for the fuller
-    // rationale.
-    internal static readonly IReadOnlyList<string> PromptMutatingCreatorStyleFlags = new[]
-    {
-        CreatorStyleToolEnabledFlag,
-    };
 
     private readonly Func<string, CancellationToken, Task<CreatorStyleProfile?>> _getProfileAsync;
     private readonly Func<string, CancellationToken, Task<SubmittedDeckAnalysis>> _buildSubmittedDeckAsync;
@@ -142,8 +115,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
     private readonly Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>> _validateAdditionalCardsAsync;
     private readonly Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>> _getCreatorDecksAsync;
     private readonly Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult> _scoreRubric;
-    private readonly PacketSessionCache? _packetCache;
-    private readonly IFeatureFlagCache? _flagCache;
     private readonly ILogger<CreatorStylePacketService> _logger;
 
     /// <summary>
@@ -155,8 +126,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         CreatorWhitelistPoolBuilder creatorWhitelistPoolBuilder,
         ICardGroundingGuard cardGroundingGuard,
         ICreatorDeckCacheStore creatorDeckCacheStore,
-        PacketSessionCache packetCache,
-        IFeatureFlagCache? flagCache = null,
         ILogger<CreatorStylePacketService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(creatorStyleProfileStore);
@@ -164,7 +133,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         ArgumentNullException.ThrowIfNull(creatorWhitelistPoolBuilder);
         ArgumentNullException.ThrowIfNull(cardGroundingGuard);
         ArgumentNullException.ThrowIfNull(creatorDeckCacheStore);
-        ArgumentNullException.ThrowIfNull(packetCache);
 
         _getProfileAsync = (creatorSlug, cancellationToken) => creatorStyleProfileStore.GetBySlugAsync(creatorSlug, cancellationToken);
         _buildSubmittedDeckAsync = (deckSource, cancellationToken) => submittedDeckStatsBuilder.BuildAsync(deckSource, cancellationToken);
@@ -172,8 +140,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         _validateAdditionalCardsAsync = (candidateNames, deckContext, cancellationToken) => cardGroundingGuard.ValidateAllAsync(candidateNames, deckContext, cancellationToken);
         _getCreatorDecksAsync = (creatorSlug, cancellationToken) => creatorDeckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken);
         _scoreRubric = (creatorSlug, targets, stats) => CreatorStyleRubricScorer.Score(creatorSlug, targets, stats);
-        _packetCache = packetCache;
-        _flagCache = flagCache;
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
     }
 
@@ -184,8 +150,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>> validateAdditionalCardsAsync,
         Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>> getCreatorDecksAsync,
         Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult> scoreRubric,
-        PacketSessionCache? packetCache = null,
-        IFeatureFlagCache? flagCache = null,
         ILogger<CreatorStylePacketService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(getProfileAsync);
@@ -200,39 +164,23 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         _validateAdditionalCardsAsync = validateAdditionalCardsAsync;
         _getCreatorDecksAsync = getCreatorDecksAsync;
         _scoreRubric = scoreRubric;
-        _packetCache = packetCache;
-        _flagCache = flagCache;
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
-    }
-
-    /// <inheritdoc />
-    public Task<string?> TryComputeCacheKeyAsync(CreatorStyleRequest request, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        if (ShouldBypassPacketCache())
-        {
-            return Task.FromResult<string?>(null);
-        }
-
-        return Task.FromResult<string?>(PacketSessionCache.ComputeKey(BuildCacheInputs(request)));
     }
 
     /// <inheritdoc />
     public async Task<CreatorStylePacketResult> BuildAsync(CreatorStyleRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        bool bypassCacheWrite = ShouldBypassPacketCache();
 
         CreatorStyleProfile? profile = await _getProfileAsync(request.CreatorSlug, cancellationToken).ConfigureAwait(false);
         if (profile is null)
         {
-            return FinalizeResult(CreateUnavailableResult("No creator style profile is available for the supplied creator slug."));
+            return CreateUnavailableResult("No creator style profile is available for the supplied creator slug.");
         }
 
         if (profile.InsufficientSample)
         {
-            return FinalizeResult(CreateUnavailableResult("The creator style profile sample is insufficient for artifact generation."));
+            return CreateUnavailableResult("The creator style profile sample is insufficient for artifact generation.");
         }
 
         Task<IReadOnlyList<CreatorDeckCacheEntry>> creatorDecksTask = _getCreatorDecksAsync(request.CreatorSlug, cancellationToken);
@@ -327,7 +275,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
                 additionalCandidates.Count);
         }
 
-        return FinalizeResult(new CreatorStylePacketResult
+        return new CreatorStylePacketResult
         {
             ArtifactText = BuildArtifactText(
                 request,
@@ -344,25 +292,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             ValidatedComboCards = validatedComboCards,
             GroundingDegraded = groundingDegraded,
             Notice = notice,
-        });
-
-        CreatorStylePacketResult FinalizeResult(CreatorStylePacketResult result)
-        {
-            if (!bypassCacheWrite && _packetCache is not null)
-            {
-                // Why (WR-08 in 112-REVIEW.md): this branch never actually runs today - it is the
-                // *cache*, not the bypass, that is the no-op. CreatorStyleToolEnabledFlag is the
-                // sole flag in PromptMutatingCreatorStyleFlags and also the sole gate that makes
-                // this service reachable, so bypassCacheWrite is always true whenever BuildAsync
-                // executes. The wiring is left in place, mirroring DeckAnalysisPacketService's
-                // shape, pending a maintainer decision on how to resolve WR-08 (see the constant
-                // declaration above and 112-REVIEW-FIX.md for the two candidate fixes).
-                string cacheKey = PacketSessionCache.ComputeKey(BuildCacheInputs(request));
-                _packetCache.Set(cacheKey, result, PacketSizeEstimator.EstimateSizeBytes(result));
-            }
-
-            return result;
-        }
+        };
     }
 
     private static CreatorStylePacketResult CreateUnavailableResult(string notice)
@@ -421,28 +351,6 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
 
     private static bool IsSuperseded(FusedTarget target)
         => string.Equals(target.Verdict, SupersededVerdict, StringComparison.OrdinalIgnoreCase);
-
-    // Why (WR-07, maintainer decision 2026-09-06 per WAITING.json): a missing snapshot entry must
-    // default ON, matching the documented tool.creator-style.enabled semantics in Program.cs
-    // (DB-backed, default-on-if-missing). The prior "missing == off" fallback only mattered for an
-    // unseeded flag store, never exercised by CreatorStylePacketServiceTests.cs (every existing
-    // test sets the key explicitly), so this closes the doc/code mismatch without changing any
-    // pinned test behavior.
-    private bool IsCreatorStyleFlagOn(string flagKey)
-        => _flagCache is not null
-            && (!_flagCache.Snapshot().TryGetValue(flagKey, out bool on) || on);
-
-    private bool ShouldBypassPacketCache()
-        => PromptMutatingCreatorStyleFlags.Any(IsCreatorStyleFlagOn);
-
-    private static CreatorStyleCacheInputs BuildCacheInputs(CreatorStyleRequest request)
-        => new(
-            CreatorSlug: request.CreatorSlug.Trim(),
-            NormalizedDeckSource: NormalizeDeckSource(request.DeckSource),
-            Format: request.Format.Trim());
-
-    private static string NormalizeDeckSource(string deckSource)
-        => (deckSource ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
 
     private static string BuildArtifactText(
         CreatorStyleRequest request,
