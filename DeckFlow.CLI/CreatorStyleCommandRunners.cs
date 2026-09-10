@@ -157,6 +157,8 @@ internal static class CreatorStyleCommandRunners
     /// <param name="profilesOutput">Optional destination path for the creator-style profile seed file.</param>
     /// <param name="deckCacheOutput">Optional destination path for the creator deck-cache seed file.</param>
     /// <returns>Process exit code.</returns>
+    // Why: registered as its own command in Program.cs, not chained onto fuse-profile (D-04) — the
+    // three creator-style stages stay independently re-runnable.
     public static async Task<int> RunCreatorStyleIndexExportAsync(FileInfo? db, FileInfo? profilesOutput, FileInfo? deckCacheOutput)
     {
         try
@@ -199,8 +201,26 @@ internal static class CreatorStyleCommandRunners
                 deckCacheEntries.AddRange(deckEntries);
             }
 
-            // WIP (RED): the collection above is proven; writing is not yet implemented.
-            Console.WriteLine($"Collected {profiles.Count} profile(s) and {deckCacheEntries.Count} deck-cache row(s).");
+            var profilesPath = profilesOutput?.FullName ?? ContentKbPaths.CreatorStyleProfileSeedRelativePath;
+            var deckCachePath = deckCacheOutput?.FullName ?? ContentKbPaths.CreatorDeckCacheSeedRelativePath;
+
+            var profilesDirectory = Path.GetDirectoryName(Path.GetFullPath(profilesPath));
+            if (!string.IsNullOrEmpty(profilesDirectory))
+            {
+                Directory.CreateDirectory(profilesDirectory);
+            }
+
+            var deckCacheDirectory = Path.GetDirectoryName(Path.GetFullPath(deckCachePath));
+            if (!string.IsNullOrEmpty(deckCacheDirectory))
+            {
+                Directory.CreateDirectory(deckCacheDirectory);
+            }
+
+            await File.WriteAllTextAsync(profilesPath, SerializeCreatorStyleSeed(profiles)).ConfigureAwait(false);
+            await File.WriteAllTextAsync(deckCachePath, SerializeCreatorStyleSeed(deckCacheEntries)).ConfigureAwait(false);
+
+            Console.WriteLine(
+                $"Exported {profiles.Count} profile(s) to {profilesPath} and {deckCacheEntries.Count} deck-cache row(s) to {deckCachePath}.");
             return 0;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
@@ -208,6 +228,12 @@ internal static class CreatorStyleCommandRunners
             Console.Error.WriteLine(exception.Message);
             return 1;
         }
+    }
+
+    private static string SerializeCreatorStyleSeed<T>(IReadOnlyList<T> items)
+    {
+        var json = JsonSerializer.Serialize(items, CreatorStyleSeedJson.Options);
+        return json + "\n";
     }
 
     private static void PrintConflictLedger(IReadOnlyList<FusedTarget> fusedTargets)
