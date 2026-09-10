@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DeckFlow.Web.Controllers;
 using DeckFlow.Web.Models;
@@ -210,6 +211,59 @@ public sealed class CutLabViewRenderTests
         Assert.Contains("aria-label=\"Relentless Rats is locked - unlock it to adjust quantity\"", tunerRowHtml, StringComparison.Ordinal);
         Assert.Equal(2, CountOccurrences(tunerRowHtml, "data-cut-lab-card=\"Relentless Rats\""));
         Assert.Equal(2, CountOccurrences(tunerRowHtml, "title=\"Relentless Rats is locked - unlock it to adjust quantity\""));
+    }
+
+    [Fact]
+    public async Task ResultView_RendersConstraintsSummaryFromPoolPackagesAndRoleGroups()
+    {
+        var model = BuildTwinBadgeModel() with
+        {
+            StickyBar = new CutLabStickyBarView { LockedCount = 2 },
+            Pool =
+            [
+                new CutLabPoolCard { Name = "Sol Ring", Quantity = 1, IsLocked = true },
+                new CutLabPoolCard { Name = "Mana Crypt", Quantity = 1, IsLocked = true },
+                new CutLabPoolCard { Name = "Card Draw", Quantity = 1 },
+            ],
+            Packages =
+            [
+                new CutLabPackage { Id = "fast-mana", Name = "Fast mana", Locked = true },
+                new CutLabPackage { Id = "removal", Name = "Removal suite" },
+            ],
+            RoleGroups =
+            [
+                new CutLabRoleGroupView
+                {
+                    RoleKey = "ramp",
+                    DisplayLabel = "Ramp",
+                    Members = [new CutLabRoleMemberView { Name = "Sol Ring", IsLocked = true }],
+                },
+                new CutLabRoleGroupView
+                {
+                    RoleKey = "draw",
+                    DisplayLabel = "Card draw",
+                    Members = [new CutLabRoleMemberView { Name = "Card Draw" }],
+                },
+                new CutLabRoleGroupView { RoleKey = "other", DisplayLabel = "Other", IsLockable = false },
+            ],
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("id=\"cut-lab-section-constraints\"", html, StringComparison.Ordinal);
+        Assert.Matches("data-cut-lab-constraints-locked-count[^>]*>2</span>", html);
+        Assert.Contains("Sol Ring", html, StringComparison.Ordinal);
+        Assert.Contains("Fast mana", html, StringComparison.Ordinal);
+        string packageChipHtml = Regex.Match(
+            html,
+            "<div class=\"kb-chip-area__chips\" data-cut-lab-constraints-package-chips>(.*?)</div>",
+            RegexOptions.Singleline).Groups[1].Value;
+        Assert.Contains("Fast mana", packageChipHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Removal suite", packageChipHtml, StringComparison.Ordinal);
+        Assert.Matches("data-cut-lab-lock-card=\"Sol Ring\"[^>]*aria-label=\"Lock Sol Ring to keep it\"", html);
+        Assert.Matches("data-cut-lab-constraints-package-count[^>]*>1/2</span>", html);
+        Assert.Matches("data-cut-lab-constraints-role-count[^>]*>1/2</span>", html);
+        Assert.Contains("Card draw", html, StringComparison.Ordinal);
     }
 
     [Fact]
