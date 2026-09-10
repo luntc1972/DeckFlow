@@ -134,9 +134,10 @@ internal static class CreatorStyleCommandRunners
                 UpdatedUtc = DateTimeOffset.UtcNow,
             };
 
-            // TODO(115-01 RED): persist the fused ledger back onto the profile row. Left
-            // unimplemented for the tracer task's RED phase per grounding correction 4 — the GREEN
-            // commit adds this call.
+            // Why (grounding correction 4): persisting is not optional. A later re-crawl reads
+            // StatedRules back off this same profile row and re-fuses, so both sections must land
+            // here rather than only being printed.
+            await profileStore.UpsertAsync(updatedProfile).ConfigureAwait(false);
             PrintConflictLedger(fusedTargets);
             return 0;
         }
