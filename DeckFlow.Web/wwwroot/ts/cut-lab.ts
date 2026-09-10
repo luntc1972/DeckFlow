@@ -1265,6 +1265,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (stickyLocked) {
       stickyLocked.textContent = `${lockedCount} locked`;
     }
+
+    const constraintsLockedCount = document.querySelector<HTMLElement>('[data-cut-lab-constraints-locked-count]');
+    if (constraintsLockedCount) {
+      constraintsLockedCount.textContent = `${lockedCount}`;
+    }
   };
 
   const getSelectedPoolFilter = (): 'all' | 'locked' | 'unlocked' => {
@@ -4333,12 +4338,70 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     refreshAndSerialize();
   };
 
+  const updateConstraintsSummary = (): void => {
+    const lockedChips = document.querySelector<HTMLElement>('[data-cut-lab-constraints-locked-chips]');
+    const lockedMore = document.querySelector<HTMLElement>('[data-cut-lab-constraints-locked-more]');
+    const packageCount = document.querySelector<HTMLElement>('[data-cut-lab-constraints-package-count]');
+    const packageChips = document.querySelector<HTMLElement>('[data-cut-lab-constraints-package-chips]');
+    const roleCount = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-count]');
+    const roleChips = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-chips]');
+    const packages = getPackageContainers();
+    const roleButtons = getRoleLockButtons();
+    const lockedRows = getPoolRows().filter(row => getLockCheckbox(row)?.checked);
+    const unprotectedRoles = roleButtons
+      .filter(button => button.getAttribute('aria-pressed') !== 'true');
+    const unprotectedRoleChips = unprotectedRoles
+      .slice(0, 3);
+
+    if (lockedChips) {
+      lockedChips.innerHTML = lockedRows
+        .slice(0, 3)
+        .map(row => `<span class="kb-chip">${escapeHtml(row.dataset.cutLabCard ?? '')}</span>`)
+        .join('');
+    }
+
+    if (lockedMore) {
+      const lockedCardCount = lockedRows.reduce((total, row) => total + parseRowQuantity(row), 0);
+      const shownLockedCardCount = lockedRows
+        .slice(0, 3)
+        .reduce((total, row) => total + parseRowQuantity(row), 0);
+      const remainingLockedCards = Math.max(0, lockedCardCount - shownLockedCardCount);
+      lockedMore.textContent = `+${remainingLockedCards} more`;
+      lockedMore.hidden = remainingLockedCards === 0;
+    }
+
+    const lockedPackages = packages.filter(container => container.classList.contains('cutlab-package--locked'));
+
+    if (packageCount) {
+      packageCount.textContent = `${lockedPackages.length}/${packages.length}`;
+    }
+
+    if (packageChips) {
+      packageChips.innerHTML = lockedPackages
+        .slice(0, 3)
+        .map(container => `<span class="kb-chip">${escapeHtml(container.dataset.cutLabPackageName ?? '')}</span>`)
+        .join('');
+    }
+
+    if (roleCount) {
+      roleCount.textContent = `${roleButtons.length - unprotectedRoles.length}/${roleButtons.length}`;
+    }
+
+    if (roleChips) {
+      roleChips.innerHTML = unprotectedRoleChips
+        .map(button => escapeHtml(button.closest<HTMLElement>('.cutlab-role-group')?.querySelector('summary')?.textContent?.split('·')[0]?.trim() ?? ''))
+        .map(label => `<span class="kb-chip">${label}</span>`)
+        .join('');
+    }
+  };
+
   const refreshAndSerialize = (syncDecisionForms = true): void => {
     updateLockedCountChip();
     updatePoolFilterState();
     syncAllPackageStates();
     syncRoleGroupLockState();
     syncRoleLockButtons();
+    updateConstraintsSummary();
     const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom());
     writeStateToHiddenInput(serializedState);
     if (syncDecisionForms) {

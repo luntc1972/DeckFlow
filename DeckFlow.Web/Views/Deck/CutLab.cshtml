@@ -308,6 +308,7 @@
             <p class="cutlab-anchor-nav-label">On this page</p>
             <ul class="cutlab-anchor-nav-list">
                 <li><a href="#cut-lab-step-panel-1">Process</a></li>
+                <li><a href="#cut-lab-section-constraints">Constraints</a></li>
                 <li><a href="#cut-lab-section-lock-pool">Lock your pool</a></li>
                 <li><a href="#cut-lab-section-competes">How your pool competes</a></li>
                 <li><a href="#cut-lab-section-by-type">By type</a></li>
@@ -322,6 +323,60 @@
                 <li><a href="#cut-lab-section-export">Export</a></li>
             </ul>
         </nav>
+
+        <section class="result-panel">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-constraints" open>
+                <summary class="cutlab-collapsible__summary">Constraints</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Constraints</h2>
+                        <p class="prompt-size-note">What's protected while you cut — updates live as you lock cards, packages, and roles below.</p>
+                    </div>
+                </div>
+                <div class="cutlab-constraints-summary">
+                    <div class="cutlab-constraints-summary__block cutlab-constraints-summary__block--locked">
+                        @{ var lockedCards = Model.Pool.Where(card => card.IsLocked).ToArray();
+                           var shownLockedQuantity = lockedCards.Take(3).Sum(card => card.Quantity); }
+                        <div class="cutlab-constraints-summary__head">
+                            <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-locked-count>@Model.StickyBar.LockedCount</span>
+                            <span class="cutlab-constraints-summary__label">locked</span>
+                        </div>
+                        <div class="kb-chip-area__chips" data-cut-lab-constraints-locked-chips>
+                            @foreach (var card in lockedCards.Take(3))
+                            {
+                                <span class="kb-chip">@card.Name</span>
+                            }
+                        </div>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-locked-more hidden="@(Model.StickyBar.LockedCount > shownLockedQuantity ? null : "hidden")">+@Math.Max(0, Model.StickyBar.LockedCount - shownLockedQuantity) more</p>
+                    </div>
+                    <div class="cutlab-constraints-summary__block cutlab-constraints-summary__block--packages">
+                        <div class="cutlab-constraints-summary__head">
+                            <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-package-count>@Model.Packages.Count(package => package.Locked)/@Model.Packages.Count</span>
+                            <span class="cutlab-constraints-summary__label">packages locked</span>
+                        </div>
+                        <div class="kb-chip-area__chips" data-cut-lab-constraints-package-chips>
+                            @foreach (var package in Model.Packages.Where(package => package.Locked).Take(3))
+                            {
+                                <span class="kb-chip">@package.Name</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="cutlab-constraints-summary__block cutlab-constraints-summary__block--roles">
+                        <div class="cutlab-constraints-summary__head">
+                            <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-role-count>@Model.RoleGroups.Count(group => group.IsLockable && group.AllLockableMembersLocked)/@Model.RoleGroups.Count(group => group.IsLockable)</span>
+                            <span class="cutlab-constraints-summary__label">roles protected</span>
+                        </div>
+                        <div class="kb-chip-area__chips" data-cut-lab-constraints-role-chips>
+                            @foreach (var group in Model.RoleGroups.Where(group => group.IsLockable && !group.AllLockableMembersLocked).Take(3))
+                            {
+                                <span class="kb-chip">@group.DisplayLabel</span>
+                            }
+                        </div>
+                        <p class="cutlab-constraints-summary__note">not yet protected</p>
+                    </div>
+                </div>
+            </details>
+        </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-lock-pool">
@@ -399,10 +454,11 @@
             }
 
             <div class="history-timeline__wrap">
+                <p class="prompt-size-note">Lock a card to protect it from future cuts.</p>
                 <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
                     <thead>
                         <tr>
-                            <th scope="col">Lock (keep)<span class="prompt-size-note">Lock a card to protect it from future cuts.</span></th>
+                            <th scope="col">Lock (keep)</th>
                             <th scope="col">Card</th>
                             <th scope="col">Type / role</th>
                             <th scope="col">Package assignment</th>
@@ -424,6 +480,7 @@
                                            name="Lock_@card.Name"
                                            value="@card.Name"
                                            data-cut-lab-lock-card="@card.Name"
+                                           aria-label="Lock @card.Name to keep it"
                                            checked="@(card.IsLocked ? "checked" : null)"
                                            disabled="@(card.IsCommander ? "disabled" : null)" />
                                 </td>
