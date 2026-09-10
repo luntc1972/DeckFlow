@@ -36,6 +36,35 @@ public sealed class CutLabDesktopLayoutCssTests
         Assert.Contains("id=\"cut-lab-step-panel-1\"", content, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CutLabDesktopLayout_ScopesConstraintsSummaryAndCollapsesItAt720Pixels()
+    {
+        string content = ReadSiteCommonCss();
+
+        Assert.Matches(
+            new Regex(
+                "\\.cutlab-constraints-summary__block[^{}]*\\{[^}]*border:\\s*1px\\s+solid\\s+var\\(--line\\)[^}]*background:\\s*var\\(--bg\\)",
+                RegexOptions.Singleline),
+            content);
+        Assert.Matches(
+            new Regex(
+                "@media\\s*\\(max-width:\\s*720px\\)[^{]*\\{(?:(?!@media).)*\\.cutlab-constraints-summary\\s*\\{[^}]*grid-template-columns:\\s*1fr",
+                RegexOptions.Singleline),
+            content);
+    }
+
+    [Fact]
+    public void CutLabDesktopLayout_UsesThemeSecondaryFallbackForRolesCount()
+    {
+        string content = ReadSiteCommonCss();
+
+        Assert.Matches(
+            new Regex(
+                "\\.cutlab-constraints-summary__block--roles\\s+\\.cutlab-constraints-summary__count\\s*\\{[^}]*color:\\s*var\\(--mythic-gold,\\s*var\\(--theme-secondary\\)\\)",
+                RegexOptions.Singleline),
+            content);
+    }
+
     private static string ReadSiteCommonCss()
         => File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,

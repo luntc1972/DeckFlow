@@ -1592,6 +1592,60 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     }
 }
 
+/* Mana Base desktop workspace follows the established Cut Lab card hierarchy while
+   preserving its full calculation workflow and result lenses. */
+@media (min-width: 1024px) {
+  .manabase-workspace {
+    margin: 2.5rem 0 4rem;
+  }
+
+  .manabase-workspace > .manabase-hero {
+    padding: 2rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+
+  .manabase-workspace > .manabase-hero h1 {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-xl);
+    line-height: 1.15;
+  }
+
+  .manabase-workspace > .manabase-hero .lede {
+    max-width: 48rem;
+    margin-top: 0.65rem;
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+
+  .manabase-workspace > .manabase-hero .hero-detail {
+    max-width: 48rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .manabase-workspace > .result-panel {
+    padding: 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: 0 12px 30px rgba(26, 31, 46, 0.06);
+  }
+
+  .manabase-workspace .result-panel.nested-panel {
+    margin-top: 1.25rem;
+    padding: 1.25rem;
+    border-color: var(--line);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--panel) 92%, var(--accent));
+  }
+}
+
 /* Help topic — themed panel */
 .help-breadcrumb {
     font-size: var(--fs-base);
@@ -3401,6 +3455,8 @@ details.cutlab-collapsible > div.cutlab-package-help > p.cutlab-package-help__he
 }
 
 .manabase-summary-fix {
+  padding: 0.5rem 0 0.5rem 0.75rem;
+  border-left: 4px solid var(--accent-strong);
   font-weight: 600;
 }
 
@@ -3415,11 +3471,15 @@ details.cutlab-collapsible > div.cutlab-package-help > p.cutlab-package-help__he
 }
 
 .manabase-anchor-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   margin: 0.85rem 0 0;
   padding: 0.85rem 1rem;
   border-radius: 12px;
   border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
   background: var(--panel-soft-bg, var(--panel));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
 .manabase-anchor-nav-label {
@@ -5660,6 +5720,64 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
 
 .cutlab-compare table[data-prompt-cedh-reference-table] td:last-child .cutlab-delta__value {
   justify-content: flex-end;
+}
+
+.cutlab-constraints-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+  color: var(--ink);
+}
+
+.cutlab-constraints-summary__block {
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.cutlab-constraints-summary__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.15rem;
+}
+
+.cutlab-constraints-summary__count {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+
+.cutlab-constraints-summary__block--locked .cutlab-constraints-summary__count {
+  color: var(--theme-secondary);
+}
+
+.cutlab-constraints-summary__block--packages .cutlab-constraints-summary__count {
+  color: var(--accent-strong);
+}
+
+.cutlab-constraints-summary__block--roles .cutlab-constraints-summary__count {
+  color: var(--mythic-gold, var(--theme-secondary));
+}
+
+.cutlab-constraints-summary__label {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.cutlab-constraints-summary__note {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+@media (max-width: 720px) {
+  .cutlab-constraints-summary {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
