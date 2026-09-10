@@ -149,6 +149,12 @@ var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new
 var contentKbCheckCommand = new Command("content-kb-check", "Checks content_site_index rows against local artifact files and reports orphans (read-only; exits 1 when a published orphan exists).");
 var contentKbCheckDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var contentKbCheckArtifactRootOption = new Option<DirectoryInfo?>("--artifact-root") { Description = "Artifact directory: either the data-root parent of content-kb/ or the content-kb directory itself (both are normalized). Defaults to the MTG_DATA_DIR/content-kb resolution." };
+var creatorStyleImportStatedCommand = new Command("creator-style-import-stated", "Imports the tracked creator stated-rules seed into content_stated_rules. Exit codes: 0 = success with at least one rule imported; 1 = missing seed file or unhandled exception; 2 = the seed file parsed but held no rules.");
+var creatorStyleImportStatedFileOption = new Option<FileInfo?>("--file", () => new FileInfo(ContentKbPaths.CreatorStatedRulesSeedRelativePath)) { Description = "Path to the stated-rules seed JSON file. Defaults to content-kb/seed/creator-stated-rules.json." };
+var creatorStyleImportStatedDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var fuseProfileCommand = new Command("fuse-profile", "Fuses a creator's measured profile with its stated rules and persists the fused ledger. Exit codes: 0 = success with a non-empty fused ledger persisted; 1 = bad arguments or unhandled exception; 2 = ran successfully but the measured profile or stated rules were missing.");
+var fuseProfileSlugOption = new Option<string>("--slug") { IsRequired = true, Description = "Creator slug to fuse." };
+var fuseProfileDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -245,6 +251,10 @@ contentIndexExportCommand.AddOption(contentIndexExportDbOption);
 contentIndexExportCommand.AddOption(contentIndexExportOutputOption);
 contentKbCheckCommand.AddOption(contentKbCheckDbOption);
 contentKbCheckCommand.AddOption(contentKbCheckArtifactRootOption);
+creatorStyleImportStatedCommand.AddOption(creatorStyleImportStatedFileOption);
+creatorStyleImportStatedCommand.AddOption(creatorStyleImportStatedDbOption);
+fuseProfileCommand.AddOption(fuseProfileSlugOption);
+fuseProfileCommand.AddOption(fuseProfileDbOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -309,6 +319,8 @@ rootCommand.AddCommand(corpusResetCommand);
 rootCommand.AddCommand(distillCommand);
 rootCommand.AddCommand(contentIndexExportCommand);
 rootCommand.AddCommand(contentKbCheckCommand);
+rootCommand.AddCommand(creatorStyleImportStatedCommand);
+rootCommand.AddCommand(fuseProfileCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
@@ -455,6 +467,16 @@ contentKbCheckCommand.SetHandler((FileInfo? db, DirectoryInfo? artifactRoot) =>
 {
     Environment.ExitCode = ContentKbCommandRunners.RunContentKbCheckAsync(db, artifactRoot).GetAwaiter().GetResult();
 }, contentKbCheckDbOption, contentKbCheckArtifactRootOption);
+
+creatorStyleImportStatedCommand.SetHandler((FileInfo? file, FileInfo? db) =>
+{
+    Environment.ExitCode = CreatorStyleCommandRunners.RunCreatorStyleImportStatedAsync(file, db).GetAwaiter().GetResult();
+}, creatorStyleImportStatedFileOption, creatorStyleImportStatedDbOption);
+
+fuseProfileCommand.SetHandler((string slug, FileInfo? db) =>
+{
+    Environment.ExitCode = CreatorStyleCommandRunners.RunFuseProfileAsync(slug, db).GetAwaiter().GetResult();
+}, fuseProfileSlugOption, fuseProfileDbOption);
 
 var invokeExitCode = await rootCommand.InvokeAsync(args);
 return invokeExitCode == 0 ? Environment.ExitCode : invokeExitCode;
