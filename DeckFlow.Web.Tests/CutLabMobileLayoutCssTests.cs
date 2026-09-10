@@ -72,6 +72,28 @@ public sealed class CutLabMobileLayoutCssTests
             @"\.cutlab-workspace > \.cutlab-intake > form\.result-panel").Count);
     }
 
+    [Fact]
+    public void CutLabMobileLayout_UsesTrailingFadeForScrollableAnchorNav()
+    {
+        string content = ReadSiteCommonCss();
+
+        int selectorStart = content.LastIndexOf(
+            "nav.cutlab-anchor-nav .cutlab-anchor-nav-list",
+            content.Length - 1,
+            StringComparison.Ordinal);
+        int mobileBlockStart = content.LastIndexOf(
+            "@media (max-width: 640px)",
+            selectorStart,
+            StringComparison.Ordinal);
+        Match mobileBlock = Regex.Match(
+            content[mobileBlockStart..],
+            @"nav\.cutlab-anchor-nav \.cutlab-anchor-nav-list\s*\{(?<properties>[^}]*)\}");
+
+        Assert.True(mobileBlock.Success);
+        Assert.Contains("mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);", mobileBlock.Groups["properties"].Value);
+        Assert.Contains("-webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);", mobileBlock.Groups["properties"].Value);
+    }
+
     private static string ReadSiteMobileCss()
         => File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,
@@ -83,4 +105,16 @@ public sealed class CutLabMobileLayoutCssTests
             "wwwroot",
             "css",
             "site-mobile.css"));
+
+    private static string ReadSiteCommonCss()
+        => File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "DeckFlow.Web",
+            "wwwroot",
+            "css",
+            "site-common.css"));
 }

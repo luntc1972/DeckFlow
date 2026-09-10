@@ -5810,6 +5810,8 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
     overflow-y: hidden;
     white-space: nowrap;
     scrollbar-width: thin;
+    mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);
   }
 
   nav.cutlab-anchor-nav .cutlab-anchor-nav-list li {
