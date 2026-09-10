@@ -69,7 +69,7 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
             await using (var stream = File.OpenRead(seedFilePath))
             {
                 profiles = await JsonSerializer
-                    .DeserializeAsync<CreatorStyleProfile[]>(stream, SeedJson.Options, cancellationToken)
+                    .DeserializeAsync<CreatorStyleProfile[]>(stream, CreatorStyleSeedJson.Options, cancellationToken)
                     .ConfigureAwait(false)
                     ?? Array.Empty<CreatorStyleProfile>();
             }
@@ -116,7 +116,7 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
             await using (var stream = File.OpenRead(seedFilePath))
             {
                 entries = await JsonSerializer
-                    .DeserializeAsync<CreatorDeckCacheEntry[]>(stream, SeedJson.Options, cancellationToken)
+                    .DeserializeAsync<CreatorDeckCacheEntry[]>(stream, CreatorStyleSeedJson.Options, cancellationToken)
                     .ConfigureAwait(false)
                     ?? Array.Empty<CreatorDeckCacheEntry>();
             }

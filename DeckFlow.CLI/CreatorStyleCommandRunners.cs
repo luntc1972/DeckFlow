@@ -148,6 +148,94 @@ internal static class CreatorStyleCommandRunners
         }
     }
 
+    /// <summary>
+    /// Exports every stored creator style profile and its cached decks to tracked JSON seed files.
+    /// Exit codes: 0 = success with at least one profile exported; 1 = bad arguments or unhandled
+    /// exception; 2 = ran successfully but the profile store held no profiles to export.
+    /// </summary>
+    /// <param name="db">Optional path to the content KB database.</param>
+    /// <param name="profilesOutput">Optional destination path for the creator-style profile seed file.</param>
+    /// <param name="deckCacheOutput">Optional destination path for the creator deck-cache seed file.</param>
+    /// <returns>Process exit code.</returns>
+    // Why: registered as its own command in Program.cs, not chained onto fuse-profile (D-04) — the
+    // three creator-style stages stay independently re-runnable.
+    public static async Task<int> RunCreatorStyleIndexExportAsync(FileInfo? db, FileInfo? profilesOutput, FileInfo? deckCacheOutput)
+    {
+        try
+        {
+            var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
+            var profileStore = new CreatorStyleProfileStore(dbPath);
+            var deckCacheStore = new CreatorDeckCacheStore(dbPath);
+
+            var summaries = await profileStore.GetAllAsync().ConfigureAwait(false);
+            if (summaries.Count == 0)
+            {
+                Console.Error.WriteLine("No creator style profiles found; nothing to export.");
+                return 2;
+            }
+
+            var profiles = new List<CreatorStyleProfile>();
+            var deckCacheEntries = new List<CreatorDeckCacheEntry>();
+
+            foreach (var summary in summaries)
+            {
+                var profile = await profileStore.GetBySlugAsync(summary.Slug).ConfigureAwait(false);
+                if (profile is null)
+                {
+                    Console.Error.WriteLine($"Skipping slug '{summary.Slug}': full profile not found.");
+                    continue;
+                }
+
+                if (profile.FusedTargets.Count == 0)
+                {
+                    // Why (115-RESEARCH.md Pitfall 2, export-side half): an exported profile with no
+                    // fused ledger produces no critique on the admin surface, and the operator has no
+                    // other signal that fuse-profile was skipped for this slug.
+                    Console.Error.WriteLine(
+                        $"Warning: profile '{profile.Slug}' has no fused targets; run fuse-profile for this slug before deploying this export.");
+                }
+
+                profiles.Add(profile);
+
+                var deckEntries = await deckCacheStore.GetByCreatorAsync(summary.Slug).ConfigureAwait(false);
+                deckCacheEntries.AddRange(deckEntries);
+            }
+
+            var profilesPath = profilesOutput?.FullName ?? ContentKbPaths.CreatorStyleProfileSeedRelativePath;
+            var deckCachePath = deckCacheOutput?.FullName ?? ContentKbPaths.CreatorDeckCacheSeedRelativePath;
+
+            var profilesDirectory = Path.GetDirectoryName(Path.GetFullPath(profilesPath));
+            if (!string.IsNullOrEmpty(profilesDirectory))
+            {
+                Directory.CreateDirectory(profilesDirectory);
+            }
+
+            var deckCacheDirectory = Path.GetDirectoryName(Path.GetFullPath(deckCachePath));
+            if (!string.IsNullOrEmpty(deckCacheDirectory))
+            {
+                Directory.CreateDirectory(deckCacheDirectory);
+            }
+
+            await File.WriteAllTextAsync(profilesPath, SerializeCreatorStyleSeed(profiles)).ConfigureAwait(false);
+            await File.WriteAllTextAsync(deckCachePath, SerializeCreatorStyleSeed(deckCacheEntries)).ConfigureAwait(false);
+
+            Console.WriteLine(
+                $"Exported {profiles.Count} profile(s) to {profilesPath} and {deckCacheEntries.Count} deck-cache row(s) to {deckCachePath}.");
+            return 0;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+    }
+
+    private static string SerializeCreatorStyleSeed<T>(IReadOnlyList<T> items)
+    {
+        var json = JsonSerializer.Serialize(items, CreatorStyleSeedJson.Options);
+        return json + "\n";
+    }
+
     private static void PrintConflictLedger(IReadOnlyList<FusedTarget> fusedTargets)
     {
         foreach (var target in fusedTargets)
