@@ -19,4 +19,9 @@ public static class ContentKbPaths
     /// Repo-relative forward-slash path to the tracked creator deck-cache seed file.
     /// </summary>
     public const string CreatorDeckCacheSeedRelativePath = "content-kb/seed/creator-deck-cache.json";
+
+    /// <summary>
+    /// Repo-relative forward-slash path to the tracked creator stated-rules seed file.
+    /// </summary>
+    public const string CreatorStatedRulesSeedRelativePath = "content-kb/seed/creator-stated-rules.json";
 }
