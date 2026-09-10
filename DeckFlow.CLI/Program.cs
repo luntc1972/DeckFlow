@@ -155,6 +155,10 @@ var creatorStyleImportStatedDbOption = new Option<FileInfo?>("--db") { Descripti
 var fuseProfileCommand = new Command("fuse-profile", "Fuses a creator's measured profile with its stated rules and persists the fused ledger. Exit codes: 0 = success with a non-empty fused ledger persisted; 1 = bad arguments or unhandled exception; 2 = ran successfully but the measured profile or stated rules were missing.");
 var fuseProfileSlugOption = new Option<string>("--slug") { IsRequired = true, Description = "Creator slug to fuse." };
 var fuseProfileDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var creatorStyleIndexExportCommand = new Command("creator-style-index-export", "Exports every stored creator style profile and its cached decks to tracked JSON seed files for commit-then-deploy. Exit codes: 0 = success with at least one profile exported; 1 = bad arguments or unhandled exception; 2 = ran successfully but the profile store held no profiles to export.");
+var creatorStyleIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
+var creatorStyleIndexExportProfilesOutputOption = new Option<FileInfo?>("--profiles-output", () => new FileInfo(ContentKbPaths.CreatorStyleProfileSeedRelativePath)) { Description = "Path to the creator-style profile seed file. Defaults to content-kb/seed/creator-style-profiles.json." };
+var creatorStyleIndexExportDeckCacheOutputOption = new Option<FileInfo?>("--deck-cache-output", () => new FileInfo(ContentKbPaths.CreatorDeckCacheSeedRelativePath)) { Description = "Path to the creator deck-cache seed file. Defaults to content-kb/seed/creator-deck-cache.json." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
@@ -255,6 +259,9 @@ creatorStyleImportStatedCommand.AddOption(creatorStyleImportStatedFileOption);
 creatorStyleImportStatedCommand.AddOption(creatorStyleImportStatedDbOption);
 fuseProfileCommand.AddOption(fuseProfileSlugOption);
 fuseProfileCommand.AddOption(fuseProfileDbOption);
+creatorStyleIndexExportCommand.AddOption(creatorStyleIndexExportDbOption);
+creatorStyleIndexExportCommand.AddOption(creatorStyleIndexExportProfilesOutputOption);
+creatorStyleIndexExportCommand.AddOption(creatorStyleIndexExportDeckCacheOutputOption);
 
 compareCommand.SetHandler(context =>
 {
@@ -321,6 +328,7 @@ rootCommand.AddCommand(contentIndexExportCommand);
 rootCommand.AddCommand(contentKbCheckCommand);
 rootCommand.AddCommand(creatorStyleImportStatedCommand);
 rootCommand.AddCommand(fuseProfileCommand);
+rootCommand.AddCommand(creatorStyleIndexExportCommand);
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
@@ -477,6 +485,11 @@ fuseProfileCommand.SetHandler((string slug, FileInfo? db) =>
 {
     Environment.ExitCode = CreatorStyleCommandRunners.RunFuseProfileAsync(slug, db).GetAwaiter().GetResult();
 }, fuseProfileSlugOption, fuseProfileDbOption);
+
+creatorStyleIndexExportCommand.SetHandler((FileInfo? db, FileInfo? profilesOutput, FileInfo? deckCacheOutput) =>
+{
+    Environment.ExitCode = CreatorStyleCommandRunners.RunCreatorStyleIndexExportAsync(db, profilesOutput, deckCacheOutput).GetAwaiter().GetResult();
+}, creatorStyleIndexExportDbOption, creatorStyleIndexExportProfilesOutputOption, creatorStyleIndexExportDeckCacheOutputOption);
 
 var invokeExitCode = await rootCommand.InvokeAsync(args);
 return invokeExitCode == 0 ? Environment.ExitCode : invokeExitCode;
