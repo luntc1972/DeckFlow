@@ -43,4 +43,7 @@ public sealed record StatedRuleCandidate
 
     /// <summary>UTC publish date of the source video carrying this rule for recency and provenance.</summary>
     public required DateTimeOffset VideoDateUtc { get; init; }
+
+    /// <summary>Optional origin marker recording where this rule came from — <c>hand-authored</c> for seeded rules, or <see langword="null"/> for rules produced by the distill extractor.</summary>
+    public string? Provenance { get; init; }
 }
