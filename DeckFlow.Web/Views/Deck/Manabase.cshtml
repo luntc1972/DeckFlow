@@ -12,7 +12,8 @@
     var showPlainLanguage = Model.ShowPlainLanguage;
 }
 
-<section class="hero">
+<div class="manabase-workspace">
+<section class="hero manabase-hero">
     <h1>Mana Base Analysis</h1>
     <p class="lede">Check whether a Commander deck has enough lands and the right colored sources for its curve — the verdict is computed directly, no AI needed.</p>
     <details class="hero-detail">
@@ -33,6 +34,18 @@
     <p class="form-hint">@Model.NoticeMessage</p>
 }
 
+<details class="cutlab-intake" data-cut-lab-intake-summary open="@(!Model.HasResult ? "open" : null)">
+    <summary class="cutlab-intake-summary">
+        @if (Model.HasResult)
+        {
+            <span class="cutlab-intake-summary__commander">@(string.IsNullOrWhiteSpace(Model.Request.DeckName) ? Model.InputSummary : Model.Request.DeckName)</span>
+            <span class="cutlab-intake-summary__change">Change intake</span>
+        }
+        else
+        {
+            <span class="cutlab-intake-summary__commander">Import a deck</span>
+        }
+    </summary>
 <form method="post" action="@Url.Content("~/manabase")" class="result-panel"
       data-cache-key="manabase"
       data-busy-title="Analyzing mana base"
@@ -239,6 +252,7 @@
         <a href="@Url.Content("~/manabase")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>
+</details>
 
 @if (Model.HasResult && report is not null)
 {
@@ -252,6 +266,8 @@
         : string.Empty;
     var showRightLens = Model.ShowCastability && castRows.Count > 0;
     var showLeftLens = report.ColorFindings.Count > 0;
+    var colorsMet = report.ColorFindings.Count(f => ManabaseDisplay.KarstenMet(f).Met);
+    var colorsTotal = report.ColorFindings.Count;
     var showInteractionLens = Model.ShowCedhInteractionLens && report.Mode == ManabaseMode.Cedh && report.InteractionLens is not null;
     var showReadingYourDeckSection = Model.PlainLanguageVerdict is not null;
     var rampDraw = report.LandTarget?.RampAndDrawUnderThree ?? 0;
@@ -424,6 +440,7 @@
             </div>
         </div>
 
+        @{ var primaryFix = report.PrimaryFix; }
         <nav class="manabase-anchor-nav" aria-label="On this page">
             <p class="manabase-anchor-nav-label">On this page</p>
             <ul class="manabase-anchor-nav-list">
@@ -441,7 +458,6 @@
            leads the panel so the answer is read before the supporting lenses and tables below.
            Health/Lands/PrimaryFix are always computed (not flag-gated), so this renders in every
            mode. *@
-        @{ var primaryFix = report.PrimaryFix; }
         <section class="manabase-summary" aria-label="Verdict summary">
             <div class="manabase-summary-head">
                 <span class="manabase-summary-label">Verdict</span>
@@ -525,6 +541,24 @@
             }
         </section>
 
+        <div class="manabase-kpi-row" aria-label="Manabase key stats">
+            <div class="manabase-kpi-tile">
+                <strong>@report.ActualLands</strong>
+                <span>lands vs ~@report.TargetLands.ToString("F1") recommended</span>
+            </div>
+            <div class="manabase-kpi-tile">
+                <strong>@colorsMet / @colorsTotal</strong>
+                <span>colors on target</span>
+            </div>
+            @if (showRightLens)
+            {
+                <div class="manabase-kpi-tile">
+                    <strong>@report.AvgOnCurvePercent%</strong>
+                    <span>avg on-curve</span>
+                </div>
+            }
+        </div>
+
         @if (showReadingYourDeckSection && Model.PlainLanguageVerdict is { } verdict)
         {
             <section id="manabase-reading-your-deck" class="manabase-verdict @(verdict.HasIssues ? "manabase-verdict--issues" : "manabase-verdict--fine")">
@@ -546,6 +580,9 @@
             </section>
         }
 
+        @* Mobile-collapse wiring belongs to the separate 05.manabase.mobile task. *@
+        <details class="cutlab-collapsible manabase-deep-dive" open>
+            <summary class="cutlab-collapsible__summary">Deep dive</summary>
         @if (visibleLensCount > 0)
         {
             <div class="manabase-twolens @lensWrapperModifier">
@@ -555,10 +592,6 @@
                         <h3 class="manabase-lens-label">Karsten source check</h3>
                         @* Headline figure to balance the cast-rate lens's big number: how many colors
                            clear their source target. *@
-                        @{
-                            var colorsMet = report.ColorFindings.Count(f => ManabaseDisplay.KarstenMet(f).Met);
-                            var colorsTotal = report.ColorFindings.Count;
-                        }
                         <div class="manabase-lens-big manabase-lens-big--soft">@colorsMet / @colorsTotal<span>colors on target</span></div>
                         @foreach (var f in report.ColorFindings)
                         {
@@ -943,12 +976,15 @@
             }
         }
 
+        </details>
+
         <p class="mode-note">
             Built on
             <a href="https://www.channelfireball.com/articles/how-many-sources-do-you-need-to-consistently-cast-your-spells/" target="_blank" rel="noopener">Frank Karsten's source-count method</a>,
             extended to weight non-land sources (rocks, dorks), count modal double-faced land-backs as real lands, count tapped vs. untapped lands for turn-one casts, and size each color to its hardest spell.
         </p>
 
+        <div class="manabase-analysis-panels">
         <section id="manabase-color-findings">
             <h3 class="manabase-castability-heading">Color findings</h3>
             <div class="manabase-table-wrap">
@@ -997,9 +1033,10 @@
             </div>
         </section>
 
-        @if (report.HasRestrictedSourceApproximation)
-        {
-            <div class="manabase-table-wrap">
+        <div class="manabase-analysis-unsupported">
+            @if (report.HasRestrictedSourceApproximation)
+            {
+                <div class="manabase-table-wrap">
                 <table class="manabase-table manabase-table--card manabase-restricted-sources">
                     <thead>
                         <tr>
@@ -1019,9 +1056,9 @@
                         }
                     </tbody>
                 </table>
-            </div>
-            <p class="manabase-help"><span class="manabase-override-mark">†</span> restricted-source approximation applied to these land rows; colored-source weight is composition-gated, not tracked spell-by-spell.</p>
-        }
+                </div>
+                <p class="manabase-help"><span class="manabase-override-mark">†</span> restricted-source approximation applied to these land rows; colored-source weight is composition-gated, not tracked spell-by-spell.</p>
+            }
 
         @* Biggest-fix callout moved to the .manabase-summary card at the top of the panel so the
            single most actionable change reads with the verdict. See the comment there for the
@@ -1029,9 +1066,9 @@
 
         @* MQ-04: disclose cards the analysis can't fully model (X costs, hybrid/Phyrexian pips)
            instead of silently folding them into a clean-looking verdict. *@
-        @if (report.UnsupportedInteractions.Count > 0)
-        {
-            <details class="manabase-unsupported">
+            @if (report.UnsupportedInteractions.Count > 0)
+            {
+                <details class="manabase-unsupported">
                 <summary>⚠ @report.UnsupportedInteractions.Count @(report.UnsupportedInteractions.Count == 1 ? "card uses" : "cards use") interactions this analysis approximates or skips</summary>
                 <ul>
                     @foreach (var u in report.UnsupportedInteractions)
@@ -1039,11 +1076,13 @@
                         <li><strong>@u.Name</strong> — @u.Reason</li>
                     }
                 </ul>
-            </details>
-        }
+                </details>
+            }
+        </div>
 
-        @if (showCastabilitySection)
-        {
+        <div class="manabase-analysis-castability">
+            @if (showCastabilitySection)
+            {
             <section id="manabase-castability">
                 <h3 class="manabase-castability-heading">Castability — chance to cast on curve</h3>
                 <p class="manabase-help">Estimate on each card's mana-value turn, drawing every turn. Counts ramp; the credited mana rocks/dorks are listed in the expandable Ramp line above. See <em>How the analysis works</em> below for the mulligan and draw details.</p>
@@ -1061,11 +1100,13 @@
             {
                 <p class="manabase-help"><span class="manabase-override-mark">*</span> reduced / alternative cost applied from your overrides.</p>
             }
-        }
-        else if (report.Mode == ManabaseMode.Cedh)
-        {
-            <p class="mode-note manabase-castability-note">Castability view is available in Casual mode.</p>
-        }
+            }
+            else if (report.Mode == ManabaseMode.Cedh)
+            {
+                <p class="mode-note manabase-castability-note">Castability view is available in Casual mode.</p>
+            }
+        </div>
+        </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
         {
@@ -1194,6 +1235,8 @@
         </div>
     </details>
 }
+
+</div>
 
 @if (FlagCache.IsEnabled("tool.deck-analysis.enabled"))
 {
