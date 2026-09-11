@@ -71,6 +71,18 @@
         });
       });
 
+      const selectTabForHash = (hash: string): void => {
+        const target = document.getElementById(hash.slice(1));
+        const targetIndex = panels.findIndex((panel): boolean => panel === target || (panel !== null && target !== null && panel.contains(target)));
+        if (targetIndex >= 0) {
+          selectTab(targetIndex, false);
+        }
+      };
+
+      document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((link): void => {
+        link.addEventListener('click', (): void => selectTabForHash(link.hash));
+      });
+
       const updateForBreakpoint = (): void => {
         if (!desktopQuery.matches) {
           panels.forEach((panel): void => {
@@ -88,6 +100,9 @@
       desktopQuery.addEventListener('change', updateForBreakpoint);
       window.addEventListener('resize', updateForBreakpoint);
       updateForBreakpoint();
+      if (window.location.hash) {
+        selectTabForHash(window.location.hash);
+      }
     });
   };
 

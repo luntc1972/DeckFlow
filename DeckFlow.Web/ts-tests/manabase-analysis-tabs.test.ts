@@ -15,6 +15,7 @@ const stubMatchMedia = (matches: boolean): void => {
 
 const renderTabs = (): void => {
   document.body.innerHTML = `
+    <a href="#manabase-castability">Castability</a>
     <div data-manabase-analysis-switcher>
       <div data-manabase-analysis-tabs role="tablist">
         <div class="manabase-analysis-tab-indicator" aria-hidden="true"></div>
@@ -23,7 +24,7 @@ const renderTabs = (): void => {
         <button class="manabase-analysis-tab" role="tab" id="manabase-tab-numbers" aria-selected="false" aria-controls="manabase-panel-numbers" tabindex="-1">Numbers</button>
       </div>
       <div id="manabase-panel-colors" role="tabpanel"></div>
-      <div id="manabase-panel-castability" role="tabpanel" hidden></div>
+      <div id="manabase-panel-castability" role="tabpanel" hidden><section id="manabase-castability"></section></div>
       <div id="manabase-panel-numbers" role="tabpanel" hidden></div>
     </div>`;
 };
@@ -61,6 +62,20 @@ describe('manabase analysis tabs', () => {
     colors.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
     expect(numbers.getAttribute('aria-selected')).toBe('true');
     expect(document.getElementById('manabase-panel-numbers')!.hidden).toBe(false);
+  });
+
+  it('selects the castability tab for its quick-nav link and URL hash', async () => {
+    stubMatchMedia(true);
+    renderTabs();
+    window.history.replaceState({}, '', '#manabase-castability');
+    await import('../wwwroot/ts/manabase-analysis-tabs');
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const castability = document.getElementById('manabase-tab-castability')!;
+    expect(castability.getAttribute('aria-selected')).toBe('true');
+
+    document.querySelector<HTMLAnchorElement>('a[href="#manabase-castability"]')!.click();
+    expect(document.getElementById('manabase-panel-castability')!.hidden).toBe(false);
   });
 
   it('leaves both panels visible below the desktop breakpoint', async () => {
