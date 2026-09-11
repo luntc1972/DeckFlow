@@ -3593,15 +3593,99 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   margin-top: 1rem;
 }
 
+.manabase-analysis-summary-strip,
+.manabase-analysis-tabs {
+  display: none;
+}
+
+@media (max-width: 1023.98px) {
+  .manabase-analysis-stage [hidden] {
+    display: block !important;
+  }
+}
+
 @media (min-width: 1024px) {
   .manabase-analysis-panels {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas:
-      "colors castability"
-      "unsupported unsupported";
-    gap: 1.25rem;
-    align-items: start;
+    gap: 0.75rem;
+  }
+
+  .manabase-analysis-summary-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.5rem 0.8rem;
+    border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+    border-radius: 999px;
+    background: var(--panel-soft-bg, var(--panel));
+    color: var(--muted, #5a6472);
+    font-size: var(--fs-sm, 0.85rem);
+  }
+
+  .manabase-analysis-summary-strip > span + span::before {
+    margin-right: 0.45rem;
+    color: var(--muted, #5a6472);
+    content: "·";
+  }
+
+  .manabase-analysis-summary-strip strong.manabase-chip {
+    margin-left: 0.2rem;
+    font-size: inherit;
+  }
+
+  .manabase-analysis-switcher {
+    border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+    border-radius: 10px;
+    background: var(--panel-soft-bg, var(--panel));
+  }
+
+  .manabase-analysis-tabs {
+    position: relative;
+    display: inline-flex;
+    gap: 0.15rem;
+    margin: 0.85rem 1rem 0;
+    padding: 0.2rem;
+    border-radius: 999px;
+    background: var(--line, rgba(0, 0, 0, 0.1));
+  }
+
+  .manabase-analysis-tab-indicator {
+    position: absolute;
+    inset-block: 0.2rem;
+    left: 0;
+    border-radius: 999px;
+    background: var(--accent, #1a5f7a);
+    transition: transform 0.2s ease, width 0.2s ease;
+  }
+
+  .manabase-analysis-tab {
+    position: relative;
+    z-index: 1;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ink, inherit);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--fs-sm, 0.85rem);
+    padding: 0.35rem 0.75rem;
+  }
+
+  .manabase-analysis-tab[aria-selected="true"] {
+    color: var(--panel, #fff);
+  }
+
+  .manabase-analysis-tabs--single .manabase-analysis-tab-indicator {
+    display: none;
+  }
+
+  .manabase-analysis-tabs--single .manabase-analysis-tab[aria-selected="true"] {
+    color: var(--ink, inherit);
+  }
+
+  .manabase-analysis-stage {
+    padding: 1rem;
   }
 
   .manabase-analysis-panels #manabase-color-findings .manabase-table-wrap,
@@ -3611,25 +3695,9 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
     -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);
   }
 
-  .manabase-analysis-panels #manabase-color-findings {
-    grid-area: colors;
-  }
-
-  .manabase-analysis-panels .manabase-analysis-castability {
-    grid-area: castability;
-  }
-
-  .manabase-analysis-panels .manabase-analysis-unsupported {
-    grid-area: unsupported;
-  }
-
   .manabase-analysis-panels #manabase-color-findings,
   .manabase-analysis-panels #manabase-castability {
     margin: 0;
-    padding: 1.5rem;
-    border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
-    border-radius: 10px;
-    background: var(--panel-soft-bg, var(--panel));
   }
 }
 

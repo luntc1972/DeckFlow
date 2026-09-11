@@ -33,6 +33,37 @@ namespace DeckFlow.Web.Tests;
 public sealed class ManabaseViewRenderTests
 {
     [Fact]
+    public async Task AnalysisPanels_CasualMode_RendersSummaryAndAllTabPanels()
+    {
+        string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false));
+
+        Assert.Contains("manabase-analysis-summary-strip", html, StringComparison.Ordinal);
+        Assert.Contains(">White</span>", html, StringComparison.Ordinal);
+        Assert.Contains(">Blue</span>", html, StringComparison.Ordinal);
+        Assert.Contains("Hardest:", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"manabase-panel-colors\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"manabase-panel-castability\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"manabase-panel-castability\" role=\"tabpanel\" aria-labelledby=\"manabase-tab-castability\" hidden", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"manabase-tab-numbers\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"manabase-panel-numbers\" role=\"tabpanel\" aria-labelledby=\"manabase-tab-numbers\" hidden", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnalysisPanels_CedhWithoutCastability_RendersColorsWithoutCastabilityTabOrPanel()
+    {
+        string html = await RenderManabaseViewAsync(
+            BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Cedh));
+
+        Assert.Contains("manabase-analysis-summary-strip", html, StringComparison.Ordinal);
+        Assert.Contains("manabase-tab-colors", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("manabase-tab-castability", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("manabase-panel-castability", html, StringComparison.Ordinal);
+        Assert.Contains("manabase-tab-numbers", html, StringComparison.Ordinal);
+        Assert.Contains("manabase-panel-numbers", html, StringComparison.Ordinal);
+        Assert.Contains("Castability view is available in Casual mode.", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task OffState_FlagFalse_RendersNoTapAnalyzerMarkup()
     {
         var model = BuildPopulatedModel(showTapAnalyzer: false);
