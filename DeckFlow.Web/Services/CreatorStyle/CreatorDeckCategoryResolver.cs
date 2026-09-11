@@ -1,6 +1,9 @@
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 using DeckFlow.Web.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Polly.CircuitBreaker;
 
 namespace DeckFlow.Web.Services.CreatorStyle;
 
@@ -11,18 +14,21 @@ public sealed class CreatorDeckCategoryResolver
 {
     private readonly CategoryKnowledgeRepository _categoryKnowledgeRepository;
     private readonly IScryfallTaggerLookupService _taggerLookupService;
+    private readonly ILogger<CreatorDeckCategoryResolver> _logger;
 
     /// <summary>
     /// Creates a category resolver that prefers harvested repository categories and uses Tagger only for the tail.
     /// </summary>
     public CreatorDeckCategoryResolver(
         CategoryKnowledgeRepository categoryKnowledgeRepository,
-        IScryfallTaggerLookupService taggerLookupService)
+        IScryfallTaggerLookupService taggerLookupService,
+        ILogger<CreatorDeckCategoryResolver>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(categoryKnowledgeRepository);
         ArgumentNullException.ThrowIfNull(taggerLookupService);
         _categoryKnowledgeRepository = categoryKnowledgeRepository;
         _taggerLookupService = taggerLookupService;
+        _logger = logger ?? NullLogger<CreatorDeckCategoryResolver>.Instance;
     }
 
     /// <summary>
@@ -53,9 +59,20 @@ public sealed class CreatorDeckCategoryResolver
 
             if (categories.Count == 0)
             {
-                categories = await _taggerLookupService
-                    .LookupOracleTagsAsync(cardName!, cancellationToken)
-                    .ConfigureAwait(false);
+                try
+                {
+                    categories = await _taggerLookupService
+                        .LookupOracleTagsAsync(cardName!, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (BrokenCircuitException exception)
+                {
+                    _logger.LogWarning(
+                        exception,
+                        "Scryfall tagger circuit is open for card {CardName}; skipping card",
+                        cardName);
+                    continue;
+                }
             }
 
             resolved[cardName!] = categories
