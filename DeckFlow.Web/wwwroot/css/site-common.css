@@ -1629,6 +1629,7 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     border-top: 1px solid var(--line);
   }
 
+  .manabase-workspace > .cutlab-intake > form.result-panel,
   .manabase-workspace > .result-panel {
     padding: 1.5rem;
     border: 1px solid var(--line);
@@ -3464,6 +3465,38 @@ details.cutlab-collapsible > div.cutlab-package-help > p.cutlab-package-help__he
   color: var(--muted, #5a6472);
 }
 
+/* Verdict-adjacent scan line: mirrors lens headline hierarchy without hiding key health signals
+   behind the deep dive. */
+.manabase-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.65rem;
+  margin: 0.65rem 0 0;
+}
+
+.manabase-kpi-tile {
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+  border-radius: 8px;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.manabase-kpi-tile > strong {
+  display: block;
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--ink, inherit);
+}
+
+.manabase-kpi-tile > span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted, #5a6472);
+}
+
 .manabase-mode-chip {
   background: var(--panel-soft-bg, var(--panel));
   border-color: var(--line, rgba(0, 0, 0, 0.18));
@@ -3553,6 +3586,51 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
 
 .manabase-castability-details {
   margin-top: 0.75rem;
+}
+
+/* Keep the detailed source and simulation evidence in a single desktop scan band. */
+.manabase-analysis-panels {
+  margin-top: 1rem;
+}
+
+@media (min-width: 1024px) {
+  .manabase-analysis-panels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "colors castability"
+      "unsupported unsupported";
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .manabase-analysis-panels #manabase-color-findings .manabase-table-wrap,
+  .manabase-analysis-panels #manabase-castability .manabase-table-wrap {
+    padding-right: 24px;
+    mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);
+  }
+
+  .manabase-analysis-panels #manabase-color-findings {
+    grid-area: colors;
+  }
+
+  .manabase-analysis-panels .manabase-analysis-castability {
+    grid-area: castability;
+  }
+
+  .manabase-analysis-panels .manabase-analysis-unsupported {
+    grid-area: unsupported;
+  }
+
+  .manabase-analysis-panels #manabase-color-findings,
+  .manabase-analysis-panels #manabase-castability {
+    margin: 0;
+    padding: 1.5rem;
+    border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
+    border-radius: 10px;
+    background: var(--panel-soft-bg, var(--panel));
+  }
 }
 
 .manabase-verdict-summary {
