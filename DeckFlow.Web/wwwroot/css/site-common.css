@@ -4,6 +4,9 @@
      history notices; keep one literal so retuning it cannot leave them adrift.
      Declared here rather than per-theme because guild themes fork site.css. */
   --caution-rail: #c8860b;
+  /* Why: this workspace shadow is shared and non-theme-varying; declared here
+     because guild themes fork site.css. */
+  --workspace-card-shadow: 0 12px 30px rgba(26, 31, 46, 0.06);
   --cutlab-anchor-nav-stuck-height: 4rem;
   /* WDG-08 finding O: signal user-agent that native chrome (scrollbars,
      form controls) should follow each theme's light/dark intent. */
@@ -1635,10 +1638,68 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     border: 1px solid var(--line);
     border-radius: 10px;
     background: var(--panel);
-    box-shadow: 0 12px 30px rgba(26, 31, 46, 0.06);
+    box-shadow: var(--workspace-card-shadow);
   }
 
   .manabase-workspace .result-panel.nested-panel {
+    margin-top: 1.25rem;
+    padding: 1.25rem;
+    border-color: var(--line);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--panel) 92%, var(--accent));
+}
+}
+
+/* Bracket desktop workspace follows the approved tool-card hierarchy. */
+@media (min-width: 1024px) {
+  .bracket-workspace {
+    margin: 2.5rem 0 4rem;
+  }
+
+  .bracket-workspace > .bracket-hero {
+    padding: 2rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+
+  .bracket-workspace > .bracket-hero h1 {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-xl);
+    line-height: 1.15;
+  }
+
+  .bracket-workspace > .bracket-hero .lede {
+    max-width: 48rem;
+    margin-top: 0.65rem;
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+
+  .bracket-workspace > .bracket-hero .hero-detail {
+    max-width: 48rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .bracket-workspace > .cutlab-intake {
+    margin-bottom: 1.5rem;
+  }
+
+  .bracket-workspace > .cutlab-intake > form.result-panel,
+  .bracket-workspace > .result-panel {
+    padding: 1.5rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: var(--workspace-card-shadow);
+  }
+
+  .bracket-workspace .result-panel.nested-panel {
     margin-top: 1.25rem;
     padding: 1.25rem;
     border-color: var(--line);
@@ -7080,7 +7141,7 @@ pre {
     border: 1px solid var(--line);
     border-radius: 10px;
     background: var(--panel);
-    box-shadow: 0 12px 30px rgba(26, 31, 46, 0.06);
+    box-shadow: var(--workspace-card-shadow);
   }
 
   .cutlab-workspace .deck-history-results {
