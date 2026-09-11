@@ -30,7 +30,8 @@
     var platformSlashList = AiPlatformCopy.PlatformSlashList(AiPlatformOptionsAccessor.Value.GeminiEnabled);
 }
 
-<section class="hero">
+<div class="bracket-workspace">
+<section class="hero bracket-hero">
     <h1>Bracket Check</h1>
     <p class="lede">Classify a Commander deck into its official 1-5 bracket and balance it toward a target — the classification is computed locally, no AI needed.</p>
     <details class="hero-detail">
@@ -46,6 +47,18 @@
     @Model.ErrorMessage
 </div>
 
+<details class="cutlab-intake" data-cut-lab-intake-summary open="@(!Model.HasResult ? "open" : null)">
+    <summary class="cutlab-intake-summary">
+        @if (Model.HasResult)
+        {
+            <span class="cutlab-intake-summary__commander">@(string.IsNullOrWhiteSpace(Model.Request.DeckName) ? "Deck input" : Model.Request.DeckName)</span>
+            <span class="cutlab-intake-summary__change">Change intake</span>
+        }
+        else
+        {
+            <span class="cutlab-intake-summary__commander">Import a deck</span>
+        }
+    </summary>
 <form method="post" action="@Url.Content("~/bracket")" class="result-panel"
       data-cache-key="bracket"
       data-busy-title="Classifying deck"
@@ -102,6 +115,7 @@
         <a href="@Url.Content("~/bracket")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>
+</details>
 
 @if (Model.HasResult && cl is not null)
 {
@@ -342,6 +356,7 @@
 {
     <aside class="related-tool-link"><p>For a full review, <a href="@Url.Content("~/deck-analysis")">analyze your Commander deck</a>.</p></aside>
 }
+</div>
 
 @section Scripts {
     <script src="~/js/deck-input-store.js" asp-append-version="true"></script>
