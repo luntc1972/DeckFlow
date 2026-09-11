@@ -985,6 +985,33 @@
         </p>
 
         <div class="manabase-analysis-panels">
+            <div class="manabase-analysis-summary-strip">
+                @foreach (var finding in report.ColorFindings)
+                {
+                    <span>@finding.CategoryName</span>
+                }
+                @if (showCastabilitySection)
+                {
+                    var hardestCast = visibleCastRows[0];
+                    var hardestChip = ManabaseDisplay.CastChip(hardestCast.CastPercent);
+                    <span>Hardest: @hardestCast.Name <strong class="manabase-chip @hardestChip.Css">@hardestCast.CastPercent% · @hardestChip.Label</strong></span>
+                }
+            </div>
+            <div class="manabase-analysis-switcher" data-manabase-analysis-switcher>
+                <div class="manabase-analysis-tabs @(showCastabilitySection ? null : "manabase-analysis-tabs--single")" role="tablist" data-manabase-analysis-tabs>
+                    <div class="manabase-analysis-tab-indicator" aria-hidden="true"></div>
+                    <button type="button" class="manabase-analysis-tab" role="tab" id="manabase-tab-colors"
+                            aria-selected="true" aria-controls="manabase-panel-colors">Color findings</button>
+                    @if (showCastabilitySection)
+                    {
+                        <button type="button" class="manabase-analysis-tab" role="tab" id="manabase-tab-castability"
+                                aria-selected="false" aria-controls="manabase-panel-castability" tabindex="-1">Castability</button>
+                    }
+                    <button type="button" class="manabase-analysis-tab" role="tab" id="manabase-tab-numbers"
+                            aria-selected="false" aria-controls="manabase-panel-numbers" tabindex="-1">Numbers</button>
+                </div>
+                <div class="manabase-analysis-stage">
+                    <div id="manabase-panel-colors" role="tabpanel" aria-labelledby="manabase-tab-colors">
         <section id="manabase-color-findings">
             <h3 class="manabase-castability-heading">Color findings</h3>
             <div class="manabase-table-wrap">
@@ -1080,6 +1107,14 @@
             }
         </div>
 
+                    @if (!showCastabilitySection && report.Mode == ManabaseMode.Cedh)
+                    {
+                        <p class="mode-note manabase-castability-note">Castability view is available in Casual mode.</p>
+                    }
+                    </div>
+                    @if (showCastabilitySection)
+                    {
+                    <div id="manabase-panel-castability" role="tabpanel" aria-labelledby="manabase-tab-castability" hidden>
         <div class="manabase-analysis-castability">
             @if (showCastabilitySection)
             {
@@ -1101,11 +1136,72 @@
                 <p class="manabase-help"><span class="manabase-override-mark">*</span> reduced / alternative cost applied from your overrides.</p>
             }
             }
-            else if (report.Mode == ManabaseMode.Cedh)
-            {
-                <p class="mode-note manabase-castability-note">Castability view is available in Casual mode.</p>
-            }
         </div>
+                    </div>
+                    }
+                    @if (Model.HasResult && report is not null)
+                    {
+                    <div id="manabase-panel-numbers" role="tabpanel" aria-labelledby="manabase-tab-numbers" hidden>
+        <div class="manabase-formula-body">
+            <p><strong>Land target.</strong> Recommended ~@report.TargetLands.ToString("F1") lands vs @report.ActualLands in the deck (@ManabaseDisplay.ModeLabel(report.Mode) profile).</p>
+            @if (report.LandTarget is { } lt)
+            {
+                var scale = lt.LibrarySize / 60.0;
+                <p class="manabase-help">The Karsten land-count regression, with this deck's numbers plugged into every term:</p>
+                <ul class="manabase-formula-list manabase-formula-terms">
+                    <li>scale = library @lt.LibrarySize ÷ 60 = <strong>@scale.ToString("F2")</strong></li>
+                    <li>base interior = 19.59 + 1.90·(avg MV <strong>@lt.AverageManaValue.ToString("F2")</strong>) + 0.27·(commanders <strong>@lt.CommanderCount</strong>) = <strong>@((19.59 + (1.90 * lt.AverageManaValue) + (0.27 * lt.CommanderCount)).ToString("F2"))</strong></li>
+                    <li>− 0.28·(ramp/draw ≤2 MV <strong>@lt.RampAndDrawUnderThree</strong>) = <strong>−@((0.28 * lt.RampAndDrawUnderThree).ToString("F2"))</strong></li>
+                    <li>− fast mana <strong>@lt.FastMana</strong> (1 land each) = <strong>−@lt.FastMana.ToString("F2")</strong></li>
+                    <li>− 1.35 fixed offset</li>
+                    @if (report.Mode == ManabaseMode.Cedh)
+                    {
+                        if (lt.CedhBaselineBlended && report.BaselineDeckCount is { } n && report.BaselineLandsMean is { } bmean)
+                        {
+                            <li>cEDH adjustment: −3.5 off the curve base @lt.BaseTarget.ToString("F1"), then nudged 50% toward this commander's tournament land mean (@bmean.ToString("F1") from @n cEDH decks@(string.IsNullOrWhiteSpace(report.BaselineMonth) ? "" : $", {report.BaselineMonth}")); safety floor @lt.CedhSafetyFloor.ToString("F0") = net <strong>@lt.CedhAdjustment.ToString("0.0;-0.0;0.0")</strong>, target ~@lt.FinalTarget.ToString("F1").</li>
+                        }
+                        else
+                        {
+                            <li>cEDH adjustment (−3.5, floor @lt.CedhSafetyFloor.ToString("F0") lands): <strong>@lt.CedhAdjustment.ToString("0.0;-0.0;0.0")</strong> from a base of @lt.BaseTarget.ToString("F1").</li>
+                        }
+                        @if (lt.RitualLandCredit > 0)
+                        {
+                            <li>Ritual land credit: <strong>−@lt.RitualLandCredit.ToString("0.0")</strong> (@lt.NetPositiveRitualCount net-positive @ManabaseWording.Pluralize("ritual", lt.NetPositiveRitualCount) × 0.5, cap 3) — applied before the safety floor and included in the net adjustment above.</li>
+                        }
+                    }
+                    @if (report is { Mode: ManabaseMode.Cedh, InteractionLens: not null } && Model.ShowCedhInteractionLens)
+                    {
+                        <li>interaction lens: <strong>@report.InteractionLens!.QualifyingCount</strong> interaction @ManabaseWording.Pluralize("spell", report.InteractionLens.QualifyingCount) qualified (PlanRole.Interaction, effective MV ≤ 2); <strong>@report.InteractionLens.OnTargetCount</strong> held up by turn 3 at the <strong>@report.InteractionLens.Threshold%</strong> threshold.</li>
+                    }
+                    <li><strong>= target ~@lt.FinalTarget.ToString("F1") lands</strong> vs <strong>@report.ActualLands</strong> actually in the deck.</li>
+                </ul>
+            }
+            <p class="manabase-help">Commander importance applied: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong> (weights the commander's colors; does not move the land target).</p>
+
+            <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make, per Karsten). The breakdown splits that total into <em>direct</em> (sources that make only this color), <em>shared</em> (multi-color fixers also feeding the deck's other colors — one makes one mana per turn), and <em>conditional</em> (granted any-color sources the sim only fires part of the time):</p>
+            <ul class="manabase-formula-list">
+                @if (report.ScrySourceCreditCopies > 0)
+                {
+                    <li>@ManabaseWording.ScrySourceCreditLine(report.ScrySourceCreditCopies, report.ScrySourceCredit)</li>
+                }
+                @foreach (var f in report.ColorFindings)
+                {
+                    <li>
+                        <strong>@f.CategoryName</strong>: @f.ActualSources.ToString("F1") sources
+                        (@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared + @f.ConditionalSources.ToString("F1") conditional) ·
+                        needs @f.RequiredSources for @f.DrivingSpell ·
+                        @f.UnderSupportedCount of @f.DisplayEvaluatedCardCount @(f.DisplayEvaluatedCardCount == 1 ? "card" : "cards") under-supported · mean cast @f.AverageCastPercent.ToString("F0")%
+                    </li>
+                }
+            </ul>
+
+            <p><strong>Simulation parameters.</strong> Goes <strong>first for board development</strong> (one land drop per turn) but <strong>draws every turn including turn 1</strong>. A card on its mana-value turn N has seen 7 + N cards (its opening seven plus one per turn). <strong>London mulligan including Commander's free first mulligan</strong> — the first mulligan keeps seven at no cost; only the second and third bottom a card (to six then five, lowest-impact non-lands first). ~20,000 trials per spell; each spell measured on its effective on-curve turn after any cost reduction. Cast % above is the share of trials where the card was castable on curve.</p>
+            <p class="manabase-help">"Show the work": every verdict above traces back to these counts and the simulation, so every flagged color or card can be audited back to a number.</p>
+        </div>
+                    </div>
+                    }
+                </div>
+            </div>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Model.ImportWarning))
@@ -1173,69 +1269,6 @@
     </div>
 </details>
 
-@if (Model.HasResult && report is not null)
-{
-    <details class="result-panel nested-panel manabase-formula" data-manabase-formula="numbers">
-        <summary>This deck's numbers</summary>
-        <div class="manabase-formula-body">
-            <p><strong>Land target.</strong> Recommended ~@report.TargetLands.ToString("F1") lands vs @report.ActualLands in the deck (@ManabaseDisplay.ModeLabel(report.Mode) profile).</p>
-            @if (report.LandTarget is { } lt)
-            {
-                var scale = lt.LibrarySize / 60.0;
-                <p class="manabase-help">The Karsten land-count regression, with this deck's numbers plugged into every term:</p>
-                <ul class="manabase-formula-list manabase-formula-terms">
-                    <li>scale = library @lt.LibrarySize ÷ 60 = <strong>@scale.ToString("F2")</strong></li>
-                    <li>base interior = 19.59 + 1.90·(avg MV <strong>@lt.AverageManaValue.ToString("F2")</strong>) + 0.27·(commanders <strong>@lt.CommanderCount</strong>) = <strong>@((19.59 + (1.90 * lt.AverageManaValue) + (0.27 * lt.CommanderCount)).ToString("F2"))</strong></li>
-                    <li>− 0.28·(ramp/draw ≤2 MV <strong>@lt.RampAndDrawUnderThree</strong>) = <strong>−@((0.28 * lt.RampAndDrawUnderThree).ToString("F2"))</strong></li>
-                    <li>− fast mana <strong>@lt.FastMana</strong> (1 land each) = <strong>−@lt.FastMana.ToString("F2")</strong></li>
-                    <li>− 1.35 fixed offset</li>
-                    @if (report.Mode == ManabaseMode.Cedh)
-                    {
-                        if (lt.CedhBaselineBlended && report.BaselineDeckCount is { } n && report.BaselineLandsMean is { } bmean)
-                        {
-                            <li>cEDH adjustment: −3.5 off the curve base @lt.BaseTarget.ToString("F1"), then nudged 50% toward this commander's tournament land mean (@bmean.ToString("F1") from @n cEDH decks@(string.IsNullOrWhiteSpace(report.BaselineMonth) ? "" : $", {report.BaselineMonth}")); safety floor @lt.CedhSafetyFloor.ToString("F0") = net <strong>@lt.CedhAdjustment.ToString("0.0;-0.0;0.0")</strong>, target ~@lt.FinalTarget.ToString("F1").</li>
-                        }
-                        else
-                        {
-                            <li>cEDH adjustment (−3.5, floor @lt.CedhSafetyFloor.ToString("F0") lands): <strong>@lt.CedhAdjustment.ToString("0.0;-0.0;0.0")</strong> from a base of @lt.BaseTarget.ToString("F1").</li>
-                        }
-                        @if (lt.RitualLandCredit > 0)
-                        {
-                            <li>Ritual land credit: <strong>−@lt.RitualLandCredit.ToString("0.0")</strong> (@lt.NetPositiveRitualCount net-positive @ManabaseWording.Pluralize("ritual", lt.NetPositiveRitualCount) × 0.5, cap 3) — applied before the safety floor and included in the net adjustment above.</li>
-                        }
-                    }
-                    @if (report is { Mode: ManabaseMode.Cedh, InteractionLens: not null } && Model.ShowCedhInteractionLens)
-                    {
-                        <li>interaction lens: <strong>@report.InteractionLens!.QualifyingCount</strong> interaction @ManabaseWording.Pluralize("spell", report.InteractionLens.QualifyingCount) qualified (PlanRole.Interaction, effective MV ≤ 2); <strong>@report.InteractionLens.OnTargetCount</strong> held up by turn 3 at the <strong>@report.InteractionLens.Threshold%</strong> threshold.</li>
-                    }
-                    <li><strong>= target ~@lt.FinalTarget.ToString("F1") lands</strong> vs <strong>@report.ActualLands</strong> actually in the deck.</li>
-                </ul>
-            }
-            <p class="manabase-help">Commander importance applied: <strong>@ManabaseDisplay.ImportanceLabel(importance)</strong> (weights the commander's colors; does not move the land target).</p>
-
-            <p><strong>Per-color sources.</strong> Effective colored sources counted for each color (duals, any-color and fetch sources credited to every color they can make, per Karsten). The breakdown splits that total into <em>direct</em> (sources that make only this color), <em>shared</em> (multi-color fixers also feeding the deck's other colors — one makes one mana per turn), and <em>conditional</em> (granted any-color sources the sim only fires part of the time):</p>
-            <ul class="manabase-formula-list">
-                @if (report.ScrySourceCreditCopies > 0)
-                {
-                    <li>@ManabaseWording.ScrySourceCreditLine(report.ScrySourceCreditCopies, report.ScrySourceCredit)</li>
-                }
-                @foreach (var f in report.ColorFindings)
-                {
-                    <li>
-                        <strong>@f.CategoryName</strong>: @f.ActualSources.ToString("F1") sources
-                        (@f.DirectSources.ToString("F1") direct + @f.SharedSources.ToString("F1") shared + @f.ConditionalSources.ToString("F1") conditional) ·
-                        needs @f.RequiredSources for @f.DrivingSpell ·
-                        @f.UnderSupportedCount of @f.DisplayEvaluatedCardCount @(f.DisplayEvaluatedCardCount == 1 ? "card" : "cards") under-supported · mean cast @f.AverageCastPercent.ToString("F0")%
-                    </li>
-                }
-            </ul>
-
-            <p><strong>Simulation parameters.</strong> Goes <strong>first for board development</strong> (one land drop per turn) but <strong>draws every turn including turn 1</strong>. A card on its mana-value turn N has seen 7 + N cards (its opening seven plus one per turn). <strong>London mulligan including Commander's free first mulligan</strong> — the first mulligan keeps seven at no cost; only the second and third bottom a card (to six then five, lowest-impact non-lands first). ~20,000 trials per spell; each spell measured on its effective on-curve turn after any cost reduction. Cast % above is the share of trials where the card was castable on curve.</p>
-            <p class="manabase-help">"Show the work": every verdict above traces back to these counts and the simulation, so every flagged color or card can be audited back to a number.</p>
-        </div>
-    </details>
-}
-
 </div>
 
 @if (FlagCache.IsEnabled("tool.deck-analysis.enabled"))
@@ -1249,4 +1282,5 @@
     <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
     <script src="~/js/deck-sync.js" asp-append-version="true"></script>
     <script src="~/js/manabase-overrides.js" asp-append-version="true"></script>
+    <script src="~/js/manabase-analysis-tabs.js" asp-append-version="true"></script>
 }
