@@ -759,6 +759,38 @@
     max-width: 100%;
     overflow-x: auto;
   }
+
+  .bracket-workspace {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0 0.75rem;
+  }
+
+  .bracket-workspace > .result-panel,
+  .bracket-workspace > .cutlab-intake > form.result-panel,
+  .bracket-workspace .result-panel.nested-panel {
+    margin-top: 1rem;
+    padding: 1rem;
+  }
+
+  .bracket-workspace button,
+  .bracket-workspace details > summary,
+  .bracket-workspace .manabase-pill {
+    box-sizing: border-box;
+    min-height: 44px;
+  }
+
+  .bracket-workspace .manabase-pill {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .bracket-workspace textarea {
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    overflow-x: auto;
+  }
 }
 
 @media (max-width: 480px) {
