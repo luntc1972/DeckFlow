@@ -6900,6 +6900,50 @@ pre {
   background: var(--panel-soft-bg, var(--panel));
 }
 
+.deck-modules__path {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--line);
+}
+
+.deck-modules__path-header {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.65rem;
+  padding: 1rem;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.deck-modules__path .deck-modules__panel {
+  border: 0;
+  border-radius: 0;
+}
+
+.deck-modules__path-name {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.deck-modules__shared-badge {
+  display: inline-block;
+  margin-inline: 0.45rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
 .deck-modules > form,
 .deck-modules__configuration {
   display: grid;
@@ -6971,8 +7015,59 @@ pre {
 
 .deck-modules [data-deck-modules-alternatives] {
   display: flex;
-  flex-wrap: wrap;
   gap: 0.5rem;
+  overflow-x: auto;
+  padding-block-end: 0.15rem;
+}
+
+.deck-modules__path-header > [data-deck-modules-alternatives]:empty,
+.deck-modules__path-header > [data-deck-modules-balance]:empty {
+  display: none;
+}
+
+.deck-modules [data-deck-modules-alternative] {
+  flex: 0 0 min(15rem, 78vw);
+  min-block-size: 3.25rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 700;
+  text-align: start;
+}
+
+.deck-modules [data-deck-modules-alternative][aria-pressed="true"] {
+  border-color: var(--accent, var(--ink));
+  box-shadow: inset 0 0 0 1px var(--accent, var(--ink));
+}
+
+@media (min-width: 761px) {
+  .deck-modules__assignment {
+    max-block-size: 36rem;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .deck-modules__assignment > button[data-deck-modules-move] {
+    position: sticky;
+    z-index: 1;
+    min-block-size: 2.75rem;
+    border-color: var(--line);
+    background: var(--panel);
+  }
+
+  .deck-modules__assignment > button[data-deck-modules-move]:nth-last-child(1) {
+    inset-block-end: 0;
+  }
+
+  .deck-modules__assignment > button[data-deck-modules-move]:nth-last-child(2) {
+    inset-block-end: 2.75rem;
+  }
+
+  .deck-modules__assignment > button[data-deck-modules-move]:nth-last-child(3) {
+    inset-block-end: 5.5rem;
+  }
 }
 
 .deck-modules > button {
@@ -6986,6 +7081,7 @@ pre {
   }
 
   .deck-modules > *,
+  .deck-modules__path,
   .deck-modules__configuration,
   .deck-modules__command-zone,
   .deck-modules__report {
@@ -7000,6 +7096,10 @@ pre {
   .deck-modules__assignment {
     counter-increment: deck-modules-step;
     scroll-margin-top: 1rem;
+  }
+
+  .deck-modules__path {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .deck-modules__assignment::before {
