@@ -5076,6 +5076,94 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   color: var(--muted, #5a6472);
 }
 
+/* Deck History desktop workspace follows the established intake and result-card hierarchy. */
+@media (min-width: 1024px) {
+  .deck-history-workspace {
+    margin: 2.5rem 0 4rem;
+  }
+
+  .deck-history-workspace > .hero,
+  .deck-history-workspace > .cutlab-intake,
+  .deck-history-workspace > .deck-history-results,
+  .deck-history-workspace > .error-banner {
+    max-width: none;
+  }
+
+  .deck-history-workspace > .hero {
+    margin-bottom: 1.25rem;
+    padding: 2rem;
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+
+  .deck-history-workspace > .hero h1 {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-xl);
+    line-height: 1.15;
+  }
+
+  .deck-history-workspace > .hero .lede {
+    max-width: 48rem;
+    margin-top: 0.65rem;
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+
+  .deck-history-workspace > .cutlab-intake {
+    margin: 1.5rem 0;
+  }
+
+  .deck-history-workspace > .cutlab-intake > .deck-history-form,
+  .deck-history-workspace > .deck-history-results > .result-panel {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: var(--workspace-card-shadow);
+  }
+
+  .deck-history-workspace > .cutlab-intake > .deck-history-form {
+    padding: 1.5rem;
+  }
+
+  .deck-history-workspace .cutlab-intake-summary {
+    padding: 0.9rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--panel) 94%, var(--accent));
+  }
+
+  .deck-history-workspace .cutlab-intake[open] > .cutlab-intake-summary {
+    margin-bottom: 0.75rem;
+  }
+
+  .deck-history-workspace > .deck-history-results {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+
+  .deck-history-workspace > .deck-history-results > :not(.result-panel) {
+    grid-column: 1 / -1;
+  }
+
+  .deck-history-workspace > .deck-history-results > .result-panel {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 1.5rem;
+  }
+
+  .deck-history-workspace > .deck-history-results > .result-panel:nth-of-type(3) {
+    grid-column: 1 / span 7;
+  }
+
+  .deck-history-workspace > .deck-history-results > .result-panel:nth-of-type(4) {
+    grid-column: 8 / -1;
+  }
+}
+
 @media (max-width: 640px) {
   .history-timeline__label-col {
     display: none;
