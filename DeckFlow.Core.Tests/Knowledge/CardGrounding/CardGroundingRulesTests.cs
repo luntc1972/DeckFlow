@@ -95,10 +95,7 @@ public sealed class CardGroundingRulesTests
     [Fact]
     public void IsSingletonViolation_ReturnsFalseForBasicLandEvenWhenPresent()
     {
-        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
-        {
-            CardNormalizer.Normalize("Forest"),
-        };
+        IReadOnlySet<string> deckCardNames = CreateNormalizedDeckCardNames("Forest");
 
         var result = CardGroundingRules.IsSingletonViolation("Forest", "Basic Land - Forest", deckCardNames);
 
@@ -111,10 +108,7 @@ public sealed class CardGroundingRulesTests
     [Fact]
     public void IsSingletonViolation_ReturnsFalseForSnowBasicLandEvenWhenPresent()
     {
-        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
-        {
-            CardNormalizer.Normalize("Snow-Covered Forest"),
-        };
+        IReadOnlySet<string> deckCardNames = CreateNormalizedDeckCardNames("Snow-Covered Forest");
 
         var result = CardGroundingRules.IsSingletonViolation("Snow-Covered Forest", "Basic Snow Land — Forest", deckCardNames);
 
@@ -127,10 +121,7 @@ public sealed class CardGroundingRulesTests
     [Fact]
     public void IsSingletonViolation_ReturnsTrueForPresentLegendaryLand()
     {
-        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
-        {
-            CardNormalizer.Normalize("Gaea's Cradle"),
-        };
+        IReadOnlySet<string> deckCardNames = CreateNormalizedDeckCardNames("Gaea's Cradle");
 
         var result = CardGroundingRules.IsSingletonViolation("Gaea's Cradle", "Legendary Land", deckCardNames);
 
@@ -143,10 +134,7 @@ public sealed class CardGroundingRulesTests
     [Fact]
     public void IsSingletonViolation_ReturnsTrueForPresentNonBasicCard()
     {
-        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
-        {
-            CardNormalizer.Normalize("Sol Ring"),
-        };
+        IReadOnlySet<string> deckCardNames = CreateNormalizedDeckCardNames("Sol Ring");
 
         var result = CardGroundingRules.IsSingletonViolation("Sol Ring", "Artifact", deckCardNames);
 
@@ -159,10 +147,7 @@ public sealed class CardGroundingRulesTests
     [Fact]
     public void IsSingletonViolation_ReturnsFalseForAbsentNonBasicCard()
     {
-        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
-        {
-            CardNormalizer.Normalize("Arcane Signet"),
-        };
+        IReadOnlySet<string> deckCardNames = CreateNormalizedDeckCardNames("Arcane Signet");
 
         var result = CardGroundingRules.IsSingletonViolation("Sol Ring", "Artifact", deckCardNames);
 
@@ -175,10 +160,7 @@ public sealed class CardGroundingRulesTests
     [Fact]
     public void IsSingletonViolation_ReturnsTrueForPunctuationNormalizedDuplicate()
     {
-        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
-        {
-            CardNormalizer.Normalize("Commander's Sphere"),
-        };
+        IReadOnlySet<string> deckCardNames = CreateNormalizedDeckCardNames("Commander's Sphere");
 
         var result = CardGroundingRules.IsSingletonViolation("Commander's Sphere", "Artifact", deckCardNames);
 
@@ -207,10 +189,7 @@ public sealed class CardGroundingRulesTests
     [Fact]
     public void IsSingletonViolation_ReturnsTrueForDoubleFacedCardFrontFaceMatch()
     {
-        IReadOnlySet<string> deckCardNames = new HashSet<string>(StringComparer.Ordinal)
-        {
-            CardNormalizer.Normalize("Blex, Vexing Pest // Search for Blex"),
-        };
+        IReadOnlySet<string> deckCardNames = CreateNormalizedDeckCardNames("Blex, Vexing Pest // Search for Blex");
 
         var result = CardGroundingRules.IsSingletonViolation("Blex, Vexing Pest // Search for Blex", "Legendary Creature - Pest", deckCardNames);
 
@@ -264,4 +243,7 @@ public sealed class CardGroundingRulesTests
         yield return ["{W/P}", new HashSet<char>(), true];
         yield return ["{2/W}", new HashSet<char>(), true];
     }
+
+    private static IReadOnlySet<string> CreateNormalizedDeckCardNames(string cardName)
+        => new HashSet<string>(StringComparer.Ordinal) { CardNormalizer.Normalize(cardName) };
 }

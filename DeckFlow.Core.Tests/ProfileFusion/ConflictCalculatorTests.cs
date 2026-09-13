@@ -168,8 +168,7 @@ public sealed class ConflictCalculatorTests
         double? valueMin = null,
         double? valueMax = null,
         string? condition = null)
-    {
-        return new StatedRuleCandidate
+        => new StatedRuleCandidate
         {
             Category = "deckbuilding",
             Metric = metric,
@@ -185,5 +184,4 @@ public sealed class ConflictCalculatorTests
             CardGrounded = null,
             VideoDateUtc = DateTimeOffset.Parse("2026-07-05T00:00:00Z", CultureInfo.InvariantCulture),
         };
-    }
 }

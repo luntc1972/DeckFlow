@@ -297,8 +297,7 @@ public sealed class ProfileFusionEngineTests
         string? condition = null,
         string sourceClip = "Prototype fixture.",
         string videoDateUtc = "2026-07-05T00:00:00Z")
-    {
-        return new StatedRuleCandidate
+        => new StatedRuleCandidate
         {
             Category = "deckbuilding",
             Metric = metric,
@@ -314,5 +313,4 @@ public sealed class ProfileFusionEngineTests
             CardGrounded = null,
             VideoDateUtc = DateTimeOffset.Parse(videoDateUtc, CultureInfo.InvariantCulture),
         };
-    }
 }

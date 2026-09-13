@@ -73,8 +73,7 @@ public sealed class CreatorStatedRulesSeedFusionTests
     }
 
     private static MeasuredMetric CreateMeasuredMetric(string metric, double value, double effectiveSampleSize)
-    {
-        return new MeasuredMetric
+        => new()
         {
             Metric = metric,
             Value = value,
@@ -88,12 +87,9 @@ public sealed class CreatorStatedRulesSeedFusionTests
                 EffectiveSampleSize = effectiveSampleSize,
             },
         };
-    }
 
     private static FusedTarget GetTarget(IReadOnlyList<FusedTarget> targets, string metric, string? condition)
-    {
-        return Assert.Single(targets, target => target.Metric == metric && target.Condition == condition);
-    }
+        => Assert.Single(targets, target => target.Metric == metric && target.Condition == condition);
 
     private static IReadOnlyList<StatedRuleCandidate> ReadSeed()
     {
