@@ -43,10 +43,9 @@ public static partial class CardGroundingRules
             return true;
         }
 
-        var identity = new HashSet<string>(commanderIdentity, StringComparer.OrdinalIgnoreCase);
         foreach (var color in cardColorIdentity)
         {
-            if (!identity.Contains(color.Trim()))
+            if (!commanderIdentity.Contains(color.Trim(), StringComparer.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -79,8 +78,7 @@ public static partial class CardGroundingRules
         }
 
         var normalizedName = CardNormalizer.Normalize(canonicalName);
-        var normalizedDeckCardNames = new HashSet<string>(deckCardNames.Select(CardNormalizer.Normalize), StringComparer.OrdinalIgnoreCase);
-        return normalizedDeckCardNames.Contains(normalizedName);
+        return deckCardNames.Select(CardNormalizer.Normalize).Contains(normalizedName, StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
