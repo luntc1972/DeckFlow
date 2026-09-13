@@ -92,12 +92,11 @@ public sealed class AdminCreatorStyleController : Controller
     public async Task<IActionResult> Index(CancellationToken cancellationToken = default)
     {
         var summaries = await GetAvailableCreatorsAsync(cancellationToken).ConfigureAwait(false);
-        var vm = new AdminCreatorStyleViewModel
+        return View(new AdminCreatorStyleViewModel
         {
             AvailableCreators = summaries,
             Notice = summaries.Count == 0 ? NoProfilesSeededMessage : null,
-        };
-        return View(vm);
+        });
     }
 
     /// <summary>
