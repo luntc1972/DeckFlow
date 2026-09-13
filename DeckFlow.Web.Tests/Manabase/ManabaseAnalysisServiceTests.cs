@@ -1946,7 +1946,7 @@ public sealed class ManabaseAnalysisServiceTests
 
     private static bool GetResultShowPlainLanguage(ManabaseAnalysisResult result)
     {
-        PropertyInfo property = typeof(ManabaseAnalysisResult).GetProperty("ShowPlainLanguage")
+        var property = typeof(ManabaseAnalysisResult).GetProperty("ShowPlainLanguage")
             ?? throw new Xunit.Sdk.XunitException("ManabaseAnalysisResult.ShowPlainLanguage property missing.");
         return (bool)(property.GetValue(result) ?? false);
     }
