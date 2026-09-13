@@ -25,10 +25,12 @@
     ViewData["Description"] = "Compare two Commander decks and see exactly which cards were added or cut. Pulls live deck lists from Archidekt and Moxfield. Free, no signup.";
 }
 
-<section class="hero">
-    <h1>Deck Sync</h1>
-    <p class="lede">Compare or merge two deck exports, including same-platform Moxfield-to-Moxfield and Archidekt-to-Archidekt workflows.</p>
-</section>
+<div class="deck-sync-workspace">
+    <section class="hero">
+        <p class="workspace-eyebrow">Deck tools / sync</p>
+        <h1>Deck Sync</h1>
+        <p class="lede">Compare or merge two deck exports, including same-platform Moxfield-to-Moxfield and Archidekt-to-Archidekt workflows.</p>
+    </section>
 
 @await Html.PartialAsync("_BusyIndicator")
 @await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
@@ -42,7 +44,19 @@
     <div class="error-banner" role="alert">@Model.ErrorMessage</div>
 }
 
-<form id="deck-sync-form" method="post" class="deck-form" data-cache-key="deck-sync" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output." data-deck-sync-api="@Url.Content("~/api/deck/diff")">
+<details class="cutlab-intake" data-cut-lab-intake-summary open="@(Model.Diff is null ? "open" : null)">
+    <summary class="cutlab-intake-summary">
+        @if (Model.Diff is not null)
+        {
+            <span class="cutlab-intake-summary__commander">Deck sync ready</span>
+            <span class="cutlab-intake-summary__change">Change decks</span>
+        }
+        else
+        {
+            <span class="cutlab-intake-summary__commander">Compare two decks</span>
+        }
+    </summary>
+<form id="deck-sync-form" method="post" class="deck-form result-panel" data-cache-key="deck-sync" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output." data-deck-sync-api="@Url.Content("~/api/deck/diff")">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <div class="direction-group">
@@ -152,6 +166,7 @@
         </section>
     </div>
 </form>
+</details>
 
 <div id="deck-sync-error" class="error-banner hidden" role="alert"></div>
 
@@ -319,3 +334,4 @@
     </section>
 }
 </noscript>
+</div>
