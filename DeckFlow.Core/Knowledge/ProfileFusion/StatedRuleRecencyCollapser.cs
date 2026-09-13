@@ -56,10 +56,8 @@ public static class StatedRuleRecencyCollapser
                 .ToList());
     }
 
-    private static bool ShouldReplace(StatedRuleCandidate current, StatedRuleCandidate challenger)
-    {
-        return challenger.VideoDateUtc > current.VideoDateUtc;
-    }
+    private static bool ShouldReplace(StatedRuleCandidate current, StatedRuleCandidate challenger) =>
+        challenger.VideoDateUtc > current.VideoDateUtc;
 }
 
 /// <summary>

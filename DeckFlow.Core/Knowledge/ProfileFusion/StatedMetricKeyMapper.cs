@@ -114,10 +114,16 @@ public static class StatedMetricKeyMapper
             mappings[category] = $"category_ratio:{category}";
         }
 
-        mappings["karsten:target_lands"] = "karsten:target_lands";
-        mappings["karsten:land_delta"] = "karsten:land_delta";
-        mappings["karsten:health_score"] = "karsten:health_score";
-        mappings["combo_density:included_per_deck"] = "combo_density:included_per_deck";
+        foreach (string metric in new[]
+        {
+            "karsten:target_lands",
+            "karsten:land_delta",
+            "karsten:health_score",
+            "combo_density:included_per_deck",
+        })
+        {
+            mappings[metric] = metric;
+        }
 
         return mappings;
     }
