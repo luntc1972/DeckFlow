@@ -292,27 +292,10 @@ public static class ProfileFusionEngine
 
     private static double GetRepresentativeStatedValue(StatedRuleCandidate rule)
     {
-        if (rule.Value.HasValue)
-        {
-            return rule.Value.Value;
-        }
-
-        if (rule.ValueMin.HasValue && rule.ValueMax.HasValue)
-        {
-            return (rule.ValueMin.Value + rule.ValueMax.Value) / 2.0;
-        }
-
-        if (rule.ValueMin.HasValue)
-        {
-            return rule.ValueMin.Value;
-        }
-
-        if (rule.ValueMax.HasValue)
-        {
-            return rule.ValueMax.Value;
-        }
-
-        return 0.0;
+        return rule.Value ??
+            (rule.ValueMin.HasValue && rule.ValueMax.HasValue
+                ? (rule.ValueMin.Value + rule.ValueMax.Value) / 2.0
+                : rule.ValueMin ?? rule.ValueMax ?? 0.0);
     }
 
     private static string ToConfidenceBand(double confidence)
