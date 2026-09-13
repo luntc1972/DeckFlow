@@ -235,12 +235,5 @@ public static class DeckTendenciesReportBuilder
     }
 
     private static string? TryGetDeckName(string deckId, IReadOnlyDictionary<string, string>? deckNames)
-    {
-        if (deckNames is null)
-        {
-            return null;
-        }
-
-        return deckNames.TryGetValue(deckId, out var deckName) ? deckName : null;
-    }
+        => deckNames is not null && deckNames.TryGetValue(deckId, out var deckName) ? deckName : null;
 }

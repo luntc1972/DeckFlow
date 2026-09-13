@@ -144,20 +144,15 @@ public sealed class MeasuredStyleProfileBuilder
         CreatorProfileSource? profileSource = await _profileSourceStore.GetBySlugAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
         // Why (CR-03): use the persisted flag, matching CreatorProfileDeckCrawler, rather than derive it from sample weights.
         bool weightsUncurated = profileSource?.WeightsUncurated ?? true;
+        IReadOnlyDictionary<int, double> folderWeights = BuildFolderWeights(flaggedSamples);
         IReadOnlyList<CreatorDeckSample> weightedSamples = FolderWeighting.ApplyWeights(
             strippedSamples,
-            flaggedSamples
-                .Where(sample => sample.FolderId.HasValue)
-                .GroupBy(sample => sample.FolderId!.Value)
-                .ToDictionary(group => group.Key, group => group.First().FolderWeight),
+            folderWeights,
             weightsUncurated: weightsUncurated);
         IReadOnlyList<double> sampleWeights = weightedSamples.Select(sample => sample.FolderWeight).ToArray();
         IReadOnlyList<CreatorDeckSample> unstrippedWeightedSamples = FolderWeighting.ApplyWeights(
             flaggedSamples,
-            flaggedSamples
-                .Where(sample => sample.FolderId.HasValue)
-                .GroupBy(sample => sample.FolderId!.Value)
-                .ToDictionary(group => group.Key, group => group.First().FolderWeight),
+            folderWeights,
             weightsUncurated: weightsUncurated);
         IReadOnlyList<double> unstrippedSampleWeights = unstrippedWeightedSamples.Select(sample => sample.FolderWeight).ToArray();
 
@@ -229,6 +224,14 @@ public sealed class MeasuredStyleProfileBuilder
                 VideoDateUtc = rule.VideoDateUtc
             })
             .ToArray();
+    }
+
+    private static IReadOnlyDictionary<int, double> BuildFolderWeights(IReadOnlyList<CreatorDeckSample> samples)
+    {
+        return samples
+            .Where(sample => sample.FolderId.HasValue)
+            .GroupBy(sample => sample.FolderId!.Value)
+            .ToDictionary(group => group.Key, group => group.First().FolderWeight);
     }
 
     private static List<MeasuredMetric> BuildCategoryMetrics(
