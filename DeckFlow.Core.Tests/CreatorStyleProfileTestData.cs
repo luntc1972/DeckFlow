@@ -14,8 +14,8 @@ internal static class CreatorStyleProfileTestData
             Platform = "youtube",
             MinDecks = CreatorStyleProfile.MinDeckFloor + 2,
             InsufficientSample = false,
-            StatedRules = new[]
-            {
+            StatedRules =
+            [
                 new StatedRule
                 {
                     Category = "curve",
@@ -26,9 +26,9 @@ internal static class CreatorStyleProfileTestData
                     Confidence = 0.87,
                     VideoDateUtc = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero)
                 }
-            },
-            MeasuredMetrics = new[]
-            {
+            ],
+            MeasuredMetrics =
+            [
                 new MeasuredMetric
                 {
                     Metric = "lands",
@@ -43,9 +43,9 @@ internal static class CreatorStyleProfileTestData
                         EffectiveSampleSize = 8.5
                     }
                 }
-            },
-            FusedTargets = new[]
-            {
+            ],
+            FusedTargets =
+            [
                 new FusedTarget
                 {
                     Metric = "interaction",
@@ -59,7 +59,7 @@ internal static class CreatorStyleProfileTestData
                         Delta = 1.0
                     }
                 }
-            },
+            ],
             UpdatedUtc = FullProfileUpdatedUtc
         };
 

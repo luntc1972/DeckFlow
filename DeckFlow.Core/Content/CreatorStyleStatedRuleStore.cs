@@ -133,7 +133,7 @@ public sealed class CreatorStyleStatedRuleStore : ICreatorStyleStatedRuleStore
             """,
             new { slug },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Select(ToCandidate).ToList();
+        return rows.Select(ToCandidate).ToArray();
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
