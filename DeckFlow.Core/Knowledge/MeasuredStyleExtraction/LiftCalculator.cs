@@ -117,7 +117,7 @@ public static class LiftCalculator
         }
 
         probability = deckCount / (double)baseline.TotalDecks;
-        return probability > 0;
+        return true;
     }
 }
 
