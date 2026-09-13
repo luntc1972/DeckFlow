@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 using DeckFlow.Web.Controllers.Admin;
@@ -34,7 +33,7 @@ public sealed class AdminCreatorProfileViewRenderTests
     {
         var vm = new AdminCreatorProfileViewModel();
 
-        string html = await RenderAsync(vm);
+        var html = await RenderAsync(vm);
 
         Assert.Contains("id=\"creator-profile-slug\"", html, StringComparison.Ordinal);
         Assert.Contains("id=\"creator-profile-username\"", html, StringComparison.Ordinal);
@@ -48,7 +47,7 @@ public sealed class AdminCreatorProfileViewRenderTests
     {
         var vm = new AdminCreatorProfileViewModel();
 
-        string html = await RenderAsync(vm);
+        var html = await RenderAsync(vm);
 
         Assert.Contains(
             "<option value=\"archidekt\" selected=\"selected\">archidekt</option>",
@@ -65,7 +64,7 @@ public sealed class AdminCreatorProfileViewRenderTests
     {
         var vm = new AdminCreatorProfileViewModel();
 
-        string html = await RenderAsync(vm);
+        var html = await RenderAsync(vm);
 
         Assert.DoesNotContain("id=\"creator-profile-summary\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("id=\"creator-profile-metrics\"", html, StringComparison.Ordinal);
@@ -119,7 +118,7 @@ public sealed class AdminCreatorProfileViewRenderTests
         };
         var vm = new AdminCreatorProfileViewModel { Profile = profile, Report = report };
 
-        string html = await RenderAsync(vm);
+        var html = await RenderAsync(vm);
 
         Assert.Contains("category_ratio:ramp", html, StringComparison.Ordinal);
         Assert.Contains("Snail Kicks", html, StringComparison.Ordinal);
@@ -135,7 +134,7 @@ public sealed class AdminCreatorProfileViewRenderTests
     [Fact]
     public void Run_CarriesValidateAntiForgeryTokenAttribute()
     {
-        MethodInfo runMethod = typeof(AdminCreatorProfileController).GetMethod(nameof(AdminCreatorProfileController.Run))!;
+        var runMethod = typeof(AdminCreatorProfileController).GetMethod(nameof(AdminCreatorProfileController.Run))!;
 
         var attributes = runMethod.GetCustomAttributes(inherit: false);
 
@@ -179,7 +178,7 @@ public sealed class AdminCreatorProfileViewRenderTests
         };
         var vm = new AdminCreatorProfileViewModel { Profile = profile, Report = report };
 
-        string html = await RenderAsync(vm);
+        var html = await RenderAsync(vm);
 
         Assert.DoesNotContain("<script>alert('x')</script>", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<script>", html, StringComparison.OrdinalIgnoreCase);
