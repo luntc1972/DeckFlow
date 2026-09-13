@@ -21,10 +21,7 @@ public sealed class CreatorStyleIndexExportTests : IDisposable
         SqliteConnection.ClearAllPools();
         GC.Collect();
         GC.WaitForPendingFinalizers();
-        if (File.Exists(_dbPath))
-        {
-            File.Delete(_dbPath);
-        }
+        File.Delete(_dbPath);
 
         if (Directory.Exists(_outputDir))
         {

@@ -26,10 +26,7 @@ public sealed class CreatorStyleStatedRuleStoreTests : IDisposable
         SqliteConnection.ClearAllPools();
         GC.Collect();
         GC.WaitForPendingFinalizers();
-        if (File.Exists(_dbPath))
-        {
-            File.Delete(_dbPath);
-        }
+        File.Delete(_dbPath);
     }
 
     [Fact]
