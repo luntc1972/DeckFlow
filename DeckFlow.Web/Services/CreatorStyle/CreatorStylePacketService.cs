@@ -198,8 +198,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
             throw;
         }
         IReadOnlyList<FusedTarget> scoreableTargets = profile.FusedTargets
-            .Where(static target => !IsSuperseded(target))
-            .Where(static target => string.IsNullOrWhiteSpace(target.Condition))
+            .Where(static target => !IsSuperseded(target) && string.IsNullOrWhiteSpace(target.Condition))
             .ToArray();
         RubricScoreResult rubricScores = _scoreRubric(request.CreatorSlug, scoreableTargets, analysis.Stats);
 
