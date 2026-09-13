@@ -29,10 +29,7 @@ public sealed class ValidateStatedRulesTests
     {
         var rule = CreateValidRule(comparator: "gte", value: null);
 
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => DistillationValidation.ValidateStatedRules([rule]));
-
-        Assert.Contains("Non-range stated rules require", ex.Message, StringComparison.Ordinal);
+        AssertInvalidRule("Non-range stated rules require", rule);
     }
 
     [Fact]
@@ -40,10 +37,7 @@ public sealed class ValidateStatedRulesTests
     {
         var rule = CreateValidRule(metric: "unknown_metric");
 
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => DistillationValidation.ValidateStatedRules([rule]));
-
-        Assert.Contains("metric", ex.Message, StringComparison.Ordinal);
+        AssertInvalidRule("metric", rule);
     }
 
     [Fact]
@@ -51,10 +45,7 @@ public sealed class ValidateStatedRulesTests
     {
         var rule = CreateValidRule(comparator: "gt");
 
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => DistillationValidation.ValidateStatedRules([rule]));
-
-        Assert.Contains("comparator", ex.Message, StringComparison.Ordinal);
+        AssertInvalidRule("comparator", rule);
     }
 
     [Fact]
@@ -62,10 +53,7 @@ public sealed class ValidateStatedRulesTests
     {
         var rule = CreateValidRule(confidence: 1.5);
 
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => DistillationValidation.ValidateStatedRules([rule]));
-
-        Assert.Contains("confidence", ex.Message, StringComparison.Ordinal);
+        AssertInvalidRule("confidence", rule);
     }
 
     [Fact]
@@ -73,10 +61,7 @@ public sealed class ValidateStatedRulesTests
     {
         var rule = CreateValidRule(sourceClip: " ");
 
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => DistillationValidation.ValidateStatedRules([rule]));
-
-        Assert.Contains("source_clip", ex.Message, StringComparison.Ordinal);
+        AssertInvalidRule("source_clip", rule);
     }
 
     [Fact]
@@ -84,10 +69,7 @@ public sealed class ValidateStatedRulesTests
     {
         var rule = CreateValidRule(videoDateUtc: DateTimeOffset.MinValue);
 
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => DistillationValidation.ValidateStatedRules([rule]));
-
-        Assert.Contains("video_date", ex.Message, StringComparison.Ordinal);
+        AssertInvalidRule("video_date", rule);
     }
 
     [Fact]
@@ -183,9 +165,15 @@ public sealed class ValidateStatedRulesTests
     [Fact]
     public void ValidateStatedRules_RejectsNullMetric()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() => DistillationValidation.ValidateStatedRules([CreateValidRule(metric: null!)]));
+        AssertInvalidRule("not in the stated rule vocabulary", CreateValidRule(metric: null!));
+    }
 
-        Assert.Contains("not in the stated rule vocabulary", exception.Message, StringComparison.Ordinal);
+    private static void AssertInvalidRule(string expectedMessage, StatedRuleCandidate rule)
+    {
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
+            () => DistillationValidation.ValidateStatedRules([rule]));
+
+        Assert.Contains(expectedMessage, exception.Message, StringComparison.Ordinal);
     }
 
     private static StatedRuleCandidate CreateValidRule(
