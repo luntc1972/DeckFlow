@@ -5,23 +5,25 @@ namespace DeckFlow.Core.Content;
 /// </summary>
 public static class ContentKbPaths
 {
+    private const string SeedDirectory = "content-kb/seed/";
+
     /// <summary>
     /// Repo-relative forward-slash path to the tracked seed index file; the single source of truth shared by Web, Studio, and CLI.
     /// </summary>
-    public const string SeedRelativePath = "content-kb/seed/index-seed.json";
+    public const string SeedRelativePath = SeedDirectory + "index-seed.json";
 
     /// <summary>
     /// Repo-relative forward-slash path to the tracked creator style-profile seed file.
     /// </summary>
-    public const string CreatorStyleProfileSeedRelativePath = "content-kb/seed/creator-style-profiles.json";
+    public const string CreatorStyleProfileSeedRelativePath = SeedDirectory + "creator-style-profiles.json";
 
     /// <summary>
     /// Repo-relative forward-slash path to the tracked creator deck-cache seed file.
     /// </summary>
-    public const string CreatorDeckCacheSeedRelativePath = "content-kb/seed/creator-deck-cache.json";
+    public const string CreatorDeckCacheSeedRelativePath = SeedDirectory + "creator-deck-cache.json";
 
     /// <summary>
     /// Repo-relative forward-slash path to the tracked creator stated-rules seed file.
     /// </summary>
-    public const string CreatorStatedRulesSeedRelativePath = "content-kb/seed/creator-stated-rules.json";
+    public const string CreatorStatedRulesSeedRelativePath = SeedDirectory + "creator-stated-rules.json";
 }
