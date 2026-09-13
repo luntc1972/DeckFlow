@@ -96,13 +96,13 @@ public sealed class CardGroundingGuard(
                 continue;
             }
 
-            string cacheKey = CachedNameResolution.BuildCacheKey(CacheKeyPrefix, candidateName);
-            if (cache.TryGetValue<CardResolution>(cacheKey, out var cachedResolution))
+            if (TryGetCachedResolution(candidateName, out CardResolution cachedResolution))
             {
-                resolutions[candidateName] = cachedResolution!;
+                resolutions[candidateName] = cachedResolution;
                 continue;
             }
 
+            string cacheKey = CachedNameResolution.BuildCacheKey(CacheKeyPrefix, candidateName);
             if (seenKeys.Add(cacheKey))
             {
                 uniqueCandidates.Add(candidateName);
