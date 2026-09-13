@@ -220,20 +220,14 @@ public sealed class StapleStripperTests
         Assert.Equal("trusted", flagged[1].ConfidenceMarker);
     }
 
-    private static CreatorDeckSample Sample(string deckId, params DeckEntry[] entries)
-    {
-        return Sample(deckId, "trusted", entries);
-    }
+    private static CreatorDeckSample Sample(string deckId, params DeckEntry[] entries) =>
+        Sample(deckId, "trusted", entries);
 
-    private static CreatorDeckSample Sample(string deckId, string confidenceMarker, params DeckEntry[] entries)
-    {
-        return Sample(deckId, entries.Sum(entry => entry.Quantity), confidenceMarker, entries);
-    }
+    private static CreatorDeckSample Sample(string deckId, string confidenceMarker, params DeckEntry[] entries) =>
+        Sample(deckId, entries.Sum(entry => entry.Quantity), confidenceMarker, entries);
 
-    private static CreatorDeckSample Sample(string deckId, int cardCount, params DeckEntry[] entries)
-    {
-        return Sample(deckId, cardCount, "trusted", entries);
-    }
+    private static CreatorDeckSample Sample(string deckId, int cardCount, params DeckEntry[] entries) =>
+        Sample(deckId, cardCount, "trusted", entries);
 
     private static CreatorDeckSample Sample(string deckId, int cardCount, string confidenceMarker, params DeckEntry[] entries)
     {
