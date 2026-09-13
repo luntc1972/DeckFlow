@@ -169,6 +169,10 @@
         }
 
         const names: string[] = await response.json();
+        if (document.activeElement !== input) {
+          hideLookupSuggestionPanel();
+          return;
+        }
         onError?.(undefined);
         panel.replaceChildren();
         optionElements = [];
