@@ -16,7 +16,7 @@ public sealed class CreatorStyleRequestTests
         // Why (WR-12): a settable DeckSource on this form-bound DTO would let a posted
         // DeckSource field populate DeckUrl depending on model-binder property visitation order,
         // bypassing whatever validation the caller expected on DeckUrl/DeckText directly.
-        PropertyInfo property = typeof(CreatorStyleRequest).GetProperty(nameof(CreatorStyleRequest.DeckSource))!;
+        var property = typeof(CreatorStyleRequest).GetProperty(nameof(CreatorStyleRequest.DeckSource))!;
 
         Assert.Null(property.SetMethod);
         Assert.NotNull(property.GetCustomAttribute<BindNeverAttribute>());

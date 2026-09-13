@@ -2254,7 +2254,7 @@ Commander
 
     private static string InvokeBuildSuggestedChatTitle(DeckAnalysisRequest request, string? commanderName)
     {
-        MethodInfo method = typeof(DeckAnalysisPacketService).GetMethod("BuildSuggestedChatTitle", BindingFlags.NonPublic | BindingFlags.Static)
+        var method = typeof(DeckAnalysisPacketService).GetMethod("BuildSuggestedChatTitle", BindingFlags.NonPublic | BindingFlags.Static)
             ?? throw new Xunit.Sdk.XunitException("BuildSuggestedChatTitle not found.");
 
         return (string)(method.Invoke(null, new object?[] { request, commanderName }) ?? throw new Xunit.Sdk.XunitException("BuildSuggestedChatTitle returned null."));
