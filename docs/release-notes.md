@@ -6,6 +6,25 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.09.4 — Real Seeded Creator Style Profile (2026-09-13)
+
+`/Admin/CreatorStyle` renders a real critique for the first time, replacing the empty-seed-store
+state shipped in 2026.09.3:
+- **Operator run:** a five-step local pipeline — crawl a creator's decks at `/Admin/CreatorProfile`,
+  `creator-style-import-stated` to load the ten hand-authored stated rules, `fuse-profile` to join
+  them against the measured profile and print a conflict ledger, `creator-style-index-export` to
+  write the two seed files, then commit. Documented in `docs/content-knowledge-base.md`.
+- **First real seeded profile:** `salubrioussnail`'s 21-deck measured profile and 43-deck cache are
+  now committed to `content-kb/seed/creator-style-profiles.json` and
+  `content-kb/seed/creator-deck-cache.json`, replacing the three-byte `[]` placeholders shipped at
+  Phase 112. Land count fuses to an **agree** verdict (measured ~36.3 vs. a stated 37-42 band).
+- **Known limitation, accepted for this milestone:** the six category-based stated rules (ramp,
+  removal, draw, counter, board-wipe, tutor) currently read `insufficient-measured` or `conflict`
+  rather than a scored verdict, because the measured category metrics are keyed by a large granular
+  tagger vocabulary that doesn't share exact names with the stated rules' small category set. A
+  follow-up phase will add the category-aggregation layer needed to close this gap; land count and
+  the philosophy-only metrics are unaffected and already resolve correctly.
+
 ### 2026.09.3 — Personal Tools: Admin-Only Creator Style and Deck Tendencies (2026-09-09)
 
 New admin-only tools, both reachable only through the existing `/Admin` BasicAuth branch (no public

@@ -28,6 +28,31 @@ dotnet run --project DeckFlow.CLI -- distill --video-ids "VLdny8IVXYE"
 dotnet run --project DeckFlow.CLI -- content-index-export
 ```
 
+### Creator Style operator sequence
+
+A second, separate local pipeline feeds `/Admin/CreatorStyle`'s per-creator critique instead of the general content KB above. It is a five-step, one-time-per-refresh operator run:
+
+1. Crawl the creator's decks — a browser action, not a command. Sign in through the `/Admin` BasicAuth branch, open `/Admin/CreatorProfile`, and submit the creator's slug, platform, and platform username. The page renders a deck-tendencies report when the crawl finishes.
+
+```bash
+# 2. Import the hand-authored stated rules for a creator into content_stated_rules
+dotnet run --project DeckFlow.CLI -- creator-style-import-stated
+
+# 3. Fuse the measured profile against the stated rules, printing a conflict ledger
+dotnet run --project DeckFlow.CLI -- fuse-profile --slug <creator-slug>
+
+# 4. Export both seed files for commit-then-deploy
+dotnet run --project DeckFlow.CLI -- creator-style-index-export
+
+# 5. Commit the two populated seed files as one change
+git add content-kb/seed/creator-style-profiles.json content-kb/seed/creator-deck-cache.json
+git commit -m "feat: refresh <creator-slug> creator-style seeds"
+```
+
+Each command follows the same exit-code convention as `role-floor-research` and `edhrec-role-grid`: `0` succeeded, `1` is a bad-argument or unhandled-exception failure, and `2` means the command ran but found nothing usable (e.g. no stated rules or no measured decks for the given slug) — a `2` almost always means a prior step in this sequence was skipped, so re-run from step 1 rather than retrying the same command.
+
+**Known limitation — category-vocabulary gap (accepted, tracked for a follow-up phase):** `fuse-profile`'s stated rules use a small, closed set of category names (`ramp`, `removal`, `draw`, `counter`, `board-wipe`, `tutor`, …), but the measured `category_ratio:*` metrics are keyed by whatever granular per-card category label the harvested-category/Scryfall-Tagger lookup returns — hundreds of specific labels (e.g. `Land Ramp`, `Draw Engine`, `Removal Bounce`) that do not share an exact name with the stated-rule categories. Land count and the two philosophy-only metrics resolve correctly because they don't depend on this join, but the six category-based stated rules currently read `insufficient-measured` (no matching measured key) or, when a same-named granular tag happens to exist, `conflict` against a unit that isn't actually comparable (a fraction of the deck vs. a card count). This was evaluated and accepted as a milestone limitation on 2026-09-11 rather than blocking the seed export — closing it needs a granular-to-canonical category aggregation layer, planned as a follow-up phase rather than part of this one.
+
 - Each artifact is a markdown file under `content-kb/{source-slug}/{video-id}.md` with a ≤200-word summary, 3-8 key clips (each carrying an `[mm:ss]` timestamp when the transcript has a marker to support it, otherwise left untimed rather than guessed), and tags from a controlled vocabulary (archetype/strategy, format/bracket, card category). Distillation also writes a sibling `content-kb/{source-slug}/{video-id}.prompt.md` — the baked paste-ready prompt (persona + task + evidence rules wrapped around the notes) that the site copy button and the Studio review queue serve.
 - The distill LLM backend is selected by `DECKFLOW_LLM_PROVIDER` (`openai` default with Structured Outputs, or `claude` to shell the Claude Code CLI at $0 subscription cost). Monthly spend caps: `DECKFLOW_LLM_MONTHLY_CAP_USD` and `DECKFLOW_WHISPER_MONTHLY_CAP_USD` (default $15; cap-gating applies to the OpenAI/Whisper paid paths).
 - **`claude` provider on Windows — set `DECKFLOW_LLM_CLI_COMMAND`.** With `DECKFLOW_LLM_PROVIDER=claude`, the distiller shells the `claude` CLI. On Linux/macOS it runs bare `claude` (must be on `PATH`). On **Windows** the bare default is not used — set `DECKFLOW_LLM_CLI_COMMAND` to a JSON array invoking the CLI, with exactly one `{instruction}` placeholder. If your `claude` lives in WSL, call it via `wsl.exe` using the **full path** (wsl.exe uses a non-login shell, so `~/.local/bin` is not on `PATH` — bare `wsl.exe claude` fails):
