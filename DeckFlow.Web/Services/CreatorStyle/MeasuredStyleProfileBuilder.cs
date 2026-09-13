@@ -152,9 +152,19 @@ public sealed class MeasuredStyleProfileBuilder
                 .ToDictionary(group => group.Key, group => group.First().FolderWeight),
             weightsUncurated: weightsUncurated);
         IReadOnlyList<double> sampleWeights = weightedSamples.Select(sample => sample.FolderWeight).ToArray();
+        IReadOnlyList<CreatorDeckSample> unstrippedWeightedSamples = FolderWeighting.ApplyWeights(
+            flaggedSamples,
+            flaggedSamples
+                .Where(sample => sample.FolderId.HasValue)
+                .GroupBy(sample => sample.FolderId!.Value)
+                .ToDictionary(group => group.Key, group => group.First().FolderWeight),
+            weightsUncurated: weightsUncurated);
+        IReadOnlyList<double> unstrippedSampleWeights = unstrippedWeightedSamples.Select(sample => sample.FolderWeight).ToArray();
 
         int rawDeckCount = FolderWeighting.RawDeckCount(weightedSamples);
         double effectiveSampleSize = FolderWeighting.EffectiveSampleSize(weightedSamples);
+        int unstrippedRawDeckCount = FolderWeighting.RawDeckCount(unstrippedWeightedSamples);
+        double unstrippedEffectiveSampleSize = FolderWeighting.EffectiveSampleSize(unstrippedWeightedSamples);
         GlobalCategoryBaseline baseline = await _categoryKnowledgeRepository
             .GetGlobalCategoryBaselineAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -164,8 +174,8 @@ public sealed class MeasuredStyleProfileBuilder
         // Why (WR-03): each of these already fans out per-deck work at MaxConcurrentDeckAnalyses;
         // starting them concurrently doubles peak concurrency to 8 on the 512MB Render tier the
         // cap exists to protect, so they run sequentially instead.
-        MeasuredMetric comboDensity = await BuildComboDensityMetricAsync(weightedSamples, sampleWeights, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false);
-        IReadOnlyList<MeasuredMetric> karstenMetrics = await BuildKarstenMetricsAsync(weightedSamples, sampleWeights, rawDeckCount, effectiveSampleSize, cancellationToken).ConfigureAwait(false);
+        MeasuredMetric comboDensity = await BuildComboDensityMetricAsync(unstrippedWeightedSamples, unstrippedSampleWeights, unstrippedRawDeckCount, unstrippedEffectiveSampleSize, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<MeasuredMetric> karstenMetrics = await BuildKarstenMetricsAsync(unstrippedWeightedSamples, unstrippedSampleWeights, unstrippedRawDeckCount, unstrippedEffectiveSampleSize, cancellationToken).ConfigureAwait(false);
         metrics.Add(comboDensity);
         metrics.AddRange(karstenMetrics);
         metrics = metrics

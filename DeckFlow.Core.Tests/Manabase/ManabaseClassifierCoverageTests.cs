@@ -18,6 +18,28 @@ namespace DeckFlow.Core.Tests;
 public sealed class ManabaseClassifierCoverageTests
 {
     [Fact]
+    public void Classify_ModalDfcWithLandBack_CountsLandSource()
+    {
+        var card = new CardFact
+        {
+            Name = "Boggart Trawler // Boggart Bog",
+            Quantity = 1,
+            TypeLine = "Creature — Goblin",
+            ManaCost = "{2}{B}",
+            ManaValue = 3,
+            Layout = "modal_dfc",
+            HasLandFace = true,
+            ProducedMana = new[] { "R" }
+        };
+
+        ManabaseDeck deck = ManabaseClassifier.Classify([card]);
+
+        ManaSource source = Assert.Single(deck.Sources);
+        Assert.Equal(card.Name, source.Name);
+        Assert.True(source.IsLand);
+    }
+
+    [Fact]
     public void Classify_CreatureScopeReducer_IsClassifiedCreature()
     {
         // "Creature spells you cast cost {1} less" → ReductionScope.Creature.

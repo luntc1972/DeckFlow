@@ -14,6 +14,19 @@ internal static class ContentKbCliPaths
         => db?.FullName ?? Path.Combine(Directory.GetCurrentDirectory(), "artifacts", "content-kb.db");
 
     /// <summary>
+    /// Resolves the creator deck-cache database next to the Content KB database.
+    /// </summary>
+    /// <param name="db">Optional explicit Content KB database file path.</param>
+    /// <returns>The full path to the creator deck-cache database.</returns>
+    public static string ResolveCreatorDeckCacheDatabasePath(FileInfo? db)
+    {
+        var contentKbDatabasePath = ResolveDatabasePath(db);
+        var directory = Path.GetDirectoryName(contentKbDatabasePath)
+            ?? Directory.GetCurrentDirectory();
+        return Path.Combine(directory, "creator-deck-cache.db");
+    }
+
+    /// <summary>
     /// Resolves the Content KB artifact root from the current environment.
     /// </summary>
     /// <param name="db">Unused optional database file path kept for call-site compatibility.</param>
