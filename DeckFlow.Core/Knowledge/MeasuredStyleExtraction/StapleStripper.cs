@@ -150,7 +150,7 @@ public static class StapleStripper
         var intersectionCount = left.Count(card => right.Contains(card));
         var unionCount = left.Count + right.Count - intersectionCount;
 
-        return unionCount == 0 ? 0 : (double)intersectionCount / unionCount;
+        return (double)intersectionCount / unionCount;
     }
 
     private static string GetComparableName(DeckEntry entry)
