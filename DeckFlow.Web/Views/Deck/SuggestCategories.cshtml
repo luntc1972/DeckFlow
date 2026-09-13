@@ -32,7 +32,12 @@
     <span data-api-field="card-search-error-text"></span>
 </div>
 
-<form method="post" action="@Url.Content("~/suggest-categories")" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking cached category data and optional sources." data-busy-progress="Checking cached store|Querying optional sources|Finalizing category matches" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="@Url.Content("~/api/suggestions/card")">
+<details class="cutlab-intake" open>
+    <summary class="cutlab-intake-summary">
+        <span class="cutlab-intake-summary__commander">Look up a card</span>
+        <span class="cutlab-intake-summary__change">Change lookup</span>
+    </summary>
+    <form method="post" action="@Url.Content("~/suggest-categories")" class="deck-form" data-cache-key="suggest-categories" data-validate-lookup data-busy-title="Finding Categories" data-busy-message="Checking cached category data and optional sources." data-busy-progress="Checking cached store|Querying optional sources|Finalizing category matches" data-busy-hold-final-step="true" data-suggestions-type="card" data-suggestion-api="@Url.Content("~/api/suggestions/card")">
     @Html.AntiForgeryToken()
     <div class="toolbar">
         <label class="mode-picker">
@@ -89,7 +94,8 @@
             </label>
         </div>
     </div>
-</form>
+    </form>
+</details>
 
 <div class="info-banner @(cardSpecified ? string.Empty : "hidden")" data-api-panel="lookup-hint">
     <p data-api-field="lookup-hint-text">
