@@ -70,8 +70,7 @@ public sealed class TranscriptChunkerTests
     {
         IReadOnlyList<string> chunks = TranscriptChunker.Chunk(BuildLongSentences(prefix: string.Empty));
 
-        Assert.True(chunks.Count > 1);
-        Assert.All(chunks, chunk => Assert.True(chunk.Length <= TranscriptChunker.MaxCharsPerChunk));
+        AssertChunksFitCharacterBudget(chunks);
     }
 
     [Fact]
@@ -79,8 +78,7 @@ public sealed class TranscriptChunkerTests
     {
         IReadOnlyList<string> chunks = TranscriptChunker.Chunk(BuildLongSentences(prefix: "Narrator "));
 
-        Assert.True(chunks.Count > 1);
-        Assert.All(chunks, chunk => Assert.True(chunk.Length <= TranscriptChunker.MaxCharsPerChunk));
+        AssertChunksFitCharacterBudget(chunks);
     }
 
     [Fact]
@@ -88,8 +86,7 @@ public sealed class TranscriptChunkerTests
     {
         IReadOnlyList<string> chunks = TranscriptChunker.Chunk(BuildLongSentences(prefix: "[00:00] Narrator "));
 
-        Assert.True(chunks.Count > 1);
-        Assert.All(chunks, chunk => Assert.True(chunk.Length <= TranscriptChunker.MaxCharsPerChunk));
+        AssertChunksFitCharacterBudget(chunks);
     }
 
     [Fact]
@@ -97,8 +94,7 @@ public sealed class TranscriptChunkerTests
     {
         IReadOnlyList<string> chunks = TranscriptChunker.Chunk(BuildLongSentences(prefix: "[00:00] "));
 
-        Assert.True(chunks.Count > 1);
-        Assert.All(chunks, chunk => Assert.True(chunk.Length <= TranscriptChunker.MaxCharsPerChunk));
+        AssertChunksFitCharacterBudget(chunks);
         Assert.StartsWith("[00:00]", chunks[0], StringComparison.Ordinal);
     }
 
@@ -130,6 +126,12 @@ public sealed class TranscriptChunkerTests
 
     private static string BuildLongSentences(string prefix)
         => prefix + string.Join(" ", Enumerable.Repeat($"{new string('x', 900)}.", 20));
+
+    private static void AssertChunksFitCharacterBudget(IReadOnlyList<string> chunks)
+    {
+        Assert.True(chunks.Count > 1);
+        Assert.All(chunks, chunk => Assert.True(chunk.Length <= TranscriptChunker.MaxCharsPerChunk));
+    }
 
     private static string BuildWords(int count)
         => string.Join(" ", Enumerable.Repeat("x", count));
