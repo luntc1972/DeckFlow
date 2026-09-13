@@ -2254,8 +2254,12 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
 
 @media (min-width: 900px) {
   .card-lookup-grid {
-    grid-template-columns: 60% 40%;
+    grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
     gap: 1.5rem;
+  }
+
+  .card-lookup-grid:has(.card-lookup-grid__rail.hidden) {
+    grid-template-columns: 1fr;
   }
 
   .deck-convert-grid {
@@ -2264,6 +2268,11 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
   }
 
   .deck-convert-grid__rail {
+    justify-self: start;
+    max-width: 100%;
+  }
+
+  .card-lookup-grid__rail {
     justify-self: start;
     max-width: 100%;
   }
@@ -6797,6 +6806,10 @@ html {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
+}
+
+.field-grid:has(> .field:only-child) {
+  grid-template-columns: 1fr;
 }
 
 .url-grid {
