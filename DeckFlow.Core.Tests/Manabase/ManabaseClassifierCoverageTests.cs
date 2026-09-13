@@ -111,7 +111,7 @@ public sealed class ManabaseClassifierCoverageTests
             ProducedMana = Array.Empty<string>(),
         };
 
-        ManabaseDeck deck = ManabaseClassifier.Classify(new List<CardFact> { aura, creature });
+        ManabaseDeck deck = ManabaseClassifier.Classify([aura, creature]);
 
         ManaSource granted = Assert.Single(deck.Sources, s => s.Name == "Grizzly Bears (granted)");
         Assert.Equal(0.25, granted.Weight);
@@ -125,14 +125,14 @@ public sealed class ManabaseClassifierCoverageTests
         // Prismatic Vista / Evolving Wilds grab "a basic land" — they can only get a color the deck
         // actually runs as a basic. A WU deck (Plains + Island basics, no red) must NOT credit the
         // generic fetch with red.
-        var cards = new List<CardFact>
-        {
+        List<CardFact> cards =
+        [
             Spell("Brago", 4, "{2}{W}{U}"),
             Land("Plains", "Basic Land — Plains", new[] { "W" }),
             Land("Island", "Basic Land — Island", new[] { "U" }),
             Land("Evolving Wilds", "Land", Array.Empty<string>(),
                 "{T}, Sacrifice Evolving Wilds: Search your library for a basic land card, put it onto the battlefield tapped."),
-        };
+        ];
 
         ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
@@ -147,15 +147,15 @@ public sealed class ManabaseClassifierCoverageTests
     {
         // A deck with zero basic lands cannot fetch anything with a generic basic fetch → empty
         // color set (not "all five" speculatively).
-        var cards = new List<CardFact>
-        {
+        List<CardFact> cards =
+        [
             Spell("Brago", 4, "{2}{W}{U}"),
             // Only a nonbasic dual is present; no basic land types in the deck.
             Land("Hallowed Fountain", "Land — Plains Island", new[] { "W", "U" },
                 "As Hallowed Fountain enters, you may pay 2 life. If you don't, it enters tapped."),
             Land("Evolving Wilds", "Land", Array.Empty<string>(),
                 "{T}, Sacrifice Evolving Wilds: Search your library for a basic land card, put it onto the battlefield tapped."),
-        };
+        ];
 
         ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
@@ -174,14 +174,14 @@ public sealed class ManabaseClassifierCoverageTests
     {
         // When the ONLY other land carries no basic land TYPE (a colorless utility land), a generic
         // basic fetch reaches nothing — the produced set is empty.
-        var cards = new List<CardFact>
-        {
+        List<CardFact> cards =
+        [
             Spell("Brago", 4, "{2}{W}{U}"),
             // A colorless utility land with no basic land type and no produced color.
             Land("Wastes-ish Utility", "Land", Array.Empty<string>(), "{T}: Add {C}."),
             Land("Terramorphic Expanse", "Land", Array.Empty<string>(),
                 "{T}, Sacrifice Terramorphic Expanse: Search your library for a basic land card, put it onto the battlefield tapped."),
-        };
+        ];
 
         ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
@@ -194,8 +194,8 @@ public sealed class ManabaseClassifierCoverageTests
     {
         // ClassifyKinds maps the FRONT face type line into the SpellKinds flags used for reducer
         // scope matching. An "Artifact Creature" carries both flags.
-        var cards = new List<CardFact>
-        {
+        List<CardFact> cards =
+        [
             new()
             {
                 Name = "Artifact Creature",
@@ -226,7 +226,7 @@ public sealed class ManabaseClassifierCoverageTests
                 OracleText = "Enchant creature.",
                 ProducedMana = Array.Empty<string>(),
             },
-        };
+        ];
 
         ManabaseDeck deck = ManabaseClassifier.Classify(cards);
 
@@ -246,8 +246,8 @@ public sealed class ManabaseClassifierCoverageTests
     {
         // A commander that taps for mana is a mana source (IsManaSource true) yet must NOT be hidden
         // from the castability rows — the analyzer keeps commander rows even when they are sources.
-        var cards = new List<CardFact>
-        {
+        List<CardFact> cards =
+        [
             new()
             {
                 Name = "Selvala, Heart of the Wilds",
@@ -259,7 +259,7 @@ public sealed class ManabaseClassifierCoverageTests
                 ProducedMana = new[] { "G" },
                 IsCommander = true,
             },
-        };
+        ];
         // Pad with a normal land base so the simulator has a realistic library to draw from (the
         // analyzer runs the Monte-Carlo sim over every kept commander row).
         for (int i = 0; i < 36; i++)
@@ -290,8 +290,8 @@ public sealed class ManabaseClassifierCoverageTests
     // ---- helpers --------------------------------------------------------------------------
 
     private static ManabaseDeck ClassifyOne(string name, string cost, double mv, string typeLine, string oracle)
-        => ManabaseClassifier.Classify(new List<CardFact>
-        {
+        => ManabaseClassifier.Classify(
+        [
             new()
             {
                 Name = name,
@@ -302,7 +302,7 @@ public sealed class ManabaseClassifierCoverageTests
                 OracleText = oracle,
                 ProducedMana = Array.Empty<string>(),
             },
-        });
+        ]);
 
     private static CardFact Spell(string name, int mv, string cost) => new()
     {

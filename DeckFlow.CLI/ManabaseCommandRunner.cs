@@ -74,7 +74,7 @@ internal static class ManabaseCommandRunner
 
             (var index, var notFound) = await ResolveCardsAsync(collectionRequest);
 
-            var deckEntries = new List<DeckCardEntry>();
+            var deckEntries = new List<DeckCardEntry>(deckCards.Count);
             var unresolved = new List<string>();
             foreach (DeckEntry entry in deckCards)
             {
