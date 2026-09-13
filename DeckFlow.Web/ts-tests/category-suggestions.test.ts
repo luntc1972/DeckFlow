@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import '../wwwroot/ts/category-suggestions';
 
 interface CategorySuggestionsApi {
@@ -9,6 +9,7 @@ interface CategorySuggestionsApi {
     sourceCount: number;
     sourceTotal: number;
   }>): void;
+  setCardIntakeState(form: HTMLFormElement, open: boolean, cardName?: string): void;
 }
 
 let api: CategorySuggestionsApi;
@@ -18,6 +19,63 @@ beforeAll(() => {
 });
 
 describe('DeckFlowCategorySuggestions', () => {
+  it('closes the intake with the card name after a successful lookup and reopens it when cleared', () => {
+    document.body.innerHTML = '<details class="cutlab-intake" open><summary class="cutlab-intake-summary"><span class="cutlab-intake-summary__commander">Look up a card</span><span class="cutlab-intake-summary__change">Change lookup</span></summary><form></form></details>';
+
+    const form = document.querySelector<HTMLFormElement>('form');
+    const intake = document.querySelector<HTMLDetailsElement>('.cutlab-intake');
+    const summary = document.querySelector<HTMLElement>('.cutlab-intake-summary__commander');
+    expect(form).not.toBeNull();
+    expect(intake).not.toBeNull();
+    expect(summary).not.toBeNull();
+
+    api.setCardIntakeState(form!, false, 'Guardian Project');
+    expect(intake!.open).toBe(false);
+    expect(summary!.textContent).toBe('Guardian Project');
+
+    api.setCardIntakeState(form!, true);
+    expect(intake!.open).toBe(true);
+  });
+
+  it('wires lookup, clear, and empty-card input handlers to the card intake state', async () => {
+    document.body.innerHTML = '<details class="cutlab-intake" open><summary><span class="cutlab-intake-summary__commander">Look up a card</span></summary><form data-suggestions-type="card" data-suggestion-api="/api/categories" data-cache-key="guardian-project"><input name="CardName" value="Guardian Project"><select name="Mode"><option value="CachedData" selected>Cached data</option></select><button type="button" data-clear-cache>Clear</button></form></details>';
+    const payload = {
+      cardName: 'Guardian Project',
+      exactCategoriesText: '', exactSuggestionContextText: '', inferredCategoriesText: '', inferredSuggestionContextText: '',
+      edhrecCategoriesText: '', edhrecSuggestionContextText: '', hasExactCategories: false, hasInferredCategories: false,
+      hasEdhrecCategories: false, taggerCategoriesText: '', taggerSuggestionContextText: '', hasTaggerCategories: false,
+      noSuggestionsFound: false, cardDeckTotals: { totalDeckCount: 0 }
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const form = document.querySelector<HTMLFormElement>('form')!;
+    const intake = document.querySelector<HTMLDetailsElement>('.cutlab-intake')!;
+    const summary = document.querySelector<HTMLElement>('.cutlab-intake-summary__commander')!;
+    const cardName = form.elements.namedItem('CardName') as HTMLInputElement;
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(intake.open).toBe(false);
+    expect(summary.textContent).toBe('Guardian Project');
+
+    form.querySelector<HTMLElement>('[data-clear-cache]')!.click();
+    expect(intake.open).toBe(true);
+    expect(summary.textContent).toBe('Look up a card');
+
+    intake.open = false;
+    summary.textContent = 'Guardian Project';
+    cardName.value = '';
+    cardName.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(intake.open).toBe(true);
+    expect(summary.textContent).toBe('Look up a card');
+    vi.unstubAllGlobals();
+  });
+
   it('renders weighted rows in response order with unavailable counts shown as em dashes', () => {
     document.body.innerHTML = '<section class="result-panel hidden" data-api-panel="weighted"><table><tbody data-api-field="weighted-body"></tbody></table></section>';
 
