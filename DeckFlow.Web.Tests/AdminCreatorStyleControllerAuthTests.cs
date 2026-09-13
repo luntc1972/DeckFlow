@@ -146,7 +146,7 @@ public sealed class AdminCreatorStyleControllerAuthTests
 
             using var unauthenticatedResponse = await client.GetAsync(CreatorStylePath);
             Assert.Equal(HttpStatusCode.Unauthorized, unauthenticatedResponse.StatusCode);
-            Assert.True(unauthenticatedResponse.Headers.WwwAuthenticate.Any());
+            Assert.NotEmpty(unauthenticatedResponse.Headers.WwwAuthenticate);
 
             using var authenticatedRequest = new HttpRequestMessage(HttpMethod.Get, CreatorStylePath);
             var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes("admin:secret"));

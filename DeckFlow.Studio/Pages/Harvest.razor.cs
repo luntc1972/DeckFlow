@@ -396,7 +396,6 @@ public partial class Harvest
 
         var rawLines = _pasteQueueText
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(l => !string.IsNullOrWhiteSpace(l))
             .ToList();
 
         if (rawLines.Count == 0)
