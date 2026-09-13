@@ -113,7 +113,8 @@ public static class ConflictCalculator
     private static double GetBandRelativePercent(double measuredValue, double violatedEdge)
     {
         double distance = Math.Abs(measuredValue - violatedEdge);
-        double denominator = Math.Abs(violatedEdge) < MinDenominator ? 1.0 : Math.Abs(violatedEdge);
+        double absoluteViolatedEdge = Math.Abs(violatedEdge);
+        double denominator = absoluteViolatedEdge < MinDenominator ? 1.0 : absoluteViolatedEdge;
         return distance / denominator;
     }
 
