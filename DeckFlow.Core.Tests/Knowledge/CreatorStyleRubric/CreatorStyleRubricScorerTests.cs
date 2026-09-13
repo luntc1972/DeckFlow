@@ -21,7 +21,7 @@ public sealed class CreatorStyleRubricScorerTests
 
         RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, submittedStats);
 
-        RubricMetricScore score = Assert.Single(result.MetricScores);
+        var score = Assert.Single(result.MetricScores);
         Assert.Equal("category_ratio:ramp", score.Metric);
         Assert.Equal(12, score.TargetValue);
         Assert.Equal(8, score.SubmittedValue);
@@ -45,7 +45,7 @@ public sealed class CreatorStyleRubricScorerTests
 
         RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, submittedStats);
 
-        RubricMetricScore score = Assert.Single(result.MetricScores);
+        var score = Assert.Single(result.MetricScores);
         Assert.Equal("karsten:target_lands", score.Metric);
         Assert.Equal(1, score.Delta);
         Assert.Equal("over", score.Verdict);
@@ -97,7 +97,7 @@ public sealed class CreatorStyleRubricScorerTests
 
         RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, CreateSubmittedDeckStats(new Dictionary<string, double>()));
 
-        RubricMetricScore score = Assert.Single(result.MetricScores);
+        var score = Assert.Single(result.MetricScores);
         Assert.Equal("land_count", score.Metric);
         Assert.Null(score.SubmittedValue);
         Assert.Null(score.Delta);
@@ -119,7 +119,7 @@ public sealed class CreatorStyleRubricScorerTests
 
         RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, submittedStats);
 
-        RubricMetricScore score = Assert.Single(result.MetricScores);
+        var score = Assert.Single(result.MetricScores);
         Assert.Equal("category_ratio:ramp", score.Metric);
         Assert.Null(score.SubmittedValue);
         Assert.Null(score.Delta);
@@ -142,7 +142,7 @@ public sealed class CreatorStyleRubricScorerTests
 
         RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, submittedStats);
 
-        RubricMetricScore score = Assert.Single(result.MetricScores);
+        var score = Assert.Single(result.MetricScores);
         Assert.Equal("land_count", score.Metric);
         Assert.Equal(38, score.SubmittedValue);
         Assert.Equal(0, score.Delta);
@@ -159,7 +159,7 @@ public sealed class CreatorStyleRubricScorerTests
 
         RubricScoreResult result = CreatorStyleRubricScorer.Score("snail", creatorTargets, CreateSubmittedDeckStats(new Dictionary<string, double>()));
 
-        RubricMetricScore score = Assert.Single(result.MetricScores);
+        var score = Assert.Single(result.MetricScores);
         Assert.Equal("category_ratio:draw", score.Metric);
         Assert.Null(score.SubmittedValue);
         Assert.Null(score.Delta);

@@ -22,9 +22,9 @@ public sealed class StatedRuleReducerTests
             confidence: 0.90,
             videoDateUtc: "2025-12-01T00:00:00Z");
 
-        IReadOnlyList<StatedRuleCandidate> reduced = StatedRuleReducer.Reduce([lower, higher]);
+        var reduced = StatedRuleReducer.Reduce([lower, higher]);
 
-        StatedRuleCandidate survivor = Assert.Single(reduced);
+        var survivor = Assert.Single(reduced);
         Assert.Same(higher, survivor);
     }
 
@@ -44,9 +44,9 @@ public sealed class StatedRuleReducerTests
             confidence: 0.75,
             videoDateUtc: "2026-02-03T00:00:00Z");
 
-        IReadOnlyList<StatedRuleCandidate> reduced = StatedRuleReducer.Reduce([older, newer]);
+        var reduced = StatedRuleReducer.Reduce([older, newer]);
 
-        StatedRuleCandidate survivor = Assert.Single(reduced);
+        var survivor = Assert.Single(reduced);
         Assert.Same(newer, survivor);
     }
 
@@ -66,9 +66,9 @@ public sealed class StatedRuleReducerTests
             confidence: 0.80,
             videoDateUtc: "2025-02-01T00:00:00Z");
 
-        IReadOnlyList<StatedRuleCandidate> reduced = StatedRuleReducer.Reduce([nullCondition, emptyCondition]);
+        var reduced = StatedRuleReducer.Reduce([nullCondition, emptyCondition]);
 
-        StatedRuleCandidate survivor = Assert.Single(reduced);
+        var survivor = Assert.Single(reduced);
         Assert.Same(emptyCondition, survivor);
     }
 
@@ -88,7 +88,7 @@ public sealed class StatedRuleReducerTests
             confidence: 0.90,
             videoDateUtc: "2025-02-01T00:00:00Z");
 
-        IReadOnlyList<StatedRuleCandidate> reduced = StatedRuleReducer.Reduce([first, second]);
+        var reduced = StatedRuleReducer.Reduce([first, second]);
 
         Assert.Equal(2, reduced.Count);
         Assert.Same(first, reduced[0]);
@@ -115,11 +115,11 @@ public sealed class StatedRuleReducerTests
             confidence: 0.95,
             videoDateUtc: "2025-02-01T00:00:00Z");
 
-        IReadOnlyList<StatedRuleCandidate> reduced = StatedRuleReducer.Reduce(
+        var reduced = StatedRuleReducer.Reduce(
             candidates: [evidenceRule, hallucinated],
             chunkEvidence: [evidenceRule]);
 
-        StatedRuleCandidate survivor = Assert.Single(reduced);
+        var survivor = Assert.Single(reduced);
         Assert.Same(evidenceRule, survivor);
     }
 
@@ -139,11 +139,11 @@ public sealed class StatedRuleReducerTests
             confidence: 0.90,
             videoDateUtc: "2025-12-01T00:00:00Z");
 
-        IReadOnlyList<StatedRuleCandidate> reduced = StatedRuleReducer.Reduce(
+        var reduced = StatedRuleReducer.Reduce(
             candidates: [chunkOriginal, reducedMerge],
             chunkEvidence: [chunkOriginal]);
 
-        StatedRuleCandidate survivor = Assert.Single(reduced);
+        var survivor = Assert.Single(reduced);
         Assert.Same(reducedMerge, survivor);
     }
 
