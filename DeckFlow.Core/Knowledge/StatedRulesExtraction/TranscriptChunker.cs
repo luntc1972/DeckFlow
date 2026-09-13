@@ -29,7 +29,7 @@ public static partial class TranscriptChunker
         }
 
         IReadOnlyList<string> segments = SplitIntoTimestampSegments(transcript);
-        if (segments.Count <= 1)
+        if (segments.Count == 1)
         {
             return SplitIntoSentenceSegments(transcript);
         }
