@@ -300,7 +300,7 @@ internal static class RoleFloorResearchCommandRunner
                     }
                 }).ConfigureAwait(false);
 
-            foreach (CommanderDeckSet commanderDeckSet in commanderDeckSets.Where(set => set is not null).Cast<CommanderDeckSet>())
+            foreach (CommanderDeckSet commanderDeckSet in commanderDeckSets.OfType<CommanderDeckSet>())
             {
                 commanderDecks[commanderDeckSet.CommanderName] = commanderDeckSet;
             }
