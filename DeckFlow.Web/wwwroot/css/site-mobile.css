@@ -791,6 +791,40 @@
     overflow-wrap: anywhere;
     overflow-x: auto;
   }
+
+  .deck-modules {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0 0.75rem;
+  }
+
+  .deck-modules .run-button,
+  .deck-modules .copy-button,
+  .deck-modules button[data-deck-modules-move],
+  .deck-modules select[data-df-select],
+  .deck-modules .df-select__trigger,
+  .deck-modules input:not([type=checkbox]),
+  .deck-modules textarea,
+  .deck-modules [data-deck-modules-alternative] {
+    min-height: 44px;
+  }
+
+  .deck-modules textarea {
+    box-sizing: border-box;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    overflow-x: auto;
+  }
+
+  .deck-modules .deck-modules__path,
+  .deck-modules .deck-modules__path-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .deck-modules .deck-modules__assignment > button[data-deck-modules-move] {
+    position: static;
+    inline-size: 100%;
+  }
 }
 
 @media (max-width: 480px) {
