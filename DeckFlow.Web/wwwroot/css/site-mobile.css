@@ -906,6 +906,41 @@
     max-width: 100%;
     overflow-x: auto;
   }
+
+  .deck-convert-workspace {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0 0.75rem;
+  }
+
+  .deck-convert-workspace > .deck-convert-grid > .deck-convert-grid__input,
+  .deck-convert-workspace > .deck-convert-grid > .deck-convert-grid__rail {
+    margin-top: 1rem;
+    padding: 1rem;
+  }
+
+  .deck-convert-workspace .run-button,
+  .deck-convert-workspace .clear-cache-button,
+  .deck-convert-workspace .copy-button,
+  .deck-convert-workspace .df-select__trigger,
+  .deck-convert-workspace .cache-pill__reset {
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .deck-convert-workspace input[name="DeckUrl"],
+  .deck-convert-workspace input[name="CommanderOverride"],
+  .deck-convert-workspace textarea[name="DeckText"] {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .deck-convert-workspace textarea[name="DeckText"],
+  .deck-convert-workspace #deck-convert-output {
+    overflow-wrap: anywhere;
+    overflow-x: auto;
+  }
 }
 
 @media (max-width: 480px) {
