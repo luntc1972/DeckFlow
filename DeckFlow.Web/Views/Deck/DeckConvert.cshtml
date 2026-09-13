@@ -24,7 +24,7 @@
     <div class="warning-banner" role="alert">No commander was found in the import. Enter a commander name below and convert again to include it.</div>
 }
 
-<form method="post" action="@Url.Content("~/convert")" class="deck-form" data-cache-key="deck-convert" data-busy-title="Converting Deck" data-busy-message="Loading and reformatting the deck.">
+<form method="post" action="@Url.Content("~/convert")" class="deck-form deck-convert-workspace" data-cache-key="deck-convert" data-busy-title="Converting Deck" data-busy-message="Loading and reformatting the deck.">
     @Html.AntiForgeryToken()
     <div class="card-lookup-grid deck-convert-grid">
     <div class="deck-convert-grid__input">
