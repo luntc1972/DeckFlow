@@ -1898,16 +1898,18 @@ internal static class RoleFloorResearchCommandRunner
                 FreshMean = freshFigures[bracketIndex]!.Mean,
             })
             .ToList();
+        double maximumSpread = spreads.Count == 0 ? 0.0 : spreads.Max(spread => spread.Spread);
+        string[] divergentBrackets = spreads
+            .Where(spread => spread.Spread > 1.0)
+            .Select(spread => $"B{spread.BracketIndex}")
+            .ToArray();
 
         if (sharedBracketMeans.Count == 0)
         {
             return new ThreeReferenceAgreement
             {
-                MaximumSpread = spreads.Count == 0 ? 0.0 : spreads.Max(spread => spread.Spread),
-                DivergentBrackets = spreads
-                    .Where(spread => spread.Spread > 1.0)
-                    .Select(spread => $"B{spread.BracketIndex}")
-                    .ToArray(),
+                MaximumSpread = maximumSpread,
+                DivergentBrackets = divergentBrackets,
                 ClosestReferenceSet = null,
                 ComparisonBrackets = Array.Empty<string>(),
             };
@@ -1932,11 +1934,8 @@ internal static class RoleFloorResearchCommandRunner
 
         return new ThreeReferenceAgreement
         {
-            MaximumSpread = spreads.Count == 0 ? 0.0 : spreads.Max(spread => spread.Spread),
-            DivergentBrackets = spreads
-                .Where(spread => spread.Spread > 1.0)
-                .Select(spread => $"B{spread.BracketIndex}")
-                .ToArray(),
+            MaximumSpread = maximumSpread,
+            DivergentBrackets = divergentBrackets,
             ClosestReferenceSet = closestReferenceSet,
             ComparisonBrackets = sharedBracketMeans.Select(value => $"B{value.BracketIndex}").ToArray(),
         };
@@ -2101,8 +2100,8 @@ internal static class RoleFloorResearchCommandRunner
             .ToList();
 
         List<double> comparableRatios = perRoleRatios
-            .Where(value => value.Ratio is not null)
-            .Select(value => value.Ratio!.Value)
+            .Select(value => value.Ratio)
+            .OfType<double>()
             .ToList();
 
         if (comparableRatios.Count == 0)
