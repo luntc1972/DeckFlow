@@ -255,7 +255,7 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
         }
 
         var results = new List<ScryfallCard>();
-        foreach (var chunk in ChunkFallbackNames(trimmedNames, SearchFallbackChunkSize))
+        foreach (var chunk in ScryfallBatching.Chunk(trimmedNames, SearchFallbackChunkSize))
         {
             var query = string.Join(" or ", chunk.Select(name => $"!\"{name}\""));
             var request = new RestRequest("cards/search", Method.Get);
@@ -304,21 +304,6 @@ public sealed class ScryfallCardResolver : IScryfallCardResolver
         }
 
         return results;
-    }
-
-    private static IEnumerable<List<string>> ChunkFallbackNames(IReadOnlyList<string> values, int size)
-    {
-        for (var index = 0; index < values.Count; index += size)
-        {
-            var count = Math.Min(size, values.Count - index);
-            var chunk = new List<string>(count);
-            for (var itemIndex = 0; itemIndex < count; itemIndex++)
-            {
-                chunk.Add(values[index + itemIndex]);
-            }
-
-            yield return chunk;
-        }
     }
 
     /// <inheritdoc/>

@@ -142,7 +142,7 @@ internal sealed partial class ScryfallReferenceResolver
 
         var groups = new List<IReadOnlyList<string>>();
         var coldNames = new List<string>();
-        foreach (var chunk in Chunk(requestNames, ScryfallLimits.CollectionBatchSize))
+        foreach (var chunk in ScryfallBatching.Chunk(requestNames, ScryfallLimits.CollectionBatchSize))
         {
             var warmNames = new List<string>();
             foreach (var requestName in chunk)
@@ -164,7 +164,7 @@ internal sealed partial class ScryfallReferenceResolver
             }
         }
 
-        foreach (var chunk in Chunk(coldNames, ScryfallLimits.CollectionBatchSize))
+        foreach (var chunk in ScryfallBatching.Chunk(coldNames, ScryfallLimits.CollectionBatchSize))
         {
             groups.Add(chunk);
         }
@@ -221,7 +221,7 @@ internal sealed partial class ScryfallReferenceResolver
         // pseudo-chunk could collide two cached cards that shared a key but never shared a response,
         // costing a fallback search. Only the COLD remainder is re-chunked.
         var coldNames = new List<string>();
-        foreach (var chunk in Chunk(requestNames, ScryfallLimits.CollectionBatchSize))
+        foreach (var chunk in ScryfallBatching.Chunk(requestNames, ScryfallLimits.CollectionBatchSize))
         {
             var warmNames = new List<string>();
             var warmCards = new List<ScryfallCard>();
@@ -251,7 +251,7 @@ internal sealed partial class ScryfallReferenceResolver
             }
         }
 
-        foreach (var chunk in Chunk(coldNames, ScryfallLimits.CollectionBatchSize))
+        foreach (var chunk in ScryfallBatching.Chunk(coldNames, ScryfallLimits.CollectionBatchSize))
         {
             string[] chunkIdentifiers = chunk
                 .Select(CoreScryfallCollectionIdentifier.ToFaceIdentifier)
@@ -502,21 +502,6 @@ internal sealed partial class ScryfallReferenceResolver
                     fallbackCard,
                     ScryfallCollectionProtocolBand.Fallback);
             }
-        }
-    }
-
-    private static IEnumerable<List<T>> Chunk<T>(IReadOnlyList<T> values, int size)
-    {
-        for (var index = 0; index < values.Count; index += size)
-        {
-            var count = Math.Min(size, values.Count - index);
-            var chunk = new List<T>(count);
-            for (var itemIndex = 0; itemIndex < count; itemIndex++)
-            {
-                chunk.Add(values[index + itemIndex]);
-            }
-
-            yield return chunk;
         }
     }
 
