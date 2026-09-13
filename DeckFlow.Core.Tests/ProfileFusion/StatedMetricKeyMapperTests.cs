@@ -44,9 +44,7 @@ public sealed class StatedMetricKeyMapperTests
     [MemberData(nameof(CategoryMappings))]
     public void TryMapToMeasuredKey_MapsEachCategoryMetricByPrefix(string statedMetric, string expectedMeasuredKey)
     {
-        var mapped = StatedMetricKeyMapper.TryMapToMeasuredKey(statedMetric.ToUpperInvariant(), out var measuredKey);
-
-        Assert.True(mapped);
+        Assert.True(StatedMetricKeyMapper.TryMapToMeasuredKey(statedMetric.ToUpperInvariant(), out var measuredKey));
         Assert.Equal(StatedMetricMapKind.Direct, StatedMetricKeyMapper.GetMapKind(statedMetric));
         Assert.Equal(expectedMeasuredKey, measuredKey);
     }
@@ -55,9 +53,7 @@ public sealed class StatedMetricKeyMapperTests
     [MemberData(nameof(IdentityMappings))]
     public void TryMapToMeasuredKey_MapsEachIdentityMetricToItself(string statedMetric)
     {
-        var mapped = StatedMetricKeyMapper.TryMapToMeasuredKey(statedMetric, out var measuredKey);
-
-        Assert.True(mapped);
+        Assert.True(StatedMetricKeyMapper.TryMapToMeasuredKey(statedMetric, out var measuredKey));
         Assert.Equal(StatedMetricMapKind.Direct, StatedMetricKeyMapper.GetMapKind(statedMetric));
         Assert.Equal(statedMetric, measuredKey);
     }
@@ -65,9 +61,7 @@ public sealed class StatedMetricKeyMapperTests
     [Fact]
     public void GetMapKind_ReportsLandCountAsDerived()
     {
-        var mapped = StatedMetricKeyMapper.TryMapToMeasuredKey("land_count", out var measuredKey);
-
-        Assert.False(mapped);
+        Assert.False(StatedMetricKeyMapper.TryMapToMeasuredKey("land_count", out var measuredKey));
         Assert.Equal(StatedMetricMapKind.Derived, StatedMetricKeyMapper.GetMapKind("land_count"));
         Assert.Equal(string.Empty, measuredKey);
     }
