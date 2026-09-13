@@ -171,6 +171,19 @@
     toggleSuggestionPanel('commander-hint', false);
   };
 
+  const setCardIntakeState = (form: HTMLFormElement, open: boolean, cardName?: string): void => {
+    const intake = form.closest<HTMLDetailsElement>('details.cutlab-intake');
+    if (!intake) {
+      return;
+    }
+
+    intake.open = open;
+    const summary = intake.querySelector<HTMLElement>('.cutlab-intake-summary__commander');
+    if (summary) {
+      summary.textContent = cardName ?? 'Look up a card';
+    }
+  };
+
   const scrollPanelIntoCenter = (selector: string): void => {
     const element = document.querySelector<HTMLElement>(selector);
     if (!element) {
@@ -245,6 +258,7 @@
   const handleCardResponse = (form: SuggestionForm, response: CardSuggestionResponse): void => {
     resetCardUi();
     handleError('suggest-error', null);
+    setCardIntakeState(form, false, response.cardName);
 
     const modeSelect = form.querySelector<HTMLSelectElement>('select[name="Mode"]');
     const mode = modeSelect?.value ?? 'CachedData';
@@ -506,7 +520,14 @@
         submitSuggestion(form);
       });
 
-      form.addEventListener('input', () => persistFormState(form));
+      form.addEventListener('input', event => {
+        persistFormState(form);
+
+        const target = event.target;
+        if (target instanceof HTMLInputElement && target.name === 'CardName' && !target.value.trim()) {
+          setCardIntakeState(form, true);
+        }
+      });
       form.addEventListener('change', event => {
         persistFormState(form);
 
@@ -521,6 +542,7 @@
         clearButton.addEventListener('click', () => {
           form.reset();
           clearStoredState(form);
+          setCardIntakeState(form, true);
 
           if (form.dataset.suggestionsType === 'card') {
             resetCardUi();
@@ -550,7 +572,7 @@
   };
 
   Object.assign(globalThis, {
-    DeckFlowCategorySuggestions: { renderWeightedCategories }
+    DeckFlowCategorySuggestions: { renderWeightedCategories, setCardIntakeState }
   });
 
   document.addEventListener('DOMContentLoaded', attachSuggestionHandlers);
