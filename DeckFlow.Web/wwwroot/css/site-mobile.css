@@ -857,6 +857,55 @@
     overflow-wrap: anywhere;
     overflow-x: auto;
   }
+
+  .deck-history-workspace {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0 0.75rem;
+  }
+
+  .deck-history-workspace > .cutlab-intake > .deck-history-form,
+  .deck-history-workspace > .deck-history-results > .result-panel {
+    margin-top: 1rem;
+    padding: 1rem;
+  }
+
+  .deck-history-workspace .run-button,
+  .deck-history-workspace .clear-cache-button,
+  .deck-history-workspace .deck-history-form .df-select__trigger,
+  .deck-history-workspace .history-compare-controls .df-select__trigger,
+  .deck-history-workspace .copy-button {
+    box-sizing: border-box;
+    min-height: 44px;
+  }
+
+  .deck-history-workspace > .deck-history-results {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .deck-history-workspace > .deck-history-results > .result-panel:nth-of-type(3),
+  .deck-history-workspace > .deck-history-results > .result-panel:nth-of-type(4) {
+    grid-column: 1 / -1;
+  }
+
+  .deck-history-workspace input[type=file],
+  .deck-history-workspace input[type=url],
+  .deck-history-workspace input[type=text],
+  .deck-history-workspace textarea {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .deck-history-workspace textarea {
+    overflow-wrap: anywhere;
+    overflow-x: auto;
+  }
+
+  .deck-history-workspace .history-timeline {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
 }
 
 @media (max-width: 480px) {

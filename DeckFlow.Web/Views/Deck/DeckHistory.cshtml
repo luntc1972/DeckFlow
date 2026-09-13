@@ -40,10 +40,11 @@
     }
 }
 
-<section class="hero">
-    <h1>Deck History</h1>
-    <p class="lede">Track your deck's evolution in a file you own. DeckFlow never stores your history — download the file, keep it with your deck, and bring it back whenever the list changes.</p>
-</section>
+<div class="deck-history-workspace">
+    <section class="hero">
+        <h1>Deck History</h1>
+        <p class="lede">Track your deck's evolution in a file you own. DeckFlow never stores your history — download the file, keep it with your deck, and bring it back whenever the list changes.</p>
+    </section>
 
 @await Html.PartialAsync("_BusyIndicator")
 @await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
@@ -52,6 +53,18 @@
     @Model.ErrorMessage
 </div>
 
+<details class="cutlab-intake" data-cut-lab-intake-summary open="@(!Model.HasResult ? "open" : null)">
+    <summary class="cutlab-intake-summary">
+        @if (Model.HasResult)
+        {
+            <span class="cutlab-intake-summary__commander">Deck history ready</span>
+            <span class="cutlab-intake-summary__change">Change intake</span>
+        }
+        else
+        {
+            <span class="cutlab-intake-summary__commander">Import a deck</span>
+        }
+    </summary>
 <form method="post" action="@Url.Content("~/deck-history")" enctype="multipart/form-data" class="result-panel deck-history-form"
       data-cache-key="deck-history"
       data-busy-title="Updating history"
@@ -122,6 +135,7 @@
         <a href="@Url.Content("~/deck-history")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>
+</details>
 
 @if (Model.HasResult)
 {
@@ -271,6 +285,8 @@
 
     </section>
 }
+
+</div>
 
 @section Scripts {
     <script src="~/js/deck-input-store.js" asp-append-version="true"></script>
