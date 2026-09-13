@@ -298,37 +298,43 @@ rootCommand.SetHandler(async (bool runCache, int minutes, int seconds) =>
     Environment.ExitCode = await DeckCommandRunners.RunArchidektCacheAsync(totalSeconds, Log.Logger);
 }, cacheFlagOption, cacheMinutesOption, cacheSecondsOption);
 
-rootCommand.AddCommand(compareCommand);
-rootCommand.AddCommand(probeCommand);
-rootCommand.AddCommand(exportMoxfieldCommand);
-rootCommand.AddCommand(archidektCategoriesCommand);
-rootCommand.AddCommand(archidektCategoryCardsCommand);
-rootCommand.AddCommand(archidektHarvestRecentCommand);
-rootCommand.AddCommand(archidektCacheCommand);
-rootCommand.AddCommand(categoryFindCommand);
-rootCommand.AddCommand(cardLookupCommand);
-rootCommand.AddCommand(manabaseCommand);
-rootCommand.AddCommand(edhrecAveragesCommand);
-rootCommand.AddCommand(edhrecDownloadCommand);
-rootCommand.AddCommand(cedhLandCalibrateCommand);
-rootCommand.AddCommand(cedhLandBaselineCommand);
-rootCommand.AddCommand(roleFloorBaselineCommand);
-rootCommand.AddCommand(roleFloorResearchCommand);
-rootCommand.AddCommand(edhrecRoleGridCommand);
-rootCommand.AddCommand(scryfallProbeCommand);
-rootCommand.AddCommand(contentSourceAddCommand);
-rootCommand.AddCommand(contentSourceSetEnabledCommand);
-rootCommand.AddCommand(harvestCommand);
-rootCommand.AddCommand(blockVideoCommand);
-rootCommand.AddCommand(unblockVideoCommand);
-rootCommand.AddCommand(listBlockedCommand);
-rootCommand.AddCommand(corpusResetCommand);
-rootCommand.AddCommand(distillCommand);
-rootCommand.AddCommand(contentIndexExportCommand);
-rootCommand.AddCommand(contentKbCheckCommand);
-rootCommand.AddCommand(creatorStyleImportStatedCommand);
-rootCommand.AddCommand(fuseProfileCommand);
-rootCommand.AddCommand(creatorStyleIndexExportCommand);
+foreach (var command in new Command[]
+{
+    compareCommand,
+    probeCommand,
+    exportMoxfieldCommand,
+    archidektCategoriesCommand,
+    archidektCategoryCardsCommand,
+    archidektHarvestRecentCommand,
+    archidektCacheCommand,
+    categoryFindCommand,
+    cardLookupCommand,
+    manabaseCommand,
+    edhrecAveragesCommand,
+    edhrecDownloadCommand,
+    cedhLandCalibrateCommand,
+    cedhLandBaselineCommand,
+    roleFloorBaselineCommand,
+    roleFloorResearchCommand,
+    edhrecRoleGridCommand,
+    scryfallProbeCommand,
+    contentSourceAddCommand,
+    contentSourceSetEnabledCommand,
+    harvestCommand,
+    blockVideoCommand,
+    unblockVideoCommand,
+    listBlockedCommand,
+    corpusResetCommand,
+    distillCommand,
+    contentIndexExportCommand,
+    contentKbCheckCommand,
+    creatorStyleImportStatedCommand,
+    fuseProfileCommand,
+    creatorStyleIndexExportCommand,
+})
+{
+    rootCommand.AddCommand(command);
+}
 
 probeCommand.SetHandler((string url, FileInfo? output) =>
 {
