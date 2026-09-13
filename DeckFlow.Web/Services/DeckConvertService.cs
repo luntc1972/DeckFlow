@@ -112,8 +112,12 @@ public sealed class DeckConvertService : IDeckConvertService
     {
         var distinctEntries = entries
             .Where(e => !string.IsNullOrWhiteSpace(e.SetCode) && !string.IsNullOrWhiteSpace(e.CollectorNumber))
-            .GroupBy(e => (Set: e.SetCode!.ToLowerInvariant(), Collector: e.CollectorNumber!.ToLowerInvariant()))
-            .Select(group => group.First() with { SetCode = group.Key.Set, CollectorNumber = group.Key.Collector })
+            .Select(e => e with
+            {
+                SetCode = e.SetCode!.ToLowerInvariant(),
+                CollectorNumber = e.CollectorNumber!.ToLowerInvariant(),
+            })
+            .DistinctBy(e => (e.SetCode!, e.CollectorNumber!))
             .ToList();
 
         if (distinctEntries.Count == 0)
