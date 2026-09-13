@@ -148,7 +148,7 @@ public sealed class AdminCreatorProfileControllerAuthTests
 
             using var unauthenticatedResponse = await client.GetAsync(CreatorProfilePath);
             Assert.Equal(HttpStatusCode.Unauthorized, unauthenticatedResponse.StatusCode);
-            Assert.True(unauthenticatedResponse.Headers.WwwAuthenticate.Any());
+            Assert.NotEmpty(unauthenticatedResponse.Headers.WwwAuthenticate);
 
             using var authenticatedRequest = new HttpRequestMessage(HttpMethod.Get, CreatorProfilePath);
             var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes("admin:secret"));
