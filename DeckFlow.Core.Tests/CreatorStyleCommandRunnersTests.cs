@@ -23,15 +23,8 @@ public sealed class CreatorStyleCommandRunnersTests : IDisposable
         SqliteConnection.ClearAllPools();
         GC.Collect();
         GC.WaitForPendingFinalizers();
-        if (File.Exists(_dbPath))
-        {
-            File.Delete(_dbPath);
-        }
-
-        if (File.Exists(_seedPath))
-        {
-            File.Delete(_seedPath);
-        }
+        File.Delete(_dbPath);
+        File.Delete(_seedPath);
     }
 
     [Fact]
