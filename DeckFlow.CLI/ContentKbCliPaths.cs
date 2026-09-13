@@ -20,8 +20,7 @@ internal static class ContentKbCliPaths
     /// <returns>The full path to the creator deck-cache database.</returns>
     public static string ResolveCreatorDeckCacheDatabasePath(FileInfo? db)
     {
-        var contentKbDatabasePath = ResolveDatabasePath(db);
-        var directory = Path.GetDirectoryName(contentKbDatabasePath)
+        var directory = Path.GetDirectoryName(ResolveDatabasePath(db))
             ?? Directory.GetCurrentDirectory();
         return Path.Combine(directory, "creator-deck-cache.db");
     }
