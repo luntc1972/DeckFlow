@@ -2238,7 +2238,8 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
   color: var(--on-accent);
 }
 
-.card-lookup-grid {
+.card-lookup-grid,
+.deck-convert-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.25rem;
@@ -2257,7 +2258,18 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     gap: 1.5rem;
   }
 
-  .card-lookup-grid__rail {
+  .deck-convert-grid {
+    grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
+    gap: 1.5rem;
+  }
+
+  .deck-convert-grid__rail {
+    justify-self: start;
+    max-width: 100%;
+  }
+
+  .card-lookup-grid__rail,
+  .deck-convert-grid__rail {
     position: sticky;
     top: 1rem;
     max-height: calc(100vh - 2rem);
