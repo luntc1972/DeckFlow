@@ -56,7 +56,7 @@ public sealed class ManabaseCommandRunnerTests
             [ScryfallCollectionNameIdentifier.ForPrinting("ltr", "103")],
             HasPayload: true);
 
-        IReadOnlyList<string> labels = ManabaseCommandRunner.GetNotFoundLabels(response);
+        var labels = ManabaseCommandRunner.GetNotFoundLabels(response);
 
         Assert.Equal(["ltr #103"], labels);
     }
