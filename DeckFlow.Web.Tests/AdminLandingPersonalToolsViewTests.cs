@@ -31,7 +31,7 @@ public sealed class AdminLandingPersonalToolsViewTests
     [Fact]
     public async Task Index_RendersPersonalToolsHeadingAndCreatorStyleLink()
     {
-        string html = await RenderAsync();
+        var html = await RenderAsync();
         var document = new HtmlParser().ParseDocument(html);
 
         var anchors = document.QuerySelectorAll("a").OfType<IElement>();
@@ -45,7 +45,7 @@ public sealed class AdminLandingPersonalToolsViewTests
     [Fact]
     public async Task Index_RendersCreatorProfileLinkInPersonalToolsBlock()
     {
-        string html = await RenderAsync();
+        var html = await RenderAsync();
         var document = new HtmlParser().ParseDocument(html);
 
         var anchors = document.QuerySelectorAll("a").OfType<IElement>();
@@ -63,7 +63,7 @@ public sealed class AdminLandingPersonalToolsViewTests
     [Fact]
     public async Task Index_PersonalToolsSectionIsASiblingOfAdminHubGrid_NotNestedInsideIt()
     {
-        string html = await RenderAsync();
+        var html = await RenderAsync();
         var document = new HtmlParser().ParseDocument(html);
 
         var landingSection = document.QuerySelector("section.admin-landing");

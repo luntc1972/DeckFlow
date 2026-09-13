@@ -48,7 +48,7 @@ public sealed class AdminCreatorStyleViewRenderTests
         var controller = CreateController(new FakeCreatorStyleProfileStore(), new StubCreatorStylePacketService());
         var vm = Assert.IsType<AdminCreatorStyleViewModel>(Assert.IsType<ViewResult>(await controller.Index()).Model);
 
-        string html = await RenderAsync(vm);
+        var html = await RenderAsync(vm);
 
         Assert.Contains(AdminCreatorStyleController.NoProfilesSeededMessage, html, StringComparison.Ordinal);
     }
@@ -58,7 +58,7 @@ public sealed class AdminCreatorStyleViewRenderTests
     {
         var vm = new AdminCreatorStyleViewModel { Notice = AdminCreatorStyleController.NoProfilesSeededMessage };
 
-        string html = await RenderAsync(vm);
+        var html = await RenderAsync(vm);
 
         // The empty state replaces the result region, not the page: picker + both deck-input
         // fields (URL and paste-text) must still be present.
@@ -80,7 +80,7 @@ public sealed class AdminCreatorStyleViewRenderTests
         var vm = Assert.IsType<AdminCreatorStyleViewModel>(Assert.IsType<ViewResult>(result).Model);
         Assert.Null(vm.Notice);
 
-        string html = await RenderAsync(vm);
+        var html = await RenderAsync(vm);
 
         Assert.Contains("alpha-creator", html, StringComparison.Ordinal);
         Assert.Contains("beta-creator", html, StringComparison.Ordinal);
