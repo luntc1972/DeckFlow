@@ -679,11 +679,7 @@ public sealed class DirectPushPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains("Could not read production", cut.Markup));
 
         // Exactly one Error-level entry with a non-null exception must have been logged.
-        var errorEntries = capturedLog.Entries
-            .Where(e => e.Level == LogLevel.Error && e.Exception is not null)
-            .ToList();
-
-        Assert.True(errorEntries.Count >= 1,
+        Assert.True(capturedLog.Entries.Any(e => e.Level == LogLevel.Error && e.Exception is not null),
             "Expected at least one Error-level log entry with an exception from the diff failure");
 
         // Sentinel substrings must NOT appear in the rendered markup (secret-leak guard).
@@ -910,10 +906,7 @@ public sealed class DirectPushPageTests : BunitContext
             }
 
             // Exception must have been logged (so "see logs" guidance is true).
-            var errorEntries = capturedLog.Entries
-                .Where(e => e.Level == LogLevel.Error && e.Exception is not null)
-                .ToList();
-            Assert.True(errorEntries.Count >= 1,
+            Assert.True(capturedLog.Entries.Any(e => e.Level == LogLevel.Error && e.Exception is not null),
                 "Expected at least one Error-level log entry with an exception from the batch rollback");
 
             // Stamp and visibility must NOT have run (PUB-01 / T-qyc-04).
