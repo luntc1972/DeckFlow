@@ -204,17 +204,8 @@ internal static class CreatorStyleCommandRunners
             var profilesPath = profilesOutput?.FullName ?? ContentKbPaths.CreatorStyleProfileSeedRelativePath;
             var deckCachePath = deckCacheOutput?.FullName ?? ContentKbPaths.CreatorDeckCacheSeedRelativePath;
 
-            var profilesDirectory = Path.GetDirectoryName(Path.GetFullPath(profilesPath));
-            if (!string.IsNullOrEmpty(profilesDirectory))
-            {
-                Directory.CreateDirectory(profilesDirectory);
-            }
-
-            var deckCacheDirectory = Path.GetDirectoryName(Path.GetFullPath(deckCachePath));
-            if (!string.IsNullOrEmpty(deckCacheDirectory))
-            {
-                Directory.CreateDirectory(deckCacheDirectory);
-            }
+            EnsureParentDirectory(profilesPath);
+            EnsureParentDirectory(deckCachePath);
 
             await File.WriteAllTextAsync(profilesPath, SerializeCreatorStyleSeed(profiles)).ConfigureAwait(false);
             await File.WriteAllTextAsync(deckCachePath, SerializeCreatorStyleSeed(deckCacheEntries)).ConfigureAwait(false);
@@ -231,9 +222,15 @@ internal static class CreatorStyleCommandRunners
     }
 
     private static string SerializeCreatorStyleSeed<T>(IReadOnlyList<T> items)
+        => JsonSerializer.Serialize(items, CreatorStyleSeedJson.Options) + "\n";
+
+    private static void EnsureParentDirectory(string path)
     {
-        var json = JsonSerializer.Serialize(items, CreatorStyleSeedJson.Options);
-        return json + "\n";
+        var directory = Path.GetDirectoryName(Path.GetFullPath(path));
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
     }
 
     private static void PrintConflictLedger(IReadOnlyList<FusedTarget> fusedTargets)
