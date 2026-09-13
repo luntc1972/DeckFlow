@@ -31,11 +31,6 @@ public static class StatedRuleReducer
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(chunkEvidence);
 
-        if (candidates.Count == 0)
-        {
-            return [];
-        }
-
         var buckets = new Dictionary<StatedRuleReducerKey, (StatedRuleCandidate Candidate, int Index)>();
 
         for (int index = 0; index < candidates.Count; index++)
