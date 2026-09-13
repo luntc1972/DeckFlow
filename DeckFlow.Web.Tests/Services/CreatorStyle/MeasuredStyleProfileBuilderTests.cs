@@ -67,6 +67,10 @@ public sealed class MeasuredStyleProfileBuilderTests
         // 0.4 is weighted by FolderWeight with a weight sum of 5.0, not 2 / 6.
         Assert.Equal(0.4, comboMetric.Value, 6);
 
+        double targetLands = Assert.Single(stored.MeasuredMetrics, metric => metric.Metric == "karsten:target_lands").Value;
+        double landDelta = Assert.Single(stored.MeasuredMetrics, metric => metric.Metric == "karsten:land_delta").Value;
+        Assert.InRange(targetLands + landDelta, 55, 65);
+
         var liftMetric = stored.MeasuredMetrics.FirstOrDefault(metric => metric.Metric.StartsWith("lift:", StringComparison.Ordinal));
         Assert.NotNull(liftMetric);
         Assert.Null(liftMetric.Distribution);

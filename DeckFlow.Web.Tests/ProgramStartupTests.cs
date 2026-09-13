@@ -98,8 +98,9 @@ public sealed class ProgramStartupTests
     // (Program.BuildApp registers it unconditionally), so this fact resolves the *real*
     // CreatorStyleSeedLoader/ContentKbArtifactPathResolver pair against the repository's actual
     // content-kb directory and confirms the seed file is found and parsed (not skipped as
-    // missing). The seed is still `[]` per Phase 112 D-11, so the row count stays 0 — the point
-    // proven here is that the found-and-parsed branch runs, not the file-missing skip branch.
+    // missing). Phase 115-04's operator export populated the seed with a real profile
+    // (slug `salubrioussnail`), so the row count is now 1 — the point proven here is that the
+    // found-and-parsed branch runs, not the file-missing skip branch.
     [Fact]
     public async Task LoadCreatorStyleSeedAsync_WithRealLoaderAgainstRepoContentBase_ReadsRealSeedFileRatherThanSkippingAsMissing()
     {
@@ -124,7 +125,7 @@ public sealed class ProgramStartupTests
 
         var count = await Program.LoadCreatorStyleSeedAsync(services);
 
-        Assert.Equal(0, count);
+        Assert.Equal(1, count);
     }
 
     private static string GetRepoRoot()

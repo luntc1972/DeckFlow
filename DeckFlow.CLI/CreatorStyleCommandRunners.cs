@@ -165,7 +165,7 @@ internal static class CreatorStyleCommandRunners
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var profileStore = new CreatorStyleProfileStore(dbPath);
-            var deckCacheStore = new CreatorDeckCacheStore(dbPath);
+            var deckCacheStore = new CreatorDeckCacheStore(ContentKbCliPaths.ResolveCreatorDeckCacheDatabasePath(db));
 
             var summaries = await profileStore.GetAllAsync().ConfigureAwait(false);
             if (summaries.Count == 0)

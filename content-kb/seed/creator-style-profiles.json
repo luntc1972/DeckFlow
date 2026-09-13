@@ -1,1 +1,5565 @@
-[]
+[
+  {
+    "slug": "salubrioussnail",
+    "platform": "archidekt",
+    "minDecks": 21,
+    "insufficientSample": false,
+    "statedRules": [
+      {
+        "category": "board wipes",
+        "targetMetric": "board-wipe",
+        "targetValue": 5,
+        "targetValueMin": 3,
+        "targetValueMax": 5,
+        "comparator": "lte",
+        "condition": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: board wipes are capped at 3-5; \u0022reconsider at your 4th-5th\u0022.",
+        "confidence": 0.9,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      },
+      {
+        "category": "counterspells",
+        "targetMetric": "counter",
+        "targetValue": 8,
+        "targetValueMin": null,
+        "targetValueMax": null,
+        "comparator": "gte",
+        "condition": "archetype:control",
+        "sourceClip": "Paraphrased from the P89 distill corpus: control shells use at least 8 counterspells.",
+        "confidence": 0.8,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      },
+      {
+        "category": "draw",
+        "targetMetric": "draw",
+        "targetValue": null,
+        "targetValueMin": 13,
+        "targetValueMax": 18,
+        "comparator": "range",
+        "condition": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: use 13-18 card-draw effects.",
+        "confidence": 0.8,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      },
+      {
+        "category": "interaction",
+        "targetMetric": "interaction",
+        "targetValue": null,
+        "targetValueMin": 5,
+        "targetValueMax": 8,
+        "comparator": "range",
+        "condition": "archetype:proactive",
+        "sourceClip": "Paraphrased from the P89 distill corpus: proactive decks use 5-8 interaction effects.",
+        "confidence": 0.7,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      },
+      {
+        "category": "lands",
+        "targetMetric": "land_count",
+        "targetValue": null,
+        "targetValueMin": 37,
+        "targetValueMax": 42,
+        "comparator": "range",
+        "condition": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: use 37-42 lands as the baseline.",
+        "confidence": 0.9,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      },
+      {
+        "category": "lands",
+        "targetMetric": "land_count",
+        "targetValue": 28,
+        "targetValueMin": null,
+        "targetValueMax": null,
+        "comparator": "eq",
+        "condition": "curve:low-aggressive-mulligan",
+        "sourceClip": "Paraphrased from the P89 distill corpus: 28 lands is the low-curve, aggressive-mulligan exception.",
+        "confidence": 0.7,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      },
+      {
+        "category": "opener",
+        "targetMetric": "opener_probability",
+        "targetValue": 10,
+        "targetValueMin": null,
+        "targetValueMax": null,
+        "comparator": "gte",
+        "condition": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: run at least 10 copies to see an effect in the opener.",
+        "confidence": 0.7,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      },
+      {
+        "category": "ramp",
+        "targetMetric": "ramp",
+        "targetValue": null,
+        "targetValueMin": 7,
+        "targetValueMax": 12,
+        "comparator": "range",
+        "condition": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: ramp 7-12 baseline, deck-dependent.",
+        "confidence": 0.9,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      },
+      {
+        "category": "removal",
+        "targetMetric": "removal",
+        "targetValue": null,
+        "targetValueMin": 8,
+        "targetValueMax": 14,
+        "comparator": "range",
+        "condition": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: use 8-14 removal effects.",
+        "confidence": 0.8,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      },
+      {
+        "category": "tutors",
+        "targetMetric": "tutor",
+        "targetValue": 3,
+        "targetValueMin": null,
+        "targetValueMax": null,
+        "comparator": "eq",
+        "condition": "bracket:2",
+        "sourceClip": "Paraphrased from the P89 distill corpus: Bracket 2 decks use about 3 tutors.",
+        "confidence": 0.7,
+        "videoDateUtc": "2026-07-05T00:00:00+00:00"
+      }
+    ],
+    "measuredMetrics": [
+      {
+        "metric": "category_ratio:Abrade",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Activate From Hand",
+        "value": 0.0013230065323447536,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013230065323447536,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004078214678695485,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Activated Ability",
+        "value": 0.06068967981627384,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.06068967981627384,
+          "min": 0,
+          "max": 0.36363636363636365,
+          "stdDev": 0.09797687300522982,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Adds Multiple Mana",
+        "value": 0.00459052317366965,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.00459052317366965,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.007663033415473022,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Aesthetic Counter",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Affinity For Spells",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Alliteration",
+        "value": 0.01465032400405006,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.01465032400405006,
+          "min": 0,
+          "max": 0.13636363636363635,
+          "stdDev": 0.031939556764239825,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Anagram",
+        "value": 0.0012531328320802004,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012531328320802004,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.0056041803947363125,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Anthem",
+        "value": 0.0026827632461435278,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0026827632461435278,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.011997681971829856,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Art Matters",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Artifactfall",
+        "value": 0.0012531328320802004,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012531328320802004,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.0056041803947363125,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Attack Trigger",
+        "value": 0.001976302257992399,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.001976302257992399,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.0065073216981850575,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Attacking Matters",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Attacking Matters Self",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Auraify",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Banish",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Bear With Set\u0027s Mechanic",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Birthing Pod",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Bombard Self",
+        "value": 0.0012531328320802004,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012531328320802004,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.0056041803947363125,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Boost Power",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Bottom Deck Manipulation",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Burn Any",
+        "value": 0.0019311978576578431,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019311978576578431,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.006344926867197384,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Burn Creature",
+        "value": 0.002609262883235486,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002609262883235486,
+          "min": 0,
+          "max": 0.0547945205479452,
+          "stdDev": 0.011668978356163285,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Burn Planeswalker",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Burn Player",
+        "value": 0.0019054485528890719,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019054485528890719,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.0061872673609421084,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Burn With Set\u0027s Mechanic",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Burn You",
+        "value": 0.0041602447358724155,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0041602447358724155,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010439956132350386,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Burst Draw",
+        "value": 0.009535279463534854,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.009535279463534854,
+          "min": 0,
+          "max": 0.047058823529411764,
+          "stdDev": 0.01658231103700031,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cantrip",
+        "value": 0.0077191029431146405,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0077191029431146405,
+          "min": 0,
+          "max": 0.07894736842105263,
+          "stdDev": 0.01859330594585437,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Card Advantage (no Draw)",
+        "value": 0.0025733617468943417,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0025733617468943417,
+          "min": 0,
+          "max": 0.014492753623188406,
+          "stdDev": 0.005324731220786499,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cards In Exile Matter",
+        "value": 0.001304631441617743,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.001304631441617743,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.005834489178081642,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cards In Graveyard Matter",
+        "value": 0.0018648555312535972,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0018648555312535972,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.006233499230603707,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cast On Resolution",
+        "value": 0.004096680026998782,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004096680026998782,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010380747933119817,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cast Trigger Self",
+        "value": 0.0027994227994227994,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0027994227994227994,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009950643319831436,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cast Trigger You",
+        "value": 0.009919554278601389,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.009919554278601389,
+          "min": 0,
+          "max": 0.1095890410958904,
+          "stdDev": 0.024613640905874604,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Castable From Exile",
+        "value": 0.003505883787573929,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.003505883787573929,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010246362271916583,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Castable From Graveyard",
+        "value": 0.00476639083369589,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.00476639083369589,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.011362303992458696,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Catalog",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Catch Up",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004134415830294416,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cda Power",
+        "value": 0.006285951491430943,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.006285951491430943,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.020843587696598696,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cda Toughness",
+        "value": 0.004329004329004329,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004329004329004329,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.019359895909089084,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cheaper Than Mv",
+        "value": 0.005473831826685793,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.005473831826685793,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.012338505491748107,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cheat Death",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cheat Death Self",
+        "value": 0.003505883787573929,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.003505883787573929,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.011130167955779431,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Chromatic Lantern",
+        "value": 0.0012309149011717365,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012309149011717365,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.0038107833324790307,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Color Break",
+        "value": 0.0019311978576578431,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019311978576578431,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.006344926867197384,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Color Change Self",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Combat Trick",
+        "value": 0.0026827632461435278,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0026827632461435278,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.011997681971829856,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Commonly Nicknamed",
+        "value": 0.0012788821368489717,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012788821368489717,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.0039426624531966985,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Consult Cast",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Consult Onto Battlefield",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Convoke",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Copy Artifact",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Copy Creature",
+        "value": 0.0012788821368489717,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012788821368489717,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.0039426624531966985,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Copy From Graveyard",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Copy Self",
+        "value": 0.0019016057127076184,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019016057127076184,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.006384368816819713,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cost Ignorer",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cost Reducer Dork",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cost Reducer Instant Sorcery",
+        "value": 0.001304631441617743,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.001304631441617743,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.005834489178081642,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counter Fuel Any",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counter Fuel Charge",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counter Fuel Energy",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counter Fuel Mm",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counter Fuel Other",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counter Fuel Pp",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counters Matter",
+        "value": 0.004405398523045582,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004405398523045582,
+          "min": 0,
+          "max": 0.047058823529411764,
+          "stdDev": 0.01358060647248014,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counterspell Creature",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counterspell Noncreature",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counterspell Soft",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Counterspell With Set Mechanic",
+        "value": 0.001680672268907563,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.001680672268907563,
+          "min": 0,
+          "max": 0.03529411764705882,
+          "stdDev": 0.007516194882352236,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Create Token",
+        "value": 0.0013230065323447536,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013230065323447536,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004078214678695485,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Creates Bigger Body",
+        "value": 0.0013056114464565169,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013056114464565169,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004025833662080694,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Creature Ability Noncreature",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Creature Count Matters",
+        "value": 0.0013230065323447536,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013230065323447536,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004078214678695485,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Creature Type Name",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Curiosity",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Aer Expertise",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Aer Implement",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Akh Draft Signpost",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Apc Painland",
+        "value": 0.0041602447358724155,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0041602447358724155,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010439956132350386,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Arb Allied Equipment",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Bng Fated Spell",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Dgm Cluestones",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Eld Court Artifact",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Eve Hedge Mage",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Grn Locket",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Grn Mmnn",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Hou Modal Spell",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Iko Companion",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Iko Signpost Noncreature",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Isd Draft Signpost",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Kld Fastland",
+        "value": 0.0028351929760380467,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0028351929760380467,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009989719328875163,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Ktk Gainland",
+        "value": 0.0019936973438806358,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019936973438806358,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.0048840251442237035,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Mbs Sun Zenith",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Mir Diamond",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Mmq Ramos Artifact",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Monocolor Atog",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Mrd Spellbomb",
+        "value": 0.0012531328320802004,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012531328320802004,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.0056041803947363125,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Rav Bounceland",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Rav Signet",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Som Spellbomb",
+        "value": 0.0012531328320802004,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012531328320802004,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.0056041803947363125,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Ths Draft Signpost",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Ths Emissary",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Tsp Magus",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Ulg Perpetual Aura",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle War Hybrid Planeswalker",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Wwk Creatureland",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Young Planeswalker",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Cycle Zen Refugeland",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Damage Prevention",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Damage Prevention You",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Deanimate Self",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Death Trigger",
+        "value": 0.0041077661214960984,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0041077661214960984,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.011157589330431887,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Death Trigger Self",
+        "value": 0.008518415115894731,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.008518415115894731,
+          "min": 0,
+          "max": 0.10526315789473684,
+          "stdDev": 0.02431549589118999,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Deck Requirement",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Delayed Trigger",
+        "value": 0.0018574813172118367,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0018574813172118367,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004564129621859095,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Deprecated Legend Type",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Discard",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Discard Outlet",
+        "value": 0.0033770419749468905,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0033770419749468905,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010124660634161998,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Discard Outlet Creature",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Disenchant/naturalize",
+        "value": 0.0019679480391118645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019679480391118645,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004823294971257257,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Disintegrate",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Ditch Hand",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Division",
+        "value": 0.0034343434343434348,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0034343434343434348,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010975162006104587,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Dnd Character",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Donate Token",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Doom Blade",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Drain Life",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Draw Engine",
+        "value": 0.01065143223397165,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.01065143223397165,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.020996506079034458,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Draw Hate",
+        "value": 0.00352532410095178,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.00352532410095178,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010266781473538558,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Drawback",
+        "value": 0.008898585827716486,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.008898585827716486,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.020755782810417137,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Dreadhorde",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Dynaheirable",
+        "value": 0.0046926742932498836,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0046926742932498836,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.011357193069767527,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Egg",
+        "value": 0.0102653910946458,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0102653910946458,
+          "min": 0,
+          "max": 0.14473684210526316,
+          "stdDev": 0.030659092936763516,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Eminence",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Enchantmentize",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Energy Generator",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Enlarge",
+        "value": 0.002012072434607646,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002012072434607646,
+          "min": 0,
+          "max": 0.04225352112676056,
+          "stdDev": 0.008998261478872395,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Enters In Company",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Eponymous",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Eternalize",
+        "value": 0.002718212020537602,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002718212020537602,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.00987098131556924,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Evasion",
+        "value": 0.010941087603921386,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.010941087603921386,
+          "min": 0,
+          "max": 0.0684931506849315,
+          "stdDev": 0.018564569448147702,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Exalted",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Exile Self",
+        "value": 0.006667996546403508,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.006667996546403508,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.012318056873123946,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Expertise",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Faux Targeting",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Ferocious",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Fog Selective",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Force Draw",
+        "value": 0.0013608219364496157,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013608219364496157,
+          "min": 0,
+          "max": 0.014492753623188406,
+          "stdDev": 0.004194807918915714,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Free Cast Another",
+        "value": 0.0019138027717696068,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019138027717696068,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.00468861324446513,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Free Sacrifice Outlet",
+        "value": 0.0018796992481203006,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0018796992481203006,
+          "min": 0,
+          "max": 0.039473684210526314,
+          "stdDev": 0.008406270592104468,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Freeze Creature",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:French Vanilla",
+        "value": 0.0026827632461435278,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0026827632461435278,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.011997681971829856,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:French Vanilla Equipment",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Fun Ruling",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Future Mechanic Reference",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Future Sight Engine",
+        "value": 0.0019026709353584595,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019026709353584595,
+          "min": 0,
+          "max": 0.014492753623188406,
+          "stdDev": 0.004680646013905332,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gains Deathtouch",
+        "value": 0.0028546332894158984,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0028546332894158984,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010011964400998077,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gains Hexproof",
+        "value": 0.00352532410095178,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.00352532410095178,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010266781473538558,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gains Indestructible",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gains Mm Counters",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gains Pp Counters",
+        "value": 0.003135676805933641,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.003135676805933641,
+          "min": 0,
+          "max": 0.04,
+          "stdDev": 0.009077181735551658,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gains Reach",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Castable From Exile",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Castable From Graveyard",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Castable From Library",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Drawlink",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives First Strike",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Flying",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Improvise",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Indestructible",
+        "value": 0.0019679480391118645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019679480391118645,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.006492832455582021,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Lifelink",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Mana Ability",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Mm Counters",
+        "value": 0.0011204481792717086,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0011204481792717086,
+          "min": 0,
+          "max": 0.023529411764705882,
+          "stdDev": 0.005010796588234822,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Player Protection",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Pp Counters",
+        "value": 0.001976302257992399,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.001976302257992399,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004842781924386677,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Protection",
+        "value": 0.002012072434607646,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002012072434607646,
+          "min": 0,
+          "max": 0.04225352112676056,
+          "stdDev": 0.008998261478872395,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gives Trample",
+        "value": 0.00335345405767941,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.00335345405767941,
+          "min": 0,
+          "max": 0.07042253521126761,
+          "stdDev": 0.01499710246478732,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Gold Counterspell",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Graveyard Fuel",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Graveyard Fuel Creature",
+        "value": 0.002718212020537602,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002718212020537602,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.00987098131556924,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Greed Ability",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Group Slug",
+        "value": 0.003443384301351136,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.003443384301351136,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010183795624217559,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hand Negative",
+        "value": 0.0024914219472936977,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0024914219472936977,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.006661179357953326,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hand Neutral",
+        "value": 0.017856432649817837,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.017856432649817837,
+          "min": 0,
+          "max": 0.17105263157894737,
+          "stdDev": 0.04064505313358475,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hand Positive",
+        "value": 0.012823417800900117,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.012823417800900117,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.017677791154605264,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hand Size Decrease",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hand Size Increase",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Has Identical Token",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hate Blue",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hate Color Choose",
+        "value": 0.0026827632461435278,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0026827632461435278,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.011997681971829856,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hate Counterspell",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hate Regenerate",
+        "value": 0.0012125398104447258,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012125398104447258,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.00374919333227346,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hate Typal Dog",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hate Wide",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Hybrid Mana",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Illusion Ability",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Impulse",
+        "value": 0.001304631441617743,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.001304631441617743,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.005834489178081642,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Interchangeable Name",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Interrupt",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Intervening If Clause",
+        "value": 0.008237210166340828,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.008237210166340828,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.019891850098507344,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Kci Combo",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Keyword Anthem",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Land Conversion",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Land Count Mountain",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Land Count Plains",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Land Ramp",
+        "value": 0.004140804422494563,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004140804422494563,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010421060797231119,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Landfall",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Leaves Trigger Self",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Lhurgoyf",
+        "value": 0.011937962352780027,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.011937962352780027,
+          "min": 0,
+          "max": 0.18181818181818182,
+          "stdDev": 0.03980060433407396,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Life Divider Opponent",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Life Divider You",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Life For Cards",
+        "value": 0.004063025495970995,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004063025495970995,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.013215181292566281,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Life Payment",
+        "value": 0.00335345405767941,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.00335345405767941,
+          "min": 0,
+          "max": 0.07042253521126761,
+          "stdDev": 0.01499710246478732,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Lifegain",
+        "value": 0.0031273225870531063,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0031273225870531063,
+          "min": 0,
+          "max": 0.02666666666666667,
+          "stdDev": 0.006954408914340888,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Living Weapon",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Loot",
+        "value": 0.00307270410554707,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.00307270410554707,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.006957077598350484,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Low Mana Value Matters",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mana Dork",
+        "value": 0.0012872363557295066,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012872363557295066,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.003967929286416157,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mana Egg",
+        "value": 0.0012531328320802004,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012531328320802004,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.0056041803947363125,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mana Filter",
+        "value": 0.0012531328320802004,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012531328320802004,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.0056041803947363125,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mana Producer",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mana Restriction",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mana Rock",
+        "value": 0.0019495729483848538,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019495729483848538,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004777618812439546,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mana Sink",
+        "value": 0.004626331966845637,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004626331966845637,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.011879915780824138,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mana Value Matters",
+        "value": 0.0012125398104447258,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012125398104447258,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.00374919333227346,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Manaless Value",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Martyr",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mass Land Denial",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mill Exile",
+        "value": 0.0027994227994227994,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0027994227994227994,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009950643319831436,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mill Opponent",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mill Self",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mini Refund",
+        "value": 0.004451995772363801,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004451995772363801,
+          "min": 0,
+          "max": 0.04225352112676056,
+          "stdDev": 0.012082483392952002,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mix And Match",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Modal",
+        "value": 0.001883230621980608,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.001883230621980608,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004628876247790979,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Modal Counterspell",
+        "value": 0.0012125398104447258,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012125398104447258,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.00374919333227346,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Monstrosity",
+        "value": 0.0013056114464565169,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013056114464565169,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004025833662080694,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:More Expensive Than Mv",
+        "value": 0.0019495729483848538,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019495729483848538,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004777618812439546,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Multi Copy",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Multi Land Ramp",
+        "value": 0.0034429234429234432,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0034429234429234432,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010183039983055305,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Multi Removal",
+        "value": 0.004674299202522872,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004674299202522872,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010476389493949939,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Multiple Bodies",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Multiple Targets",
+        "value": 0.0037886791748696796,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0037886791748696796,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.008390687586254717,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Mutual Sacrifice",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Namesake Spell",
+        "value": 0.009851030102926473,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.009851030102926473,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.015901800121340372,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Naturalize With Set Mechanic",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Nightveil Theft",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Non Mana Ability Mana",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Noncreature Typal",
+        "value": 0.002012072434607646,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002012072434607646,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.006571401053744274,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Notorious Templating",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Off Color Reminder Text",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Off Turn Casting Matters",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:On Cast (instants/sorceries)",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Opponent Loses Life",
+        "value": 0.005556836848937278,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.005556836848937278,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.013875617925903683,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Out Of Color Token",
+        "value": 0.004711909364418237,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004711909364418237,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.011372954255044275,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Oversized",
+        "value": 0.0028351929760380467,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0028351929760380467,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009989719328875163,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Passive Ability",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Pauper Removal",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Per Player",
+        "value": 0.004438132060335872,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004438132060335872,
+          "min": 0,
+          "max": 0.04225352112676056,
+          "stdDev": 0.010468790447527593,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Pinger",
+        "value": 0.0012788821368489717,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012788821368489717,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.0039426624531966985,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Planeswalker Formula",
+        "value": 0.0013608219364496157,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013608219364496157,
+          "min": 0,
+          "max": 0.014492753623188406,
+          "stdDev": 0.004194807918915714,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Portmanteau",
+        "value": 0.0012972572275759824,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012972572275759824,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.0040009708936269185,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Power Boost",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Power Boost To All",
+        "value": 0.0026827632461435278,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0026827632461435278,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.011997681971829856,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Power Doubler",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Power Matters Individual",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Prevent Blocker",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Pridemate",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Protects All",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Protects Artifact",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Protects Creature",
+        "value": 0.003980020473719511,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.003980020473719511,
+          "min": 0,
+          "max": 0.07042253521126761,
+          "stdDev": 0.01511828258873891,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Pseudo Fog",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Punisher",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Punny Name",
+        "value": 0.0028351929760380467,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0028351929760380467,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009989719328875163,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Pure Draw",
+        "value": 0.016897001234404737,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.016897001234404737,
+          "min": 0,
+          "max": 0.11842105263157894,
+          "stdDev": 0.02965284004325453,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Quadratic",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Quietus Effect",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Quote Name",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Raid",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Rainbow Land",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Ramp With Set\u0027s Mechanic",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Rare Creature Type Bridge",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Reanimate Artifact",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Reanimate Cast",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Reanimate Creature",
+        "value": 0.004642035664153684,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004642035664153684,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.011211600370307242,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Reanimate Self",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Recycle",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:References Keyword",
+        "value": 0.002718212020537602,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002718212020537602,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.00987098131556924,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Refund",
+        "value": 0.003999726934244796,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.003999726934244796,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.007677090832573877,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Regenerates Self",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Regrowth Artifact",
+        "value": 0.002439923337756155,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002439923337756155,
+          "min": 0,
+          "max": 0.039473684210526314,
+          "stdDev": 0.008650797667250814,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Regrowth Creature",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Regrowth Self",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Artifact",
+        "value": 0.002532014968929172,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002532014968929172,
+          "min": 0,
+          "max": 0.039473684210526314,
+          "stdDev": 0.008759188690745592,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Bounce",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Creature",
+        "value": 0.009326075710429108,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.009326075710429108,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.016040947404049693,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Destroy",
+        "value": 0.009085397189543024,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.009085397189543024,
+          "min": 0,
+          "max": 0.05263157894736842,
+          "stdDev": 0.016484376436328028,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Enchantment",
+        "value": 0.0012531328320802004,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012531328320802004,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.0056041803947363125,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Exile",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Land",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Nonland",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Permanent",
+        "value": 0.0027910685805422647,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0027910685805422647,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009941865677498949,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Planeswalker",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Sacrifice",
+        "value": 0.0027910685805422647,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0027910685805422647,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009941865677498949,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removal Toughness",
+        "value": 0.0011204481792717086,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0011204481792717086,
+          "min": 0,
+          "max": 0.023529411764705882,
+          "stdDev": 0.005010796588234822,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Remove Counters Other",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Remove Counters You",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Removes Mm Counters Self",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Renew",
+        "value": 0.0013413816230717639,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013413816230717639,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.005998840985914928,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Artifact Tokens",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Card Advantage",
+        "value": 0.0027910685805422647,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0027910685805422647,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009941865677498949,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Creature Tokens",
+        "value": 0.0045399231611341915,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0045399231611341915,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.010368935406693819,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Crime",
+        "value": 0.007209540781604177,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.007209540781604177,
+          "min": 0,
+          "max": 0.04225352112676056,
+          "stdDev": 0.014391284074750212,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Impulsive Draw",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Lifegain",
+        "value": 0.004584368958851146,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004584368958851146,
+          "min": 0,
+          "max": 0.07042253521126761,
+          "stdDev": 0.015204588741772836,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Loot",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Plunder",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Pp Counters",
+        "value": 0.0025365263476282533,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0025365263476282533,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.005245494553678863,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Proliferate",
+        "value": 0.0011204481792717086,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0011204481792717086,
+          "min": 0,
+          "max": 0.023529411764705882,
+          "stdDev": 0.005010796588234822,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Pure Draw",
+        "value": 0.01057673568868687,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.01057673568868687,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.021911399575729837,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Removal",
+        "value": 0.006779528490954375,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.006779528490954375,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.013037861627420084,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Rummage",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeatable Sacrifice Outlet",
+        "value": 0.004955570745044429,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.004955570745044429,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.019422473107976203,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Repeated Keyword",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Reskin Virtual Legendary",
+        "value": 0.0019586328889516437,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0019586328889516437,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004800018196541219,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Restock All",
+        "value": 0.0011204481792717086,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0011204481792717086,
+          "min": 0,
+          "max": 0.023529411764705882,
+          "stdDev": 0.005010796588234822,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Restock To Bottom",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Restricted Mana",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Rules Nightmare",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Saboteur",
+        "value": 0.0012309149011717365,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012309149011717365,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.0038107833324790307,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Sacrifice Outlet Artifact",
+        "value": 0.0018796992481203006,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0018796992481203006,
+          "min": 0,
+          "max": 0.039473684210526314,
+          "stdDev": 0.008406270592104468,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Sacrifice Outlet Creature",
+        "value": 0.007790763721082475,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.007790763721082475,
+          "min": 0,
+          "max": 0.13636363636363635,
+          "stdDev": 0.029025382051815336,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Sacrifice Outlet Enchantment",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Sacrifice Outlet Land",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Sacrifice Self",
+        "value": 0.0017470145953118088,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0017470145953118088,
+          "min": 0,
+          "max": 0.023529411764705882,
+          "stdDev": 0.005617447954610938,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Scales With Mana Value",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Scales With Multiple",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Scales With Power",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Scry",
+        "value": 0.006171337165641287,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.006171337165641287,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.012380550651353819,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Second Draw Matters",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Set Life Total",
+        "value": 0.002664132945823087,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002664132945823087,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.008211631127774512,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Shade Pump",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Shapesharing",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Single English Word Name",
+        "value": 0.0054444558592735325,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0054444558592735325,
+          "min": 0,
+          "max": 0.0547945205479452,
+          "stdDev": 0.014871584332139504,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Single Target Instant/sorcery",
+        "value": 0.016443344354265015,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.016443344354265015,
+          "min": 0,
+          "max": 0.0958904109589041,
+          "stdDev": 0.02856503934527912,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Skip Draw Step",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Spot Removal",
+        "value": 0.014340673137468018,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.014340673137468018,
+          "min": 0,
+          "max": 0.1095890410958904,
+          "stdDev": 0.02858361423053938,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Sunburst",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Surveil",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Suspend",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Swap Removal",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Sweeper",
+        "value": 0.003696587543696663,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.003696587543696663,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.008003629685625402,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Sweeper One Sided",
+        "value": 0.0028351929760380467,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0028351929760380467,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009989719328875163,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Symmetrical",
+        "value": 0.006794676971529256,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.006794676971529256,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.01989678607640273,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Artifact",
+        "value": 0.003718805474605127,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.003718805474605127,
+          "min": 0,
+          "max": 0.05263157894736842,
+          "stdDev": 0.011558802206243559,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Black",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Color Share",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Enchantment",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Exile",
+        "value": 0.001304631441617743,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.001304631441617743,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.005834489178081642,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Flashback",
+        "value": 0.001304631441617743,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.001304631441617743,
+          "min": 0,
+          "max": 0.0273972602739726,
+          "stdDev": 0.005834489178081642,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Food",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Green",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Instant",
+        "value": 0.005778749856106826,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.005778749856106826,
+          "min": 0,
+          "max": 0.1095890410958904,
+          "stdDev": 0.023347165918480777,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Low Power",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Mill",
+        "value": 0.002724726254138019,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002724726254138019,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009876902374004277,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Mountain",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Noncreature",
+        "value": 0.0012125398104447258,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012125398104447258,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.00374919333227346,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Plains",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Planeswalker",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy Sorcery",
+        "value": 0.005778749856106826,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.005778749856106826,
+          "min": 0,
+          "max": 0.1095890410958904,
+          "stdDev": 0.023347165918480777,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Synergy White",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tapland",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Temporary Token",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Theft Cast",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Three Letter Name",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Three Targets",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Token Errata",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Token Generator",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tormenting Voice",
+        "value": 0.0013068385248836375,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013068385248836375,
+          "min": 0,
+          "max": 0.014285714285714285,
+          "stdDev": 0.004031704478412958,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Toughness Boost To All",
+        "value": 0.0026827632461435278,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0026827632461435278,
+          "min": 0,
+          "max": 0.056338028169014086,
+          "stdDev": 0.011997681971829856,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Trading Post Like",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Trigger From Exile",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Triggered Ability",
+        "value": 0.030297444868079424,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.030297444868079424,
+          "min": 0,
+          "max": 0.22535211267605634,
+          "stdDev": 0.05369050683648922,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Trumpet Blast",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tuck Self",
+        "value": 0.0012309149011717365,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0012309149011717365,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.0038107833324790307,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Artifact Equipment",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Card",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Creature",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Enchantment Aura",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Land Any",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Land Basic",
+        "value": 0.005393202112994552,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.005393202112994552,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.011384423128012034,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Land Basic Plains",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Land Island",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Land Mountain",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Land Plains",
+        "value": 0.0013056114464565169,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0013056114464565169,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.004025833662080694,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Land Swamp",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Land To Battlefield",
+        "value": 0.006948807230497371,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.006948807230497371,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.019527267811670503,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor Mv",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor To Battlefield",
+        "value": 0.0021645021645021645,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0021645021645021645,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.009679947954544542,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutor To Hand",
+        "value": 0.005267962551135271,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.005267962551135271,
+          "min": 0,
+          "max": 0.04225352112676056,
+          "stdDev": 0.011713840804081155,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Tutored By Name",
+        "value": 0.002718212020537602,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002718212020537602,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.00987098131556924,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Typal Beast",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Typal Cat",
+        "value": 0.00335345405767941,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.00335345405767941,
+          "min": 0,
+          "max": 0.07042253521126761,
+          "stdDev": 0.01499710246478732,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Typal Coupling",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Typal Dinosaur",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Typal Elemental",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Typal Human",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Typal Nightmare",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Typal Non Human",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Type Addition From None",
+        "value": 0.0011867905056759545,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0011867905056759545,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0036642454729873403,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Type Addition Phyrexian",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Type Change",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Type Errata",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Type Errata Ghost",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Undergrowth",
+        "value": 0.006493506493506493,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.006493506493506493,
+          "min": 0,
+          "max": 0.13636363636363635,
+          "stdDev": 0.029039843863633626,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Undergrowth All",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Unique Evasion",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Unique Mana Cost",
+        "value": 0.0049813200498132005,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0049813200498132005,
+          "min": 0,
+          "max": 0.09090909090909091,
+          "stdDev": 0.019433685457075144,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Unique Protection",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Unique Type Line",
+        "value": 0.007385967945489458,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.007385967945489458,
+          "min": 0,
+          "max": 0.045454545454545456,
+          "stdDev": 0.014247788957602257,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Universal Type Change",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Untaps Self",
+        "value": 0.0006523157208088715,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006523157208088715,
+          "min": 0,
+          "max": 0.0136986301369863,
+          "stdDev": 0.002917244589040821,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Utility Land",
+        "value": 0.00255392143351649,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.00255392143351649,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.006840291410393975,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Utility Mana Rock",
+        "value": 0.006483774667496733,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.006483774667496733,
+          "min": 0,
+          "max": 0.039473684210526314,
+          "stdDev": 0.010718572010554197,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Vanity Card",
+        "value": 0.0006265664160401002,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006265664160401002,
+          "min": 0,
+          "max": 0.013157894736842105,
+          "stdDev": 0.0028020901973681562,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Virtual French Vanilla",
+        "value": 0.0071457399366962005,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0071457399366962005,
+          "min": 0,
+          "max": 0.041666666666666664,
+          "stdDev": 0.013671254299215573,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Virtual Legendary",
+        "value": 0.002585199304991744,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002585199304991744,
+          "min": 0,
+          "max": 0.02631578947368421,
+          "stdDev": 0.006702689525702964,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Virtual Vanilla",
+        "value": 0.0026386388506477463,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0026386388506477463,
+          "min": 0,
+          "max": 0.028169014084507043,
+          "stdDev": 0.006965172449768037,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Weaker In Singleton Formats",
+        "value": 0.0006706908115358819,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006706908115358819,
+          "min": 0,
+          "max": 0.014084507042253521,
+          "stdDev": 0.002999420492957464,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Wheel One Sided",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Whirlpool",
+        "value": 0.0005602240896358543,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0005602240896358543,
+          "min": 0,
+          "max": 0.011764705882352941,
+          "stdDev": 0.002505398294117411,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:X Cost Matters",
+        "value": 0.0006349206349206349,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.0006349206349206349,
+          "min": 0,
+          "max": 0.013333333333333334,
+          "stdDev": 0.002839451399999733,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "category_ratio:Young Pyromancer Ability",
+        "value": 0.002609262883235486,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.002609262883235486,
+          "min": 0,
+          "max": 0.0547945205479452,
+          "stdDev": 0.011668978356163285,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "combo_density:included_per_deck",
+        "value": 0.3333333333333333,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.3333333333333333,
+          "min": 0,
+          "max": 5,
+          "stdDev": 1.0837911120705754,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "karsten:health_score",
+        "value": 0.047619047619047616,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 0.047619047619047616,
+          "min": 0,
+          "max": 1,
+          "stdDev": 0.21295885499997996,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "karsten:land_delta",
+        "value": -13.28032063492063,
+        "numDecks": 21,
+        "distribution": {
+          "mean": -13.28032063492063,
+          "min": -20.45583333333333,
+          "max": 13.296,
+          "stdDev": 7.606246682839645,
+          "effectiveSampleSize": 21
+        }
+      },
+      {
+        "metric": "karsten:target_lands",
+        "value": 27.08984444444443,
+        "numDecks": 21,
+        "distribution": {
+          "mean": 27.08984444444443,
+          "min": 4.529683333333333,
+          "max": 36.16775,
+          "stdDev": 6.285158965253057,
+          "effectiveSampleSize": 21
+        }
+      }
+    ],
+    "fusedTargets": [
+      {
+        "metric": "board-wipe",
+        "value": 5,
+        "weight": 1,
+        "source": "stated",
+        "condition": null,
+        "statedMin": 3,
+        "statedMax": 5,
+        "measuredValue": null,
+        "numDecks": null,
+        "effectiveSampleSize": null,
+        "verdict": "insufficient-measured",
+        "verdictReason": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: board wipes are capped at 3-5; \u0022reconsider at your 4th-5th\u0022.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "high",
+        "conflict": null
+      },
+      {
+        "metric": "counter",
+        "value": 8,
+        "weight": 1,
+        "source": "stated",
+        "condition": "archetype:control",
+        "statedMin": 8,
+        "statedMax": null,
+        "measuredValue": null,
+        "numDecks": null,
+        "effectiveSampleSize": null,
+        "verdict": "insufficient-measured",
+        "verdictReason": "no-condition-breakdown",
+        "sourceClip": "Paraphrased from the P89 distill corpus: control shells use at least 8 counterspells.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "high",
+        "conflict": null
+      },
+      {
+        "metric": "draw",
+        "value": 15.5,
+        "weight": 1,
+        "source": "stated",
+        "condition": null,
+        "statedMin": 13,
+        "statedMax": 18,
+        "measuredValue": null,
+        "numDecks": null,
+        "effectiveSampleSize": null,
+        "verdict": "insufficient-measured",
+        "verdictReason": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: use 13-18 card-draw effects.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "high",
+        "conflict": null
+      },
+      {
+        "metric": "interaction",
+        "value": 6.5,
+        "weight": 1,
+        "source": "stated",
+        "condition": "archetype:proactive",
+        "statedMin": 5,
+        "statedMax": 8,
+        "measuredValue": null,
+        "numDecks": null,
+        "effectiveSampleSize": null,
+        "verdict": "philosophy-stated-only",
+        "verdictReason": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: proactive decks use 5-8 interaction effects.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "med",
+        "conflict": null
+      },
+      {
+        "metric": "land_count",
+        "value": 13.809523809523801,
+        "weight": 1,
+        "source": "measured-weighted",
+        "condition": null,
+        "statedMin": 37,
+        "statedMax": 42,
+        "measuredValue": 13.809523809523801,
+        "numDecks": 21,
+        "effectiveSampleSize": 21,
+        "verdict": "conflict",
+        "verdictReason": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: use 37-42 lands as the baseline.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "high",
+        "conflict": {
+          "statedValue": 37,
+          "measuredValue": 13.809523809523801,
+          "delta": -23.190476190476197,
+          "bandRelativePercent": 0.626769626769627,
+          "winner": "measured"
+        }
+      },
+      {
+        "metric": "land_count",
+        "value": 13.809523809523801,
+        "weight": 1,
+        "source": "measured-weighted",
+        "condition": "curve:low-aggressive-mulligan",
+        "statedMin": 28,
+        "statedMax": 28,
+        "measuredValue": 13.809523809523801,
+        "numDecks": 21,
+        "effectiveSampleSize": 21,
+        "verdict": "insufficient-measured",
+        "verdictReason": "no-condition-breakdown",
+        "sourceClip": "Paraphrased from the P89 distill corpus: 28 lands is the low-curve, aggressive-mulligan exception.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "med",
+        "conflict": null
+      },
+      {
+        "metric": "opener_probability",
+        "value": 10,
+        "weight": 1,
+        "source": "stated",
+        "condition": null,
+        "statedMin": 10,
+        "statedMax": null,
+        "measuredValue": null,
+        "numDecks": null,
+        "effectiveSampleSize": null,
+        "verdict": "philosophy-stated-only",
+        "verdictReason": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: run at least 10 copies to see an effect in the opener.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "med",
+        "conflict": null
+      },
+      {
+        "metric": "ramp",
+        "value": 9.5,
+        "weight": 1,
+        "source": "stated",
+        "condition": null,
+        "statedMin": 7,
+        "statedMax": 12,
+        "measuredValue": null,
+        "numDecks": null,
+        "effectiveSampleSize": null,
+        "verdict": "insufficient-measured",
+        "verdictReason": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: ramp 7-12 baseline, deck-dependent.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "high",
+        "conflict": null
+      },
+      {
+        "metric": "removal",
+        "value": 11,
+        "weight": 1,
+        "source": "stated",
+        "condition": null,
+        "statedMin": 8,
+        "statedMax": 14,
+        "measuredValue": null,
+        "numDecks": null,
+        "effectiveSampleSize": null,
+        "verdict": "insufficient-measured",
+        "verdictReason": null,
+        "sourceClip": "Paraphrased from the P89 distill corpus: use 8-14 removal effects.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "high",
+        "conflict": null
+      },
+      {
+        "metric": "tutor",
+        "value": 3,
+        "weight": 1,
+        "source": "stated",
+        "condition": "bracket:2",
+        "statedMin": 3,
+        "statedMax": 3,
+        "measuredValue": null,
+        "numDecks": null,
+        "effectiveSampleSize": null,
+        "verdict": "insufficient-measured",
+        "verdictReason": "no-condition-breakdown",
+        "sourceClip": "Paraphrased from the P89 distill corpus: Bracket 2 decks use about 3 tutors.",
+        "videoDateUtc": "2026-07-05T00:00:00+00:00",
+        "confidence": "med",
+        "conflict": null
+      }
+    ],
+    "updatedUtc": "2026-09-11T21:28:19.0685603+00:00"
+  }
+]

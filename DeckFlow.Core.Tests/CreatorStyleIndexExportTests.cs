@@ -37,7 +37,9 @@ public sealed class CreatorStyleIndexExportTests : IDisposable
     {
         const string slug = "exportcreator";
         var profileStore = new CreatorStyleProfileStore(_dbPath);
-        var deckCacheStore = new CreatorDeckCacheStore(_dbPath);
+        var deckCacheDatabasePath = ContentKbCliPaths.ResolveCreatorDeckCacheDatabasePath(new FileInfo(_dbPath));
+        Directory.CreateDirectory(Path.GetDirectoryName(deckCacheDatabasePath)!);
+        var deckCacheStore = new CreatorDeckCacheStore(deckCacheDatabasePath);
 
         var seededProfile = new CreatorStyleProfile
         {
