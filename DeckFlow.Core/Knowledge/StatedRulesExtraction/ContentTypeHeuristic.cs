@@ -64,7 +64,7 @@ public static class ContentTypeHeuristic
             return MetaCommentary;
         }
 
-        if (archetypeTags.Count >= 1)
+        if (archetypeTags.Count > 0)
         {
             return DeckTech;
         }
