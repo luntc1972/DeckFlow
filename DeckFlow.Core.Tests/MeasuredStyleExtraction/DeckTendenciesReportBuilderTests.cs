@@ -57,7 +57,7 @@ public sealed class DeckTendenciesReportBuilderTests
                 folderName: "Folder A",
                 entries:
                 [
-                    CommanderEntry("Atraxa, Praetors' Voice"),
+                    Entry("Atraxa, Praetors' Voice", board: "commander"),
                     Entry("Sol Ring"),
                     Entry("Arcane Signet"),
                 ]),
@@ -184,8 +184,8 @@ public sealed class DeckTendenciesReportBuilderTests
     {
         var samples = new[]
         {
-            Sample("deck-1", CommanderEntry("Atraxa, Praetors' Voice"), Entry("Sol Ring")),
-            Sample("deck-2", CommanderEntry("Atraxa, Praetors' Voice"), Entry("Sol Ring")),
+            Sample("deck-1", Entry("Atraxa, Praetors' Voice", board: "commander"), Entry("Sol Ring")),
+            Sample("deck-2", Entry("Atraxa, Praetors' Voice", board: "commander"), Entry("Sol Ring")),
         };
 
         var report = DeckTendenciesReportBuilder.Build(samples, EmptyCategories);
@@ -208,8 +208,8 @@ public sealed class DeckTendenciesReportBuilderTests
     {
         var samples = new[]
         {
-            Sample("deck-1", CommanderEntry("Plains")),
-            Sample("deck-2", CommanderEntry("Plains")),
+            Sample("deck-1", Entry("Plains", board: "commander")),
+            Sample("deck-2", Entry("Plains", board: "commander")),
         };
 
         var report = DeckTendenciesReportBuilder.Build(samples, EmptyCategories);
@@ -251,8 +251,8 @@ public sealed class DeckTendenciesReportBuilderTests
     {
         var samples = new[]
         {
-            Sample("deck-1", SideboardEntry("Sideboard Tech")),
-            Sample("deck-2", SideboardEntry("Sideboard Tech")),
+            Sample("deck-1", Entry("Sideboard Tech", board: "sideboard")),
+            Sample("deck-2", Entry("Sideboard Tech", board: "sideboard")),
         };
 
         var report = DeckTendenciesReportBuilder.Build(samples, EmptyCategories);
@@ -450,10 +450,10 @@ public sealed class DeckTendenciesReportBuilderTests
                 folderName: "Folder A",
                 entries:
                 [
-                    CommanderEntry("Brago, King Eternal"),
-                    CommanderEntry("Spark Double"),
+                    Entry("Brago, King Eternal", board: "commander"),
+                    Entry("Spark Double", board: "commander"),
                     Entry("Ponder"),
-                    SideboardEntry("Exclude Me"),
+                    Entry("Exclude Me", board: "sideboard"),
                 ]),
             Sample("deck-2", folderName: "Folder B", entries: [Entry("Opt")]),
         };
@@ -493,9 +493,9 @@ public sealed class DeckTendenciesReportBuilderTests
     {
         var samples = new[]
         {
-            Sample("deck-1", CommanderEntry("Atraxa, Praetors' Voice"), Entry("Arcane Signet"), Entry("Counterspell")),
-            Sample("deck-2", CommanderEntry("Atraxa, Praetors' Voice"), Entry("Arcane Signet"), Entry("Negate")),
-            Sample("deck-3", CommanderEntry("Muldrotha, the Gravetide"), Entry("Counterspell"), Entry("Negate")),
+            Sample("deck-1", Entry("Atraxa, Praetors' Voice", board: "commander"), Entry("Arcane Signet"), Entry("Counterspell")),
+            Sample("deck-2", Entry("Atraxa, Praetors' Voice", board: "commander"), Entry("Arcane Signet"), Entry("Negate")),
+            Sample("deck-3", Entry("Muldrotha, the Gravetide", board: "commander"), Entry("Counterspell"), Entry("Negate")),
         };
         var cardCategories = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
@@ -547,36 +547,14 @@ public sealed class DeckTendenciesReportBuilderTests
         };
     }
 
-    private static DeckEntry Entry(string name, int quantity = 1)
+    private static DeckEntry Entry(string name, int quantity = 1, string board = "mainboard")
     {
         return new DeckEntry
         {
             Name = name,
             NormalizedName = name.ToLowerInvariant(),
             Quantity = quantity,
-            Board = "mainboard",
-        };
-    }
-
-    private static DeckEntry CommanderEntry(string name, int quantity = 1)
-    {
-        return new DeckEntry
-        {
-            Name = name,
-            NormalizedName = name.ToLowerInvariant(),
-            Quantity = quantity,
-            Board = "commander",
-        };
-    }
-
-    private static DeckEntry SideboardEntry(string name, int quantity = 1)
-    {
-        return new DeckEntry
-        {
-            Name = name,
-            NormalizedName = name.ToLowerInvariant(),
-            Quantity = quantity,
-            Board = "sideboard",
+            Board = board,
         };
     }
 }
