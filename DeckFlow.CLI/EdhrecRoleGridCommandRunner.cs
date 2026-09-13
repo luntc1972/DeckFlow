@@ -26,6 +26,7 @@ namespace DeckFlow.CLI;
 internal static class EdhrecRoleGridCommandRunner
 {
     private const int ScryfallRateLimitRetryMaxAttempts = 4;
+    private static readonly int[] Scryfall429BackoffSeconds = [5, 8, 12, 15];
     private static readonly TimeSpan FallbackSearchPacingDelay = TimeSpan.FromMilliseconds(350);
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -506,9 +507,8 @@ internal static class EdhrecRoleGridCommandRunner
 
     private static TimeSpan ComputeScryfall429Backoff(int attempt)
     {
-        int[] delaySeconds = [5, 8, 12, 15];
-        int safeAttemptIndex = Math.Clamp(attempt - 1, 0, delaySeconds.Length - 1);
-        return TimeSpan.FromSeconds(delaySeconds[safeAttemptIndex]);
+        int safeAttemptIndex = Math.Clamp(attempt - 1, 0, Scryfall429BackoffSeconds.Length - 1);
+        return TimeSpan.FromSeconds(Scryfall429BackoffSeconds[safeAttemptIndex]);
     }
 
     private static Dictionary<string, ScryfallCardData> LoadCardCache(string cardsCachePath)
