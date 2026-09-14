@@ -31,7 +31,7 @@ public sealed class ScryfallCollectionResolverTests
     [Fact]
     public async Task ResolveCardsAsync_PrintingEntries_ReturnsPayloadCards()
     {
-        ScryfallCard card = MakeCard("Sol Ring", "cmr", "331");
+        var card = MakeCard("Sol Ring", "cmr", "331");
         var result = await ResolveAsync([MakeEntry("Sol Ring", "cmr", "331")], [MakeCollectionResponse(HttpStatusCode.OK, [card])]);
 
         Assert.Equal([card], result);
@@ -40,7 +40,7 @@ public sealed class ScryfallCollectionResolverTests
     [Fact]
     public async Task ResolveCardsAsync_NameOnlyEntries_ReturnsPayloadCards()
     {
-        ScryfallCard card = MakeCard("Sol Ring", "cmr", "331");
+        var card = MakeCard("Sol Ring", "cmr", "331");
         var result = await ResolveAsync([MakeEntry("Sol Ring", null, null)], [MakeCollectionResponse(HttpStatusCode.OK, [card])]);
 
         Assert.Equal([card], result);
@@ -127,8 +127,8 @@ public sealed class ScryfallCollectionResolverTests
     [Fact]
     public async Task ResolveCardsAsync_MultipleBatches_ConcatenatesCardsInBatchOrder()
     {
-        ScryfallCard first = MakeCard("First", "dfc", "1");
-        ScryfallCard second = MakeCard("Second", "dfc", "2");
+        var first = MakeCard("First", "dfc", "1");
+        var second = MakeCard("Second", "dfc", "2");
         var result = await ResolveAsync(
             MakeEntries(ScryfallLimits.CollectionBatchSize + 1),
             [MakeCollectionResponse(HttpStatusCode.OK, [first]), MakeCollectionResponse(HttpStatusCode.OK, [second])]);
@@ -139,7 +139,7 @@ public sealed class ScryfallCollectionResolverTests
     [Fact]
     public async Task ResolveCardsAsync_ServiceUnavailable_ThrowsWithSuffixAndStatusCode()
     {
-        HttpRequestException exception = await Assert.ThrowsAsync<HttpRequestException>(() => ResolveAsync(
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => ResolveAsync(
             [MakeEntry("Sol Ring", "cmr", "331")],
             [MakeCollectionResponse(HttpStatusCode.ServiceUnavailable, [])],
             "deck conversion"));

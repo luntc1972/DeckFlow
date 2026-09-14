@@ -112,18 +112,19 @@ public static class SnailSeedCorpusFixture
             Land("Plains", 30))
     ];
 
-    public static IReadOnlyList<CreatorDeckSample> BelowMinFloorSubset { get; } = Samples.Take(4).ToArray();
+    public static IReadOnlyList<CreatorDeckSample> BelowMinFloorSubset { get; } = [.. Samples.Take(4)];
 
-    public static IReadOnlyList<ArchidektDeckSummary> DeckSummaries { get; } = Samples
-        .Select(sample => new ArchidektDeckSummary
+    public static IReadOnlyList<ArchidektDeckSummary> DeckSummaries { get; } =
+    [
+        .. Samples.Select(sample => new ArchidektDeckSummary
         {
             Id = sample.DeckId,
             Name = sample.DeckId,
             Size = sample.CardCount,
             ParentFolderId = sample.FolderId,
             ParentFolderName = sample.FolderName
-        })
-        .ToArray();
+        }),
+    ];
 
     private static CreatorDeckSample CreateSample(
         string deckId,
