@@ -15,70 +15,70 @@ public sealed class NavMenuTests : BunitContext
     public void NavMenu_Renders_HomeLinkInPipelineSection()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='']"));
+        cut.Find("a[href='']");
     }
 
     [Fact]
     public void NavMenu_Renders_GuideLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='guide']"));
+        cut.Find("a[href='guide']");
     }
 
     [Fact]
     public void NavMenu_Renders_HarvestLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='harvest']"));
+        cut.Find("a[href='harvest']");
     }
 
     [Fact]
     public void NavMenu_Renders_CreatorsLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='creators']"));
+        cut.Find("a[href='creators']");
     }
 
     [Fact]
     public void NavMenu_Renders_ReviewLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='review']"));
+        cut.Find("a[href='review']");
     }
 
     [Fact]
     public void NavMenu_Renders_PublishLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='publish']"));
+        cut.Find("a[href='publish']");
     }
 
     [Fact]
     public void NavMenu_Renders_DirectPushLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='direct-push']"));
+        cut.Find("a[href='direct-push']");
     }
 
     [Fact]
     public void NavMenu_Renders_PullFromProdLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='pull-from-prod']"));
+        cut.Find("a[href='pull-from-prod']");
     }
 
     [Fact]
     public void NavMenu_Renders_ReconcileLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='reconcile']"));
+        cut.Find("a[href='reconcile']");
     }
 
     [Fact]
     public void NavMenu_Renders_GitBodyCoverageLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='git-body-coverage']"));
+        cut.Find("a[href='git-body-coverage']");
     }
 
     // ── A3: Support section contains Skipped and Blocked ─────────────────────
@@ -87,14 +87,14 @@ public sealed class NavMenuTests : BunitContext
     public void NavMenu_Renders_SkippedLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='skipped']"));
+        cut.Find("a[href='skipped']");
     }
 
     [Fact]
     public void NavMenu_Renders_BlockedLink()
     {
         var cut = Render<NavMenu>();
-        Assert.NotNull(cut.Find("a[href='blocked']"));
+        cut.Find("a[href='blocked']");
     }
 
     // ── A3: Both section headers are rendered ─────────────────────────────────

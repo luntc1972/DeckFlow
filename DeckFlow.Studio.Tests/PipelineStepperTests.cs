@@ -100,7 +100,7 @@ public sealed class PipelineStepperTests : BunitContext
     {
         var cut = Render<PipelineStepper>(p => p.Add(c => c.CurrentStage, "Review"));
 
-        Assert.NotNull(cut.Find("[data-stage='review'] .pipeline-step-current"));
+        cut.Find("[data-stage='review'] .pipeline-step-current");
     }
 
     [Fact]
