@@ -168,11 +168,11 @@ public sealed class CardGroundingHallucinationFixtureTests
         Assert.Equal(CardGroundingRejectReason.Ambiguous, verdict.RejectReason);
     }
 
-    private static IReadOnlySet<string> SetOf(params string[] values)
-        => new HashSet<string>(values, StringComparer.Ordinal);
+    private static HashSet<string> SetOf(params string[] values)
+        => [.. values];
 
-    private static IReadOnlySet<char> CharSetOf(params char[] values)
-        => new HashSet<char>(values);
+    private static HashSet<char> CharSetOf(params char[] values)
+        => [.. values];
 
     private static CardGroundingDeckContext CreateContext(
         IReadOnlySet<string>? commanderIdentity = null,
@@ -180,9 +180,9 @@ public sealed class CardGroundingHallucinationFixtureTests
         IReadOnlySet<string>? deckCardNames = null)
         => new()
         {
-            CommanderColorIdentity = commanderIdentity ?? new HashSet<string>(),
-            DeckProducedColors = producedColors ?? new HashSet<char>(),
-            DeckCardNames = deckCardNames ?? new HashSet<string>(),
+            CommanderColorIdentity = commanderIdentity ?? SetOf(),
+            DeckProducedColors = producedColors ?? CharSetOf(),
+            DeckCardNames = deckCardNames ?? SetOf(),
         };
 
     private static IReadOnlyDictionary<string, string> Legalities(string commander)
