@@ -20,7 +20,7 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_CollectionHit_ReturnsMatch_WithoutFallback()
     {
-        bool searchCalled = false;
+        var searchCalled = false;
         var resolver = BuildResolver(
             collection: _ => Collection(Card("Jegantha, the Wellspring")),
             search: _ =>
@@ -29,7 +29,7 @@ public sealed class ScryfallCardResolverTests
                 return Search();
             });
 
-        ScryfallCard? card = await resolver.ResolveSingleAsync("Jegantha, the Wellspring", CancellationToken.None);
+        var card = await resolver.ResolveSingleAsync("Jegantha, the Wellspring", CancellationToken.None);
 
         Assert.NotNull(card);
         Assert.Equal("Jegantha, the Wellspring", card!.Name);
@@ -43,7 +43,7 @@ public sealed class ScryfallCardResolverTests
             collection: _ => Collection(),
             search: _ => Search(Card("Kaheera, the Orphanguard")));
 
-        ScryfallCard? card = await resolver.ResolveSingleAsync("Kaheera, the Orphanguard", CancellationToken.None);
+        var card = await resolver.ResolveSingleAsync("Kaheera, the Orphanguard", CancellationToken.None);
 
         Assert.NotNull(card);
         Assert.Equal("Kaheera, the Orphanguard", card!.Name);
@@ -56,7 +56,7 @@ public sealed class ScryfallCardResolverTests
             collection: _ => Collection(),
             search: _ => Search());
 
-        ScryfallCard? card = await resolver.ResolveSingleAsync("Nonexistent Card", CancellationToken.None);
+        var card = await resolver.ResolveSingleAsync("Nonexistent Card", CancellationToken.None);
 
         Assert.Null(card);
     }
@@ -64,12 +64,12 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_BlankName_ReturnsNull_WithoutCallingScryfall()
     {
-        bool anyCall = false;
+        var anyCall = false;
         var resolver = BuildResolver(
             collection: _ => { anyCall = true; return Collection(); },
             search: _ => { anyCall = true; return Search(); });
 
-        ScryfallCard? card = await resolver.ResolveSingleAsync("   ", CancellationToken.None);
+        var card = await resolver.ResolveSingleAsync("   ", CancellationToken.None);
 
         Assert.Null(card);
         Assert.False(anyCall);
@@ -78,7 +78,7 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_CollectionHit_MatchesViaNormalizedName_NotExactString()
     {
-        bool searchCalled = false;
+        var searchCalled = false;
         var resolver = BuildResolver(
             // Upcased name: only matches the query after CardNormalizer.Normalize lowercases both.
             collection: _ => Collection(Card("JEGANTHA, THE WELLSPRING")),
@@ -88,7 +88,7 @@ public sealed class ScryfallCardResolverTests
                 return Search();
             });
 
-        ScryfallCard? card = await resolver.ResolveSingleAsync("Jegantha, the Wellspring", CancellationToken.None);
+        var card = await resolver.ResolveSingleAsync("Jegantha, the Wellspring", CancellationToken.None);
 
         Assert.NotNull(card);
         Assert.Equal("JEGANTHA, THE WELLSPRING", card!.Name);
@@ -106,7 +106,7 @@ public sealed class ScryfallCardResolverTests
             },
             search: _ => Search(Card("Lutri, the Spellchaser")));
 
-        ScryfallCard? card = await resolver.ResolveSingleAsync("Lutri, the Spellchaser", CancellationToken.None);
+        var card = await resolver.ResolveSingleAsync("Lutri, the Spellchaser", CancellationToken.None);
 
         Assert.NotNull(card);
         Assert.Equal("Lutri, the Spellchaser", card!.Name);
@@ -115,7 +115,7 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_SameIdentifierTwice_IssuesOneCollectionRequest()
     {
-        int collectionCalls = 0;
+        var collectionCalls = 0;
         var resolver = BuildResolver(
             collection: _ => { collectionCalls++; return Collection(Card("Sol Ring")); },
             search: _ => Search());
@@ -129,7 +129,7 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_MultiEntryCollectionMatchNotFirst_CachesMatchedCard()
     {
-        int collectionCalls = 0;
+        var collectionCalls = 0;
         var resolver = BuildResolver(
             collection: _ =>
             {
@@ -138,8 +138,8 @@ public sealed class ScryfallCardResolverTests
             },
             search: _ => Search());
 
-        ScryfallCard? coldCard = await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
-        ScryfallCard? warmCard = await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
+        var coldCard = await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
+        var warmCard = await resolver.ResolveSingleAsync("Sol Ring", CancellationToken.None);
 
         Assert.Equal("Sol Ring", coldCard!.Name);
         Assert.Equal(coldCard, warmCard);
@@ -149,7 +149,7 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_CachedPositiveForDifferentName_ReissuesCollectionPost()
     {
-        int collectionCalls = 0;
+        var collectionCalls = 0;
         var resolver = BuildResolver(
             collection: _ =>
             {
@@ -159,7 +159,7 @@ public sealed class ScryfallCardResolverTests
             search: _ => Search());
 
         await resolver.ResolveSingleAsync("A//B", CancellationToken.None);
-        ScryfallCard? secondCard = await resolver.ResolveSingleAsync("A // C", CancellationToken.None);
+        var secondCard = await resolver.ResolveSingleAsync("A // C", CancellationToken.None);
 
         Assert.Equal("A // C", secondCard!.Name);
         Assert.Equal(2, collectionCalls);
@@ -168,8 +168,8 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_NotFoundAlongsideUnrelatedData_CachesCollectionMiss()
     {
-        int collectionCalls = 0;
-        int fallbackCalls = 0;
+        var collectionCalls = 0;
+        var fallbackCalls = 0;
         var resolver = BuildResolver(
             collection: _ =>
             {
@@ -196,7 +196,7 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_DifferentSubmittedIdentifiers_DoNotShareCacheEntry()
     {
-        int collectionCalls = 0;
+        var collectionCalls = 0;
         var resolver = BuildResolver(
             collection: request =>
             {
@@ -214,8 +214,8 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_CombinedName_MissesCollectionAndFallsBackWithCacheActive()
     {
-        int collectionCalls = 0;
-        int fallbackCalls = 0;
+        var collectionCalls = 0;
+        var fallbackCalls = 0;
         var resolver = BuildResolver(
             collection: request =>
             {
@@ -234,8 +234,8 @@ public sealed class ScryfallCardResolverTests
                 return Search(Card("A // B"));
             });
 
-        ScryfallCard? coldCard = await resolver.ResolveSingleAsync("A // B", CancellationToken.None);
-        ScryfallCard? warmCard = await resolver.ResolveSingleAsync("A // C", CancellationToken.None);
+        var coldCard = await resolver.ResolveSingleAsync("A // B", CancellationToken.None);
+        var warmCard = await resolver.ResolveSingleAsync("A // C", CancellationToken.None);
 
         Assert.Equal(1, collectionCalls);
         Assert.Equal(2, fallbackCalls);
@@ -246,8 +246,8 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_CachedCollectionMiss_StillFallsBackWithoutCollectionPost()
     {
-        int collectionCalls = 0;
-        int fallbackCalls = 0;
+        var collectionCalls = 0;
+        var fallbackCalls = 0;
         var resolver = BuildResolver(
             collection: _ =>
             {
@@ -274,7 +274,7 @@ public sealed class ScryfallCardResolverTests
     [Fact]
     public async Task ResolveSingleAsync_TooManyRequests_DoesNotCache()
     {
-        int collectionCalls = 0;
+        var collectionCalls = 0;
         var resolver = BuildResolver(
             collection: _ =>
             {
