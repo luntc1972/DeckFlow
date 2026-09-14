@@ -54,7 +54,7 @@ public sealed class SubmittedDeckStatsBuilderTests
                 [])),
             analyzeSubmittedDeckAsync: (_, _) => Task.FromResult(EmptyAnalysis()));
 
-        SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
+        var result = await builder.BuildAsync("fixture");
 
         Assert.Equal(0.8d, result.Stats.Metrics["category_ratio:ramp"]);
         Assert.Equal(2d, result.Stats.Metrics["combo_density:included_per_deck"]);
@@ -87,7 +87,7 @@ public sealed class SubmittedDeckStatsBuilderTests
             findCombosAsync: (_, _) => Task.FromResult<CommanderSpellbookResult?>(null),
             analyzeSubmittedDeckAsync: (_, _) => Task.FromResult(EmptyAnalysis()));
 
-        SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
+        var result = await builder.BuildAsync("fixture");
 
         Assert.Equal(0d, result.Stats.Metrics["combo_density:included_per_deck"]);
     }
@@ -105,8 +105,8 @@ public sealed class SubmittedDeckStatsBuilderTests
             Entry("Growth Spiral", 1, "mainboard"),
         ];
 
-        Dictionary<string, ScryfallCard> cardsByName = CreateParityCards();
-        IReadOnlyList<DeckCardEntry> deckEntries = entries
+        var cardsByName = CreateParityCards();
+        var deckEntries = entries
             .Select(entry => new DeckCardEntry
             {
                 Card = ScryfallCardDataMapper.ToCardData(cardsByName[entry.Name]),
@@ -114,10 +114,10 @@ public sealed class SubmittedDeckStatsBuilderTests
                 IsCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)
             })
             .ToArray();
-        IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
-        ManabaseReport expectedReport = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
-        HashSet<char> expectedProducedColors = deck.Sources
+        var facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
+        var deck = ManabaseClassifier.Classify(facts, isSingleton: true);
+        var expectedReport = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
+        var expectedProducedColors = deck.Sources
             .SelectMany(source => source.Produces)
             .Select(ToColorChar)
             .ToHashSet();
@@ -133,7 +133,7 @@ public sealed class SubmittedDeckStatsBuilderTests
             }),
             searchFallbackCardAsync: (cardName, _) => Task.FromResult(cardsByName.TryGetValue(cardName, out ScryfallCard? card) ? card : null));
 
-        SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
+        var result = await builder.BuildAsync("fixture");
 
         Assert.Equal(expectedReport.TargetLands, result.Stats.Metrics["karsten:target_lands"], 6);
         Assert.Equal(expectedReport.LandDelta, result.Stats.Metrics["karsten:land_delta"], 6);
@@ -173,7 +173,7 @@ public sealed class SubmittedDeckStatsBuilderTests
                 },
                 "Jodah, the Unifier")));
 
-        SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
+        var result = await builder.BuildAsync("fixture");
 
         Assert.Equal(expectedScore, result.Stats.Metrics["karsten:health_score"]);
     }
@@ -198,7 +198,7 @@ public sealed class SubmittedDeckStatsBuilderTests
             }),
             searchFallbackCardAsync: (_, _) => Task.FromResult<ScryfallCard?>(null));
 
-        SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
+        var result = await builder.BuildAsync("fixture");
 
         Assert.DoesNotContain("karsten:target_lands", result.Stats.Metrics.Keys);
         Assert.DoesNotContain("karsten:land_delta", result.Stats.Metrics.Keys);
@@ -226,7 +226,7 @@ public sealed class SubmittedDeckStatsBuilderTests
             executeCollectionAsync: (_, _) => Task.FromException<RestResponse<ScryfallCollectionResponse>>(new HttpRequestException()),
             searchFallbackCardAsync: (_, _) => Task.FromResult<ScryfallCard?>(null));
 
-        SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
+        var result = await builder.BuildAsync("fixture");
 
         Assert.DoesNotContain("karsten:target_lands", result.Stats.Metrics.Keys);
         Assert.True(result.DeckResolutionDegraded);
@@ -253,7 +253,7 @@ public sealed class SubmittedDeckStatsBuilderTests
             executeCollectionAsync: (_, _) => Task.FromException<RestResponse<ScryfallCollectionResponse>>(new TaskCanceledException("Scryfall request timed out.")),
             searchFallbackCardAsync: (_, _) => Task.FromResult<ScryfallCard?>(null));
 
-        SubmittedDeckAnalysis result = await builder.BuildAsync("fixture");
+        var result = await builder.BuildAsync("fixture");
 
         Assert.DoesNotContain("karsten:target_lands", result.Stats.Metrics.Keys);
         Assert.True(result.DeckResolutionDegraded);
@@ -272,7 +272,7 @@ public sealed class SubmittedDeckStatsBuilderTests
 
     private static SubmittedDeckResolution EmptyAnalysis()
     {
-        SubmittedDeckResolution analysis = CreateAnalysis(
+        var analysis = CreateAnalysis(
             CreateReport(ManabaseHealth.NeedsWork),
             new CardGroundingDeckContext
             {
@@ -301,7 +301,7 @@ public sealed class SubmittedDeckStatsBuilderTests
 
     private static ManabaseReport CreateReport(ManabaseHealth health)
     {
-        IReadOnlyList<ColorSourceFinding> colorFindings = health switch
+        var colorFindings = health switch
         {
             ManabaseHealth.Healthy => Array.Empty<ColorSourceFinding>(),
             ManabaseHealth.Functional => Array.Empty<ColorSourceFinding>(),
