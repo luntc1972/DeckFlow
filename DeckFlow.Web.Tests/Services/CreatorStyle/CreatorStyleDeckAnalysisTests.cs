@@ -27,14 +27,13 @@ public sealed class CreatorStyleDeckAnalysisTests
         ];
 
         Dictionary<string, ScryfallCard> cardsByName = SubmittedDeckStatsBuilderTests_CreateParityCards();
-        IReadOnlyList<DeckCardEntry> deckEntries = entries
+        IReadOnlyList<DeckCardEntry> deckEntries = [.. entries
             .Select(entry => new DeckCardEntry
             {
                 Card = ScryfallCardDataMapper.ToCardData(cardsByName[entry.Name]),
                 Quantity = entry.Quantity,
                 IsCommander = string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)
-            })
-            .ToArray();
+            })];
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
         ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
         ManabaseReport expectedReport = ManabaseAnalyzer.Analyze(deck, ManabaseMode.Casual);
@@ -44,7 +43,7 @@ public sealed class CreatorStyleDeckAnalysisTests
             executeCollectionAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
-                Data = new ScryfallCollectionResponse(cardsByName.Values.ToList(), null)
+                Data = new ScryfallCollectionResponse([.. cardsByName.Values], null)
             }),
             searchFallbackCardAsync: (cardName, _) => Task.FromResult(cardsByName.TryGetValue(cardName, out ScryfallCard? card) ? card : null),
             unresolvedCardLogger: static _ => { },
@@ -55,7 +54,7 @@ public sealed class CreatorStyleDeckAnalysisTests
         Assert.Equal(expectedReport.TargetLands, result.Report.TargetLands);
         Assert.Equal(expectedReport.LandDelta, result.Report.LandDelta);
         Assert.Equal("Tatyova, Benthic Druid", result.ResolvedCommanderName);
-        Assert.Equal(["G", "U"], result.DeckContext.CommanderColorIdentity.OrderBy(static color => color, StringComparer.Ordinal).ToArray());
+        Assert.Equal(["G", "U"], [.. result.DeckContext.CommanderColorIdentity.OrderBy(static color => color, StringComparer.Ordinal)]);
     }
 
     private static DeckEntry Entry(string name, int quantity, string board)
@@ -104,7 +103,7 @@ public sealed class CreatorStyleDeckAnalysisTests
             Power: null,
             Toughness: null,
             Keywords: null,
-            ColorIdentity: colorIdentity.ToArray(),
+            ColorIdentity: [.. colorIdentity],
             SetCode: null,
             SetName: null,
             CollectorNumber: null,

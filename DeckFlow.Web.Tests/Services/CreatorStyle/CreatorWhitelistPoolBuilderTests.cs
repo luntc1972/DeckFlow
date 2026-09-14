@@ -228,15 +228,14 @@ public sealed class CreatorWhitelistPoolBuilderTests
         };
 
     private static DeckEntry[] Mainboard(params string[] cardNames)
-        => cardNames
+        => [.. cardNames
             .Select(cardName => new DeckEntry
             {
                 Name = cardName,
                 NormalizedName = cardName.Trim().ToLowerInvariant(),
                 Quantity = 1,
                 Board = "mainboard",
-            })
-            .ToArray();
+            })];
 
     private static CardGroundingDeckContext EmptyDeckContext(params string[] deckCardNames)
         => new()
@@ -292,9 +291,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
             EnteredGetByCreator.TrySetResult();
             await _release.Task.ConfigureAwait(false);
 
-            return entries
-                .Where(entry => string.Equals(entry.CreatorSlug, creatorSlug, StringComparison.Ordinal))
-                .ToArray();
+            return [.. entries.Where(entry => string.Equals(entry.CreatorSlug, creatorSlug, StringComparison.Ordinal))];
         }
 
         public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default)
@@ -314,9 +311,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         public Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default)
         {
             GetByCreatorCallCount++;
-            IReadOnlyList<CreatorDeckCacheEntry> matches = entries
-                .Where(entry => string.Equals(entry.CreatorSlug, creatorSlug, StringComparison.Ordinal))
-                .ToArray();
+            IReadOnlyList<CreatorDeckCacheEntry> matches = [.. entries.Where(entry => string.Equals(entry.CreatorSlug, creatorSlug, StringComparison.Ordinal))];
             return Task.FromResult(matches);
         }
 
@@ -353,12 +348,10 @@ public sealed class CreatorWhitelistPoolBuilderTests
             CardGroundingDeckContext deckContext,
             CancellationToken cancellationToken = default)
         {
-            ValidatedBatches.Add(candidateNames.ToArray());
+            ValidatedBatches.Add([.. candidateNames]);
             DeckContexts.Add(deckContext);
 
-            IReadOnlyList<CardGroundingVerdict> verdicts = candidateNames
-                .Select(candidateName => _verdicts.TryGetValue(candidateName, out var verdict) ? verdict : Accepted(candidateName))
-                .ToArray();
+            IReadOnlyList<CardGroundingVerdict> verdicts = [.. candidateNames.Select(candidateName => _verdicts.TryGetValue(candidateName, out var verdict) ? verdict : Accepted(candidateName))];
 
             return Task.FromResult(new CardGroundingBatchResult
             {

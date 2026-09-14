@@ -108,13 +108,9 @@ public sealed class CreatorStyleDiRegistrationTests
 
         var baselineCount = services.Count;
         services.AddDeckFlowCreatorStyle(testRoot.Environment);
-        ServiceDescriptor[] addedDescriptors = services
-            .Skip(baselineCount)
-            .ToArray();
+        ServiceDescriptor[] addedDescriptors = [.. services.Skip(baselineCount)];
 
-        HashSet<Type> addedServiceTypes = addedDescriptors
-            .Select(descriptor => descriptor.ServiceType)
-            .ToHashSet();
+        HashSet<Type> addedServiceTypes = [.. addedDescriptors.Select(descriptor => descriptor.ServiceType)];
         var missingFloor = CreatorStyleRegistrationFloor
             .Where(serviceType => !addedServiceTypes.Contains(serviceType))
             .Select(serviceType => serviceType.Name)
@@ -188,17 +184,9 @@ public sealed class CreatorStyleDiRegistrationTests
                 || genericTypeDefinition == typeof(Microsoft.Extensions.Options.IOptionsChangeTokenSource<>));
     }
 
-    private sealed class CreatorStyleTestRoot : IDisposable
+    private sealed class CreatorStyleTestRoot(string parentDirectory, FakeWebHostEnvironment environment) : IDisposable
     {
-        private readonly string _parentDirectory;
-
-        private CreatorStyleTestRoot(string parentDirectory, FakeWebHostEnvironment environment)
-        {
-            _parentDirectory = parentDirectory;
-            Environment = environment;
-        }
-
-        public FakeWebHostEnvironment Environment { get; }
+        public FakeWebHostEnvironment Environment { get; } = environment;
 
         public static CreatorStyleTestRoot Create()
         {
@@ -214,9 +202,9 @@ public sealed class CreatorStyleDiRegistrationTests
         public void Dispose()
         {
             SqliteConnection.ClearAllPools();
-            if (Directory.Exists(_parentDirectory))
+            if (Directory.Exists(parentDirectory))
             {
-                Directory.Delete(_parentDirectory, recursive: true);
+                Directory.Delete(parentDirectory, recursive: true);
             }
         }
     }
