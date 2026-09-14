@@ -28,7 +28,7 @@ internal static class CreatorStyleDeckAnalysis
         ArgumentNullException.ThrowIfNull(unresolvedCardLogger);
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessageSuffix);
 
-        ResolvedDeckEntries resolvedDeck = await ResolveDeckEntriesAsync(
+        var resolvedDeck = await ResolveDeckEntriesAsync(
             entries,
             executeCollectionAsync,
             searchFallbackCardAsync,
@@ -53,8 +53,8 @@ internal static class CreatorStyleDeckAnalysis
             };
         }
 
-        ManabaseDeck deck = Classify(resolvedDeck.Entries);
-        ManabaseReport report = Analyze(deck);
+        var deck = Classify(resolvedDeck.Entries);
+        var report = Analyze(deck);
 
         return new SubmittedDeckResolution
         {
@@ -93,7 +93,7 @@ internal static class CreatorStyleDeckAnalysis
         ArgumentNullException.ThrowIfNull(unresolvedCardLogger);
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessageSuffix);
 
-        ResolvedDeckEntries resolvedDeck = await ResolveDeckEntriesAsync(
+        var resolvedDeck = await ResolveDeckEntriesAsync(
             entries,
             executeCollectionAsync,
             searchFallbackCardAsync,
@@ -119,7 +119,7 @@ internal static class CreatorStyleDeckAnalysis
         bool includeCommanderCard,
         CancellationToken cancellationToken)
     {
-        ResolvedScryfallCards resolvedCards = await ResolveCardsAsync(
+        var resolvedCards = await ResolveCardsAsync(
             entries,
             executeCollectionAsync,
             errorMessageSuffix,
@@ -173,7 +173,7 @@ internal static class CreatorStyleDeckAnalysis
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessageSuffix);
 
         var resolvedCards = new ResolvedScryfallCards();
-        IReadOnlyList<ScryfallCard> cards = await ScryfallCollectionResolver.ResolveCardsAsync(
+        var cards = await ScryfallCollectionResolver.ResolveCardsAsync(
             deckCards,
             executeCollectionAsync,
             errorMessageSuffix,
@@ -252,7 +252,7 @@ internal static class CreatorStyleDeckAnalysis
         {
             ArgumentNullException.ThrowIfNull(card);
 
-            ScryfallCardData cardData = ScryfallCardDataMapper.ToCardData(card);
+            var cardData = ScryfallCardDataMapper.ToCardData(card);
             _nameIndex.Add(cardData);
             _rawCardsByData[cardData] = card;
         }
