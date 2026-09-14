@@ -47,6 +47,23 @@ const fetchCardDetails = async (cardName: string): Promise<string> => {
   return payload?.verifiedText ?? '';
 };
 
+const setJudgeIntakeState = (open: boolean, questionPreview?: string): void => {
+  const intake = document.querySelector<HTMLDetailsElement>('details.cutlab-intake');
+  if (!intake) {
+    return;
+  }
+
+  intake.open = open;
+  const summary = intake.querySelector<HTMLElement>('.cutlab-intake-summary__commander');
+  if (!summary) {
+    return;
+  }
+
+  summary.textContent = !open && questionPreview
+    ? questionPreview.length > 40 ? `${questionPreview.slice(0, 40)}...` : questionPreview
+    : 'Ask a question';
+};
+
 const initializeJudgeQuestions = (): void => {
   const cardInput = document.querySelector<HTMLInputElement>('[data-judge-card-input]');
   const questionInput = document.querySelector<HTMLTextAreaElement>('[data-judge-question-input]');
@@ -107,6 +124,7 @@ const initializeJudgeQuestions = (): void => {
       }
 
       showPrompt(buildJudgePrompt(question, cardName, cardDetails));
+      setJudgeIntakeState(false, question);
     } finally {
       generateButton.disabled = false;
     }
@@ -118,6 +136,7 @@ const initializeJudgeQuestions = (): void => {
     promptOutput.value = '';
     resultPanel.classList.add('hidden');
     clearError();
+    setJudgeIntakeState(true);
     questionInput.focus();
   });
 };
