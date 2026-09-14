@@ -750,14 +750,14 @@ namespace DeckFlow.Studio.Tests
             cut.WaitForAssertion(() =>
             {
                 Assert.Contains("Skipped One", cut.Markup);
-                Assert.NotNull(cut.Find("button[aria-label='Un-skip Skipped One']"));
+                cut.Find("button[aria-label='Un-skip Skipped One']");
             });
 
             // Un-skip → row returns to the harvest list (now selectable), leaves the hidden panel.
             cut.InvokeAsync(() => cut.Find("button[aria-label='Un-skip Skipped One']").Click());
             cut.WaitForAssertion(() =>
             {
-                Assert.NotNull(cut.Find("input[aria-label='Select Skipped One']"));
+                cut.Find("input[aria-label='Select Skipped One']");
                 Assert.Empty(cut.FindAll("button[aria-label='Un-skip Skipped One']"));
             });
         }
@@ -781,7 +781,7 @@ namespace DeckFlow.Studio.Tests
                 () =>
                 {
                     Assert.Contains("Blocked One", cut.Markup);
-                    Assert.NotNull(cut.Find("button[aria-label='Un-block Blocked One']"));
+                    cut.Find("button[aria-label='Un-block Blocked One']");
                 },
                 UiTimeout);
 
@@ -957,11 +957,11 @@ namespace DeckFlow.Studio.Tests
             cut.WaitForAssertion(() =>
             {
                 // SRC-02: dropdown with the saved creator + the paste-URL fallback option.
-                Assert.NotNull(cut.Find("#creatorSelect"));
+                cut.Find("#creatorSelect");
                 Assert.Contains("The Command Zone", cut.Markup);
                 Assert.Contains("paste a URL instead", cut.Markup);
                 // The URL/handle input remains available as the one-off fallback.
-                Assert.NotNull(cut.Find("#channelInput"));
+                cut.Find("#channelInput");
             });
         }
 
@@ -975,7 +975,7 @@ namespace DeckFlow.Studio.Tests
 
             cut.WaitForAssertion(() =>
             {
-                Assert.NotNull(cut.Find("#channelInput"));
+                cut.Find("#channelInput");
                 Assert.Empty(cut.FindAll("#creatorSelect"));
             });
         }
@@ -1003,7 +1003,7 @@ namespace DeckFlow.Studio.Tests
                     // Both rows visible and a creator filter dropdown rendered.
                     Assert.Contains("Alpha", cut.Markup);
                     Assert.Contains("Beta", cut.Markup);
-                    Assert.NotNull(cut.Find("#browseCreatorFilter"));
+                    cut.Find("#browseCreatorFilter");
                 },
                 UiTimeout);
 
@@ -1107,7 +1107,7 @@ namespace DeckFlow.Studio.Tests
             BrowseChannel(cut);
 
             // The filter dropdown is rendered because Alice+Bob = 2 distinct creators.
-            cut.WaitForAssertion(() => Assert.NotNull(cut.Find("#browseCreatorFilter")));
+            cut.WaitForAssertion(() => cut.Find("#browseCreatorFilter"));
 
             cut.InvokeAsync(() => cut.Find("#browseCreatorFilter").Change("Alice"));
 
@@ -1254,10 +1254,10 @@ namespace DeckFlow.Studio.Tests
 
             cut.WaitForAssertion(() =>
             {
-                Assert.NotNull(cut.Find("#harvest-browse"));
-                Assert.NotNull(cut.Find("#harvest-queue"));
-                Assert.NotNull(cut.Find("#harvest-run"));
-                Assert.NotNull(cut.Find("#harvest-distill"));
+                cut.Find("#harvest-browse");
+                cut.Find("#harvest-queue");
+                cut.Find("#harvest-run");
+                cut.Find("#harvest-distill");
             });
         }
 
