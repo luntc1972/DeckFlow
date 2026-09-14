@@ -116,9 +116,9 @@ public sealed class AdminCreatorProfileController : Controller
 
         input ??= new AdminCreatorProfileInputModel();
 
-        string normalizedSlug = NormalizeSlug(input.Slug);
-        string normalizedPlatform = NormalizePlatform(input.Platform);
-        string trimmedUsername = input.Username?.Trim() ?? string.Empty;
+        var normalizedSlug = NormalizeSlug(input.Slug);
+        var normalizedPlatform = NormalizePlatform(input.Platform);
+        var trimmedUsername = input.Username?.Trim() ?? string.Empty;
 
         if (string.IsNullOrWhiteSpace(normalizedSlug))
         {
