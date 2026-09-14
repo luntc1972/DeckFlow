@@ -17,7 +17,7 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class CreatorStyleSeedLoaderTests : IDisposable
 {
-    private readonly List<string> _tempDirs = new();
+    private readonly List<string> _tempDirs = [];
 
     [Fact]
     public async Task LoadIfPresentAsync_ReturnsZero_WhenBothSeedFilesAbsent()
@@ -266,9 +266,9 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
             Platform = "youtube",
             MinDecks = 7,
             InsufficientSample = false,
-            StatedRules = Array.Empty<StatedRule>(),
-            MeasuredMetrics = Array.Empty<MeasuredMetric>(),
-            FusedTargets = Array.Empty<FusedTarget>(),
+            StatedRules = [],
+            MeasuredMetrics = [],
+            FusedTargets = [],
             UpdatedUtc = DateTimeOffset.Parse("2026-07-18T00:00:00Z")
         };
 
@@ -297,7 +297,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
 
     private sealed class FakeCreatorStyleProfileStore : ICreatorStyleProfileStore
     {
-        public List<CreatorStyleProfile> Upserts { get; } = new();
+        public List<CreatorStyleProfile> Upserts { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -313,7 +313,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
 
     private sealed class FakeCreatorDeckCacheStore : ICreatorDeckCacheStore
     {
-        public List<CreatorDeckCacheEntry> Upserts { get; } = new();
+        public List<CreatorDeckCacheEntry> Upserts { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -321,7 +321,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
             => Task.FromResult<string?>(null);
 
         public Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(Array.Empty<CreatorDeckCacheEntry>());
+            => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>([]);
 
         public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default)
         {
@@ -332,7 +332,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
 
     private sealed class ThrowingOnBlankSlugCreatorStyleProfileStore : ICreatorStyleProfileStore
     {
-        public List<CreatorStyleProfile> Upserts { get; } = new();
+        public List<CreatorStyleProfile> Upserts { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -350,7 +350,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
 
     private sealed class ThrowingOnBlankCreatorSlugDeckCacheStore : ICreatorDeckCacheStore
     {
-        public List<CreatorDeckCacheEntry> Upserts { get; } = new();
+        public List<CreatorDeckCacheEntry> Upserts { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -358,7 +358,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
             => Task.FromResult<string?>(null);
 
         public Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(Array.Empty<CreatorDeckCacheEntry>());
+            => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>([]);
 
         public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default)
         {
@@ -378,25 +378,17 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
         public IReadOnlyDictionary<string, bool> Snapshot() => new Dictionary<string, bool>();
     }
 
-    private sealed class StubWebHostEnvironment : IWebHostEnvironment
+    private sealed class StubWebHostEnvironment(string contentRootPath) : IWebHostEnvironment
     {
-        public StubWebHostEnvironment(string contentRootPath)
-        {
-            ContentRootPath = contentRootPath;
-            ContentRootFileProvider = new NullFileProvider();
-            WebRootPath = contentRootPath;
-            WebRootFileProvider = new NullFileProvider();
-        }
+        public string WebRootPath { get; set; } = contentRootPath;
 
-        public string WebRootPath { get; set; }
-
-        public IFileProvider WebRootFileProvider { get; set; }
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
 
         public string ApplicationName { get; set; } = "DeckFlow.Web.Tests";
 
-        public IFileProvider ContentRootFileProvider { get; set; }
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
 
-        public string ContentRootPath { get; set; }
+        public string ContentRootPath { get; set; } = contentRootPath;
 
         public string EnvironmentName { get; set; } = Environments.Development;
     }

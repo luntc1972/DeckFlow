@@ -21,13 +21,13 @@ public sealed record CreatorStyleProfile
     public bool InsufficientSample { get; init; }
 
     /// <summary>Stated creator rules distilled from public clips or commentary.</summary>
-    public IReadOnlyList<StatedRule> StatedRules { get; init; } = Array.Empty<StatedRule>();
+    public IReadOnlyList<StatedRule> StatedRules { get; init; } = [];
 
     /// <summary>Measured metrics computed from observed deck samples.</summary>
-    public IReadOnlyList<MeasuredMetric> MeasuredMetrics { get; init; } = Array.Empty<MeasuredMetric>();
+    public IReadOnlyList<MeasuredMetric> MeasuredMetrics { get; init; } = [];
 
     /// <summary>Fused targets that combine stated guidance with measured observations.</summary>
-    public IReadOnlyList<FusedTarget> FusedTargets { get; init; } = Array.Empty<FusedTarget>();
+    public IReadOnlyList<FusedTarget> FusedTargets { get; init; } = [];
 
     /// <summary>UTC timestamp indicating when this profile was last updated.</summary>
     public required DateTimeOffset UpdatedUtc { get; init; }

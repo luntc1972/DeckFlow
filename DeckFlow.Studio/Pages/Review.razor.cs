@@ -46,35 +46,33 @@ public partial class Review
     private string _reviewCreatorFilter = string.Empty;
 
     // ── Queue rows (mutable view models) ───────────────────────────────────
-    private List<ReviewViewModel> _allRows = new();
+    private List<ReviewViewModel> _allRows = [];
 
     // ── Artifact expand cache ───────────────────────────────────────────────
     // Why: stored ArtifactPath already carries the content-kb/ prefix; resolve under the data root
     // (parent of ArtifactRoot) so the segment isn't doubled — combining with ArtifactRoot directly
     // resolves every file MISSING. Containment guard rejects rooted/.. paths.
-    private readonly Dictionary<string, string?> _expandCache = new();
+    private readonly Dictionary<string, string?> _expandCache = [];
 
     // ── Prompt expand cache ─────────────────────────────────────────────────
     // Why: parallel to _expandCache — holds the paste-ready AI prompt (baked sibling {id}.prompt.md
     // when present, else reconstructed from the notes) so reviewers see exactly what a KB user would
     // paste into ChatGPT. Keyed by natural key, populated lazily on expand alongside the notes.
-    private readonly Dictionary<string, string?> _promptCache = new();
+    private readonly Dictionary<string, string?> _promptCache = [];
 
     // ── Filtered view ──────────────────────────────────────────────────────
     // Tab filter (approval-status axis).
     private List<ReviewViewModel> _filteredRows =>
         _activeTab == "all"
             ? _allRows
-            : _allRows.Where(r => r.ApprovalStatus == _activeTab).ToList();
+            : [.. _allRows.Where(r => r.ApprovalStatus == _activeTab)];
 
     // SUI-05: creator filter layered on top of the tab filter. Rendering, ToggleSelectAll,
     // and the batch bar all route through this so a creator-hidden row can never be acted on.
     private List<ReviewViewModel> CreatorFilteredRows =>
         string.IsNullOrEmpty(_reviewCreatorFilter)
             ? _filteredRows
-            : _filteredRows
-                .Where(r => CreatorNameResolver.FromArtifactPath(r.ArtifactPath) == _reviewCreatorFilter)
-                .ToList();
+            : [.. _filteredRows.Where(r => CreatorNameResolver.FromArtifactPath(r.ArtifactPath) == _reviewCreatorFilter)];
 
     // ── Empty state copy ───────────────────────────────────────────────────
     private string EmptyStateMessage => _activeTab switch
@@ -96,7 +94,7 @@ public partial class Review
             // Why: Task.Run moves the store calls off the Blazor sync context (Pitfall 1).
             var rows = await Task.Run(() => Coordinator.LoadRowsAsync(Cts.Token), Cts.Token);
 
-            _allRows = rows.Select(r => new ReviewViewModel(r)).ToList();
+            _allRows = [.. rows.Select(r => new ReviewViewModel(r))];
         }
         catch (OperationCanceledException)
         {
