@@ -334,23 +334,15 @@ public sealed class DeckConvertServiceTests
     private static ScryfallCard MakeScryfallCard(string name, string setCode, string collectorNumber) =>
         new(name, null, string.Empty, null, null, null, null, null, setCode, null, collectorNumber);
 
-    private sealed class FakeMoxfieldDeckImporter : IMoxfieldDeckImporter
+    private sealed class FakeMoxfieldDeckImporter(List<DeckEntry> entries) : IMoxfieldDeckImporter
     {
-        private readonly List<DeckEntry> _entries;
-
-        public FakeMoxfieldDeckImporter(List<DeckEntry> entries) => _entries = entries;
-
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => Task.FromResult(_entries);
+            => Task.FromResult(entries);
     }
 
-    private sealed class FakeArchidektDeckImporter : IArchidektDeckImporter
+    private sealed class FakeArchidektDeckImporter(List<DeckEntry> entries) : IArchidektDeckImporter
     {
-        private readonly List<DeckEntry> _entries;
-
-        public FakeArchidektDeckImporter(List<DeckEntry> entries) => _entries = entries;
-
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => Task.FromResult(_entries);
+            => Task.FromResult(entries);
     }
 }

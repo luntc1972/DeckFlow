@@ -268,14 +268,14 @@ public sealed class CreatorProfileDeckCrawlerTests
         var ownerClient = new CountingOwnerClient
         {
             ResolvedUsername = "snail",
-            DeckSummaries = [new ArchidektDeckSummary { Id = "cached-1", Name = "Cached", Size = 100 }]
+            DeckSummaries = [new() { Id = "cached-1", Name = "Cached", Size = 100 }]
         };
         var importer = new CountingDeckImporter();
         importer.Decks["cached-1"] = entries;
 
         await CreateCrawler(harness, ownerClient, importer, now).CrawlAsync("snail", forceRefresh: true);
         var firstCached = (await harness.CacheStore.GetByCreatorAsync("snail")).Single();
-        importer.Decks["cached-1"] = firstCached.Entries.ToList();
+        importer.Decks["cached-1"] = [.. firstCached.Entries];
         await CreateCrawler(harness, ownerClient, importer, now.AddHours(1)).CrawlAsync("snail", forceRefresh: true);
 
         var cached = (await harness.CacheStore.GetByCreatorAsync("snail")).Single();
@@ -294,7 +294,7 @@ public sealed class CreatorProfileDeckCrawlerTests
             ResolvedUsername = "snail",
             DeckListResult = new ArchidektDeckListResult
             {
-                Decks = Array.Empty<ArchidektDeckSummary>(),
+                Decks = [],
                 HasUpstreamFailure = true
             }
         };
@@ -411,7 +411,7 @@ public sealed class CreatorProfileDeckCrawlerTests
     {
         public string? ResolvedUsername { get; init; }
 
-        public IReadOnlyList<ArchidektDeckSummary> DeckSummaries { get; init; } = Array.Empty<ArchidektDeckSummary>();
+        public IReadOnlyList<ArchidektDeckSummary> DeckSummaries { get; init; } = [];
 
         public ArchidektDeckListResult? DeckListResult { get; init; }
 
@@ -459,20 +459,13 @@ public sealed class CreatorProfileDeckCrawlerTests
         }
     }
 
-    private sealed class TestHarness : IAsyncDisposable
+    private sealed class TestHarness(string directory, CreatorProfileSourceStore profileStore, CreatorDeckCacheStore cacheStore) : IAsyncDisposable
     {
-        public TestHarness(string directory, CreatorProfileSourceStore profileStore, CreatorDeckCacheStore cacheStore)
-        {
-            Directory = directory;
-            ProfileStore = profileStore;
-            CacheStore = cacheStore;
-        }
+        public string Directory { get; } = directory;
 
-        public string Directory { get; }
+        public CreatorProfileSourceStore ProfileStore { get; } = profileStore;
 
-        public CreatorProfileSourceStore ProfileStore { get; }
-
-        public CreatorDeckCacheStore CacheStore { get; }
+        public CreatorDeckCacheStore CacheStore { get; } = cacheStore;
 
         public ValueTask DisposeAsync()
         {
