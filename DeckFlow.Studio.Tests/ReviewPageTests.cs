@@ -446,7 +446,6 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             var link = cut.Find("a[aria-label='Go to Publish page']");
-            Assert.NotNull(link);
             Assert.Contains("/publish", link.GetAttribute("href") ?? string.Empty);
         });
     }
