@@ -94,9 +94,9 @@ public sealed class HomePageTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.NotNull(cut.Find("a[href='/harvest']"));
-            Assert.NotNull(cut.Find("a[href='/review']"));
-            Assert.NotNull(cut.Find("a[href='/publish']"));
+            cut.Find("a[href='/harvest']");
+            cut.Find("a[href='/review']");
+            cut.Find("a[href='/publish']");
         });
     }
 
