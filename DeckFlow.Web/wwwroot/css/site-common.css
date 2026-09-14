@@ -1446,8 +1446,8 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
 
   /* Enlarge the checkbox to a comfortable touch target (WIG: >=44px hit area). */
   table[data-prompt-cedh-reference-table] td[data-label="Select"] input[type="checkbox"] {
-    width: 1.35rem;
-    height: 1.35rem;
+    width: 44px;
+    height: 44px;
     margin: 0;
     touch-action: manipulation;
   }
