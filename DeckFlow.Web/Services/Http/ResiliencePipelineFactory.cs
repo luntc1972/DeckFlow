@@ -237,23 +237,18 @@ namespace DeckFlow.Web.Services.Http
             return services;
         }
 
-        private sealed class DeckFlowResiliencePipelineProvider : ResiliencePipelineProvider<string>
+        private sealed class DeckFlowResiliencePipelineProvider(ResiliencePipelineRegistry<string> registry) : ResiliencePipelineProvider<string>
         {
-            private readonly ResiliencePipelineRegistry<string> registry;
-
-            public DeckFlowResiliencePipelineProvider(ResiliencePipelineRegistry<string> registry) =>
-                this.registry = registry;
-
             public override bool TryGetPipeline(string key, out ResiliencePipeline pipeline)
             {
-                var found = this.registry.TryGetPipeline(key, out var candidate);
+                var found = registry.TryGetPipeline(key, out var candidate);
                 pipeline = candidate!;
                 return found;
             }
 
             public override bool TryGetPipeline<TResult>(string key, out ResiliencePipeline<TResult> pipeline)
             {
-                var found = this.registry.TryGetPipeline<TResult>(key, out var candidate);
+                var found = registry.TryGetPipeline<TResult>(key, out var candidate);
                 pipeline = candidate!;
                 return found;
             }
