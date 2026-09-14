@@ -276,21 +276,14 @@ public sealed class ArchidektOwnerClientTests
         return builder.ToString();
     }
 
-    private sealed class RecordingHttpClientFactory : IHttpClientFactory
+    private sealed class RecordingHttpClientFactory(HttpClient httpClient) : IHttpClientFactory
     {
-        private readonly HttpClient _httpClient;
-
-        public RecordingHttpClientFactory(HttpClient httpClient)
-        {
-            _httpClient = httpClient;
-        }
-
         public string? LastClientName { get; private set; }
 
         public HttpClient CreateClient(string name)
         {
             LastClientName = name;
-            return _httpClient;
+            return httpClient;
         }
     }
 

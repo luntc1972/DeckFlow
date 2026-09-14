@@ -22,7 +22,7 @@ public sealed class CreatorDeckExemplarSelectorTests
         IReadOnlyList<CreatorDeckCacheEntry> result = CreatorDeckExemplarSelector.SelectExemplars(creatorDecks, submittedDeckSize: 100);
 
         Assert.Equal(3, result.Count);
-        Assert.Equal(["deck-b", "deck-d", "deck-c"], result.Select(static deck => deck.DeckId).ToArray());
+        Assert.Equal(["deck-b", "deck-d", "deck-c"], [.. result.Select(static deck => deck.DeckId)]);
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class CreatorDeckExemplarSelectorTests
         IReadOnlyList<CreatorDeckCacheEntry> result = CreatorDeckExemplarSelector.SelectExemplars(creatorDecks, submittedDeckSize: 100);
 
         Assert.Equal(2, result.Count);
-        Assert.Equal(["deck-1", "deck-2"], result.Select(static deck => deck.DeckId).ToArray());
+        Assert.Equal(["deck-1", "deck-2"], [.. result.Select(static deck => deck.DeckId)]);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public sealed class CreatorDeckExemplarSelectorTests
             ContentHash = $"{deckId}-hash",
             Size = size,
             ConfidenceMarker = confidenceMarker,
-            Entries = Array.Empty<DeckEntry>(),
+            Entries = [],
             CachedUtc = new DateTimeOffset(2026, 7, 19, 0, 0, 0, TimeSpan.Zero),
         };
 }

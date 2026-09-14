@@ -145,25 +145,17 @@ public sealed class ProgramStartupTests
         throw new InvalidOperationException("Could not locate the repository root from the current test base directory.");
     }
 
-    private sealed class StubWebHostEnvironment : IWebHostEnvironment
+    private sealed class StubWebHostEnvironment(string contentRootPath) : IWebHostEnvironment
     {
-        public StubWebHostEnvironment(string contentRootPath)
-        {
-            ContentRootPath = contentRootPath;
-            ContentRootFileProvider = new NullFileProvider();
-            WebRootPath = contentRootPath;
-            WebRootFileProvider = new NullFileProvider();
-        }
+        public string WebRootPath { get; set; } = contentRootPath;
 
-        public string WebRootPath { get; set; }
-
-        public IFileProvider WebRootFileProvider { get; set; }
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
 
         public string ApplicationName { get; set; } = "DeckFlow.Web.Tests";
 
-        public IFileProvider ContentRootFileProvider { get; set; }
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
 
-        public string ContentRootPath { get; set; }
+        public string ContentRootPath { get; set; } = contentRootPath;
 
         public string EnvironmentName { get; set; } = Environments.Production;
     }
@@ -187,7 +179,7 @@ public sealed class ProgramStartupTests
             => Task.FromResult<string?>(null);
 
         public Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>(Array.Empty<CreatorDeckCacheEntry>());
+            => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>([]);
 
         public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
