@@ -163,7 +163,7 @@ public sealed class PullFromProdCoordinator
                 results.Add(new PullApplyRowResult(entry.Title, entry.NaturalKeyType, entry.NaturalKeyValue, true,
                     "Skipped (divergent, not acknowledged)",
                     "Entry was not applied because body divergence was not explicitly acknowledged."));
-                progress.Report(results.ToList());
+                progress.Report([.. results]);
                 continue;
             }
 
@@ -225,7 +225,7 @@ public sealed class PullFromProdCoordinator
                     "Local apply failed for this entry — see logs."));
             }
 
-            progress.Report(results.ToList());
+            progress.Report([.. results]);
         }
 
         return results;

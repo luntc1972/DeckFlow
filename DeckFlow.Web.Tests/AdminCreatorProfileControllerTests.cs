@@ -354,7 +354,7 @@ public sealed class AdminCreatorProfileControllerTests
         var emptyResult = new MeasuredStyleBuildResult
         {
             Profile = NewProfile("slug", "archidekt"),
-            Samples = Array.Empty<CreatorDeckSample>(),
+            Samples = [],
             CardCategories = new Dictionary<string, IReadOnlyList<string>>(),
             Baseline = new GlobalCategoryBaseline
             {
@@ -515,16 +515,11 @@ public sealed class AdminCreatorProfileControllerTests
     /// Stateful in-memory stand-in for <see cref="ICreatorProfileSourceStore"/> recording every
     /// upsert so facts can assert what the controller persisted.
     /// </summary>
-    private sealed class FakeCreatorProfileSourceStore : ICreatorProfileSourceStore
+    private sealed class FakeCreatorProfileSourceStore(CreatorProfileSource? existing = null) : ICreatorProfileSourceStore
     {
-        private readonly CreatorProfileSource? _existing;
+        private readonly CreatorProfileSource? _existing = existing;
 
-        public FakeCreatorProfileSourceStore(CreatorProfileSource? existing = null)
-        {
-            _existing = existing;
-        }
-
-        public List<CreatorProfileSource> Upserts { get; } = new();
+        public List<CreatorProfileSource> Upserts { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
