@@ -21,7 +21,7 @@ internal static class ScryfallCollectionResolver
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessageSuffix);
 
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var identifiers = new List<object>();
+        List<object> identifiers = [];
         foreach (DeckEntry entry in deckCards)
         {
             string? printing = ScryfallCardNameIndex.PrintingKey(entry.SetCode, entry.CollectorNumber);
@@ -36,13 +36,13 @@ internal static class ScryfallCollectionResolver
                 : (object)new { name = entry.Name });
         }
 
-        var resolvedCards = new List<ScryfallCard>();
+        List<ScryfallCard> resolvedCards = [];
         foreach (List<object> batch in ScryfallBatching.Chunk(identifiers, ScryfallLimits.CollectionBatchSize))
         {
             var request = new RestRequest("cards/collection", Method.Post);
             request.AddJsonBody(new { identifiers = batch.ToArray() });
 
-            RestResponse<ScryfallCollectionResponse> response = await executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
+            var response = await executeCollectionAsync(request, cancellationToken).ConfigureAwait(false);
             if (response.StatusCode is < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices || response.Data is null)
             {
                 throw new HttpRequestException(
