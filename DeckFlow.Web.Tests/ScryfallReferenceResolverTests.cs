@@ -25,7 +25,7 @@ public sealed class ScryfallReferenceResolverTests
         var request = new ScryfallCollectionProtocolRequest(
             [ScryfallCollectionNameIdentifier.ForPrinting("mh3", "123")]);
 
-        string json = JsonSerializer.Serialize(request);
+        var json = JsonSerializer.Serialize(request);
 
         Assert.Contains("\"set\":\"mh3\"", json, StringComparison.Ordinal);
         Assert.Contains("\"collector_number\":\"123\"", json, StringComparison.Ordinal);
@@ -35,7 +35,7 @@ public sealed class ScryfallReferenceResolverTests
     [Fact]
     public async Task ResolveSingleAsync_DoubleFacedName_SubmitsFaceIdentifierToCollectionRequest()
     {
-        string requestBody = string.Empty;
+        var requestBody = string.Empty;
         var resolver = new ScryfallCardResolver(
             new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
             new FakeResiliencePipelineProvider(),
@@ -920,7 +920,7 @@ public sealed class ScryfallReferenceResolverTests
     [Fact]
     public async Task ResolveBatchAsync_DoubleFacedName_SubmitsFaceIdentifierToCollectionRequest()
     {
-        string requestBody = string.Empty;
+        var requestBody = string.Empty;
         var resolver = CreateResolver(executeCollectionAsync: (request, _) =>
         {
             requestBody = ExtractRequestBody(request);
