@@ -82,7 +82,7 @@ public sealed class CreatorStylePacketServiceTests
         Assert.Equal(["Dockside Extortionist"], result.ValidatedComboCards);
         Assert.Equal(
             ["Arcane Signet", "Commander One"],
-            Assert.Single(result.Exemplars).CardNames.OrderBy(static cardName => cardName, StringComparer.Ordinal).ToArray());
+            [.. Assert.Single(result.Exemplars).CardNames.OrderBy(static cardName => cardName, StringComparer.Ordinal)]);
         Assert.False(result.GroundingDegraded);
     }
 
@@ -164,10 +164,10 @@ public sealed class CreatorStylePacketServiceTests
             },
             validateAdditionalCardsAsync: (candidateNames, _, _) =>
             {
-                validationBatches.Add(candidateNames.ToArray());
+                validationBatches.Add([.. candidateNames]);
                 return Task.FromResult(new CardGroundingBatchResult
                 {
-                    Verdicts = candidateNames.Select(Accepted).ToArray(),
+                    Verdicts = [.. candidateNames.Select(Accepted)],
                     HasUpstreamFailure = false,
                 });
             },
@@ -310,11 +310,11 @@ public sealed class CreatorStylePacketServiceTests
             },
             validateAdditionalCardsAsync: (candidateNames, _, _) => Task.FromResult(new CardGroundingBatchResult
             {
-                Verdicts = candidateNames.Select(candidateName => candidateName switch
+                Verdicts = [.. candidateNames.Select(candidateName => candidateName switch
                 {
                     "Hullbreacher" => Rejected("Hullbreacher", CardGroundingRejectReason.NotLegal),
                     _ => Accepted(candidateName),
-                }).ToArray(),
+                })],
                 HasUpstreamFailure = false,
             }),
             creatorDecks:
@@ -843,11 +843,11 @@ public sealed class CreatorStylePacketServiceTests
             },
             validateAdditionalCardsAsync: (candidateNames, _, _) => Task.FromResult(new CardGroundingBatchResult
             {
-                Verdicts = candidateNames.Select(candidateName => candidateName switch
+                Verdicts = [.. candidateNames.Select(candidateName => candidateName switch
                 {
                     "Hullbreacher" => Rejected("Hullbreacher", CardGroundingRejectReason.NotLegal),
                     _ => Accepted(candidateName),
-                }).ToArray(),
+                })],
                 HasUpstreamFailure = false,
             }),
             creatorDecks:
@@ -880,7 +880,7 @@ public sealed class CreatorStylePacketServiceTests
 
         Assert.Equal(
             ["Arcane Signet", "Commander One"],
-            Assert.Single(result.Exemplars).CardNames.OrderBy(static cardName => cardName, StringComparer.Ordinal).ToArray());
+            [.. Assert.Single(result.Exemplars).CardNames.OrderBy(static cardName => cardName, StringComparer.Ordinal)]);
     }
 
     private static CreatorStyleProfile CreateProfile(string slug, bool insufficientSample = false, IReadOnlyList<FusedTarget>? fusedTargets = null)
@@ -948,7 +948,7 @@ public sealed class CreatorStylePacketServiceTests
             FolderName = folderName,
             Size = cardNames.Length,
             ConfidenceMarker = confidenceMarker,
-            Entries = cardNames.Select(cardName => DeckEntry(cardName, 1, "mainboard")).ToArray(),
+            Entries = [.. cardNames.Select(cardName => DeckEntry(cardName, 1, "mainboard"))],
             CachedUtc = new DateTimeOffset(2026, 7, 19, 0, 0, 0, TimeSpan.Zero),
         };
 
@@ -1021,7 +1021,7 @@ public sealed class CreatorStylePacketServiceTests
             buildWhitelistAsync: buildWhitelistAsync ?? ((_, _, _) => Task.FromResult(defaultWhitelistResult)),
             validateAdditionalCardsAsync: validateAdditionalCardsAsync ?? ((candidateNames, _, _) => Task.FromResult(new CardGroundingBatchResult
             {
-                Verdicts = candidateNames.Select(Accepted).ToArray(),
+                Verdicts = [.. candidateNames.Select(Accepted)],
                 HasUpstreamFailure = false,
             })),
             getCreatorDecksAsync: getCreatorDecksAsync ?? ((_, _) => Task.FromResult(defaultCreatorDecks)),

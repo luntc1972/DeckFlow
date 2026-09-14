@@ -130,8 +130,8 @@ public sealed class MeasuredStyleProfileBuilderTests
             Platform = SnailSeedCorpusFixture.Platform,
             MinDecks = 0,
             StatedRules = [statedRule],
-            MeasuredMetrics = Array.Empty<MeasuredMetric>(),
-            FusedTargets = Array.Empty<FusedTarget>(),
+            MeasuredMetrics = [],
+            FusedTargets = [],
             UpdatedUtc = now
         });
 
@@ -185,8 +185,8 @@ public sealed class MeasuredStyleProfileBuilderTests
             Platform = SnailSeedCorpusFixture.Platform,
             MinDecks = 0,
             StatedRules = [older, newer],
-            MeasuredMetrics = Array.Empty<MeasuredMetric>(),
-            FusedTargets = Array.Empty<FusedTarget>(),
+            MeasuredMetrics = [],
+            FusedTargets = [],
             UpdatedUtc = now
         });
 
@@ -240,7 +240,7 @@ public sealed class MeasuredStyleProfileBuilderTests
         await harness.SeedSourceAsync(
             "snail-seed-thin",
             "snail-seed-thin",
-            SnailSeedCorpusFixture.DeckSummaries.Take(4).ToArray(),
+            [.. SnailSeedCorpusFixture.DeckSummaries.Take(4)],
             SnailSeedCorpusFixture.BelowMinFloorSubset);
         await harness.SeedCategoriesAsync();
         await harness.SeedBaselineAsync();
@@ -425,22 +425,13 @@ public sealed class MeasuredStyleProfileBuilderTests
         Assert.Null(await harness.ProfileStore.GetBySlugAsync("throws-detailed"));
     }
 
-    private sealed class SequencingTrackingCommanderSpellbookService : ICommanderSpellbookService
+    private sealed class SequencingTrackingCommanderSpellbookService(List<string> log, object lockObject) : ICommanderSpellbookService
     {
-        private readonly List<string> _log;
-        private readonly object _lock;
-
-        public SequencingTrackingCommanderSpellbookService(List<string> log, object lockObject)
-        {
-            _log = log;
-            _lock = lockObject;
-        }
-
         public async Task<CommanderSpellbookResult?> FindCombosAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
         {
-            lock (_lock)
+            lock (lockObject)
             {
-                _log.Add("combo");
+                log.Add("combo");
             }
 
             // Why: a short delay widens the window in which a wrongly-concurrent implementation
@@ -450,35 +441,27 @@ public sealed class MeasuredStyleProfileBuilderTests
         }
     }
 
-    private sealed class SequencingTrackingScryfallCardResolver : IScryfallCardResolver
+    private sealed class SequencingTrackingScryfallCardResolver(
+        List<string> log,
+        object lockObject,
+        IReadOnlyDictionary<string, ScryfallCard> cardsByName) : IScryfallCardResolver
     {
-        private readonly List<string> _log;
-        private readonly object _lock;
-        private readonly IReadOnlyDictionary<string, ScryfallCard> _cardsByName;
-
-        public SequencingTrackingScryfallCardResolver(List<string> log, object lockObject, IReadOnlyDictionary<string, ScryfallCard> cardsByName)
-        {
-            _log = log;
-            _lock = lockObject;
-            _cardsByName = cardsByName;
-        }
-
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
         {
-            lock (_lock)
+            lock (lockObject)
             {
-                _log.Add("karsten");
+                log.Add("karsten");
             }
 
             return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
-                Data = new ScryfallCollectionResponse(_cardsByName.Values.ToList(), null)
+                Data = new ScryfallCollectionResponse([.. cardsByName.Values], null)
             });
         }
 
         public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
-            => Task.FromResult(_cardsByName.TryGetValue(cardName, out var card) ? card : null);
+            => Task.FromResult(cardsByName.TryGetValue(cardName, out var card) ? card : null);
 
         public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
             => SearchFallbackCardAsync(cardName, cancellationToken);
@@ -487,38 +470,28 @@ public sealed class MeasuredStyleProfileBuilderTests
             => SearchFallbackCardAsync(cardName, cancellationToken);
     }
 
-    private sealed class TestHarness : IAsyncDisposable
+    private sealed class TestHarness(
+        string directory,
+        CreatorProfileSourceStore sourceStore,
+        CreatorDeckCacheStore cacheStore,
+        CreatorStyleProfileStore profileStore,
+        CategoryKnowledgeRepository categoryKnowledgeRepository,
+        DateTimeOffset now) : IAsyncDisposable
     {
         private readonly Dictionary<string, IReadOnlyList<ArchidektDeckSummary>> _deckSummariesByUsername = new(StringComparer.Ordinal);
         private readonly Dictionary<string, List<DeckEntry>> _decksById = new(StringComparer.Ordinal);
 
-        private TestHarness(
-            string directory,
-            CreatorProfileSourceStore sourceStore,
-            CreatorDeckCacheStore cacheStore,
-            CreatorStyleProfileStore profileStore,
-            CategoryKnowledgeRepository categoryKnowledgeRepository,
-            DateTimeOffset now)
-        {
-            Directory = directory;
-            SourceStore = sourceStore;
-            CacheStore = cacheStore;
-            ProfileStore = profileStore;
-            CategoryKnowledgeRepository = categoryKnowledgeRepository;
-            Now = now;
-        }
+        public string Directory { get; } = directory;
 
-        public string Directory { get; }
+        public DateTimeOffset Now { get; } = now;
 
-        public DateTimeOffset Now { get; }
+        public CreatorProfileSourceStore SourceStore { get; } = sourceStore;
 
-        public CreatorProfileSourceStore SourceStore { get; }
+        public CreatorDeckCacheStore CacheStore { get; } = cacheStore;
 
-        public CreatorDeckCacheStore CacheStore { get; }
+        public CreatorStyleProfileStore ProfileStore { get; } = profileStore;
 
-        public CreatorStyleProfileStore ProfileStore { get; }
-
-        public CategoryKnowledgeRepository CategoryKnowledgeRepository { get; }
+        public CategoryKnowledgeRepository CategoryKnowledgeRepository { get; } = categoryKnowledgeRepository;
 
         public static Task<TestHarness> CreateAsync(DateTimeOffset now)
         {
@@ -542,14 +515,12 @@ public sealed class MeasuredStyleProfileBuilderTests
             IReadOnlyList<CreatorDeckSample> samples,
             bool weightsUncurated = false)
         {
-            _deckSummariesByUsername[username] = summaries
-                .Select(summary => summary with { Id = summary.Id.Replace("snail", slug, StringComparison.Ordinal) })
-                .ToArray();
+            _deckSummariesByUsername[username] = [.. summaries.Select(summary => summary with { Id = summary.Id.Replace("snail", slug, StringComparison.Ordinal) })];
 
             foreach (CreatorDeckSample sample in samples)
             {
                 string deckId = sample.DeckId.Replace("snail", slug, StringComparison.Ordinal);
-                _decksById[deckId] = sample.Entries.ToList();
+                _decksById[deckId] = [.. sample.Entries];
             }
 
             await SourceStore.UpsertAsync(new CreatorProfileSource
@@ -754,40 +725,26 @@ public sealed class MeasuredStyleProfileBuilderTests
         return manaCost.Count(character => character == '{');
     }
 
-    private sealed class FakeOwnerClient : IArchidektOwnerClient
+    private sealed class FakeOwnerClient(IReadOnlyDictionary<string, IReadOnlyList<ArchidektDeckSummary>> summariesByUsername) : IArchidektOwnerClient
     {
-        private readonly IReadOnlyDictionary<string, IReadOnlyList<ArchidektDeckSummary>> _summariesByUsername;
-
-        public FakeOwnerClient(IReadOnlyDictionary<string, IReadOnlyList<ArchidektDeckSummary>> summariesByUsername)
-        {
-            _summariesByUsername = summariesByUsername;
-        }
-
         public Task<string?> ResolveUsernameAsync(string usernameOrUrl, CancellationToken cancellationToken = default)
             => Task.FromResult<string?>(usernameOrUrl);
 
         public Task<ArchidektDeckListResult> ListDeckSummariesAsync(string ownerUsername, CancellationToken cancellationToken = default)
             => Task.FromResult(new ArchidektDeckListResult
             {
-                Decks = _summariesByUsername.TryGetValue(ownerUsername, out var summaries)
+                Decks = summariesByUsername.TryGetValue(ownerUsername, out var summaries)
                     ? summaries
-                    : Array.Empty<ArchidektDeckSummary>(),
+                    : [],
                 HasUpstreamFailure = false
             });
     }
 
-    private sealed class FakeDeckImporter : IArchidektDeckImporter
+    private sealed class FakeDeckImporter(IReadOnlyDictionary<string, List<DeckEntry>> decksById) : IArchidektDeckImporter
     {
-        private readonly IReadOnlyDictionary<string, List<DeckEntry>> _decksById;
-
-        public FakeDeckImporter(IReadOnlyDictionary<string, List<DeckEntry>> decksById)
-        {
-            _decksById = decksById;
-        }
-
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken ct = default)
         {
-            if (!_decksById.TryGetValue(urlOrDeckId, out var entries))
+            if (!decksById.TryGetValue(urlOrDeckId, out var entries))
             {
                 throw new InvalidOperationException($"Missing fake deck for {urlOrDeckId}.");
             }
@@ -796,28 +753,14 @@ public sealed class MeasuredStyleProfileBuilderTests
         }
     }
 
-    private sealed class FakeTaggerLookupService : IScryfallTaggerLookupService
+    private sealed class FakeTaggerLookupService(IReadOnlyDictionary<string, IReadOnlyList<string>> tagsByCardName) : IScryfallTaggerLookupService
     {
-        private readonly IReadOnlyDictionary<string, IReadOnlyList<string>> _tagsByCardName;
-
-        public FakeTaggerLookupService(IReadOnlyDictionary<string, IReadOnlyList<string>> tagsByCardName)
-        {
-            _tagsByCardName = tagsByCardName;
-        }
-
         public Task<IReadOnlyList<string>> LookupOracleTagsAsync(string cardName, CancellationToken cancellationToken = default)
-            => Task.FromResult(_tagsByCardName.TryGetValue(cardName, out var tags) ? tags : Array.Empty<string>());
+            => Task.FromResult(tagsByCardName.TryGetValue(cardName, out var tags) ? tags : []);
     }
 
-    private sealed class FakeCommanderSpellbookService : ICommanderSpellbookService
+    private sealed class FakeCommanderSpellbookService(IReadOnlyDictionary<string, CommanderSpellbookResult?> resultsByDeckId) : ICommanderSpellbookService
     {
-        private readonly IReadOnlyDictionary<string, CommanderSpellbookResult?> _resultsByDeckId;
-
-        public FakeCommanderSpellbookService(IReadOnlyDictionary<string, CommanderSpellbookResult?> resultsByDeckId)
-        {
-            _resultsByDeckId = resultsByDeckId;
-        }
-
         public Task<CommanderSpellbookResult?> FindCombosAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
         {
             string deckId = entries.First(entry => entry.Board == "commander").Name switch
@@ -829,7 +772,7 @@ public sealed class MeasuredStyleProfileBuilderTests
                 _ => entries.First(entry => entry.Board == "commander").Name
             };
 
-            return Task.FromResult(_resultsByDeckId.TryGetValue(deckId, out var result) ? result : null);
+            return Task.FromResult(resultsByDeckId.TryGetValue(deckId, out var result) ? result : null);
         }
     }
 
@@ -876,24 +819,17 @@ public sealed class MeasuredStyleProfileBuilderTests
         }
     }
 
-    private sealed class FakeScryfallCardResolver : IScryfallCardResolver
+    private sealed class FakeScryfallCardResolver(IReadOnlyDictionary<string, ScryfallCard> cardsByName) : IScryfallCardResolver
     {
-        private readonly IReadOnlyDictionary<string, ScryfallCard> _cardsByName;
-
-        public FakeScryfallCardResolver(IReadOnlyDictionary<string, ScryfallCard> cardsByName)
-        {
-            _cardsByName = cardsByName;
-        }
-
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
             => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
                 StatusCode = HttpStatusCode.OK,
-                Data = new ScryfallCollectionResponse(_cardsByName.Values.ToList(), null)
+                Data = new ScryfallCollectionResponse([.. cardsByName.Values], null)
             });
 
         public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
-            => Task.FromResult(_cardsByName.TryGetValue(cardName, out var card) ? card : null);
+            => Task.FromResult(cardsByName.TryGetValue(cardName, out var card) ? card : null);
 
         public Task<ScryfallCard?> SearchPrintingFallbackCardAsync(string cardName, CancellationToken cancellationToken)
             => SearchFallbackCardAsync(cardName, cancellationToken);
