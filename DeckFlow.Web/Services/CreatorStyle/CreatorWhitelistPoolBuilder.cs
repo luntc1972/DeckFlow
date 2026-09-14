@@ -76,7 +76,7 @@ public sealed class CreatorWhitelistPoolBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
         ArgumentNullException.ThrowIfNull(deckContext);
 
-        IReadOnlyList<string> rawPool = await GetOrBuildRawPoolAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
+        var rawPool = await GetOrBuildRawPoolAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
         if (rawPool.Count == 0)
         {
             return new CreatorWhitelistPoolBuildResult
@@ -132,7 +132,7 @@ public sealed class CreatorWhitelistPoolBuilder
 
     private async Task<IReadOnlyList<string>> BuildRawPoolAsync(string creatorSlug, CancellationToken cancellationToken)
     {
-        IReadOnlyList<CreatorDeckCacheEntry> cachedDecks = await _creatorDeckCacheStore
+        var cachedDecks = await _creatorDeckCacheStore
             .GetByCreatorAsync(creatorSlug, cancellationToken)
             .ConfigureAwait(false);
 
