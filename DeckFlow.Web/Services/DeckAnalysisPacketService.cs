@@ -160,8 +160,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// introduced so <see cref="ShouldBypassPacketCache"/> and the write-side bypass gate stay in sync
     /// without needing a matching edit at every call site.
     /// </summary>
-    internal static readonly IReadOnlyList<string> PromptMutatingAnalysisFlags = new[]
-    {
+    internal static readonly IReadOnlyList<string> PromptMutatingAnalysisFlags =
+    [
         CommandZoneAwarenessFlag,
         MultiAxisScoreFlag,
         InteractionAuditFlag,
@@ -174,7 +174,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // followup_packet_cache_flag_replay regression). Live byte-identity is guarded by the
         // flag-gated append in ManabaseReportTextBuilder.
         ManabaseAnalysisService.KeepShapesFlagKey,
-    };
+    ];
 
     /// <summary>
     /// Upper bound (characters) applied to a resolved companion name before it reaches any prompt.
@@ -313,7 +313,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             IncludeCardVersions: request.IncludeCardVersions,
             IncludeCandidateReferencesInAnalysis: request.IncludeCandidateReferencesInAnalysis,
             TargetAiPlatformKey: request.TargetAiPlatform,
-            SelectedQuestionIds: (request.SelectedAnalysisQuestions ?? new List<string>())
+            SelectedQuestionIds: (request.SelectedAnalysisQuestions ?? [])
                 .OrderBy(static id => id, StringComparer.Ordinal)
                 .ToArray());
     }

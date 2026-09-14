@@ -138,25 +138,25 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckSource);
 
-        DeckSourceLoadResult loaded = await _loadDeckAsync(deckSource, cancellationToken).ConfigureAwait(false);
-        List<DeckEntry> flaggedEntries = CommanderInference.ReflagInferredCommanders(loaded.Entries.ToList());
-        List<DeckEntry> analyzedEntries = flaggedEntries
+        var loaded = await _loadDeckAsync(deckSource, cancellationToken).ConfigureAwait(false);
+        var flaggedEntries = CommanderInference.ReflagInferredCommanders(loaded.Entries.ToList());
+        var analyzedEntries = flaggedEntries
             .Where(entry => AnalyzedBoards.Contains(entry.Board))
             .ToList();
 
-        Task<CommanderSpellbookResult?> comboTask = ResolveCombosAsync(analyzedEntries, cancellationToken);
-        Task<SubmittedDeckResolution> resolutionTask = _analyzeSubmittedDeckAsync(analyzedEntries, cancellationToken);
-        Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> categoryTask = ResolveCategoriesAsync(analyzedEntries, cancellationToken);
+        var comboTask = ResolveCombosAsync(analyzedEntries, cancellationToken);
+        var resolutionTask = _analyzeSubmittedDeckAsync(analyzedEntries, cancellationToken);
+        var categoryTask = ResolveCategoriesAsync(analyzedEntries, cancellationToken);
 
         await Task.WhenAll(comboTask, resolutionTask, categoryTask).ConfigureAwait(false);
 
-        IReadOnlyDictionary<string, IReadOnlyList<string>> cardCategories = await categoryTask.ConfigureAwait(false);
-        IReadOnlyDictionary<string, int> categoryCounts = CountCategories(analyzedEntries, cardCategories);
-        CommanderSpellbookResult? comboResult = await comboTask.ConfigureAwait(false);
-        SubmittedDeckResolution resolution = await resolutionTask.ConfigureAwait(false);
+        var cardCategories = await categoryTask.ConfigureAwait(false);
+        var categoryCounts = CountCategories(analyzedEntries, cardCategories);
+        var comboResult = await comboTask.ConfigureAwait(false);
+        var resolution = await resolutionTask.ConfigureAwait(false);
 
         var metrics = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-        int deckSize = analyzedEntries.Sum(entry => entry.Quantity);
+        var deckSize = analyzedEntries.Sum(entry => entry.Quantity);
         foreach (string category in ContentTagVocabulary.CardCategories)
         {
             metrics[$"category_ratio:{category}"] = categoryCounts.TryGetValue(category, out int count)
