@@ -33,7 +33,7 @@ public sealed class CachedNameResolutionTests
         int fetchCalls = 0;
         var expected = new CacheValue("first");
 
-        CacheValue result = await GetAsync(cache, "Sol Ring", _ =>
+        var result = await GetAsync(cache, "Sol Ring", _ =>
         {
             fetchCalls++;
             return Task.FromResult(expected);
@@ -55,7 +55,7 @@ public sealed class CachedNameResolutionTests
             fetchCalls++;
             return Task.FromResult(expected);
         });
-        CacheValue result = await GetAsync(cache, "Sol Ring", _ =>
+        var result = await GetAsync(cache, "Sol Ring", _ =>
         {
             fetchCalls++;
             return Task.FromResult(new CacheValue("second"));
@@ -77,7 +77,7 @@ public sealed class CachedNameResolutionTests
             fetchCalls++;
             return Task.FromResult(expected);
         });
-        CacheValue result = await GetAsync(cache, "sol ring", _ =>
+        var result = await GetAsync(cache, "sol ring", _ =>
         {
             fetchCalls++;
             return Task.FromResult(new CacheValue("second"));
@@ -93,12 +93,12 @@ public sealed class CachedNameResolutionTests
         using var cache = new MemoryCache(new MemoryCacheOptions());
         int fetchCalls = 0;
 
-        CacheValue first = await GetAsync(
+        var first = await GetAsync(
             cache,
             "Sol Ring",
             _ => Task.FromResult(new CacheValue($"value-{++fetchCalls}")),
             _ => null);
-        CacheValue second = await GetAsync(
+        var second = await GetAsync(
             cache,
             "Sol Ring",
             _ => Task.FromResult(new CacheValue($"value-{++fetchCalls}")),
@@ -116,7 +116,7 @@ public sealed class CachedNameResolutionTests
         var exception = new InvalidOperationException("upstream");
         Exception? receivedException = null;
 
-        CacheValue first = await CachedNameResolution.GetOrAddAsync(
+        var first = await CachedNameResolution.GetOrAddAsync(
             cache,
             "grounder:",
             "Sol Ring",
@@ -132,7 +132,7 @@ public sealed class CachedNameResolutionTests
             },
             _ => CachedNameResolution.PositiveCacheTtl,
             CancellationToken.None);
-        CacheValue second = await CachedNameResolution.GetOrAddAsync(
+        var second = await CachedNameResolution.GetOrAddAsync(
             cache,
             "grounder:",
             "Sol Ring",
