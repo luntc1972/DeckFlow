@@ -131,7 +131,7 @@ public sealed class ScryfallCollectionCardCache
 
     private void LogStatistics()
     {
-        ScryfallCollectionCacheStatistics statistics = GetStatistics();
+        var statistics = GetStatistics();
         _logger.LogInformation(
             "Scryfall collection cache statistics: enabled {Enabled}, hits {Hits}, misses {Misses}, stores {Stores}, bypasses {Bypasses}",
             statistics.Enabled, statistics.Hits, statistics.Misses, statistics.Stores, statistics.Bypasses);
