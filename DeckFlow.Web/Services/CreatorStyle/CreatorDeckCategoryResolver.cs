@@ -53,7 +53,7 @@ public sealed class CreatorDeckCategoryResolver
         var resolved = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var cardName in distinctNames)
         {
-            IReadOnlyList<string> categories = await _categoryKnowledgeRepository
+            var categories = await _categoryKnowledgeRepository
                 .GetCategoriesAsync(cardName!, cancellationToken)
                 .ConfigureAwait(false);
 

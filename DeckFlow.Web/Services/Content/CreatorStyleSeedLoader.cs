@@ -71,7 +71,7 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
                 profiles = await JsonSerializer
                     .DeserializeAsync<CreatorStyleProfile[]>(stream, CreatorStyleSeedJson.Options, cancellationToken)
                     .ConfigureAwait(false)
-                    ?? Array.Empty<CreatorStyleProfile>();
+                    ?? [];
             }
 
             var loaded = 0;
@@ -118,7 +118,7 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
                 entries = await JsonSerializer
                     .DeserializeAsync<CreatorDeckCacheEntry[]>(stream, CreatorStyleSeedJson.Options, cancellationToken)
                     .ConfigureAwait(false)
-                    ?? Array.Empty<CreatorDeckCacheEntry>();
+                    ?? [];
             }
 
             var loaded = 0;
