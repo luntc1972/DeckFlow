@@ -458,7 +458,6 @@
 
                         @if (analysis.WinLines is not null)
                         {
-                            var missingLineCount = analysis.WinLines.MissingLines.Count;
                             var missingLines = analysis.WinLines.MissingLines.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
                             <div class="meta-gap-mirror__stat">Win lines</div>
                             <div class="meta-gap-mirror__value">
@@ -472,7 +471,7 @@
                                     <span>Missing: @string.Join(", ", missingLines)</span>
                                 }
                             </div>
-                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(missingLineCount == 0 ? "manabase-chip--good" : "manabase-chip--low")">@(missingLineCount == 0 ? "↔ 0" : $"↓ {missingLineCount}")</span></div>
+                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(missingLines.Length == 0 ? "manabase-chip--good" : "manabase-chip--low")">@(missingLines.Length == 0 ? "↔ 0" : $"↓ {missingLines.Length}")</span></div>
                             <div class="meta-gap-mirror__value">
                                 <strong>@(analysis.WinLines.RefConsensus?.Primary ?? "—")</strong>
                                 @if (!string.IsNullOrWhiteSpace(analysis.WinLines.RefConsensus?.Backup))
