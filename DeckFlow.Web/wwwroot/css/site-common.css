@@ -6423,6 +6423,7 @@ html {
 
 .prompt-step-panel {
   display: block;
+  scroll-margin-top: 180px;
 }
 
 .prompt-step-heading {
