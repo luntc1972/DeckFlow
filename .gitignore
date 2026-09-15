@@ -20,6 +20,9 @@ docs/superpowers/
 # Probe scratch files
 *_probe.json
 
+# Manual test scratch (crawl logs, cookies, HTML dumps)
+/scratchpad/
+
 .gstack/
 DeckFlow.Web/test-results/
 DeckFlow.Web/playwright-report/
