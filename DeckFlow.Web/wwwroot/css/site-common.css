@@ -6940,6 +6940,83 @@ button {
   vertical-align: top;
 }
 
+/* Meta-gap results compare each measure in one row: your deck, a concise delta, and the field. */
+.meta-gap-mirror {
+  margin: 1rem 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.meta-gap-mirror__header,
+.meta-gap-mirror__stat,
+.meta-gap-mirror__value,
+.meta-gap-mirror__delta {
+  padding: 0.7rem 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.meta-gap-mirror__header {
+  border-top: 0;
+  font-weight: 700;
+}
+
+.meta-gap-mirror__stat {
+  font-weight: 700;
+}
+
+.meta-gap-mirror__value span {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.meta-gap-mirror__delta {
+  text-align: center;
+}
+
+.meta-gap-recommended-edits {
+  margin-top: 1rem;
+}
+
+.meta-gap-core-convergence__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+@media (min-width: 1024px) {
+  .meta-gap-mirror {
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .meta-gap-mirror__header,
+  .meta-gap-mirror__stat,
+  .meta-gap-mirror__value,
+  .meta-gap-mirror__delta {
+    border-top: 1px solid var(--line);
+  }
+
+  .meta-gap-mirror__header {
+    border-top: 0;
+  }
+
+  .meta-gap-mirror__stat {
+    grid-column: 1;
+  }
+
+  .meta-gap-mirror__value {
+    min-width: 0;
+  }
+
+  .meta-gap-mirror__delta {
+    grid-column: 3;
+    align-self: center;
+    padding-inline: 0.45rem;
+  }
+}
+
 /* Weighted category results need intact numeric values at narrow widths.
    Scope this to the weighted panel because other .conflicts-table views contain prose columns. */
 [data-api-panel="weighted"] .conflicts-table th:nth-child(n + 2),

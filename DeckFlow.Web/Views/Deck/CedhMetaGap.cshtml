@@ -449,224 +449,125 @@
                         }
                     </section>
 
-                    <div class="sync-columns">
+
+                    <section class="meta-gap-mirror" aria-label="Your deck compared with the reference field">
+                        <div class="meta-gap-mirror__header meta-gap-mirror__header--stat">Stat</div>
+                        <div class="meta-gap-mirror__header">Your Deck</div>
+                        <div class="meta-gap-mirror__header meta-gap-mirror__header--delta">Delta</div>
+                        <div class="meta-gap-mirror__header">The Field</div>
+
                         @if (analysis.WinLines is not null)
                         {
-                            <section class="result-panel nested-panel">
-                                <h4>Win Lines</h4>
-                                <ul>
-                                    @if (analysis.WinLines.MyDeck is not null && !string.IsNullOrWhiteSpace(analysis.WinLines.MyDeck.Primary))
-                                    {
-                                        <li><strong>Your primary line:</strong> @analysis.WinLines.MyDeck.Primary</li>
-                                    }
-                                    @if (analysis.WinLines.MyDeck is not null && !string.IsNullOrWhiteSpace(analysis.WinLines.MyDeck.Backup))
-                                    {
-                                        <li><strong>Your backup line:</strong> @analysis.WinLines.MyDeck.Backup</li>
-                                    }
-                                    @if (analysis.WinLines.RefConsensus is not null && !string.IsNullOrWhiteSpace(analysis.WinLines.RefConsensus.Primary))
-                                    {
-                                        <li><strong>Meta primary line:</strong> @analysis.WinLines.RefConsensus.Primary</li>
-                                    }
-                                    @if (analysis.WinLines.RefConsensus is not null && !string.IsNullOrWhiteSpace(analysis.WinLines.RefConsensus.Backup))
-                                    {
-                                        <li><strong>Meta backup line:</strong> @analysis.WinLines.RefConsensus.Backup</li>
-                                    }
-                                    @foreach (var missingLine in analysis.WinLines.MissingLines.Where(line => !string.IsNullOrWhiteSpace(line)))
-                                    {
-                                        <li><strong>Missing line:</strong> @missingLine</li>
-                                    }
-                                </ul>
-                            </section>
+                            var missingLineCount = analysis.WinLines.MissingLines.Count;
+                            var missingLines = analysis.WinLines.MissingLines.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
+                            <div class="meta-gap-mirror__stat">Win lines</div>
+                            <div class="meta-gap-mirror__value">
+                                <strong>@(analysis.WinLines.MyDeck?.Primary ?? "—")</strong>
+                                @if (!string.IsNullOrWhiteSpace(analysis.WinLines.MyDeck?.Backup))
+                                {
+                                    <span>@analysis.WinLines.MyDeck.Backup</span>
+                                }
+                                @if (missingLines.Length > 0)
+                                {
+                                    <span>Missing: @string.Join(", ", missingLines)</span>
+                                }
+                            </div>
+                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(missingLineCount == 0 ? "manabase-chip--good" : "manabase-chip--low")">@(missingLineCount == 0 ? "↔ 0" : $"↓ {missingLineCount}")</span></div>
+                            <div class="meta-gap-mirror__value">
+                                <strong>@(analysis.WinLines.RefConsensus?.Primary ?? "—")</strong>
+                                @if (!string.IsNullOrWhiteSpace(analysis.WinLines.RefConsensus?.Backup))
+                                {
+                                    <span>@analysis.WinLines.RefConsensus.Backup</span>
+                                }
+                            </div>
                         }
 
                         @if (analysis.Interaction is not null)
                         {
-                            <section class="result-panel nested-panel">
-                                <h4>Interaction</h4>
-                                <p><strong>Your interaction count:</strong> @analysis.Interaction.MyCount</p>
-                                <p><strong>Reference average:</strong> @analysis.Interaction.RefAvgCount.ToString("F1")</p>
-                                @if (!string.IsNullOrWhiteSpace(analysis.Interaction.Verdict))
-                                {
-                                    <p><strong>Verdict:</strong> @analysis.Interaction.Verdict</p>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(analysis.Interaction.Detail))
-                                {
-                                    <p>@analysis.Interaction.Detail</p>
-                                }
-                            </section>
+                            var interactionDelta = analysis.Interaction.MyCount - analysis.Interaction.RefAvgCount;
+                            <div class="meta-gap-mirror__stat">Interaction count</div>
+                            <div class="meta-gap-mirror__value">
+                                @analysis.Interaction.MyCount
+                                @if (!string.IsNullOrWhiteSpace(analysis.Interaction.Verdict)) { <span>@analysis.Interaction.Verdict</span> }
+                                @if (!string.IsNullOrWhiteSpace(analysis.Interaction.Detail) && !string.Equals(analysis.Interaction.Detail, analysis.Interaction.Verdict, StringComparison.Ordinal)) { <span>@analysis.Interaction.Detail</span> }
+                            </div>
+                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(interactionDelta > 0 ? "manabase-chip--good" : interactionDelta < 0 ? "manabase-chip--low" : "manabase-chip--ok")">@(interactionDelta > 0 ? "↑" : interactionDelta < 0 ? "↓" : "↔") @interactionDelta.ToString("+0.0;-0.0;0.0")</span></div>
+                            <div class="meta-gap-mirror__value">@analysis.Interaction.RefAvgCount.ToString("F1")</div>
                         }
-                    </div>
 
-                    <div class="sync-columns">
                         @if (analysis.Speed is not null)
                         {
-                            <section class="result-panel nested-panel">
-                                <h4>Speed</h4>
-                                @if (!string.IsNullOrWhiteSpace(analysis.Speed.MyClassification) || !string.IsNullOrWhiteSpace(analysis.Speed.MyAvgTurn))
-                                {
-                                    <p><strong>Your deck:</strong> @analysis.Speed.MyClassification@if (!string.IsNullOrWhiteSpace(analysis.Speed.MyAvgTurn))
-                                        {
-                                            <text> (@analysis.Speed.MyAvgTurn)</text>
-                                        }
-                                    </p>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(analysis.Speed.RefClassification) || !string.IsNullOrWhiteSpace(analysis.Speed.RefAvgTurn))
-                                {
-                                    <p><strong>Reference field:</strong> @analysis.Speed.RefClassification@if (!string.IsNullOrWhiteSpace(analysis.Speed.RefAvgTurn))
-                                        {
-                                            <text> (@analysis.Speed.RefAvgTurn)</text>
-                                        }
-                                    </p>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(analysis.Speed.Detail))
-                                {
-                                    <p>@analysis.Speed.Detail</p>
-                                }
-                            </section>
+                            var speedMatchesField = string.Equals(analysis.Speed.MyClassification, analysis.Speed.RefClassification, StringComparison.OrdinalIgnoreCase)
+                                && string.Equals(analysis.Speed.MyAvgTurn, analysis.Speed.RefAvgTurn, StringComparison.OrdinalIgnoreCase);
+                            <div class="meta-gap-mirror__stat">Speed classification</div>
+                            <div class="meta-gap-mirror__value">
+                                @analysis.Speed.MyClassification <span>@analysis.Speed.MyAvgTurn</span>
+                                @if (!string.IsNullOrWhiteSpace(analysis.Speed.Detail)) { <span>@analysis.Speed.Detail</span> }
+                            </div>
+                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(speedMatchesField ? "manabase-chip--ok" : "manabase-chip--low")">@(speedMatchesField ? "↔ 0" : "↓ n/a")</span></div>
+                            <div class="meta-gap-mirror__value">@analysis.Speed.RefClassification <span>@analysis.Speed.RefAvgTurn</span></div>
                         }
 
                         @if (analysis.ManaEfficiency is not null)
                         {
-                            <section class="result-panel nested-panel">
-                                <h4>Mana Efficiency</h4>
-                                <p><strong>Fast mana:</strong> @analysis.ManaEfficiency.MyFastMana vs meta @analysis.ManaEfficiency.RefAvgFastMana.ToString("F1")</p>
-                                <p><strong>Average CMC:</strong> @analysis.ManaEfficiency.MyAvgCmc.ToString("F2") vs meta @analysis.ManaEfficiency.RefAvgCmc.ToString("F2")</p>
-                                <p><strong>Lands:</strong> @analysis.ManaEfficiency.MyLands vs meta @analysis.ManaEfficiency.RefAvgLands.ToString("F1")</p>
-                                @if (!string.IsNullOrWhiteSpace(analysis.ManaEfficiency.Detail))
-                                {
-                                    <p>@analysis.ManaEfficiency.Detail</p>
-                                }
-                            </section>
+                            var fastManaDelta = analysis.ManaEfficiency.MyFastMana - analysis.ManaEfficiency.RefAvgFastMana;
+                            var cmcDelta = analysis.ManaEfficiency.RefAvgCmc - analysis.ManaEfficiency.MyAvgCmc;
+                            var landsDelta = analysis.ManaEfficiency.MyLands - analysis.ManaEfficiency.RefAvgLands;
+                            <div class="meta-gap-mirror__stat">Fast mana</div>
+                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.MyFastMana</div>
+                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(fastManaDelta > 0 ? "manabase-chip--good" : fastManaDelta < 0 ? "manabase-chip--low" : "manabase-chip--ok")">@(fastManaDelta > 0 ? "↑" : fastManaDelta < 0 ? "↓" : "↔") @fastManaDelta.ToString("+0.0;-0.0;0.0")</span></div>
+                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.RefAvgFastMana.ToString("F1")</div>
+                            <div class="meta-gap-mirror__stat">Average CMC</div>
+                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.MyAvgCmc.ToString("F2")</div>
+                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(cmcDelta > 0 ? "manabase-chip--good" : cmcDelta < 0 ? "manabase-chip--low" : "manabase-chip--ok")">@(cmcDelta > 0 ? "↑" : cmcDelta < 0 ? "↓" : "↔") @cmcDelta.ToString("+0.00;-0.00;0.00")</span></div>
+                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.RefAvgCmc.ToString("F2")</div>
+                            <div class="meta-gap-mirror__stat">Lands</div>
+                            <div class="meta-gap-mirror__value">
+                                @analysis.ManaEfficiency.MyLands
+                                @if (!string.IsNullOrWhiteSpace(analysis.ManaEfficiency.Detail)) { <span>@analysis.ManaEfficiency.Detail</span> }
+                            </div>
+                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(landsDelta > 0 ? "manabase-chip--good" : landsDelta < 0 ? "manabase-chip--low" : "manabase-chip--ok")">@(landsDelta > 0 ? "↑" : landsDelta < 0 ? "↓" : "↔") @landsDelta.ToString("+0.0;-0.0;0.0")</span></div>
+                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.RefAvgLands.ToString("F1")</div>
                         }
-                    </div>
+                    </section>
 
                     @if (analysis.CoreConvergence.Count > 0)
                     {
-                        <section class="result-panel nested-panel">
+                        <section class="result-panel nested-panel meta-gap-core-convergence">
                             <h4>Core Convergence</h4>
-                            <ul>
+                            <p class="meta-gap-core-convergence__chips">
                                 @foreach (var item in analysis.CoreConvergence.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
                                 {
-                                    <li>
-                                        <strong>@item.Card</strong>
-                                        @if (!string.IsNullOrWhiteSpace(item.Role))
-                                        {
-                                            <text> (@item.Role)</text>
-                                        }
-                                        : @(item.InMyDeck ? "already in your deck" : "missing from your deck")
-                                    </li>
+                                    <span class="manabase-chip @(item.InMyDeck ? "manabase-chip--good" : "manabase-chip--low")">@item.Card@if (!string.IsNullOrWhiteSpace(item.Role)) { <text> (@item.Role)</text> }</span>
+                                }
+                            </p>
+                        </section>
+                    }
+
+                    @if (analysis.MissingStaples.Count > 0 || analysis.PotentialCuts.Count > 0 || analysis.Top10Adds.Count > 0 || analysis.Top10Cuts.Count > 0)
+                    {
+                        <section class="result-panel nested-panel meta-gap-recommended-edits">
+                            <h4>Recommended Edits</h4>
+                            <ul>
+                                @foreach (var item in analysis.MissingStaples.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
+                                {
+                                    <li><strong>Add staple: @item.Card</strong> @if (!string.IsNullOrWhiteSpace(item.Role)) { <text>(@item.Role)</text> } @if (item.RefCount > 0) { <text>seen in @item.RefCount reference deck(s)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <text>- @item.Why</text> }</li>
+                                }
+                                @foreach (var item in analysis.PotentialCuts.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
+                                {
+                                    <li><strong>Potential cut: @item.Card</strong> @if (!string.IsNullOrWhiteSpace(item.Role)) { <text>(@item.Role)</text> } @if (item.RefCount > 0) { <text>found in @item.RefCount reference deck(s)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <text>- @item.Why</text> }</li>
+                                }
+                                @foreach (var item in analysis.Top10Adds.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
+                                {
+                                    <li><strong>Add: @item.Card</strong> @if (!string.IsNullOrWhiteSpace(item.Replaces)) { <text>for @item.Replaces</text> } @if (!string.IsNullOrWhiteSpace(item.Role)) { <text>(@item.Role)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <text>- @item.Why</text> }</li>
+                                }
+                                @foreach (var item in analysis.Top10Cuts.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
+                                {
+                                    <li><strong>Cut: @item.Card</strong> @if (!string.IsNullOrWhiteSpace(item.Role)) { <text>(@item.Role)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <text>- @item.Why</text> }</li>
                                 }
                             </ul>
                         </section>
                     }
-
-                    <div class="sync-columns">
-                        @if (analysis.MissingStaples.Count > 0)
-                        {
-                            <section class="result-panel nested-panel">
-                                <h4>Missing Staples</h4>
-                                <ul>
-                                    @foreach (var item in analysis.MissingStaples.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
-                                    {
-                                        <li>
-                                            <strong>#@item.Priority @item.Card</strong>
-                                            @if (!string.IsNullOrWhiteSpace(item.Role))
-                                            {
-                                                <text> (@item.Role)</text>
-                                            }
-                                            @if (item.RefCount > 0)
-                                            {
-                                                <text> seen in @item.RefCount reference deck(s)</text>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(item.Why))
-                                            {
-                                                <text> - @item.Why</text>
-                                            }
-                                        </li>
-                                    }
-                                </ul>
-                            </section>
-                        }
-
-                        @if (analysis.PotentialCuts.Count > 0)
-                        {
-                            <section class="result-panel nested-panel">
-                                <h4>Potential Cuts</h4>
-                                <ul>
-                                    @foreach (var item in analysis.PotentialCuts.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
-                                    {
-                                        <li>
-                                            <strong>#@item.Priority @item.Card</strong>
-                                            @if (!string.IsNullOrWhiteSpace(item.Role))
-                                            {
-                                                <text> (@item.Role)</text>
-                                            }
-                                            @if (item.RefCount > 0)
-                                            {
-                                                <text> found in @item.RefCount reference deck(s)</text>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(item.Why))
-                                            {
-                                                <text> - @item.Why</text>
-                                            }
-                                        </li>
-                                    }
-                                </ul>
-                            </section>
-                        }
-                    </div>
-
-                    <div class="sync-columns">
-                        @if (analysis.Top10Adds.Count > 0)
-                        {
-                            <section class="result-panel nested-panel">
-                                <h4>Top 10 Adds</h4>
-                                <ul>
-                                    @foreach (var item in analysis.Top10Adds.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
-                                    {
-                                        <li>
-                                            <strong>@item.Card</strong>
-                                            @if (!string.IsNullOrWhiteSpace(item.Replaces))
-                                            {
-                                                <text> in for <strong>@item.Replaces</strong></text>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(item.Role))
-                                            {
-                                                <text> (@item.Role)</text>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(item.Why))
-                                            {
-                                                <text> - @item.Why</text>
-                                            }
-                                        </li>
-                                    }
-                                </ul>
-                            </section>
-                        }
-
-                        @if (analysis.Top10Cuts.Count > 0)
-                        {
-                            <section class="result-panel nested-panel">
-                                <h4>Top 10 Cuts</h4>
-                                <ul>
-                                    @foreach (var item in analysis.Top10Cuts.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
-                                    {
-                                        <li>
-                                            <strong>@item.Card</strong>
-                                            @if (!string.IsNullOrWhiteSpace(item.Role))
-                                            {
-                                                <text> (@item.Role)</text>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(item.Why))
-                                            {
-                                                <text> - @item.Why</text>
-                                            }
-                                        </li>
-                                    }
-                                </ul>
-                            </section>
-                        }
-                    </div>
                 </div>
             </section>
         }
