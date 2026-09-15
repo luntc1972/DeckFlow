@@ -586,15 +586,29 @@ Deck B ([DECK B NAME]):
             <span class="prompt-step-badge">Final step</span>
         </div>
 
-        <label class="field">
-            <span>Deck comparison JSON</span>
-            <textarea autocomplete="off" name="ComparisonResponseJson" spellcheck="false">@Model.Request.ComparisonResponseJson</textarea>
-            <small class="sync-column__hint">Required for rendering the final summary. You can paste the fenced <code>```json</code> block directly.</small>
-        </label>
+        <details class="cutlab-intake" data-cut-lab-intake-summary open="@(Model.ComparisonResponse is null ? "open" : null)">
+            <summary class="cutlab-intake-summary">
+                @if (Model.ComparisonResponse is not null)
+                {
+                    <span class="cutlab-intake-summary__commander">Deck comparison ready</span>
+                    <span class="cutlab-intake-summary__change">Change intake</span>
+                }
+                else
+                {
+                    <span class="cutlab-intake-summary__commander">Paste the returned comparison JSON</span>
+                }
+            </summary>
 
-        <div class="toolbar prompt-step-actions">
-            <button type="submit" class="run-button" data-prompt-comparison-submit-step="3" data-default-action>Render Comparison Summary</button>
-        </div>
+            <label class="field">
+                <span>Deck comparison JSON</span>
+                <textarea autocomplete="off" name="ComparisonResponseJson" spellcheck="false">@Model.Request.ComparisonResponseJson</textarea>
+                <small class="sync-column__hint">Required for rendering the final summary. You can paste the fenced <code>```json</code> block directly.</small>
+            </label>
+
+            <div class="toolbar prompt-step-actions">
+                <button type="submit" class="run-button" data-prompt-comparison-submit-step="3" data-default-action>Render Comparison Summary</button>
+            </div>
+        </details>
 
         @if (Model.ComparisonResponse is not null)
         {
