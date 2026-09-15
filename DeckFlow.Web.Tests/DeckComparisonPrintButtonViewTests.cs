@@ -51,6 +51,39 @@ public sealed class DeckComparisonPrintButtonViewTests
     }
 
     [Fact]
+    public async Task NoComparisonResponse_RendersOpenStepThreeIntake()
+    {
+        var model = new DeckComparisonViewModel
+        {
+            ActiveTab = DeckPageTab.DeckComparison,
+            Request = new DeckComparisonRequest { WorkflowStep = 3 },
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary open=\"open\">", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__commander\">Paste the returned comparison JSON</span>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Change intake", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ComparisonResponsePresent_RendersCollapsedStepThreeIntake()
+    {
+        var model = new DeckComparisonViewModel
+        {
+            ActiveTab = DeckPageTab.DeckComparison,
+            Request = new DeckComparisonRequest { WorkflowStep = 3 },
+            ComparisonResponse = new DeckComparisonResponse { DeckAName = "Deck A", DeckBName = "Deck B" },
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary>", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__commander\">Deck comparison ready</span>", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__change\">Change intake</span>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task GeneratedComparisonPrompt_CarriesResponseSplitTip()
     {
         var model = new DeckComparisonViewModel
