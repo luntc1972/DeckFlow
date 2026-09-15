@@ -31,6 +31,32 @@ namespace DeckFlow.Web.Tests;
 public sealed class MetaGapViewRenderTests
 {
     [Fact]
+    public async Task StepThreeIntake_IsOpenWithInputPromptBeforeAnalysis()
+    {
+        var model = new MetaGapViewModel
+        {
+            ActiveTab = DeckPageTab.CedhMetaGap,
+            Request = new MetaGapRequest { WorkflowStep = 3 },
+        };
+
+        string html = await RenderCedhMetaGapViewAsync(model);
+
+        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary open=\"open\">", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__commander\">Paste the returned meta-gap JSON</span>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Change intake", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StepThreeIntake_IsCollapsedWithChangeActionAfterAnalysis()
+    {
+        string html = await RenderCedhMetaGapViewAsync(CreatePopulatedStepThreeModel());
+
+        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary>", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__commander\">Meta gap analysis ready</span>", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__change\">Change intake</span>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RenderButton_CarriesAnalysisSpecificBusyCopy()
     {
         var model = new MetaGapViewModel
