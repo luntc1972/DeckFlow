@@ -108,6 +108,58 @@ public sealed class MetaGapViewRenderTests
         Assert.DoesNotContain("Print results", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task WinLinesDelta_ExcludesBlankMissingLineEntriesFromCount()
+    {
+        string html = await RenderCedhMetaGapViewAsync(CreatePopulatedStepThreeModel());
+        Assert.Contains("&#x2193; 1", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("&#x2193; 2", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PopulatedStepThreeAnalysis_RendersMirrorSectionsAndDetails()
+    {
+        string html = await RenderCedhMetaGapViewAsync(CreatePopulatedStepThreeModel());
+
+        Assert.Contains("Core Convergence", html, StringComparison.Ordinal);
+        Assert.Contains("Sol Ring", html, StringComparison.Ordinal);
+        Assert.Contains("Below average", html, StringComparison.Ordinal);
+        Assert.Contains("Needs more interaction", html, StringComparison.Ordinal);
+        Assert.Contains("Missing: Thassa&#x27;s Oracle wincon", html, StringComparison.Ordinal);
+    }
+
+    private static MetaGapViewModel CreatePopulatedStepThreeModel()
+    {
+        return new MetaGapViewModel
+        {
+            ActiveTab = DeckPageTab.CedhMetaGap,
+            Request = new MetaGapRequest { WorkflowStep = 3 },
+            AnalysisResponse = new MetaGapResponse
+            {
+                MetaGap = new MetaGapData
+                {
+                    WinLines = new WinLines
+                    {
+                        MyDeck = new WinLineSet { Primary = "Dockside loop" },
+                        RefConsensus = new WinLineSet { Primary = "Oracle consult" },
+                        MissingLines = new[] { "", "Thassa's Oracle wincon" },
+                    },
+                    Interaction = new Interaction
+                    {
+                        MyCount = 4,
+                        RefAvgCount = 7.0,
+                        Verdict = "Below average",
+                        Detail = "Needs more interaction",
+                    },
+                    CoreConvergence = new[]
+                    {
+                        new CoreConvergenceCard { Card = "Sol Ring", Role = "Ramp" },
+                    },
+                },
+            },
+        };
+    }
+
     private static async Task<string> RenderCedhMetaGapViewAsync(MetaGapViewModel model)
     {
         var services = new ServiceCollection();
