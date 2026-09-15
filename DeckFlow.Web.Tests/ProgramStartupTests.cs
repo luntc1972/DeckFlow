@@ -99,8 +99,9 @@ public sealed class ProgramStartupTests
     // CreatorStyleSeedLoader/ContentKbArtifactPathResolver pair against the repository's actual
     // content-kb directory and confirms the seed file is found and parsed (not skipped as
     // missing). Phase 115-04's operator export populated the seed with a real profile
-    // (slug `salubrioussnail`), so the row count is now 1 — the point proven here is that the
-    // found-and-parsed branch runs, not the file-missing skip branch.
+    // (slug `salubrioussnail`), and the deck-cache seed contains 43 rows, so the loader count is
+    // 1 profile row + 43 deck-cache rows = 44 — the point proven here is that the found-and-parsed
+    // branch runs, not the file-missing skip branch.
     [Fact]
     public async Task LoadCreatorStyleSeedAsync_WithRealLoaderAgainstRepoContentBase_ReadsRealSeedFileRatherThanSkippingAsMissing()
     {
@@ -125,7 +126,7 @@ public sealed class ProgramStartupTests
 
         var count = await Program.LoadCreatorStyleSeedAsync(services);
 
-        Assert.Equal(1, count);
+        Assert.Equal(44, count);
     }
 
     private static string GetRepoRoot()
