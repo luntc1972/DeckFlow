@@ -951,10 +951,18 @@
   .deck-form[data-primer-form] .run-button,
   .deck-form[data-primer-form] .clear-cache-button,
   .deck-form[data-primer-form] .copy-button,
-  .deck-form[data-primer-form] .df-select__trigger {
+  .deck-form[data-primer-form] .df-select__trigger,
+  .deck-form[data-primer-form] .prompt-resume > summary,
+  .deck-form[data-primer-form] .primer-section__help > summary {
     box-sizing: border-box;
     min-width: 44px;
     min-height: 44px;
+  }
+
+  .deck-form[data-primer-form] .prompt-resume > summary,
+  .deck-form[data-primer-form] .primer-section__help > summary {
+    display: flex;
+    align-items: center;
   }
 
   .deck-form[data-primer-form] input[name="DeckUrl"],

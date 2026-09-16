@@ -16,7 +16,10 @@ public sealed class DeckPrimerMobileLayoutCssTests
         Assert.Contains("padding: 0 0.75rem;", mobileRule, StringComparison.Ordinal);
         Assert.Contains(".deck-form[data-primer-form] .run-button", mobileRule, StringComparison.Ordinal);
         Assert.Contains(".deck-form[data-primer-form] .copy-button", mobileRule, StringComparison.Ordinal);
+        Assert.Contains(".deck-form[data-primer-form] .prompt-resume > summary", mobileRule, StringComparison.Ordinal);
+        Assert.Contains(".deck-form[data-primer-form] .primer-section__help > summary", mobileRule, StringComparison.Ordinal);
         Assert.Contains("min-height: 44px;", mobileRule, StringComparison.Ordinal);
+        Assert.Contains("display: flex;", mobileRule, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -51,15 +54,22 @@ public sealed class DeckPrimerMobileLayoutCssTests
         Assert.True(bodyStart >= 0, $"Missing media query body: {mediaQuery}");
 
         int depth = 1;
+        int bodyEnd = -1;
         for (int index = bodyStart + 1; index < css.Length; index++)
         {
             depth += css[index] == '{' ? 1 : css[index] == '}' ? -1 : 0;
             if (depth == 0)
             {
-                return css[(bodyStart + 1)..index];
+                bodyEnd = index;
+                break;
             }
         }
 
-        throw new InvalidOperationException($"Unclosed media query: {mediaQuery}");
+        Assert.True(bodyEnd >= 0, $"Unclosed media query: {mediaQuery}");
+        int primerStart = css.IndexOf(".deck-form[data-primer-form] {", bodyStart, bodyEnd - bodyStart, StringComparison.Ordinal);
+        Assert.True(primerStart >= 0, "Missing Primer mobile rule group.");
+        int primerEnd = css.LastIndexOf('}', bodyEnd - 1, bodyEnd - primerStart);
+        Assert.True(primerEnd >= primerStart, "Unclosed Primer mobile rule group.");
+        return css[primerStart..primerEnd];
     }
 }
