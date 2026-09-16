@@ -961,8 +961,9 @@
 
   .deck-form[data-primer-form] .prompt-resume > summary,
   .deck-form[data-primer-form] .primer-section__help > summary {
-    display: flex;
-    align-items: center;
+    display: list-item;
+    line-height: 1.5;
+    padding-block: 0.5rem;
   }
 
   .deck-form[data-primer-form] input[name="DeckUrl"],
