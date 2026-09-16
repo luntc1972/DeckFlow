@@ -941,6 +941,34 @@
     overflow-wrap: anywhere;
     overflow-x: auto;
   }
+
+  .deck-form[data-primer-form] {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 0 0.75rem;
+  }
+
+  .deck-form[data-primer-form] .run-button,
+  .deck-form[data-primer-form] .clear-cache-button,
+  .deck-form[data-primer-form] .copy-button,
+  .deck-form[data-primer-form] .df-select__trigger {
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .deck-form[data-primer-form] input[name="DeckUrl"],
+  .deck-form[data-primer-form] textarea[name="DeckText"],
+  .deck-form[data-primer-form] #primer-output {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .deck-form[data-primer-form] textarea[name="DeckText"],
+  .deck-form[data-primer-form] #primer-output {
+    overflow-wrap: anywhere;
+    overflow-x: auto;
+  }
 }
 
 @media (max-width: 480px) {
