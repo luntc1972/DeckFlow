@@ -37,7 +37,26 @@ public sealed class DeckPrimerDesktopLayoutCssTests
         int gridStart = view.IndexOf("primer-workbench-grid", StringComparison.Ordinal);
         int configStart = view.IndexOf("primer-workbench-grid__config", StringComparison.Ordinal);
         int detailsStart = view.IndexOf("<details class=\"cutlab-intake\"", StringComparison.Ordinal);
-        int detailsEnd = view.IndexOf("</details>", detailsStart, StringComparison.Ordinal);
+        int detailsEnd = -1;
+        int detailsDepth = 0;
+        int detailsIndex = detailsStart;
+        while (detailsDepth > 0 || detailsIndex == detailsStart)
+        {
+            int nextOpen = view.IndexOf("<details", detailsIndex, StringComparison.Ordinal);
+            int nextClose = view.IndexOf("</details>", detailsIndex, StringComparison.Ordinal);
+
+            if (nextOpen >= 0 && nextOpen < nextClose)
+            {
+                detailsDepth++;
+                detailsIndex = nextOpen + "<details".Length;
+            }
+            else
+            {
+                detailsDepth--;
+                detailsEnd = nextClose;
+                detailsIndex = nextClose + "</details>".Length;
+            }
+        }
         int outputStart = view.IndexOf("primer-workbench-grid__output", StringComparison.Ordinal);
         int stepOne = view.IndexOf("id=\"primer-step-panel-1\"", StringComparison.Ordinal);
         int stepTwo = view.IndexOf("id=\"primer-step-panel-2\"", StringComparison.Ordinal);
