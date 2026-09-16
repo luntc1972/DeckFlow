@@ -119,6 +119,21 @@
 
     @await Html.PartialAsync("_WorkflowStepTabs", packetTabs)
 
+    <div class="card-lookup-grid primer-workbench-grid">
+        <div class="primer-workbench-grid__config">
+    <details class="cutlab-intake" data-cut-lab-intake-summary open="@(string.IsNullOrWhiteSpace(Model.PrimerPromptText) ? "open" : null)">
+        <summary class="cutlab-intake-summary">
+            @if (!string.IsNullOrWhiteSpace(Model.PrimerPromptText))
+            {
+                <span class="cutlab-intake-summary__commander">Primer generated</span>
+                <span class="cutlab-intake-summary__change">Change intake</span>
+            }
+            else
+            {
+                <span class="cutlab-intake-summary__commander">Set up your primer</span>
+            }
+        </summary>
+
     <section class="result-panel" id="primer-step-panel-1">
         <div class="prompt-step-heading">
             <div>
@@ -284,7 +299,10 @@
             <button type="submit" class="run-button">Generate Primer</button>
         </div>
     </section>
+    </details>
+        </div>
 
+        <div class="primer-workbench-grid__output">
     <section class="result-panel" id="primer-step-panel-3">
         <div class="prompt-step-heading">
             <div>
@@ -365,6 +383,8 @@
             </div>
         }
     </section>
+        </div>
+    </div>
 </form>
 
 <script src="~/js/deck-input-store.js" asp-append-version="true"></script>

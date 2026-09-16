@@ -2278,7 +2278,8 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
   }
 
   .card-lookup-grid__rail,
-  .deck-convert-grid__rail {
+  .deck-convert-grid__rail,
+  .primer-workbench-grid__output {
     position: sticky;
     top: 1rem;
     max-height: calc(100vh - 2rem);
