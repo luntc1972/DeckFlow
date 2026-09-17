@@ -148,6 +148,20 @@ Do not omit any fields from the schema.
             });
     }
     @await Html.PartialAsync("_WorkflowStepTabs", packetTabs)
+    <div class="card-lookup-grid analysis-workbench-grid">
+        <div class="analysis-workbench-grid__config">
+    <details class="cutlab-intake" data-prompt-intake-summary open="@((Model.AnalysisResponse is null && Model.SetUpgradeResponse is null) ? "open" : null)">
+        <summary class="cutlab-intake-summary">
+            @if (Model.AnalysisResponse is not null || Model.SetUpgradeResponse is not null)
+            {
+                <span class="cutlab-intake-summary__commander">Analysis in progress</span>
+                <span class="cutlab-intake-summary__change">Change intake</span>
+            }
+            else
+            {
+                <span class="cutlab-intake-summary__commander">Set up your analysis</span>
+            }
+        </summary>
     <section class="result-panel prompt-step-panel prompt-workflow-setup" role="tabpanel" id="prompt-step-panel-1" aria-labelledby="prompt-step-tab-1" data-prompt-step="1" data-prompt-setup-panel>
         <div class="prompt-step-heading">
             <div>
@@ -517,7 +531,10 @@ Do not omit any fields from the schema.
             <button type="button" class="run-button" data-prompt-next-step="3">Next: Analysis Results</button>
         </div>
     </section>
+    </details>
+        </div>
 
+        <div class="analysis-workbench-grid__output">
     <section class="result-panel prompt-step-panel" role="tabpanel" id="prompt-step-panel-3" aria-labelledby="prompt-step-tab-3" data-prompt-step="3">
         <div class="prompt-step-heading">
             <div>
@@ -1161,6 +1178,8 @@ Do not omit any fields from the schema.
             <button type="button" class="clear-cache-button" data-prompt-show-step="4">Back: Set Upgrades</button>
         </div>
     </section>
+        </div>
+    </div>
 </form>
 
 @if (FlagCache.IsEnabled("tool.deck-primer.enabled"))
