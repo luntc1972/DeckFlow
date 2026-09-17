@@ -187,25 +187,6 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
-    {
-        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
-        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await connection.QueryAsync<TopCommanderRow>(new CommandDefinition(
-            """
-            SELECT commander_name, COUNT(1) AS deck_count
-            FROM deck_queue
-            WHERE processed = 1 AND commander_name IS NOT NULL
-            GROUP BY commander_name
-            ORDER BY deck_count DESC
-            LIMIT @n;
-            """,
-            new { n },
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.ToList();
-    }
-
-    /// <inheritdoc/>
     public async Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         page = Math.Max(page, 1);

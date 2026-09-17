@@ -97,13 +97,6 @@ public interface ICategoryKnowledgeStore
     /// </summary>
     Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default);
     /// <summary>
-    /// Returns the commanders with the most processed decks.
-    /// </summary>
-    /// <param name="n">Maximum number of commander rows to return.</param>
-    /// <param name="cancellationToken">Token used to cancel the query.</param>
-    /// <returns>The top commander deck-count rows, ordered by processed deck count.</returns>
-    Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default);
-    /// <summary>
     /// Returns one page of processed harvested commander aggregates for the admin grid.
     /// </summary>
     /// <param name="page">One-based page number.</param>

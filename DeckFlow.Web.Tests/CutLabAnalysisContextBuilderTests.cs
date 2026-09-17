@@ -1286,9 +1286,6 @@ public sealed class CutLabAnalysisContextBuilderTests
         public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
         public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

@@ -38,21 +38,6 @@ public sealed class HarvestStatsAggregatorTests
         Assert.Equal(runStore.LastSuccessUtc + TimeSpan.FromHours(4), payload.NextScheduledUtc);
     }
 
-    [Fact]
-    public async Task GetAsync_DoesNotCallTopCommandersForStatsPayload()
-    {
-        var categoryStore = new ImmediateCategoryKnowledgeStore();
-        var runStore = new ImmediateHarvestRunStore();
-        using var cache = new MemoryCache(new MemoryCacheOptions());
-        var aggregator = CreateAggregator(runStore, categoryStore, cache);
-
-        var payload = await aggregator.GetAsync();
-
-        Assert.Equal(0, categoryStore.TopCommandersCalls);
-        Assert.Equal(42, payload.TotalDecks);
-        Assert.Empty(payload.RecentRuns);
-    }
-
     private static HarvestStatsAggregator CreateAggregator(
         IHarvestRunStore runStore,
         ICategoryKnowledgeStore categoryStore,
@@ -115,9 +100,6 @@ public sealed class HarvestStatsAggregatorTests
         public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
             => BlockAsync(99);
 
-        public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<TopCommanderRow>>(Array.Empty<TopCommanderRow>());
-
         public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<HarvestedCommanderRow>>(Array.Empty<HarvestedCommanderRow>());
 
@@ -140,8 +122,6 @@ public sealed class HarvestStatsAggregatorTests
 
     private sealed class ImmediateCategoryKnowledgeStore : ICategoryKnowledgeStore
     {
-        public int TopCommandersCalls { get; private set; }
-
         public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<CategoryKnowledgeRow>>(Array.Empty<CategoryKnowledgeRow>());
 
@@ -183,12 +163,6 @@ public sealed class HarvestStatsAggregatorTests
 
         public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(99);
-
-        public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
-        {
-            TopCommandersCalls++;
-            return Task.FromResult<IReadOnlyList<TopCommanderRow>>(Array.Empty<TopCommanderRow>());
-        }
 
         public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<HarvestedCommanderRow>>(Array.Empty<HarvestedCommanderRow>());

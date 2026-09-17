@@ -154,9 +154,6 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(0);
 
-    public Task<IReadOnlyList<TopCommanderRow>> GetTopCommandersAsync(int n, CancellationToken cancellationToken = default)
-        => Task.FromResult<IReadOnlyList<TopCommanderRow>>(Array.Empty<TopCommanderRow>());
-
     public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         LastPagedCommanderPage = page;

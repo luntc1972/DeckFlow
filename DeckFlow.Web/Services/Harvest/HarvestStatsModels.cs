@@ -3,9 +3,6 @@ using System.Collections.Generic;
 
 namespace DeckFlow.Web.Services.Harvest;
 
-/// <summary>Top-N commander row from deck_queue.commander_name (D-15).</summary>
-public sealed record TopCommanderRow(string CommanderName, int DeckCount);
-
 /// <summary>Processed commander aggregate row displayed in the admin harvested-commanders grid.</summary>
 public sealed record HarvestedCommanderRow(string CommanderName, int DeckCount, string? LastProcessedUtc);
 
