@@ -104,6 +104,46 @@ internal sealed class CategoryCacheSchema
         await CreateCardCategoryObservationsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
         await CreateCardDeckTotalsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
 
+        // Why: this table backs the harvested-commanders admin grid and is maintained
+        // incrementally by DeckQueueRepository on every processed=1 write, so it must exist
+        // unconditionally — it cannot live inside the optional-index swallow-failures block below,
+        // or a timed-out backfill would roll back the CREATE TABLE with it (F-52-PG-01).
+        var summaryTableCommand = connection.CreateCommand();
+        summaryTableCommand.CommandText = """
+            CREATE TABLE IF NOT EXISTS processed_commander_summary (
+                commander_name TEXT NOT NULL PRIMARY KEY,
+                deck_count INTEGER NOT NULL,
+                last_processed_utc TEXT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_processed_commander_summary_lower ON processed_commander_summary(LOWER(commander_name));
+            """;
+        await summaryTableCommand.ExecuteNonQueryAsync(cancellationToken);
+
+        // Why: one-time backfill of pre-existing processed rows; can legitimately take a while
+        // over a large deck_queue, so it gets its own generous timeout and swallows failures
+        // separately from table creation — a failed backfill just leaves historical commanders
+        // out of the grid until reprocessed, rather than taking the table down with it.
+        var backfillCommand = connection.CreateCommand();
+        backfillCommand.CommandText = """
+            INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc)
+            SELECT MAX(commander_name), COUNT(1), MAX(last_checked_utc)
+            FROM deck_queue
+            WHERE processed = 1 AND commander_name IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM processed_commander_summary)
+            GROUP BY LOWER(commander_name);
+            """;
+        backfillCommand.CommandTimeout = 60;
+        try
+        {
+            await backfillCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is DbException or OperationCanceledException or TimeoutException)
+        {
+            _logger?.LogWarning(
+                exception,
+                "processed_commander_summary one-time backfill failed; table exists but pre-existing commanders are missing until reprocessed.");
+        }
+
         var indexCommand = connection.CreateCommand();
         indexCommand.CommandText = """
             CREATE UNIQUE INDEX IF NOT EXISTS ux_cards_normalized ON cards(normalized_card_name);

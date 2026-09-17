@@ -70,10 +70,8 @@ internal sealed class DeckQueueRepository
 
         var rows = await connection.QueryAsync<ProcessedCommanderAggregateRow>(new CommandDefinition(
             """
-            SELECT MAX(commander_name) AS commander_name, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc
-            FROM deck_queue
-            WHERE processed = 1 AND commander_name IS NOT NULL
-            GROUP BY LOWER(commander_name)
+            SELECT commander_name, deck_count, last_processed_utc
+            FROM processed_commander_summary
             ORDER BY deck_count DESC, last_processed_utc DESC, LOWER(commander_name) ASC
             LIMIT @limit OFFSET @offset;
             """,
@@ -97,9 +95,7 @@ internal sealed class DeckQueueRepository
 
         var result = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
             """
-            SELECT COUNT(DISTINCT LOWER(commander_name))
-            FROM deck_queue
-            WHERE processed = 1 AND commander_name IS NOT NULL;
+            SELECT COUNT(1) FROM processed_commander_summary;
             """,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return checked((int)result);
@@ -298,6 +294,10 @@ internal sealed class DeckQueueRepository
         await _schema.EnsureSchemaAsync(cancellationToken);
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
+        var priorCommanderName = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "SELECT commander_name FROM deck_queue WHERE deck_id = @deckId;",
+            new { deckId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         // D-17: capture commander identity in the same UPDATE that flips processed=1 so the
         // harvest stats panel (top-10 commanders) can read deck_queue.commander_name without
@@ -344,6 +344,12 @@ internal sealed class DeckQueueRepository
             sql,
             parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        var currentCommanderName = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "SELECT commander_name FROM deck_queue WHERE deck_id = @deckId;",
+            new { deckId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await RefreshCommanderSummaryAsync(connection, transaction: null, new[] { priorCommanderName, currentCommanderName }, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -436,6 +442,10 @@ internal sealed class DeckQueueRepository
         await _schema.EnsureSchemaAsync(cancellationToken);
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
+        var priorCommanderName = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "SELECT commander_name FROM deck_queue WHERE deck_id = @deckId;",
+            new { deckId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
 
         var now = DateTime.UtcNow;
         var metadataParameters = metadata is null ? null : ArchidektDeckMetadataParameters.From(metadata);
@@ -473,6 +483,11 @@ internal sealed class DeckQueueRepository
             """,
             parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var currentCommanderName = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "SELECT commander_name FROM deck_queue WHERE deck_id = @deckId;",
+            new { deckId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await RefreshCommanderSummaryAsync(connection, transaction: null, new[] { priorCommanderName, currentCommanderName }, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -516,12 +531,54 @@ internal sealed class DeckQueueRepository
                 },
                 transaction: transaction,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            var commanderName = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+                "SELECT commander_name FROM deck_queue WHERE deck_id = @deckId;",
+                new { deckId },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await RefreshCommanderSummaryAsync(connection, transaction, new[] { commanderName }, cancellationToken).ConfigureAwait(false);
         }
 
         await transaction.CommitAsync(cancellationToken);
     }
 
     private DbConnection CreateConnection() => _connectionInfo.CreateConnection();
+
+    private static async Task RefreshCommanderSummaryAsync(
+        DbConnection connection,
+        DbTransaction? transaction,
+        IEnumerable<string?> commanderNames,
+        CancellationToken cancellationToken)
+    {
+        var normalizedNames = commanderNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name!.ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (normalizedNames.Count == 0)
+        {
+            return;
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM processed_commander_summary WHERE LOWER(commander_name) IN @normalizedNames;",
+            new { normalizedNames },
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc)
+            SELECT MAX(commander_name), COUNT(1), MAX(last_checked_utc)
+            FROM deck_queue
+            WHERE processed = 1 AND commander_name IS NOT NULL AND LOWER(commander_name) IN @normalizedNames
+            GROUP BY LOWER(commander_name);
+            """,
+            new { normalizedNames },
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
 
     private sealed class ProcessedCommanderAggregateRow
     {

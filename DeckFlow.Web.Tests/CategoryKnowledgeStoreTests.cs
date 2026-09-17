@@ -3,6 +3,7 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.FileProviders;
 using Xunit;
 
@@ -198,6 +199,33 @@ public sealed class CategoryKnowledgeStoreTests
     }
 
     [Fact]
+    public async Task ProcessedCommanderGridQueries_ReturnCachedValuesUntilExpiry()
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+            await store.MarkUrlDeckProcessedAsync("deck-001", "Commander One");
+
+            var initialRows = await store.GetPagedProcessedCommandersAsync(page: 1, pageSize: 20);
+            var initialCount = await store.GetDistinctProcessedCommanderCountAsync();
+            await store.MarkUrlDeckProcessedAsync("deck-002", "Commander Two");
+
+            Assert.Single(await store.GetPagedProcessedCommandersAsync(page: 1, pageSize: 20));
+            Assert.Equal(1, await store.GetDistinctProcessedCommanderCountAsync());
+            Assert.Single(initialRows);
+            Assert.Equal(1, initialCount);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+        }
+    }
+
+    [Fact]
     public async Task GetTotalProcessedDeckCountSinceAsync_WithMixedProcessedRows_ReturnsOnlyProcessedRowsAtOrAfterCutoff()
     {
         var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
@@ -336,7 +364,9 @@ public sealed class CategoryKnowledgeStoreTests
     }
 
     private static CategoryKnowledgeStore CreateStore(string? contentRootPath = null)
-        => new(new FakeWebHostEnvironment(contentRootPath ?? Path.Combine(Path.GetTempPath(), "deckflow-content-root")));
+        => new(
+            new FakeWebHostEnvironment(contentRootPath ?? Path.Combine(Path.GetTempPath(), "deckflow-content-root")),
+            new MemoryCache(new MemoryCacheOptions()));
 
     private sealed class FakeWebHostEnvironment(string contentRootPath) : IWebHostEnvironment
     {

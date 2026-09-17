@@ -573,6 +573,19 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         command.Parameters.AddWithValue("$commanderName", (object?)commanderName ?? DBNull.Value);
         command.Parameters.AddWithValue("$lastCheckedUtc", lastCheckedUtc?.ToString("O") ?? (object)DBNull.Value);
         await command.ExecuteNonQueryAsync();
+
+        if (!string.IsNullOrWhiteSpace(commanderName))
+        {
+            command.CommandText = """
+                DELETE FROM processed_commander_summary WHERE LOWER(commander_name) = LOWER($commanderName);
+                INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc)
+                SELECT MAX(commander_name), COUNT(1), MAX(last_checked_utc)
+                FROM deck_queue
+                WHERE processed = 1 AND commander_name IS NOT NULL AND LOWER(commander_name) = LOWER($commanderName)
+                GROUP BY LOWER(commander_name);
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
     }
 
     private async Task<IReadOnlyList<string>> GetDeckQueueIndexNamesAsync()

@@ -9,6 +9,7 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Storage;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using DeckFlow.Web.Services.Harvest;
 
@@ -18,6 +19,7 @@ namespace DeckFlow.Web.Services;
 public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 {
     private const int HarvestDeckCount = 20;
+    private const string ProcessedCommanderCountCacheKey = "category-knowledge:processed-commanders:count";
     private readonly string _artifactsPath;
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly string? _databasePath;
@@ -26,15 +28,19 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private readonly CategoryKnowledgeRepository _repository;
     private readonly ArchidektApiDeckImporter _archidektImporter;
     private readonly ArchidektRecentDecksImporter _recentDeckImporter;
+    private readonly IMemoryCache _memoryCache;
     private volatile bool _schemaReady;
 
     /// <summary>
     /// Initializes the knowledge store for the web app environment.
     /// </summary>
     /// <param name="environment">Web host environment for locating artifacts.</param>
+    /// <param name="memoryCache">Application cache for expensive harvested-commander grid queries.</param>
     /// <param name="logger">Optional logger forwarded to the category repository.</param>
-    public CategoryKnowledgeStore(IWebHostEnvironment environment, ILogger<CategoryKnowledgeStore>? logger = null)
+    public CategoryKnowledgeStore(IWebHostEnvironment environment, IMemoryCache memoryCache, ILogger<CategoryKnowledgeStore>? logger = null)
     {
+        ArgumentNullException.ThrowIfNull(memoryCache);
+
         _connectionInfo = DeckFlowDatabaseConnectionFactory.CreateCategoryKnowledgeConnection(environment);
         _artifactsPath = ResolveArtifactsPath(environment);
         _databasePath = _connectionInfo.IsSqlite
@@ -43,6 +49,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         _repository = new CategoryKnowledgeRepository(_connectionInfo, logger);
         _archidektImporter = new ArchidektApiDeckImporter(logger: logger);
         _recentDeckImporter = new ArchidektRecentDecksImporter();
+        _memoryCache = memoryCache;
     }
 
     private static string ResolveArtifactsPath(IWebHostEnvironment environment)
@@ -204,18 +211,27 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         page = Math.Max(page, 1);
         pageSize = Math.Max(pageSize, 1);
 
-        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await _repository.GetPagedProcessedCommanderRowsAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
-        return rows
-            .Select(row => new HarvestedCommanderRow(row.CommanderName, row.DeckCount, row.LastProcessedUtc))
-            .ToList();
+        var cacheKey = $"category-knowledge:processed-commanders:{page}:{pageSize}";
+        return await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
+            await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+            var rows = await _repository.GetPagedProcessedCommanderRowsAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
+            return (IReadOnlyList<HarvestedCommanderRow>)rows
+                .Select(row => new HarvestedCommanderRow(row.CommanderName, row.DeckCount, row.LastProcessedUtc))
+                .ToList();
+        }).ConfigureAwait(false) ?? Array.Empty<HarvestedCommanderRow>();
     }
 
     /// <inheritdoc/>
     public async Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
     {
-        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
-        return await _repository.GetDistinctProcessedCommanderCountAsync(cancellationToken).ConfigureAwait(false);
+        return await _memoryCache.GetOrCreateAsync(ProcessedCommanderCountCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
+            await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+            return await _repository.GetDistinctProcessedCommanderCountAsync(cancellationToken).ConfigureAwait(false);
+        }).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
