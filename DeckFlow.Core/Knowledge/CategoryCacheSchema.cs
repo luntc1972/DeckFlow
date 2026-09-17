@@ -130,7 +130,8 @@ internal sealed class CategoryCacheSchema
             FROM deck_queue
             WHERE processed = 1 AND commander_name IS NOT NULL
               AND NOT EXISTS (SELECT 1 FROM processed_commander_summary)
-            GROUP BY LOWER(commander_name);
+            GROUP BY LOWER(commander_name)
+            ON CONFLICT (commander_name) DO NOTHING;
             """;
         backfillCommand.CommandTimeout = 60;
         try
