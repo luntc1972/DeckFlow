@@ -1,5 +1,7 @@
 using System.Net;
-using System.Text.RegularExpressions;
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Polly;
 using Polly.Retry;
 using RestSharp;
@@ -38,7 +40,7 @@ public interface IArchidektRecentDecksImporter
 /// <summary>
 /// Crawls Archidekt's recent-decks endpoint with retry/back-off to retrieve paginated deck IDs.
 /// </summary>
-public sealed partial class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
+public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
 {
     private readonly RestClient _restClient;
     private static readonly AsyncRetryPolicy<RestResponse> RetryPolicy = Policy<RestResponse>
@@ -55,7 +57,7 @@ public sealed partial class ArchidektRecentDecksImporter : IArchidektRecentDecks
     {
         _restClient = restClient ?? new RestClient(new RestClientOptions
         {
-            BaseUrl = new Uri("https://websockets.archidekt.com"),
+            BaseUrl = new Uri("https://archidekt.com"),
             ThrowOnAnyError = false,
         });
     }
@@ -129,37 +131,30 @@ public sealed partial class ArchidektRecentDecksImporter : IArchidektRecentDecks
     private async Task<IReadOnlyList<string>> ImportRecentDeckIdsPageCoreAsync(int page, CancellationToken cancellationToken)
     {
         var response = await RetryPolicy.ExecuteAsync(ct => _restClient.ExecuteAsync(CreatePageRequest(page), ct), cancellationToken);
-        var body = response.Content ?? string.Empty;
         if (!response.IsSuccessful)
         {
             throw new HttpRequestException($"Archidekt recent decks page {page} returned {(int)response.StatusCode} {response.StatusDescription}");
         }
 
-        return DeckLinkRegex()
-            .Matches(body)
-            .Select(match => match.Groups["deckId"].Value)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
+        var pageResponse = JsonSerializer.Deserialize<ArchidektRecentDecksResponse>(response.Content ?? string.Empty);
+        return (pageResponse?.Results ?? [])
+            .Select(deck => deck.Id.ToString(CultureInfo.InvariantCulture))
             .Distinct(StringComparer.Ordinal)
             .ToList();
     }
 
     /// <summary>
-    /// Regular expression that matches Archidekt deck links in HTML responses.
-    /// </summary>
-    [GeneratedRegex("href=\"/decks/(?<deckId>\\d+)(?:/[^\"#?]*)?\"", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
-    private static partial Regex DeckLinkRegex();
-
-    /// <summary>
-    /// Builds the request used to scrape a page of public deck listings.
+    /// Builds the request used to fetch a page of public deck listings.
     /// </summary>
     /// <param name="page">Page index to request.</param>
     private static RestRequest CreatePageRequest(int page)
     {
-        var request = new RestRequest($"/search/decks?name=&orderBy=-updatedAt&page={page}", Method.Get);
-        request.AddHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
-        request.AddHeader("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        request.AddHeader("Referer", "https://archidekt.com/");
-        request.AddHeader("Accept-Language", "en-US,en;q=0.9");
-        return request;
+        return new RestRequest($"/api/decks/v3/?orderBy=-updatedAt&page={page}", Method.Get);
     }
+
+    private sealed record ArchidektRecentDecksResponse(
+        [property: JsonPropertyName("results")] IReadOnlyList<ArchidektRecentDeck> Results);
+
+    private sealed record ArchidektRecentDeck(
+        [property: JsonPropertyName("id")] int Id);
 }
