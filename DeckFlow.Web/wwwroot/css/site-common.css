@@ -6428,6 +6428,70 @@ html {
   scroll-margin-top: 180px;
 }
 
+.prompt-step-rail__summary {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .prompt-analysis-workflow {
+    display: grid;
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .prompt-step-nav--analysis-rail {
+    display: flex;
+    grid-column: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    margin: 0;
+  }
+
+  .prompt-step-nav--analysis-rail .prompt-step-tab {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .prompt-step-nav--analysis-rail .prompt-step-tab:not(:last-child)::after {
+    position: absolute;
+    top: 100%;
+    left: 1rem;
+    width: 2px;
+    height: 0.8rem;
+    background: var(--line);
+    content: "";
+  }
+
+  .prompt-step-nav--analysis-rail .prompt-step-tab--optional {
+    margin-left: 1rem;
+    border-left: 3px solid var(--muted);
+  }
+
+  .prompt-step-nav--analysis-rail .prompt-step-tab--optional:not(:last-child)::after {
+    left: -1.2rem;
+  }
+
+  .prompt-step-rail__copy {
+    display: grid;
+    gap: 0.15rem;
+  }
+
+  .prompt-step-rail__summary {
+    display: block;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    font-weight: 400;
+  }
+
+  .prompt-analysis-workflow > .prompt-step-panel {
+    grid-column: 2;
+  }
+}
+
 .prompt-step-heading {
   display: flex;
   justify-content: space-between;
