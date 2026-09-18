@@ -480,6 +480,27 @@
   },
   {
     "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "FFHCmfwBedE",
+    "source": "Based Deck Department",
+    "title": "Build Your Magic Decks Backwards...",
+    "videoUrl": "https://www.youtube.com/watch?v=FFHCmfwBedE",
+    "artifactPath": "content-kb/based-deck-department/FFHCmfwBedE.md",
+    "publishedUtc": "2026-07-23T01:53:23+00:00",
+    "indexedUtc": "2026-09-18T21:32:08.478903+00:00",
+    "archetypeTags": [
+      "combo"
+    ],
+    "bracketTags": [
+      "Core"
+    ],
+    "cardCategoryTags": [
+      "win-cons"
+    ],
+    "bodySha256": "8b58baf517bd9da88b230720bbbc6353ab53b68ed415b54fd290b4c12aa73810",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
     "naturalKeyValue": "hiQrzJ5q3fc",
     "source": "Based Deck Department",
     "title": "Build around resource battles in commander #magicthegathering #mtg",
@@ -500,6 +521,33 @@
       "board-wipe"
     ],
     "bodySha256": "c761014e9733009eb1034b1ba54cef64d2f64b6b85a5881842a1584422cdf4e0",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "_f98vFMBnqQ",
+    "source": "Based Deck Department",
+    "title": "Cutting Cards Is Easy",
+    "videoUrl": "https://www.youtube.com/watch?v=_f98vFMBnqQ",
+    "artifactPath": "content-kb/based-deck-department/_f98vFMBnqQ.md",
+    "publishedUtc": "2026-09-05T15:15:29+00:00",
+    "indexedUtc": "2026-09-18T21:32:08.478903+00:00",
+    "archetypeTags": [
+      "combo",
+      "tokens",
+      "voltron"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "removal",
+      "draw",
+      "protection",
+      "win-cons"
+    ],
+    "bodySha256": "01e6175ec6d4d452826a2d5c907fa5cc9ba1f6d2d55c1123025583577f9ece8b",
     "seedManaged": true
   },
   {
@@ -609,6 +657,32 @@
       "removal"
     ],
     "bodySha256": "e99e848cc05de0a33a1b9c465815157ef611c2ebdbed4fa0eab7f3cd37713648",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "NFn1JeTJA_c",
+    "source": "Based Deck Department",
+    "title": "How To Fix A Broken Deck..",
+    "videoUrl": "https://www.youtube.com/watch?v=NFn1JeTJA_c",
+    "artifactPath": "content-kb/based-deck-department/NFn1JeTJA_c.md",
+    "publishedUtc": "2026-07-24T01:18:06+00:00",
+    "indexedUtc": "2026-09-18T21:32:08.478903+00:00",
+    "archetypeTags": [
+      "ramp",
+      "midrange"
+    ],
+    "bracketTags": [
+      "Core",
+      "cEDH"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "removal",
+      "win-cons"
+    ],
+    "bodySha256": "2bbc47a2cc6fedb9546126f56cf46ab71c8fd4e9bb42bd2a8353ecaf3cb9a71f",
     "seedManaged": true
   },
   {
@@ -1052,6 +1126,31 @@
       "finishers"
     ],
     "bodySha256": "c941e74f5deeb6f009c27aa8deb4ed95dd0055bb1f16d1f8a9b94c9a08c9a30c",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "k0bc0DF72r8",
+    "source": "Based Deck Department",
+    "title": "Your Commander Deck Has A Hole In It",
+    "videoUrl": "https://www.youtube.com/watch?v=k0bc0DF72r8",
+    "artifactPath": "content-kb/based-deck-department/k0bc0DF72r8.md",
+    "publishedUtc": "2026-08-26T01:15:22+00:00",
+    "indexedUtc": "2026-09-18T21:32:08.478903+00:00",
+    "archetypeTags": [
+      "value-engine"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "ramp",
+      "draw",
+      "win-cons",
+      "removal",
+      "counter"
+    ],
+    "bodySha256": "2108c02455022ff117f09cec2634cb7aceb1907bc3d5565ed58bed8beea55290",
     "seedManaged": true
   },
   {
@@ -3132,6 +3231,28 @@
       "finishers"
     ],
     "bodySha256": "b47b64b33b8d422a65672a989cda442edfbe33964600b624326ef46c69a7e39f",
+    "seedManaged": true
+  },
+  {
+    "naturalKeyType": "youtube_channel",
+    "naturalKeyValue": "LDkLS6fo6cU",
+    "source": "The Command Zone",
+    "title": "How to Level-Up Your Removal | The Command Zone 762 | Magic: The Gathering MTG Commander EDH",
+    "videoUrl": "https://www.youtube.com/watch?v=LDkLS6fo6cU",
+    "artifactPath": "content-kb/the-command-zone/LDkLS6fo6cU.md",
+    "publishedUtc": "2026-09-11T18:00:21+00:00",
+    "indexedUtc": "2026-09-18T21:35:33.2871917+00:00",
+    "archetypeTags": [
+      "control"
+    ],
+    "bracketTags": [
+      "Upgraded"
+    ],
+    "cardCategoryTags": [
+      "removal",
+      "counter"
+    ],
+    "bodySha256": "4318fdf27a311dfca1173e64ac88467fb12c36a5ddaad2370736ec29331079df",
     "seedManaged": true
   },
   {
