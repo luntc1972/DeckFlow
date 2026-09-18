@@ -7459,9 +7459,11 @@ pre {
   grid-column: 1 / -1;
 }
 
+/* Why: .deck-modules select is more specific than .df-select__native and otherwise expands
+   the visually hidden enhanced select to full width. */
 .deck-modules textarea,
 .deck-modules input:not([type="checkbox"]),
-.deck-modules select {
+.deck-modules select:not(.df-select__native) {
   inline-size: 100%;
   box-sizing: border-box;
 }
@@ -7615,7 +7617,7 @@ pre {
 
   .deck-modules button,
   .deck-modules input:not([type="checkbox"]),
-  .deck-modules select {
+  .deck-modules select:not(.df-select__native) {
     min-block-size: 44px;
   }
 }
