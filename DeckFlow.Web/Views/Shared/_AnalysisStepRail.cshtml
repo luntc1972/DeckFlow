@@ -5,16 +5,36 @@
         new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
         new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Analysis Prompt", Model.IsAnalysisPromptStepComplete),
         new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Analysis Results", Model.AnalysisResponse is not null),
-        new DeckFlow.Web.Models.WorkflowStepTab(4, "Step 4: Build Set Upgrade Prompt", Model.IsSetUpgradePromptStepComplete),
-        new DeckFlow.Web.Models.WorkflowStepTab(5, "Step 5: Set Upgrade Results", Model.SetUpgradeResponse is not null),
+        new DeckFlow.Web.Models.WorkflowStepTab(4, "Step 4: Build Set Upgrade Prompt", Model.IsSetUpgradePromptStepComplete, IsEnabled: Model.AnalysisResponse is not null || Model.IsSetUpgradePromptStepComplete),
+        new DeckFlow.Web.Models.WorkflowStepTab(5, "Step 5: Set Upgrade Results", Model.SetUpgradeResponse is not null, IsEnabled: Model.IsSetUpgradePromptStepComplete),
     };
     var firstIncomplete = steps.FirstOrDefault(step => !step.IsComplete && step.IsEnabled);
     var firstEnabled = steps.FirstOrDefault(step => step.IsEnabled);
     var currentStep = firstIncomplete?.Step ?? firstEnabled?.Step ?? 1;
     var selectedQuestionCount = Model.Request.SelectedAnalysisQuestions.Count;
-    var deckSummary = !string.IsNullOrWhiteSpace(Model.InputSummary)
-        ? Model.InputSummary
-        : !string.IsNullOrWhiteSpace(Model.Request.DeckName) ? Model.Request.DeckName : "Awaiting deck input";
+    var targetBracket = Model.Request.TargetCommanderBracket;
+    string? GetInputSummaryValue(string prefix)
+    {
+        foreach (var line in (Model.InputSummary ?? string.Empty).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmedLine = line.Trim();
+            if (trimmedLine.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                var value = trimmedLine[prefix.Length..].Trim();
+                return value.Length > 0 ? value : null;
+            }
+        }
+
+        return null;
+    }
+
+    var summaryName = GetInputSummaryValue("Commander:") ?? GetInputSummaryValue("Deck:") ?? Model.Request.DeckName ?? "Awaiting deck input";
+    var summaryNameLines = summaryName.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
+    summaryName = summaryNameLines.Length > 0 ? summaryNameLines[0].Trim() : "Awaiting deck input";
+    var mainCardCount = int.TryParse(GetInputSummaryValue("Main deck cards:"), out var parsedMainCardCount) ? parsedMainCardCount : 0;
+    var commanderCardCount = int.TryParse(GetInputSummaryValue("Commander cards:"), out var parsedCommanderCardCount) ? parsedCommanderCardCount : 0;
+    var totalCardCount = mainCardCount + commanderCardCount;
+    var deckSummary = totalCardCount > 0 ? $"{summaryName} · {totalCardCount} cards pasted" : summaryName;
 }
 
 <nav class="prompt-step-nav prompt-step-nav--analysis-rail" role="tablist" aria-label="Deck Analysis packet workflow steps" aria-orientation="vertical">
@@ -22,13 +42,22 @@
     {
         var isOptional = step.Step is 4 or 5;
         var classes = $"prompt-step-tab{(step.IsComplete ? " is-complete" : string.Empty)}{(isOptional ? " prompt-step-tab--optional" : string.Empty)}";
+        var title = step.Step switch
+        {
+            1 => "Deck",
+            2 => "Build Analysis Prompt",
+            3 => "Analysis Results",
+            4 => "Build Set Upgrade Prompt",
+            5 => "Set Upgrade Results",
+            _ => step.Label,
+        };
         var summary = step.Step switch
         {
             1 => deckSummary,
-            2 => $"{selectedQuestionCount} questions selected",
-            3 => Model.AnalysisResponse is not null ? "Analysis profile ready" : "Awaiting deck_profile JSON",
-            4 => Model.IsSetUpgradePromptStepComplete ? "Upgrade packet ready" : "Optional after Step 3",
-            5 => Model.SetUpgradeResponse is not null ? "Upgrade results ready" : "Optional after Step 4",
+            2 => $"{selectedQuestionCount} questions selected{(!string.IsNullOrWhiteSpace(targetBracket) ? $" · bracket {targetBracket}" : string.Empty)}",
+            3 => Model.AnalysisResponse is not null ? "Analysis profile ready" : "Paste the deck_profile JSON below",
+            4 => Model.IsSetUpgradePromptStepComplete ? "Upgrade packet ready" : step.IsEnabled ? "Optional" : "Unlocks after Step 3",
+            5 => Model.SetUpgradeResponse is not null ? "Upgrade results ready" : step.IsEnabled ? "Optional" : "Unlocks after Step 4",
             _ => string.Empty,
         };
 
@@ -41,6 +70,9 @@
                 tabindex="@(step.Step == currentStep ? "0" : "-1")"
                 aria-disabled="@(!step.IsEnabled ? "true" : "false")"
                 aria-label="@step.Label"
-                data-prompt-show-step="@step.Step"><span class="prompt-step-tab__num" aria-hidden="true">@step.Step</span><span class="prompt-step-rail__copy"><span class="prompt-step-tab__label">@step.Label</span><span class="prompt-step-rail__summary">@summary</span></span></button>
+                data-prompt-show-step="@step.Step"><span class="prompt-step-rail__node" aria-hidden="true">@step.Step</span><span class="prompt-step-tab__num" aria-hidden="true">@step.Step</span><span class="prompt-step-rail__copy">@if (step.Step == 4)
+                    {
+                        <span class="prompt-step-rail__optional-caption" role="presentation">Optional, once Step 3 has results</span>
+                    }<span class="prompt-step-tab__label"><span class="prompt-step-rail__mobile-label">@step.Label</span><span class="prompt-step-rail__desktop-title">Step @step.Step · @title</span></span><span class="prompt-step-rail__summary">@summary</span></span></button>
     }
 </nav>

@@ -6432,6 +6432,16 @@ html {
   display: none;
 }
 
+.prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__node,
+.prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__desktop-title,
+.prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__optional-caption {
+  display: none;
+}
+
+.prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__mobile-label {
+  display: inline;
+}
+
 @media (min-width: 900px) {
   .prompt-analysis-workflow {
     display: grid;
@@ -6440,51 +6450,140 @@ html {
     align-items: start;
   }
 
-  .prompt-step-nav--analysis-rail {
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail {
     display: flex;
     grid-column: 1;
     flex-direction: column;
     align-items: stretch;
     gap: 0;
     margin: 0;
+    padding: 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 0.75rem;
+    background: var(--panel);
   }
 
-  .prompt-step-nav--analysis-rail .prompt-step-tab {
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab {
     position: relative;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    gap: 0.75rem;
     align-items: flex-start;
+    min-height: 3.75rem;
+    padding: 0 0 0.9rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--ink);
     text-align: left;
   }
 
-  .prompt-step-nav--analysis-rail .prompt-step-tab:not(:last-child)::after {
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab .prompt-step-tab__num {
+    display: none;
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab.is-active,
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab[aria-selected="true"] {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--ink);
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab.is-complete::before {
+    display: none;
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__node {
+    position: relative;
+    display: grid;
+    place-items: center;
+    z-index: 1;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--muted);
+    border-radius: 50%;
+    background: var(--panel);
+    color: var(--muted);
+    font-size: var(--fs-sm, 0.875rem);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab:not(:last-of-type)::after {
     position: absolute;
-    top: 100%;
-    left: 1rem;
+    top: 1.5rem;
+    bottom: 0;
+    left: calc(0.75rem - 1px);
     width: 2px;
-    height: 0.8rem;
     background: var(--line);
     content: "";
   }
 
-  .prompt-step-nav--analysis-rail .prompt-step-tab--optional {
-    margin-left: 1rem;
-    border-left: 3px solid var(--muted);
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab.is-complete .prompt-step-rail__node {
+    border-color: var(--success, #2f855a);
+    background: var(--success, #2f855a);
+    color: var(--accent-contrast, #fff);
+    font-size: 0;
   }
 
-  .prompt-step-nav--analysis-rail .prompt-step-tab--optional:not(:last-child)::after {
-    left: -1.2rem;
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab.is-complete .prompt-step-rail__node::before {
+    content: "\2713";
+    font-size: var(--fs-sm, 0.875rem);
   }
 
-  .prompt-step-rail__copy {
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab.is-active:not(.is-complete) .prompt-step-rail__node,
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab[aria-selected="true"]:not(.is-complete) .prompt-step-rail__node {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-contrast, #fff);
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab[aria-disabled="true"] .prompt-step-rail__node {
+    border-color: var(--muted);
+    background: var(--panel);
+    color: var(--muted);
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab[aria-disabled="true"] {
+    color: var(--muted);
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab--optional {
+    margin-left: 0;
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__copy {
     display: grid;
     gap: 0.15rem;
   }
 
-  .prompt-step-rail__summary {
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__summary {
     display: block;
     color: var(--muted);
-    font-size: var(--fs-sm);
+    font-size: var(--fs-sm, 0.875rem);
     font-weight: 400;
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__mobile-label {
+    display: none;
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__desktop-title {
+    display: inline;
+    font-weight: 700;
+  }
+
+  .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-rail__optional-caption {
+    display: block;
+    margin: 0 0 0.25rem;
+    padding-left: 0;
+    color: var(--muted);
+    font-size: var(--fs-xs, 0.75rem);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .prompt-analysis-workflow > .prompt-step-panel {
