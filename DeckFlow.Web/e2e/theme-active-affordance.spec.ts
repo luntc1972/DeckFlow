@@ -75,7 +75,7 @@ function contrastRatio(a: string, b: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-// ── Bug A: filled-accent-pill active step-tab ───────────────────────────────────────────────
+// ── Bug A: accent active step node ──────────────────────────────────────────────────────────
 
 // Representative set: >=1 light @import (azorius), a dark fork (jund), a dark @import that
 // needs --accent-contrast (dimir), a dark fork that needs --accent-contrast
@@ -89,26 +89,34 @@ const pillThemes = [
 ];
 
 for (const theme of pillThemes) {
-  test(`active step-tab is a filled accent pill, distinct from inactive and --panel-soft-bg (${theme.name})`, async ({
+  test(`active step node uses the accent affordance and differs from inactive (${theme.name})`, async ({
     page,
     baseURL,
   }) => {
     await setTheme(page, theme.cookie, baseURL);
     await gotoStep2(page);
 
-    const activeTab = page.locator('.prompt-step-tab.is-active');
-    const inactiveTab = page.locator('.prompt-step-tab:not(.is-active)').first();
+    const activeTab = page.locator(
+      test.info().project.name.includes('mobile')
+        ? '.prompt-step-tab.is-active'
+        : '.prompt-step-tab.is-active .prompt-step-rail__node',
+    );
+    const inactiveTab = page.locator(
+      test.info().project.name.includes('mobile')
+        ? '.prompt-step-tab:not(.is-active)'
+        : '.prompt-step-tab:not(.is-active) .prompt-step-rail__node',
+    ).first();
     await expect(activeTab).toBeVisible();
     await expect(inactiveTab).toBeVisible();
 
     const activeBg = await activeTab.evaluate((el) => getComputedStyle(el).backgroundColor);
     const inactiveBg = await inactiveTab.evaluate((el) => getComputedStyle(el).backgroundColor);
-    const panelSoftBg = await resolveCustomPropertyColor(page, '--panel-soft-bg');
+    const activeBorder = await activeTab.evaluate((el) => getComputedStyle(el).borderColor);
     const accent = await resolveCustomPropertyColor(page, '--accent');
 
     expect(activeBg, 'active tab bg must differ from inactive tab bg').not.toBe(inactiveBg);
-    expect(activeBg, 'active tab bg must differ from --panel-soft-bg').not.toBe(panelSoftBg);
-    expect(activeBg, 'active tab bg must equal the resolved --accent (proves the filled pill)').toBe(accent);
+    expect(activeBg, 'active tab bg must equal the resolved --accent').toBe(accent);
+    expect(activeBorder, 'active tab border must equal the resolved --accent').toBe(accent);
   });
 }
 

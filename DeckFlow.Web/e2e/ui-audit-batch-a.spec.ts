@@ -11,7 +11,8 @@ test.describe('UI audit batch A', () => {
     await page.goto('/');
 
     await expect(page.locator('h1')).toHaveCount(1);
-    await expect(page.locator('h1')).toContainText('DeckFlow');
+    await expect(page.locator('h1')).toHaveText('Find the right tool for your deck');
+    await expect(page.locator('.page-brand')).toHaveText('DeckFlow');
 
     // The default: arm of _ToolTileIcon renders a question-mark glyph. Its distinguishing mark is
     // the r="7" circle paired with the vertical stroke; a real icon never emits that pair.
@@ -95,7 +96,7 @@ test.describe('UI audit batch A', () => {
     await expect(blockedTab).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('tool nav menu toggle is hidden on desktop and shown on mobile', async ({ page }) => {
+  test('tool nav menu toggle is shown on desktop and mobile', async ({ page }) => {
     await page.goto('/');
 
     const toggle = page.locator('.tool-nav__menu-toggle');
@@ -111,7 +112,7 @@ test.describe('UI audit batch A', () => {
     if (isMobile()) {
       await expect(toggle).toBeVisible();
     } else {
-      await expect(toggle).toBeHidden();
+      await expect(toggle).toBeVisible();
     }
   });
 
@@ -133,17 +134,19 @@ test.describe('UI audit batch A', () => {
     await expect(firstGroup).toBeHidden();
   });
 
-  test('tool nav groups still lay out as direct children of the nav row', async ({ page }) => {
+  test('tool nav groups wrapper display matches viewport', async ({ page }) => {
     await page.goto('/');
 
     const groups = page.locator('.tool-nav__group');
     expect(await groups.count()).toBeGreaterThan(0);
 
-    // display: contents on the wrapper means the groups keep the nav as their layout parent.
+    await page.locator('.tool-nav__menu-toggle').click();
+
+    // The wrapper owns the responsive grid layout for the tool groups.
     const wrapperDisplay = await page
       .locator('#deck-tool-nav-groups')
       .evaluate(element => getComputedStyle(element).display);
-    expect(wrapperDisplay).toBe('contents');
+    expect(wrapperDisplay).toBe(isMobile() ? 'contents' : 'grid');
   });
 
   test('mobile tap targets clear 44px', async ({ page }) => {

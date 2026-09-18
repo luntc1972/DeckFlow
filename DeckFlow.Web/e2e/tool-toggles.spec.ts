@@ -134,7 +134,7 @@ test('show flow restores card lookup everywhere and the route returns 200', asyn
   expect(cardLookupRoute?.ok()).toBeTruthy();
 });
 
-test('disabling every Categories tool collapses the section and restoring them brings it back', async ({ page }) => {
+test('disabling every Categories tool removes category navigation and restoring them brings it back', async ({ page }) => {
   await setTheme(page, representativeThemes[0]);
 
   await setToolEnabled(page, 'Category Suggestions', false);
@@ -142,14 +142,16 @@ test('disabling every Categories tool collapses the section and restoring them b
 
   await page.goto('/');
   await expect(page.locator('#deck-tool-nav [data-tool-nav-trigger]', { hasText: 'Categories' })).toHaveCount(0);
-  await expect(page.locator('#hub-group-categories')).toHaveCount(0);
+  const referenceHub = page.getByRole('heading', { name: 'Reference & rules' }).locator('..');
+  await expect(referenceHub.getByText('Category Reference')).toHaveCount(0);
 
   await setToolEnabled(page, 'Category Suggestions', true);
   await setToolEnabled(page, 'Category Reference', true);
 
   await page.goto('/');
   await expect(page.locator('#deck-tool-nav [data-tool-nav-trigger]', { hasText: 'Categories' })).toHaveCount(1);
-  await expect(page.locator('#hub-group-categories')).toHaveCount(1);
+  const restoredReferenceHub = page.getByRole('heading', { name: 'Reference & rules' }).locator('..');
+  await expect(restoredReferenceHub.getByText('Category Reference')).toHaveCount(1);
 });
 
 test('disabling a core Analyze tool shows the inline warning banner and removes its public surfaces', async ({ page }) => {

@@ -5,7 +5,7 @@ import { cutLabPool, gotoOk } from './fixtures/cut-lab-pool';
 // Guards the Phase-1 mobile UI changes so desktop behavior stays intact while
 // mobile-specific navigation, layout defaults, and overflow fixes remain covered.
 
-test('tool nav collapses on mobile, expanded on desktop', async ({ page }) => {
+test('tool nav collapses on mobile and opens on desktop', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');
   const response = await gotoOk(page, '/deck-analysis');
 
@@ -26,7 +26,8 @@ test('tool nav collapses on mobile, expanded on desktop', async ({ page }) => {
     return;
   }
 
-  await expect(toggle).toBeHidden();
+  await expect(toggle).toBeVisible();
+  await toggle.click();
   await expect(firstGroup).toBeVisible();
 });
 

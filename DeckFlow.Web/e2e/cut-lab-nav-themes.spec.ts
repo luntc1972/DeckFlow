@@ -235,7 +235,7 @@ test.afterEach(async () => {
   heldLock = null;
 });
 
-test('captures cross-theme mobile chrome coverage for Cut Lab navigation and disclosures', async ({ page }) => {
+test('captures cross-theme mobile chrome and back-to-top tap-target coverage for Cut Lab', async ({ page }) => {
   await page.setViewportSize(mobileViewport);
 
   for (const theme of themes) {
@@ -280,20 +280,11 @@ test('captures cross-theme mobile chrome coverage for Cut Lab navigation and dis
       expect(metric.scrollWidth, `${theme.name}: anchor pill text should not be clipped for "${metric.text}"`).toBeLessThanOrEqual(metric.clientWidth + 1);
     }
 
-    // The back-to-top button is display:none below 600px (site-mobile.css
-    // @media max-width:600px), so at the 430px mobile viewport it is not
-    // rendered and cannot obscure the sticky nav. Assert the "not obscured"
-    // invariant programmatically: EITHER the button is not displayed, OR it is
-    // displayed and its box does not intersect the stuck nav.
-    if (await backToTopButton.isVisible()) {
-      const backToTopBox = await getBoundingBox(backToTopButton, 'Back-to-top button');
-      assertNoOverlap(stuckNavBox, backToTopBox, `${theme.name}: anchor nav should not overlap the back-to-top button`);
-    } else {
-      expect(
-        await backToTopButton.evaluate(node => getComputedStyle(node).display),
-        `${theme.name}: back-to-top button should be display:none at mobile width so it cannot obscure the nav`,
-      ).toBe('none');
-    }
+    await expect(backToTopButton).toBeVisible();
+    const backToTopBox = await getBoundingBox(backToTopButton, 'Back-to-top button');
+    expect(backToTopBox.width, `${theme.name}: back-to-top button should be at least 44px wide`).toBeGreaterThanOrEqual(44);
+    expect(backToTopBox.height, `${theme.name}: back-to-top button should be at least 44px tall`).toBeGreaterThanOrEqual(44);
+    assertNoOverlap(stuckNavBox, backToTopBox, `${theme.name}: anchor nav should not overlap the back-to-top button`);
 
     const stickyBarBox = await getBoundingBox(stickyBar, 'Sticky bar');
     expect(stickyBarBox.y, `${theme.name}: sticky bar should start below the anchor nav when both are visible`).toBeGreaterThanOrEqual(stuckNavBox.y + stuckNavBox.height - 1);
