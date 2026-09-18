@@ -4736,8 +4736,15 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   }
 
   /* Universal: keep only the opted-in results container; drop all sibling
-     chrome/inputs. Applies on every tool page that marks a print region. */
-  .content-shell:has([data-print-region]) > *:not([data-print-region]) {
+     chrome/inputs. Applies on every tool page that marks a print region.
+     A layout wrapper that CONTAINS the region (.manabase-workspace here,
+     .prompt-analysis-workflow below) must be exempted by name and have its own
+     non-region children hidden one level down, or the whole page prints blank. */
+  .content-shell:has([data-print-region]) > *:not([data-print-region]):not(.manabase-workspace) {
+    display: none !important;
+  }
+
+  .manabase-workspace > *:not([data-print-region]) {
     display: none !important;
   }
 
@@ -4747,13 +4754,23 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
     display: none !important;
   }
 
+  /* Scoped to the manabase workspace: its filmstrip tabs hide inactive panels via
+     [hidden], but every panel belongs on paper. The workflow tools hide steps with
+     .hidden and must keep the "only the visible step prints" rule below. */
+  .manabase-workspace [data-print-region] [role="tabpanel"][hidden] {
+    display: block !important;
+  }
+
   /* Workflow-form tools (deck-analysis, deck-comparison, cedh-meta-gap): results
      and inputs share the same <form>, marked data-print-region="workflow". Reveal
      just the result-bearing step panels (the ones holding a [data-print-result]
      anchor), even if JS left an inactive one .hidden; drop the step heading, paste
      fields, and footers that share those panels. Keyed on the "workflow" region
      value so the separate-container tools (e.g. manabase) are untouched. */
-  [data-print-region="workflow"] > *:not(.prompt-step-panel) {
+  [data-print-region="workflow"] > *:not(.prompt-step-panel):not(.prompt-analysis-workflow) {
+    display: none !important;
+  }
+  [data-print-region="workflow"] .prompt-analysis-workflow > *:not(.prompt-step-panel) {
     display: none !important;
   }
   [data-print-region="workflow"] .prompt-step-panel:not(:has([data-print-result])) {
