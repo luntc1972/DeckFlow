@@ -110,6 +110,10 @@ test('casual result caps castability rows, shows anchor nav, and reveals all row
   await expect(result.locator('.manabase-mode-chip')).toContainText('Casual analysis');
   await expect(result.locator('.manabase-anchor-nav')).toBeVisible();
 
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    await page.locator('#manabase-tab-castability').click();
+  }
+
   const defaultRows = result.locator('#manabase-castability > .manabase-table-wrap tbody tr');
   const defaultCount = await defaultRows.count();
   expect(defaultCount).toBeGreaterThanOrEqual(10);

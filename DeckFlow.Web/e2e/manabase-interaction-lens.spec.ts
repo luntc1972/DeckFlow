@@ -121,6 +121,9 @@ test('cEDH renders the early-interaction lens, holdable table column, and worst-
   await expect(viewAll).toContainText(/View all/i);
   await expect(viewAll).toContainText(/\(\d+ more\)/);
 
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    await page.locator('#manabase-tab-castability').click();
+  }
   const castabilityTable = page.locator('table.castability-table').first();
   await expect(castabilityTable).toBeVisible();
   await expect(castabilityTable.getByRole('columnheader', { name: 'Held up (T1-3)' })).toBeVisible();
@@ -156,6 +159,9 @@ test('captures desktop/mobile screenshots for a light and dark theme', async ({ 
     const castabilityTable = page.locator('table.castability-table').first();
 
     await expect(interactionLens).toBeVisible();
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await page.locator('#manabase-tab-castability').click();
+    }
     await expect(castabilityTable).toBeVisible();
 
     const details = interactionLens.locator('details');

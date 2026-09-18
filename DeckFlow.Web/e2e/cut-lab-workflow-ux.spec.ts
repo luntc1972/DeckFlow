@@ -139,9 +139,20 @@ test('G-5 keeps the complete Accept button visible and hit-testable while Decide
     const headingLineCount = await page.locator('.cutlab-proposal__pinned-row .cutlab-proposal__heading').evaluate((heading) => {
       const cardButton = heading.querySelector('button');
       if (cardButton) cardButton.textContent = 'Sword of Feast and Famine';
-      const range = document.createRange();
-      range.selectNodeContents(heading);
-      return new Set(Array.from(range.getClientRects(), rect => Math.round(rect.top))).size;
+      const textLineTops = new Set<number>();
+      const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
+      let textNode = walker.nextNode();
+      while (textNode) {
+        if (textNode.textContent?.trim()) {
+          const textRange = document.createRange();
+          textRange.selectNodeContents(textNode);
+          for (const rect of textRange.getClientRects()) {
+            textLineTops.add(Math.round(rect.top));
+          }
+        }
+        textNode = walker.nextNode();
+      }
+      return textLineTops.size;
     });
     expect(headingLineCount, 'long proposed card name wraps within two heading lines').toBeLessThanOrEqual(2);
   }

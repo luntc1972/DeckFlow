@@ -53,6 +53,12 @@ async function submitDeck(
   return (await result.count()) > 0 && (await result.isVisible());
 }
 
+async function clickDesktopTab(page: Page, selector: string): Promise<void> {
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    await page.locator(selector).click();
+  }
+}
+
 async function assertNoHorizontalScroll(page: Page): Promise<void> {
   const overflows = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -137,6 +143,7 @@ test('casual submit renders the castability table, worst-first, commander pinned
   // Mode echo shows Casual.
   await expect(page.locator('.manabase-context')).toContainText(/Mode:\s*Casual/i);
 
+  await clickDesktopTab(page, '#manabase-tab-castability');
   const table = page.locator('table.castability-table');
   await expect(table).toBeVisible();
 
@@ -164,10 +171,10 @@ test('casual submit renders the castability table, worst-first, commander pinned
 
   // Both formula panels are present once a result exists, and expand.
   await expect(page.locator('details[data-manabase-formula="how"]')).toHaveCount(1);
-  const numbers = page.locator('details[data-manabase-formula="numbers"]');
+  await clickDesktopTab(page, '#manabase-tab-numbers');
+  const numbers = page.locator('#manabase-panel-numbers[role="tabpanel"]');
   await expect(numbers).toHaveCount(1);
-  await numbers.locator('summary').click();
-  expect(await numbers.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(true);
+  await expect(numbers).toBeVisible();
 
   // Panel 2 ("show the work") surfaces the regression's deck inputs/terms, not just prose: the
   // expanded numbers panel must name the Karsten regression coefficients used to derive the target.
@@ -202,6 +209,7 @@ test('cedh submit echoes cEDH and shows the castability table under the interact
   await expect(page.locator('.result-panel p:has(strong:text-is("Lands:"))')).toContainText(/recommended/i);
 
   // Castability table renders in cEDH (flag on); the old mode-note must be absent.
+  await clickDesktopTab(page, '#manabase-tab-castability');
   await expect(page.locator('table.castability-table').first()).toBeVisible();
   await expect(page.locator('.manabase-castability-note')).toHaveCount(0);
 
