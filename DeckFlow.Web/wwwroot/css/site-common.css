@@ -6905,14 +6905,14 @@ html {
   }
 }
 
-/* aria-controls target for the mobile menu toggle. `display: contents` keeps the groups as direct
-   layout children of .tool-nav in both the desktop flex row and the mobile grid, so the wrapper
-   costs nothing visually. */
+/* aria-controls target for the menu toggle. `display: contents` applies where no dropdown rule
+   overrides it; the desktop block above turns the wrapper into a dropdown panel. */
 .tool-nav__groups {
   display: contents;
 }
 
-/* The tool nav only collapses to a menu on narrow viewports; site-mobile.css reveals this. */
+/* Default hidden state; the desktop block above and site-mobile.css each reveal the toggle at
+   their respective widths. */
 .tool-nav__menu-toggle {
   display: none;
 }
