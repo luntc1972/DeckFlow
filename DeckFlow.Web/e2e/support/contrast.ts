@@ -12,6 +12,8 @@ interface RgbaColor extends RgbColor {
 
 const RGB_PATTERN =
   /^rgba?\(\s*(?<r>\d{1,3}(?:\.\d+)?)\s*,\s*(?<g>\d{1,3}(?:\.\d+)?)\s*,\s*(?<b>\d{1,3}(?:\.\d+)?)(?:\s*,\s*(?<a>\d*\.?\d+))?\s*\)$/i;
+const SRGB_PATTERN =
+  /^color\(\s*srgb\s+(?<r>\d*\.?\d+)\s+(?<g>\d*\.?\d+)\s+(?<b>\d*\.?\d+)(?:\s*\/\s*(?<a>\d*\.?\d+))?\s*\)$/i;
 const HEX_PATTERN = /^#(?<hex>[0-9a-f]{3,8})$/i;
 
 function clampChannel(value: number): number {
@@ -30,6 +32,16 @@ function parseCssColorWithAlpha(input: string): RgbaColor {
 
   if (/^transparent$/i.test(trimmed)) {
     return { r: 0, g: 0, b: 0, a: 0 };
+  }
+
+  const srgbMatch = trimmed.match(SRGB_PATTERN);
+  if (srgbMatch?.groups) {
+    return {
+      r: clampChannel(Number(srgbMatch.groups.r) * 255),
+      g: clampChannel(Number(srgbMatch.groups.g) * 255),
+      b: clampChannel(Number(srgbMatch.groups.b) * 255),
+      a: clampAlpha(srgbMatch.groups.a === undefined ? 1 : Number(srgbMatch.groups.a)),
+    };
   }
 
   const rgbMatch = trimmed.match(RGB_PATTERN);
@@ -108,6 +120,8 @@ export async function effectiveBackgroundColor(locator: Locator): Promise<RgbCol
 
     const rgbPattern =
       /^rgba?\(\s*(\d{1,3}(?:\.\d+)?)\s*,\s*(\d{1,3}(?:\.\d+)?)\s*,\s*(\d{1,3}(?:\.\d+)?)(?:\s*,\s*(\d*\.?\d+))?\s*\)$/i;
+    const srgbPattern =
+      /^color\(\s*srgb\s+(\d*\.?\d+)\s+(\d*\.?\d+)\s+(\d*\.?\d+)(?:\s*\/\s*(\d*\.?\d+))?\s*\)$/i;
     const hexPattern = /^#([0-9a-f]{3,8})$/i;
 
     const clampChannelValue = (value: number): number => Math.min(255, Math.max(0, Math.round(value)));
@@ -117,6 +131,16 @@ export async function effectiveBackgroundColor(locator: Locator): Promise<RgbCol
       const trimmed = input.trim();
       if (/^transparent$/i.test(trimmed)) {
         return { r: 0, g: 0, b: 0, a: 0 };
+      }
+
+      const srgbMatch = trimmed.match(srgbPattern);
+      if (srgbMatch) {
+        return {
+          r: clampChannelValue(Number(srgbMatch[1]) * 255),
+          g: clampChannelValue(Number(srgbMatch[2]) * 255),
+          b: clampChannelValue(Number(srgbMatch[3]) * 255),
+          a: clampAlphaValue(srgbMatch[4] === undefined ? 1 : Number(srgbMatch[4])),
+        };
       }
 
       const rgbMatch = trimmed.match(rgbPattern);
