@@ -91,9 +91,9 @@ public sealed class ResiliencePipelineFactoryTests
         var builder = new ResiliencePipelineBuilder<RestResponse>();
         ResiliencePipelineFactory.BuildEdhrec(
             builder,
-            TimeSpan.FromMilliseconds(200),
-            TimeSpan.FromMilliseconds(20),
-            TimeSpan.FromMilliseconds(1));
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(10));
         var pipeline = builder.Build();
         int attempts = 0;
 
@@ -103,7 +103,7 @@ public sealed class ResiliencePipelineFactoryTests
                 attempts++;
                 if (attempts == 1)
                 {
-                    await Task.Delay(40, cancellationToken);
+                    await Task.Delay(250, cancellationToken);
                 }
 
                 return new RestResponse { StatusCode = HttpStatusCode.OK };
