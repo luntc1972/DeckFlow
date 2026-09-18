@@ -1769,6 +1769,10 @@ const attachPromptPacketsWorkflow = (): void => {
   form.querySelectorAll<HTMLElement>('[data-prompt-next-step]').forEach(button => {
     button.addEventListener('click', () => {
       const step = parsePromptStep(button.dataset.promptNextStep);
+      if (form.querySelector<HTMLElement>(`#prompt-step-tab-${step}`)?.getAttribute('aria-disabled') === 'true') {
+        return;
+      }
+
       showPromptStep(form, step);
       setPromptValidationMessage(null);
       form.querySelector<HTMLElement>(`[data-prompt-step="${step}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
