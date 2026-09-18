@@ -20,6 +20,8 @@ public sealed class DeckAnalysisMobileRailCssTests
         string activeRule = ExtractRule(css, RailScope + " .prompt-step-tab.is-active,");
 
         Assert.Contains("position: relative;", navRule, StringComparison.Ordinal);
+        Assert.Contains("overflow: visible;", navRule, StringComparison.Ordinal);
+        Assert.DoesNotContain("overflow-x: hidden", navRule, StringComparison.Ordinal);
         Assert.Contains("content: \"\";", connectorRule, StringComparison.Ordinal);
         Assert.Contains("background: var(--line);", connectorRule, StringComparison.Ordinal);
         Assert.Contains("z-index: 0;", connectorRule, StringComparison.Ordinal);

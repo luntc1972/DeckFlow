@@ -482,7 +482,7 @@
     gap: 0;
     padding: 0.15rem 0 0;
     padding-bottom: 1.75rem;
-    overflow-x: hidden;
+    overflow: visible;
   }
 
   .prompt-analysis-workflow .prompt-step-nav--analysis-rail::before {
