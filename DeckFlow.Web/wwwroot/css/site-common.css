@@ -6522,8 +6522,8 @@ html {
   }
 
   .prompt-analysis-workflow .prompt-step-nav--analysis-rail .prompt-step-tab.is-complete .prompt-step-rail__node {
-    border-color: var(--success, #2f855a);
-    background: var(--success, #2f855a);
+    border-color: var(--accent-strong);
+    background: var(--accent-strong);
     color: var(--accent-contrast, #fff);
     font-size: 0;
   }

@@ -84,14 +84,9 @@ public sealed class DeckAnalysisMobileRailCssTests
     public void DeckAnalysisMobileRail_ScopesEveryAddedSelector()
     {
         string css = ReadMobileCss();
-        const string startMarker = "/* The mobile rail needs a shared track without changing other compact steppers. */";
-        const string endMarker = "/* mobile UI phase 2: ai selector compact */";
-        int start = css.IndexOf(startMarker, StringComparison.Ordinal);
-        int end = css.IndexOf(endMarker, start, StringComparison.Ordinal);
+        string railStepper = ExtractMediaBlock(css, "@media (max-width: 899px)");
 
-        Assert.True(start >= 0, $"Missing mobile rail start marker: {startMarker}");
-        Assert.True(end > start, $"Missing mobile rail end marker: {endMarker}");
-        foreach (string rule in css[start..end].Split('}'))
+        foreach (string rule in railStepper[1..^1].Split('}'))
         {
             int bodyStart = rule.IndexOf('{');
             if (bodyStart >= 0)
@@ -99,6 +94,22 @@ public sealed class DeckAnalysisMobileRailCssTests
                 Assert.Contains(RailScope, rule[..bodyStart], StringComparison.Ordinal);
             }
         }
+    }
+
+    [Fact]
+    public void DeckAnalysisMobileRail_UsesMutuallyExclusive899PixelScope()
+    {
+        string css = ReadMobileCss();
+        string compactStepper = ExtractMediaBlock(css, "@media (max-width: 600px)");
+        string railStepper = ExtractMediaBlock(css, "@media (max-width: 899px)");
+
+        Assert.DoesNotContain(RailScope, compactStepper, StringComparison.Ordinal);
+        string tabRule = ExtractRule(railStepper, RailScope + " .prompt-step-tab {");
+        Assert.Contains("width: 44px;", tabRule, StringComparison.Ordinal);
+        Assert.Contains("border: 1px solid var(--line);", tabRule, StringComparison.Ordinal);
+        Assert.Contains("border-radius: 50%;", tabRule, StringComparison.Ordinal);
+        Assert.Contains("display: none;", ExtractRule(railStepper, RailScope + " .prompt-step-tab__label {"), StringComparison.Ordinal);
+        Assert.Contains("display: flex;", ExtractRule(railStepper, RailScope + " .prompt-step-tab__num {"), StringComparison.Ordinal);
     }
 
     private static string ReadMobileCss()
@@ -132,5 +143,23 @@ public sealed class DeckAnalysisMobileRailCssTests
         }
 
         throw new Xunit.Sdk.XunitException($"Unclosed mobile rule: {selector}");
+    }
+
+    private static string ExtractMediaBlock(string css, string mediaQuery)
+    {
+        int mediaStart = css.IndexOf(mediaQuery, StringComparison.Ordinal);
+        Assert.True(mediaStart >= 0, $"Missing media query: {mediaQuery}");
+        int bodyStart = css.IndexOf('{', mediaStart);
+        int depth = 0;
+        for (int index = bodyStart; index < css.Length; index++)
+        {
+            depth += css[index] == '{' ? 1 : css[index] == '}' ? -1 : 0;
+            if (depth == 0)
+            {
+                return css[bodyStart..(index + 1)];
+            }
+        }
+
+        throw new Xunit.Sdk.XunitException($"Unclosed media query: {mediaQuery}");
     }
 }
