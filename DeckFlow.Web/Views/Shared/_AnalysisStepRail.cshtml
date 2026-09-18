@@ -5,8 +5,8 @@
         new DeckFlow.Web.Models.WorkflowStepTab(1, "Step 1: Deck", !string.IsNullOrWhiteSpace(Model.Request.DeckSource)),
         new DeckFlow.Web.Models.WorkflowStepTab(2, "Step 2: Build Analysis Prompt", Model.IsAnalysisPromptStepComplete),
         new DeckFlow.Web.Models.WorkflowStepTab(3, "Step 3: Analysis Results", Model.AnalysisResponse is not null),
-        new DeckFlow.Web.Models.WorkflowStepTab(4, "Step 4: Build Set Upgrade Prompt", Model.IsSetUpgradePromptStepComplete, IsEnabled: Model.AnalysisResponse is not null || Model.IsSetUpgradePromptStepComplete),
-        new DeckFlow.Web.Models.WorkflowStepTab(5, "Step 5: Set Upgrade Results", Model.SetUpgradeResponse is not null, IsEnabled: Model.IsSetUpgradePromptStepComplete),
+        new DeckFlow.Web.Models.WorkflowStepTab(4, "Step 4: Build Set Upgrade Prompt", Model.IsSetUpgradePromptStepComplete, IsEnabled: Model.AnalysisResponse is not null || Model.IsSetUpgradePromptStepComplete || Model.Request.WorkflowStep >= 4),
+        new DeckFlow.Web.Models.WorkflowStepTab(5, "Step 5: Set Upgrade Results", Model.SetUpgradeResponse is not null, IsEnabled: Model.IsSetUpgradePromptStepComplete || Model.Request.WorkflowStep >= 5),
     };
     var firstIncomplete = steps.FirstOrDefault(step => !step.IsComplete && step.IsEnabled);
     var firstEnabled = steps.FirstOrDefault(step => step.IsEnabled);

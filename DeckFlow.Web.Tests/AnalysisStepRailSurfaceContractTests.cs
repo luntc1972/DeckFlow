@@ -59,8 +59,8 @@ public sealed class AnalysisStepRailSurfaceContractTests
         Assert.Contains("Unlocks after Step 3", content);
         Assert.Contains("Unlocks after Step 4", content);
         Assert.Contains("role=\"presentation\"", content);
-        Assert.Contains("IsEnabled: Model.AnalysisResponse is not null || Model.IsSetUpgradePromptStepComplete", content);
-        Assert.Contains("IsEnabled: Model.IsSetUpgradePromptStepComplete", content);
+        Assert.Contains("IsEnabled: Model.AnalysisResponse is not null || Model.IsSetUpgradePromptStepComplete || Model.Request.WorkflowStep >= 4", content);
+        Assert.Contains("IsEnabled: Model.IsSetUpgradePromptStepComplete || Model.Request.WorkflowStep >= 5", content);
     }
 
     private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
