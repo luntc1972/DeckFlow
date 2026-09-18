@@ -30,8 +30,8 @@ public sealed class ToolVisibilityTests
 
         Assert.Collection(
             sections,
-            section => AssertSection(section, ToolNavSection.Analyze, "deck-analysis", "manabase", "deck-comparison", "cedh-meta-gap", "bracket", "deck-modules"),
-            section => AssertSection(section, ToolNavSection.Build, "deck-history", "cut-lab", "deck-primer", "deck-sync", "convert"),
+            section => AssertSection(section, ToolNavSection.Analyze, "deck-analysis", "manabase", "deck-comparison", "cedh-meta-gap", "bracket"),
+            section => AssertSection(section, ToolNavSection.Build, "deck-modules", "deck-history", "cut-lab", "deck-primer", "deck-sync", "convert"),
             section => AssertSection(section, ToolNavSection.Reference, "content-kb", "card-lookup", "mechanic-lookup", "judge-questions"),
             section => AssertSection(section, ToolNavSection.Categories, "suggest-categories", "commander-categories"));
 

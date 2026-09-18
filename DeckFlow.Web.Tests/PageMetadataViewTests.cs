@@ -168,14 +168,10 @@ public sealed class PageMetadataViewTests
     {
         var content = ReadView("Deck", "Home.cshtml");
 
-        Assert.Contains("Magic: The Gathering", content, StringComparison.Ordinal);
-        Assert.Contains("Commander", content, StringComparison.Ordinal);
-        Assert.Contains("cEDH", content, StringComparison.Ordinal);
-        Assert.Contains("mana base analysis", content, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("bracket checking", content, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("deck comparison", content, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("deck primers", content, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("version tracking", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(
+            "Choose a tool to analyze, compare, and improve your Commander and cEDH decks.",
+            content,
+            StringComparison.Ordinal);
     }
 
     private static string ReadView(string folder, string file)
