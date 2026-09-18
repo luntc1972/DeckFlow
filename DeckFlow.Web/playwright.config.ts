@@ -17,7 +17,7 @@ export default defineConfig({
   // timeout. One worker gives each sim-heavy request the full 2 cores. Local dev
   // (fast, many cores) keeps Playwright's core-count default.
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     // Force headless so a local WSL run never surfaces a browser window on the Windows host via WSLg.
     headless: true,
