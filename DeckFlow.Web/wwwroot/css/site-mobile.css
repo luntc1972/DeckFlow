@@ -801,7 +801,7 @@
   .deck-modules .run-button,
   .deck-modules .copy-button,
   .deck-modules button[data-deck-modules-move],
-  .deck-modules select[data-df-select],
+  .deck-modules select[data-df-select]:not(.df-select__native),
   .deck-modules .df-select__trigger,
   .deck-modules input:not([type=checkbox]),
   .deck-modules textarea,
