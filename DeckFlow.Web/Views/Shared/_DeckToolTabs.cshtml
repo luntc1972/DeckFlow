@@ -9,10 +9,10 @@
 }
 
 @* The toggle controls the section groups, not the whole nav it lives in — hence the
-   #deck-tool-nav-groups wrapper. The wrapper is `display: contents` so it adds no box to the
-   desktop flex row or the mobile grid. Visibility is a CSS concern (site-common hides it,
-   site-mobile shows it); it deliberately carries no `hidden` attribute, which would leave the
-   button semantically hidden while site-mobile forced it visible. *@
+   #deck-tool-nav-groups wrapper. It is `display: contents` on mobile, but a toggled dropdown
+   panel on desktop. The toggle is shown at every width; site-common styles the desktop dropdown
+   and site-mobile the collapsed mobile menu. It carries no `hidden` attribute, which would leave
+   the button semantically hidden while CSS forced it visible. *@
 <nav id="deck-tool-nav" class="tool-nav" aria-label="Deck tools" data-tool-nav>
     <button type="button" class="tool-nav__menu-toggle" data-tool-nav-menu-toggle aria-expanded="false" aria-controls="deck-tool-nav-groups">Tools</button>
     <div id="deck-tool-nav-groups" class="tool-nav__groups">

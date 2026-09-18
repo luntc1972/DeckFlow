@@ -208,8 +208,8 @@
     transform: rotate(180deg);
   }
 
-  /* The groups sit inside #deck-tool-nav-groups (display: contents), so these must match on the
-     wrapper rather than on .tool-nav — selector matching ignores display: contents. */
+  /* The groups sit inside #deck-tool-nav-groups (display: contents at mobile widths), so these
+     must match on the wrapper rather than on .tool-nav — selector matching ignores display: contents. */
   .tool-nav__groups > .tool-nav__group {
     display: none;
     min-width: 0;
