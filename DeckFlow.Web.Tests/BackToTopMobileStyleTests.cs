@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -26,4 +27,26 @@ public sealed class BackToTopMobileStyleTests
         Assert.Contains("min-height: 44px;", content, StringComparison.Ordinal);
         Assert.DoesNotContain(".back-to-top-button {\n    display: none;", content, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void MobileStyles_KeepBackToTopAtLeast44PixelsAt900Breakpoint()
+    {
+        var content = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "DeckFlow.Web",
+            "wwwroot",
+            "css",
+            "site-mobile.css"));
+
+        Assert.Matches(
+            new Regex(
+                "@media\\s*\\(max-width:\\s*900px\\)[^{]*\\{(?:(?!@media).)*?\\.back-to-top-button\\s*\\{[^}]*min-width:\\s*44px[^}]*min-height:\\s*44px",
+                RegexOptions.Singleline),
+            content);
+    }
+
 }

@@ -1675,7 +1675,7 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     .help-index__link:hover,
     .help-index__link:focus-visible {
         border-color: var(--focus, var(--accent-strong, var(--line)));
-        box-shadow: 0 8px 24px rgba(26, 31, 46, 0.08);
+        box-shadow: var(--workspace-card-shadow);
         text-decoration: none;
         transform: translateY(-1px);
     }
@@ -2259,6 +2259,10 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
   }
 
   .card-lookup-grid:has(.card-lookup-grid__rail.hidden) {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-convert-grid:has(.deck-convert-grid__rail.hidden) {
     grid-template-columns: 1fr;
   }
 
@@ -3752,6 +3756,12 @@ details.cutlab-collapsible > div.cutlab-package-help > p.cutlab-package-help__he
   text-decoration: underline;
 }
 
+@media (max-width: 899.98px) {
+  .manabase-anchor-nav {
+    position: static;
+  }
+}
+
 nav.cutlab-anchor-nav {
   margin: 0.85rem 0 0;
   padding: 0.85rem 1rem;
@@ -3809,7 +3819,7 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
 
 @media (max-width: 1023.98px) {
   .manabase-analysis-stage [hidden] {
-    display: block !important;
+    display: block;
   }
 }
 
@@ -3882,7 +3892,7 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   }
 
   .manabase-analysis-tab[aria-selected="true"] {
-    color: var(--panel, #fff);
+    color: var(--accent-contrast, var(--on-accent, #fff));
   }
 
   .manabase-analysis-tabs--single .manabase-analysis-tab-indicator {
@@ -7047,7 +7057,7 @@ html {
 
 .sync-columns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
 }
@@ -7155,6 +7165,21 @@ button {
 
 .meta-gap-mirror__delta {
   text-align: center;
+}
+
+@media (max-width: 1023.98px) {
+  .meta-gap-mirror__header {
+    display: none;
+  }
+
+  .meta-gap-mirror__value[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--muted);
+    font-size: 0.85em;
+    font-weight: 700;
+  }
 }
 
 .meta-gap-recommended-edits {

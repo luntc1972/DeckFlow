@@ -76,7 +76,14 @@ public sealed class DeckConvertDesktopLayoutCssTests
         int selectorIndex = -1;
         for (int index = 0; index < occurrence; index++)
         {
-            selectorIndex = css.IndexOf(selector, selectorIndex + 1, StringComparison.Ordinal);
+            do
+            {
+                selectorIndex = css.IndexOf(selector, selectorIndex + 1, StringComparison.Ordinal);
+            }
+            while (selectorIndex >= 0
+                && selectorIndex + selector.Length < css.Length
+                && !char.IsWhiteSpace(css[selectorIndex + selector.Length])
+                && css[selectorIndex + selector.Length] != ',');
         }
 
         Assert.True(selectorIndex >= 0, $"Missing CSS selector: {selector}");
