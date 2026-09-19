@@ -125,6 +125,29 @@ public sealed class DeckModulesMobileLayoutCssTests
             content);
     }
 
+    [Fact]
+    public void HubDecorativeChevrons_HaveEmptyAccessibleNames()
+    {
+        string content = ReadSiteMobileCss();
+
+        Assert.Matches(
+            new Regex("\\.hub-card::after\\s*\\{[^}]*content:\\s*\\\"›\\\" / \\\"\\\";", RegexOptions.Singleline),
+            content);
+        Assert.Matches(
+            new Regex("\\.hub-hero--primary::after\\s*\\{[^}]*content:\\s*\\\"›\\\" / \\\"\\\";", RegexOptions.Singleline),
+            content);
+    }
+
+    [Fact]
+    public void SiteCommonCss_DoesNotContainRemovedSelectors()
+    {
+        string content = ReadSiteCommonCss();
+
+        Assert.DoesNotContain("feedback-submit--busy", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("manabase-analysis-tabs--single", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("analysis-workbench-grid__output", content, StringComparison.Ordinal);
+    }
+
     private static string ReadSiteMobileCss()
         => File.ReadAllText(Path.Combine(
             AppContext.BaseDirectory,

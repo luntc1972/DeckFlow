@@ -2024,27 +2024,6 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
 }
 .feedback-submit:hover, .feedback-submit:focus-visible { background: var(--accent); }
 
-.feedback-submit--busy {
-    opacity: 0.75;
-    cursor: not-allowed;
-    position: relative;
-    padding-left: 2.25rem;
-}
-
-.feedback-submit--busy::before {
-    content: "";
-    position: absolute;
-    left: 0.65rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 0.9rem;
-    height: 0.9rem;
-    border: 2px solid rgba(255, 255, 255, 0.35);
-    border-top-color: var(--on-accent);
-    border-radius: 999px;
-    animation: busy-spin 0.75s linear infinite;
-}
-
 .feedback-error { color: var(--danger); font-size: var(--fs-sm); }
 .feedback-banner { padding: 0.85rem 1rem; border-radius: 6px; margin: 1.5rem 0 0; }
 .feedback-banner--success { color: var(--success); background: var(--panel-soft-bg); border: 1px solid var(--success); }
@@ -2283,8 +2262,7 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
 
   .card-lookup-grid__rail,
   .deck-convert-grid__rail,
-  .primer-workbench-grid__output,
-  .analysis-workbench-grid__output {
+  .primer-workbench-grid__output {
     position: sticky;
     top: 1rem;
     max-height: calc(100vh - 2rem);
@@ -3893,14 +3871,6 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
 
   .manabase-analysis-tab[aria-selected="true"] {
     color: var(--accent-contrast, var(--on-accent, #fff));
-  }
-
-  .manabase-analysis-tabs--single .manabase-analysis-tab-indicator {
-    display: none;
-  }
-
-  .manabase-analysis-tabs--single .manabase-analysis-tab[aria-selected="true"] {
-    color: var(--ink, inherit);
   }
 
   .manabase-analysis-stage {
