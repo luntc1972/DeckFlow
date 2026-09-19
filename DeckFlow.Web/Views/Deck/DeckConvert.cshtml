@@ -87,7 +87,7 @@
         </div>
     </div>
 
-    <aside class="deck-convert-grid__rail card-lookup-grid__rail">
+    <aside class="deck-convert-grid__rail card-lookup-grid__rail @(string.IsNullOrWhiteSpace(Model.ConvertedText) ? "hidden" : string.Empty)">
         @if (!string.IsNullOrWhiteSpace(Model.ConvertedText))
         {
             <section class="result-panel">

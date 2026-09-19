@@ -22,6 +22,7 @@
         "cedh-meta-gap" => "Compare your deck against cEDH metagame lists.",
         "bracket" => "Check your deck's Commander bracket.",
         "deck-history" => "Track changes and restore versions.",
+        "deck-modules" => "Swap strategy modules in and out of one baseline deck.",
         "cut-lab" => "Trim a Commander deck with deliberate cuts.",
         "deck-primer" => "Build a structured deck primer.",
         "deck-sync" => "Keep Moxfield and Archidekt decks aligned.",
@@ -65,7 +66,7 @@
         }
 
         var sectionName = section.Section == ToolNavSection.Reference ? "Reference & rules" : section.Section.ToString();
-        var sectionId = $"hub-group-{sectionName.ToLowerInvariant()}";
+        var sectionId = $"hub-group-{section.Section.ToString().ToLowerInvariant()}";
         var sectionTools = section.Section == ToolNavSection.Reference && categorySection is not null
             ? section.Tools.Concat(categorySection.Tools)
             : section.Tools;

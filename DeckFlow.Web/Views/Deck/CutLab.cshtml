@@ -333,7 +333,7 @@
                         <p class="prompt-size-note">What's protected while you cut — updates live as you lock cards, packages, and roles below.</p>
                     </div>
                 </div>
-                <div class="cutlab-constraints-summary">
+                <div class="cutlab-constraints-summary" aria-live="polite" aria-atomic="true">
                     <div class="cutlab-constraints-summary__block cutlab-constraints-summary__block--locked">
                         @{ var lockedCards = Model.Pool.Where(card => card.IsLocked).ToArray();
                            var shownLockedQuantity = lockedCards.Take(3).Sum(card => card.Quantity); }
