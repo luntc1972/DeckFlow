@@ -61,6 +61,21 @@ public sealed class ThemeLinkColorTests
     }
 
     /// <summary>
+    /// Ensures selected Manabase tabs use the theme's accessible accent text token.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ThemeFiles))]
+    public void Theme_ManabaseSelectedTabTextMeetsAaContrastAgainstAccent(string themeFileName)
+    {
+        var textColor = ResolveEffectiveColor(themeFileName, "--accent-contrast")
+            ?? ResolveEffectiveColor(themeFileName, "--on-accent")
+            ?? "#ffffff";
+
+        Assert.NotNull(textColor);
+        AssertContrast(themeFileName, "--accent", textColor!, ResolveEffectiveColor(themeFileName, "--accent"));
+    }
+
+    /// <summary>
     /// Pins link literals required because the shared token is unsuitable for these two themes.
     /// </summary>
     [Fact]

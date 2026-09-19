@@ -9,6 +9,18 @@ namespace DeckFlow.Web.Tests;
 public sealed class DeckModulesMobileLayoutCssTests
 {
     [Fact]
+    public void SyncColumns_TrackDoesNotExceedContainer()
+    {
+        string content = ReadSiteCommonCss();
+
+        Assert.Matches(
+            new Regex(
+                "\\.sync-columns\\s*\\{[^}]*grid-template-columns:\\s*repeat\\(auto-fit,\\s*minmax\\(min\\(280px,\\s*100%\\),\\s*1fr\\)\\)",
+                RegexOptions.Singleline),
+            content);
+    }
+
+    [Fact]
     public void DeckModulesMobileLayout_IsScopedToDeckModulesAtMobileBreakpoint()
     {
         string content = ReadSiteMobileCss();
@@ -16,6 +28,18 @@ public sealed class DeckModulesMobileLayoutCssTests
         Assert.Matches(
             new Regex(
                 "@media\\s*\\(max-width:\\s*900px\\)[^{]*\\{(?:(?!@media).)*\\.deck-modules",
+                RegexOptions.Singleline),
+            content);
+    }
+
+    [Fact]
+    public void PromptDownloadButton_AllowsLongLabelsToWrapOnMobile()
+    {
+        string content = ReadSiteMobileCss();
+
+        Assert.Matches(
+            new Regex(
+                "@media\\s*\\(max-width:\\s*600px\\)[^{]*\\{(?:(?!@media).)*?\\.prompt-sticky-download__button\\s*\\{[^}]*white-space:\\s*normal;[^}]*max-width:\\s*100%",
                 RegexOptions.Singleline),
             content);
     }
@@ -68,6 +92,18 @@ public sealed class DeckModulesMobileLayoutCssTests
     }
 
     [Fact]
+    public void DeckModulesMobileLayout_ProvidesAssignmentCheckboxHitArea()
+    {
+        string content = ReadSiteMobileCss();
+
+        Assert.Matches(
+            new Regex(
+                "\\.deck-modules\\s+\\.deck-modules__assignment\\s+input\\[type=checkbox\\]\\[data-deck-modules-select\\][^{}]*\\{[^}]*min-height:\\s*44px",
+                RegexOptions.Singleline),
+            content);
+    }
+
+    [Fact]
     public void DeckModulesMobileLayout_ContainsResponsivePathsAssignmentsAndTextareas()
     {
         string content = ReadSiteMobileCss();
@@ -100,4 +136,16 @@ public sealed class DeckModulesMobileLayoutCssTests
             "wwwroot",
             "css",
             "site-mobile.css"));
+
+    private static string ReadSiteCommonCss()
+        => File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "..",
+            "..",
+            "..",
+            "..",
+            "DeckFlow.Web",
+            "wwwroot",
+            "css",
+            "site-common.css"));
 }

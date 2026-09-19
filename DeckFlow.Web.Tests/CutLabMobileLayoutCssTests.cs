@@ -46,6 +46,18 @@ public sealed class CutLabMobileLayoutCssTests
     }
 
     [Fact]
+    public void CutLabMobileLayout_KeepsCardPickerControlsAtLeast44Pixels()
+    {
+        string content = ReadSiteMobileCss();
+
+        Assert.Matches(
+            new Regex(
+                "@media\\s*\\(max-width:\\s*600px\\)[^{]*\\{(?:(?!@media).)*?\\.card-picker__add\\s*,\\s*\\.card-picker__remove\\s*\\{[^}]*min-width:\\s*44px[^}]*min-height:\\s*44px",
+                RegexOptions.Singleline),
+            content);
+    }
+
+    [Fact]
     public void CutLabMobileLayout_ContainsWideContentWithinWorkspace()
     {
         string content = ReadSiteMobileCss();
