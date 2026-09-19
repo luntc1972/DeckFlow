@@ -75,7 +75,7 @@
       themeResetTimer = window.setTimeout(releaseThemeLock, 500);
       window.scrollTo({
         top: 0,
-        behavior: 'smooth'
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
       });
     });
 
@@ -229,7 +229,11 @@
 
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') {
+        const shouldRestoreMenuFocus = nav.classList.contains('is-menu-open') && nav.contains(document.activeElement);
         closeMenu();
+        if (shouldRestoreMenuFocus) {
+          menuToggle?.focus();
+        }
       }
     });
   };

@@ -171,16 +171,31 @@
     toggleSuggestionPanel('commander-hint', false);
   };
 
-  const setCardIntakeState = (form: HTMLFormElement, open: boolean, cardName?: string): void => {
+  const setCardIntakeState = (form: HTMLFormElement, open: boolean, cardName?: string): boolean => {
     const intake = form.closest<HTMLDetailsElement>('details.cutlab-intake');
     if (!intake) {
-      return;
+      return false;
     }
 
+    const intakeHadFocus = document.activeElement !== null && intake.contains(document.activeElement);
     intake.open = open;
     const summary = intake.querySelector<HTMLElement>('.cutlab-intake-summary__commander');
     if (summary) {
       summary.textContent = cardName ?? 'Look up a card';
+    }
+
+    return !open && intakeHadFocus;
+  };
+
+  const focusCardResult = (selector: string, shouldFocus: boolean): void => {
+    if (!shouldFocus) {
+      return;
+    }
+
+    const result = document.querySelector<HTMLElement>(selector);
+    if (result) {
+      result.tabIndex = -1;
+      result.focus({ preventScroll: true });
     }
   };
 
@@ -258,7 +273,7 @@
   const handleCardResponse = (form: SuggestionForm, response: CardSuggestionResponse): void => {
     resetCardUi();
     handleError('suggest-error', null);
-    setCardIntakeState(form, false, response.cardName);
+    const focusResult = setCardIntakeState(form, false, response.cardName);
 
     const modeSelect = form.querySelector<HTMLSelectElement>('select[name="Mode"]');
     const mode = modeSelect?.value ?? 'CachedData';
@@ -292,12 +307,17 @@
     if (response.noSuggestionsFound) {
       setFieldText('no-suggestions-text', response.noSuggestionsMessage ?? `No category suggestions were found for ${response.cardName}.`);
       scrollPanelIntoCenter('[data-api-panel="no-suggestions"]');
+      focusCardResult('[data-api-panel="no-suggestions"]', focusResult);
       return;
     }
 
     if (showMerged) {
       scrollPanelIntoCenter('[data-api-panel="merged"]');
+      focusCardResult('[data-api-panel="merged"]', focusResult);
+      return;
     }
+
+    focusCardResult('[data-api-panel="lookup-hint"]', focusResult);
   };
 
   const handleCommanderResponse = (response: CommanderSuggestionResponse): void => {

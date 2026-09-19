@@ -82,6 +82,7 @@
       document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((link): void => {
         link.addEventListener('click', (): void => selectTabForHash(link.hash));
       });
+      window.addEventListener('hashchange', (): void => selectTabForHash(window.location.hash));
 
       const updateForBreakpoint = (): void => {
         if (!desktopQuery.matches) {
