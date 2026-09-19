@@ -474,7 +474,7 @@
                         {
                             var missingLines = analysis.WinLines.MissingLines.Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
                             <div class="meta-gap-mirror__stat">Win lines</div>
-                            <div class="meta-gap-mirror__value">
+                            <div class="meta-gap-mirror__value" data-label="Your deck">
                                 <strong>@(analysis.WinLines.MyDeck?.Primary ?? "—")</strong>
                                 @if (!string.IsNullOrWhiteSpace(analysis.WinLines.MyDeck?.Backup))
                                 {
@@ -486,7 +486,7 @@
                                 }
                             </div>
                             <div class="meta-gap-mirror__delta"><span class="manabase-chip @(missingLines.Length == 0 ? "manabase-chip--good" : "manabase-chip--low")">@(missingLines.Length == 0 ? "↔ 0" : $"↓ {missingLines.Length}")</span></div>
-                            <div class="meta-gap-mirror__value">
+                            <div class="meta-gap-mirror__value" data-label="The field">
                                 <strong>@(analysis.WinLines.RefConsensus?.Primary ?? "—")</strong>
                                 @if (!string.IsNullOrWhiteSpace(analysis.WinLines.RefConsensus?.Backup))
                                 {
@@ -499,13 +499,13 @@
                         {
                             var interactionDelta = analysis.Interaction.MyCount - analysis.Interaction.RefAvgCount;
                             <div class="meta-gap-mirror__stat">Interaction count</div>
-                            <div class="meta-gap-mirror__value">
+                            <div class="meta-gap-mirror__value" data-label="Your deck">
                                 @analysis.Interaction.MyCount
                                 @if (!string.IsNullOrWhiteSpace(analysis.Interaction.Verdict)) { <span>@analysis.Interaction.Verdict</span> }
                                 @if (!string.IsNullOrWhiteSpace(analysis.Interaction.Detail) && !string.Equals(analysis.Interaction.Detail, analysis.Interaction.Verdict, StringComparison.Ordinal)) { <span>@analysis.Interaction.Detail</span> }
                             </div>
                             <div class="meta-gap-mirror__delta"><span class="manabase-chip @(interactionDelta > 0 ? "manabase-chip--good" : interactionDelta < 0 ? "manabase-chip--low" : "manabase-chip--ok")">@(interactionDelta > 0 ? "↑" : interactionDelta < 0 ? "↓" : "↔") @interactionDelta.ToString("+0.0;-0.0;0.0")</span></div>
-                            <div class="meta-gap-mirror__value">@analysis.Interaction.RefAvgCount.ToString("F1")</div>
+                            <div class="meta-gap-mirror__value" data-label="The field">@analysis.Interaction.RefAvgCount.ToString("F1")</div>
                         }
 
                         @if (analysis.Speed is not null)
@@ -513,12 +513,12 @@
                             var speedMatchesField = string.Equals(analysis.Speed.MyClassification, analysis.Speed.RefClassification, StringComparison.OrdinalIgnoreCase)
                                 && string.Equals(analysis.Speed.MyAvgTurn, analysis.Speed.RefAvgTurn, StringComparison.OrdinalIgnoreCase);
                             <div class="meta-gap-mirror__stat">Speed classification</div>
-                            <div class="meta-gap-mirror__value">
+                            <div class="meta-gap-mirror__value" data-label="Your deck">
                                 @analysis.Speed.MyClassification <span>@analysis.Speed.MyAvgTurn</span>
                                 @if (!string.IsNullOrWhiteSpace(analysis.Speed.Detail)) { <span>@analysis.Speed.Detail</span> }
                             </div>
-                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(speedMatchesField ? "manabase-chip--ok" : "manabase-chip--low")">@(speedMatchesField ? "↔ 0" : "↓ n/a")</span></div>
-                            <div class="meta-gap-mirror__value">@analysis.Speed.RefClassification <span>@analysis.Speed.RefAvgTurn</span></div>
+                            <div class="meta-gap-mirror__delta"><span class="manabase-chip @(speedMatchesField ? "manabase-chip--ok" : "")">@(speedMatchesField ? "↔ 0" : "differs")</span></div>
+                            <div class="meta-gap-mirror__value" data-label="The field">@analysis.Speed.RefClassification <span>@analysis.Speed.RefAvgTurn</span></div>
                         }
 
                         @if (analysis.ManaEfficiency is not null)
@@ -527,20 +527,20 @@
                             var cmcDelta = analysis.ManaEfficiency.RefAvgCmc - analysis.ManaEfficiency.MyAvgCmc;
                             var landsDelta = analysis.ManaEfficiency.MyLands - analysis.ManaEfficiency.RefAvgLands;
                             <div class="meta-gap-mirror__stat">Fast mana</div>
-                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.MyFastMana</div>
+                            <div class="meta-gap-mirror__value" data-label="Your deck">@analysis.ManaEfficiency.MyFastMana</div>
                             <div class="meta-gap-mirror__delta"><span class="manabase-chip @(fastManaDelta > 0 ? "manabase-chip--good" : fastManaDelta < 0 ? "manabase-chip--low" : "manabase-chip--ok")">@(fastManaDelta > 0 ? "↑" : fastManaDelta < 0 ? "↓" : "↔") @fastManaDelta.ToString("+0.0;-0.0;0.0")</span></div>
-                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.RefAvgFastMana.ToString("F1")</div>
+                            <div class="meta-gap-mirror__value" data-label="The field">@analysis.ManaEfficiency.RefAvgFastMana.ToString("F1")</div>
                             <div class="meta-gap-mirror__stat">Average CMC</div>
-                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.MyAvgCmc.ToString("F2")</div>
+                            <div class="meta-gap-mirror__value" data-label="Your deck">@analysis.ManaEfficiency.MyAvgCmc.ToString("F2")</div>
                             <div class="meta-gap-mirror__delta"><span class="manabase-chip @(cmcDelta > 0 ? "manabase-chip--good" : cmcDelta < 0 ? "manabase-chip--low" : "manabase-chip--ok")">@(cmcDelta > 0 ? "↑" : cmcDelta < 0 ? "↓" : "↔") @cmcDelta.ToString("+0.00;-0.00;0.00")</span></div>
-                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.RefAvgCmc.ToString("F2")</div>
+                            <div class="meta-gap-mirror__value" data-label="The field">@analysis.ManaEfficiency.RefAvgCmc.ToString("F2")</div>
                             <div class="meta-gap-mirror__stat">Lands</div>
-                            <div class="meta-gap-mirror__value">
+                            <div class="meta-gap-mirror__value" data-label="Your deck">
                                 @analysis.ManaEfficiency.MyLands
                                 @if (!string.IsNullOrWhiteSpace(analysis.ManaEfficiency.Detail)) { <span>@analysis.ManaEfficiency.Detail</span> }
                             </div>
                             <div class="meta-gap-mirror__delta"><span class="manabase-chip @(landsDelta > 0 ? "manabase-chip--good" : landsDelta < 0 ? "manabase-chip--low" : "manabase-chip--ok")">@(landsDelta > 0 ? "↑" : landsDelta < 0 ? "↓" : "↔") @landsDelta.ToString("+0.0;-0.0;0.0")</span></div>
-                            <div class="meta-gap-mirror__value">@analysis.ManaEfficiency.RefAvgLands.ToString("F1")</div>
+                            <div class="meta-gap-mirror__value" data-label="The field">@analysis.ManaEfficiency.RefAvgLands.ToString("F1")</div>
                         }
                     </section>
 
@@ -564,11 +564,11 @@
                             <ul>
                                 @foreach (var item in analysis.MissingStaples.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
                                 {
-                                    <li><strong>Add staple: @item.Card</strong> @if (!string.IsNullOrWhiteSpace(item.Role)) { <text>(@item.Role)</text> } @if (item.RefCount > 0) { <text>seen in @item.RefCount reference deck(s)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <text>- @item.Why</text> }</li>
+                                    <li><strong>#@item.Priority Add staple: @item.Card</strong> @if (!string.IsNullOrWhiteSpace(item.Role)) { <text>(@item.Role)</text> } @if (item.RefCount > 0) { <text>seen in @item.RefCount reference deck(s)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <text>- @item.Why</text> }</li>
                                 }
                                 @foreach (var item in analysis.PotentialCuts.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
                                 {
-                                    <li><strong>Potential cut: @item.Card</strong> @if (!string.IsNullOrWhiteSpace(item.Role)) { <text>(@item.Role)</text> } @if (item.RefCount > 0) { <text>found in @item.RefCount reference deck(s)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <text>- @item.Why</text> }</li>
+                                    <li><strong>#@item.Priority Potential cut: @item.Card</strong> @if (!string.IsNullOrWhiteSpace(item.Role)) { <text>(@item.Role)</text> } @if (item.RefCount > 0) { <text>found in @item.RefCount reference deck(s)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <text>- @item.Why</text> }</li>
                                 }
                                 @foreach (var item in analysis.Top10Adds.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
                                 {

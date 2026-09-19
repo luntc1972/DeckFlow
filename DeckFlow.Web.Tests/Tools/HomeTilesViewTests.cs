@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DeckFlow.Web.Services.Tools;
 using Xunit;
 
@@ -8,6 +9,16 @@ namespace DeckFlow.Web.Tests.Tools;
 /// </summary>
 public sealed class HomeTilesViewTests
 {
+    [Fact]
+    public void Home_MapsDeckModulesToShortDescription()
+    {
+        var content = ReadHome();
+        var match = Regex.Match(content, "\\\"deck-modules\\\"\\s*=>\\s*\\\"(?<description>[^\\\"]+)\\\"");
+
+        Assert.True(match.Success);
+        Assert.InRange(match.Groups["description"].Value.Length, 1, 72);
+    }
+
     [Fact]
     public void Home_DoesNotContainOfflinePlaceholderCopy()
     {
@@ -74,6 +85,15 @@ public sealed class HomeTilesViewTests
 
         Assert.Contains("grid-template-columns: 1fr;", content, StringComparison.Ordinal);
         Assert.Contains(".hub-card::after", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Home_BuildsWhitespaceFreeSectionIdsFromEnumValues()
+    {
+        var content = ReadHome();
+
+        Assert.Contains("var sectionId = $\"hub-group-{section.Section.ToString().ToLowerInvariant()}\";", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("sectionName.ToLowerInvariant()", content, StringComparison.Ordinal);
     }
 
     /// <summary>
