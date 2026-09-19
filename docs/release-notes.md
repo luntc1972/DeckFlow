@@ -24,6 +24,12 @@ state shipped in 2026.09.3:
   tagger vocabulary that doesn't share exact names with the stated rules' small category set. A
   follow-up phase will add the category-aggregation layer needed to close this gap; land count and
   the philosophy-only metrics are unaffected and already resolve correctly.
+- **2026-09-19 update:** the three creator-style seed files described above
+  (`creator-deck-cache.json`, `creator-stated-rules.json`, `creator-style-profiles.json`) are no
+  longer tracked in this public repo. Canonical copies are kept in a private location outside this
+  repository; the seed loaders log and skip a missing file, and only ever upsert, so existing
+  database rows are unaffected — a deploy simply no longer refreshes creator-style data until the
+  next manual export/load. See `docs/content-knowledge-base.md`.
 
 ### 2026.09.3 — Personal Tools: Admin-Only Creator Style and Deck Tendencies (2026-09-09)
 

@@ -114,6 +114,11 @@ is the distill pipeline. Therefore:
 Each rule carries `Provenance = "hand-authored"`. A future re-distill then supersedes it through the
 existing `RecencyCollapser` rather than duplicating it.
 
+> **2026-09-19 note:** the three seed files named above
+> (`content-kb/seed/creator-style-profiles.json`, `content-kb/seed/creator-deck-cache.json`,
+> `content-kb/seed/creator-stated-rules.json`) are no longer version-controlled in this repo — see
+> `docs/content-knowledge-base.md` and `docs/release-notes.md`.
+
 ### Source of the stated rules
 
 `docs/research/p89-p90-prototype-snail.md` (Fable prototype, 2026-07-05) extracted these from 41

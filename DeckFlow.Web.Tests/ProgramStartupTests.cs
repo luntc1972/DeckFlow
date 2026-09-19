@@ -91,59 +91,47 @@ public sealed class ProgramStartupTests
         Assert.Equal(3, result);
     }
 
-    // Why (phase 114): proves LoadCreatorStyleSeedAsync's file-read/deserialize path actually
-    // executes against the real, committed seed file in the default environment — not merely
-    // that startup succeeds and not via a stand-in loader like RecordingCreatorStyleSeedLoader
-    // above. AddDeckFlowCreatorStyle no longer gates the seed loader behind an opt-in env var
-    // (Program.BuildApp registers it unconditionally), so this fact resolves the *real*
-    // CreatorStyleSeedLoader/ContentKbArtifactPathResolver pair against the repository's actual
-    // content-kb directory and confirms the seed file is found and parsed (not skipped as
-    // missing). Phase 115-04's operator export populated the seed with a real profile
-    // (slug `salubrioussnail`), and the deck-cache seed contains 43 rows, so the loader count is
-    // 1 profile row + 43 deck-cache rows = 44 — the point proven here is that the found-and-parsed
-    // branch runs, not the file-missing skip branch.
+    // Why (phase 114): proves the real loader takes the found-and-parsed branch for synthetic files,
+    // rather than silently skipping missing files.
     [Fact]
-    public async Task LoadCreatorStyleSeedAsync_WithRealLoaderAgainstRepoContentBase_ReadsRealSeedFileRatherThanSkippingAsMissing()
+    public async Task LoadCreatorStyleSeedAsync_WithRealLoaderAgainstTempContentBase_ReadsSyntheticSeedFiles()
     {
-        var repoRoot = GetRepoRoot();
-        var resolver = new ContentKbArtifactPathResolver(
-            new StubWebHostEnvironment(repoRoot),
-            new ConfigurationBuilder().Build(),
-            new FakeFeatureFlagCache(),
-            NullLogger<ContentKbArtifactPathResolver>.Instance);
+        var tempContentBase = Path.Combine(Path.GetTempPath(), "program-startup-seed-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempContentBase);
+        WriteSeed(tempContentBase, ContentKbPaths.CreatorStyleProfileSeedRelativePath, "[{\"slug\":\"test-creator\",\"platform\":\"test\",\"minDecks\":1,\"insufficientSample\":false,\"statedRules\":[],\"measuredMetrics\":[],\"fusedTargets\":[],\"updatedUtc\":\"2026-07-18T00:00:00Z\"}]");
+        WriteSeed(tempContentBase, ContentKbPaths.CreatorDeckCacheSeedRelativePath, "[{\"creatorSlug\":\"test-creator\",\"deckId\":\"test-deck\",\"contentHash\":\"hash\",\"folderId\":1,\"folderName\":\"Test\",\"size\":1,\"confidenceMarker\":\"exact\",\"entries\":[{\"name\":\"Sol Ring\",\"normalizedName\":\"sol ring\",\"quantity\":1,\"board\":\"mainboard\"}],\"cachedUtc\":\"2026-07-18T00:00:00Z\"}]");
+        try
+        {
+            var resolver = new ContentKbArtifactPathResolver(
+                new StubWebHostEnvironment(tempContentBase),
+                new ConfigurationBuilder().Build(),
+                new FakeFeatureFlagCache(),
+                NullLogger<ContentKbArtifactPathResolver>.Instance);
 
-        var seedFilePath = resolver.ResolveArtifactFullPath(ContentKbPaths.CreatorStyleProfileSeedRelativePath);
-        Assert.True(File.Exists(seedFilePath), $"Expected the committed creator-style seed file at {seedFilePath}.");
+            var loader = new CreatorStyleSeedLoader(
+                resolver,
+                new NoOpCreatorStyleProfileStore(),
+                new NoOpCreatorDeckCacheStore(),
+                NullLogger<CreatorStyleSeedLoader>.Instance);
+            await using var services = new ServiceCollection()
+                .AddSingleton<ICreatorStyleSeedLoader>(loader)
+                .BuildServiceProvider();
 
-        var loader = new CreatorStyleSeedLoader(
-            resolver,
-            new NoOpCreatorStyleProfileStore(),
-            new NoOpCreatorDeckCacheStore(),
-            NullLogger<CreatorStyleSeedLoader>.Instance);
-        await using var services = new ServiceCollection()
-            .AddSingleton<ICreatorStyleSeedLoader>(loader)
-            .BuildServiceProvider();
+            var count = await Program.LoadCreatorStyleSeedAsync(services);
 
-        var count = await Program.LoadCreatorStyleSeedAsync(services);
-
-        Assert.Equal(44, count);
+            Assert.Equal(2, count);
+        }
+        finally
+        {
+            Directory.Delete(tempContentBase, recursive: true);
+        }
     }
 
-    private static string GetRepoRoot()
+    private static void WriteSeed(string baseDir, string relativePath, string json)
     {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "DeckFlow.sln")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate the repository root from the current test base directory.");
+        var path = Path.Combine(baseDir, relativePath.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, json);
     }
 
     private sealed class StubWebHostEnvironment(string contentRootPath) : IWebHostEnvironment

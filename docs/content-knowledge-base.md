@@ -41,13 +41,20 @@ dotnet run --project DeckFlow.CLI -- creator-style-import-stated
 # 3. Fuse the measured profile against the stated rules, printing a conflict ledger
 dotnet run --project DeckFlow.CLI -- fuse-profile --slug <creator-slug>
 
-# 4. Export both seed files for commit-then-deploy
-dotnet run --project DeckFlow.CLI -- creator-style-index-export
-
-# 5. Commit the two populated seed files as one change
-git add content-kb/seed/creator-style-profiles.json content-kb/seed/creator-deck-cache.json
-git commit -m "feat: refresh <creator-slug> creator-style seeds"
+# 4. Export both seed files directly to a private location outside this repository
+#    (this public repo no longer tracks or ships the three creator-style seed files, and
+#    nothing here ignores them — never `git add` them. Use --profiles-output /
+#    --deck-cache-output, and --file on creator-style-import-stated, to point the commands
+#    at that private location)
+dotnet run --project DeckFlow.CLI -- creator-style-index-export \
+  --profiles-output /path/to/private/location/creator-style-profiles.json \
+  --deck-cache-output /path/to/private/location/creator-deck-cache.json
 ```
+
+Because the web image no longer ships these three files, the seed loaders log and skip a
+missing file at startup, and they only ever upsert — so existing database rows stay put, but a
+deploy no longer refreshes creator-style data. A local run still loads them when the files are
+present under `content-kb/seed/` on disk.
 
 Each command follows the same exit-code convention as `role-floor-research` and `edhrec-role-grid`: `0` succeeded, `1` is a bad-argument or unhandled-exception failure, and `2` means the command ran but found nothing usable (e.g. no stated rules or no measured decks for the given slug) — a `2` almost always means a prior step in this sequence was skipped, so re-run from step 1 rather than retrying the same command.
 

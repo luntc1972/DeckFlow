@@ -1,5 +1,3 @@
-using System.Text.Json;
-using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.ProfileFusion;
 using DeckFlow.Core.Knowledge.StatedRulesExtraction;
@@ -10,7 +8,7 @@ namespace DeckFlow.Core.Tests.ProfileFusion;
 public sealed class CreatorStatedRulesSeedFusionTests
 {
     [Fact]
-    public void ReadCommittedSeed_ContainsOnlyValidHandAuthoredRules()
+    public void ReadSyntheticSeed_ContainsOnlyValidHandAuthoredRules()
     {
         IReadOnlyList<StatedRuleCandidate> rules = ReadSeed();
 
@@ -22,7 +20,7 @@ public sealed class CreatorStatedRulesSeedFusionTests
     }
 
     [Fact]
-    public void Fuse_CommittedSeed_ReproducesP90Ledger()
+    public void Fuse_SyntheticSeed_ReproducesP90Ledger()
     {
         MeasuredMetric[] measured =
         [
@@ -92,36 +90,32 @@ public sealed class CreatorStatedRulesSeedFusionTests
         => Assert.Single(targets, target => target.Metric == metric && target.Condition == condition);
 
     private static IReadOnlyList<StatedRuleCandidate> ReadSeed()
-    {
-        string solutionRoot = FindSolutionRoot();
-        string seedPath = Path.Combine(solutionRoot, ContentKbPaths.CreatorStatedRulesSeedRelativePath);
-        string json = File.ReadAllText(seedPath);
-        Dictionary<string, List<StatedRuleCandidate>>? seeds = JsonSerializer.Deserialize<Dictionary<string, List<StatedRuleCandidate>>>(
-            json,
-            new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                PropertyNameCaseInsensitive = true,
-            });
+        =>
+        [
+            Rule("land_count", "gte", 37),
+            Rule("ramp", "gte", 10),
+            // Why 15: ConflictCalculator tolerates a 10% gap, so the floor must sit well above the measured 11.1.
+            Rule("draw", "gte", 15),
+            Rule("board-wipe", "lte", 2),
+            Rule("counter", "gte", condition: "archetype:control"),
+            Rule("tutor", "gte", condition: "bracket:2"),
+            Rule("land_count", "gte", condition: "curve:low-aggressive-mulligan"),
+            Rule("interaction", "gte", condition: "archetype:proactive"),
+            Rule("opener_probability", "gte"),
+            Rule("removal", "gte"),
+        ];
 
-        Assert.NotNull(seeds);
-        return Assert.IsType<List<StatedRuleCandidate>>(seeds["salubrioussnail"]);
-    }
-
-    private static string FindSolutionRoot()
-    {
-        DirectoryInfo? directory = new(AppContext.BaseDirectory);
-
-        while (directory is not null)
+    private static StatedRuleCandidate Rule(string metric, string comparator, double? value = null, string? condition = null)
+        => new()
         {
-            if (File.Exists(Path.Combine(directory.FullName, "DeckFlow.sln")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate the DeckFlow.sln solution root from the test base directory.");
-    }
+            Category = "synthetic-guidance",
+            Metric = metric,
+            Value = value,
+            Comparator = comparator,
+            Condition = condition,
+            SourceClip = "Invented test guidance.",
+            Provenance = "hand-authored",
+            Confidence = 0.9,
+            VideoDateUtc = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+        };
 }
