@@ -290,6 +290,7 @@
     right: 1rem;
     color: var(--accent-strong, var(--accent));
     content: "›";
+    content: "›" / "";
     font-size: var(--fs-xl);
     line-height: 1;
     transform: translateY(-50%);
@@ -319,6 +320,7 @@
     right: 1rem;
     color: var(--accent-strong, var(--accent));
     content: "›";
+    content: "›" / "";
     font-size: var(--fs-xl);
     line-height: 1;
     transform: translateY(-50%);
