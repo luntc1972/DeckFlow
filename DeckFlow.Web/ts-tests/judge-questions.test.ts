@@ -47,11 +47,13 @@ describe('Judge questions intake', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ verifiedText: 'Oracle text' }) }));
     document.querySelector<HTMLInputElement>('[data-judge-card-input]')!.value = 'Sol Ring';
     document.querySelector<HTMLTextAreaElement>('[data-judge-question-input]')!.value = QUESTION;
+    document.querySelector<HTMLButtonElement>('[data-judge-generate]')!.focus();
 
     document.querySelector<HTMLButtonElement>('[data-judge-generate]')!.click();
     await vi.waitFor(() => expect(document.querySelector<HTMLDetailsElement>('.cutlab-intake')!.open).toBe(false));
 
     expect(document.querySelector<HTMLElement>('.cutlab-intake-summary__commander')!.textContent).toBe(`${QUESTION.slice(0, 40)}...`);
+    expect(document.activeElement).toBe(document.querySelector<HTMLElement>('[data-judge-result]'));
   });
 
   it('reopens the intake and resets its summary when cleared after a successful generate', async () => {

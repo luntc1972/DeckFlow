@@ -47,21 +47,28 @@ const fetchCardDetails = async (cardName: string): Promise<string> => {
   return payload?.verifiedText ?? '';
 };
 
-const setJudgeIntakeState = (open: boolean, questionPreview?: string): void => {
+const setJudgeIntakeState = (open: boolean, questionPreview?: string, intakeHadFocus?: boolean): void => {
   const intake = document.querySelector<HTMLDetailsElement>('details.cutlab-intake');
   if (!intake) {
     return;
   }
 
+  const focusWasInsideIntake = intakeHadFocus ?? (document.activeElement !== null && intake.contains(document.activeElement));
   intake.open = open;
   const summary = intake.querySelector<HTMLElement>('.cutlab-intake-summary__commander');
-  if (!summary) {
-    return;
+  if (summary) {
+    summary.textContent = !open && questionPreview
+      ? questionPreview.length > 40 ? `${questionPreview.slice(0, 40)}...` : questionPreview
+      : 'Ask a question';
   }
 
-  summary.textContent = !open && questionPreview
-    ? questionPreview.length > 40 ? `${questionPreview.slice(0, 40)}...` : questionPreview
-    : 'Ask a question';
+  if (!open && focusWasInsideIntake) {
+    const result = document.querySelector<HTMLElement>('[data-judge-result]');
+    if (result && !result.classList.contains('hidden')) {
+      result.tabIndex = -1;
+      result.focus({ preventScroll: true });
+    }
+  }
 };
 
 const initializeJudgeQuestions = (): void => {
@@ -103,6 +110,8 @@ const initializeJudgeQuestions = (): void => {
   };
 
   generateButton.addEventListener('click', async () => {
+    const intake = document.querySelector<HTMLDetailsElement>('details.cutlab-intake');
+    const intakeHadFocus = intake !== null && document.activeElement !== null && intake.contains(document.activeElement);
     const question = questionInput.value.trim();
     const cardName = cardInput.value.trim();
     if (!question) {
@@ -124,7 +133,7 @@ const initializeJudgeQuestions = (): void => {
       }
 
       showPrompt(buildJudgePrompt(question, cardName, cardDetails));
-      setJudgeIntakeState(false, question);
+      setJudgeIntakeState(false, question, intakeHadFocus);
     } finally {
       generateButton.disabled = false;
     }
