@@ -6,6 +6,18 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.09.5 — Mobile UI Redesign (2026-09-20)
+
+Every tool page now has paired desktop and mobile layouts:
+- **Tool directory:** Home, Help, and Feedback received redesigned desktop and mobile treatments.
+- **Deck workflows:** Card Lookup, Convert Deck, Deck Sync, and Primer received responsive workspace layouts.
+- **Analysis tools:** Manabase, Cut Lab, Bracket, cEDH Meta Gap, and Deck Analysis received responsive redesigns; Deck Analysis adds a step progress rail on narrow screens.
+- **Responsive policy:** workspace desktop layout starts at **1024px**; shared mobile chrome applies through **900px**, with **≤600px** small-phone tuning and page-local breakpoints retained where content requires them.
+- **Touch and overflow:** interactive targets are at least **44px**, and 12 key routes fit at **320px** without horizontal scrolling.
+- **Interaction details:** focus returns after the intake panel collapses, and motion honors `prefers-reduced-motion`.
+- **Accessibility:** decorative chevrons are hidden from assistive technology.
+- **Scope:** no feature flags or data changes.
+
 ### 2026.09.4 — Real Seeded Creator Style Profile (2026-09-13)
 
 `/Admin/CreatorStyle` renders a real critique for the first time, replacing the empty-seed-store

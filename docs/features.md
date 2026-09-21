@@ -3,6 +3,7 @@
 DeckFlow feature highlights.
 
 ## Highlights
+- **Responsive UI redesign:** every tool page now has paired desktop and mobile layouts, with 44px-or-larger touch targets and 320px overflow coverage across 12 key routes; Deck Analysis adds a narrow-screen step progress rail, focus is restored after intake collapse, motion honors `prefers-reduced-motion`, and decorative chevrons are hidden from assistive technology.
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
 - `DeckFlow.Core.Loading` centralizes deck input loading and Commander deck-size validation so the web app and CLI share the same parsing/import rules.
 - `DeckFlow.Web` provides an ASP.NET Core MVC UI for running syncs, AI prompt building, deck-primer generation, cEDH meta-gap analysis, deck comparison prompt building, card lookup, commander category browsing, and category suggestions.
