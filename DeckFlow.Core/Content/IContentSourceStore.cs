@@ -61,4 +61,8 @@ public interface IContentSourceStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Enabled sources ordered by slug.</returns>
     Task<IReadOnlyList<ContentSource>> ListEnabledSourcesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Lists every content source for creator identity resolution.</summary>
+    Task<IReadOnlyList<ContentSource>> ListSourcesAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This content source store does not support listing all sources.");
 }

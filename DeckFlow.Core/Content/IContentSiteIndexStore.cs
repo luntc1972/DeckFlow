@@ -7,6 +7,9 @@ namespace DeckFlow.Core.Content;
 /// </summary>
 public interface IContentSiteIndexStore
 {
+    /// <summary>Lists source names and artifact paths used to resolve creator identities.</summary>
+    Task<IReadOnlyList<ContentCreatorIdentityRow>> ListCreatorIdentityRowsAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This site-index store does not support creator identity rows.");
     /// <summary>
     /// Ensures the content site-index schema exists.
     /// </summary>

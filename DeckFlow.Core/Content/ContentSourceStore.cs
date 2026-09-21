@@ -150,6 +150,15 @@ public sealed class ContentSourceStore : IContentSourceStore
         return sources.ToList();
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ContentSource>> ListSourcesAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var sources = await connection.QueryAsync<ContentSource>(new CommandDefinition("SELECT id, source_slug, display_name, source_type, source_url, is_enabled, created_utc FROM content_sources ORDER BY source_slug;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return sources.ToList();
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 

@@ -184,6 +184,16 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     }
 
     /// <inheritdoc />
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ContentCreatorIdentityRow>> ListCreatorIdentityRowsAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await connection.QueryAsync<ContentCreatorIdentityRow>(new CommandDefinition("SELECT source, artifact_path AS ArtifactPath FROM content_site_index;", cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.ToList();
+    }
+
+    /// <inheritdoc />
     public async Task UpsertRowAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default)
     {
         ValidateRowForUpsert(row);
