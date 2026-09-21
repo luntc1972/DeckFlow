@@ -17,6 +17,7 @@ internal static class DistillationValidation
     internal const int TagsMaxOutputTokens = 200;
     internal const int CombinedMaxOutputTokens = SummaryMaxOutputTokens + ClipsMaxOutputTokens + TagsMaxOutputTokens;
     internal const int SummaryMaxWords = 200;
+    internal const int MaxQuotedWordsPerExcerpt = 25;
     internal const int MinClipCount = 3;
     internal const int MaxClipCount = 8;
     internal const int MaxStatedRulesPerVideo = 40;
@@ -58,6 +59,11 @@ internal static class DistillationValidation
         if (clips.All(clip => (clip.TimestampSeconds ?? 0) == 0))
         {
             throw new InvalidOperationException("Clip extraction cannot return every clip with timestamp 0.");
+        }
+
+        if (clips.Any(clip => QuotedWordCount(clip.Excerpt) > MaxQuotedWordsPerExcerpt))
+        {
+            throw new InvalidOperationException($"Clip excerpts cannot exceed {MaxQuotedWordsPerExcerpt} quoted words.");
         }
     }
 
@@ -199,6 +205,137 @@ internal static class DistillationValidation
 
     internal static int CountWords(string text)
         => GetWords(text).Length;
+
+    /// <summary>
+    /// Counts whitespace-delimited words in outermost quoted spans.
+    /// </summary>
+    public static int QuotedWordCount(string excerpt)
+    {
+        var normalized = NormalizeExcerptWhitespace(excerpt);
+        var stack = new Stack<char>();
+        var spans = new List<string>();
+        var begin = 0;
+
+        for (var i = 0; i < normalized.Length; i++)
+        {
+            var character = normalized[i];
+            var previous = i > 0 ? normalized[i - 1] : ' ';
+            var next = i + 1 < normalized.Length ? normalized[i + 1] : ' ';
+            char kind = '\0';
+            var isOpen = false;
+            var isClose = false;
+
+            if (character == '“')
+            {
+                kind = 'd';
+                isOpen = true;
+            }
+            else if (character == '”')
+            {
+                kind = 'd';
+                isClose = true;
+            }
+            else if (character == '‘')
+            {
+                kind = 's';
+                isOpen = true;
+            }
+            else if (character == '’' && stack.Count > 0 && !IsWord(next))
+            {
+                kind = 's';
+                isClose = true;
+            }
+            else if (character == '"')
+            {
+                kind = 'd';
+                if (char.IsWhiteSpace(previous) || "([{—-".Contains(previous) || i == 0)
+                {
+                    isOpen = !char.IsWhiteSpace(next) || !(stack.Count > 0 && stack.Peek() == 'd');
+                    isClose = !isOpen;
+                }
+                else
+                {
+                    isClose = stack.Contains('d');
+                    isOpen = !isClose;
+                }
+            }
+            else if (character == '\'')
+            {
+                kind = 's';
+                if ((IsWord(previous) && IsWord(next)) || IsElision(normalized, i + 1))
+                {
+                    kind = '\0';
+                }
+                else if ((char.IsWhiteSpace(previous) || "([{—-".Contains(previous) || i == 0) && !char.IsWhiteSpace(next))
+                {
+                    isOpen = HasLaterSingleCloser(normalized, i);
+                }
+                else if (!char.IsWhiteSpace(previous) && !IsWord(next))
+                {
+                    isClose = stack.Contains('s');
+                }
+                else
+                {
+                    kind = '\0';
+                }
+            }
+
+            if (kind == '\0' || (!isOpen && !isClose))
+            {
+                continue;
+            }
+            if (isOpen)
+            {
+                if (stack.Count == 0)
+                {
+                    begin = i + 1;
+                }
+                stack.Push(kind);
+            }
+            else if (stack.Contains(kind))
+            {
+                while (stack.Count > 0 && stack.Pop() != kind)
+                {
+                }
+
+                if (stack.Count == 0)
+                {
+                    spans.Add(normalized[begin..i]);
+                }
+            }
+        }
+
+        if (stack.Count > 0)
+        {
+            spans.Add(normalized[begin..]);
+        }
+        return spans.Where(span => span.Length >= 8).Sum(CountWords);
+    }
+
+    internal static string NormalizeExcerptWhitespace(string excerpt)
+        => string.Join(' ', (excerpt ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static bool HasLaterSingleCloser(string text, int index)
+    {
+        for (var i = index + 1; i < text.Length; i++)
+        {
+            if ((text[i] == '\'' || text[i] == '’') && !char.IsWhiteSpace(text[i - 1]) && !IsWord(i + 1 < text.Length ? text[i + 1] : ' '))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsElision(string text, int start)
+    {
+        var remainder = text[start..];
+        return System.Text.RegularExpressions.Regex.IsMatch(remainder, "^(?:\\d{2}s?|til|tis|twas|em)\\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
+    private static bool IsWord(char character)
+        => char.IsLetterOrDigit(character) || character == '_';
 
     internal static decimal ComputeProjectedVideoCostUsd(string transcript)
         => LlmSpendLedger.ComputeCostUsd(

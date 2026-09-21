@@ -64,6 +64,18 @@ public sealed class ContentArtifactWriterTests : IDisposable
         Assert.False(Path.IsPathRooted(relativePath));
     }
 
+    [Fact]
+    public void ToText_ClipExcerptContainsNewlines_WritesSingleClipLine()
+    {
+        var text = ContentArtifactWriter.ToText(
+            CreateMetadata(),
+            "summary",
+            [(12, "First line\nsecond line\tthird line")]);
+
+        Assert.Contains("- **[00:12]** First line second line third line", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\nsecond line", text, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("../secret", "abc123")]
     [InlineData("/rooted", "abc123")]

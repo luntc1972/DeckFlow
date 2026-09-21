@@ -1,0 +1,77 @@
+[
+  {
+    "name": "at-cap double straight",
+    "text": "He said \"w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24\" and left",
+    "quotedWords": 25
+  },
+  {
+    "name": "one over straight",
+    "text": "He said \"w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25\" and left",
+    "quotedWords": 26
+  },
+  {
+    "name": "curly double",
+    "text": "He said “w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25” and left",
+    "quotedWords": 26
+  },
+  {
+    "name": "straight single pair",
+    "text": "He said 'w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24' and left",
+    "quotedWords": 25
+  },
+  {
+    "name": "curly single pair",
+    "text": "He said ‘w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25’ and left",
+    "quotedWords": 26
+  },
+  {
+    "name": "internal straight quote inside straight span",
+    "text": "Then \"one two three four five six seven eight nine ten eleven twelve thirteen \"fourteen fifteen\" sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six\" ended",
+    "quotedWords": 26
+  },
+  {
+    "name": "internal single inside curly double",
+    "text": "Then “one two three four five six seven eight nine ten eleven twelve 'thirteen fourteen' fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six” ended",
+    "quotedWords": 26
+  },
+  {
+    "name": "apostrophes only",
+    "text": "It's the player's deck and they don't mind, it's fine, that's all we've got here",
+    "quotedWords": 0
+  },
+  {
+    "name": "punctuation adjacent",
+    "text": "He said \"hold up, wait... really?\" then stopped",
+    "quotedWords": 4
+  },
+  {
+    "name": "short span ignored",
+    "text": "He said \"go on\" then",
+    "quotedWords": 0
+  },
+  {
+    "name": "two spans total",
+    "text": "A \"one two three four five six seven eight nine ten\" and B \"eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty\" end",
+    "quotedWords": 20
+  },
+  {
+    "name": "embedded newline",
+    "text": "He said \"one two three four five six seven eight nine ten\neleven twelve\" ended",
+    "quotedWords": 12
+  },
+  {
+    "name": "leading apostrophe year not a quote",
+    "text": "the '90s deck is fine and the cards are cheap",
+    "quotedWords": 0
+  },
+  {
+    "name": "unclosed double runs to end",
+    "text": "He said \"one two three four five six seven",
+    "quotedWords": 7
+  },
+  {
+    "name": "decade-apostrophe-then-single-quote-pair",
+    "text": "back in the '90s people said 'this is a long enough span' fine, the player's turn",
+    "quotedWords": 6
+  }
+]

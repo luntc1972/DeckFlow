@@ -74,4 +74,24 @@ public sealed class DistillationValidationTests
         Assert.Equal(200, DistillationValidation.CountWords(truncated));
         Assert.DoesNotContain("word201", truncated, StringComparison.Ordinal);
     }
+    [Theory]
+    [InlineData("He said \"one two three four five six seven eight\" then", 8)]
+    [InlineData("The player's deck is ready", 0)]
+    [InlineData("He said ‘one two three four five six seven eight’ then", 8)]
+    [InlineData("He said \"go on\" then", 0)]
+    [InlineData("He said \"one two three four five six seven", 7)]
+    [InlineData("He said \"one two three four\nfive six seven eight\" then", 8)]
+    public void QuotedWordCount_QuoteScenarios_ReturnsExpectedCount(string excerpt, int expected)
+    {
+        Assert.Equal(expected, DistillationValidation.QuotedWordCount(excerpt));
+    }
+
+    [Fact]
+    public void ValidateClips_QuoteOverCap_Throws()
+    {
+        var excerpt = "He said \"" + string.Join(' ', Enumerable.Range(0, 26).Select(index => "w" + index)) + "\" then";
+
+        Assert.Throws<InvalidOperationException>(() => DistillationValidation.ValidateClips(
+            [new ClipItem(1, excerpt), new ClipItem(2, "two"), new ClipItem(3, "three")]));
+    }
 }

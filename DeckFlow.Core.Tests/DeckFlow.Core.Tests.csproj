@@ -30,6 +30,10 @@
       <TargetPath>Fixtures/salubrious-snail-transcript.txt</TargetPath>
     </None>
     <Content Include="Fixtures\cedh-drift\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="TestData\quote-cap-fixtures.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>TestData/quote-cap-fixtures.json</TargetPath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

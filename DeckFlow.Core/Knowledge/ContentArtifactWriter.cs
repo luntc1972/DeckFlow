@@ -77,17 +77,18 @@ public static class ContentArtifactWriter
         foreach (var clip in clips)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(clip.Excerpt);
+            var excerpt = DistillationValidation.NormalizeExcerptWhitespace(clip.Excerpt);
             if (clip.TimestampSeconds is { } timestampSeconds)
             {
                 ArgumentOutOfRangeException.ThrowIfNegative(timestampSeconds);
                 builder.Append("- **[")
                     .Append(FormatClipTimestamp(timestampSeconds))
                     .Append("]** ")
-                    .AppendLine(clip.Excerpt);
+                    .AppendLine(excerpt);
             }
             else
             {
-                builder.Append("- ").AppendLine(clip.Excerpt);
+                builder.Append("- ").AppendLine(excerpt);
             }
         }
 
