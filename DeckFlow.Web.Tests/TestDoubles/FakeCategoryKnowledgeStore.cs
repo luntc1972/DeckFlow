@@ -40,6 +40,10 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int GetDistinctProcessedCommanderCountCalls { get; private set; }
 
+    public int UnprocessedCount { get; set; }
+
+    public int GetUnprocessedCountCalls { get; private set; }
+
     public IReadOnlyList<CategoryKnowledgeRow> CategoryRowsResult { get; set; } = Array.Empty<CategoryKnowledgeRow>();
 
     public List<CategoryDeckMembership> Memberships { get; } = new();
@@ -154,6 +158,12 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(0);
 
+    public Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
+    {
+        GetUnprocessedCountCalls++;
+        return Task.FromResult(UnprocessedCount);
+    }
+
     public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         LastPagedCommanderPage = page;
@@ -167,7 +177,7 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(DistinctProcessedCommanderCount);
     }
 
-    public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+    public Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<long?>(null);
 
     public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)

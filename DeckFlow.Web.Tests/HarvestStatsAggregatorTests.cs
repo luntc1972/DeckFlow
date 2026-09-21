@@ -29,13 +29,27 @@ public sealed class HarvestStatsAggregatorTests
         runStore.Release();
         var payload = await statsTask;
 
-        Assert.Equal(6, startedBeforeRelease);
+        Assert.Equal(8, startedBeforeRelease);
         Assert.Equal(42, payload.TotalDecks);
         Assert.Equal(7, payload.TotalDecks30d);
         Assert.Equal(99, payload.TotalObservations);
-        Assert.Equal(4096L, payload.PostgresStorageBytes);
+        Assert.Equal(4096L, payload.DatabaseSizeBytes);
         Assert.Equal(runStore.LastSuccessUtc, payload.LastSuccessUtc);
         Assert.Equal(runStore.LastSuccessUtc + TimeSpan.FromHours(4), payload.NextScheduledUtc);
+    }
+
+    [Fact]
+    public async Task GetAsync_TransfersQueuedDeckCountFromStore()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var runStore = new BlockingHarvestRunStore();
+        var aggregator = CreateAggregator(runStore, new ImmediateCategoryKnowledgeStore(), cache);
+
+        var payloadTask = aggregator.GetAsync();
+        runStore.Release();
+        var payload = await payloadTask;
+
+        Assert.Equal(12, payload.QueuedDeckCount);
     }
 
     private static HarvestStatsAggregator CreateAggregator(
@@ -100,13 +114,16 @@ public sealed class HarvestStatsAggregatorTests
         public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
             => BlockAsync(99);
 
+        public Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
+            => BlockAsync(12);
+
         public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<HarvestedCommanderRow>>(Array.Empty<HarvestedCommanderRow>());
 
         public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(0);
+            => BlockAsync(3);
 
-        public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+        public Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
             => BlockAsync<long?>(4096L);
 
         public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
@@ -164,13 +181,16 @@ public sealed class HarvestStatsAggregatorTests
         public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(99);
 
+        public Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(12);
+
         public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<HarvestedCommanderRow>>(Array.Empty<HarvestedCommanderRow>());
 
         public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0);
 
-        public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+        public Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<long?>(4096L);
 
         public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)

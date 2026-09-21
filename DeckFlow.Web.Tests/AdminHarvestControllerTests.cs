@@ -224,6 +224,26 @@ public sealed class AdminHarvestControllerTests
         };
     }
 
+    [Fact]
+    public async Task HarvestHealthStrip_RendersValuesAndUnknownDatabaseSize()
+    {
+        var known = new HarvestStatsPayload(1234, 0, 56, 78, 0, Array.Empty<HarvestRunRow>(), 2048, null, null);
+        var unknown = known with { DatabaseSizeBytes = null };
+
+        var knownHtml = await RenderPartialViewAsync("_HarvestHealthStrip", known);
+        var unknownHtml = await RenderPartialViewAsync("_HarvestHealthStrip", unknown);
+
+        Assert.Contains("health-processed-decks", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("1,234", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("health-queued-decks", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("56", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("health-distinct-commanders", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("78", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("health-database-size", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("2 KB", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("&#x2014;", unknownHtml, StringComparison.Ordinal);
+    }
+
     private static async Task<string> RenderPartialViewAsync(string viewName, object model)
     {
         var services = new ServiceCollection();
@@ -352,6 +372,8 @@ public sealed class AdminHarvestControllerTests
     {
         public Task<HarvestStatsPayload> GetAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(new HarvestStatsPayload(
+                0,
+                0,
                 0,
                 0,
                 0,

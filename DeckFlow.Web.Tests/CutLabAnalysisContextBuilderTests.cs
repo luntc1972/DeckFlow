@@ -1286,13 +1286,16 @@ public sealed class CutLabAnalysisContextBuilderTests
         public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+        public Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)

@@ -4,20 +4,6 @@
     ViewData["Title"] = "Harvest";
     var activeState = Model.ActiveRun?.State.ToString() ?? "Idle";
 
-    static string FormatBytes(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
-        double value = bytes;
-        var unitIndex = 0;
-        while (value >= 1024 && unitIndex < units.Length - 1)
-        {
-            value /= 1024;
-            unitIndex++;
-        }
-
-        return $"{value:0.##} {units[unitIndex]}";
-    }
-
     static string GetRunStateBadgeClass(HarvestRunState state) => state switch
     {
         HarvestRunState.Succeeded => "badge text-bg-success",
@@ -45,6 +31,14 @@
 </div>
 
 <section id="harvest-panel-overview" role="tabpanel" data-harvest-panel="overview" aria-labelledby="harvest-tab-overview">
+@if (Model.Stats is not null)
+{
+    <partial name="_HarvestHealthStrip" model="Model.Stats" />
+}
+else
+{
+    <p class="admin-harvest__health-unavailable">Stats unavailable.</p>
+}
 <section class="admin-harvest__panel">
     <h2>Run Now</h2>
     <form method="post" asp-action="RunNow" class="admin-action-form">
@@ -123,15 +117,10 @@
 
 <section class="admin-harvest__panel">
     <h2>Stats</h2>
-    @if (Model.Stats is null)
+    @if (Model.Stats is not null)
     {
-        <p>Stats unavailable.</p>
-    }
-    else
-    {
-        <p>Total decks: @Model.Stats.TotalDecks (@Model.Stats.TotalDecks30d in last 30 days)</p>
+        <p>Decks processed in last 30 days: @Model.Stats.TotalDecks30d</p>
         <p>Total observations: @Model.Stats.TotalObservations</p>
-        <p>Storage size: @(Model.Stats.PostgresStorageBytes is long b ? FormatBytes(b) : "N/A")</p>
         <p>Last successful run: @(Model.Stats.LastSuccessUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</p>
         <p>Next scheduled run: @(Model.Stats.NextScheduledUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Off")</p>
         <p>Decks Processed counts written decks (added + updated); unchanged cache hits are skipped to reduce write churn.</p>

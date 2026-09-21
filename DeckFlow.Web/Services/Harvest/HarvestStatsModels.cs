@@ -13,8 +13,10 @@ public sealed record HarvestedCommanderRow(string CommanderName, int DeckCount, 
 public sealed record HarvestStatsPayload(
     int TotalDecks,
     int TotalDecks30d,
+    int QueuedDeckCount,
+    int DistinctCommanderCount,
     int TotalObservations,
     IReadOnlyList<HarvestRunRow> RecentRuns,
-    long? PostgresStorageBytes,
+    long? DatabaseSizeBytes,
     DateTimeOffset? LastSuccessUtc,
     DateTimeOffset? NextScheduledUtc);

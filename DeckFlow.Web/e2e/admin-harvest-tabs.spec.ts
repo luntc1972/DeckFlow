@@ -42,3 +42,22 @@ test('admin harvest lazily loads commanders once after tab activation', async ({
   await expect(page.locator('#harvest-tab-commanders')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#harvest-panel-overview')).toBeHidden();
 });
+
+test('admin harvest health strip fits its viewport', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  const strip = page.locator('div.admin-harvest__health');
+  await expect(strip).toBeVisible();
+  for (const id of ['health-processed-decks', 'health-queued-decks', 'health-distinct-commanders', 'health-database-size']) {
+    await expect(page.locator(`#${id}`)).toBeVisible();
+  }
+  expect(await strip.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBeTruthy();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+  const stripBox = await strip.boundingBox();
+  expect(stripBox).not.toBeNull();
+  for (const tile of await strip.locator('.admin-harvest__health-tile').all()) {
+    const tileBox = await tile.boundingBox();
+    expect(tileBox).not.toBeNull();
+    expect(tileBox!.x + tileBox!.width).toBeLessThanOrEqual(stripBox!.x + stripBox!.width + 1);
+  }
+});

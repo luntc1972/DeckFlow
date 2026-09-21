@@ -97,6 +97,10 @@ public interface ICategoryKnowledgeStore
     /// </summary>
     Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default);
     /// <summary>
+    /// Returns the number of queued decks not yet processed and not skipped.
+    /// </summary>
+    Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default);
+    /// <summary>
     /// Returns one page of processed harvested commander aggregates for the admin grid.
     /// </summary>
     /// <param name="page">One-based page number.</param>
@@ -109,10 +113,10 @@ public interface ICategoryKnowledgeStore
     /// </summary>
     Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default);
     /// <summary>
-    /// Returns the current Postgres database size when the store is backed by Postgres.
+    /// Returns the database size in bytes for the configured provider, or null when it cannot be determined.
     /// </summary>
-    /// <returns>The database size in bytes, or null when the active provider is not Postgres.</returns>
-    Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default);
+    /// <returns>The database size in bytes, or null when the size cannot be determined.</returns>
+    Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default);
     /// <summary>
     /// Returns deck-level totals for a card, optionally narrowed to one board.
     /// </summary>

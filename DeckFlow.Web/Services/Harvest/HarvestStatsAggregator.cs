@@ -72,23 +72,29 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         var totalDecks30dTask = _categoryStore.GetTotalProcessedDeckCountSinceAsync(
             DateTime.UtcNow.AddDays(-30),
             cancellationToken);
+        var queuedDeckCountTask = _categoryStore.GetUnprocessedCountAsync(cancellationToken);
+        var distinctCommanderCountTask = _categoryStore.GetDistinctProcessedCommanderCountAsync(cancellationToken);
         var totalObservationsTask = _categoryStore.GetTotalObservationCountAsync(cancellationToken);
-        var postgresStorageBytesTask = _categoryStore.GetPostgresDatabaseSizeBytesAsync(cancellationToken);
+        var databaseSizeBytesTask = _categoryStore.GetDatabaseSizeBytesAsync(cancellationToken);
         var recentRunsTask = _runStore.GetRecentAsync(10, cancellationToken);
         var lastSuccessUtcTask = _runStore.GetLastSuccessUtcAsync(cancellationToken);
 
         await Task.WhenAll(
             totalDecksTask,
             totalDecks30dTask,
+            queuedDeckCountTask,
+            distinctCommanderCountTask,
             totalObservationsTask,
-            postgresStorageBytesTask,
+            databaseSizeBytesTask,
             recentRunsTask,
             lastSuccessUtcTask).ConfigureAwait(false);
 
         var totalDecks = await totalDecksTask.ConfigureAwait(false);
         var totalDecks30d = await totalDecks30dTask.ConfigureAwait(false);
+        var queuedDeckCount = await queuedDeckCountTask.ConfigureAwait(false);
+        var distinctCommanderCount = await distinctCommanderCountTask.ConfigureAwait(false);
         var totalObservations = await totalObservationsTask.ConfigureAwait(false);
-        var postgresStorageBytes = await postgresStorageBytesTask.ConfigureAwait(false);
+        var databaseSizeBytes = await databaseSizeBytesTask.ConfigureAwait(false);
         var recentRuns = await recentRunsTask.ConfigureAwait(false);
         var lastSuccessUtc = await lastSuccessUtcTask.ConfigureAwait(false);
         var scheduleSnapshot = _scheduleCache.Snapshot();
@@ -102,9 +108,11 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         return new HarvestStatsPayload(
             totalDecks,
             totalDecks30d,
+            queuedDeckCount,
+            distinctCommanderCount,
             totalObservations,
             recentRuns,
-            postgresStorageBytes,
+            databaseSizeBytes,
             lastSuccessUtc,
             nextScheduledUtc);
     }

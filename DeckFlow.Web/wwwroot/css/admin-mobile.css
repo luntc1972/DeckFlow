@@ -65,6 +65,10 @@
     padding: 12px;
   }
 
+  .admin-shell .admin-harvest__health {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-shell .admin-harvest__tabs {
     flex-wrap: wrap;
   }

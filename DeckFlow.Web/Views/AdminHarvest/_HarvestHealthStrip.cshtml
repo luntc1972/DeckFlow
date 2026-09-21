@@ -1,0 +1,22 @@
+@model DeckFlow.Web.Services.Harvest.HarvestStatsPayload
+@{
+    static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        double value = bytes;
+        var unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return $"{value:0.##} {units[unitIndex]}";
+    }
+}
+<div class="admin-harvest__health">
+    <div class="admin-harvest__health-tile"><span>Processed decks</span><strong id="health-processed-decks">@Model.TotalDecks.ToString("N0")</strong></div>
+    <div class="admin-harvest__health-tile"><span>Queued</span><strong id="health-queued-decks">@Model.QueuedDeckCount.ToString("N0")</strong></div>
+    <div class="admin-harvest__health-tile"><span>Commanders</span><strong id="health-distinct-commanders">@Model.DistinctCommanderCount.ToString("N0")</strong></div>
+    <div class="admin-harvest__health-tile"><span>Database</span><strong id="health-database-size">@(Model.DatabaseSizeBytes is long bytes ? FormatBytes(bytes) : "—")</strong></div>
+</div>

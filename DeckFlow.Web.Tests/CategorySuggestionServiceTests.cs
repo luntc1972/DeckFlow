@@ -218,13 +218,16 @@ public sealed class CategorySuggestionServiceTests
         public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0);
 
+        public Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(0);
+
         public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<HarvestedCommanderRow>>(Array.Empty<HarvestedCommanderRow>());
 
         public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0);
 
-        public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+        public Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<long?>(null);
 
         public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)

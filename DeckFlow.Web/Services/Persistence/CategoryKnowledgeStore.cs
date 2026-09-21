@@ -29,6 +29,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private readonly ArchidektApiDeckImporter _archidektImporter;
     private readonly ArchidektRecentDecksImporter _recentDeckImporter;
     private readonly IMemoryCache _memoryCache;
+    private readonly ILogger<CategoryKnowledgeStore>? _logger;
     private volatile bool _schemaReady;
 
     /// <summary>
@@ -36,7 +37,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// </summary>
     /// <param name="environment">Web host environment for locating artifacts.</param>
     /// <param name="memoryCache">Application cache for expensive harvested-commander grid queries.</param>
-    /// <param name="logger">Optional logger forwarded to the category repository.</param>
+    /// <param name="logger">Optional logger forwarded to the category repository and retained for store diagnostics.</param>
     public CategoryKnowledgeStore(IWebHostEnvironment environment, IMemoryCache memoryCache, ILogger<CategoryKnowledgeStore>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(memoryCache);
@@ -50,6 +51,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         _archidektImporter = new ArchidektApiDeckImporter(logger: logger);
         _recentDeckImporter = new ArchidektRecentDecksImporter();
         _memoryCache = memoryCache;
+        _logger = logger;
     }
 
     private static string ResolveArtifactsPath(IWebHostEnvironment environment)
@@ -216,14 +218,31 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
-    public async Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+    public async Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        return await _repository.GetUnprocessedCountAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+    {
         if (!_connectionInfo.IsPostgres)
         {
-            return null;
+            try
+            {
+                var databasePath = _connectionInfo.ExtractSqlitePath();
+                var databaseFile = new FileInfo(databasePath);
+                return databaseFile.Exists ? databaseFile.Length : null;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                _logger?.LogDebug(exception, "Unable to determine SQLite database size.");
+                return null;
+            }
         }
 
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         var result = await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
             "SELECT pg_database_size(current_database())",
