@@ -31,7 +31,7 @@ namespace DeckFlow.Web.Tests;
 public sealed class MetaGapViewRenderTests
 {
     [Fact]
-    public async Task StepThreeIntake_IsOpenWithInputPromptBeforeAnalysis()
+    public async Task StepThreeIntake_RendersEmptyBeforeAnalysis()
     {
         var model = new MetaGapViewModel
         {
@@ -41,9 +41,9 @@ public sealed class MetaGapViewRenderTests
 
         string html = await RenderCedhMetaGapViewAsync(model);
 
-        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary open=\"open\">", html, StringComparison.Ordinal);
-        Assert.Contains("<span class=\"cutlab-intake-summary__commander\">Paste the returned meta-gap JSON</span>", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Change intake", html, StringComparison.Ordinal);
+        Assert.Contains("<div class=\"cutlab-intake cutlab-intake--empty\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("cutlab-intake-summary", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-intake-summary", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -52,8 +52,9 @@ public sealed class MetaGapViewRenderTests
         string html = await RenderCedhMetaGapViewAsync(CreatePopulatedStepThreeModel());
 
         Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<details class=\"cutlab-intake\" data-cut-lab-intake-summary open", html, StringComparison.Ordinal);
         Assert.Contains("<span class=\"cutlab-intake-summary__commander\">Meta gap analysis ready</span>", html, StringComparison.Ordinal);
-        Assert.Contains("<span class=\"cutlab-intake-summary__change\">Change intake</span>", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__change\">Edit</span>", html, StringComparison.Ordinal);
     }
 
     [Fact]

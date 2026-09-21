@@ -27,18 +27,8 @@
     <div class="warning-banner" role="status">@Model.NotFoundMessage</div>
 }
 
-<details class="cutlab-intake" data-cut-lab-intake-summary open="@(!hasResult ? "open" : null)">
-    <summary class="cutlab-intake-summary">
-        @if (hasResult)
-        {
-            <span class="cutlab-intake-summary__commander">@(string.IsNullOrWhiteSpace(Model.MechanicName) ? Model.Request.MechanicName : Model.MechanicName)</span>
-            <span class="cutlab-intake-summary__change">Change intake</span>
-        }
-        else
-        {
-            <span class="cutlab-intake-summary__commander">Look up a mechanic</span>
-        }
-    </summary>
+@using (Html.BeginIntakeCard(new IntakeCardOptions(hasResult, string.IsNullOrWhiteSpace(Model.MechanicName) ? Model.Request.MechanicName : Model.MechanicName)))
+{
 <form method="post" action="@Url.Content("~/mechanic-lookup")" class="deck-form" data-cache-key="mechanic-lookup" data-busy-title="Looking up mechanic rules" data-busy-message="Fetching the current official rules text from Wizards of the Coast.">
     @Html.AntiForgeryToken()
     <div class="field-grid">
@@ -52,7 +42,7 @@
         <button type="button" class="clear-cache-button" data-clear-cache data-clear-href="@Url.Content("~/mechanic-lookup")">Clear</button>
     </div>
 </form>
-</details>
+}
 
 <section id="mechanic-lookup-results" class="stack@(hasResult ? string.Empty : " hidden")">
     @if (!string.IsNullOrWhiteSpace(Model.SummaryText))

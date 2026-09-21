@@ -31,7 +31,7 @@ public sealed class CutLabDesktopLayoutCssTests
         string content = ReadCutLabView();
 
         Assert.Contains("<div class=\"cutlab-workspace\">", content, StringComparison.Ordinal);
-        Assert.Contains("data-cut-lab-intake-summary", content, StringComparison.Ordinal);
+        Assert.Contains("Html.BeginIntakeCard(new IntakeCardOptions(Model.HasResult, Model.IntakeSummaryText))", content, StringComparison.Ordinal);
         Assert.Contains("data-cut-lab-decide-action", content, StringComparison.Ordinal);
         Assert.Contains("id=\"cut-lab-step-panel-1\"", content, StringComparison.Ordinal);
     }
