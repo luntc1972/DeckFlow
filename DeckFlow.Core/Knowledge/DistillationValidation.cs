@@ -274,6 +274,10 @@ internal static class DistillationValidation
                 {
                     isClose = stack.Contains('s');
                 }
+                else if (char.IsPunctuation(previous) && !char.IsWhiteSpace(next))
+                {
+                    isOpen = HasLaterSingleCloser(normalized, i);
+                }
                 else
                 {
                     kind = '\0';

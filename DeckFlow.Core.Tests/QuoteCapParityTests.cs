@@ -38,6 +38,10 @@ public sealed class QuoteCapParityTests
     public void QuotedWordCount_UnclosedDouble_MatchesReference() => AssertFixture(13);
     [Fact]
     public void QuotedWordCount_DecadeThenSinglePair_MatchesReference() => AssertFixture(14);
+    [Fact]
+    public void QuotedWordCount_StraightSingleAfterColon_MatchesReference() => AssertFixture(15);
+    [Fact]
+    public void QuotedWordCount_SingleCloserAfterQuestionMark_MatchesReference() => AssertFixture(16);
 
     private static void AssertFixture(int index)
     {

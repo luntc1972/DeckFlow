@@ -73,5 +73,15 @@
     "name": "decade-apostrophe-then-single-quote-pair",
     "text": "back in the '90s people said 'this is a long enough span' fine, the player's turn",
     "quotedWords": 6
+  },
+  {
+    "name": "straight single after colon",
+    "text": "He said:'one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six'",
+    "quotedWords": 26
+  },
+  {
+    "name": "single closer after question mark",
+    "text": "You must ask 'why is this here?', and if there's no clear answer the card gets cut",
+    "quotedWords": 4
   }
 ]
