@@ -317,6 +317,9 @@ public sealed class HarvestStatsAggregatorTests
         public Task UpdateProgressAsync(Guid id, int decksProcessed, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
+        public Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<HarvestRunRow?>(null);
 
@@ -362,6 +365,9 @@ public sealed class HarvestStatsAggregatorTests
             => Task.CompletedTask;
 
         public Task UpdateProgressAsync(Guid id, int decksProcessed, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
         public Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)

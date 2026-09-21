@@ -492,6 +492,9 @@ public sealed class AdminHarvestControllerTests
         public Task UpdateProgressAsync(Guid id, int decksProcessed, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
+        public Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<HarvestRunRow?>(null);
 

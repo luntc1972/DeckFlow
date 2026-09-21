@@ -86,8 +86,7 @@ public interface IHarvestRunStore
     /// Records successful bulk-sweep totals. Unwritten values mean unknown, never zero, and are not comparable.
     /// Growth is novel enqueues minus drained IDs; requeue resets are deliberately excluded from enqueues.
     /// </summary>
-    Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
+    Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns the most recent non-terminal row (<c>state IN (Queued, Running, Stopping)</c>)

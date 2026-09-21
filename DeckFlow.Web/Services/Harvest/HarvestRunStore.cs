@@ -400,7 +400,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
             try
             {
                 await connection.ExecuteAsync(new CommandDefinition(
-                    $"ALTER TABLE harvest_runs ADD COLUMN {column} {type} NULL;",
+                    $"ALTER TABLE harvest_runs ADD COLUMN {(_connectionInfo.IsPostgres ? "IF NOT EXISTS " : string.Empty)}{column} {type} NULL;",
                     cancellationToken: cancellationToken)).ConfigureAwait(false);
             }
             catch (DbException exception) when (exception.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
