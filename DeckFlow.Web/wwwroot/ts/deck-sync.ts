@@ -1015,7 +1015,14 @@ const hydrateFormState = (form: HTMLFormElement): void => {
 
   try {
     const state = JSON.parse(json) as Record<string, string[]>;
+    const inputSource = form.querySelector<HTMLSelectElement>(
+      'select[name="DeckInputSource"], select[name="InputSource"]',
+    );
+    const previousInputSource = inputSource?.value;
     restoreFormFields(form, state);
+    if (inputSource && inputSource.value !== previousInputSource) {
+      inputSource.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     const savedAtRaw = storageAvailable.getItem(`${formStateStoragePrefix}${key}:savedAt`);
     const savedAtMs = savedAtRaw ? parseInt(savedAtRaw, 10) : NaN;
     if (Number.isFinite(savedAtMs)) {
@@ -2331,6 +2338,10 @@ const scrollToOnLoadTarget = (): void => {
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
       target.scrollIntoView({ behavior: 'auto', block: 'start' });
+      // Why: screen-reader users land on the result after a full-page POST; aria-live does not fire on page load.
+      if (target.getAttribute('tabindex') === '-1') {
+        target.focus({ preventScroll: true });
+      }
     });
   });
 };
