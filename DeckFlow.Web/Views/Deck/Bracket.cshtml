@@ -9,7 +9,6 @@
 @{
     ViewData["Title"] = "MTG Commander Bracket Checker";
     ViewData["Description"] = "Check a Commander deck against the official Magic: The Gathering bracket system and get a local classification, target-bracket gaps, and recommended cuts.";
-    var isUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
     var cl = Model.Classification;
 
     // Tiers: from the classification result or a static fallback so the pill picker always renders.
@@ -47,18 +46,8 @@
     @Model.ErrorMessage
 </div>
 
-<details class="cutlab-intake" data-cut-lab-intake-summary open="@(!Model.HasResult ? "open" : null)">
-    <summary class="cutlab-intake-summary">
-        @if (Model.HasResult)
-        {
-            <span class="cutlab-intake-summary__commander">@(string.IsNullOrWhiteSpace(Model.Request.DeckName) ? "Deck input" : Model.Request.DeckName)</span>
-            <span class="cutlab-intake-summary__change">Change intake</span>
-        }
-        else
-        {
-            <span class="cutlab-intake-summary__commander">Import a deck</span>
-        }
-    </summary>
+@using (Html.BeginIntakeCard(new IntakeCardOptions(Model.HasResult, Model.Request.DeckName)))
+{
 <form method="post" action="@Url.Content("~/bracket")" class="result-panel"
       data-cache-key="bracket"
       data-busy-title="Classifying deck"
@@ -66,26 +55,13 @@
       data-busy-progress="Loading the deck|Detecting Game Changers|Checking combos|Building the result">
     @Html.AntiForgeryToken()
 
-    <div class="field">
-        <label for="bracket-input-source">Input method</label>
-        <select id="bracket-input-source" name="DeckInputSource" data-df-select>
-            <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(isUrl ? "selected" : null)">Use public deck URL</option>
-            <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!isUrl ? "selected" : null)">Paste text</option>
-        </select>
-    </div>
-
-    <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="bracket-deck-url">
-        <label for="bracket-deck-url">Archidekt or Moxfield deck URL</label>
-        <input id="bracket-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
-               placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
-        @await Html.PartialAsync("_DeckFlowBridgeHint")
-    </div>
-
-    <div class="field @(isUrl ? "hidden" : string.Empty)" data-sync-panel="bracket-deck-text">
-        <label for="bracket-deck-text">Paste a decklist (one card per line)</label>
-        <textarea id="bracket-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
-                  placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
-    </div>
+    @await Html.PartialAsync("_DeckImportControl", new DeckImportControlModel(
+        IdPrefix: "bracket",
+        PanelKeyPrefix: "bracket",
+        TextLabel: "Paste a decklist (one card per line)",
+        DeckUrl: Model.Request.DeckUrl,
+        DeckText: Model.Request.DeckText,
+        Source: Model.Request.DeckInputSource))
 
     <div class="field">
         <label for="bracket-deck-name">Deck name (optional)</label>
@@ -115,11 +91,11 @@
         <a href="@Url.Content("~/bracket")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>
-</details>
+}
 
 @if (Model.HasResult && cl is not null)
 {
-    <section class="result-panel" data-scroll-on-load>
+    <section class="result-panel" id="results" tabindex="-1" aria-label="Results" data-scroll-on-load>
         @* Bracket badge — classified tier headline *@
         @{
             var badgeModifier = "bracket-badge--b" + cl.BracketNumber.ToString();

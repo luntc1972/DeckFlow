@@ -44,6 +44,23 @@ public sealed class BracketViewRenderTests
     }
 
     [Fact]
+    public async Task EmptyState_RendersExpandedIntakeWithDefaultPublicUrlImportControl()
+    {
+        string html = await RenderBracketViewAsync(new BracketViewModel());
+
+        Assert.Contains("<div class=\"cutlab-intake cutlab-intake--empty\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<div class=\"cutlab-intake cutlab-intake--empty\">\n    <summary", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Details<", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-intake-summary", html, StringComparison.Ordinal);
+        Assert.Contains("action=\"/bracket\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-cache-key=\"bracket\"", html, StringComparison.Ordinal);
+        Assert.Contains("<option value=\"PublicUrl\" selected=\"selected\">Use public deck URL</option>", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bracket-deck-url\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bracket-deck-text\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"bracket-deck-name\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task OnState_B4Classification_RendersBracketBadgeWithB4Modifier()
     {
         var classification = new BracketClassification(
@@ -70,6 +87,19 @@ public sealed class BracketViewRenderTests
         Assert.Contains("bracket-badge", html, StringComparison.Ordinal);
         Assert.Contains("bracket-badge--b4", html, StringComparison.Ordinal);
         Assert.Contains("THIS DECK CLASSIFIES AS", html, StringComparison.Ordinal);
+        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-intake-summary open", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__commander\">Deck input</span>", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__change\">Edit</span>", html, StringComparison.Ordinal);
+        Assert.Contains("<textarea id=\"bracket-deck-text\"", html, StringComparison.Ordinal);
+        Assert.Contains(">1 Sol Ring</textarea>", html, StringComparison.Ordinal);
+        Assert.Contains("<section class=\"result-panel\" id=\"results\" tabindex=\"-1\" aria-label=\"Results\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BracketRequest_DefaultInputSource_IsPublicUrl()
+    {
+        Assert.Equal(DeckInputSource.PublicUrl, new BracketRequest().DeckInputSource);
     }
 
     private static async Task<string> RenderBracketViewAsync(BracketViewModel model)
