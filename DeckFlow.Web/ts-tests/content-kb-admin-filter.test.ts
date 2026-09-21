@@ -7,12 +7,12 @@ const TABLE_HTML = `
   <input id="kb-filter-search" type="search" />
   <select id="kb-creator-filter">
     <option value="">All creators</option>
-    <option value="Salubrious Snail">Salubrious Snail</option>
+    <option value="Example Creator">Example Creator</option>
     <option value="Based Deck Department">Based Deck Department</option>
   </select>
   <p id="kb-filter-count"></p>
   <table id="kb-entries-table"><tbody>
-    <tr data-kb-search="alpha snail combo" data-kb-source="Salubrious Snail"><td>a</td></tr>
+    <tr data-kb-search="alpha snail combo" data-kb-source="Example Creator"><td>a</td></tr>
     <tr data-kb-search="beta based ramp" data-kb-source="Based Deck Department"><td>b</td></tr>
     <tr class="kb-filter__empty-row hidden" id="kb-filter-empty"><td>none</td></tr>
   </tbody></table>
@@ -56,19 +56,19 @@ describe('Admin Content KB filter persistence across tab reloads', () => {
   });
 
   it('restores the selections on load without clearing them, surviving repeated tab switches', () => {
-    window.sessionStorage.setItem(creatorKey, 'Salubrious Snail');
+    window.sessionStorage.setItem(creatorKey, 'Example Creator');
     window.sessionStorage.setItem(searchKey, 'combo');
 
     reload();
-    expect(document.querySelector<HTMLSelectElement>('#kb-creator-filter')!.value).toBe('Salubrious Snail');
+    expect(document.querySelector<HTMLSelectElement>('#kb-creator-filter')!.value).toBe('Example Creator');
     expect(document.querySelector<HTMLInputElement>('#kb-filter-search')!.value).toBe('combo');
 
     // Keys must NOT be cleared on restore — a second tab switch still applies them.
-    expect(window.sessionStorage.getItem(creatorKey)).toBe('Salubrious Snail');
+    expect(window.sessionStorage.getItem(creatorKey)).toBe('Example Creator');
     expect(window.sessionStorage.getItem(searchKey)).toBe('combo');
 
     reload();
-    expect(document.querySelector<HTMLSelectElement>('#kb-creator-filter')!.value).toBe('Salubrious Snail');
+    expect(document.querySelector<HTMLSelectElement>('#kb-creator-filter')!.value).toBe('Example Creator');
     expect(document.querySelector<HTMLInputElement>('#kb-filter-search')!.value).toBe('combo');
   });
 });

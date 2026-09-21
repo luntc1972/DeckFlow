@@ -1,16 +1,16 @@
-# P88 Feasibility — Archidekt Profile Crawl (Salubrious Snail)
+# P88 Feasibility — Archidekt Profile Crawl (the reference creator)
 
 *Recon for Cycle 16 P88 `CreatorProfileDeckCrawler`. Probed the live Archidekt public API 2026-07-04. No auth required.*
 
 ## Verdict: FEASIBLE ✅
 
-Archidekt exposes a public, unauthenticated JSON API that resolves a creator by username and enumerates their public decks with rich metadata. Salubrious Snail yields **39 crawlable Commander decks** — well above the ≥5 min-deck floor (CS-03) — enough for a real measured-style profile.
+Archidekt exposes a public, unauthenticated JSON API that resolves a creator by username and enumerates their public decks with rich metadata. The reference creator yields **39 crawlable Commander decks** — well above the ≥5 min-deck floor (CS-03) — enough for a real measured-style profile.
 
 ## Endpoint spec (for CS-04a crawler)
 
 1. **Resolve creator → canonical username + id:**
    `GET https://archidekt.com/api/users/?username=<query>`
-   → `{count, results:[{id, username, deckCount, ...}]}`. Salubrious Snail = `username=SalubriousSnail`, `id=59324`, `deckCount=167`.
+   → `{count, results:[{id, username, deckCount, ...}]}`. The reference creator = `id=59324`, `deckCount=167`.
 
 2. **Enumerate public decks (paginated):**
    `GET https://archidekt.com/api/decks/v3/?ownerUsername=<username>&pageSize=50&page=<n>`
@@ -25,7 +25,7 @@ Archidekt exposes a public, unauthenticated JSON API that resolves a creator by 
 ### deckFormat codes seen
 `3 = Commander/EDH`. Filter `deckFormat==3` for this app.
 
-## Salubrious Snail corpus (the P88 starter dataset)
+## The reference creator corpus (the P88 starter dataset)
 
 - **39 decks, 100% Commander/EDH**, all public.
 - Sizes: 37×100, 1×90, 1×101 (standard 100-card + occasional maybeboard).
@@ -39,7 +39,7 @@ Archidekt exposes a public, unauthenticated JSON API that resolves a creator by 
 
 ## Implications for P88 plan
 - Crawler = 2 API calls to list + N per-deck fetches (39 here). Cache the set (mirror `ArchidektDeckCacheSession`); rate-limit via existing Polly pipeline.
-- Style profile for Salubrious Snail will read as "broad midrange brewer, bracket 2-3, theme-driven" — good test case because it's NOT a narrow cEDH optimizer (stresses the say-vs-do fusion).
+- Style profile for the reference creator will read as "broad midrange brewer, bracket 2-3, theme-driven" — good test case because it's NOT a narrow cEDH optimizer (stresses the say-vs-do fusion).
 - Manual-URL fallback (CS-04a) is unnecessary for Archidekt; keep it only for creators without an Archidekt profile.
 
 ## Moxfield — equivalent endpoint CONFIRMED ✅ (with a caveat)
@@ -62,4 +62,4 @@ The crawler abstraction closes: Moxfield also exposes owner→deck-list, but via
 | privacy | private/unlisted not returned | filter on `visibility == public` |
 
 ## Starter recommendation
-Salubrious Snail is a solid **first creator** for P88/P92: 39 decks, one format, broad color coverage, distinct brewer voice, and 85 distilled KB video artifacts already on hand for the stated-rules half (P89). Both halves of the fused profile are sourceable today.
+The reference creator is a solid **first creator** for P88/P92: 39 decks, one format, broad color coverage, distinct brewer voice, and 85 distilled KB video artifacts already on hand for the stated-rules half (P89). Both halves of the fused profile are sourceable today.

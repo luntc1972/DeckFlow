@@ -105,10 +105,10 @@ public sealed class CreatorSourceStoreTests : IDisposable
     [Fact]
     public async Task AddAsync_StoresProvisionalSlug_NoLinkYet()
     {
-        await _store.AddAsync("Salubrious Snail", "https://youtube.com/@SalubriousSnail");
+        await _store.AddAsync("Example Creator", "https://youtube.com/@ExampleCreator");
 
         var creator = Assert.Single(await _store.ListAsync());
-        Assert.Equal("salubrious-snail", creator.SourceSlug);
+        Assert.Equal("example-creator", creator.SourceSlug);
         Assert.Null(creator.ContentSourceId);
     }
 

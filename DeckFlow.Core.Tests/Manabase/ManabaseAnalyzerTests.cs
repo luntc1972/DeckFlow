@@ -10,7 +10,7 @@ namespace DeckFlow.Core.Tests;
 /// <summary>
 /// Validates the §6 mana-base prototype: hypergeometric math, Karsten source/land
 /// targets, and the analyzer's verdict against the real "Buffs by Hans" (Xyris Temur)
-/// deck that was cross-checked live against the Salubrious Snail manabase tool.
+/// deck that was cross-checked live against an independent community manabase calculator.
 /// </summary>
 public sealed class ManabaseAnalyzerTests
 {

@@ -9,7 +9,7 @@ namespace DeckFlow.Core.Tests;
 /// <summary>
 /// Regression guard for the manabase over-optimism fix (debug session manabase-too-optimistic). The
 /// Avatar (Sokka/Aang Jeskai) deck was reported at 96% avg-on-curve — ~7 pts above the independent
-/// Salubrious Snail baseline (89.1%) — because the simulator deployed drawn ramp for FREE (no deploy
+/// An independent community mana calculator baseline (89.1%) — because the simulator deployed drawn ramp for FREE (no deploy
 /// friction), the grace window forgave a 1-2 drop up to three turns late, and four free-cast cards were
 /// analyzed at printed cost. After the deploy-friction ramp model + uniform-+1 grace + free-cost
 /// auto-apply, the honest headline is ~94% with WHITE the weakest color (matching Snail's call, which

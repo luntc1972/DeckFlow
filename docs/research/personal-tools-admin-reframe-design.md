@@ -135,9 +135,9 @@ wipes: agreement, not hypocrisy") is therefore reproducible with no distill tool
 ### Operator run (local, one time)
 
 ```
-1. /Admin/CreatorProfile → crawl SalubriousSnail (39 decks)  → measured profile
+1. /Admin/CreatorProfile → crawl the reference creator (39 decks)  → measured profile
 2. CLI creator-style-import-stated content-kb/seed/creator-stated-rules.json
-3. CLI fuse-profile salubrioussnail                          → FusedTarget[] + conflict ledger
+3. CLI fuse-profile the-reference-creator                   → FusedTarget[] + conflict ledger
 4. CLI creator-style-index-export                            → writes the two seed JSONs
 5. commit seeds → push → Render deploy → /Admin/CreatorStyle live
 ```

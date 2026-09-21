@@ -7,7 +7,7 @@
 DeckFlow already ships `CardCategoryRepository` over `artifacts/category-knowledge.db` (`card_category_observations`), harvested from the crawled deck corpus:
 - **322,677 observations · 21,405 distinct cards · crowd-labeled categories** (Removal 3910 cards, Draw 3389, Ramp 2298, Tutor 405, Counters 1420, …).
 
-Coverage against Salubrious Snail's **2,726 unique cards**:
+Coverage against the reference creator's **2,726 unique cards**:
 ```
 cards with >=1 harvested category: 2637 / 2726 = 97%
 harvested canonical coverage (distinct Snail cards tagged):

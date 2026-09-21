@@ -12,7 +12,7 @@ namespace DeckFlow.Web.Tests.Manabase;
 /// <summary>
 /// Manual harness (NOT a CI test): resolves the real Brago deck through Scryfall and runs the
 /// Core analyzer in all four mode/importance configs, dumping a markdown report to .planning so
-/// the numbers can be eyeballed and cross-checked against the Salubrious Snail calculator before
+/// the numbers can be eyeballed and cross-checked against an independent community manabase calculator before
 /// the Web UI (Wave 2) exists. Gated on env var DECKFLOW_MANABASE_HARNESS=1 so it never runs in CI.
 /// Run: DECKFLOW_MANABASE_HARNESS=1 dotnet test --filter BragoRealDeckHarness
 /// </summary>

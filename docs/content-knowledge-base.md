@@ -13,7 +13,7 @@ Local pipeline (run from the repo root):
 ```bash
 # 1. Register a source (YouTube channel or podcast RSS)
 dotnet run --project DeckFlow.CLI -- content-source-add \
-  --url https://www.youtube.com/@salubrioussnail --name "Salubrious Snail"
+  --url https://www.youtube.com/@referencecreator --name "the reference creator"
 
 # 2. Harvest transcripts (captions first; --enable-whisper opts into the Whisper audio fallback)
 dotnet run --project DeckFlow.CLI -- harvest --limit 5

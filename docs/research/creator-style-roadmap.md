@@ -153,7 +153,7 @@ Prompt-artifact first, deterministic C# rubric scoring, **no autonomous agent**.
 3. P93 pgvector package approval — deferred with P93.
 
 ## Still open
-- Which creators first? Salubrious Snail / RebellLily have most artifacts (85/149) — but P88 crawl needs their Archidekt/Moxfield profile URLs. Confirm a starter creator + profile URL at P87/P88 discuss.
+- Which creators first? The reference creator / RebellLily have most artifacts (85/149) — but P88 crawl needs their Archidekt/Moxfield profile URLs. Confirm a starter creator + profile URL at P87/P88 discuss.
 - Verify Archidekt & Moxfield expose a public profile→deck-list endpoint (crawler feasibility).
 
 ## Scope (locked): MVP = P87–P92
@@ -164,7 +164,7 @@ Prompt-artifact, $0 operator cost, the core value. Matches report's "workflow-fi
 ## Plan-review adjustments (Codex gpt-5.4-high + folder finding + P89 prototype, 2026-07-05)
 
 ### P88 folder segmentation (NEW — from live Archidekt data)
-Snail's 39 decks span 5 personal folders — **none patron** (all `owner=SalubriousSnail`, zero patron/review keywords; patron-reviewed decks live on patrons' accounts, not his): Current Decks (5), Secondary decks (5), Budget deck pool (10), Decks in consideration (7), Other (12). Pooling all 39 equally distorts the profile — Budget-pool skews cheap, In-consideration = WIP.
+The reference creator's 39 decks span 5 personal folders — **none patron** (all owned by the reference creator, zero patron/review keywords; patron-reviewed decks live on patrons' accounts, not his): Current Decks (5), Secondary decks (5), Budget deck pool (10), Decks in consideration (7), Other (12). Pooling all 39 equally distorts the profile — Budget-pool skews cheap, In-consideration = WIP.
 - **CS-04d (new):** capture `parentFolder` (id+name, in the Archidekt API) and **weight/segment the profile by folder** — down-weight Budget + In-consideration, prefer Current+Secondary as the canonical style. Improves on the prototype's equal-pool.
 
 ### P89 feasibility = YES (Fable prototype confirmed)

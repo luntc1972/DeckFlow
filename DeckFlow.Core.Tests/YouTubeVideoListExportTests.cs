@@ -17,11 +17,11 @@ public sealed class YouTubeVideoListExportTests
         };
 
         var text = YouTubeVideoListExport.BuildText(
-            "@salubrioussnail",
+            "@examplechannel",
             videos,
             new DateTimeOffset(2026, 6, 3, 12, 0, 0, TimeSpan.Zero));
 
-        Assert.Contains("Channel: @salubrioussnail", text, StringComparison.Ordinal);
+        Assert.Contains("Channel: @examplechannel", text, StringComparison.Ordinal);
         Assert.Contains("Captured: 2026-06-03. 2 most recent uploads", text, StringComparison.Ordinal);
         Assert.Contains("249,277", text, StringComparison.Ordinal);
         Assert.Contains("2025-12-16", text, StringComparison.Ordinal);

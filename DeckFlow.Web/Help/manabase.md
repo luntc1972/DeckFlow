@@ -185,6 +185,6 @@ The math tells you *what* is short, but not *which* lands to add for your specif
 ## Notes
 
 - The analyzer is tuned for Commander / cEDH singleton decks.
-- The land count uses Frank Karsten's published source-count work; the castability estimate is DeckFlow's own simulation, cross-checked against community calculators including [Salubrious Snail](https://www.salubrioussnail.com/manabase-tool).
+- The land count uses Frank Karsten's published source-count work; the castability estimate is DeckFlow's own simulation, cross-checked against community mana calculators.
 - The same scoring engine is available from the CLI as the `manabase` command (the castability + mode UI is web-only).
 - This tool can be turned off by an administrator; when it is, this help topic is hidden too.

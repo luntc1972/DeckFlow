@@ -9,7 +9,7 @@ namespace DeckFlow.Web.Tests.Manabase;
 /// re-derives per-source mana amount from oracle text (the cache predates the ManaAmount field),
 /// then runs the Core analyzer with the mana-quantity flag OFF and ON and dumps a per-card cast%
 /// diff plus the verdict delta to .planning so the flag default can be decided against the
-/// Salubrious Snail reference. Gated on DECKFLOW_MANABASE_HARNESS=1 so it never runs in CI.
+/// An independent community mana calculator reference. Gated on DECKFLOW_MANABASE_HARNESS=1 so it never runs in CI.
 /// Run: DECKFLOW_MANABASE_HARNESS=1 dotnet test --filter ManaQuantityBaselineHarness
 /// </summary>
 public sealed class ManaQuantityBaselineHarness

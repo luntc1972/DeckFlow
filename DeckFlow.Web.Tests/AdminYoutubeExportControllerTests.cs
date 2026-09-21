@@ -26,7 +26,7 @@ public sealed class AdminYoutubeExportControllerTests
         var lister = new FakeLister([]);
         var controller = Build(lister, crossOrigin: true);
 
-        var result = await controller.Export("@salubrioussnail", 10, default);
+        var result = await controller.Export("@examplechannel", 10, default);
 
         var status = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status403Forbidden, status.StatusCode);
@@ -57,13 +57,13 @@ public sealed class AdminYoutubeExportControllerTests
         ]);
         var controller = Build(lister, crossOrigin: false);
 
-        var result = await controller.Export("@salubrioussnail", 10, default);
+        var result = await controller.Export("@examplechannel", 10, default);
 
         var file = Assert.IsType<FileContentResult>(result);
         Assert.Equal("text/plain; charset=utf-8", file.ContentType);
-        Assert.Equal("salubrioussnail-videos.txt", file.FileDownloadName);
+        Assert.Equal("examplechannel-videos.txt", file.FileDownloadName);
         var text = Encoding.UTF8.GetString(file.FileContents);
-        Assert.Contains("Channel: @salubrioussnail", text, StringComparison.Ordinal);
+        Assert.Contains("Channel: @examplechannel", text, StringComparison.Ordinal);
         Assert.Contains("69,454", text, StringComparison.Ordinal);
         Assert.Contains("2026-02-25", text, StringComparison.Ordinal);
         Assert.Contains("https://youtu.be/vid-2", text, StringComparison.Ordinal);
@@ -79,11 +79,11 @@ public sealed class AdminYoutubeExportControllerTests
         ]);
         var controller = Build(lister, crossOrigin: false);
 
-        var result = await controller.Export("@salubrioussnail", 10, "csv", default);
+        var result = await controller.Export("@examplechannel", 10, "csv", default);
 
         var file = Assert.IsType<FileContentResult>(result);
         Assert.Equal("text/csv; charset=utf-8", file.ContentType);
-        Assert.Equal("salubrioussnail-videos.csv", file.FileDownloadName);
+        Assert.Equal("examplechannel-videos.csv", file.FileDownloadName);
         var text = Encoding.UTF8.GetString(file.FileContents);
         Assert.StartsWith("video_id,title,views,uploaded_utc,url", text, StringComparison.Ordinal);
         Assert.Contains("69454", text, StringComparison.Ordinal);

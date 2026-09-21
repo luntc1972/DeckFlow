@@ -15,7 +15,7 @@ namespace DeckFlow.Core.Tests;
 /// <remarks>
 /// The simulator is seeded (per-spell stable hash), so its output is deterministic across runs — but
 /// it is a Monte-Carlo estimate, so assertions use a documented ±4-point tolerance and lean on
-/// ORDERING rather than exact equality. Cast %s are calibrated against the Salubrious Snail
+/// ORDERING rather than exact equality. Cast %s are calibrated against the independent community manabase calculator
 /// calculator on the real Brago deck (mean |Δ| ≈ 3 pts; see 64-VALIDATION.md).
 /// </remarks>
 public sealed class KarstenManabaseCastabilityTests

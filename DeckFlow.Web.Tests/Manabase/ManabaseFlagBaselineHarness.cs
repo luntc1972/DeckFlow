@@ -238,7 +238,7 @@ public sealed class ManabaseFlagBaselineHarness
             AppendFlagDelta(sb, $"{mode} · 70-03b land-ramp-sim", baseOff, mqLandRamp, targetMoved: false);
         }
 
-        // Karsten closed-form cross-check (Casual): the same hypergeometric Salubrious Snail uses, per
+        // Karsten closed-form cross-check (Casual): the same hypergeometric calculation an independent community mana calculator uses, per
         // card's hardest single-color requirement, vs our sim with all flags OFF and all flags ON.
         AppendKarstenComparison(sb, facts);
     }

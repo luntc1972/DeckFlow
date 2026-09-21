@@ -13,7 +13,7 @@ namespace DeckFlow.Core.Manabase;
 /// <para>
 /// This replaces the old analytic <c>P_mana × P_color</c> independence product, which double-counts
 /// the fact that the SAME physical lands supply both mana quantity and colors (so it understated the
-/// joint by ~30 points versus the Salubrious Snail / Karsten model — see phase 64 VALIDATION). A
+/// joint by ~30 points versus an independent community manabase calculator / Karsten model — see phase 64 VALIDATION). A
 /// simulation models the correlation directly: one shuffled library, one sequence of land drops, and
 /// a single success test that requires enough total mana AND a color assignment that covers every pip.
 /// </para>
@@ -194,7 +194,7 @@ public static class CastabilitySimulator
         /// cost (their MV) plus summoning-sickness/online-next-turn timing. The analytic 0.75/0.5/0.67
         /// weights are proxies for THAT SAME friction (used by the color-source counting math), so
         /// re-applying them as activation here would double-discount and push every card's cast % ~5-7
-        /// points below the Salubrious Snail / reality baseline. A drawn-and-cast Sol Ring is a full mana
+        /// points below the independent community manabase calculator / reality baseline. A drawn-and-cast Sol Ring is a full mana
         /// source.
         /// </para>
         /// </summary>
@@ -1750,7 +1750,7 @@ public static class CastabilitySimulator
     // late and let the deploy-friction delay of a self-cast ramp piece (debug session
     // manabase-too-optimistic) be silently forgiven — masking the ramp over-credit it was meant to
     // correct. With +1 the Avatar fixture lands at its honest headline and its weakest color reads White
-    // (matching the independent Salubrious Snail baseline) instead of Blue.
+    // (matching the independent community manabase calculator baseline) instead of Blue.
     private static int GraceWindow(int turn) => 1;
 
     private static void PlayOneLand(

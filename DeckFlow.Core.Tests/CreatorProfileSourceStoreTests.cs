@@ -110,8 +110,8 @@ public sealed class CreatorProfileSourceStoreTests : IDisposable
         {
             Slug = slug,
             Platform = "archidekt",
-            ProfileUsername = "salubrioussnail",
-            ProfileUrl = "https://archidekt.com/u/salubrioussnail",
+            ProfileUsername = "examplecreator",
+            ProfileUrl = "https://archidekt.com/u/examplecreator",
             FolderWeights = new Dictionary<int, double>
             {
                 [101] = 1.0,

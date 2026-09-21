@@ -26,7 +26,7 @@ state shipped in 2026.09.3:
   `creator-style-import-stated` to load the ten hand-authored stated rules, `fuse-profile` to join
   them against the measured profile and print a conflict ledger, `creator-style-index-export` to
   write the two seed files, then commit. Documented in `docs/content-knowledge-base.md`.
-- **First real seeded profile:** `salubrioussnail`'s 21-deck measured profile and 43-deck cache are
+- **First real seeded profile:** the reference creator's 21-deck measured profile and 43-deck cache are
   now committed to `content-kb/seed/creator-style-profiles.json` and
   `content-kb/seed/creator-deck-cache.json`, replacing the three-byte `[]` placeholders shipped at
   Phase 112. Land count fuses to an **agree** verdict (measured ~36.3 vs. a stated 37-42 band).
@@ -297,7 +297,7 @@ Follow-up accuracy fixes (always on):
 
 ### 2026.06.7 — Mana Base Modes & Castability (2026-06-21)
 - **Casual / cEDH modes + commander importance:** the Mana Base analyzer now has a **Deck type** selector — *Casual* (Karsten's full land target) or *cEDH* (the competitive ~28–32 land band) — plus a **commander-importance** selector (*Central / Standard / Low*) that controls how hard it holds the commander's colors to threshold (without moving the land target). Both persist across the postback.
-- **Per-card castability (Casual):** a worst-first table of each spell's estimated chance to be cast on its on-curve turn, from a Monte-Carlo simulation (London mulligan, joint mana+color, in-sim ramp, fetchlands credited to the colors they can fetch). The commander is pinned; rocks/dorks are counted but not listed. Cross-checked against the [Salubrious Snail](https://www.salubrioussnail.com/manabase-tool) calculator (mean ~3 pts).
+- **Per-card castability (Casual):** a worst-first table of each spell's estimated chance to be cast on its on-curve turn, from a Monte-Carlo simulation (London mulligan, joint mana+color, in-sim ramp, fetchlands credited to the colors they can fetch). The commander is pinned; rocks/dorks are counted but not listed. Cross-checked against the reference creator's calculator (mean ~3 pts).
 - **Aggregate color findings:** each color reflects every card needing it (mean castability + under-supported count) while a single uncastable bomb still surfaces; the weakest color leads. A color is only flagged as *color-starved* (and only then does the verdict advise adding sources of it) when it is genuinely short of sources — so a color running a source **surplus** never reads "needs work" or "add lands" just because a cheap spell misses its turn-one colour window (a structural single-land-drop limit no extra sources would fix). Such a card is also dropped from the "hardest to cast" list (that list is meant to expose weak *support*, which it isn't), though it still counts in the honest under-supported tally — so nothing contradicts a color table that shows the colour over-supplied. Mana-limited curve bombs and genuinely source-short cards still surface there.
 - **Opening-hand keep band:** the London-mulligan keep is the *sweet spot* — **3 lands** (2 only with a ramp piece), mulliganing **4–5 land floods**; a high-mana-curve deck keeps its wider band (up to 5). This drives the keepable-hand share and the representative openers.
 - **"Show the work" formula panels:** two expandable panels — the methodology, and the Karsten regression evaluated term-by-term for your deck — so any verdict is auditable.

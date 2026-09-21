@@ -1,9 +1,9 @@
-# P89/P90 Prototype + Deck-Ownership Finding — Salubrious Snail
+# P89/P90 Prototype + Deck-Ownership Finding — the reference creator
 
 *Fable prototype (2026-07-05): stated-rules extraction (P89) + say-vs-do fusion (P90) on real data, plus a deck-ownership/folder audit answering "are any of the 39 decks patron decks?".*
 
 ## Deck ownership — no patron contamination
-All 39 Archidekt decks are `owner=SalubriousSnail`; zero hit patron/patreon/commission/review/deck-doctor keywords in name or description; all names are personal brews. Patron-reviewed decks would live on the *patrons'* accounts (viewed, not owned) so they never appear in an `ownerUsername` crawl.
+All 39 Archidekt decks are owned by the reference creator; zero hit patron/patreon/commission/review/deck-doctor keywords in name or description; all names are personal brews. Patron-reviewed decks would live on the *patrons'* accounts (viewed, not owned) so they never appear in an `ownerUsername` crawl.
 
 **Folders (5, all personal-workflow — none patron):**
 | folder | name | decks | profile weight |

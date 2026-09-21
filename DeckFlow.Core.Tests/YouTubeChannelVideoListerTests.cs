@@ -88,18 +88,18 @@ public sealed class YouTubeChannelVideoListerTests
     }
 
     // Why: YoutubeExplode's ChannelHandle.TryParse rejects a leading '@' on a bare handle
-    // (IsValid allows only letter/digit/_/-/.), so "@salubrioussnail" must be normalized
+    // (IsValid allows only letter/digit/_/-/.), so "@examplechannel" must be normalized
     // before parsing or the operator-facing forms reject the documented handle format.
     [Theory]
-    [InlineData("@salubrioussnail")]
-    [InlineData("salubrioussnail")]
-    [InlineData("https://www.youtube.com/@salubrioussnail")]
+    [InlineData("@examplechannel")]
+    [InlineData("examplechannel")]
+    [InlineData("https://www.youtube.com/@examplechannel")]
     public void TryParseChannelHandle_AcceptsAtPrefixedBareAndUrlForms(string input)
     {
         var handle = YouTubeChannelVideoLister.TryParseChannelHandle(input);
 
         Assert.NotNull(handle);
-        Assert.Equal("salubrioussnail", handle.Value.Value);
+        Assert.Equal("examplechannel", handle.Value.Value);
     }
 
     [Fact]

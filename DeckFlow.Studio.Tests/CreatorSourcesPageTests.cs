@@ -49,8 +49,8 @@ public sealed class CreatorSourcesPageTests : BunitContext
 
         cut.InvokeAsync(() =>
         {
-            cut.Find("#creatorName").Change("Salubrious Snail");
-            cut.Find("#creatorRef").Change("https://youtube.com/@SalubriousSnail");
+            cut.Find("#creatorName").Change("Example Creator");
+            cut.Find("#creatorRef").Change("https://youtube.com/@ExampleCreator");
         });
 
         cut.WaitForAssertion(() => Assert.False(cut.Find("button.btn-primary").HasAttribute("disabled")));
@@ -59,7 +59,7 @@ public sealed class CreatorSourcesPageTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.Single(store.AddCalls);
-            Assert.Contains("Salubrious Snail", cut.Markup);
+            Assert.Contains("Example Creator", cut.Markup);
         });
     }
 
@@ -90,14 +90,14 @@ public sealed class CreatorSourcesPageTests : BunitContext
 
         cut.InvokeAsync(() =>
         {
-            cut.Find("#creatorName").Change("Salubrious Snail");
-            cut.Find("#creatorRef").Change("https://youtube.com/@SalubriousSnail");
+            cut.Find("#creatorName").Change("Example Creator");
+            cut.Find("#creatorRef").Change("https://youtube.com/@ExampleCreator");
         });
         cut.WaitForAssertion(() => Assert.False(cut.Find("button.btn-primary").HasAttribute("disabled")));
         cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
 
         // Provisional display-derived slug is shown immediately, before any harvest.
-        cut.WaitForAssertion(() => Assert.Contains("salubrious-snail", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("example-creator", cut.Markup));
     }
 
     [Fact]

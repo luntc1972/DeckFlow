@@ -1,4 +1,4 @@
-# P88 Prototype — Measured-Style Profile for Salubrious Snail
+# P88 Prototype — Measured-Style Profile for the reference creator
 
 *Live prototype (2026-07-04): fetched all 39 public Archidekt Commander decks, computed the measured half of the style profile from Archidekt oracle data + the creator's own per-card category labels. Throwaway Python (`scratchpad/snail_stats.py`); production is C# in P88. This validates that the metrics are computable and surfaces design lessons.*
 
