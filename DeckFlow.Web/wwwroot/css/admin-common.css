@@ -415,6 +415,32 @@ a:hover { text-decoration: underline; }
   font-weight: 600;
 }
 
+.admin-shell .admin-harvest__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-shell .admin-harvest__tabs [role="tab"] {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.admin-shell .admin-harvest__tabs [role="tab"][aria-selected="true"] {
+  border-bottom: 4px solid var(--accent);
+  font-weight: 700;
+}
+
+.admin-shell .admin-harvest__tabs [role="tab"]:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* 44px product floor (WCAG 2.5.5 AAA) — all admin interactive elements */
 .admin-shell .admin-sidebar__link {
   min-height: 44px;
@@ -825,6 +851,13 @@ a:hover { text-decoration: underline; }
 
 /* Phase 44 — commander grid lazy load states */
 .admin-shell .admin-harvest__grid-loading {
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 12px;
+  padding: 8px 0;
+}
+
+.admin-shell .admin-harvest__grid-idle {
   color: var(--muted);
   font-style: italic;
   margin-top: 12px;

@@ -72,7 +72,7 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public async Task Index_DoesNotCallCommanderCountOrPagedQuery()
+    public async Task Index_DoesNotQueryCommanderStoreDirectly()
     {
         var store = NewStore(distinctProcessedCommanderCount: 125);
         var controller = Build(store);

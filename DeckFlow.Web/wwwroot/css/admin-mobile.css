@@ -65,6 +65,14 @@
     padding: 12px;
   }
 
+  .admin-shell .admin-harvest__tabs {
+    flex-wrap: wrap;
+  }
+
+  .admin-shell .admin-harvest__tabs [role="tab"] {
+    min-height: 44px;
+  }
+
   .admin-shell .admin-table-scroll {
     padding-bottom: 4px;
   }
