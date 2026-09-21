@@ -7377,7 +7377,6 @@ pre {
 .deck-modules > [data-deck-modules-error],
 .deck-modules > [data-deck-modules-notice],
 .deck-modules > [data-deck-modules-reconciliation],
-.deck-modules > [data-deck-modules-balance],
 .deck-modules__configuration,
 .deck-modules__command-zone,
 .deck-modules__report {
@@ -7449,8 +7448,7 @@ pre {
 .deck-modules > form > textarea,
 .deck-modules > form > button,
 .deck-modules__configuration > button,
-.deck-modules__configuration > p,
-.deck-modules__configuration > [data-deck-modules-alternatives] {
+.deck-modules__configuration > p {
   grid-column: 1 / -1;
 }
 
