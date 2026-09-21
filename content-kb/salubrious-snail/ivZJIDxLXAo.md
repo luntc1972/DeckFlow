@@ -16,11 +16,11 @@ The video advises how to place "pet cards" (cards a player loves) in Commander/E
 
 ## Key Clips
 
-- **[02:03]** On Shigeki: "I run it in two different ramp-heavy green decks, and having a flexible recursion ability that's uncounterable and at instant is good enough that the card never feels dead."
+- **[02:03]** On Shigeki: the host runs it in two ramp-heavy green decks, where its flexible, uncounterable, instant-speed recursion makes the card consistently useful.
 - **[02:35]** For niche moderately-powerful pet cards, option A is to take one or two and build a specific deck for them, rather than keeping ill-fitting cards in a deck just because you like them.
-- **[03:15]** "The act of building a deck that a pet card fully belongs in is the greatest act of love you can show your favorite piece of cardboard"—the host did this for Astral Slide, Maze's End, and Time Sieve.
+- **[03:15]** Building a deck where a pet card fully belongs is presented as the greatest act of love for that card; the host did this for Astral Slide, Maze's End, and Time Sieve.
 - **[04:24]** His Radha deck runs all sorts of fun cards because it just wants 6-7 drops with meaningful game impact and 4-cost cards that vaguely gesture at ramp; it's budget and mid-power, so it can accommodate weaker cards.
-- **[04:59]** Rule of thumb: "the more generic a deck's general game plan is, the more niche and varied the specific card choices can be."
+- **[04:59]** Rule of thumb: a more generic deck plan permits more niche and varied card choices.
 - **[05:17]** A precon-power proliferate deck (Skeleton Ship) can pack niche cards like Overwhelming Intellect, Mind Unbound, Parallax enchantments, and Grimoire of the Dead and have them all feel appropriate; scale up with Atraxa.
 - **[06:36]** Don't forget interaction: protection for vulnerable elements of the deck and removal so opponents don't run away with the game—too often forgotten in pursuit of a fun vision.
 - **[07:45]** He's a proponent of budget deckbuilding: instead of $500 on one fancy deck, build a half-dozen lower-budget decks serving different gameplay styles and different cards he loves.

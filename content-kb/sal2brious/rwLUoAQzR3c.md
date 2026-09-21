@@ -16,14 +16,14 @@ Two creators discuss card categories for Commander decks. Core warning: don't ov
 
 ## Key Clips
 
-- **[07:41]** When building the birds deck, choose birds by what they contribute — card draw, ramp, or interaction with the opponent's board — and categorize them accordingly. "I don't want to have cards in my deck that all they do is be a bird. There are too many playable birds for that." Cut cards that only fit the theme.
-- **[09:45]** "Instead of having lots of small categories, I like to have very few very big ones and I try to fit everything I have in the deck into those categories. So I have a category that I just call card advantage, and if a card scries, that's card advantage — that is good enough for me."
-- **[11:53]** "When I build my decks I have like 30 pieces of card advantage. I try to make up for the quality with just a ton of it, because if you scry two 30 times, honestly at that point it's pretty good."
+- **[07:41]** When building the birds deck, choose birds by what they contribute — card draw, ramp, or interaction with the opponent's board — and categorize them accordingly. The host rejects cards included only for being birds because many playable birds exist. Cut cards that only fit the theme.
+- **[09:45]** The host prefers a few broad categories over many small ones, fitting every card into them; a card that scries qualifies as card advantage.
+- **[11:53]** The host uses about 30 pieces of card advantage, compensating for quality with quantity; scrying two 30 times becomes effective.
 - **[29:26]** On setup/payoff packages: if both numbers are around 10–12, you'll feel decent. But if your synergy package is fairly parasitic — it doesn't overlap much with the rest of the deck — and you're talking mid-to-low single digits, you need to keep an eye on that.
-- **[33:00]** "My priority is not that you win. I want you to be able to play. That's why I play 40 lands in every deck, and that's why I include a lot of card draw — as long as you're hitting land drops and drawing cards, you'll be able to at least do something in the match."
-- **[37:22]** Keep setup and payoff cards in parity. "If you're drawing a payoff card without the setup, that's just setting yourself up to not play Magic." Running five of a setup and five of a payoff in a parasitic package that doesn't tie into the rest of the deck produces bad games frequently.
-- **[38:07]** "The way I like to build my decks is I have plan A and then I have plan B. And plan B is just how do I get back to plan A." The decks are streamlined on a single plan, so the main risk is accidentally including a card that literally does nothing for that plan.
-- **[42:56]** "Control decks are so much better in random player environments, just because people don't know your threat profile." An aggro deck looks threatening early then peters off; a control deck stays alive early and explodes later, and unfamiliar opponents fail to focus it in time.
+- **[33:00]** The host prioritizes being able to play, using 40 lands and substantial card draw so that hitting land drops and drawing cards lets the deck do something in the match.
+- **[37:22]** Keep setup and payoff cards in parity: drawing a payoff without its setup means you may not be able to play Magic. Running five of each in a parasitic package that does not tie into the rest of the deck frequently produces bad games.
+- **[38:07]** The host builds decks with a primary plan and a backup plan for returning to it. The decks are streamlined around one plan, so the main risk is accidentally including a card that literally does nothing for it.
+- **[42:56]** Control decks perform better in random-player environments because opponents do not know their threat profile. An aggro deck looks threatening early then peters out; a control deck survives early and explodes later while unfamiliar opponents fail to focus it.
 
 ## Tags
 
