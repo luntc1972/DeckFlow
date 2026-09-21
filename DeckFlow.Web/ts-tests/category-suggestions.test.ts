@@ -20,7 +20,7 @@ beforeAll(() => {
 
 describe('DeckFlowCategorySuggestions', () => {
   it('closes the intake with the card name after a successful lookup and reopens it when cleared', () => {
-    document.body.innerHTML = '<details class="cutlab-intake" open><summary class="cutlab-intake-summary"><span class="cutlab-intake-summary__commander">Look up a card</span><span class="cutlab-intake-summary__change">Change lookup</span></summary><form></form></details>';
+    document.body.innerHTML = '<details class="cutlab-intake" data-intake-state="empty" open><summary class="cutlab-intake-summary"><span class="cutlab-intake-summary__commander">Look up a card</span><span class="cutlab-intake-summary__change">Change lookup</span></summary><form></form></details>';
 
     const form = document.querySelector<HTMLFormElement>('form');
     const intake = document.querySelector<HTMLDetailsElement>('.cutlab-intake');
@@ -31,14 +31,16 @@ describe('DeckFlowCategorySuggestions', () => {
 
     api.setCardIntakeState(form!, false, 'Guardian Project');
     expect(intake!.open).toBe(false);
+    expect(intake!.dataset.intakeState).toBe('result');
     expect(summary!.textContent).toBe('Guardian Project');
 
     api.setCardIntakeState(form!, true);
     expect(intake!.open).toBe(true);
+    expect(intake!.dataset.intakeState).toBe('empty');
   });
 
   it('wires lookup, clear, and empty-card input handlers to the card intake state', async () => {
-    document.body.innerHTML = '<details class="cutlab-intake" open><summary><span class="cutlab-intake-summary__commander">Look up a card</span></summary><form data-suggestions-type="card" data-suggestion-api="/api/categories" data-cache-key="guardian-project"><input name="CardName" value="Guardian Project"><select name="Mode"><option value="CachedData" selected>Cached data</option></select><button type="button" data-clear-cache>Clear</button></form></details>';
+    document.body.innerHTML = '<details class="cutlab-intake" data-intake-state="empty" open><summary><span class="cutlab-intake-summary__commander">Look up a card</span></summary><form data-suggestions-type="card" data-suggestion-api="/api/categories" data-cache-key="guardian-project"><input name="CardName" value="Guardian Project"><select name="Mode"><option value="CachedData" selected>Cached data</option></select><button type="button" data-clear-cache>Clear</button></form></details>';
     const payload = {
       cardName: 'Guardian Project',
       exactCategoriesText: '', exactSuggestionContextText: '', inferredCategoriesText: '', inferredSuggestionContextText: '',
@@ -61,10 +63,12 @@ describe('DeckFlowCategorySuggestions', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(intake.open).toBe(false);
+    expect(intake.dataset.intakeState).toBe('result');
     expect(summary.textContent).toBe('Guardian Project');
 
     form.querySelector<HTMLElement>('[data-clear-cache]')!.click();
     expect(intake.open).toBe(true);
+    expect(intake.dataset.intakeState).toBe('empty');
     expect(summary.textContent).toBe('Look up a card');
 
     intake.open = false;

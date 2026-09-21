@@ -7317,6 +7317,11 @@ pre {
   background: var(--panel, #fff);
 }
 
+/* Why: hide summaries until client-driven intake pages have a result to edit. */
+.cutlab-intake[data-intake-state="empty"] > .cutlab-intake-summary {
+  display: none;
+}
+
 .cutlab-intake-summary__commander {
   font-weight: 700;
 }
