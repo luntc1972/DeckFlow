@@ -149,6 +149,110 @@ public sealed class AdminHarvestControllerTests
         Assert.DoesNotContain("data-page=\"2\"", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task HarvestRunLog_ErrorMessage_RendersErrorColumn()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(errorMessage: "upstream failed") });
+
+        Assert.Contains("upstream failed", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_Runs_RendersOneTableWithSixColumnHeadings()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun() });
+
+        Assert.Equal(1, html.Split("<table", StringSplitOptions.None).Length - 1);
+        Assert.Equal(6, html.Split("<th scope=\"col\">", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_EmptyList_RendersNamedEmptyStateWithoutTable()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", Array.Empty<HarvestRunRow>());
+
+        Assert.Contains("id=\"harvest-run-log-heading\"", html, StringComparison.Ordinal);
+        Assert.Contains("No runs recorded yet.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<table", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task HarvestIndex_StatsAvailability_RendersSameRunLogColumns(bool includesStats)
+    {
+        var runs = new[] { CreateHarvestRun() };
+        var model = CreateHarvestViewModel(runs, includesStats);
+
+        var html = await RenderPartialViewAsync("Index", model);
+
+        Assert.Equal(6, html.Split("<th scope=\"col\">", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_ShortError_RendersPlainEncodedText()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(errorMessage: "brief failure") });
+
+        Assert.Contains("brief failure", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin-harvest__run-error", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_LongError_RendersDisclosureWithSummaryAndBody()
+    {
+        var error = new string('x', 81);
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(errorMessage: error) });
+
+        Assert.Contains("admin-harvest__run-error", html, StringComparison.Ordinal);
+        Assert.Contains(new string('x', 80) + "&#x2026;", html, StringComparison.Ordinal);
+        Assert.Contains(error, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_NullError_RendersEmDashWithoutDisclosure()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun() });
+
+        Assert.Contains("&#x2014;", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin-harvest__run-error", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_HtmlError_EncodesSummaryAndBody()
+    {
+        var error = "<tag attr=\"quoted\">" + new string('x', 80);
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(errorMessage: error) });
+
+        Assert.Equal(2, html.Split("&lt;tag attr=&quot;quoted&quot;&gt;", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain(error, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_ImportPanel_RendersProtectedSubmitUrlForm()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), includesStats: false));
+        var importPanel = html[html.IndexOf("id=\"harvest-import-panel\"", StringComparison.Ordinal)..];
+
+        Assert.Contains("<form method=\"post\"", importPanel, StringComparison.Ordinal);
+        Assert.Contains("SubmitUrl", importPanel, StringComparison.Ordinal);
+        Assert.Contains("name=\"__RequestVerificationToken\"", importPanel, StringComparison.Ordinal);
+        Assert.Contains("id=\"url\" type=\"url\" name=\"url\"", importPanel, StringComparison.Ordinal);
+    }
+
+    private static HarvestRunRow CreateHarvestRun(string? errorMessage = null)
+        => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Failed, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), null, null, 900, 2, 0, null, null, errorMessage, null);
+
+    private static AdminHarvestViewModel CreateHarvestViewModel(IReadOnlyList<HarvestRunRow> runs, bool includesStats)
+        => new()
+        {
+            Schedule = new HarvestScheduleSnapshot(null, false, DateTimeOffset.Parse("2026-01-01T00:00:00Z")),
+            RecentRuns = runs,
+            Stats = includesStats
+                ? new HarvestStatsPayload(0, 0, 0, 0, 0, runs, null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false))
+                : null,
+        };
+
     private static FakeCategoryKnowledgeStore NewStore(int distinctProcessedCommanderCount)
         => new()
         {
@@ -310,10 +414,9 @@ public sealed class AdminHarvestControllerTests
             RequestServices = serviceProvider,
         };
 
-        var actionContext = new ActionContext(
-            httpContext,
-            new RouteData(new RouteValueDictionary(new Dictionary<string, object?> { ["controller"] = "AdminHarvest" })),
-            new ActionDescriptor());
+        var routeData = new RouteData(new RouteValueDictionary(new Dictionary<string, object?> { ["controller"] = "AdminHarvest" }));
+        routeData.Routers.Add(new TestRouter());
+        var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
         var viewEngine = serviceProvider.GetRequiredService<IRazorViewEngine>();
         var viewResult = viewEngine.FindView(actionContext, viewName, isMainPage: false);
         Assert.True(viewResult.Success, $"View '{viewName}' was not found. Searched: {string.Join(", ", viewResult.SearchedLocations ?? Array.Empty<string>())}");
@@ -349,6 +452,17 @@ public sealed class AdminHarvestControllerTests
             WebRootPath = contentRoot,
             WebRootFileProvider = fileProvider,
         };
+    }
+
+    private sealed class TestRouter : IRouter
+    {
+        public VirtualPathData? GetVirtualPath(VirtualPathContext context)
+        {
+            var action = context.Values["action"]?.ToString();
+            return action is null ? null : new VirtualPathData(this, $"Admin/Harvest/{action}");
+        }
+
+        public Task RouteAsync(RouteContext context) => Task.CompletedTask;
     }
 
     private sealed class StubArchidektCacheJobService : IArchidektCacheJobService

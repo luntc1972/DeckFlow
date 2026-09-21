@@ -419,6 +419,35 @@ a:hover { text-decoration: underline; }
   margin-bottom: 16px;
 }
 
+.admin-shell .admin-harvest__disclosure {
+  display: block;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.admin-shell .admin-harvest__disclosure summary,
+.admin-shell .admin-harvest__run-error summary {
+  cursor: pointer;
+}
+
+.admin-shell .admin-harvest__disclosure summary:focus-visible,
+.admin-shell .admin-harvest__run-error summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.admin-shell .admin-harvest__disclosure .admin-action-form {
+  margin-top: 16px;
+}
+
+.admin-shell .admin-harvest__run-error > div {
+  max-width: 40rem;
+  overflow-wrap: anywhere;
+}
+
 .admin-shell .admin-harvest__health {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -1,19 +1,7 @@
 @model DeckFlow.Web.Models.Admin.AdminHarvestViewModel
-@using DeckFlow.Web.Services.Harvest
 @{
     ViewData["Title"] = "Harvest";
     var activeState = Model.ActiveRun?.State.ToString() ?? "Idle";
-
-    static string GetRunStateBadgeClass(HarvestRunState state) => state switch
-    {
-        HarvestRunState.Succeeded => "badge text-bg-success",
-        HarvestRunState.Failed => "badge text-bg-danger",
-        HarvestRunState.Interrupted => "badge text-bg-secondary",
-        HarvestRunState.Cancelled => "badge text-bg-warning",
-        HarvestRunState.Running => "badge text-bg-primary",
-        HarvestRunState.Stopping => "badge text-bg-warning",
-        _ => "badge text-bg-light text-dark"
-    };
 }
 
 <noscript>
@@ -80,16 +68,6 @@ else
 </section>
 
 <section class="admin-harvest__panel">
-    <h2>Single URL</h2>
-    <form method="post" asp-action="SubmitUrl" class="admin-action-form">
-        @Html.AntiForgeryToken()
-        <label for="url">Archidekt URL</label>
-        <input id="url" type="url" name="url" autocomplete="url" inputmode="url" placeholder="https://archidekt.com/decks/…" required />
-        <button type="submit">Submit</button>
-    </form>
-</section>
-
-<section class="admin-harvest__panel">
     <h2>Schedule</h2>
     <form method="post" asp-action="SaveSchedule" class="admin-action-form">
         @Html.AntiForgeryToken()
@@ -130,72 +108,19 @@ else
         <p>Decks Processed counts written decks (added + updated); unchanged cache hits are skipped to reduce write churn.</p>
     }
 
-    @if (Model.Stats?.RecentRuns.Count > 0)
-    {
-        <h3>Recent Runs</h3>
-        <div class="admin-table-scroll" role="region" aria-label="Recent harvest runs - scroll horizontally to see all columns" tabindex="0">
-            <table class="admin-table">
-                <caption class="sr-only">Recent harvest runs with start, completion, state, and decks processed</caption>
-                <thead>
-                    <tr>
-                        <th scope="col">Started</th>
-                        <th scope="col">Completed</th>
-                        <th scope="col">State</th>
-                        <th scope="col">Decks Processed</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var run in Model.Stats.RecentRuns)
-                    {
-                        <tr>
-                            <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
-                            <td>@(run.CompletedUtc?.ToString("u") ?? "—")</td>
-                            <td><span class="@GetRunStateBadgeClass(run.State)">@run.State</span></td>
-                            <td>@run.DecksProcessed</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
-    else if (Model.RecentRuns.Count == 0)
-    {
-        <p>No runs recorded yet.</p>
-    }
-    else
-    {
-        <h3>Run Log</h3>
-        <div class="admin-table-scroll" role="region" aria-label="Harvest run log - scroll horizontally to see all columns" tabindex="0">
-            <table class="admin-table">
-                <caption class="sr-only">Harvest run log with timing, state, deck counts, and any error message</caption>
-                <thead>
-                    <tr>
-                        <th scope="col">Started</th>
-                        <th scope="col">Kind</th>
-                        <th scope="col">State</th>
-                        <th scope="col">Decks</th>
-                        <th scope="col">Duration</th>
-                        <th scope="col">Error</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var run in Model.RecentRuns)
-                    {
-                        <tr>
-                            <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
-                            <td>@run.Kind</td>
-                            <td>@run.State</td>
-                            <td>@run.DecksProcessed</td>
-                            <td>@run.DurationSeconds</td>
-                            <td>@(run.ErrorMessage ?? "—")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
+    @await Html.PartialAsync("_HarvestRunLog", Model.Stats?.RecentRuns ?? Model.RecentRuns)
 
 </section>
+
+<details id="harvest-import-panel" class="admin-harvest__disclosure">
+    <summary>Import a single URL</summary>
+    <form method="post" asp-action="SubmitUrl" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <label for="url">Archidekt URL</label>
+        <input id="url" type="url" name="url" autocomplete="url" inputmode="url" placeholder="https://archidekt.com/decks/…" required />
+        <button type="submit">Submit</button>
+    </form>
+</details>
 
 </section>
 

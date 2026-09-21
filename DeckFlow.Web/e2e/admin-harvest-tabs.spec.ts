@@ -68,3 +68,37 @@ test('admin harvest shows zero-discovery status on overview load', async ({ page
   await expect(page.locator('#harvest-panel-overview')).toBeVisible();
   await expect(page.locator('#harvest-zero-discovery')).toBeVisible();
 });
+
+test('admin harvest keeps single URL import collapsed until requested', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  const importPanel = page.locator('#harvest-import-panel');
+  await expect(importPanel).toBeVisible();
+  await expect(importPanel).not.toHaveAttribute('open', '');
+  await expect(page.locator('#url')).toBeHidden();
+
+  await importPanel.locator('summary').click();
+  await expect(page.locator('#url')).toBeVisible();
+});
+
+test('admin harvest run log identifies its empty state', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  await expect(page.locator('#harvest-run-log-heading')).toBeVisible();
+  await expect(page.locator('#harvest-run-log, p.admin-harvest__runs-empty')).toHaveCount(1);
+});
+
+test('admin harvest single URL form posts with antiforgery protection', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  await page.locator('#harvest-import-panel summary').click();
+  await page.locator('#url').fill('https://example.com/');
+
+  const [postResponse] = await Promise.all([
+    page.waitForResponse((candidate) => candidate.request().method() === 'POST' && candidate.url().includes('/admin/harvest/url')),
+    page.locator('#harvest-import-panel button[type="submit"]').click(),
+  ]);
+
+  expect(postResponse.status()).not.toBe(400);
+  await expect(page.locator('.admin-banner')).toHaveText('URL must be an Archidekt deck URL.');
+});
