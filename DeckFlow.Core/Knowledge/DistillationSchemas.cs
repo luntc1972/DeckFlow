@@ -164,6 +164,7 @@ public static class DistillationSchemas
         Prefer clips where a specific card is named with a reason, or where a heuristic, principle, or decision is stated; penalize generic advice with no specific application.
         Prefer clips from the middle roughly 80% of the runtime, and avoid intros, housekeeping, sponsor reads, and closers.
         Excerpts must quote or faithfully paraphrase the transcript; do not add card names, numbers, or claims that were not spoken.
+        Quote at most 25 words in total per excerpt, otherwise paraphrase without quotation marks.
         """;
 
     /// <summary>System prompt for controlled-vocabulary tag inference.</summary>
@@ -259,6 +260,7 @@ public static class DistillationSchemas
         Prefer clips where a specific card is named with a reason, or where a heuristic, principle, or decision is stated; penalize generic advice with no specific application.
         Prefer clips from the middle roughly 80% of the runtime, and avoid intros, housekeeping, sponsor reads, and closers.
         Excerpts must quote or faithfully paraphrase the transcript; do not add card names, numbers, or claims that were not spoken.
+        Quote at most 25 words in total per excerpt, otherwise paraphrase without quotation marks.
 
         TAGS:
         """

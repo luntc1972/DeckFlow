@@ -31,6 +31,7 @@ public sealed class DistillationPromptRegressionTests
             Prefer clips where a specific card is named with a reason, or where a heuristic, principle, or decision is stated; penalize generic advice with no specific application.
             Prefer clips from the middle roughly 80% of the runtime, and avoid intros, housekeeping, sponsor reads, and closers.
             Excerpts must quote or faithfully paraphrase the transcript; do not add card names, numbers, or claims that were not spoken.
+            Quote at most 25 words in total per excerpt, otherwise paraphrase without quotation marks.
             """;
         var expectedTagsPrompt =
             "You infer candidate Content KB tags from Magic: The Gathering video transcripts. "
@@ -63,6 +64,7 @@ public sealed class DistillationPromptRegressionTests
             Prefer clips where a specific card is named with a reason, or where a heuristic, principle, or decision is stated; penalize generic advice with no specific application.
             Prefer clips from the middle roughly 80% of the runtime, and avoid intros, housekeeping, sponsor reads, and closers.
             Excerpts must quote or faithfully paraphrase the transcript; do not add card names, numbers, or claims that were not spoken.
+            Quote at most 25 words in total per excerpt, otherwise paraphrase without quotation marks.
 
             TAGS:
             """
@@ -79,6 +81,30 @@ public sealed class DistillationPromptRegressionTests
         Assert.Contains("mulligan decisions", DistillationSchemas.ClassificationSystemPrompt, StringComparison.Ordinal);
         Assert.Contains("no specific card names are present", DistillationSchemas.ClassificationSystemPrompt, StringComparison.Ordinal);
         Assert.DoesNotContain("meta or format philosophy with no actionable deckbuilding advice", DistillationSchemas.ClassificationSystemPrompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ClipsPrompt_QuoteCapSentence_IsPresent()
+    {
+        const string quoteCapSentence = "Quote at most 25 words in total per excerpt, otherwise paraphrase without quotation marks.";
+
+        Assert.Contains(quoteCapSentence, DistillationSchemas.ClipsSystemPrompt, StringComparison.Ordinal);
+        Assert.Contains(quoteCapSentence, DistillationSchemas.CombinedSystemPrompt, StringComparison.Ordinal);
+        Assert.Equal(
+            DistillationSchemas.ClipsSystemPrompt.Split("\n").Single(line => line.Contains("Quote at most 25 words", StringComparison.Ordinal)).Trim(),
+            DistillationSchemas.CombinedSystemPrompt.Split("\n").Single(line => line.Contains("Quote at most 25 words", StringComparison.Ordinal)).Trim());
+    }
+
+    [Fact]
+    public void CombinedPrompt_QuoteCapSentence_IsPresent()
+    {
+        const string quoteCapSentence = "Quote at most 25 words in total per excerpt, otherwise paraphrase without quotation marks.";
+
+        Assert.Contains(quoteCapSentence, DistillationSchemas.CombinedSystemPrompt, StringComparison.Ordinal);
+        Assert.Contains(quoteCapSentence, DistillationSchemas.ClipsSystemPrompt, StringComparison.Ordinal);
+        Assert.Equal(
+            quoteCapSentence,
+            DistillationSchemas.CombinedSystemPrompt.Split("\n").Single(line => line.Contains("Quote at most 25 words", StringComparison.Ordinal)).Trim());
     }
 
     [Fact]
