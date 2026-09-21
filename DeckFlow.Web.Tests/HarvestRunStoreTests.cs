@@ -75,6 +75,64 @@ public sealed class HarvestRunStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task GetRecentHealthSignalRunsAsync_ReturnsOnlyQualifiedBulkSucceededRunsInCompletionOrder()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", 3, 1);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T11:00:00.0000000Z", 4, 1);
+        await SeedHealthRunAsync("url", "Succeeded", "2026-06-12T12:00:00.0000000Z", 5, 1);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T13:00:00.0000000Z", 5, 1);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T14:00:00.0000000Z", null, null);
+
+        var rows = await store.GetRecentHealthSignalRunsAsync(4);
+
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(4, rows[0].DecksEnqueued);
+        Assert.Equal(3, rows[1].DecksEnqueued);
+    }
+
+    [Fact]
+    public async Task GetRecentHealthSignalRunsAsync_NonQualifyingRowsDoNotConsumeLimit()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        for (var index = 0; index < 11; index++)
+        {
+            await SeedHealthRunAsync("url", "Succeeded", $"2026-06-13T{index:00}:00:00.0000000Z", 1, 1);
+        }
+
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-14T01:00:00.0000000Z", 1, 0);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-14T02:00:00.0000000Z", 2, 0);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-14T03:00:00.0000000Z", 3, 0);
+
+        var rows = await store.GetRecentHealthSignalRunsAsync(4);
+
+        Assert.Equal(3, rows.Count);
+        Assert.Equal(3, rows[0].DecksEnqueued);
+    }
+
+    private async Task SeedHealthRunAsync(string kind, string state, string completedUtc, int? decksEnqueued, int? decksDrained)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO harvest_runs (
+                id, kind, state, requested_utc, completed_utc, duration_seconds,
+                decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url)
+            VALUES ($id, $kind, $state, $completedUtc, $completedUtc, 0, 0, 0, $decksEnqueued, $decksDrained, NULL, NULL);
+            """;
+        command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
+        command.Parameters.AddWithValue("$kind", kind);
+        command.Parameters.AddWithValue("$state", state);
+        command.Parameters.AddWithValue("$completedUtc", completedUtc);
+        command.Parameters.AddWithValue("$decksEnqueued", (object?)decksEnqueued ?? DBNull.Value);
+        command.Parameters.AddWithValue("$decksDrained", (object?)decksDrained ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    [Fact]
     public async Task UpdateStateAsync_NullCountersPreservesProgressAndAdditionalDecksFound()
     {
         var store = new HarvestRunStore(_dbPath);

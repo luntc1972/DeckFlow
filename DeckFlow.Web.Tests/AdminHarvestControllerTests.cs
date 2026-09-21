@@ -227,7 +227,7 @@ public sealed class AdminHarvestControllerTests
     [Fact]
     public async Task HarvestHealthStrip_RendersValuesAndUnknownDatabaseSize()
     {
-        var known = new HarvestStatsPayload(1234, 0, 56, 78, 0, Array.Empty<HarvestRunRow>(), 2048, null, null);
+        var known = new HarvestStatsPayload(1234, 0, 56, 78, 0, Array.Empty<HarvestRunRow>(), 2048, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
         var unknown = known with { DatabaseSizeBytes = null };
 
         var knownHtml = await RenderPartialViewAsync("_HarvestHealthStrip", known);
@@ -242,6 +242,55 @@ public sealed class AdminHarvestControllerTests
         Assert.Contains("health-database-size", knownHtml, StringComparison.Ordinal);
         Assert.Contains("2 KB", knownHtml, StringComparison.Ordinal);
         Assert.Contains("&#x2014;", unknownHtml, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(HarvestBacklogReason.AboveFloor, "Backlog exceeds floor", "configured floor 100")]
+    [InlineData(HarvestBacklogReason.Growing, "Backlog growing", "3 consecutive runs")]
+    [InlineData(HarvestBacklogReason.AboveFloorAndGrowing, "Backlog exceeds floor and growing", "grew for 3 consecutive runs")]
+    public async Task HarvestHealthStrip_FlaggedReason_RendersReasonAndThreshold(
+        HarvestBacklogReason reason,
+        string expectedText,
+        string expectedTitle)
+    {
+        var payload = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, null, new HarvestHealthSignals(true, reason, 100, 3, 0, false));
+
+        var html = await RenderPartialViewAsync("_HarvestHealthStrip", payload);
+
+        Assert.Contains("health-backlog-flag", html, StringComparison.Ordinal);
+        Assert.Contains(expectedText, html, StringComparison.Ordinal);
+        Assert.Contains(expectedTitle, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestHealthStrip_NoneReason_DoesNotRenderBacklogBadge()
+    {
+        var payload = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
+
+        var html = await RenderPartialViewAsync("_HarvestHealthStrip", payload);
+
+        Assert.DoesNotContain("health-backlog-flag", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0, false, 3, "Discovering new decks", false)]
+    [InlineData(2, false, 3, "Zero-discovery streak: 2", false)]
+    [InlineData(3, true, 3, "Zero-discovery streak: 3&#x2B;", true)]
+    [InlineData(2, false, 2, "Zero-discovery streak: 2", true)]
+    public async Task HarvestZeroDiscovery_RendersExpectedStreakState(
+        int streak,
+        bool capped,
+        int threshold,
+        string expectedText,
+        bool expectsWarning)
+    {
+        var signals = new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, threshold, streak, capped);
+
+        var html = await RenderPartialViewAsync("_HarvestZeroDiscovery", signals);
+
+        Assert.Contains("harvest-zero-discovery", html, StringComparison.Ordinal);
+        Assert.Contains(expectedText, html, StringComparison.Ordinal);
+        Assert.Equal(expectsWarning, html.Contains("admin-harvest__health-badge", StringComparison.Ordinal));
     }
 
     private static async Task<string> RenderPartialViewAsync(string viewName, object model)
@@ -338,6 +387,9 @@ public sealed class AdminHarvestControllerTests
         public Task<IReadOnlyList<HarvestRunRow>> GetRecentAsync(int n, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<HarvestRunRow>>(Array.Empty<HarvestRunRow>());
 
+        public Task<IReadOnlyList<HarvestRunRow>> GetRecentHealthSignalRunsAsync(int n, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<HarvestRunRow>>(Array.Empty<HarvestRunRow>());
+
         public Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
             => Task.FromResult("0");
 
@@ -380,7 +432,8 @@ public sealed class AdminHarvestControllerTests
                 Array.Empty<HarvestRunRow>(),
                 null,
                 null,
-                null));
+                null,
+                new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false)));
 
         public void Invalidate()
         {

@@ -264,6 +264,28 @@ public sealed class HarvestRunStore : IHarvestRunStore
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<HarvestRunRow>> GetRecentHealthSignalRunsAsync(int n, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        // Succeeded is essential: sweep counts are written before the terminal state transition.
+        var rows = await connection.QueryAsync<HarvestRunRowData>(new CommandDefinition(
+            """
+            SELECT id, kind, state, requested_utc, started_utc, completed_utc,
+                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url
+              FROM harvest_runs
+             WHERE kind = 'bulk' AND state = 'Succeeded'
+               AND decks_enqueued IS NOT NULL AND decks_drained IS NOT NULL
+             ORDER BY completed_utc DESC NULLS LAST
+             LIMIT @n;
+            """,
+            new { n },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Select(ToHarvestRunRow).ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);

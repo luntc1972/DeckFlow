@@ -383,6 +383,9 @@ public sealed class ArchidektCacheJobServiceTests
             return Task.FromResult(rows);
         }
 
+        public Task<IReadOnlyList<HarvestRunRow>> GetRecentHealthSignalRunsAsync(int n, CancellationToken cancellationToken = default)
+            => GetRecentAsync(n, cancellationToken);
+
         public Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
         {
             var startedTicks = _rows.Values

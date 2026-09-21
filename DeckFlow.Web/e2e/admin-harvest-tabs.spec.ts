@@ -61,3 +61,10 @@ test('admin harvest health strip fits its viewport', async ({ page }) => {
     expect(tileBox!.x + tileBox!.width).toBeLessThanOrEqual(stripBox!.x + stripBox!.width + 1);
   }
 });
+
+test('admin harvest shows zero-discovery status on overview load', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  await expect(page.locator('#harvest-panel-overview')).toBeVisible();
+  await expect(page.locator('#harvest-zero-discovery')).toBeVisible();
+});

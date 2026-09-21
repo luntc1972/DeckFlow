@@ -113,6 +113,10 @@ else
 
     <p>Current interval: @(Model.Schedule.IntervalHours?.ToString() ?? "Off")</p>
     <p>Paused: @(Model.Schedule.Paused ? "Yes" : "No")</p>
+    @if (Model.Stats is not null)
+    {
+        <partial name="_HarvestZeroDiscovery" model="Model.Stats.Health" />
+    }
 </section>
 
 <section class="admin-harvest__panel">

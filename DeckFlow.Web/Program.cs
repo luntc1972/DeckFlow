@@ -214,6 +214,9 @@ public partial class Program
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
         builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
+        builder.Services.AddOptions<HarvestHealthOptions>()
+            .Bind(builder.Configuration.GetSection(HarvestHealthOptions.SectionName))
+            .ValidateDataAnnotations();
         builder.Services.Configure<Microsoft.AspNetCore.Mvc.Razor.RazorViewEngineOptions>(options => options.ViewLocationExpanders.Add(new DeckFlow.Web.Controllers.DeckViewLocationExpander()));
         builder.Services.AddMemoryCache();
 

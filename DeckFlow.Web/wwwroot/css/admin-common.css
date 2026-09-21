@@ -45,6 +45,16 @@ summary:focus-visible,
   outline-offset: 2px;
 }
 
+.admin-shell .admin-harvest__health-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  color: var(--warning);
+}
+
+.admin-shell .admin-harvest__zero-discovery {
+  color: var(--muted);
+}
+
 /* admin-only global */
 * { box-sizing: border-box; }
 

@@ -118,6 +118,13 @@ public interface IHarvestRunStore
     Task<IReadOnlyList<HarvestRunRow>> GetRecentAsync(int n, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the most recent completed bulk runs with known sweep counts, qualifying before the
+    /// row limit so URL imports and failures cannot displace health-signal runs. See
+    /// <see cref="SetSweepCountsAsync"/> for the count contract.
+    /// </summary>
+    Task<IReadOnlyList<HarvestRunRow>> GetRecentHealthSignalRunsAsync(int n, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Returns a token derived from <c>MAX(started_utc)</c>, <c>MAX(completed_utc)</c>,
     /// and <c>COUNT(1)</c> over <c>harvest_runs</c>. Powers the AJAX poller's
     /// revision-change auto-reload (B2). Cheap single-statement read; safe at

@@ -1,0 +1,9 @@
+@model DeckFlow.Web.Services.Harvest.HarvestHealthSignals
+@if (Model.ZeroDiscoveryStreak == 0)
+{
+    <p id="harvest-zero-discovery" class="admin-harvest__streak">Discovering new decks</p>
+}
+else
+{
+    <p id="harvest-zero-discovery" class="admin-harvest__streak @(Model.ZeroDiscoveryStreak >= Model.BacklogGrowthRunCount ? "admin-harvest__health-badge" : string.Empty)">Zero-discovery streak: @Model.ZeroDiscoveryStreak@(Model.ZeroDiscoveryStreakCapped ? "+" : string.Empty)</p>
+}

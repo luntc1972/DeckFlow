@@ -19,4 +19,23 @@ public sealed record HarvestStatsPayload(
     IReadOnlyList<HarvestRunRow> RecentRuns,
     long? DatabaseSizeBytes,
     DateTimeOffset? LastSuccessUtc,
-    DateTimeOffset? NextScheduledUtc);
+    DateTimeOffset? NextScheduledUtc,
+    HarvestHealthSignals Health);
+
+/// <summary>Reasons that the harvest backlog requires operator attention.</summary>
+public enum HarvestBacklogReason
+{
+    None,
+    AboveFloor,
+    Growing,
+    AboveFloorAndGrowing
+}
+
+/// <summary>Derived harvest-health values displayed by the admin overview.</summary>
+public sealed record HarvestHealthSignals(
+    bool BacklogFlagged,
+    HarvestBacklogReason BacklogReason,
+    int BacklogFloor,
+    int BacklogGrowthRunCount,
+    int ZeroDiscoveryStreak,
+    bool ZeroDiscoveryStreakCapped);
