@@ -64,7 +64,9 @@ public enum HarvestRunState
 /// <param name="CompletedUtc">Wall-clock time the row reached a terminal state.</param>
 /// <param name="DurationSeconds">Operator-selected duration cap (bulk) or 0 (URL).</param>
 /// <param name="DecksProcessed">Decks fully imported during the run.</param>
-/// <param name="AdditionalDecksFound">Newly-discovered deck IDs added to the queue (delta vs initial).</param>
+/// <param name="AdditionalDecksFound">Processed-row delta, not a count of newly queued IDs; see <see cref="IHarvestRunStore.SetSweepCountsAsync"/> for discoveries.</param>
+/// <param name="DecksEnqueued">Novel IDs enqueued by a successful bulk sweep; null means unknown, never zero.</param>
+/// <param name="DecksDrained">IDs removed from the unprocessed pool; null means unknown, never zero.</param>
 /// <param name="ErrorMessage">Failure / cancel / reaper reason; null on success.</param>
 /// <param name="Url">Source URL; null when <see cref="Kind"/> is <see cref="HarvestRunKind.Bulk"/>.</param>
 public sealed record HarvestRunRow(
@@ -77,6 +79,8 @@ public sealed record HarvestRunRow(
     int DurationSeconds,
     int DecksProcessed,
     int AdditionalDecksFound,
+    int? DecksEnqueued,
+    int? DecksDrained,
     string? ErrorMessage,
     string? Url);
 

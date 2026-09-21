@@ -24,6 +24,14 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public void ArchidektCacheRunResult_DecksDrained_SumsEveryDisposition()
+    {
+        var result = new ArchidektCacheRunResult(1, 2, 3, 4, 5, TimeSpan.Zero);
+
+        Assert.Equal(10, result.DecksDrained);
+    }
+
+    [Fact]
     public async Task RunAsync_WaitsForFullDurationWhenQueueRunsDry()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);

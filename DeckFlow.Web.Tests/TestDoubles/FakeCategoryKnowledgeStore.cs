@@ -1,5 +1,6 @@
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
@@ -24,7 +25,7 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int RunCacheSweepCalls { get; private set; }
 
-    public int RunCacheSweepResult { get; set; }
+    public ArchidektCacheRunResult RunCacheSweepResult { get; set; } = new(0, 0, 0, 0, 0, TimeSpan.Zero);
 
     public Exception? RunCacheSweepException { get; set; }
 
@@ -83,7 +84,7 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(_lastProcessedDeckCount);
     }
 
-    public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+    public Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         RunCacheSweepCalls++;
 

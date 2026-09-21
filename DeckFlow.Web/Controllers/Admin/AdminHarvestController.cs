@@ -256,8 +256,8 @@ public sealed class AdminHarvestController : Controller
             HarvestRunState.Running,
             startedUtc: requestedUtc,
             completedUtc: null,
-            decksProcessed: 0,
-            additionalDecksFound: 0,
+            decksProcessed: null,
+            additionalDecksFound: null,
             errorMessage: null,
             cancellationToken).ConfigureAwait(false);
 
@@ -301,8 +301,8 @@ public sealed class AdminHarvestController : Controller
                 HarvestRunState.Failed,
                 startedUtc: null,
                 completedUtc: DateTimeOffset.UtcNow,
-                decksProcessed: 0,
-                additionalDecksFound: 0,
+                decksProcessed: null,
+                additionalDecksFound: null,
                 errorMessage: operatorMessage,
                 cancellationToken).ConfigureAwait(false);
 

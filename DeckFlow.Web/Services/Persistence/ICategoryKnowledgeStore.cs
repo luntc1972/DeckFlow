@@ -1,4 +1,5 @@
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
@@ -35,8 +36,8 @@ public interface ICategoryKnowledgeStore
     /// <param name="durationSeconds">Maximum sweep duration in seconds.</param>
     /// <param name="cancellationToken">Token used to cancel the sweep.</param>
     /// <param name="progress">Optional progress reporter for processed deck counts.</param>
-    /// <returns>The number of decks swept during the run.</returns>
-    Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null);
+    /// <returns>Aggregate results from the completed sweep.</returns>
+    Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null);
     /// <summary>
     /// Returns cached category names for a card.
     /// </summary>

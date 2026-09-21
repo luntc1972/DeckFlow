@@ -257,7 +257,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="durationSeconds">Duration in seconds.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="progress">Optional progress reporter for processed deck counts.</param>
-    public async Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+    public async Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         await EnsureSchemaReadyAsync(cancellationToken);
         await _sweepGate.WaitAsync(cancellationToken);
@@ -277,7 +277,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 result.DecksUpdated,
                 result.DecksUnchanged,
                 result.DecksSkipped);
-            return result.DecksProcessed;
+            return result;
         }
         finally
         {

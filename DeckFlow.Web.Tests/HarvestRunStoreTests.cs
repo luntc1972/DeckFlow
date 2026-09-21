@@ -56,6 +56,58 @@ public sealed class HarvestRunStoreTests : IDisposable
         Assert.Equal(12, row.DecksProcessed);
         Assert.Equal(3, row.AdditionalDecksFound);
         Assert.Equal("interrupted by host shutdown", row.ErrorMessage);
+        Assert.Null(row.DecksEnqueued);
+        Assert.Null(row.DecksDrained);
+    }
+
+    [Fact]
+    public async Task SetSweepCountsAsync_RoundTripsCounts()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow);
+
+        await store.SetSweepCountsAsync(id, 7, 11);
+
+        var row = await store.GetByIdAsync(id);
+        Assert.NotNull(row);
+        Assert.Equal(7, row!.DecksEnqueued);
+        Assert.Equal(11, row.DecksDrained);
+    }
+
+    [Fact]
+    public async Task UpdateStateAsync_NullCountersPreservesProgressAndAdditionalDecksFound()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow);
+        await store.UpdateProgressAsync(id, 4);
+        await store.UpdateStateAsync(id, HarvestRunState.Running, null, null, null, 9, null);
+        await store.UpdateProgressAsync(id, 6);
+        await store.UpdateStateAsync(id, HarvestRunState.Interrupted, null, DateTimeOffset.UtcNow, null, null, null);
+
+        var row = await store.GetByIdAsync(id);
+        Assert.NotNull(row);
+        Assert.Equal(HarvestRunState.Interrupted, row!.State);
+        Assert.Equal(6, row.DecksProcessed);
+        Assert.Equal(9, row.AdditionalDecksFound);
+        Assert.Null(row.DecksEnqueued);
+        Assert.Null(row.DecksDrained);
+    }
+
+    [Theory]
+    [InlineData(HarvestRunState.Interrupted)]
+    [InlineData(HarvestRunState.Cancelled)]
+    [InlineData(HarvestRunState.Failed)]
+    public async Task UpdateStateAsync_NonSucceededSweepLeavesCountsUnknown(HarvestRunState state)
+    {
+        var store = new HarvestRunStore(_dbPath);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow);
+
+        await store.UpdateStateAsync(id, state, null, DateTimeOffset.UtcNow, null, null, "stopped");
+
+        var row = await store.GetByIdAsync(id);
+        Assert.NotNull(row);
+        Assert.Null(row!.DecksEnqueued);
+        Assert.Null(row.DecksDrained);
     }
 
     [Fact]
@@ -67,6 +119,11 @@ public sealed class HarvestRunStoreTests : IDisposable
 
         await store.EnsureSchemaAsync();
         await store.EnsureSchemaAsync();
+
+        var historicalRow = await store.GetByIdAsync(Guid.Parse("f5b0eb2b-1af3-4a7b-982d-7a2370ae7397"));
+        Assert.NotNull(historicalRow);
+        Assert.Null(historicalRow!.DecksEnqueued);
+        Assert.Null(historicalRow.DecksDrained);
 
         await using var connection = new SqliteConnection($"Data Source={_dbPath}");
         await connection.OpenAsync();
@@ -132,6 +189,10 @@ public sealed class HarvestRunStoreTests : IDisposable
             """;
         var interruptedCount = Convert.ToInt32(await verifyCommand.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
         Assert.Equal(1, interruptedCount);
+
+        await using var columnsCommand = connection.CreateCommand();
+        columnsCommand.CommandText = "SELECT COUNT(1) FROM pragma_table_info('harvest_runs') WHERE name IN ('decks_enqueued', 'decks_drained');";
+        Assert.Equal(2, Convert.ToInt32(await columnsCommand.ExecuteScalarAsync(), CultureInfo.InvariantCulture));
     }
 
     private async Task SeedSqliteDatabaseWithOldHarvestRunsSchemaAsync()

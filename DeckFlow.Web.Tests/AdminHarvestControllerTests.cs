@@ -323,10 +323,10 @@ public sealed class AdminHarvestControllerTests
         public Task<Guid> InsertQueuedAsync(HarvestRunKind kind, int durationSeconds, string? url, DateTimeOffset now, CancellationToken cancellationToken = default)
             => Task.FromResult(Guid.NewGuid());
 
-        public Task UpdateStateAsync(Guid id, HarvestRunState state, DateTimeOffset? startedUtc, DateTimeOffset? completedUtc, int decksProcessed, int additionalDecksFound, string? errorMessage, CancellationToken cancellationToken = default)
+        public Task UpdateStateAsync(Guid id, HarvestRunState state, DateTimeOffset? startedUtc, DateTimeOffset? completedUtc, int? decksProcessed, int? additionalDecksFound, string? errorMessage, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task UpdateProgressAsync(Guid id, int decksProcessed, int additionalDecksFound, CancellationToken cancellationToken = default)
+        public Task UpdateProgressAsync(Guid id, int decksProcessed, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)

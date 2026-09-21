@@ -1,5 +1,6 @@
 using System.Net;
 using DeckFlow.Core.Loading;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
@@ -3629,7 +3630,7 @@ public sealed class CutLabPageServiceTests
         public Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+        public Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
             => throw new NotSupportedException();
 
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)

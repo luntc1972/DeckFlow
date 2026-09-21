@@ -52,8 +52,8 @@ public interface IHarvestRunStore
     /// <param name="state">New state to write.</param>
     /// <param name="startedUtc">Time the worker began processing; null preserves the existing value.</param>
     /// <param name="completedUtc">Terminal-state time; null preserves the existing value.</param>
-    /// <param name="decksProcessed">Decks imported so far during the run.</param>
-    /// <param name="additionalDecksFound">Newly-discovered deck IDs added to the queue.</param>
+    /// <param name="decksProcessed">Decks imported so far; null preserves the existing value.</param>
+    /// <param name="additionalDecksFound">Processed-row delta, not newly queued IDs; null preserves it. See <see cref="SetSweepCountsAsync"/> for discoveries.</param>
     /// <param name="errorMessage">Failure / cancel / reaper reason; null clears.</param>
     /// <param name="cancellationToken">Token used to cancel the write.</param>
     Task UpdateStateAsync(
@@ -61,13 +61,13 @@ public interface IHarvestRunStore
         HarvestRunState state,
         DateTimeOffset? startedUtc,
         DateTimeOffset? completedUtc,
-        int decksProcessed,
-        int additionalDecksFound,
+        int? decksProcessed,
+        int? additionalDecksFound,
         string? errorMessage,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Updates ONLY <c>decks_processed</c> + <c>additional_decks_found</c> on an
+    /// Updates ONLY <c>decks_processed</c> on an
     /// existing <c>harvest_runs</c> row. Does NOT touch <c>state</c>,
     /// <c>started_utc</c>, <c>completed_utc</c>, or <c>error_message</c>. Used by
     /// the background harvest worker to surface incremental progress to the AJAX
@@ -76,13 +76,18 @@ public interface IHarvestRunStore
     /// </summary>
     /// <param name="id">UUID primary key of the row to update.</param>
     /// <param name="decksProcessed">Decks imported so far during the run.</param>
-    /// <param name="additionalDecksFound">Newly-discovered deck IDs added to the queue.</param>
     /// <param name="cancellationToken">Token used to cancel the write.</param>
     Task UpdateProgressAsync(
         Guid id,
         int decksProcessed,
-        int additionalDecksFound,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Records successful bulk-sweep totals. Unwritten values mean unknown, never zero, and are not comparable.
+    /// Growth is novel enqueues minus drained IDs; requeue resets are deliberately excluded from enqueues.
+    /// </summary>
+    Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
 
     /// <summary>
     /// Returns the most recent non-terminal row (<c>state IN (Queued, Running, Stopping)</c>)

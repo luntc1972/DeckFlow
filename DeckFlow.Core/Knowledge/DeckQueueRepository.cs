@@ -101,16 +101,19 @@ internal sealed class DeckQueueRepository
         return checked((int)result);
     }
 
-    /// <summary>
-    /// Inserts new deck IDs into the queue for processing.
-    /// </summary>
+    /// <summary>Inserts new deck IDs into the queue for processing.</summary>
     /// <param name="deckIds">Deck IDs to enqueue.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    internal async Task AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
+    /// <returns>
+    /// Number of IDs with no existing queue row. Requeued IDs, including already processed IDs, are
+    /// deliberately excluded because this count represents IDs discovered by the crawler.
+    /// </returns>
+    internal async Task<int> AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
     {
         var unique = deckIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Distinct(StringComparer.Ordinal);
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
         var insertedUtc = DateTime.UtcNow;
         var requeueBeforeUtc = insertedUtc.Subtract(DeckRefreshCooldown);
 
@@ -118,6 +121,17 @@ internal sealed class DeckQueueRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var existingIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var ids in unique.Chunk(500))
+        {
+            var existing = await connection.QueryAsync<string>(new CommandDefinition(
+                "SELECT deck_id FROM deck_queue WHERE deck_id IN @ids;",
+                new { ids },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+            existingIds.UnionWith(existing);
+        }
 
         // Why: last_checked_utc is a TEXT column on both dialects, but the Dapper DateTime
         // handler binds @requeueBeforeUtc as a native timestamptz on Postgres — and Postgres
@@ -155,6 +169,7 @@ internal sealed class DeckQueueRepository
         }
 
         await transaction.CommitAsync(cancellationToken);
+        return unique.Count - existingIds.Count;
     }
 
     /// <summary>

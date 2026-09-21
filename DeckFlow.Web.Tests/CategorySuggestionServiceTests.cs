@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
@@ -181,7 +182,7 @@ public sealed class CategorySuggestionServiceTests
         public Task<int> GetProcessedDeckCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(ProcessedDeckCount);
 
-        public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+        public Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
         {
             RunCacheSweepCalls++;
             if (RunCacheSweepException is not null)
@@ -191,7 +192,7 @@ public sealed class CategorySuggestionServiceTests
 
             ProcessedDeckCount++;
             _current = _responses.Count > 0 ? _responses.Dequeue() : _current;
-            return Task.FromResult(1);
+            return Task.FromResult(new ArchidektCacheRunResult(1, 0, 0, 0, 0, TimeSpan.Zero));
         }
 
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)

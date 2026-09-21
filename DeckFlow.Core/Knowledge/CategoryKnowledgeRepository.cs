@@ -207,7 +207,7 @@ public sealed class CategoryKnowledgeRepository
     /// </summary>
     /// <param name="deckIds">Deck IDs to enqueue.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
+    public Task<int> AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
         => _deckQueue.AddDeckIdsAsync(deckIds, cancellationToken);
 
     /// <summary>
