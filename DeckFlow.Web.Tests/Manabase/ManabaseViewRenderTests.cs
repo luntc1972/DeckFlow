@@ -781,6 +781,81 @@ public sealed class ManabaseViewRenderTests
         Assert.Contains("0 of 1 under-supported", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Intake_EmptyState_RendersOpenEmptyCardWithoutSummary()
+    {
+        string html = await RenderManabaseViewAsync(new ManabaseViewModel());
+
+        Assert.Contains("<div class=\"cutlab-intake cutlab-intake--empty\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("cutlab-intake-summary", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-intake-summary", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Intake_LoadedWithoutResult_KeepsCommanderPickerAndHintInsideOpenCard()
+    {
+        string html = await RenderManabaseViewAsync(new ManabaseViewModel
+        {
+            Loaded = true,
+            CommanderSelectionRequired = true,
+            CommanderChoices = new[] { "Test Commander" },
+        });
+
+        Assert.Contains("<div class=\"cutlab-intake cutlab-intake--empty\">", html, StringComparison.Ordinal);
+        Assert.Matches("<div class=\"cutlab-intake cutlab-intake--empty\">[\\s\\S]*manabase-loaded-hint[\\s\\S]*Test Commander[\\s\\S]*</form>\\s*</div>", html);
+    }
+
+    [Fact]
+    public async Task Intake_DefaultRequest_SelectsPublicUrl()
+    {
+        string html = await RenderManabaseViewAsync(new ManabaseViewModel());
+
+        Assert.Contains("<option value=\"PublicUrl\" selected=\"selected\">Use public deck URL</option>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Intake_ResultState_RendersClosedSummaryAndAccessibleResultsTarget()
+    {
+        ManabaseViewModel populated = BuildPopulatedModel(showTapAnalyzer: false);
+        var model = new ManabaseViewModel
+        {
+            Request = new ManabaseRequest { DeckName = "Kinnan Stax" },
+            InputSummary = "Fallback deck",
+            Report = populated.Report,
+        };
+
+        string html = await RenderManabaseViewAsync(model);
+
+        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary><summary class=\"cutlab-intake-summary\"><span class=\"cutlab-intake-summary__commander\">Kinnan Stax</span><span class=\"cutlab-intake-summary__change\">Edit</span></summary>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-intake-summary open", html, StringComparison.Ordinal);
+        Assert.Contains("<section class=\"result-panel\" data-print-region data-scroll-on-load id=\"results\" tabindex=\"-1\" aria-label=\"Results\">", html, StringComparison.Ordinal);
+
+        string fallbackHtml = await RenderManabaseViewAsync(new ManabaseViewModel
+        {
+            InputSummary = "Fallback deck",
+            Report = populated.Report,
+        });
+        Assert.Contains("cutlab-intake-summary__commander\">Fallback deck</span>", fallbackHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Intake_PasteTextHandoff_SelectsPasteTextAndHidesUrlPanel()
+    {
+        string html = await RenderManabaseViewAsync(new ManabaseViewModel
+        {
+            Request = new ManabaseRequest { DeckInputSource = DeckInputSource.PasteText },
+        });
+
+        Assert.Contains("<option value=\"PasteText\" selected=\"selected\">Paste text</option>", html, StringComparison.Ordinal);
+        Assert.Contains("<div class=\"field hidden\" data-sync-panel=\"manabase-deck-url\">", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ManabaseRequest_DefaultDeckInputSource_IsPublicUrl()
+    {
+        Assert.Equal(DeckInputSource.PublicUrl, new ManabaseRequest().DeckInputSource);
+    }
+
     // Replace the randomized __RequestVerificationToken value with a constant so two renders of the
     // same model differ only by intentional content (here: the tap card).
     private static string NormalizeAntiForgery(string html) =>

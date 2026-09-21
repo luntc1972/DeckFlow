@@ -5,7 +5,6 @@
 @{
     ViewData["Title"] = "MTG Commander Mana Base Analyzer";
     ViewData["Description"] = "Analyze your Commander mana base for color consistency and castability using Karsten-based math. Get a plain-language verdict and fixes.";
-    var isUrl = Model.Request.DeckInputSource == DeckFlow.Web.Models.DeckInputSource.PublicUrl;
     var report = Model.Report;
     var mode = Model.Request.Mode;
     var importance = Model.Request.CommanderImportance;
@@ -34,18 +33,10 @@
     <p class="form-hint">@Model.NoticeMessage</p>
 }
 
-<details class="cutlab-intake" data-cut-lab-intake-summary open="@(!Model.HasResult ? "open" : null)">
-    <summary class="cutlab-intake-summary">
-        @if (Model.HasResult)
-        {
-            <span class="cutlab-intake-summary__commander">@(string.IsNullOrWhiteSpace(Model.Request.DeckName) ? Model.InputSummary : Model.Request.DeckName)</span>
-            <span class="cutlab-intake-summary__change">Change intake</span>
-        }
-        else
-        {
-            <span class="cutlab-intake-summary__commander">Import a deck</span>
-        }
-    </summary>
+@using (Html.BeginIntakeCard(new IntakeCardOptions(
+    Model.HasResult,
+    string.IsNullOrWhiteSpace(Model.Request.DeckName) ? Model.InputSummary : Model.Request.DeckName)))
+{
 <form method="post" action="@Url.Content("~/manabase")" class="result-panel"
       data-cache-key="manabase"
       data-busy-title="Analyzing mana base"
@@ -55,26 +46,13 @@
       data-busy-min-ms="500">
     @Html.AntiForgeryToken()
 
-    <div class="field">
-        <label for="manabase-input-source">Input method</label>
-        <select id="manabase-input-source" name="DeckInputSource" data-df-select>
-            <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(isUrl ? "selected" : null)">Use public deck URL</option>
-            <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!isUrl ? "selected" : null)">Paste text</option>
-        </select>
-    </div>
-
-    <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="manabase-deck-url">
-        <label for="manabase-deck-url">Archidekt or Moxfield deck URL</label>
-        <input id="manabase-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
-               placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
-        @await Html.PartialAsync("_DeckFlowBridgeHint")
-    </div>
-
-    <div class="field @(isUrl ? "hidden" : string.Empty)" data-sync-panel="manabase-deck-text">
-        <label for="manabase-deck-text">Paste a decklist (one card per line, with set/collector if you have it)</label>
-        <textarea id="manabase-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
-                  placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
-    </div>
+    @await Html.PartialAsync("_DeckImportControl", new DeckImportControlModel(
+        IdPrefix: "manabase",
+        PanelKeyPrefix: "manabase",
+        TextLabel: "Paste a decklist (one card per line, with set/collector if you have it)",
+        DeckUrl: Model.Request.DeckUrl,
+        DeckText: Model.Request.DeckText,
+        Source: Model.Request.DeckInputSource))
 
     <div class="field">
         <label for="manabase-deck-name">Deck name (optional)</label>
@@ -252,7 +230,7 @@
         <a href="@Url.Content("~/manabase")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>
-</details>
+}
 
 @if (Model.HasResult && report is not null)
 {
@@ -421,7 +399,7 @@
         </details>
     }
 
-    <section class="result-panel" data-print-region data-scroll-on-load>
+    <section class="result-panel" data-print-region data-scroll-on-load id="results" tabindex="-1" aria-label="Results">
         <div class="panel-heading">
             <div>
                 <div class="manabase-result-heading">
