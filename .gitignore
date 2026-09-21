@@ -64,3 +64,4 @@ __pycache__/
 
 # GSD dispatch bookkeeping: rewritten on every dispatch, read by guard hooks; never a code change.
 .gsd/dispatch-isolation-sentinel.json
+.gsd/WAITING.json

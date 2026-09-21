@@ -1,7 +1,0 @@
-{
-  "status": "resolved",
-  "type": "dependency",
-  "resolution": "User selected Consolidate. Merge commit 93f98cb9 brings the review-fix chain through 4ca37c00 into this branch. The TranscriptChunker regression guard from efc756e7 is present and passes. The first-parent isolation sentinel was retained.",
-  "resolved_at": "2026-09-05T02:39:00Z",
-  "phase": "112"
-}
