@@ -45,10 +45,12 @@ public static class ContentKbOrchestratorFactory
         ArgumentNullException.ThrowIfNull(transcriptSource);
         ArgumentNullException.ThrowIfNull(chunker);
 
+        var suppressionStore = new CreatorSuppressionStore(connection);
+
         return new ContentKbOrchestrator(
-            new ContentSourceStore(connection),
-            new ContentVideoStore(connection),
-            new ContentSiteIndexStore(connection),
+            new ContentSourceStore(connection, suppressionStore),
+            new ContentVideoStore(connection, suppressionStore),
+            new ContentSiteIndexStore(connection, suppressionStore: suppressionStore),
             new BlockedVideoStore(connection),
             new ContentHarvestRunStore(connection),
             new LlmSpendLedger(connection),

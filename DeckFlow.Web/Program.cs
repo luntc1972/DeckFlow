@@ -257,9 +257,8 @@ public partial class Program
         builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
         // Why: foundation-only store registration for Phase 1; no consumer until Phase 3/4.
         builder.Services.AddSingleton<IManabaseBaselineStore, ManabaseBaselineStore>();
-        builder.Services.AddSingleton<DeckFlow.Core.Content.IContentSiteIndexStore>(_ =>
-            new DeckFlow.Core.Content.ContentSiteIndexStore(
-                DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment)));
+        builder.Services.AddDeckFlowContentKbStores(
+            DeckFlowDatabaseConnectionFactory.CreateContentSiteIndexConnection(builder.Environment));
         builder.Services.AddSingleton<ContentKbArtifactPathResolver>();
         builder.Services.AddSingleton<IContentKbSeedLoader, ContentKbSeedLoader>();
         builder.Services.AddSingleton<DeckFlow.Core.Content.IContentArtifactBodyResolver, ContentKbArtifactBodyResolver>();

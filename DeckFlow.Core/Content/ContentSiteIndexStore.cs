@@ -13,6 +13,7 @@ namespace DeckFlow.Core.Content;
 public sealed class ContentSiteIndexStore : IContentSiteIndexStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
+    private readonly ICreatorSuppressionStore? _suppressionStore;
     private readonly bool _ensureSchemaEnabled;
     private readonly Func<CancellationToken, Task<DbConnection>>? _connectionFactoryOverride;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
@@ -22,20 +23,22 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     /// Creates a SQLite-backed site-index store using the file at <paramref name="databasePath"/>.
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
-    public ContentSiteIndexStore(string databasePath)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath)) { }
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
+    public ContentSiteIndexStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore) { }
 
     /// <summary>
     /// Creates a site-index store using the supplied <see cref="RelationalDatabaseConnection"/>.
     /// </summary>
     /// <param name="connectionInfo">Provider + connection string descriptor.</param>
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
     /// <param name="ensureSchemaEnabled">
     /// When <c>true</c> (default) the store auto-creates/backfills its schema on first use. When
     /// <c>false</c> (prod-pointed stores, D-09/D-10) <see cref="EnsureSchemaAsync"/> is a no-op so the
     /// store never issues CREATE/ALTER/DROP — prod schema is owned by the web app's startup path.
     /// </param>
-    public ContentSiteIndexStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true)
-        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null) { }
+    public ContentSiteIndexStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null)
+        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore) { }
 
     /// <summary>
     /// Test-seam constructor: injects a connection-factory override so tests can wrap the real
@@ -48,13 +51,16 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     /// <param name="connectionFactoryOverride">
     /// Optional connection factory used by <see cref="OpenConnectionAsync"/> in place of the live one.
     /// </param>
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
     internal ContentSiteIndexStore(
         RelationalDatabaseConnection connectionInfo,
         bool ensureSchemaEnabled,
-        Func<CancellationToken, Task<DbConnection>>? connectionFactoryOverride)
+        Func<CancellationToken, Task<DbConnection>>? connectionFactoryOverride,
+        ICreatorSuppressionStore? suppressionStore = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
+        _suppressionStore = suppressionStore;
         _ensureSchemaEnabled = ensureSchemaEnabled;
         _connectionFactoryOverride = connectionFactoryOverride;
         if (_connectionInfo.IsSqlite)

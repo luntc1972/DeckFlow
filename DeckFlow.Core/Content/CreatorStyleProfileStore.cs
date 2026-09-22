@@ -11,6 +11,7 @@ namespace DeckFlow.Core.Content;
 public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
+    private readonly ICreatorSuppressionStore? _suppressionStore;
     private readonly bool _ensureSchemaEnabled;
     private readonly Func<CancellationToken, Task<DbConnection>>? _connectionFactoryOverride;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
@@ -20,8 +21,9 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
     /// Creates a SQLite-backed creator style-profile store using the file at <paramref name="databasePath"/>.
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
-    public CreatorStyleProfileStore(string databasePath)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath)) { }
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
+    public CreatorStyleProfileStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore) { }
 
     /// <summary>
     /// Creates a creator style-profile store using the supplied <see cref="RelationalDatabaseConnection"/>.
@@ -31,8 +33,9 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
     /// When <c>true</c> (default) the store auto-creates its schema on first use. When
     /// <c>false</c> <see cref="EnsureSchemaAsync"/> is a no-op so the store never issues CREATE/ALTER/DROP.
     /// </param>
-    public CreatorStyleProfileStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true)
-        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null) { }
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
+    public CreatorStyleProfileStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null)
+        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore) { }
 
     /// <summary>
     /// Test-seam constructor: injects a connection-factory override so tests can wrap the real
@@ -44,13 +47,16 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
     /// <param name="connectionFactoryOverride">
     /// Optional connection factory used by <see cref="OpenConnectionAsync"/> in place of the live one.
     /// </param>
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
     internal CreatorStyleProfileStore(
         RelationalDatabaseConnection connectionInfo,
         bool ensureSchemaEnabled,
-        Func<CancellationToken, Task<DbConnection>>? connectionFactoryOverride)
+        Func<CancellationToken, Task<DbConnection>>? connectionFactoryOverride,
+        ICreatorSuppressionStore? suppressionStore = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
+        _suppressionStore = suppressionStore;
         _ensureSchemaEnabled = ensureSchemaEnabled;
         _connectionFactoryOverride = connectionFactoryOverride;
         if (_connectionInfo.IsSqlite)

@@ -12,6 +12,7 @@ namespace DeckFlow.Core.Content;
 public sealed class ContentVideoStore : IContentVideoStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
+    private readonly ICreatorSuppressionStore? _suppressionStore;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
 
@@ -19,17 +20,20 @@ public sealed class ContentVideoStore : IContentVideoStore
     /// Creates a SQLite-backed store using the file at <paramref name="databasePath"/>.
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
-    public ContentVideoStore(string databasePath)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath)) { }
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
+    public ContentVideoStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore) { }
 
     /// <summary>
     /// Creates a store using the supplied <see cref="RelationalDatabaseConnection"/>.
     /// </summary>
     /// <param name="connectionInfo">Provider + connection string descriptor.</param>
-    public ContentVideoStore(RelationalDatabaseConnection connectionInfo)
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
+    public ContentVideoStore(RelationalDatabaseConnection connectionInfo, ICreatorSuppressionStore? suppressionStore = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
+        _suppressionStore = suppressionStore;
         if (_connectionInfo.IsSqlite)
         {
             var directory = Path.GetDirectoryName(_connectionInfo.ExtractSqlitePath());
@@ -51,7 +55,7 @@ public sealed class ContentVideoStore : IContentVideoStore
 
             // Why: REVIEW #1 / D-04 require content_sources to exist before content_videos
             // declares its FK parent, and Postgres rejects FKs to missing parent tables.
-            var sourceStore = new ContentSourceStore(_connectionInfo);
+            var sourceStore = new ContentSourceStore(_connectionInfo, _suppressionStore);
             await sourceStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);

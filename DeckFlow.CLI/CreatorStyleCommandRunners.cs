@@ -4,6 +4,7 @@ using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.ProfileFusion;
 using DeckFlow.Core.Knowledge.StatedRulesExtraction;
+using DeckFlow.Core.Storage;
 
 namespace DeckFlow.CLI;
 
@@ -39,7 +40,7 @@ internal static class CreatorStyleCommandRunners
                 new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
                 ?? [];
 
-            var store = new CreatorStyleStatedRuleStore(dbPath);
+            var store = CreateStoresForDatabase(dbPath).StatedRuleStore;
             var ruleCount = 0;
             var slugCount = 0;
             foreach ((var slug, var rules) in seed)
@@ -87,8 +88,9 @@ internal static class CreatorStyleCommandRunners
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var profileStore = new CreatorStyleProfileStore(dbPath);
-            var statedRuleStore = new CreatorStyleStatedRuleStore(dbPath);
+            var stores = CreateStoresForDatabase(dbPath);
+            var profileStore = stores.ProfileStore;
+            var statedRuleStore = stores.StatedRuleStore;
 
             var profile = await profileStore.GetBySlugAsync(slug).ConfigureAwait(false);
             if (profile is null)
@@ -164,8 +166,9 @@ internal static class CreatorStyleCommandRunners
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var profileStore = new CreatorStyleProfileStore(dbPath);
-            var deckCacheStore = new CreatorDeckCacheStore(ContentKbCliPaths.ResolveCreatorDeckCacheDatabasePath(db));
+            var stores = CreateStoresForDatabase(dbPath);
+            var profileStore = stores.ProfileStore;
+            var deckCacheStore = new CreatorDeckCacheStore(ContentKbCliPaths.ResolveCreatorDeckCacheDatabasePath(db), stores.SuppressionStore);
 
             var summaries = await profileStore.GetAllAsync().ConfigureAwait(false);
             if (summaries.Count == 0)
@@ -219,6 +222,19 @@ internal static class CreatorStyleCommandRunners
             Console.Error.WriteLine(exception.Message);
             return 1;
         }
+    }
+
+    /// <summary>Creates the shared creator-style stores for a content KB database.</summary>
+    internal static (
+        CreatorSuppressionStore SuppressionStore,
+        CreatorStyleProfileStore ProfileStore,
+        CreatorStyleStatedRuleStore StatedRuleStore) CreateStoresForDatabase(string databasePath)
+    {
+        var suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(databasePath));
+        return (
+            suppressionStore,
+            new CreatorStyleProfileStore(databasePath, suppressionStore),
+            new CreatorStyleStatedRuleStore(databasePath, suppressionStore));
     }
 
     private static string SerializeCreatorStyleSeed<T>(IReadOnlyList<T> items)

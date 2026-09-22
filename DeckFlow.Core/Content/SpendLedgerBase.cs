@@ -66,7 +66,7 @@ public abstract class SpendLedgerBase
 
             // Why: REVIEW #1 requires content_videos to exist before the spend ledger
             // declares its FK parent, and Postgres rejects FKs to missing parent tables.
-            var videoStore = new ContentVideoStore(_connectionInfo);
+            var videoStore = new ContentVideoStore(_connectionInfo, suppressionStore: null);
             await videoStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);

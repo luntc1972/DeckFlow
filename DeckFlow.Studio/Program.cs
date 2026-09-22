@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Globalization;
 using DeckFlow.Core.Content;
+using DeckFlow.Core.Storage;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Orchestration;
+using DeckFlow.Studio.Extensions;
 using DeckFlow.Studio.Services;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -87,9 +89,7 @@ public partial class Program
             // Why (D-09 REVISED/SYNC-09): the DirectPush deploy-confirm poller. Depends only on the
             // shared singleton HttpClient (registered below) + IConfiguration — safe as a singleton.
             builder.Services.AddSingleton<IDeployedBodyConfirmer, DeployedBodyConfirmer>();
-            builder.Services.AddSingleton<IContentSourceStore>(_ => new ContentSourceStore(contentKbDatabasePath));
-            builder.Services.AddSingleton<IContentVideoStore>(_ => new ContentVideoStore(contentKbDatabasePath));
-            builder.Services.AddSingleton<IContentSiteIndexStore>(_ => new ContentSiteIndexStore(contentKbDatabasePath));
+            builder.Services.AddStudioContentKbStores(contentKbDatabasePath);
             // Why (D-08): host-agnostic body_sha256 backfill, bound to the LOCAL content-kb.db
             // store above via the IContentSiteIndexStore singleton — explicitly NOT any
             // ProdStoreFactory prod store (those stay schema-ensure OFF, P88 D-10). Run at

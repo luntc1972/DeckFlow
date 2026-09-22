@@ -367,7 +367,8 @@ internal static class ContentKbCommandRunners
             var rawRoot = artifactRoot?.FullName ?? ContentKbCliPaths.ResolveArtifactRoot(db);
             var contentBase = NormalizeToContentBase(rawRoot);
 
-            var store = new ContentSiteIndexStore(dbPath);
+            var suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(dbPath));
+            var store = new ContentSiteIndexStore(dbPath, suppressionStore);
             var rows = await store.GetAllRowsAsync().ConfigureAwait(false);
             var result = ContentKbOrphanScanner.Scan(rows, contentBase);
 

@@ -11,6 +11,7 @@ namespace DeckFlow.Core.Content;
 public sealed class ContentSourceStore : IContentSourceStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
+    private readonly ICreatorSuppressionStore? _suppressionStore;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
 
@@ -18,17 +19,20 @@ public sealed class ContentSourceStore : IContentSourceStore
     /// Creates a SQLite-backed store using the file at <paramref name="databasePath"/>.
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
-    public ContentSourceStore(string databasePath)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath)) { }
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
+    public ContentSourceStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore) { }
 
     /// <summary>
     /// Creates a store using the supplied <see cref="RelationalDatabaseConnection"/>.
     /// </summary>
     /// <param name="connectionInfo">Provider + connection string descriptor.</param>
-    public ContentSourceStore(RelationalDatabaseConnection connectionInfo)
+    /// <param name="suppressionStore">Creator suppression dependency.</param>
+    public ContentSourceStore(RelationalDatabaseConnection connectionInfo, ICreatorSuppressionStore? suppressionStore = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
+        _suppressionStore = suppressionStore;
         if (_connectionInfo.IsSqlite)
         {
             var directory = Path.GetDirectoryName(_connectionInfo.ExtractSqlitePath());
