@@ -121,3 +121,86 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
 
     private CreatorSuppressionStore CreateStore() => new(RelationalDatabaseConnection.FromSqlitePath(_dbPath));
 }
+
+public sealed class CreatorSuppressionSyncTests : IDisposable
+{
+    private readonly string _localPath = Path.Combine(Path.GetTempPath(), $"creator-suppression-local-{Guid.NewGuid():N}.db");
+    private readonly string _prodPath = Path.Combine(Path.GetTempPath(), $"creator-suppression-prod-{Guid.NewGuid():N}.db");
+
+    [Fact]
+    public async Task SyncAdd_SnapshotAddsARow()
+    {
+        var local = Create(_localPath); var prod = Create(_prodPath);
+        await prod.SuppressAsync("alpha", new[] { "Alpha" }, "request", DateTimeOffset.UtcNow, null);
+        await local.ApplySnapshotAsync(await prod.ReadSnapshotAsync());
+        Assert.Equal("alpha", Assert.Single(await local.ListAsync()).Slug);
+    }
+
+    [Fact]
+    public async Task SyncUpdate_UpdatesAliasesAndReason()
+    {
+        var local = Create(_localPath); var prod = Create(_prodPath);
+        await local.SuppressAsync("alpha", new[] { "old" }, "old", DateTimeOffset.UtcNow, null);
+        await prod.SuppressAsync("alpha", new[] { "new" }, "new", DateTimeOffset.UtcNow, "note");
+        await local.ApplySnapshotAsync(await prod.ReadSnapshotAsync());
+        var row = Assert.Single(await local.ListAsync()); Assert.Equal("new", row.Reason); Assert.Contains("new", row.Aliases);
+    }
+
+    [Fact]
+    public async Task SyncDeleteRemovesLocal_RowAbsentInProductionSnapshotIsDeleted()
+    {
+        var local = Create(_localPath); var prod = Create(_prodPath);
+        await local.SuppressAsync("gone", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+        await local.ApplySnapshotAsync(await prod.ReadSnapshotAsync());
+        Assert.Empty(await local.ListAsync());
+    }
+
+    [Fact]
+    public async Task SyncInterruptedAtomic_FailureLeavesRowsAndSyncedRevisionUnchanged()
+    {
+        var local = Create(_localPath); var prod = Create(_prodPath);
+        await local.SuppressAsync("keep", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+        var before = await local.GetSyncedRevisionAsync();
+        var snapshot = new CreatorSuppressionSnapshot(7, new[] { new CreatorSuppression { Slug = "new", Aliases = Array.Empty<string>(), Reason = "request", RequestedUtc = DateTimeOffset.UtcNow } });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => local.ApplySnapshotAsync(snapshot, failAfterDelete: true));
+        Assert.Equal(before, await local.GetSyncedRevisionAsync()); Assert.Equal("keep", Assert.Single(await local.ListAsync()).Slug);
+    }
+
+    [Fact]
+    public async Task SyncStaleDetected_LocalSyncedRevisionDiffersFromProductionRevision()
+    {
+        var local = Create(_localPath); var prod = Create(_prodPath);
+        await prod.SuppressAsync("alpha", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+        Assert.True(await local.IsStaleComparedToAsync(prod));
+        await local.ApplySnapshotAsync(await prod.ReadSnapshotAsync());
+        Assert.False(await local.IsStaleComparedToAsync(prod));
+    }
+
+    [Fact]
+    public async Task SyncUnreadableBlocksDirectPush_ProductionRevisionReadFailurePropagates()
+    {
+        var local = Create(_localPath);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => local.IsStaleComparedToAsync(new UnreadableStore()));
+    }
+
+    public void Dispose()
+    {
+        SqliteConnection.ClearAllPools(); if (File.Exists(_localPath)) File.Delete(_localPath); if (File.Exists(_prodPath)) File.Delete(_prodPath);
+    }
+    private static CreatorSuppressionStore Create(string path) => new(RelationalDatabaseConnection.FromSqlitePath(path));
+
+    private sealed class UnreadableStore : ICreatorSuppressionStore
+    {
+        public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task<long> GetRevisionAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task<long?> GetSyncedRevisionAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task<CreatorSuppressionSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task SetAliasesAsync(string slug, IReadOnlyList<string> aliases, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task SuppressAsync(string slug, IReadOnlyList<string> aliases, string reason, DateTimeOffset requestedUtc, string? note, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+        public Task UnsuppressAsync(string slug, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
+    }
+}

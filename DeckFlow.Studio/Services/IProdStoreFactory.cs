@@ -12,6 +12,8 @@ public interface IProdStoreFactory
     /// <param name="connectionString">Raw prod Postgres connection string (URL or key-value form).</param>
     /// <returns>A Postgres-backed <see cref="IContentSiteIndexStore"/>.</returns>
     IContentSiteIndexStore Create(string connectionString);
+    /// <summary>Builds a zero-DDL production suppression reader.</summary>
+    ICreatorSuppressionStore CreateSuppression(string connectionString);
 }
 
 /// <summary>Production implementation that wires the Postgres dialect.</summary>
@@ -32,4 +34,8 @@ public sealed class ProdStoreFactory : IProdStoreFactory
         var suppressionStore = new CreatorSuppressionStore(conn);
         return new ContentSiteIndexStore(conn, ensureSchemaEnabled: false, suppressionStore: suppressionStore);
     }
+
+    /// <inheritdoc />
+    public ICreatorSuppressionStore CreateSuppression(string connectionString)
+        => new CreatorSuppressionStore(new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, PostgresConnectionStringNormalizer.Normalize(connectionString)), ensureSchemaEnabled: false);
 }

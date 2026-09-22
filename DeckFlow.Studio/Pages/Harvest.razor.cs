@@ -17,6 +17,9 @@ public partial class Harvest
 {
     // ── Injected services ───────────────────────────────────────────────────
     [Inject]
+    private CreatorSuppressionSyncCoordinator SuppressionSync { get; set; } = default!;
+
+    [Inject]
     private IYouTubeChannelVideoLister Lister { get; set; } = default!;
 
     [Inject]
@@ -897,6 +900,7 @@ public partial class Harvest
     {
         try
         {
+            await SuppressionSync.EnsureCurrentAsync();
             await RefreshCapDisplayAsync();
             // Why: persisted auto-approve settings (D-07) — load once at init so the panel reflects
             // the operator's last choice across Studio restarts.

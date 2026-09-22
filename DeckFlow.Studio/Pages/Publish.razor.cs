@@ -21,6 +21,9 @@ public partial class Publish
     [Inject]
     private PublishCoordinator Coordinator { get; set; } = default!;
 
+    [Inject]
+    private CreatorSuppressionSyncCoordinator SuppressionSync { get; set; } = default!;
+
     // ── Init state ──────────────────────────────────────────────────────────
     private bool _initInFlight = true;
     private string? _initError;
@@ -62,6 +65,7 @@ public partial class Publish
     {
         try
         {
+            await SuppressionSync.EnsureCurrentAsync();
             // Why: Task.Run moves git + store calls off the Blazor sync context (Pitfall 7).
             var initData = await Task.Run(() => Coordinator.LoadInitDataAsync(Cts.Token), Cts.Token);
 

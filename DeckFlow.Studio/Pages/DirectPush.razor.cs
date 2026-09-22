@@ -23,6 +23,9 @@ public partial class DirectPush
     private DirectPushCoordinator Coordinator { get; set; } = default!;
 
     [Inject]
+    private CreatorSuppressionSyncCoordinator SuppressionSync { get; set; } = default!;
+
+    [Inject]
     private StudioConfig Config { get; set; } = default!;
 
     // Why: M3 — logs caught exceptions to the Serilog file/console sink so "see logs" guidance
@@ -113,6 +116,7 @@ public partial class DirectPush
     {
         try
         {
+            await SuppressionSync.EnsureCurrentAsync();
             // Why: Task.Run moves store calls off the Blazor sync context (Pitfall 7).
             var initData = await Task.Run(() => Coordinator.LoadInitDataAsync(Cts.Token), Cts.Token);
             _approvedCount = initData.ApprovedCount;

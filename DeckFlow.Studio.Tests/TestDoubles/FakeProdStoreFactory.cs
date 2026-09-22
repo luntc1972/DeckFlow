@@ -1,4 +1,5 @@
 using DeckFlow.Core.Content;
+using DeckFlow.Core.Storage;
 using DeckFlow.Studio.Services;
 
 namespace DeckFlow.Studio.Tests;
@@ -11,6 +12,7 @@ namespace DeckFlow.Studio.Tests;
 internal sealed class FakeProdStoreFactory : IProdStoreFactory
 {
     private readonly IContentSiteIndexStore _prodStore;
+    private readonly ICreatorSuppressionStore _suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(Path.Combine(Path.GetTempPath(), $"fake-prod-suppression-{Guid.NewGuid():N}.db")));
 
     public FakeProdStoreFactory(IContentSiteIndexStore prodStore)
     {
@@ -20,4 +22,5 @@ internal sealed class FakeProdStoreFactory : IProdStoreFactory
 
     /// <summary>Returns the pre-configured fake prod store; ignores the connection string.</summary>
     public IContentSiteIndexStore Create(string connectionString) => _prodStore;
+    public ICreatorSuppressionStore CreateSuppression(string connectionString) => _suppressionStore;
 }

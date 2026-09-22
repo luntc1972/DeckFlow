@@ -214,4 +214,5 @@ internal sealed class FixtureProdStoreFactory : IProdStoreFactory
 
     /// <inheritdoc />
     public IContentSiteIndexStore Create(string connectionString) => _store;
+    public ICreatorSuppressionStore CreateSuppression(string connectionString) => throw new InvalidOperationException();
 }

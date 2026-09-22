@@ -291,5 +291,6 @@ public sealed class ReconcileFixtureDriveTests : IDisposable
     private sealed class FixtureProdStoreFactory(ContentSiteIndexStore store) : IProdStoreFactory
     {
         public IContentSiteIndexStore Create(string connectionString) => store;
+        public ICreatorSuppressionStore CreateSuppression(string connectionString) => throw new InvalidOperationException();
     }
 }
