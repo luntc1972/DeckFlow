@@ -176,10 +176,18 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
 
     private async Task<bool> IsSuppressedAsync(string representation, CancellationToken cancellationToken)
     {
-        var identity = await _identityResolver.ResolveAsync(representation, cancellationToken).ConfigureAwait(false);
-        return await _suppressionStore
-            .IsSuppressedAsync(identity?.CanonicalSlug ?? representation, cancellationToken)
-            .ConfigureAwait(false);
+        try
+        {
+            var identity = await _identityResolver.ResolveAsync(representation, cancellationToken).ConfigureAwait(false);
+            return await _suppressionStore
+                .IsSuppressedAsync(identity?.CanonicalSlug ?? representation, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (CreatorAliasConflictException)
+        {
+            _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", representation);
+            return true;
+        }
     }
 
     private string ResolveSeedFilePath(string relativePath)

@@ -33,7 +33,15 @@ internal sealed class FakeCreatorSuppressionStore : ICreatorSuppressionStore
 internal sealed class FakeCreatorIdentityResolver : ICreatorIdentityResolver
 {
     public Dictionary<string, CreatorIdentity> Identities { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public string? ThrowOn { get; set; }
 
     public Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default)
-        => Task.FromResult(Identities.GetValueOrDefault(anyRepresentation));
+    {
+        if (string.Equals(anyRepresentation, ThrowOn, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new CreatorAliasConflictException(anyRepresentation, "first, second");
+        }
+
+        return Task.FromResult(Identities.GetValueOrDefault(anyRepresentation));
+    }
 }

@@ -18,6 +18,23 @@ public sealed class CreatorIdentityResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task ResolveAsync_IndexFolderVariantsShareOneIdentity()
+    {
+        var connection = RelationalDatabaseConnection.FromSqlitePath(_dbPath);
+        var resolver = new CreatorIdentityResolver(new CreatorSuppressionStore(connection), new ContentSourceStore(connection), new ContentSiteIndexStore(connection));
+        var index = new ContentSiteIndexStore(connection);
+        await index.UpsertRowAsync(CreateRow("Salubrious Snail", "content-kb/salubrioussnail/one.md", "one"));
+        await index.UpsertRowAsync(CreateRow("Salubrious Snail", "content-kb/salubrious-snail/two.md", "two"));
+
+        foreach (var representation in new[] { "Salubrious Snail", "salubrioussnail", "salubrious-snail" })
+        {
+            var identity = await resolver.ResolveAsync(representation);
+            Assert.NotNull(identity);
+            Assert.Equal(new[] { "salubrious-snail", "salubrioussnail" }, identity!.FolderSlugs.OrderBy(value => value));
+        }
+    }
+
+    [Fact]
     public async Task ResolveAsync_BySlugReturnsIdentity()
     {
         var resolver = await CreateResolverAsync();

@@ -44,7 +44,10 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
         {
             var folder = GetFolder(row.ArtifactPath);
             if (folder is null) continue;
-            var canonical = FindCanonical(suppressions, row.Source, folder) ?? sources.FirstOrDefault(source => Same(source.DisplayName, row.Source) || Same(source.SourceSlug, folder))?.SourceSlug ?? folder;
+            var canonical = FindCanonical(suppressions, row.Source, folder)
+                ?? sources.FirstOrDefault(source => Same(source.DisplayName, row.Source) || Same(source.SourceSlug, folder))?.SourceSlug
+                ?? candidates.Values.FirstOrDefault(candidate => candidate.DisplayNames.Any(name => Same(name, row.Source)) || candidate.FolderSlugs.Any(slug => Same(slug, folder)))?.Slug
+                ?? folder;
             var candidate = Get(candidates, canonical);
             candidate.Aliases.Add(row.Source);
             candidate.Aliases.Add(folder);

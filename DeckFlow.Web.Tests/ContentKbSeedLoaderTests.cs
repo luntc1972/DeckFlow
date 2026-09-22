@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Services;
 using Microsoft.AspNetCore.Hosting;
@@ -22,6 +23,22 @@ namespace DeckFlow.Web.Tests;
 public sealed class ContentKbSeedLoaderTests : IDisposable
 {
     private readonly List<string> _tempDirs = new();
+
+    [Fact]
+    public async Task LoadIfPresentAsync_SkipsAliasConflictAndContinues()
+    {
+        var baseDir = CreateContentKbBase();
+        WriteSeed(baseDir, "[{\"naturalKeyType\":\"youtube_channel\",\"naturalKeyValue\":\"bad\",\"source\":\"Conflict\",\"title\":\"Bad\",\"videoUrl\":\"https://example.test/bad\",\"artifactPath\":\"content-kb/conflict/bad.md\",\"indexedUtc\":\"2026-06-01T00:00:00Z\",\"archetypeTags\":[],\"bracketTags\":[],\"cardCategoryTags\":[]},{\"naturalKeyType\":\"youtube_channel\",\"naturalKeyValue\":\"good\",\"source\":\"Control\",\"title\":\"Good\",\"videoUrl\":\"https://example.test/good\",\"artifactPath\":\"content-kb/control/good.md\",\"indexedUtc\":\"2026-06-01T00:00:00Z\",\"archetypeTags\":[],\"bracketTags\":[],\"cardCategoryTags\":[]}] ");
+        var store = new FakeContentSiteIndexStore();
+        var resolver = new FakeCreatorIdentityResolver { ThrowOn = "Conflict" };
+        var loader = BuildLoader(baseDir, store, resolver);
+
+        var count = await loader.LoadIfPresentAsync();
+
+        Assert.Equal(1, count);
+        Assert.Single(store.PreservingUpserts);
+        Assert.Equal("Control", store.PreservingUpserts[0].Source);
+    }
 
     [Fact]
     public async Task LoadIfPresentAsync_ReturnsZero_WhenSeedFileAbsent()
@@ -225,7 +242,7 @@ public sealed class ContentKbSeedLoaderTests : IDisposable
         Assert.Null(row.YoutubeVideoId);
     }
 
-    private ContentKbSeedLoader BuildLoader(string baseDir, FakeContentSiteIndexStore store)
+    private ContentKbSeedLoader BuildLoader(string baseDir, FakeContentSiteIndexStore store, FakeCreatorIdentityResolver? identityResolver = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["ContentKb:ContentBase"] = baseDir })
@@ -235,7 +252,7 @@ public sealed class ContentKbSeedLoaderTests : IDisposable
             configuration,
             new FakeFeatureFlagCache(new Dictionary<string, bool> { ["sync.directpush-gitbody"] = false }),
             NullLogger<ContentKbArtifactPathResolver>.Instance);
-        return new ContentKbSeedLoader(resolver, store, new FakeCreatorIdentityResolver(), new FakeCreatorSuppressionStore(), NullLogger<ContentKbSeedLoader>.Instance);
+        return new ContentKbSeedLoader(resolver, store, identityResolver ?? new FakeCreatorIdentityResolver(), new FakeCreatorSuppressionStore(), NullLogger<ContentKbSeedLoader>.Instance);
     }
 
     private string CreateContentKbBase()
