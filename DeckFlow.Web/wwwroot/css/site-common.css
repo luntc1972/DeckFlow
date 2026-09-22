@@ -7986,11 +7986,13 @@ pre {
   margin: 0;
 }
 
-.deck-modules__actions > [data-deck-modules-blocked]:empty {
+.deck-modules__actions > [data-deck-modules-blocked]:empty,
+.deck-modules__actions > [data-deck-modules-blocked-summary]:empty {
   display: none;
 }
 
-.deck-modules__actions > [data-deck-modules-blocked] {
+.deck-modules__actions > [data-deck-modules-blocked],
+.deck-modules__actions > [data-deck-modules-blocked-summary] {
   flex-basis: 100%;
 }
 

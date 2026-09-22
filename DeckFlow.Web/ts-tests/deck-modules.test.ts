@@ -5,13 +5,13 @@ import '../wwwroot/ts/deck-modules';
 interface DeckModulesApi { initialize(): void; buildExportText(report: unknown): string; }
 
 const markup = () => `
-<main data-deck-modules>
+<main data-deck-modules data-deck-modules-stage="empty">
   <p data-deck-modules-live aria-live="polite"></p><p data-deck-modules-next></p><p data-deck-modules-notice></p><p data-deck-modules-error></p>
   <form data-deck-modules-import-form><select name="DeckInputSource"><option value="PublicUrl">Use public deck URL</option><option value="PasteText">Paste text</option></select><div data-sync-panel="deck-modules-deck-url"><input name="DeckUrl"></div><div data-sync-panel="deck-modules-deck-text"><textarea name="DeckText"></textarea></div><button>Import</button></form>
   <section data-deck-modules-configuration><input data-deck-modules-name><select data-deck-modules-profile><option value="">Choose a profile</option><option value="Casual">Casual</option><option value="Bracket4HighPower">Bracket 4 High Power</option><option value="Cedh">cEDH</option></select><textarea data-deck-modules-plan></textarea><button data-deck-modules-add-alternative>Add</button><div data-deck-modules-alternatives></div><span data-deck-modules-summary-profile></span><span data-deck-modules-summary-plan></span></section>
   <section data-deck-modules-command-zone></section><p data-deck-modules-reconciliation></p>
   ${['unassigned', 'core', 'strategy', 'mana'].map(panel => `<section data-deck-modules-panel="${panel}"><span data-deck-modules-count="${panel}"></span>${panel === 'strategy' ? '<span data-deck-modules-active-name></span>' : ''}<input data-deck-modules-filter="${panel}"><table><tbody data-deck-modules-entries="${panel}"></tbody></table><button data-deck-modules-move="${panel}:unassigned">Move</button><button data-deck-modules-move="${panel}:core">Move</button><button data-deck-modules-move="${panel}:strategy">Move</button><button data-deck-modules-move="${panel}:mana">Move</button></section>`).join('')}
-  <p data-deck-modules-balance></p><p data-deck-modules-blocked></p><section data-deck-modules-empty></section><button data-deck-modules-compile>Compile</button><button data-deck-modules-analyze>Analyze mana base</button><button data-deck-modules-export>Export</button><button data-deck-modules-copy>Copy</button><button data-deck-modules-download>Download</button><button data-deck-modules-restart>Restart</button>
+  <p data-deck-modules-balance></p><p data-deck-modules-blocked-summary></p><p id="deck-modules-compile-blocked" data-deck-modules-blocked="compile">Import a deck before compiling.</p><p id="deck-modules-analyze-blocked" data-deck-modules-blocked="analyze">Import a deck before analyzing.</p><p id="deck-modules-export-blocked" data-deck-modules-blocked="export">Import a deck before downloading compiled text.</p><p id="deck-modules-copy-blocked" data-deck-modules-blocked="copy">Import a deck before copying compiled text.</p><section data-deck-modules-empty></section><button data-deck-modules-compile aria-describedby="deck-modules-compile-blocked">Compile</button><button data-deck-modules-analyze aria-describedby="deck-modules-analyze-blocked">Analyze mana base</button><button data-deck-modules-export aria-describedby="deck-modules-export-blocked">Export</button><button data-deck-modules-copy aria-describedby="deck-modules-copy-blocked">Copy</button><button data-deck-modules-download>Download</button><button data-deck-modules-restart>Restart</button>
   <section data-deck-modules-report><span data-deck-modules-report-total></span><span data-deck-modules-report-strategy></span><span data-deck-modules-report-mana></span><ul data-deck-modules-diagnostics></ul><ul data-deck-modules-compiled></ul><ul data-deck-modules-swap="add"></ul><ul data-deck-modules-swap="remove"></ul><ul data-deck-modules-swap="reset"></ul></section>
   <section data-deck-modules-analysis hidden><p data-deck-modules-analysis-stale hidden>Cards changed since this analysis.</p><p data-deck-modules-core-only hidden></p><a data-deck-modules-manabase-handoff hidden></a><p data-deck-modules-handoff-note></p><span data-deck-modules-analysis-health></span><span data-deck-modules-analysis-lands></span><span data-deck-modules-analysis-target></span><span data-deck-modules-analysis-land-delta></span><span data-deck-modules-analysis-ramp></span><span data-deck-modules-analysis-hardtocast></span><table><tbody data-deck-modules-analysis-colors></tbody></table><div data-deck-modules-signals hidden><span data-deck-modules-bracket></span><ul data-deck-modules-gamechangers></ul><p data-deck-modules-combo-availability></p><table data-deck-modules-interactions-table><tbody data-deck-modules-interactions></tbody></table><p data-deck-modules-interactions-unavailable hidden></p></div><div data-deck-modules-disclosure hidden><span data-deck-modules-declared-profile></span><p data-deck-modules-declared-plan></p><p data-deck-modules-profile-note hidden></p></div></section>
   <section data-deck-modules-comparison hidden><select data-deck-modules-compare-reference></select><select data-deck-modules-compare-other></select><button data-deck-modules-compare disabled>Compare</button><p data-deck-modules-comparison-message></p><table data-deck-modules-comparison-table><thead data-deck-modules-comparison-head></thead><tbody data-deck-modules-comparison-body></tbody></table></section>
@@ -55,6 +55,10 @@ describe('DeckFlowDeckModules', () => {
         expect(document.querySelector('[data-deck-modules-next]')!.textContent).toBe('Start by importing a baseline deck below.');
     });
 
+    it('serverRenderedEmptyStage_IsPresentBeforeInitialization', () => {
+        expect(document.querySelector('[data-deck-modules]')!.getAttribute('data-deck-modules-stage')).toBe('empty');
+    });
+
     it('importDeck_PasteTextMode_PostsPasteTextPayload', async () => {
         const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => imported });
         vi.stubGlobal('fetch', fetchMock);
@@ -75,6 +79,70 @@ describe('DeckFlowDeckModules', () => {
         document.querySelector<HTMLFormElement>('[data-deck-modules-import-form]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
         expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ activeSource: 'PublicUrl', url: 'https://example.test/deck' });
+    });
+
+    it('renderBalance_EnabledCompileHasNoBlockedDescriptionAndDisabledExportHasItsOwnReason', async () => {
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); addTwoAlternatives();
+        const compile = document.querySelector<HTMLButtonElement>('[data-deck-modules-compile]')!;
+        const exportButton = document.querySelector<HTMLButtonElement>('[data-deck-modules-export]')!;
+        expect(compile.getAttribute('aria-disabled')).toBe('false');
+        expect(compile.hasAttribute('aria-describedby')).toBe(false);
+        expect(exportButton.getAttribute('aria-describedby')).toBe('deck-modules-export-blocked');
+        expect(document.querySelector('[data-deck-modules-blocked="export"]')!.textContent).toBe('Compile first — there is nothing to download yet.');
+    });
+
+    it('renderBalance_UnbalancedAlternatives_PunctuatesBlockedSummary', async () => {
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); addTwoAlternatives();
+        const stored = JSON.parse(window.sessionStorage.getItem('deckflow.deck-modules.v1')!);
+        stored.alternatives[0].mainboardEntries = [{ name: 'Strategy Card', quantity: 1 }];
+        stored.alternatives[1].mainboardEntries = [];
+        window.sessionStorage.setItem('deckflow.deck-modules.v1', JSON.stringify(stored));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
+
+        expect(document.querySelector('[data-deck-modules-blocked-summary]')!.textContent).toBe('Plan A: unbalanced — 1 cards, expected 0. Balance alternatives before compiling.');
+    });
+
+    it('renderBalance_DisabledActionsUseTheirOwnDescriptions', () => {
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
+        const expectedReasons = {
+            compile: 'Import a deck before compiling.',
+            analyze: 'Import a deck before analyzing.',
+            export: 'Import a deck before downloading compiled text.',
+            copy: 'Import a deck before copying compiled text.',
+        };
+        (Object.keys(expectedReasons) as Array<keyof typeof expectedReasons>).forEach(action => {
+            const button = document.querySelector<HTMLButtonElement>(`[data-deck-modules-${action}]`)!;
+            expect(button.getAttribute('aria-describedby')).toBe(`deck-modules-${action}-blocked`);
+            expect(document.querySelector(`[data-deck-modules-blocked="${action}"]`)!.textContent).toBe(expectedReasons[action]);
+        });
+    });
+
+    it('renderBalance_SummaryUsesFirstBlockedActionReason', () => {
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
+        expect(document.querySelector('[data-deck-modules-blocked-summary]')!.textContent).toBe('Import a deck before compiling.');
+    });
+
+    it('renderBalance_SummaryUsesExportReasonWhenBalancedAndUncompiled', async () => {
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); addTwoAlternatives();
+        expect(document.querySelector('[data-deck-modules-blocked-summary]')!.textContent).toBe('Compile first — there is nothing to download yet.');
+    });
+
+    it('renderBalance_SummaryClearsWhenCompilationExists', async () => {
+        const compilation = { totalCardCount: 3, diagnostics: [] };
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({ ok: true, json: async () => imported }).mockResolvedValueOnce({ ok: true, json: async () => compilation }));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize(); await importDraft(); addTwoAlternatives();
+        document.querySelector<HTMLButtonElement>('[data-deck-modules-compile]')!.click();
+        await vi.waitFor(() => expect(document.querySelector('[data-deck-modules-blocked-summary]')!.textContent).toBe(''));
+    });
+
+    it('render_OneUnassignedCardUsesSingularNextStep', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ...imported, baselineMainboardEntries: [{ name: 'Arcane Signet', quantity: 1 }] }) }));
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
+        document.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!.value = 'https://example.test/deck';
+        document.querySelector<HTMLFormElement>('[data-deck-modules-import-form]')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(document.querySelector('[data-deck-modules-count="unassigned"]')!.textContent).toBe('1'));
+        addTwoAlternatives();
+        expect(document.querySelector('[data-deck-modules-next]')!.textContent).toContain('1 card still unassigned.');
     });
 
     it('importDeck_EmptyInputs_ShowsErrorWithoutPosting', async () => {

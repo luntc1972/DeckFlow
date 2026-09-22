@@ -102,26 +102,41 @@
         if (draft.alternatives.length === 0) return 'Baseline imported. Name your first strategy alternative — you need 2 to 4.';
         if (draft.alternatives.length === 1) return '1 of 2 alternatives. Add one more before you can compile.';
         const unassigned = total(draft.unassignedEntries);
-        if (unassigned > 0) return `${unassigned} cards still unassigned. Move each to Core, Strategy or Mana Support.`;
+        if (unassigned > 0) return `${unassigned} ${unassigned === 1 ? 'card' : 'cards'} still unassigned. Move each to Core, Strategy or Mana Support.`;
         const current = active(); const different = draft.alternatives.find(item => total(item.mainboardEntries) !== total(current?.mainboardEntries ?? []));
         if (current && different) return `${different.name} has ${total(different.mainboardEntries)} strategy cards; ${current.name} has ${total(current.mainboardEntries)}. Match them to enable Compile.`;
         if (!compilation) return 'Ready. Compile modules for the 100-card list and the IN/OUT/RESET checklist.';
         return 'Compiled. Optional: Analyze mana base, or compare two configurations.';
     };
-    const blockedReason = (okay: boolean, balanceMessage: string) => {
-        if (!okay) return balanceMessage || (draft ? 'Add at least two alternatives before compiling.' : 'Import a deck before compiling.');
-        if (compiling) return 'Compilation is running.';
-        if (analyzing) return 'Analysis is running.';
+    const blockedReason = (action: 'compile' | 'analyze' | 'export' | 'copy', okay: boolean, balanceMessage: string) => {
+        const actionLabel = { compile: 'compiling', analyze: 'analyzing', export: 'downloading compiled text', copy: 'copying compiled text' }[action];
+        if (!okay) {
+            if (!balanceMessage) return draft ? `Add at least two alternatives before ${actionLabel}.` : `Import a deck before ${actionLabel}.`;
+            return balanceMessage === 'Add at least two alternatives.' ? `${balanceMessage} before ${actionLabel}.` : `${balanceMessage}. Balance alternatives before ${actionLabel}.`;
+        }
+        if (action === 'compile') return compiling ? 'Compilation is running.' : '';
+        if (action === 'analyze') return analyzing ? 'Analysis is running.' : '';
         return compilation ? '' : 'Compile first — there is nothing to download yet.';
     };
     const renderBalance = () => {
         const status = query<HTMLElement>('[data-deck-modules-balance]'); const okay = balanced(); const current = active();
         const report = query<HTMLElement>('.deck-modules__report, [data-deck-modules-report]'); if (report) report.hidden = compilation === null;
-        const balanceMessage = okay ? 'Alternatives are balanced.' : draft && current ? draft.alternatives.filter(item => total(item.mainboardEntries) !== total(current.mainboardEntries)).map(item => `${item.name}: unbalanced — ${total(item.mainboardEntries)} cards, expected ${total(current.mainboardEntries)}`).join('; ') || 'Add at least two alternatives before compiling.' : '';
+        const balanceMessage = okay ? 'Alternatives are balanced.' : draft && current ? draft.alternatives.filter(item => total(item.mainboardEntries) !== total(current.mainboardEntries)).map(item => `${item.name}: unbalanced — ${total(item.mainboardEntries)} cards, expected ${total(current.mainboardEntries)}`).join('; ') || 'Add at least two alternatives.' : '';
         if (status) status.textContent = balanceMessage;
-        const compileButton = query<HTMLButtonElement>('[data-deck-modules-compile]'); if (compileButton) compileButton.setAttribute('aria-disabled', String(!okay || compiling));
-        ['export', 'copy', 'analyze'].forEach(action => { const button = query<HTMLButtonElement>(`[data-deck-modules-${action}]`); if (button) button.setAttribute('aria-disabled', String(!okay || (action !== 'analyze' && !compilation) || (action === 'analyze' && analyzing))); });
-        setTextIfChanged('[data-deck-modules-blocked]', blockedReason(okay, balanceMessage));
+        const actions: Array<{ action: 'compile' | 'analyze' | 'export' | 'copy'; disabled: boolean }> = [
+            { action: 'compile', disabled: !okay || compiling },
+            { action: 'analyze', disabled: !okay || analyzing },
+            { action: 'export', disabled: !okay || !compilation },
+            { action: 'copy', disabled: !okay || !compilation },
+        ];
+        let summaryReason = '';
+        actions.forEach(({ action, disabled }) => {
+            const button = query<HTMLButtonElement>(`[data-deck-modules-${action}]`); const reason = blockedReason(action, okay, balanceMessage); const description = query<HTMLElement>(`[data-deck-modules-blocked="${action}"]`);
+            if (!summaryReason && disabled && reason) summaryReason = reason;
+            if (button) { button.setAttribute('aria-disabled', String(disabled)); if (disabled && reason && description) button.setAttribute('aria-describedby', description.id); else button.removeAttribute('aria-describedby'); }
+            if (description) description.textContent = disabled ? reason : '';
+        });
+        setTextIfChanged('[data-deck-modules-blocked-summary]', summaryReason);
     };
     const renderCommandZone = () => { const holder = query<HTMLElement>('[data-deck-modules-command-zone]'); if (!holder) return; holder.replaceChildren(); (draft?.commandZone ?? []).forEach(entry => addText(holder, 'p', `${entry.quantity} ${entry.name}`)); };
     const render = () => { const page = root(); if (page) { if (!draft) page.setAttribute('data-deck-modules-stage', 'empty'); else page.removeAttribute('data-deck-modules-stage'); } setTextIfChanged('[data-deck-modules-next]', nextStep()); const alternative = active(); const summaryProfile = query<HTMLElement>('[data-deck-modules-summary-profile]'); if (summaryProfile) {

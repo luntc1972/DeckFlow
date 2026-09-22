@@ -7,7 +7,7 @@
 
 @await Html.PartialAsync("_DeckToolTabs", Model.ActiveTab)
 
-<section class="result-panel deck-modules" data-deck-modules>
+<section class="result-panel deck-modules" data-deck-modules data-deck-modules-stage="empty">
     <h1>Deck Modules</h1>
     <p>Import a baseline, then assign every mainboard card to Core, an active Strategy, or its linked Mana Support.</p>
     <p class="deck-modules__next" id="deck-modules-next" role="status" aria-atomic="true" data-deck-modules-next>Start by importing a baseline deck below.</p>
@@ -162,11 +162,15 @@
     </div>
 
     <div class="deck-modules__actions">
-        <p class="deck-modules__blocked" id="deck-modules-blocked" role="status" aria-atomic="true" data-deck-modules-blocked></p>
-        <button type="button" class="run-button" data-deck-modules-compile aria-disabled="true" aria-describedby="deck-modules-blocked">Compile modules</button>
-        <button type="button" class="run-button" data-deck-modules-analyze aria-disabled="true" aria-describedby="deck-modules-blocked">Analyze mana base</button>
-        <button type="button" class="run-button" data-deck-modules-export aria-disabled="true" aria-describedby="deck-modules-blocked">Download compiled text</button>
-        <button type="button" class="copy-button" data-deck-modules-copy aria-disabled="true" aria-describedby="deck-modules-blocked">Copy compiled text</button>
+        <p class="deck-modules__blocked" id="deck-modules-blocked" role="status" aria-atomic="true" data-deck-modules-blocked-summary></p>
+        <p class="sr-only" id="deck-modules-compile-blocked" data-deck-modules-blocked="compile">Import a deck before compiling.</p>
+        <p class="sr-only" id="deck-modules-analyze-blocked" data-deck-modules-blocked="analyze">Import a deck before analyzing.</p>
+        <p class="sr-only" id="deck-modules-export-blocked" data-deck-modules-blocked="export">Import a deck before downloading compiled text.</p>
+        <p class="sr-only" id="deck-modules-copy-blocked" data-deck-modules-blocked="copy">Import a deck before copying compiled text.</p>
+        <button type="button" class="run-button" data-deck-modules-compile aria-disabled="true" aria-describedby="deck-modules-compile-blocked">Compile modules</button>
+        <button type="button" class="run-button" data-deck-modules-analyze aria-disabled="true" aria-describedby="deck-modules-analyze-blocked">Analyze mana base</button>
+        <button type="button" class="run-button" data-deck-modules-export aria-disabled="true" aria-describedby="deck-modules-export-blocked">Download compiled text</button>
+        <button type="button" class="copy-button" data-deck-modules-copy aria-disabled="true" aria-describedby="deck-modules-copy-blocked">Copy compiled text</button>
     </div>
 
     <section class="deck-modules__panel deck-modules__report" aria-labelledby="deck-modules-report-heading" hidden>
