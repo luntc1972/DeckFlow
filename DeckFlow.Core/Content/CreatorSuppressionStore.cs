@@ -112,8 +112,7 @@ public sealed class CreatorSuppressionStore : ICreatorSuppressionStore
     public async Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nameOrAlias);
-        var normalized = NormalizeValue(nameOrAlias);
-        return (await ListAsync(cancellationToken).ConfigureAwait(false)).Any(row => NormalizeValue(row.Slug) == normalized || row.Aliases.Any(alias => NormalizeValue(alias) == normalized));
+        return new CreatorSuppressionMatcher(await ListAsync(cancellationToken).ConfigureAwait(false)).IsSuppressed(nameOrAlias);
     }
 
     private async Task WriteAsync(string slug, IReadOnlyList<string> aliases, Func<DbConnection, DbTransaction, Task> write, CancellationToken cancellationToken)
@@ -169,7 +168,7 @@ public sealed class CreatorSuppressionStore : ICreatorSuppressionStore
         => connection.ExecuteAsync(new CommandDefinition(sql, new { updatedUtc = DateTimeOffset.UtcNow }, transaction, cancellationToken: cancellationToken));
 
     private static IReadOnlyList<string> Normalize(IReadOnlyList<string> aliases) => aliases.Where(alias => !string.IsNullOrWhiteSpace(alias)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-    private static string NormalizeValue(string value) => value.Trim().ToLowerInvariant();
+    private static string NormalizeValue(string value) => CreatorSuppressionMatcher.NormalizeValue(value);
 
     internal sealed record SqlText(string Schema, string Upsert, string Increment);
 

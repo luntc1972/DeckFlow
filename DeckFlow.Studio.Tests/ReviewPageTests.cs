@@ -55,7 +55,8 @@ public sealed class ReviewPageTests : BunitContext
 
     private (IRenderedComponent<Review> Cut, FakeContentSiteIndexStore Store) RenderReview(
         IEnumerable<ContentSiteIndexRow> rows,
-        string? tab)
+        string? tab,
+        Action<FakeCreatorSuppressionStore>? configureSuppression = null)
     {
         var store = new FakeContentSiteIndexStore();
         foreach (var r in rows)
@@ -66,6 +67,7 @@ public sealed class ReviewPageTests : BunitContext
         var artifactRoot = Path.Combine(Path.GetTempPath(), "deckflow-tests", "content-kb");
         Services.AddSingleton<IContentSiteIndexStore>(store);
         var suppressionStore = new FakeCreatorSuppressionStore();
+        configureSuppression?.Invoke(suppressionStore);
         Services.AddSingleton<ICreatorSuppressionStore>(suppressionStore);
         Services.AddSingleton<ICreatorIdentityResolver>(new FakeCreatorIdentityResolver());
         Services.AddSingleton(new CreatorSuppressionSyncCoordinator(
@@ -84,6 +86,22 @@ public sealed class ReviewPageTests : BunitContext
         navigationManager.NavigateTo(uri);
         var cut = Render<Review>();
         return (cut, store);
+    }
+
+    [Fact]
+    public void ApproveSuppressedCreator_ShowsOperatorVisibleRefusal()
+    {
+        var row = MakeYoutubeRow(1, "blocked");
+        row = row with { Source = "blocked-creator" };
+        var (cut, store) = RenderReview(new[] { row }, null);
+
+        cut.WaitForAssertion(() => Assert.Contains("Approve Entry", cut.Markup));
+        var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
+        suppressionStore.Suppressed.Add("blocked-creator");
+        cut.Find("button[aria-label^='Approve']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
+        Assert.Empty(store.SingleApprovalCalls);
     }
 
     // ── REVQ-02: Filter tabs show correct count badges ───────────────────────

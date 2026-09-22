@@ -102,6 +102,33 @@ public sealed class ReviewCoordinatorTests : IDisposable
         Assert.Equal(2, store.BatchApprovalCalls[0].Keys.Count);
     }
 
+    [Fact]
+    public async Task SetApprovalStatusAsync_EmptyYoutubeId_UsesPodcastNaturalKey()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(new ContentSiteIndexRow
+        {
+            Id = 1,
+            Source = "podcast",
+            Title = "Podcast",
+            VideoUrl = "https://pod.example/episode",
+            ArtifactPath = "content-kb/podcast/episode.md",
+            IndexedUtc = DateTimeOffset.UtcNow,
+            ApprovalStatus = "pending",
+            ArchetypeTags = Array.Empty<string>(),
+            BracketTags = Array.Empty<string>(),
+            CardCategoryTags = Array.Empty<string>(),
+            YoutubeVideoId = string.Empty,
+            RssGuid = "podcast-guid",
+        });
+        var suppressed = new FakeCreatorSuppressionStore(); suppressed.Suppressed.Add("podcast");
+        var coordinator = Build(store, new CreatorSuppressionRowFilter(suppressed, new FakeCreatorIdentityResolver()));
+
+        await Assert.ThrowsAsync<CreatorSuppressedException>(() => coordinator.SetApprovalStatusAsync(ContentSourceType.Podcast, "podcast-guid", "approved", CancellationToken.None));
+
+        Assert.Empty(store.SingleApprovalCalls);
+    }
+
     // ── ReadArtifactSafe — security containment ──────────────────────────────
 
     [Fact]
@@ -257,6 +284,25 @@ public sealed class ReviewCoordinatorTests : IDisposable
 
         Assert.Single(rows); Assert.Equal("control", rows[0].YoutubeVideoId);
         Assert.Single(store.SingleApprovalCalls); Assert.DoesNotContain(store.SingleApprovalCalls, call => call.Value == "blocked");
+    }
+
+    [Fact]
+    public async Task SetApprovalStatusAsync_SuppressedCreator_RejectsSingleAndBatchWhileControlSucceeds()
+    {
+        var store = new FakeContentSiteIndexStore();
+        var blocked = Youtube(1, "blocked") with { Source = "blocked-creator" };
+        var control = Youtube(2, "control") with { Source = "allowed-creator" };
+        store.Rows.Add(blocked); store.Rows.Add(control);
+        var suppressed = new FakeCreatorSuppressionStore(); suppressed.Suppressed.Add("blocked-creator");
+        var coordinator = Build(store, new CreatorSuppressionRowFilter(suppressed, new FakeCreatorIdentityResolver()));
+
+        await Assert.ThrowsAsync<CreatorSuppressedException>(() => coordinator.SetApprovalStatusAsync(ContentSourceType.Youtube, "blocked", "approved", CancellationToken.None));
+        await Assert.ThrowsAsync<CreatorSuppressedException>(() => coordinator.SetApprovalStatusAsync(new[] { (ContentSourceType.Youtube, "blocked") }, "approved", CancellationToken.None));
+        await coordinator.SetApprovalStatusAsync(ContentSourceType.Youtube, "control", "approved", CancellationToken.None);
+
+        Assert.Single(store.SingleApprovalCalls);
+        Assert.Empty(store.BatchApprovalCalls);
+        Assert.Equal((ContentSourceType.Youtube, "control", "approved"), store.SingleApprovalCalls[0]);
     }
 
     [Fact]

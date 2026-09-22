@@ -272,6 +272,7 @@ public sealed class DirectPushCoordinator
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(publishRows);
+        publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         var prodStore = CreateProdStore();
         var keys = DeriveKeys(publishRows);
@@ -408,6 +409,7 @@ public sealed class DirectPushCoordinator
     {
         ArgumentNullException.ThrowIfNull(publishRows);
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         var pushState = await GetVerifiedPushStateAsync(cancellationToken).ConfigureAwait(false);
         var repoRoot = pushState.RepoRoot;

@@ -317,7 +317,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
              ORDER BY source, title, id;
             """,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Select(ContentSiteIndexRowMapper.ToRow).ToList();
+        return await ExcludeSuppressedCreatorsAsync(rows.Select(ContentSiteIndexRowMapper.ToRow).ToList(), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -945,13 +945,14 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             }
         }
 
+        var matcher = new CreatorSuppressionMatcher(await _suppressionStore.ListAsync(cancellationToken).ConfigureAwait(false));
         var suppressed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var representation in representations)
         {
             var candidates = new[] { representation }
                 .Concat(GetIdentityRepresentations(resolved.GetValueOrDefault(representation)))
                 .Distinct(StringComparer.OrdinalIgnoreCase);
-            if ((await Task.WhenAll(candidates.Select(candidate => _suppressionStore.IsSuppressedAsync(candidate, cancellationToken))).ConfigureAwait(false)).Any(value => value))
+            if (candidates.Any(matcher.IsSuppressed))
             {
                 suppressed.Add(representation);
             }

@@ -66,7 +66,7 @@ public sealed class ReviewCoordinator
     }
 
     private static (string Type, string Value) GetNaturalKey(ContentSiteIndexRow row)
-        => row.YoutubeVideoId is not null
+        => !string.IsNullOrWhiteSpace(row.YoutubeVideoId)
             ? (ContentSourceType.Youtube, row.YoutubeVideoId)
             : (ContentSourceType.Podcast, row.RssGuid ?? string.Empty);
 

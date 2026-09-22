@@ -193,6 +193,10 @@ public partial class Review
         catch (OperationCanceledException)
         {
         }
+        catch (CreatorSuppressedException)
+        {
+            _loadError = "A suppressed creator cannot be approved.";
+        }
         catch (Exception)
         {
             // Why: per-row optimistic write — swallow transient failures gracefully; queue re-load
@@ -237,6 +241,10 @@ public partial class Review
         }
         catch (OperationCanceledException)
         {
+        }
+        catch (CreatorSuppressedException)
+        {
+            _loadError = "A suppressed creator cannot be approved.";
         }
         catch (Exception)
         {

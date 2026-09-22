@@ -19,10 +19,11 @@ public sealed class CreatorSuppressionRowFilter
     /// <summary>Returns rows that have no suppressed creator representation.</summary>
     public async Task<IReadOnlyList<ContentSiteIndexRow>> GetAllowedAsync(IReadOnlyList<ContentSiteIndexRow> rows, CancellationToken cancellationToken)
     {
+        var matcher = new CreatorSuppressionMatcher(await _store.ListAsync(cancellationToken).ConfigureAwait(false));
         var allowed = new List<ContentSiteIndexRow>();
         foreach (var row in rows)
         {
-            if (!await IsSuppressedAsync(row, cancellationToken).ConfigureAwait(false)) allowed.Add(row);
+            if (!await IsSuppressedAsync(row, matcher, cancellationToken).ConfigureAwait(false)) allowed.Add(row);
         }
 
         return allowed;
@@ -30,6 +31,9 @@ public sealed class CreatorSuppressionRowFilter
 
     /// <summary>Determines whether any source or artifact-folder representation is suppressed.</summary>
     public async Task<bool> IsSuppressedAsync(ContentSiteIndexRow row, CancellationToken cancellationToken)
+        => await IsSuppressedAsync(row, new CreatorSuppressionMatcher(await _store.ListAsync(cancellationToken).ConfigureAwait(false)), cancellationToken).ConfigureAwait(false);
+
+    private async Task<bool> IsSuppressedAsync(ContentSiteIndexRow row, CreatorSuppressionMatcher matcher, CancellationToken cancellationToken)
     {
         foreach (var representation in GetRepresentations(row))
         {
@@ -39,7 +43,7 @@ public sealed class CreatorSuppressionRowFilter
                 .Concat(identity?.FolderSlugs ?? Array.Empty<string>())
                 .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
                 .Distinct(StringComparer.OrdinalIgnoreCase);
-            if ((await Task.WhenAll(candidates.Select(candidate => _store.IsSuppressedAsync(candidate!, cancellationToken))).ConfigureAwait(false)).Any(value => value)) return true;
+            if (candidates.Any(matcher.IsSuppressed)) return true;
         }
 
         return false;

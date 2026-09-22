@@ -3,6 +3,7 @@ using System.Text.Json;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
+using DeckFlow.Core.Storage;
 using Microsoft.Data.Sqlite;
 
 namespace DeckFlow.Core.Tests;
@@ -65,6 +66,29 @@ public sealed class ContentIndexSeedWriteTests : IDisposable
         Assert.Contains("approved-video-0", body);
         Assert.Contains("approved-video-1", body);
         Assert.DoesNotContain("pending-video-0", body);
+    }
+
+    [Fact]
+    public async Task ExportIndexToFileAsync_ExcludesSuppressedCreator()
+    {
+        var suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(_dbPath));
+        await suppressionStore.SuppressAsync("suppressed-creator", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+        var store = new ContentSiteIndexStore(_dbPath, suppressionStore);
+        var orchestrator = CreateOrchestrator(store);
+        var suppressed = BuildRow("suppressed-video", "approved") with { Source = "suppressed-creator" };
+        var control = BuildRow("control-video", "approved") with { Source = "control-creator" };
+        await store.UpsertRowAsync(suppressed);
+        await store.UpsertRowAsync(control);
+        await store.SetApprovalStatusAsync(ContentSourceType.Youtube, "suppressed-video", "approved");
+        await store.SetApprovalStatusAsync(ContentSourceType.Youtube, "control-video", "approved");
+
+        var seedPath = Path.Combine(_tempDir, "suppression", "index-seed.json");
+        var result = await orchestrator.ExportIndexToFileAsync(seedPath);
+        var body = await File.ReadAllTextAsync(seedPath);
+
+        Assert.True(result.Success, result.Message ?? "export failed");
+        Assert.Contains("control-video", body);
+        Assert.DoesNotContain("suppressed-video", body);
     }
 
     [Fact]

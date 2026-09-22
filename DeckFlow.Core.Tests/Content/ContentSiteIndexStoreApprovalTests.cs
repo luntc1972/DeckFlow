@@ -192,6 +192,36 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
     }
 
     [Fact]
+    public async Task GetApprovedRowsAsync_ExcludesSuppressedCreator()
+    {
+        var suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(_dbPath));
+        await suppressionStore.SuppressAsync("suppressed-creator", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+        var store = new ContentSiteIndexStore(_dbPath, suppressionStore);
+        await store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-suppressed", source: "suppressed-creator", approvalStatus: "approved"));
+        await store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-control", source: "control-creator", approvalStatus: "approved"));
+
+        var rows = await store.GetApprovedRowsAsync();
+
+        var row = Assert.Single(rows);
+        Assert.Equal("yt-control", row.YoutubeVideoId);
+    }
+
+    [Fact]
+    public async Task GetApprovedRowsAsync_SeveralCreators_ReadsSuppressionsOnceWithoutPerCandidateChecks()
+    {
+        var suppressionStore = new CountingSuppressionStore();
+        var store = new ContentSiteIndexStore(_dbPath, suppressionStore);
+        await store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-one", source: "one", approvalStatus: "approved"));
+        await store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-two", source: "two", approvalStatus: "approved"));
+        await store.UpsertContentColumnsOnlyAsync(CreateYoutubeRow("yt-three", source: "three", approvalStatus: "approved"));
+
+        _ = await store.GetApprovedRowsAsync();
+
+        Assert.Equal(1, suppressionStore.ListCalls);
+        Assert.Equal(0, suppressionStore.IsSuppressedCalls);
+    }
+
+    [Fact]
     public async Task GetPublishedRowsAsync_ReturnsOnlyApprovedAndVisibleRows()
     {
         // D-04: the browse serve query returns approved+visible only — excludes visible-but-pending and approved-but-hidden.
@@ -591,6 +621,23 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
             IsVisible: isVisible,
             IsHidden: isHidden,
             IsEvergreen: isEvergreen);
+
+    private sealed class CountingSuppressionStore : ICreatorSuppressionStore
+    {
+        public int ListCalls { get; private set; }
+        public int IsSuppressedCalls { get; private set; }
+        public Task SuppressAsync(string slug, IReadOnlyList<string> aliases, string reason, DateTimeOffset requestedUtc, string? note, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UnsuppressAsync(string slug, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SetAliasesAsync(string slug, IReadOnlyList<string> aliases, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<long> GetRevisionAsync(CancellationToken cancellationToken = default) => Task.FromResult(0L);
+        public Task<long?> GetSyncedRevisionAsync(CancellationToken cancellationToken = default) => Task.FromResult<long?>(null);
+        public Task<CreatorSuppressionSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) { ListCalls++; return Task.FromResult<IReadOnlyList<CreatorSuppression>>([]); }
+        public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) { IsSuppressedCalls++; return Task.FromResult(false); }
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
 
     private static ContentSiteIndexRow CreateYoutubeRow(
         string youtubeVideoId,

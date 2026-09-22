@@ -99,9 +99,11 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         var uploader = new RecordingSshArtifactUploader();
         var confirmer = new AppTreeDeployedBodyConfirmer(prodStore, _harness.AppRoot);
 
-        var publish = new PublishCoordinator(git, orchestrator, localStore, options, new PublishStateDeriver());
+        // Why: an empty, readable suppression store keeps the round trip on the unsuppressed path.
+        var suppressionFilter = new CreatorSuppressionRowFilter(new FakeCreatorSuppressionStore(), new FakeCreatorIdentityResolver());
+        var publish = new PublishCoordinator(git, orchestrator, localStore, options, new PublishStateDeriver(), suppressionFilter);
         var directPush = new DirectPushCoordinator(
-            localStore, uploader, prodStoreFactory, prodConnection, options, git, orchestrator, prodReader, confirmer);
+            localStore, uploader, prodStoreFactory, prodConnection, options, git, orchestrator, prodReader, confirmer, suppressionFilter);
         var pull = new PullFromProdCoordinator(localStore, git, prodReader, prodConnection, options, NullLogger<PullFromProdCoordinator>.Instance);
 
         _output.WriteLine("── Boot: real PG schema + real git tree bootstrapped; coordinators wired ──");

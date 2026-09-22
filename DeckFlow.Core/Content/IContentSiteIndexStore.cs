@@ -62,7 +62,7 @@ public interface IContentSiteIndexStore
     /// Gets site-index rows where approval_status='approved', ordered for deterministic export.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Approved site-index rows.</returns>
+    /// <returns>Approved site-index rows excluding suppressed creators.</returns>
     Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

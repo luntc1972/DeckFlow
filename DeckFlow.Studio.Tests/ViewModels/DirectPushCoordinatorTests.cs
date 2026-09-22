@@ -343,6 +343,24 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(2, local.ClearAwaitingConfirmCalls[0].Count);
     }
 
+    [Fact]
+    public async Task ConfirmAndPublishAsync_ExcludesSuppressedCreator()
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var blocked = Youtube(1, "blocked") with { Source = "blocked-creator" };
+        var control = Youtube(2, "control") with { Source = "allowed-creator" };
+        prod.Rows.Add(blocked); prod.Rows.Add(control);
+        var suppressed = new FakeCreatorSuppressionStore(); suppressed.Suppressed.Add("blocked-creator");
+        var coordinator = Build(local, prod, filter: new CreatorSuppressionRowFilter(suppressed, new FakeCreatorIdentityResolver()));
+
+        await coordinator.ConfirmAndPublishAsync(new[] { blocked, control }, CancellationToken.None);
+
+        var stamped = Assert.Single(prod.StampCalls).Keys;
+        Assert.Single(stamped);
+        Assert.Equal("control", stamped[0].Value);
+    }
+
     // ── GetAwaitingConfirmRowsAsync (D-10 resume support, Plan 90-06) ────────
 
     [Fact]
