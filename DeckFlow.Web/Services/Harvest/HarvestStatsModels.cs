@@ -25,9 +25,16 @@ public sealed record HarvestStatsPayload(
 /// <summary>Reasons that the harvest backlog requires operator attention.</summary>
 public enum HarvestBacklogReason
 {
+    /// <summary>Backlog is within configured thresholds; no flag shown.</summary>
     None,
+
+    /// <summary>Queued deck count exceeds the configured floor.</summary>
     AboveFloor,
+
+    /// <summary>The backlog grew (enqueued exceeded drained) on enough consecutive qualifying runs.</summary>
     Growing,
+
+    /// <summary>Both the floor and the consecutive-growth condition are met.</summary>
     AboveFloorAndGrowing
 }
 
