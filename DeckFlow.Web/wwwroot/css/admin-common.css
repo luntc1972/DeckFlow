@@ -14,6 +14,7 @@
   --muted: #94a3b8;
   --accent: #3b82f6;
   --border: #334155;
+  --warning: #facc15;
   --danger: #dc2626;
   --on-accent: #fff;
   /* === WDG audit fixes (WDG-01, Phase 11 Sweep 2) ===
@@ -49,9 +50,14 @@ summary:focus-visible,
   display: inline-block;
   margin-left: 0.5rem;
   color: var(--warning);
+  border: 1px solid currentColor;
 }
 
-.admin-shell .admin-harvest__zero-discovery {
+.admin-shell .admin-harvest__health-badge::before {
+  content: "⚠ ";
+}
+
+.admin-shell .admin-harvest__streak {
   color: var(--muted);
 }
 
