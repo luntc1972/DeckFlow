@@ -227,6 +227,8 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
             resolver,
             profileStore,
             deckCacheStore,
+            new FakeCreatorIdentityResolver(),
+            new FakeCreatorSuppressionStore(),
             NullLogger<CreatorStyleSeedLoader>.Instance);
     }
 

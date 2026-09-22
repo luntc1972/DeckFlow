@@ -112,6 +112,8 @@ public sealed class ProgramStartupTests
                 resolver,
                 new NoOpCreatorStyleProfileStore(),
                 new NoOpCreatorDeckCacheStore(),
+                new FakeCreatorIdentityResolver(),
+                new FakeCreatorSuppressionStore(),
                 NullLogger<CreatorStyleSeedLoader>.Instance);
             await using var services = new ServiceCollection()
                 .AddSingleton<ICreatorStyleSeedLoader>(loader)

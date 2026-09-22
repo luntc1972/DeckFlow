@@ -175,7 +175,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         var pathResolver = new ContentKbArtifactPathResolver(
             stubEnvironment, config, flagCache, NullLogger<ContentKbArtifactPathResolver>.Instance);
         var bodyResolver = new ContentKbArtifactBodyResolver(pathResolver);
-        var seedLoader = new ContentKbSeedLoader(pathResolver, prodStore, NullLogger<ContentKbSeedLoader>.Instance);
+        var seedLoader = new ContentKbSeedLoader(pathResolver, prodStore, new global::DeckFlow.Web.Tests.FakeCreatorIdentityResolver(), new global::DeckFlow.Web.Tests.FakeCreatorSuppressionStore(), NullLogger<ContentKbSeedLoader>.Instance);
 
         var reseededCount1 = await seedLoader.LoadIfPresentAsync();
         Assert.Equal(1, reseededCount1); // only row A is in the seed at this point

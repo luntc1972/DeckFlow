@@ -17,6 +17,8 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
 
     private readonly ContentKbArtifactPathResolver _resolver;
     private readonly IContentSiteIndexStore _store;
+    private readonly ICreatorIdentityResolver _identityResolver;
+    private readonly ICreatorSuppressionStore _suppressionStore;
     private readonly ILogger<ContentKbSeedLoader> _logger;
 
     /// <summary>
@@ -24,18 +26,26 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
     /// </summary>
     /// <param name="resolver">Artifact path resolver.</param>
     /// <param name="store">Content site-index store.</param>
+    /// <param name="identityResolver">Creator identity resolver.</param>
+    /// <param name="suppressionStore">Creator suppression store.</param>
     /// <param name="logger">Logger.</param>
     public ContentKbSeedLoader(
         ContentKbArtifactPathResolver resolver,
         IContentSiteIndexStore store,
+        ICreatorIdentityResolver identityResolver,
+        ICreatorSuppressionStore suppressionStore,
         ILogger<ContentKbSeedLoader> logger)
     {
         ArgumentNullException.ThrowIfNull(resolver);
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(identityResolver);
+        ArgumentNullException.ThrowIfNull(suppressionStore);
         ArgumentNullException.ThrowIfNull(logger);
 
         _resolver = resolver;
         _store = store;
+        _identityResolver = identityResolver;
+        _suppressionStore = suppressionStore;
         _logger = logger;
     }
 
@@ -55,14 +65,29 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
             .ConfigureAwait(false)
             ?? Array.Empty<ContentKbSeedEntry>();
 
+        var loaded = 0;
         foreach (var entry in entries)
         {
+            if (await IsSuppressedAsync(entry.Source, cancellationToken).ConfigureAwait(false))
+            {
+                continue;
+            }
+
             var row = BuildRow(entry);
             await _store.UpsertRowPreservingVisibilityAsync(row, cancellationToken).ConfigureAwait(false);
+            loaded++;
         }
 
         _logger.LogInformation("Content KB seed load complete: {RowCount} rows.", entries.Length);
-        return entries.Length;
+        return loaded;
+    }
+
+    private async Task<bool> IsSuppressedAsync(string representation, CancellationToken cancellationToken)
+    {
+        var identity = await _identityResolver.ResolveAsync(representation, cancellationToken).ConfigureAwait(false);
+        return await _suppressionStore
+            .IsSuppressedAsync(identity?.CanonicalSlug ?? representation, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     private static ContentSiteIndexRow BuildRow(ContentKbSeedEntry entry)

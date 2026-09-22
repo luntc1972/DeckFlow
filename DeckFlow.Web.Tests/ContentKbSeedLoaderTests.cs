@@ -235,7 +235,7 @@ public sealed class ContentKbSeedLoaderTests : IDisposable
             configuration,
             new FakeFeatureFlagCache(new Dictionary<string, bool> { ["sync.directpush-gitbody"] = false }),
             NullLogger<ContentKbArtifactPathResolver>.Instance);
-        return new ContentKbSeedLoader(resolver, store, NullLogger<ContentKbSeedLoader>.Instance);
+        return new ContentKbSeedLoader(resolver, store, new FakeCreatorIdentityResolver(), new FakeCreatorSuppressionStore(), NullLogger<ContentKbSeedLoader>.Instance);
     }
 
     private string CreateContentKbBase()
