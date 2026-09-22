@@ -144,6 +144,22 @@ public sealed class HarvestPlannerTests
     }
 
     [Fact]
+    public void ExcludeSuppressed_RemovesOnlySuppressedCreatorGroup()
+    {
+        var suppressed = Vm("suppressed", channelId: "suppressed-channel");
+        suppressed.CreatorRef = "creator-suppressed";
+        var allowed = Vm("allowed", channelId: "allowed-channel");
+        allowed.CreatorRef = "creator-allowed";
+        var plan = HarvestPlanner.ResolveChannelGroups(new[] { suppressed, allowed }, lastBrowsedChannel: "");
+
+        var filtered = HarvestPlanner.ExcludeSuppressed(plan, new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "https://www.youtube.com/channel/suppressed-channel" });
+
+        var group = Assert.Single(filtered.Groups);
+        Assert.Equal("creator-allowed", group.CreatorRef);
+        Assert.Empty(filtered.UnresolvedVideoIds);
+    }
+
+    [Fact]
     public void ResolveChannelGroups_NullCreatorRef_WhenProvenanceDisagrees()
     {
         // Two videos land in the same channel group but carry different provenance — ambiguous, so

@@ -11,10 +11,16 @@ namespace DeckFlow.Studio.Tests;
 /// </summary>
 public sealed class CreatorSourcesPageTests : BunitContext
 {
-    private IRenderedComponent<CreatorSources> RenderPage(FakeCreatorSourceStore store, FakeContentSourceStore? sources = null)
+    private IRenderedComponent<CreatorSources> RenderPage(
+        FakeCreatorSourceStore store,
+        FakeContentSourceStore? sources = null,
+        ICreatorSuppressionStore? suppressionStore = null,
+        FakeCreatorIdentityResolver? identityResolver = null)
     {
         Services.AddSingleton<ICreatorSourceStore>(store);
         Services.AddSingleton<IContentSourceStore>(sources ?? new FakeContentSourceStore());
+        Services.AddSingleton<ICreatorSuppressionStore>(suppressionStore ?? new FakeCreatorSuppressionStore());
+        Services.AddSingleton<ICreatorIdentityResolver>(identityResolver ?? new FakeCreatorIdentityResolver());
         return Render<CreatorSources>();
     }
 
@@ -61,6 +67,77 @@ public sealed class CreatorSourcesPageTests : BunitContext
             Assert.Single(store.AddCalls);
             Assert.Contains("Example Creator", cut.Markup);
         });
+    }
+
+    [Fact]
+    public async Task CreatorSources_Add_RefusesSuppressedResolvedCreator()
+    {
+        var store = new FakeCreatorSourceStore();
+        var suppression = new FakeCreatorSuppressionStore();
+        suppression.Suppressed.Add("suppressed-creator");
+        var resolver = new FakeCreatorIdentityResolver();
+        resolver.Identities["Suppressed Creator"] = new CreatorIdentity("suppressed-creator", [], [], []);
+        var cut = RenderPage(store, suppressionStore: suppression, identityResolver: resolver);
+
+        await cut.InvokeAsync(() =>
+        {
+            cut.Find("#creatorName").Change("Suppressed Creator");
+            cut.Find("#creatorRef").Change("https://youtube.com/@suppressed");
+        });
+        await cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Suppressed creators cannot be added.", cut.Markup);
+        });
+        Assert.Empty(store.AddCalls);
+
+        await cut.InvokeAsync(() =>
+        {
+            cut.Find("#creatorName").Change("Allowed Creator");
+            cut.Find("#creatorRef").Change("https://youtube.com/@allowed");
+        });
+        await cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
+        cut.WaitForAssertion(() => Assert.Single(store.AddCalls));
+    }
+
+    [Fact]
+    public async Task CreatorSources_Add_FailsClosedWhenSuppressionStoreThrows()
+    {
+        var store = new FakeCreatorSourceStore();
+        var resolver = new FakeCreatorIdentityResolver();
+        resolver.Identities["Creator A"] = new CreatorIdentity("creator-a", [], [], []);
+        var cut = RenderPage(store, suppressionStore: new ThrowingCreatorSuppressionStore(), identityResolver: resolver);
+
+        await cut.InvokeAsync(() =>
+        {
+            cut.Find("#creatorName").Change("Creator A");
+            cut.Find("#creatorRef").Change("https://youtube.com/@creator-a");
+        });
+        await cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Empty(store.AddCalls);
+            Assert.Contains("Could not verify creator suppression status. The creator was not added.", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public async Task CreatorSources_Add_ReadableSuppressionStore_AddsCreator()
+    {
+        var store = new FakeCreatorSourceStore();
+        var resolver = new FakeCreatorIdentityResolver();
+        resolver.Identities["Creator A"] = new CreatorIdentity("creator-a", [], [], []);
+        var cut = RenderPage(store, suppressionStore: new FakeCreatorSuppressionStore(), identityResolver: resolver);
+
+        await cut.InvokeAsync(() =>
+        {
+            cut.Find("#creatorName").Change("Creator A");
+            cut.Find("#creatorRef").Change("https://youtube.com/@creator-a");
+        });
+        await cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
+        cut.WaitForAssertion(() => Assert.Single(store.AddCalls));
     }
 
     [Fact]

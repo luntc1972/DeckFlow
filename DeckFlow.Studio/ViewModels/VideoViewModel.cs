@@ -38,6 +38,12 @@ public sealed class VideoViewModel
     /// </summary>
     public string? CreatorRef { get; set; }
 
+    /// <summary>
+    /// Paste-URL channel browse input that produced this row, or <see langword="null"/> when the
+    /// row did not come from a non-playlist browse.
+    /// </summary>
+    public string? BrowseSource { get; set; }
+
     /// <summary>YouTube channel id for this video's author, when available from the listing source.</summary>
     public string? ChannelId { get; }
 

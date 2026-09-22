@@ -124,6 +124,12 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured, isConfirmerConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton<IStudioProdConnectionSource>(new StudioProdConnectionSource(configuration));
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        Services.AddSingleton<ICreatorSuppressionStore>(suppressionStore);
+        Services.AddSingleton(new CreatorSuppressionSyncCoordinator(
+            suppressionStore,
+            prodFactory,
+            new FakeStudioProdConnectionSource()));
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
         // Why: the git durability stage (Stage 4) resolves IGitRepository + IContentKbOrchestrator
         // through the coordinator; register fakes so no real git process or file copy runs in bUnit.

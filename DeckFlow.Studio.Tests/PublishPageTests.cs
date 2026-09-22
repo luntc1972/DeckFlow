@@ -4,6 +4,7 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Pages;
+using DeckFlow.Studio.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DeckFlow.Studio.Tests;
@@ -70,6 +71,12 @@ public sealed class PublishPageTests : BunitContext
         Services.AddSingleton<IGitRepository>(git);
         Services.AddSingleton<IContentKbOrchestrator>(orchestrator);
         Services.AddSingleton<IContentSiteIndexStore>(store);
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        Services.AddSingleton<ICreatorSuppressionStore>(suppressionStore);
+        Services.AddSingleton(new CreatorSuppressionSyncCoordinator(
+            suppressionStore,
+            new FakeProdStoreFactory(store),
+            new FakeStudioProdConnectionSource()));
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
         Services.AddSingleton<PublishStateDeriver>();
         // Why: the page now resolves its orchestration through PublishCoordinator (H1 split); the

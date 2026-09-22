@@ -112,6 +112,12 @@
     [Inject]
     private IContentSourceStore ContentSourceStore { get; set; } = default!;
 
+    [Inject]
+    private ICreatorSuppressionStore CreatorSuppressionStore { get; set; } = default!;
+
+    [Inject]
+    private ICreatorIdentityResolver CreatorIdentityResolver { get; set; } = default!;
+
     private bool _loading = true;
     private bool _operationInFlight;
     private string _error = string.Empty;
@@ -197,6 +203,23 @@
         {
             var name = _displayName;
             var channelRef = _channelRef;
+            bool isSuppressed;
+            try
+            {
+                isSuppressed = await IsSuppressedAsync(name, channelRef);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _error = "Could not verify creator suppression status. The creator was not added.";
+                return;
+            }
+
+            if (isSuppressed)
+            {
+                _error = "Suppressed creators cannot be added.";
+                return;
+            }
+
             await Task.Run(() => CreatorStore.AddAsync(name, channelRef, Cts.Token), Cts.Token);
             _displayName = string.Empty;
             _channelRef = string.Empty;
@@ -214,6 +237,20 @@
             _operationInFlight = false;
             await SafeStateHasChangedAsync();
         }
+    }
+
+    private async Task<bool> IsSuppressedAsync(string displayName, string channelRef)
+    {
+        foreach (var representation in new[] { displayName, channelRef })
+        {
+            var identity = await CreatorIdentityResolver.ResolveAsync(representation, Cts.Token);
+            if (identity is not null && await CreatorSuppressionStore.IsSuppressedAsync(identity.CanonicalSlug, Cts.Token))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async Task RemoveAsync(CreatorSource creator)

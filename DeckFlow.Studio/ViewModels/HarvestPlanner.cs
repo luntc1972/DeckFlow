@@ -123,6 +123,24 @@ public static class HarvestPlanner
     }
 
     /// <summary>
+    /// Excludes groups whose channel keys were precomputed as suppressed. Identity
+    /// resolution and suppression-store reads remain with the caller, keeping this planner pure.
+    /// </summary>
+    public static HarvestGroupPlan ExcludeSuppressed(
+        HarvestGroupPlan plan,
+        IReadOnlySet<string> suppressedGroupKeys)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(suppressedGroupKeys);
+
+        var groups = plan.Groups
+            .Where(group => !suppressedGroupKeys.Contains(group.ChannelUrl))
+            .ToList();
+
+        return new HarvestGroupPlan(groups, plan.UnresolvedVideoIds);
+    }
+
+    /// <summary>
     /// The single creator ref for a channel group (P87 provenance): the one distinct non-null
     /// <see cref="VideoViewModel.CreatorRef"/> across the group's videos, or <see langword="null"/>
     /// when none carry provenance or they disagree. Ambiguity resolves to null (a link miss), never a

@@ -20,6 +20,12 @@ public partial class Harvest
     private CreatorSuppressionSyncCoordinator SuppressionSync { get; set; } = default!;
 
     [Inject]
+    private ICreatorSuppressionStore CreatorSuppressionStore { get; set; } = default!;
+
+    [Inject]
+    private ICreatorIdentityResolver CreatorIdentityResolver { get; set; } = default!;
+
+    [Inject]
     private IYouTubeChannelVideoLister Lister { get; set; } = default!;
 
     [Inject]
@@ -97,6 +103,7 @@ public partial class Harvest
     private List<string> _logLines = new();
     private string _blockError = string.Empty;
     private HarvestResult? _harvestResult;
+    private int _suppressedGroupCount;
     private bool _harvestCancelled;
     private bool _focusConfirmPending;
     private ElementReference _confirmBlockButton;
@@ -159,6 +166,8 @@ public partial class Harvest
     private bool _allPendingSelected;
     private string _pendingDistillMessage = string.Empty;
     private bool _initializationComplete;
+    private bool _suppressionBlocked;
+    private string _suppressionBlockedMessage = string.Empty;
     private bool IsBusy => Runner.IsRunning || _isBrowsingChannel || _isAddingToQueue || _loadingPending;
 
     // ── Section 1: Channel or Playlist Browse (HARV-01) ────────────────────
@@ -214,6 +223,7 @@ public partial class Harvest
                 _channelVideos.Add(new VideoViewModel(v.VideoId, v.Url, v.Title, v.PublishedUtc, status, v.ChannelId, v.ChannelTitle)
                 {
                     CreatorRef = browseCreatorRef,
+                    BrowseSource = isPlaylist ? null : input,
                 });
             }
 
@@ -539,7 +549,7 @@ public partial class Harvest
 
     private async Task HarvestSelectedAsync()
     {
-        if (Runner.IsRunning)
+        if (Runner.IsRunning || _suppressionBlocked)
         {
             return;
         }
@@ -584,7 +594,7 @@ public partial class Harvest
     /// </summary>
     private async Task HarvestAndAutoDistillAsync()
     {
-        if (Runner.IsRunning)
+        if (Runner.IsRunning || _suppressionBlocked)
         {
             return;
         }
@@ -620,8 +630,12 @@ public partial class Harvest
                     // Surface the requires-subscription message and stop before distill — no silent spend.
                     if (!DistillConfig.IsSubscriptionProvider)
                     {
-                        _oneClickMeteredMessage =
-                            "Live distill requires a subscription provider. Harvest completed; use the Distill section below to preview/confirm.";
+                        var skipped = _suppressedGroupCount > 0
+                            ? $"; {_suppressedGroupCount} suppressed creator group(s) skipped"
+                            : string.Empty;
+                        _oneClickMeteredMessage = harvestOk
+                            ? $"Live distill requires a subscription provider. Harvest completed{skipped}; use the Distill section below to preview/confirm."
+                            : $"Live distill requires a subscription provider. Harvest did not complete{skipped}; use the Distill section below to preview/confirm.";
                         return null;
                     }
 
@@ -759,6 +773,7 @@ public partial class Harvest
         ActionOrchestratorProgress progress,
         CancellationToken cancellationToken)
     {
+        _suppressedGroupCount = 0;
         // Resolve a channel URL and name for each selected video.
         // Videos from the explicit-id queue carry ChannelId from YouTube metadata;
         // browsed videos carry ChannelId from the playlist/channel feed.
@@ -766,12 +781,37 @@ public partial class Harvest
         // Resolve a channel URL/name per selected video and group by channel so each channel gets
         // exactly one EnsureYoutubeSourceAsync + one HarvestAsync call (pure logic in HarvestPlanner).
         var plan = HarvestPlanner.ResolveChannelGroups(selectedVideos, _lastBrowsedChannel);
+        IReadOnlySet<string> suppressedGroupKeys;
+        try
+        {
+            await SuppressionSync.EnsureCurrentAsync(cancellationToken);
+            suppressedGroupKeys = await ResolveSuppressedGroupKeysAsync(plan.Groups, selectedVideos, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            Runner.AppendLog("Harvest refused because creator suppression data is unavailable.");
+            await InvokeAsync(StateHasChanged);
+            return false;
+        }
+
+        plan = HarvestPlanner.ExcludeSuppressed(plan, suppressedGroupKeys);
         var groups = plan.Groups;
+
+        if (suppressedGroupKeys.Count > 0)
+        {
+            _suppressedGroupCount = suppressedGroupKeys.Count;
+            Runner.AppendLog($"Skipped {_suppressedGroupCount} suppressed creator group(s).");
+        }
 
         if (groups.Count == 0)
         {
-            // All selected videos are unresolved — abort cleanly without throwing.
-            Runner.AppendLog("Could not determine a channel for the selected video(s).");
+            Runner.AppendLog(suppressedGroupKeys.Count > 0
+                ? $"Nothing was harvested; {_suppressedGroupCount} suppressed creator group(s) were skipped."
+                : "Could not determine a channel for the selected video(s).");
             await InvokeAsync(StateHasChanged);
             return false;
         }
@@ -865,6 +905,61 @@ public partial class Harvest
         return _harvestResult.Success;
     }
 
+    private async Task<IReadOnlySet<string>> ResolveSuppressedGroupKeysAsync(
+        IReadOnlyList<HarvestChannelGroup> groups,
+        IReadOnlyList<VideoViewModel> selectedVideos,
+        CancellationToken cancellationToken)
+    {
+        var suppressed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in groups)
+        {
+            var representations = new[]
+            {
+                group.CreatorRef,
+                group.ChannelName,
+                CreatorNameResolver.FromChannelTitle(group.ChannelName),
+                group.ChannelUrl,
+            };
+            var resolvedIdentity = false;
+            foreach (var representation in representations.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var identity = await CreatorIdentityResolver.ResolveAsync(representation!, cancellationToken);
+                if (identity is null)
+                {
+                    continue;
+                }
+
+                resolvedIdentity = true;
+                if (await CreatorSuppressionStore.IsSuppressedAsync(identity.CanonicalSlug, cancellationToken))
+                {
+                    suppressed.Add(group.ChannelUrl);
+                    break;
+                }
+            }
+
+            if (!resolvedIdentity)
+            {
+                var browseSources = selectedVideos
+                    .Where(video => group.VideoIds.Contains(video.VideoId, StringComparer.Ordinal))
+                    .Select(video => video.BrowseSource)
+                    .Where(source => !string.IsNullOrWhiteSpace(source))
+                    .Distinct(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var browseSource in browseSources)
+                {
+                    var identity = await CreatorIdentityResolver.ResolveAsync(browseSource!, cancellationToken);
+                    if (identity is not null && await CreatorSuppressionStore.IsSuppressedAsync(identity.CanonicalSlug, cancellationToken))
+                    {
+                        suppressed.Add(group.ChannelUrl);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return suppressed;
+    }
+
     private void CancelOperation()
     {
         Runner.Cancel();
@@ -898,9 +993,34 @@ public partial class Harvest
     /// </summary>
     protected override async Task OnInitializedAsync()
     {
+        Runner.Changed += OnRunnerChanged;
+        // Reconnect: seed the pane for whatever job is running so the live log reappears on return.
+        if (Runner.IsRunning)
+        {
+            if (Runner.CurrentKind == HarvestJobKind.LiveDistill)
+            {
+                _distillLogLines = Runner.Log.ToList();
+            }
+            else
+            {
+                _logLines = Runner.Log.ToList();
+            }
+        }
+
         try
         {
             await SuppressionSync.EnsureCurrentAsync();
+        }
+        catch (Exception)
+        {
+            _suppressionBlocked = true;
+            _suppressionBlockedMessage = "Harvest is blocked because creator suppression data is unavailable.";
+            _initializationComplete = true;
+            return;
+        }
+
+        try
+        {
             await RefreshCapDisplayAsync();
             // Why: persisted auto-approve settings (D-07) — load once at init so the panel reflects
             // the operator's last choice across Studio restarts.
@@ -909,19 +1029,6 @@ public partial class Harvest
             // Why: populate the distill list on arrival so harvested-but-not-distilled videos are
             // visible without a separate click. Non-fatal — LoadPendingDistillAsync swallows failures.
             await LoadPendingDistillAsync();
-            Runner.Changed += OnRunnerChanged;
-            // Reconnect: seed the pane for whatever job is running so the live log reappears on return.
-            if (Runner.IsRunning)
-            {
-                if (Runner.CurrentKind == HarvestJobKind.LiveDistill)
-                {
-                    _distillLogLines = Runner.Log.ToList();
-                }
-                else
-                {
-                    _logLines = Runner.Log.ToList();
-                }
-            }
         }
         finally
         {

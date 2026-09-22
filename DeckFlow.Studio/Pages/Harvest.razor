@@ -448,6 +448,11 @@
                 <p class="text-muted">Select at least one video to harvest.</p>
             }
 
+            @if (_suppressionBlocked)
+            {
+                <div class="alert alert-danger" role="alert">@_suppressionBlockedMessage</div>
+            }
+
             @if (Runner.IsRunning)
             {
                 <div class="alert alert-info py-2 mb-3">
@@ -460,12 +465,12 @@
                    auto-approve. The plain "Harvest Selected" stays as a fallback (D-12). *@
                 <button class="btn btn-primary"
                         @onclick="HarvestAndAutoDistillAsync"
-                        disabled="@(selectedCount == 0 || IsBusy)">
+                        disabled="@(selectedCount == 0 || IsBusy || _suppressionBlocked)">
                     Harvest + Auto-distill
                 </button>
                 <button class="btn btn-outline-primary"
                         @onclick="HarvestSelectedAsync"
-                        disabled="@(selectedCount == 0 || IsBusy)">
+                        disabled="@(selectedCount == 0 || IsBusy || _suppressionBlocked)">
                     Harvest Selected
                 </button>
                 @if (Runner.IsRunning)
@@ -536,7 +541,7 @@
                         @if (_harvestResult.Success)
                         {
                             <span class="oi oi-check text-success me-1" aria-hidden="true"></span>
-                            <span>Harvest complete — @_harvestResult.Captions transcript@(_harvestResult.Captions == 1 ? "" : "s") from captions, @_harvestResult.Whisper via Whisper, @_harvestResult.SkippedNoCaptions skipped (no captions).</span>
+                            <span>Harvest complete — @_harvestResult.Captions transcript@(_harvestResult.Captions == 1 ? "" : "s") from captions, @_harvestResult.Whisper via Whisper, @_harvestResult.SkippedNoCaptions skipped (no captions)@(_suppressedGroupCount > 0 ? $"; {_suppressedGroupCount} suppressed creator group(s) skipped" : string.Empty).</span>
                         }
                         else
                         {
