@@ -1,6 +1,7 @@
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
+using DeckFlow.Studio.Services;
 
 namespace DeckFlow.Studio.ViewModels;
 
@@ -16,33 +17,58 @@ public sealed class ReviewCoordinator
 {
     private readonly IContentSiteIndexStore _indexStore;
     private readonly ContentKbOrchestratorOptions _options;
+    private readonly CreatorSuppressionRowFilter _suppressionFilter;
 
     /// <summary>Creates the coordinator with the content-site-index store and orchestrator options.</summary>
-    public ReviewCoordinator(IContentSiteIndexStore indexStore, ContentKbOrchestratorOptions options)
+    public ReviewCoordinator(IContentSiteIndexStore indexStore, ContentKbOrchestratorOptions options, CreatorSuppressionRowFilter suppressionFilter)
     {
         ArgumentNullException.ThrowIfNull(indexStore);
         ArgumentNullException.ThrowIfNull(options);
         _indexStore = indexStore;
         _options = options;
+        _suppressionFilter = suppressionFilter;
     }
 
     /// <summary>Ensures the content-kb schema exists, then loads every content-site-index row.</summary>
     public async Task<IReadOnlyList<ContentSiteIndexRow>> LoadRowsAsync(CancellationToken cancellationToken)
     {
         await _indexStore.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-        return await _indexStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
+        return await _suppressionFilter.GetAllowedAsync(await _indexStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Persists a single row's approval status by natural key.</summary>
     public Task SetApprovalStatusAsync(string keyType, string keyValue, string status, CancellationToken cancellationToken)
-        => _indexStore.SetApprovalStatusAsync(keyType, keyValue, status, cancellationToken);
+        => SetApprovalStatusCheckedAsync([(keyType, keyValue)], status, cancellationToken, true);
 
     /// <summary>Persists the approval status for a batch of rows by natural key.</summary>
     public Task SetApprovalStatusAsync(
         IReadOnlyList<(string Type, string Value)> keys,
         string status,
         CancellationToken cancellationToken)
-        => _indexStore.SetApprovalStatusAsync(keys, status, cancellationToken);
+        => SetApprovalStatusCheckedAsync(keys, status, cancellationToken, false);
+
+    private async Task SetApprovalStatusCheckedAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken, bool isSingle)
+    {
+        if (status == "approved")
+        {
+            var rows = await _indexStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
+            var keyed = rows.Where(row => keys.Contains(GetNaturalKey(row))).ToList();
+            if ((await _suppressionFilter.GetAllowedAsync(keyed, cancellationToken).ConfigureAwait(false)).Count != keyed.Count) throw new CreatorSuppressedException();
+        }
+
+        if (isSingle)
+        {
+            await _indexStore.SetApprovalStatusAsync(keys[0].Type, keys[0].Value, status, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        await _indexStore.SetApprovalStatusAsync(keys, status, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static (string Type, string Value) GetNaturalKey(ContentSiteIndexRow row)
+        => row.YoutubeVideoId is not null
+            ? (ContentSourceType.Youtube, row.YoutubeVideoId)
+            : (ContentSourceType.Podcast, row.RssGuid ?? string.Empty);
 
     /// <summary>
     /// Resolves the absolute artifact path from the stored relative <paramref name="artifactPath"/>

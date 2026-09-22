@@ -3,6 +3,7 @@ using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Pages;
+using DeckFlow.Studio.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -64,11 +65,19 @@ public sealed class ReviewPageTests : BunitContext
 
         var artifactRoot = Path.Combine(Path.GetTempPath(), "deckflow-tests", "content-kb");
         Services.AddSingleton<IContentSiteIndexStore>(store);
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        Services.AddSingleton<ICreatorSuppressionStore>(suppressionStore);
+        Services.AddSingleton<ICreatorIdentityResolver>(new FakeCreatorIdentityResolver());
+        Services.AddSingleton(new CreatorSuppressionSyncCoordinator(
+            suppressionStore,
+            new FakeProdStoreFactory(store),
+            new FakeStudioProdConnectionSource()));
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
         Services.AddSingleton<PublishStateDeriver>();
         // Why: the page now resolves its store I/O + artifact reads through ReviewCoordinator (H1
         // split); the coordinator is built from the fakes registered above, so behavior is unchanged.
         Services.AddSingleton<DeckFlow.Studio.ViewModels.ReviewCoordinator>();
+        Services.AddSingleton<DeckFlow.Studio.Services.CreatorSuppressionRowFilter>();
 
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         var uri = navigationManager.GetUriWithQueryParameter("tab", tab);

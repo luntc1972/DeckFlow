@@ -2,6 +2,7 @@ using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.ViewModels;
+using DeckFlow.Studio.Services;
 
 namespace DeckFlow.Studio.Tests;
 
@@ -38,8 +39,8 @@ public sealed class ReviewCoordinatorTests : IDisposable
         }
     }
 
-    private ReviewCoordinator Build(FakeContentSiteIndexStore store)
-        => new(store, new ContentKbOrchestratorOptions { ArtifactRoot = _artifactRoot });
+    private ReviewCoordinator Build(FakeContentSiteIndexStore store, CreatorSuppressionRowFilter? filter = null)
+        => new(store, new ContentKbOrchestratorOptions { ArtifactRoot = _artifactRoot }, filter ?? new CreatorSuppressionRowFilter(new FakeCreatorSuppressionStore(), new FakeCreatorIdentityResolver()));
 
     private static ContentSiteIndexRow Youtube(long id, string videoId, string status = "pending")
         => new()
@@ -239,5 +240,34 @@ public sealed class ReviewCoordinatorTests : IDisposable
         File.WriteAllText(Path.Combine(dataRoot, "secrets.md"), "top secret");
 
         Assert.Null(coordinator.ReadPromptSafe("secrets.md", "V", "S", "https://x"));
+    }
+
+    [Fact]
+    public async Task StudioReview_SuppressedCreator_IsExcludedWhileControlIsApproved()
+    {
+        var store = new FakeContentSiteIndexStore();
+        var blocked = Youtube(1, "blocked") with { Source = "blocked-creator" };
+        var control = Youtube(2, "control") with { Source = "allowed-creator" };
+        store.Rows.Add(blocked); store.Rows.Add(control);
+        var suppressed = new FakeCreatorSuppressionStore(); suppressed.Suppressed.Add("blocked-creator");
+        var coordinator = Build(store, new CreatorSuppressionRowFilter(suppressed, new FakeCreatorIdentityResolver()));
+
+        var rows = await coordinator.LoadRowsAsync(CancellationToken.None);
+        await coordinator.SetApprovalStatusAsync(ContentSourceType.Youtube, "control", "approved", CancellationToken.None);
+
+        Assert.Single(rows); Assert.Equal("control", rows[0].YoutubeVideoId);
+        Assert.Single(store.SingleApprovalCalls); Assert.DoesNotContain(store.SingleApprovalCalls, call => call.Value == "blocked");
+    }
+
+    [Fact]
+    public async Task FailclosedStudioReview_ThrowingStore_RefusesApprovalAfterReadableStoreSucceeds()
+    {
+        var store = new FakeContentSiteIndexStore(); var row = Youtube(1, "control"); store.Rows.Add(row);
+        await Build(store).SetApprovalStatusAsync(ContentSourceType.Youtube, "control", "approved", CancellationToken.None);
+        Assert.Single(store.SingleApprovalCalls); store.SingleApprovalCalls.Clear();
+        var coordinator = Build(store, new CreatorSuppressionRowFilter(new ThrowingCreatorSuppressionStore(), new FakeCreatorIdentityResolver()));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.SetApprovalStatusAsync(ContentSourceType.Youtube, "control", "approved", CancellationToken.None));
+        Assert.Empty(store.SingleApprovalCalls);
     }
 }

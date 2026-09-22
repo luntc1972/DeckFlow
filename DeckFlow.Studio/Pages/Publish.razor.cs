@@ -169,7 +169,7 @@ public partial class Publish
     // ── Stage 2: Commit ─────────────────────────────────────────────────────
     private async Task CommitAsync()
     {
-        if (!_diffReviewed || _operationInFlight || string.IsNullOrWhiteSpace(_rawDiff) || string.IsNullOrWhiteSpace(_commitMessage))
+        if (_initError is not null || !_diffReviewed || _operationInFlight || string.IsNullOrWhiteSpace(_rawDiff) || string.IsNullOrWhiteSpace(_commitMessage))
         {
             return;
         }

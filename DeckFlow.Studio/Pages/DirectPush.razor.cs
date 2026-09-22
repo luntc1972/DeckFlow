@@ -193,7 +193,7 @@ public partial class DirectPush
         // Why (D-09 REVISED): also gate on IsConfirmerConfigured — a push that can never be
         // deploy-confirmed would strand every row awaiting-confirm forever (T-90-12), so refuse to
         // start the whole DirectPush flow until the confirmer's base URL + admin creds are set.
-        if (_operationInFlight || _approvedCount == 0
+        if (_initError is not null || _operationInFlight || _approvedCount == 0
             || !Config.IsProdConfigured || !Config.IsScpConfigured || !Config.IsConfirmerConfigured)
         {
             return;
@@ -281,7 +281,7 @@ public partial class DirectPush
     // ── Stage 2: Upload Artifacts (SCP) ─────────────────────────────────────
     private async Task UploadArtifactsAsync()
     {
-        if (!_prodReviewed || _operationInFlight || !_diffReady)
+        if (_initError is not null || !_prodReviewed || _operationInFlight || !_diffReady)
         {
             return;
         }
@@ -353,7 +353,7 @@ public partial class DirectPush
         // Why: hard-guard before any prod write — a stale render, test invocation, or future
         // refactor must never reach the upsert before full SCP success (Codex MEDIUM-1). The
         // disabled button alone is not sufficient.
-        if (!_scpSuccess || _operationInFlight || !_diffReady)
+        if (_initError is not null || !_scpSuccess || _operationInFlight || !_diffReady)
         {
             return;
         }
@@ -438,7 +438,7 @@ public partial class DirectPush
         // hidden and awaiting-confirm through this entire stage — nothing goes live here; only
         // Stage 5 (after a confirmed deploy) can do that. The disabled button alone is not
         // sufficient (mirrors the Stage 3 guard).
-        if (!_dbSuccess || _operationInFlight)
+        if (_initError is not null || !_dbSuccess || _operationInFlight)
         {
             return;
         }
@@ -561,7 +561,7 @@ public partial class DirectPush
         // has completed; the confirm poll checks the deployed /app body, which cannot exist without
         // a completed push. The disabled button alone is not sufficient (mirrors the Stage 3/4
         // guards).
-        if (!_gitSuccess || _operationInFlight)
+        if (_initError is not null || !_gitSuccess || _operationInFlight)
         {
             return;
         }
@@ -632,7 +632,7 @@ public partial class DirectPush
     // ── Resume: re-run verify for rows awaiting confirm from a prior/interrupted session (D-10) ──
     private async Task ResumeVerifyAsync()
     {
-        if (_operationInFlight || _awaitingConfirmRows.Count == 0)
+        if (_initError is not null || _operationInFlight || _awaitingConfirmRows.Count == 0)
         {
             return;
         }

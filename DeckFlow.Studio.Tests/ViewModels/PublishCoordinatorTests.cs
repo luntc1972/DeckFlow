@@ -4,6 +4,7 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.ViewModels;
+using DeckFlow.Studio.Services;
 
 namespace DeckFlow.Studio.Tests;
 
@@ -71,13 +72,15 @@ public sealed class PublishCoordinatorTests
     private static PublishCoordinator Build(
         FakeGitRepository git,
         FakeContentKbOrchestrator orchestrator,
-        FakeContentSiteIndexStore store)
+        FakeContentSiteIndexStore store,
+        CreatorSuppressionRowFilter? filter = null)
         => new(
             git,
             orchestrator,
             store,
             new ContentKbOrchestratorOptions { ArtifactRoot = "/data/content-kb" },
-            new PublishStateDeriver());
+            new PublishStateDeriver(),
+            filter ?? new CreatorSuppressionRowFilter(new FakeCreatorSuppressionStore(), new FakeCreatorIdentityResolver()));
 
     // ── LoadInitDataAsync ────────────────────────────────────────────────────
 
@@ -294,5 +297,32 @@ public sealed class PublishCoordinatorTests
             "msg",
             Array.Empty<(string, string)>(),
             CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task StudioPublish_SuppressedCreator_IsExcludedWhileControlIsExported()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(ApprovedYoutube(1, "blocked", false, false) with { Source = "blocked-creator" });
+        store.Rows.Add(ApprovedYoutube(2, "control", false, false) with { Source = "allowed-creator" });
+        var suppressed = new FakeCreatorSuppressionStore(); suppressed.Suppressed.Add("blocked-creator");
+        var orchestrator = new FakeContentKbOrchestrator();
+        var coordinator = Build(new FakeGitRepository(), orchestrator, store, new CreatorSuppressionRowFilter(suppressed, new FakeCreatorIdentityResolver()));
+
+        var init = await coordinator.LoadInitDataAsync(CancellationToken.None);
+        await coordinator.ExportAndDiffAsync("/fake/repo", "/data", new NoOpProgress(), CancellationToken.None);
+
+        Assert.Equal(1, init.ApprovedCount);
+        Assert.Single(orchestrator.ExportToFilePaths);
+    }
+
+    [Fact]
+    public async Task FailclosedStudioPublish_ThrowingStore_RefusesLoadAfterReadableStoreSucceeds()
+    {
+        var store = new FakeContentSiteIndexStore(); store.Rows.Add(ApprovedYoutube(1, "control", false, false));
+        Assert.Equal(1, (await Build(new FakeGitRepository(), new FakeContentKbOrchestrator(), store).LoadInitDataAsync(CancellationToken.None)).ApprovedCount);
+        var coordinator = Build(new FakeGitRepository(), new FakeContentKbOrchestrator(), store, new CreatorSuppressionRowFilter(new ThrowingCreatorSuppressionStore(), new FakeCreatorIdentityResolver()));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.LoadInitDataAsync(CancellationToken.None));
     }
 }

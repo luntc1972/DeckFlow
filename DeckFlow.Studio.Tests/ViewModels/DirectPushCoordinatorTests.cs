@@ -63,7 +63,8 @@ public sealed class DirectPushCoordinatorTests
         FakeGitRepository? git = null,
         FakeContentKbOrchestrator? orchestrator = null,
         IProdContentReader? prodReader = null,
-        IDeployedBodyConfirmer? confirmer = null)
+        IDeployedBodyConfirmer? confirmer = null,
+        CreatorSuppressionRowFilter? filter = null)
         => new(
             local,
             uploader ?? new FakeSshArtifactUploader(),
@@ -78,7 +79,8 @@ public sealed class DirectPushCoordinatorTests
             // SYNC-09/D-09 REVISED: confirmed by default so tests exercising WriteContentAsync/
             // ConfirmAndPublishAsync/CommitAndPushBodiesAsync directly are unaffected; the
             // VerifyAndPublishAsync tests override this explicitly.
-            confirmer ?? new FakeDeployedBodyConfirmer());
+            confirmer ?? new FakeDeployedBodyConfirmer(),
+            filter ?? new CreatorSuppressionRowFilter(new FakeCreatorSuppressionStore(), new FakeCreatorIdentityResolver()));
 
     // ── ClassifyDiff (pure) ─────────────────────────────────────────────────
 
@@ -982,6 +984,35 @@ public sealed class DirectPushCoordinatorTests
     // Per-key IDeployedBodyConfirmer test double: confirms only the keys explicitly listed as
     // deployed, so a single VerifyAndPublishAsync call can exercise a mixed confirmed/not-confirmed
     // batch (a real HTTP confirmer polls each row's own natural key independently).
+    [Fact]
+    public async Task StudioDirectpush_SuppressedCreator_IsExcludedFromDiffAndDirectWrite()
+    {
+        var local = new FakeContentSiteIndexStore(); var prod = new FakeContentSiteIndexStore();
+        var blocked = Youtube(1, "blocked") with { Source = "blocked-creator" };
+        var control = Youtube(2, "control") with { Source = "allowed-creator" };
+        local.Rows.Add(blocked); local.Rows.Add(control);
+        var suppressed = new FakeCreatorSuppressionStore(); suppressed.Suppressed.Add("blocked-creator");
+        var coordinator = Build(local, prod, filter: new CreatorSuppressionRowFilter(suppressed, new FakeCreatorIdentityResolver()));
+
+        var diff = await coordinator.ComputeDiffAsync(CancellationToken.None);
+        await coordinator.WriteContentAsync([blocked, control], CancellationToken.None);
+
+        Assert.Equal(1, diff.NewCount); Assert.Single(prod.BatchUpsertCalls); Assert.Single(prod.BatchUpsertCalls[0]);
+        Assert.Equal("control", prod.BatchUpsertCalls[0][0].YoutubeVideoId);
+    }
+
+    [Fact]
+    public async Task FailclosedStudioDirectpush_ThrowingStore_RefusesWritesAfterReadableStoreSucceeds()
+    {
+        var local = new FakeContentSiteIndexStore(); var prod = new FakeContentSiteIndexStore(); var row = Youtube(1, "control");
+        await Build(local, prod).WriteContentAsync([row], CancellationToken.None);
+        Assert.Single(prod.BatchUpsertCalls); prod.BatchUpsertCalls.Clear();
+        var coordinator = Build(local, prod, filter: new CreatorSuppressionRowFilter(new ThrowingCreatorSuppressionStore(), new FakeCreatorIdentityResolver()));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.WriteContentAsync([row], CancellationToken.None));
+        Assert.Empty(prod.BatchUpsertCalls);
+    }
+
     private sealed class SelectiveDeployedBodyConfirmer : IDeployedBodyConfirmer
     {
         public HashSet<string> ConfirmedKeys { get; } = new(StringComparer.Ordinal);

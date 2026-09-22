@@ -21,6 +21,7 @@ public sealed class PublishCoordinator
     private readonly IContentSiteIndexStore _indexStore;
     private readonly ContentKbOrchestratorOptions _options;
     private readonly PublishStateDeriver _deriver;
+    private readonly CreatorSuppressionRowFilter _suppressionFilter;
 
     // ── Pinned serializer options for canonical per-row JSON comparison ──────
     // Why: ContentIndexExportRow tag props are IReadOnlyList<string>; record == compares list
@@ -38,7 +39,8 @@ public sealed class PublishCoordinator
         IContentKbOrchestrator orchestrator,
         IContentSiteIndexStore indexStore,
         ContentKbOrchestratorOptions options,
-        PublishStateDeriver deriver)
+        PublishStateDeriver deriver,
+        CreatorSuppressionRowFilter suppressionFilter)
     {
         ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(orchestrator);
@@ -50,6 +52,7 @@ public sealed class PublishCoordinator
         _indexStore = indexStore;
         _options = options;
         _deriver = deriver;
+        _suppressionFilter = suppressionFilter;
     }
 
     /// <summary>
@@ -61,7 +64,7 @@ public sealed class PublishCoordinator
     {
         var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
         var branch = await _git.GetCurrentBranchAsync(repoRoot, cancellationToken).ConfigureAwait(false);
-        var rows = await _indexStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await _suppressionFilter.GetAllowedAsync(await _indexStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
         var summary = rows
             .GroupBy(r => _deriver.Derive(r.PushedToProdUtc, r.IsVisible, r.IndexedUtc))
             .Select(g => (State: g.Key, Count: g.Count()))

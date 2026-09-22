@@ -73,6 +73,7 @@ public sealed class PublishPageTests : BunitContext
         Services.AddSingleton<IContentSiteIndexStore>(store);
         var suppressionStore = new FakeCreatorSuppressionStore();
         Services.AddSingleton<ICreatorSuppressionStore>(suppressionStore);
+        Services.AddSingleton<ICreatorIdentityResolver>(new FakeCreatorIdentityResolver());
         Services.AddSingleton(new CreatorSuppressionSyncCoordinator(
             suppressionStore,
             new FakeProdStoreFactory(store),
@@ -82,6 +83,7 @@ public sealed class PublishPageTests : BunitContext
         // Why: the page now resolves its orchestration through PublishCoordinator (H1 split); the
         // coordinator is built from the fakes registered above, so page behavior is unchanged.
         Services.AddScoped<DeckFlow.Studio.ViewModels.PublishCoordinator>();
+        Services.AddSingleton<DeckFlow.Studio.Services.CreatorSuppressionRowFilter>();
 
         var cut = Render<Publish>();
         return (cut, git, orchestrator, store);

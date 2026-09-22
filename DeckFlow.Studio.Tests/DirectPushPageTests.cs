@@ -126,6 +126,7 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton<IStudioProdConnectionSource>(new StudioProdConnectionSource(configuration));
         var suppressionStore = new FakeCreatorSuppressionStore();
         Services.AddSingleton<ICreatorSuppressionStore>(suppressionStore);
+        Services.AddSingleton<ICreatorIdentityResolver>(new FakeCreatorIdentityResolver());
         Services.AddSingleton(new CreatorSuppressionSyncCoordinator(
             suppressionStore,
             prodFactory,
@@ -147,6 +148,7 @@ public sealed class DirectPushPageTests : BunitContext
         // Why: the page now resolves its orchestration through DirectPushCoordinator (H1 split);
         // register it over the same fakes so the bUnit render wires up identically to production.
         Services.AddScoped<DirectPushCoordinator>();
+        Services.AddSingleton<CreatorSuppressionRowFilter>();
         // Why: M3 — wire a capturing logger so tests can assert exceptions reach the
         // Serilog sink (ILogger<DirectPush>) without inspecting rendered markup.
         Services.AddLogging(b => b.AddProvider(logProvider));

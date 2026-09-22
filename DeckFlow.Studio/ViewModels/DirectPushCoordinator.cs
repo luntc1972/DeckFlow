@@ -29,6 +29,7 @@ public sealed class DirectPushCoordinator
     private readonly IContentKbOrchestrator _orchestrator;
     private readonly IProdContentReader _prodReader;
     private readonly IDeployedBodyConfirmer _confirmer;
+    private readonly CreatorSuppressionRowFilter _suppressionFilter;
     private readonly ILogger<DirectPushCoordinator> _logger;
 
     // Why: the git commit MAY carry the Render deploy-skip phrase. Render honors [skip render] /
@@ -70,6 +71,7 @@ public sealed class DirectPushCoordinator
         IContentKbOrchestrator orchestrator,
         IProdContentReader prodReader,
         IDeployedBodyConfirmer confirmer,
+        CreatorSuppressionRowFilter suppressionFilter,
         ILogger<DirectPushCoordinator>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(localStore);
@@ -90,6 +92,7 @@ public sealed class DirectPushCoordinator
         _orchestrator = orchestrator;
         _prodReader = prodReader;
         _confirmer = confirmer;
+        _suppressionFilter = suppressionFilter;
         // Optional logger (house convention, e.g. CommanderSpellbookService): the default keeps every
         // existing construction site + test compiling while D-08 skip-warnings surface in prod.
         _logger = logger ?? NullLogger<DirectPushCoordinator>.Instance;
@@ -101,7 +104,7 @@ public sealed class DirectPushCoordinator
     /// </summary>
     public async Task<DirectPushInitData> LoadInitDataAsync(CancellationToken cancellationToken)
     {
-        var rows = await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await _suppressionFilter.GetAllowedAsync(await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
         var dataRoot = Path.GetDirectoryName(_options.ArtifactRoot) ?? _options.ArtifactRoot;
         return new DirectPushInitData(rows.Count, dataRoot);
     }
@@ -114,7 +117,7 @@ public sealed class DirectPushCoordinator
     /// </summary>
     public async Task<DirectPushDiff> ComputeDiffAsync(CancellationToken cancellationToken)
     {
-        var localRows = await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false);
+        var localRows = await _suppressionFilter.GetAllowedAsync(await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
 
         var prodStore = CreateProdStore();
         var prodRows = await prodStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
@@ -207,6 +210,8 @@ public sealed class DirectPushCoordinator
     {
         ArgumentNullException.ThrowIfNull(publishRows);
 
+        publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
+
         var requests = publishRows
             .Select(r => new SshUploadRequest(
                 Path.GetFullPath(Path.Combine(dataRoot, r.ArtifactPath)),
@@ -234,6 +239,8 @@ public sealed class DirectPushCoordinator
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(publishRows);
+
+        publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         var prodStore = CreateProdStore();
 
@@ -291,6 +298,8 @@ public sealed class DirectPushCoordinator
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(publishRows);
+
+        publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         // Codex-HIGH fix: the git /app deploy-confirm poll is only meaningful when
         // sync.directpush-gitbody is ON. Only the ON path drops [skip render] (see

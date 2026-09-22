@@ -27,6 +27,9 @@ public partial class Review
     [Inject]
     private PublishStateDeriver Deriver { get; set; } = default!;
 
+    [Inject]
+    private CreatorSuppressionSyncCoordinator SuppressionSync { get; set; } = default!;
+
     // ── Query parameters ────────────────────────────────────────────────────
     /// <summary>
     /// Seeds the initially selected tab from the query string; in-page tab buttons own the state thereafter.
@@ -37,6 +40,7 @@ public partial class Review
 
     // ── Page state ──────────────────────────────────────────────────────────
     private bool _loading = true;
+    private string? _initError;
     private string _loadError = string.Empty;
     private string _activeTab = "pending";
     private bool _operationInFlight;
@@ -91,6 +95,7 @@ public partial class Review
 
         try
         {
+            await SuppressionSync.EnsureCurrentAsync();
             // Why: Task.Run moves the store calls off the Blazor sync context (Pitfall 1).
             var rows = await Task.Run(() => Coordinator.LoadRowsAsync(Cts.Token), Cts.Token);
 
@@ -105,6 +110,7 @@ public partial class Review
             // Why: store errors can carry DB path/connection details — NEVER surface ex.Message (D-07);
             // show a generic operator-safe message.
             _loadError = "Could not load review queue — check the Studio data directory and retry.";
+            _initError = "Initialization failed — check Studio configuration and retry.";
         }
         finally
         {
@@ -172,6 +178,7 @@ public partial class Review
     // artifact-missing guard, so they share one optimistic-write helper.
     private async Task SetRowStatusAsync(ReviewViewModel vm, string status)
     {
+        if (_initError is not null) return;
         // Approving a row whose artifact is missing is blocked; rejecting it is always allowed.
         if (vm.ApprovalStatus == status || (status == "approved" && IsArtifactMissing(vm)))
         {
@@ -200,6 +207,7 @@ public partial class Review
     // label (_batchAction), so they share one helper.
     private async Task BatchSetStatusAsync(List<ReviewViewModel> eligible, string status, string actionLabel)
     {
+        if (_initError is not null) return;
         if (eligible.Count == 0 || _operationInFlight)
         {
             return;
