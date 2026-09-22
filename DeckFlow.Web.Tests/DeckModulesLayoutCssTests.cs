@@ -13,6 +13,7 @@ public sealed class DeckModulesLayoutCssTests
         Assert.Matches(new Regex(@"\.deck-modules__commander\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;", RegexOptions.Singleline), content);
         Assert.Matches(new Regex(@"\.deck-modules__overview\s*\{", RegexOptions.Singleline), content);
         Assert.Matches(new Regex(@"\.deck-modules__unassigned\s*\{", RegexOptions.Singleline), content);
+        Assert.Matches(new Regex(@"\.deck-modules__howto,\s*\.deck-modules__empty,\s*\.deck-modules__configuration,\s*\.deck-modules__unassigned,\s*\.deck-modules__report\s*\{[^}]*grid-column:\s*1 / -1;", RegexOptions.Singleline), content);
     }
 
     [Fact]

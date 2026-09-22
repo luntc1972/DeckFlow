@@ -7442,6 +7442,8 @@ pre {
 .deck-modules > [data-deck-modules-notice],
 .deck-modules__commander,
 .deck-modules__overview,
+.deck-modules__howto,
+.deck-modules__empty,
 .deck-modules__configuration,
 .deck-modules__unassigned,
 .deck-modules__report {
