@@ -10,6 +10,76 @@ test.describe.configure({ mode: 'serial' });
 test.setTimeout(120_000);
 withToolEnabled('Deck Modules');
 
+test('shows blank-slate guidance before import and contextual guidance after import', async ({ page }) => {
+  await page.goto('/deck-modules');
+  await expect(page.locator('[data-deck-modules-next]')).toHaveText('Start by importing a baseline deck below.');
+  await expect(page.locator('[data-deck-modules-empty]')).toBeVisible();
+  await expect(page.locator('[data-deck-modules-compile]')).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.locator('.deck-modules__howto')).not.toHaveAttribute('open');
+
+  await page.locator('#deck-modules-input-source').selectOption('PasteText');
+  await page.locator('#deck-modules-deck-text').fill(winotaDeck);
+  const importResponse = page.waitForResponse('/deck-modules/import');
+  await page.getByRole('button', { name: 'Import deck' }).click();
+  expect((await importResponse).status()).toBe(200);
+
+  await expect(page.locator('[data-deck-modules-empty]')).toBeHidden();
+  await expect(page.locator('[data-deck-modules-next]')).toHaveText('Baseline imported. Name your first strategy alternative — you need 2 to 4.');
+});
+
+test('uses the desktop hybrid top layout after import', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'Desktop-only layout check.');
+
+  await page.goto('/deck-modules');
+  await page.locator('#deck-modules-input-source').selectOption('PasteText');
+  await page.locator('#deck-modules-deck-text').fill(winotaDeck);
+  const importResponse = page.waitForResponse('/deck-modules/import');
+  await page.getByRole('button', { name: 'Import deck' }).click();
+  expect((await importResponse).status()).toBe(200);
+
+  await expect(page.locator('.deck-modules__commander [data-deck-modules-restart]')).toHaveCount(1);
+  await expect(page.locator('.deck-modules__overview [data-deck-modules-alternatives]')).toHaveCount(1);
+  await expect(page.locator('.deck-modules__overview [data-deck-modules-balance]')).toHaveCount(1);
+
+  const nameBox = await page.locator('[data-deck-modules-name]').boundingBox();
+  const profileBox = await page.locator('.deck-modules__configuration .df-select__trigger').boundingBox();
+  expect(nameBox).not.toBeNull();
+  expect(profileBox).not.toBeNull();
+  expect(Math.abs(nameBox!.y - profileBox!.y)).toBeLessThanOrEqual(4);
+  await expect(page.locator('.deck-modules__unassigned')).toHaveAttribute('open', '');
+
+  const coreBox = await page.locator('[data-deck-modules-entries="core"]').locator('xpath=ancestor::section[1]').boundingBox();
+  const pathBox = await page.locator('.deck-modules__path').boundingBox();
+  const workspaceBox = await page.locator('.deck-modules__workspace').boundingBox();
+  const actionsBox = await page.locator('.deck-modules__actions').boundingBox();
+  expect(coreBox).not.toBeNull();
+  expect(pathBox).not.toBeNull();
+  expect(workspaceBox).not.toBeNull();
+  expect(actionsBox).not.toBeNull();
+  expect(Math.abs(coreBox!.y - pathBox!.y)).toBeLessThanOrEqual(8);
+  expect(coreBox!.x).toBeLessThan(pathBox!.x);
+  expect(coreBox!.width).toBeLessThan(pathBox!.width);
+  expect(actionsBox!.y).toBeGreaterThan(workspaceBox!.y + workspaceBox!.height - 1);
+});
+
+test('stacks workspace without horizontal overflow on mobile', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-mobile', 'Mobile-only layout check.');
+
+  await page.goto('/deck-modules');
+  await page.locator('#deck-modules-input-source').selectOption('PasteText');
+  await page.locator('#deck-modules-deck-text').fill(winotaDeck);
+  const importResponse = page.waitForResponse('/deck-modules/import');
+  await page.getByRole('button', { name: 'Import deck' }).click();
+  expect((await importResponse).status()).toBe(200);
+
+  const coreBox = await page.locator('[data-deck-modules-entries="core"]').locator('xpath=ancestor::section[1]').boundingBox();
+  const pathBox = await page.locator('.deck-modules__path').boundingBox();
+  expect(coreBox).not.toBeNull();
+  expect(pathBox).not.toBeNull();
+  expect(pathBox!.y).toBeGreaterThan(coreBox!.y + coreBox!.height - 4);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+});
+
 test('imports, assigns, compiles, and remains usable at the current viewport', async ({ page }, testInfo) => {
   const response = await page.goto('/deck-modules');
   expect(response?.ok(), '/deck-modules should return 200 with flag ON').toBeTruthy();
@@ -21,7 +91,8 @@ test('imports, assigns, compiles, and remains usable at the current viewport', a
   await expect(page.locator('[data-deck-modules-export]')).toBeDisabled();
   await expect(page.locator('[data-deck-modules]').getByRole('button', { name: /share|save|project/i })).toHaveCount(0);
 
-  await page.locator('[data-deck-modules-source]').fill(winotaDeck);
+  await page.locator('#deck-modules-input-source').selectOption('PasteText');
+  await page.locator('#deck-modules-deck-text').fill(winotaDeck);
   const importResponse = page.waitForResponse('/deck-modules/import');
   await page.getByRole('button', { name: 'Import deck' }).click();
   const imported = await importResponse;

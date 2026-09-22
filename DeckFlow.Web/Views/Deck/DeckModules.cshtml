@@ -10,94 +10,108 @@
 <section class="result-panel deck-modules" data-deck-modules>
     <h1>Deck Modules</h1>
     <p>Import a baseline, then assign every mainboard card to Core, an active Strategy, or its linked Mana Support.</p>
+    <p class="deck-modules__next" id="deck-modules-next" role="status" aria-atomic="true" data-deck-modules-next>Start by importing a baseline deck below.</p>
     <p data-deck-modules-live aria-live="polite" role="status"></p>
     <p data-deck-modules-error role="alert"></p>
 
+    <details class="deck-modules__howto">
+        <summary>How Deck Modules works &mdash; the whole flow in 7 steps</summary>
+        <ol class="deck-modules__howto-steps">
+            <li>Import the baseline deck &mdash; paste a decklist or a public Moxfield/Archidekt URL, then <code>Import deck</code>. The command zone is fixed from that import and cannot be edited here.</li>
+            <li>Name your first strategy, write the one-sentence play plan, then <code>Add strategy alternative</code>. Repeat until you have 2&ndash;4 alternatives.</li>
+            <li>Assign every Unassigned card to <strong>Core</strong> (shared by every alternative), the active alternative&rsquo;s <strong>Strategy</strong>, or its linked <strong>Mana Support</strong>.</li>
+            <li>Balance the alternatives: each needs the same Strategy card count. The balance line names any alternative that is off and by how much.</li>
+            <li><code>Compile modules</code> for one 100-card configuration, its legality diagnostics, and the IN/OUT/RESET swap checklist.</li>
+            <li>Optional: <code>Analyze mana base</code> for mana and interaction deltas, or compare two compiled configurations side by side.</li>
+            <li>Copy or download the compiled text, then paste it into your AI.</li>
+        </ol>
+        <p class="deck-modules__howto-note"><strong>Session-only:</strong> the draft lives in this browser tab. There is no saved project, share link, or resume.</p>
+        <p class="deck-modules__howto-note">Full write-up: <a href="@Url.Content("~/help/deck-modules")">Deck Modules help</a>.</p>
+    </details>
+
     <form data-deck-modules-import-form>
-        <label for="deck-modules-source">Public deck URL or pasted decklist</label>
-        <textarea id="deck-modules-source" data-deck-modules-source required></textarea>
+        @await Html.PartialAsync("_DeckImportControl", new DeckImportControlModel(
+            IdPrefix: "deck-modules",
+            PanelKeyPrefix: "deck-modules",
+            TextLabel: "Paste a decklist (one card per line)"))
         <button type="submit" class="run-button">Import deck</button>
     </form>
     <p data-deck-modules-notice role="status"></p>
 
-    <section class="deck-modules__panel deck-modules__configuration" aria-labelledby="deck-modules-configuration-heading">
-        <h2 id="deck-modules-configuration-heading">Baseline strategy configuration</h2>
-        <label for="deck-modules-name">Strategy name</label>
-        <input id="deck-modules-name" data-deck-modules-name required />
-        <label for="deck-modules-profile">Declared profile</label>
-        <select id="deck-modules-profile" data-deck-modules-profile data-df-select required>
-            <option value="">Choose a profile</option>
-            <option value="Casual">Casual</option>
-            <option value="Bracket4HighPower">Bracket 4 High Power</option>
-            <option value="Cedh">cEDH</option>
-        </select>
-        <label for="deck-modules-plan">One-sentence play plan</label>
-        <textarea id="deck-modules-plan" data-deck-modules-plan required></textarea>
-        <button type="button" class="run-button" data-deck-modules-add-alternative>Add strategy alternative</button>
-        <p>Profile: <span data-deck-modules-summary-profile>Not selected</span></p>
-        <p>Play plan: <span data-deck-modules-summary-plan>Not entered</span></p>
+    <section class="deck-modules__empty" data-deck-modules-empty aria-labelledby="deck-modules-empty-heading">
+        <h2 id="deck-modules-empty-heading">What you are building</h2>
+        <ul class="deck-modules__empty-buckets">
+            <li><strong>Core</strong> &mdash; cards every alternative keeps. The imported command zone is fixed and always Core.</li>
+            <li><strong>Strategy</strong> &mdash; cards unique to one named game plan. 2 to 4 alternatives, each with the same strategy card count.</li>
+            <li><strong>Mana Support</strong> &mdash; lands and ramp tied to that one strategy. Not counted in the balance check.</li>
+        </ul>
+        <p class="deck-modules__empty-note">Import a deck above to start &mdash; nothing is saved server-side. <a href="@Url.Content("~/help/deck-modules")">How Deck Modules works</a>.</p>
     </section>
 
-    <div class="deck-modules__path">
-        <header class="deck-modules__path-header">
-            <div data-deck-modules-alternatives aria-label="Strategy alternatives"></div>
-            <p id="deck-modules-balance" data-deck-modules-balance></p>
-            <p class="deck-modules__path-name">Active alternative: <span data-deck-modules-active-name>Choose an alternative</span></p>
-        </header>
-
-        <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-strategy-heading">
-            <h2 id="deck-modules-strategy-heading">Strategy <span data-deck-modules-count="strategy">0</span></h2>
-            <label for="deck-modules-strategy-filter">Filter Strategy cards</label>
-            <input id="deck-modules-strategy-filter" type="search" data-deck-modules-filter="strategy" />
-            <table class="deck-modules__entries">
-                <caption>Active strategy card assignments</caption>
-                <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
-                <tbody data-deck-modules-entries="strategy"></tbody>
-            </table>
-            <button type="button" class="run-button" data-deck-modules-move="strategy:unassigned">Return selected to Unassigned</button>
-            <button type="button" class="run-button" data-deck-modules-move="strategy:core">Move selected to Core</button>
-            <button type="button" class="run-button" data-deck-modules-move="strategy:mana">Move selected to Mana Support</button>
+    <div class="deck-modules__commander">
+        <section class="deck-modules__command-zone" aria-labelledby="deck-modules-command-zone-heading">
+            <h2 id="deck-modules-command-zone-heading">Command zone</h2>
+            <p>Imported baseline only; command zone cannot be edited here.</p>
+            <div data-deck-modules-command-zone></div>
         </section>
-
-        <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-mana-heading">
-            <h2 id="deck-modules-mana-heading">Mana Support <span data-deck-modules-count="mana">0</span></h2>
-            <label for="deck-modules-mana-filter">Filter Mana Support cards</label>
-            <input id="deck-modules-mana-filter" type="search" data-deck-modules-filter="mana" />
-            <table class="deck-modules__entries">
-                <caption>Active strategy Mana Support assignments</caption>
-                <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
-                <tbody data-deck-modules-entries="mana"></tbody>
-            </table>
-            <button type="button" class="run-button" data-deck-modules-move="mana:unassigned">Return selected to Unassigned</button>
-            <button type="button" class="run-button" data-deck-modules-move="mana:core">Move selected to Core</button>
-            <button type="button" class="run-button" data-deck-modules-move="mana:strategy">Move selected to Strategy</button>
-        </section>
+        <p data-deck-modules-reconciliation></p>
+        <button type="button" class="run-button" data-deck-modules-restart>Restart draft</button>
     </div>
 
-    <section class="deck-modules__panel deck-modules__command-zone" aria-labelledby="deck-modules-command-zone-heading">
-        <h2 id="deck-modules-command-zone-heading">Command zone</h2>
-        <p>Imported baseline only; command zone cannot be edited here.</p>
-        <div data-deck-modules-command-zone></div>
+    <div class="deck-modules__overview">
+        <div data-deck-modules-alternatives aria-label="Strategy alternatives"></div>
+        <p id="deck-modules-balance" data-deck-modules-balance></p>
+    </div>
+
+    <section class="deck-modules__panel deck-modules__configuration" aria-labelledby="deck-modules-configuration-heading" aria-describedby="deck-modules-profile-hint">
+        <h2 id="deck-modules-configuration-heading">Baseline strategy configuration</h2>
+        <div class="deck-modules__field">
+            <label for="deck-modules-name">Strategy name</label>
+            <input id="deck-modules-name" data-deck-modules-name required />
+        </div>
+        <div class="deck-modules__field">
+            <label for="deck-modules-profile">Declared profile</label>
+            <select id="deck-modules-profile" data-deck-modules-profile data-df-select aria-describedby="deck-modules-profile-hint" required>
+                <option value="">Choose a profile</option>
+                <option value="Casual">Casual</option>
+                <option value="Bracket4HighPower">Bracket 4 High Power</option>
+                <option value="Cedh">cEDH</option>
+            </select>
+        </div>
+        <div class="deck-modules__field">
+            <label for="deck-modules-plan">One-sentence play plan</label>
+            <textarea id="deck-modules-plan" data-deck-modules-plan rows="2" required></textarea>
+        </div>
+        <button type="button" class="run-button" data-deck-modules-add-alternative>Add strategy alternative</button>
+        @* Why: this hint sits outside the Declared profile field so it can span the whole
+           configuration row; inside the field it pushed only that column's select down. *@
+        <p class="deck-modules__hint" id="deck-modules-profile-hint">Also sets the mana-base mode used by <code>Analyze mana base</code> &mdash; cEDH and Bracket 4 High Power use tighter land targets than Casual.</p>
+        <div class="deck-modules__configuration-summaries">
+            <p>Profile: <span data-deck-modules-summary-profile>Not selected</span></p>
+            <p>Play plan: <span data-deck-modules-summary-plan>Not entered</span></p>
+        </div>
     </section>
 
-    <p data-deck-modules-reconciliation></p>
+    <details class="deck-modules__unassigned" open>
+        <summary><h2 id="deck-modules-unassigned-heading">Unassigned <span data-deck-modules-count="unassigned">0</span></h2></summary>
+        <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-unassigned-heading">
+            <label for="deck-modules-unassigned-filter">Filter Unassigned cards</label>
+            <input id="deck-modules-unassigned-filter" type="search" data-deck-modules-filter="unassigned" />
+            <table class="deck-modules__entries">
+                <caption>Imported baseline cards awaiting assignment</caption>
+                <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
+                <tbody data-deck-modules-entries="unassigned"></tbody>
+            </table>
+            <button type="button" class="run-button" data-deck-modules-move="unassigned:core">Move selected to Core</button>
+            <button type="button" class="run-button" data-deck-modules-move="unassigned:strategy">Move selected to Strategy</button>
+            <button type="button" class="run-button" data-deck-modules-move="unassigned:mana">Move selected to Mana Support</button>
+        </section>
+    </details>
 
-    <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-unassigned-heading">
-        <h2 id="deck-modules-unassigned-heading">Unassigned <span data-deck-modules-count="unassigned">0</span></h2>
-        <label for="deck-modules-unassigned-filter">Filter Unassigned cards</label>
-        <input id="deck-modules-unassigned-filter" type="search" data-deck-modules-filter="unassigned" />
-        <table class="deck-modules__entries">
-            <caption>Imported baseline cards awaiting assignment</caption>
-            <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
-            <tbody data-deck-modules-entries="unassigned"></tbody>
-        </table>
-        <button type="button" class="run-button" data-deck-modules-move="unassigned:core">Move selected to Core</button>
-        <button type="button" class="run-button" data-deck-modules-move="unassigned:strategy">Move selected to Strategy</button>
-        <button type="button" class="run-button" data-deck-modules-move="unassigned:mana">Move selected to Mana Support</button>
-    </section>
-
-    <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-core-heading">
-        <h2 id="deck-modules-core-heading">Core <span class="deck-modules__shared-badge">Shared across every alternative</span> <span data-deck-modules-count="core">0</span></h2>
+    <div class="deck-modules__workspace">
+    <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-core-heading" aria-describedby="deck-modules-core-hint">
+        <h2 id="deck-modules-core-heading">Core <span data-deck-modules-count="core">0</span> <span class="deck-modules__shared-badge">Shared across every alternative</span></h2>
+        <p class="deck-modules__hint" id="deck-modules-core-hint">Cards every alternative keeps. Assign these first.</p>
         <label for="deck-modules-core-filter">Filter Core cards</label>
         <input id="deck-modules-core-filter" type="search" data-deck-modules-filter="core" />
         <table class="deck-modules__entries">
@@ -110,11 +124,50 @@
         <button type="button" class="run-button" data-deck-modules-move="core:mana">Move selected to Mana Support</button>
     </section>
 
-    <button type="button" class="run-button" data-deck-modules-compile disabled>Compile modules</button>
-    <button type="button" class="run-button" data-deck-modules-analyze disabled>Analyze mana base</button>
-    <button type="button" class="run-button" data-deck-modules-export disabled>Download compiled text</button>
-    <button type="button" class="copy-button" data-deck-modules-copy disabled>Copy compiled text</button>
-    <button type="button" class="run-button" data-deck-modules-restart>Restart draft</button>
+        <div class="deck-modules__path">
+            <header class="deck-modules__path-header">
+                <p class="deck-modules__path-name">Active alternative: <span data-deck-modules-active-name>Choose an alternative</span></p>
+            </header>
+
+            <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-strategy-heading" aria-describedby="deck-modules-strategy-hint">
+                <h2 id="deck-modules-strategy-heading">Strategy <span data-deck-modules-count="strategy">0</span></h2>
+                <p class="deck-modules__hint" id="deck-modules-strategy-hint">Cards unique to the active alternative.</p>
+                <label for="deck-modules-strategy-filter">Filter Strategy cards</label>
+                <input id="deck-modules-strategy-filter" type="search" data-deck-modules-filter="strategy" />
+                <table class="deck-modules__entries">
+                    <caption>Active strategy card assignments</caption>
+                    <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
+                    <tbody data-deck-modules-entries="strategy"></tbody>
+                </table>
+                <button type="button" class="run-button" data-deck-modules-move="strategy:unassigned">Return selected to Unassigned</button>
+                <button type="button" class="run-button" data-deck-modules-move="strategy:core">Move selected to Core</button>
+                <button type="button" class="run-button" data-deck-modules-move="strategy:mana">Move selected to Mana Support</button>
+            </section>
+
+            <section class="deck-modules__panel deck-modules__assignment" aria-labelledby="deck-modules-mana-heading" aria-describedby="deck-modules-mana-hint">
+                <h2 id="deck-modules-mana-heading">Mana Support <span data-deck-modules-count="mana">0</span></h2>
+                <p class="deck-modules__hint" id="deck-modules-mana-hint">Lands and ramp tied to this alternative. Not counted toward the balance check.</p>
+                <label for="deck-modules-mana-filter">Filter Mana Support cards</label>
+                <input id="deck-modules-mana-filter" type="search" data-deck-modules-filter="mana" />
+                <table class="deck-modules__entries">
+                    <caption>Active strategy Mana Support assignments</caption>
+                    <thead><tr><th scope="col">Select</th><th scope="col">Quantity</th><th scope="col">Card</th></tr></thead>
+                    <tbody data-deck-modules-entries="mana"></tbody>
+                </table>
+                <button type="button" class="run-button" data-deck-modules-move="mana:unassigned">Return selected to Unassigned</button>
+                <button type="button" class="run-button" data-deck-modules-move="mana:core">Move selected to Core</button>
+                <button type="button" class="run-button" data-deck-modules-move="mana:strategy">Move selected to Strategy</button>
+            </section>
+        </div>
+    </div>
+
+    <div class="deck-modules__actions">
+        <p class="deck-modules__blocked" id="deck-modules-blocked" role="status" aria-atomic="true" data-deck-modules-blocked></p>
+        <button type="button" class="run-button" data-deck-modules-compile aria-disabled="true" aria-describedby="deck-modules-blocked">Compile modules</button>
+        <button type="button" class="run-button" data-deck-modules-analyze aria-disabled="true" aria-describedby="deck-modules-blocked">Analyze mana base</button>
+        <button type="button" class="run-button" data-deck-modules-export aria-disabled="true" aria-describedby="deck-modules-blocked">Download compiled text</button>
+        <button type="button" class="copy-button" data-deck-modules-copy aria-disabled="true" aria-describedby="deck-modules-blocked">Copy compiled text</button>
+    </div>
 
     <section class="deck-modules__panel deck-modules__report" aria-labelledby="deck-modules-report-heading" hidden>
         <h2 id="deck-modules-report-heading">Compilation report</h2>
@@ -128,8 +181,9 @@
         <h3>RESET</h3><ul data-deck-modules-swap="reset"></ul>
     </section>
 
-    <section class="deck-modules__panel deck-modules__analysis" data-deck-modules-analysis hidden aria-labelledby="deck-modules-analysis-heading">
+    <section class="deck-modules__panel deck-modules__analysis" data-deck-modules-analysis hidden aria-labelledby="deck-modules-analysis-heading" aria-describedby="deck-modules-analysis-hint">
         <h2 id="deck-modules-analysis-heading">Analysis status</h2>
+        <p class="deck-modules__hint" id="deck-modules-analysis-hint">Same math as the Mana Base tool, run against this compiled configuration. Open the full report for per-card castability.</p>
         <p data-deck-modules-analysis-stale role="status" hidden>Cards changed since this analysis.</p>
         <p class="deck-modules__analysis-notice" data-deck-modules-core-only role="status" hidden></p>
         <dl>
@@ -160,20 +214,25 @@
     </section>
 
     <section class="deck-modules__panel deck-modules__comparison" aria-labelledby="deck-modules-comparison-heading" data-deck-modules-comparison hidden>
-        <h2 id="deck-modules-comparison-heading">Configuration comparison</h2>
-        <label>Reference <select data-deck-modules-compare-reference data-df-select></select></label>
-        <label>Other configuration <select data-deck-modules-compare-other data-df-select></select></label>
-        <button type="button" class="run-button" data-deck-modules-compare disabled>Compare</button>
-        <p data-deck-modules-comparison-message role="status"></p>
-        <div class="table-wrapper" tabindex="0" role="region" aria-label="Configuration comparison (scrollable)">
-            <table data-deck-modules-comparison-table>
-                <thead data-deck-modules-comparison-head></thead>
-                <tbody data-deck-modules-comparison-body></tbody>
-            </table>
-        </div>
+        <details class="deck-modules__comparison-details" open>
+            <summary><h2 id="deck-modules-comparison-heading">Configuration comparison</h2></summary>
+            <label>Reference <select data-deck-modules-compare-reference data-df-select></select></label>
+            <label>Other configuration <select data-deck-modules-compare-other data-df-select></select></label>
+            <button type="button" class="run-button" data-deck-modules-compare disabled>Compare</button>
+            <p data-deck-modules-comparison-message role="status"></p>
+            <div class="table-wrapper" tabindex="0" role="region" aria-label="Configuration comparison (scrollable)">
+                <table data-deck-modules-comparison-table>
+                    <thead data-deck-modules-comparison-head></thead>
+                    <tbody data-deck-modules-comparison-body></tbody>
+                </table>
+            </div>
+        </details>
     </section>
 </section>
 
 @section Scripts {
+    <script src="~/js/deck-input-store.js" asp-append-version="true"></script>
+    <script src="~/js/moxfield-extension-bridge.js" asp-append-version="true"></script>
+    <script src="~/js/deck-sync.js" asp-append-version="true"></script>
     <script src="~/js/deck-modules.js" asp-append-version="true"></script>
 }

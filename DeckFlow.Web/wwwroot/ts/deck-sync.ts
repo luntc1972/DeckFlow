@@ -78,6 +78,11 @@ const panelConfigs: PanelConfig[] = [
   },
   {
     selectName: 'DeckInputSource',
+    urlSelector: '[data-sync-panel="deck-modules-deck-url"]',
+    textSelector: '[data-sync-panel="deck-modules-deck-text"]',
+  },
+  {
+    selectName: 'DeckInputSource',
     urlSelector: '[data-sync-panel="prompt-deck-url"]',
     textSelector: '[data-sync-panel="prompt-deck-text"]',
   },
