@@ -152,6 +152,8 @@ public sealed class CreatorStyleDiRegistrationTests
         services.AddMemoryCache();
         services.AddOptions();
         services.AddSingleton<IFeatureFlagCache, FakeFeatureFlagCache>();
+        services.AddSingleton<ICreatorIdentityResolver, FakeCreatorIdentityResolver>();
+        services.AddSingleton<ICreatorSuppressionStore, FakeCreatorSuppressionStore>();
         services.AddSingleton<ContentKbArtifactPathResolver>();
         services.AddSingleton<PacketSessionCache>();
         services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();

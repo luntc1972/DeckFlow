@@ -1132,8 +1132,10 @@ namespace DeckFlow.Studio.Tests
                 new MapBlockedStore(), new MapSiteIndexStore(), isSubscriptionProvider: false,
                 suppressionStore: suppression, identityResolver: identities);
 
+            WaitForPageReady(cut);
             await cut.InvokeAsync(() => cut.Find("#channelInput").Change("https://youtube.com/@paste"));
             await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Contains("Browse", StringComparison.Ordinal)).Click());
+            cut.WaitForAssertion(() => cut.Find("input[aria-label='Select Paste video']"), UiTimeout);
             await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Paste video']").Change(true));
             await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Control video']").Change(true));
             ClickOneClick(cut);
