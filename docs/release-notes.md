@@ -6,6 +6,16 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.09.6 — Admin Harvest Overview & Tab Split (2026-09-22)
+
+Admin-only redesign of the `/Admin/Harvest` page (Cycle 23, Phase 1 of 6):
+- **Tab split:** Overview and Commanders now separate tabs; the commander grid loads only on first activation instead of on every page load.
+- **Health strip:** processed-deck count, provider-agnostic database size, and cached distinct-commander count.
+- **Backlog signal:** a visually flagged badge when the queue exceeds the configured floor or grows across consecutive runs, plus a zero-discovery streak indicator.
+- **Run log:** the run table always shows all columns including a truncatable, in-place-expandable error column, replacing two silently-swapping table variants.
+- **Single URL import:** moved behind a collapsed panel on Overview.
+- **Scope:** admin-only (HTTP basic auth), no public route or feature flag involved.
+
 ### 2026.09.5 — Mobile UI Redesign (2026-09-20)
 
 Every tool page now has paired desktop and mobile layouts:
