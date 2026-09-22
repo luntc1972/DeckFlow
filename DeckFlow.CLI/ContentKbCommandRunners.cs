@@ -91,6 +91,7 @@ internal static class ContentKbCommandRunners
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            await EnsureSuppressionReadableAsync(dbPath, ct).ConfigureAwait(false);
             using var llmHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
             var providerEnv = Environment.GetEnvironmentVariable(LlmDistillationProviderFactory.EnvironmentVariableName);
             var isSubscriptionProvider = LlmDistillationProviderFactory.IsSubscriptionProvider(providerEnv);
@@ -448,6 +449,7 @@ internal static class ContentKbCommandRunners
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            await EnsureSuppressionReadableAsync(dbPath, ct).ConfigureAwait(false);
             using var youtubeHttpClient = new HttpClient();
             using var whisperHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
             var transcriptFetcher = TranscriptProviderFactory.Resolve(
@@ -523,6 +525,12 @@ internal static class ContentKbCommandRunners
             lister,
             transcriptSource,
             chunker);
+    }
+
+    private static async Task EnsureSuppressionReadableAsync(string dbPath, CancellationToken cancellationToken)
+    {
+        var suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(dbPath));
+        await suppressionStore.ListAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private static ContentKbOrchestrator CreateConnectionOrchestrator(

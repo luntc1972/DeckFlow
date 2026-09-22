@@ -40,13 +40,21 @@ internal static class CreatorStyleCommandRunners
                 new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
                 ?? [];
 
-            var store = CreateStoresForDatabase(dbPath).StatedRuleStore;
+            var stores = CreateStoresForDatabase(dbPath);
+            await stores.SuppressionStore.ListAsync().ConfigureAwait(false);
+            var store = stores.StatedRuleStore;
             var ruleCount = 0;
             var slugCount = 0;
             foreach ((var slug, var rules) in seed)
             {
                 if (rules is null || rules.Count == 0)
                 {
+                    continue;
+                }
+
+                if (await stores.SuppressionStore.IsSuppressedAsync(slug).ConfigureAwait(false))
+                {
+                    Console.Error.WriteLine($"Skipping suppressed creator '{slug}'.");
                     continue;
                 }
 
@@ -89,6 +97,13 @@ internal static class CreatorStyleCommandRunners
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var stores = CreateStoresForDatabase(dbPath);
+            await stores.SuppressionStore.ListAsync().ConfigureAwait(false);
+            if (await stores.SuppressionStore.IsSuppressedAsync(slug).ConfigureAwait(false))
+            {
+                Console.Error.WriteLine($"Creator '{slug}' is suppressed.");
+                return 3;
+            }
+
             var profileStore = stores.ProfileStore;
             var statedRuleStore = stores.StatedRuleStore;
 
@@ -167,6 +182,7 @@ internal static class CreatorStyleCommandRunners
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var stores = CreateStoresForDatabase(dbPath);
+            await stores.SuppressionStore.ListAsync().ConfigureAwait(false);
             var profileStore = stores.ProfileStore;
             var deckCacheStore = new CreatorDeckCacheStore(ContentKbCliPaths.ResolveCreatorDeckCacheDatabasePath(db), stores.SuppressionStore);
 
@@ -182,6 +198,12 @@ internal static class CreatorStyleCommandRunners
 
             foreach (var summary in summaries)
             {
+                if (await stores.SuppressionStore.IsSuppressedAsync(summary.Slug).ConfigureAwait(false))
+                {
+                    Console.Error.WriteLine($"Skipping suppressed creator '{summary.Slug}'.");
+                    continue;
+                }
+
                 var profile = await profileStore.GetBySlugAsync(summary.Slug).ConfigureAwait(false);
                 if (profile is null)
                 {

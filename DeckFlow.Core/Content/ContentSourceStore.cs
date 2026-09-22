@@ -151,7 +151,26 @@ public sealed class ContentSourceStore : IContentSourceStore
             """,
             new { isEnabled = true },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return sources.ToList();
+        var sourceList = sources.ToList();
+        if (_suppressionStore is null)
+        {
+            return sourceList;
+        }
+
+        var visibleSources = new List<ContentSource>(sourceList.Count);
+        foreach (var source in sourceList)
+        {
+            var representations = new[] { source.SourceSlug, source.DisplayName }
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal);
+            var suppressionChecks = await Task.WhenAll(representations.Select(value => _suppressionStore.IsSuppressedAsync(value, cancellationToken))).ConfigureAwait(false);
+            if (!suppressionChecks.Any(value => value))
+            {
+                visibleSources.Add(source);
+            }
+        }
+
+        return visibleSources;
     }
 
     /// <inheritdoc />
