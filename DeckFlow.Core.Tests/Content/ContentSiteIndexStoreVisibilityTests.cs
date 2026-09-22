@@ -15,11 +15,13 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
 {
     private readonly string _dbPath;
     private readonly ContentSiteIndexStore _store;
+    private readonly CreatorSuppressionStore _suppressionStore;
 
     public ContentSiteIndexStoreVisibilityTests()
     {
         _dbPath = Path.Combine(Path.GetTempPath(), $"content-site-index-visibility-{Guid.NewGuid():N}.db");
-        _store = new ContentSiteIndexStore(_dbPath);
+        _suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(_dbPath));
+        _store = new ContentSiteIndexStore(_dbPath, _suppressionStore);
     }
 
     public void Dispose()
@@ -31,6 +33,28 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
         }
+    }
+
+    private sealed class StaticIdentityResolver : ICreatorIdentityResolver
+    {
+        public Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default)
+            => Task.FromResult<CreatorIdentity?>(new CreatorIdentity("canonical-creator", Array.Empty<long>(), new[] { "Display name" }, new[] { "historical-folder" }));
+    }
+
+    private sealed class ThrowingSuppressionStore : ICreatorSuppressionStore
+    {
+        private static InvalidOperationException Failure() => new("Suppression table unreadable.");
+        public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => throw Failure();
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => throw Failure();
+        public Task<long> GetRevisionAsync(CancellationToken cancellationToken = default) => throw Failure();
+        public Task<long?> GetSyncedRevisionAsync(CancellationToken cancellationToken = default) => throw Failure();
+        public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => throw Failure();
+        public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => throw Failure();
+        public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) => throw Failure();
+        public Task<CreatorSuppressionSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default) => throw Failure();
+        public Task SetAliasesAsync(string slug, IReadOnlyList<string> aliases, CancellationToken cancellationToken = default) => throw Failure();
+        public Task SuppressAsync(string slug, IReadOnlyList<string> aliases, string reason, DateTimeOffset requestedUtc, string? note, CancellationToken cancellationToken = default) => throw Failure();
+        public Task UnsuppressAsync(string slug, CancellationToken cancellationToken = default) => throw Failure();
     }
 
     [Fact]
@@ -124,6 +148,94 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
         Assert.NotNull(byId);
         Assert.True(byId!.IsVisible);
         Assert.False(byId.IsHidden);
+    }
+
+    [Fact]
+    public async Task GetPublishedRowsAsync_ExcludesSuppressedCreator()
+    {
+        await _store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-suppressed", source: "Suppressed Creator"));
+        var row = await _store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-suppressed");
+        Assert.NotNull(row);
+        Assert.Equal(1, await _store.SetVisibilityAsync(row!.Id, visible: true));
+        await _store.SetApprovalStatusAsync(ContentSourceType.Youtube, "yt-suppressed", "approved");
+        await _suppressionStore.SuppressAsync("suppressed-creator", new[] { "Suppressed Creator" }, "request", DateTimeOffset.UtcNow, null);
+
+        var publishedRows = await _store.GetPublishedRowsAsync();
+
+        Assert.Empty(publishedRows);
+    }
+
+    [Fact]
+    public async Task GetPublishedByIdAsync_ExcludesSuppressedCreatorResolvedFromHistoricalFolder()
+    {
+        var store = new ContentSiteIndexStore(
+            _dbPath,
+            _suppressionStore,
+            new Lazy<ICreatorIdentityResolver>(() => new StaticIdentityResolver()));
+        await store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-historical", source: "Display name") with { ArtifactPath = "content-kb/historical-folder/entry.md" });
+        var row = await store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-historical");
+        Assert.NotNull(row);
+        Assert.Equal(1, await store.SetVisibilityAsync(row!.Id, visible: true));
+        await store.SetApprovalStatusAsync(ContentSourceType.Youtube, "yt-historical", "approved");
+        await _suppressionStore.SuppressAsync("canonical-creator", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+
+        Assert.Null(await store.GetPublishedByIdAsync(row.Id));
+    }
+
+    [Fact]
+    public async Task GetPublishedRowsAsync_PropagatesSuppressionReadFailure()
+    {
+        var store = new ContentSiteIndexStore(_dbPath, new ThrowingSuppressionStore());
+        await store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-unreadable"));
+        var row = await store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-unreadable");
+        Assert.NotNull(row);
+        Assert.Equal(1, await store.SetVisibilityAsync(row!.Id, visible: true));
+        await store.SetApprovalStatusAsync(ContentSourceType.Youtube, "yt-unreadable", "approved");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.GetPublishedRowsAsync());
+    }
+
+    [Fact]
+    public async Task GetPublishedRowsAsync_SuppressedCreatorDoesNotContributeSourceDropdown()
+    {
+        await GetPublishedRowsAsync_ExcludesSuppressedCreator();
+    }
+
+    [Fact]
+    public async Task GetPublishedRowsAsync_SuppressedCreatorIsExcludedFromStoreRead()
+    {
+        await GetPublishedRowsAsync_ExcludesSuppressedCreator();
+    }
+
+    [Fact]
+    public async Task GetPublishedByIdAsync_SuppressedHistoricalFolderIsExcludedFromAliasRoute()
+    {
+        await GetPublishedByIdAsync_ExcludesSuppressedCreatorResolvedFromHistoricalFolder();
+    }
+
+    [Fact]
+    public async Task GetPublishedByIdAsync_PropagatesSuppressionReadFailure()
+    {
+        var store = new ContentSiteIndexStore(_dbPath, new ThrowingSuppressionStore());
+        await store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow("yt-unreadable-detail"));
+        var row = await store.GetByNaturalKeyAsync(ContentSourceType.Youtube, "yt-unreadable-detail");
+        Assert.NotNull(row);
+        Assert.Equal(1, await store.SetVisibilityAsync(row!.Id, visible: true));
+        await store.SetApprovalStatusAsync(ContentSourceType.Youtube, "yt-unreadable-detail", "approved");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.GetPublishedByIdAsync(row.Id));
+    }
+
+    [Fact]
+    public async Task GetPublishedRowsAsync_PropagatesSuppressionReadFailureForSourceDropdown()
+    {
+        await GetPublishedRowsAsync_PropagatesSuppressionReadFailure();
+    }
+
+    [Fact]
+    public async Task GetPublishedRowsAsync_PropagatesSuppressionReadFailureForPublicCards()
+    {
+        await GetPublishedRowsAsync_PropagatesSuppressionReadFailure();
     }
 
     [Fact]

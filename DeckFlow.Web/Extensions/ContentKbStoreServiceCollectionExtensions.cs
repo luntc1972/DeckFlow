@@ -25,7 +25,8 @@ public static class ContentKbStoreServiceCollectionExtensions
             provider.GetRequiredService<ICreatorSuppressionStore>()));
         services.AddSingleton<IContentSiteIndexStore>(provider => new ContentSiteIndexStore(
             connection,
-            suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>()));
+            suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>(),
+            identityResolver: new Lazy<ICreatorIdentityResolver>(() => provider.GetRequiredService<ICreatorIdentityResolver>())));
         services.AddSingleton<ICreatorStyleStatedRuleStore>(provider => new CreatorStyleStatedRuleStore(
             connection,
             suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>()));

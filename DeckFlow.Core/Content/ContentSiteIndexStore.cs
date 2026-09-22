@@ -14,6 +14,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly ICreatorSuppressionStore? _suppressionStore;
+    private readonly Lazy<ICreatorIdentityResolver>? _identityResolver;
     private readonly bool _ensureSchemaEnabled;
     private readonly Func<CancellationToken, Task<DbConnection>>? _connectionFactoryOverride;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
@@ -24,21 +25,23 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public ContentSiteIndexStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore) { }
+    /// <param name="identityResolver">Lazy creator identity resolver for public suppression checks.</param>
+    public ContentSiteIndexStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore, identityResolver: identityResolver) { }
 
     /// <summary>
     /// Creates a site-index store using the supplied <see cref="RelationalDatabaseConnection"/>.
     /// </summary>
     /// <param name="connectionInfo">Provider + connection string descriptor.</param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
+    /// <param name="identityResolver">Lazy creator identity resolver for public suppression checks.</param>
     /// <param name="ensureSchemaEnabled">
     /// When <c>true</c> (default) the store auto-creates/backfills its schema on first use. When
     /// <c>false</c> (prod-pointed stores, D-09/D-10) <see cref="EnsureSchemaAsync"/> is a no-op so the
     /// store never issues CREATE/ALTER/DROP — prod schema is owned by the web app's startup path.
     /// </param>
-    public ContentSiteIndexStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null)
-        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore) { }
+    public ContentSiteIndexStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore, identityResolver) { }
 
     /// <summary>
     /// Test-seam constructor: injects a connection-factory override so tests can wrap the real
@@ -52,15 +55,18 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     /// Optional connection factory used by <see cref="OpenConnectionAsync"/> in place of the live one.
     /// </param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
+    /// <param name="identityResolver">Lazy creator identity resolver for public suppression checks.</param>
     internal ContentSiteIndexStore(
         RelationalDatabaseConnection connectionInfo,
         bool ensureSchemaEnabled,
         Func<CancellationToken, Task<DbConnection>>? connectionFactoryOverride,
-        ICreatorSuppressionStore? suppressionStore = null)
+        ICreatorSuppressionStore? suppressionStore = null,
+        Lazy<ICreatorIdentityResolver>? identityResolver = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
         _suppressionStore = suppressionStore;
+        _identityResolver = identityResolver;
         _ensureSchemaEnabled = ensureSchemaEnabled;
         _connectionFactoryOverride = connectionFactoryOverride;
         if (_connectionInfo.IsSqlite)
@@ -294,7 +300,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             """,
             new { visible = true },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.Select(ContentSiteIndexRowMapper.ToRow).ToList();
+        return await ExcludeSuppressedCreatorsAsync(rows.Select(ContentSiteIndexRowMapper.ToRow).ToList(), cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -365,7 +371,8 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             """,
             new { id, visible = true },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return row is null ? null : ContentSiteIndexRowMapper.ToRow(row);
+        if (row is null) return null;
+        return (await ExcludeSuppressedCreatorsAsync(new[] { ContentSiteIndexRowMapper.ToRow(row) }, cancellationToken).ConfigureAwait(false)).SingleOrDefault();
     }
 
     /// <inheritdoc />
@@ -917,6 +924,55 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
                 $"Invalid approval status '{status}'. Must be one of: pending, approved, rejected.",
                 nameof(status));
         }
+    }
+
+    private async Task<IReadOnlyList<ContentSiteIndexRow>> ExcludeSuppressedCreatorsAsync(
+        IReadOnlyList<ContentSiteIndexRow> rows,
+        CancellationToken cancellationToken)
+    {
+        if (_suppressionStore is null || rows.Count == 0) return rows;
+
+        var representations = rows
+            .SelectMany(row => GetCreatorRepresentations(row))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var resolved = new Dictionary<string, CreatorIdentity?>(StringComparer.OrdinalIgnoreCase);
+        if (_identityResolver is not null)
+        {
+            foreach (var representation in representations)
+            {
+                resolved[representation] = await _identityResolver.Value.ResolveAsync(representation, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        var suppressed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var representation in representations)
+        {
+            var candidates = new[] { representation }
+                .Concat(GetIdentityRepresentations(resolved.GetValueOrDefault(representation)))
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+            if ((await Task.WhenAll(candidates.Select(candidate => _suppressionStore.IsSuppressedAsync(candidate, cancellationToken))).ConfigureAwait(false)).Any(value => value))
+            {
+                suppressed.Add(representation);
+            }
+        }
+
+        return rows.Where(row => GetCreatorRepresentations(row).All(representation => !suppressed.Contains(representation))).ToList();
+    }
+
+    private static IEnumerable<string> GetCreatorRepresentations(ContentSiteIndexRow row)
+    {
+        yield return row.Source;
+        var segments = row.ArtifactPath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length > 1) yield return segments[^2];
+    }
+
+    private static IEnumerable<string> GetIdentityRepresentations(CreatorIdentity? identity)
+    {
+        if (identity is null) return Array.Empty<string>();
+        return new[] { identity.CanonicalSlug }
+            .Concat(identity.DisplayNames)
+            .Concat(identity.FolderSlugs);
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
