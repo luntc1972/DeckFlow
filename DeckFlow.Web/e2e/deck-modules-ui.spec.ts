@@ -27,6 +27,17 @@ test('shows blank-slate guidance before import and contextual guidance after imp
   await expect(page.locator('[data-deck-modules-next]')).toHaveText('Baseline imported. Name your first strategy alternative — you need 2 to 4.');
 });
 
+test('imports pasted decklist when hidden URL input contains a scheme-less URL', async ({ page }) => {
+  await page.goto('/deck-modules');
+  await page.locator('input[name="DeckUrl"]').fill('moxfield.com/decks/abc');
+  await page.locator('#deck-modules-input-source').selectOption('PasteText');
+  await page.locator('#deck-modules-deck-text').fill(winotaDeck);
+  const importResponse = page.waitForResponse('/deck-modules/import');
+  await page.getByRole('button', { name: 'Import deck' }).click();
+
+  expect((await importResponse).status()).toBe(200);
+});
+
 test('uses the desktop hybrid top layout after import', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop', 'Desktop-only layout check.');
 
@@ -50,15 +61,18 @@ test('uses the desktop hybrid top layout after import', async ({ page }, testInf
 
   const coreBox = await page.locator('[data-deck-modules-entries="core"]').locator('xpath=ancestor::section[1]').boundingBox();
   const pathBox = await page.locator('.deck-modules__path').boundingBox();
+  const howtoBox = await page.locator('.deck-modules__howto').boundingBox();
   const workspaceBox = await page.locator('.deck-modules__workspace').boundingBox();
   const actionsBox = await page.locator('.deck-modules__actions').boundingBox();
   expect(coreBox).not.toBeNull();
   expect(pathBox).not.toBeNull();
+  expect(howtoBox).not.toBeNull();
   expect(workspaceBox).not.toBeNull();
   expect(actionsBox).not.toBeNull();
   expect(Math.abs(coreBox!.y - pathBox!.y)).toBeLessThanOrEqual(8);
   expect(coreBox!.x).toBeLessThan(pathBox!.x);
   expect(coreBox!.width).toBeLessThan(pathBox!.width);
+  expect(Math.abs(howtoBox!.width - workspaceBox!.width)).toBeLessThanOrEqual(1);
   expect(actionsBox!.y).toBeGreaterThan(workspaceBox!.y + workspaceBox!.height - 1);
 });
 
