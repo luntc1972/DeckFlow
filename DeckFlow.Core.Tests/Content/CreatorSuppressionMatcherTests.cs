@@ -36,4 +36,21 @@ public sealed class CreatorSuppressionMatcherTests
 
         Assert.False(matcher.IsSuppressed(candidate));
     }
+
+    [Fact]
+    public void IsSuppressed_FinalSigmaVariant_ReturnsFalse()
+    {
+        var matcher = new CreatorSuppressionMatcher(new[]
+        {
+            new CreatorSuppression
+            {
+                Slug = "ς",
+                Aliases = Array.Empty<string>(),
+                Reason = "request",
+                RequestedUtc = DateTimeOffset.UtcNow,
+            },
+        });
+
+        Assert.False(matcher.IsSuppressed("σ"));
+    }
 }

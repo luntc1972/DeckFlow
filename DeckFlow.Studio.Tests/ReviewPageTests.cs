@@ -101,6 +101,7 @@ public sealed class ReviewPageTests : BunitContext
         cut.Find("button[aria-label^='Approve']").Click();
 
         cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
+        Assert.Contains("blocked", cut.Markup);
         Assert.Empty(store.SingleApprovalCalls);
     }
 

@@ -129,6 +129,34 @@ public sealed class ReviewCoordinatorTests : IDisposable
         Assert.Empty(store.SingleApprovalCalls);
     }
 
+    [Fact]
+    public async Task SetApprovalStatusAsync_WhitespaceYoutubeId_UsesPodcastNaturalKey()
+    {
+        var store = new FakeContentSiteIndexStore();
+        store.Rows.Add(new ContentSiteIndexRow
+        {
+            Id = 1,
+            Source = "podcast",
+            Title = "Podcast",
+            VideoUrl = "https://pod.example/episode",
+            ArtifactPath = "content-kb/podcast/episode.md",
+            IndexedUtc = DateTimeOffset.UtcNow,
+            ApprovalStatus = "pending",
+            ArchetypeTags = Array.Empty<string>(),
+            BracketTags = Array.Empty<string>(),
+            CardCategoryTags = Array.Empty<string>(),
+            YoutubeVideoId = "   ",
+            RssGuid = "podcast-guid",
+        });
+        var suppressed = new FakeCreatorSuppressionStore();
+        suppressed.Suppressed.Add("podcast");
+        var coordinator = Build(store, new CreatorSuppressionRowFilter(suppressed, new FakeCreatorIdentityResolver()));
+
+        await Assert.ThrowsAsync<CreatorSuppressedException>(() => coordinator.SetApprovalStatusAsync(ContentSourceType.Podcast, "podcast-guid", "approved", CancellationToken.None));
+
+        Assert.Empty(store.SingleApprovalCalls);
+    }
+
     // ── ReadArtifactSafe — security containment ──────────────────────────────
 
     [Fact]

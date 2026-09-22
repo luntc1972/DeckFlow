@@ -38,6 +38,14 @@
     }
     else
     {
+        @if (!string.IsNullOrEmpty(_suppressionNotice))
+        {
+            <div class="alert alert-warning alert-dismissible fade show py-2 mt-3" role="alert">
+                @_suppressionNotice
+                <button type="button" class="btn-close" aria-label="Dismiss" @onclick="() => _suppressionNotice = string.Empty"></button>
+            </div>
+        }
+
         @* ─── Filter Tabs ─── *@
         <ul class="nav nav-tabs mt-3" role="tablist">
             <li class="nav-item" role="presentation">

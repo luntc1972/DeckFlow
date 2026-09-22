@@ -476,6 +476,27 @@ public sealed class DirectPushCoordinatorTests
     }
 
     [Fact]
+    public async Task CommitAndPushBodiesAsync_CreatorSuppressedAfterDiff_SkipsSuppressedBodyKeepsControl()
+    {
+        var git = new FakeGitRepository { CannedRepoRoot = "/repo", CannedBranch = "main", CannedCommitSha = "deadbee" };
+        var orchestrator = new FakeContentKbOrchestrator();
+        var suppressions = new FakeCreatorSuppressionStore();
+        var filter = new CreatorSuppressionRowFilter(suppressions, new FakeCreatorIdentityResolver());
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), git: git, orchestrator: orchestrator, filter: filter);
+        var suppressed = Youtube(1, "blocked") with { Source = "blocked-creator" };
+        var control = Youtube(2, "control") with { Source = "allowed-creator" };
+        var publish = new List<ContentSiteIndexRow> { suppressed, control };
+
+        suppressions.Suppressed.Add("blocked-creator");
+
+        await coordinator.CommitAndPushBodiesAsync(publish, "/data", CancellationToken.None);
+
+        var copied = Assert.Single(orchestrator.CopyArtifactsCalls);
+        Assert.Equal(new[] { control.ArtifactPath }, copied);
+        Assert.DoesNotContain(suppressed.ArtifactPath, copied);
+    }
+
+    [Fact]
     public async Task CommitAndPushBodiesAsync_FlagOffThenOn_BothCommitSubjects_RecognizedAsOwnDurabilityCommit()
     {
         // D-09 correctness: a PRIOR run's flag-ON commit (no trailing phrase) must still be

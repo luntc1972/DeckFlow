@@ -26,7 +26,8 @@ public static class ContentKbStoreServiceCollectionExtensions
             provider.GetRequiredService<ICreatorSuppressionStore>()));
         services.AddSingleton<IContentSiteIndexStore>(provider => new ContentSiteIndexStore(
             databasePath,
-            provider.GetRequiredService<ICreatorSuppressionStore>()));
+            provider.GetRequiredService<ICreatorSuppressionStore>(),
+            identityResolver: new Lazy<ICreatorIdentityResolver>(() => provider.GetRequiredService<ICreatorIdentityResolver>())));
         services.AddSingleton<ICreatorIdentityResolver, CreatorIdentityResolver>();
         return services;
     }

@@ -42,6 +42,7 @@ public partial class Review
     private bool _loading = true;
     private string? _initError;
     private string _loadError = string.Empty;
+    private string _suppressionNotice = string.Empty;
     private string _activeTab = "pending";
     private bool _operationInFlight;
     private string _batchAction = string.Empty;
@@ -189,13 +190,14 @@ public partial class Review
         {
             await Coordinator.SetApprovalStatusAsync(vm.NaturalKeyType, vm.NaturalKeyValue, status, Cts.Token);
             vm.ApprovalStatus = status;
+            _suppressionNotice = string.Empty;
         }
         catch (OperationCanceledException)
         {
         }
         catch (CreatorSuppressedException)
         {
-            _loadError = "A suppressed creator cannot be approved.";
+            _suppressionNotice = "A suppressed creator cannot be approved.";
         }
         catch (Exception)
         {
@@ -238,13 +240,14 @@ public partial class Review
             }
 
             _allSelected = false;
+            _suppressionNotice = string.Empty;
         }
         catch (OperationCanceledException)
         {
         }
         catch (CreatorSuppressedException)
         {
-            _loadError = "A suppressed creator cannot be approved.";
+            _suppressionNotice = "A suppressed creator cannot be approved.";
         }
         catch (Exception)
         {

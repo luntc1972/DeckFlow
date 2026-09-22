@@ -12,7 +12,7 @@ public sealed class CreatorSuppressionMatcher
         _suppressedValues = suppressions
             .SelectMany(row => row.Aliases.Append(row.Slug))
             .Select(NormalizeValue)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     /// <summary>Returns whether a creator name or alias is suppressed.</summary>
