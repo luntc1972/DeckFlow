@@ -35,6 +35,61 @@ public sealed class CreatorIdentityResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task ResolveAsync_IndexRowsInEitherOrderUseOrdinalLowestFolderCanonical()
+    {
+        var rows = new[]
+        {
+            CreateRow("Salubrious Snail", "content-kb/salubrioussnail/one.md", "one"),
+            CreateRow("Salubrious Snail", "content-kb/salubrious-snail/two.md", "two"),
+        };
+
+        var forward = await ResolveRowsAsync(rows, "Salubrious Snail");
+        var reversed = await ResolveRowsAsync(rows.Reverse().ToArray(), "Salubrious Snail");
+
+        Assert.Equal("salubrious-snail", forward!.CanonicalSlug);
+        Assert.Equal(forward.CanonicalSlug, reversed!.CanonicalSlug);
+        Assert.Equal(forward.FolderSlugs, reversed.FolderSlugs);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ChainedIndexRowsMergeIdentitiesInEveryOrder()
+    {
+        var rows = new[]
+        {
+            CreateRow("Alice", "content-kb/f1/one.md", "one"),
+            CreateRow("Alice", "content-kb/f2/two.md", "two"),
+            CreateRow("Bob", "content-kb/f2/three.md", "three"),
+            CreateRow("Carol", "content-kb/f3/four.md", "four"),
+        };
+
+        foreach (var orderedRows in Permute(rows))
+        {
+            var alice = await ResolveRowsAsync(orderedRows, "Alice");
+            var bob = await ResolveRowsAsync(orderedRows, "Bob");
+            var carol = await ResolveRowsAsync(orderedRows, "Carol");
+            Assert.Equal("f1", alice!.CanonicalSlug);
+            Assert.Equal(alice.CanonicalSlug, bob!.CanonicalSlug);
+            Assert.Equal(new[] { "f1", "f2" }, alice.FolderSlugs.Order());
+            Assert.Equal("f3", carol!.CanonicalSlug);
+            Assert.Equal(new[] { "f3" }, carol.FolderSlugs);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveAsync_RowMatchingTwoSuppressionsThrowsCreatorAliasConflictException()
+    {
+        var connection = RelationalDatabaseConnection.FromSqlitePath(_dbPath);
+        var suppressions = new CreatorSuppressionStore(connection);
+        await suppressions.SuppressAsync("s1", new[] { "Alice" }, "request", DateTimeOffset.UtcNow, null);
+        await suppressions.SuppressAsync("s2", new[] { "f1" }, "request", DateTimeOffset.UtcNow, null);
+        var index = new ContentSiteIndexStore(connection);
+        await index.UpsertRowAsync(CreateRow("Alice", "content-kb/f1/one.md", "one"));
+        var resolver = new CreatorIdentityResolver(suppressions, new ContentSourceStore(connection), index);
+
+        await Assert.ThrowsAsync<CreatorAliasConflictException>(() => resolver.ResolveAsync("Alice"));
+    }
+
+    [Fact]
     public async Task ResolveAsync_BySlugReturnsIdentity()
     {
         var resolver = await CreateResolverAsync();
@@ -107,6 +162,44 @@ public sealed class CreatorIdentityResolverTests : IDisposable
         await index.UpsertRowAsync(CreateRow("Salubrious Snail", "content-kb/salubrioussnail/one.md", "one"));
         await index.UpsertRowAsync(CreateRow("Sal2brious", "content-kb/sal2brious/two.md", "two"));
         return new CreatorIdentityResolver(suppressions, sources, index);
+    }
+
+    private static async Task<CreatorIdentity?> ResolveRowsAsync(IReadOnlyList<ContentSiteIndexRow> rows, string representation)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"creator-identity-order-{Guid.NewGuid():N}.db");
+        try
+        {
+            var connection = RelationalDatabaseConnection.FromSqlitePath(path);
+            var index = new ContentSiteIndexStore(connection);
+            foreach (var row in rows)
+            {
+                await index.UpsertRowAsync(row);
+            }
+
+            var resolver = new CreatorIdentityResolver(new CreatorSuppressionStore(connection), new ContentSourceStore(connection), index);
+            return await resolver.ResolveAsync(representation);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    private static IEnumerable<IReadOnlyList<ContentSiteIndexRow>> Permute(IReadOnlyList<ContentSiteIndexRow> rows)
+    {
+        for (var first = 0; first < rows.Count; first++)
+        {
+            for (var second = 0; second < rows.Count; second++)
+            {
+                if (second == first) continue;
+                for (var third = 0; third < rows.Count; third++)
+                {
+                    if (third == first || third == second) continue;
+                    yield return new[] { rows[first], rows[second], rows[third], rows[6 - first - second - third] };
+                }
+            }
+        }
     }
 
     private static ContentSiteIndexRow CreateRow(string source, string path, string videoId) => new()

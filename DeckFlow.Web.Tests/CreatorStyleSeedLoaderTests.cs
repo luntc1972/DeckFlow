@@ -35,6 +35,33 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadIfPresentAsync_SkipsAliasConflictAndStoresControlProfile()
+    {
+        var baseDir = CreateContentKbBase();
+        WriteSeed(baseDir, ContentKbPaths.CreatorStyleProfileSeedRelativePath, JsonSerializer.Serialize(new[] { CreateProfile("Conflict"), CreateProfile("Control") }));
+        var profileStore = new FakeCreatorStyleProfileStore();
+        var deckCacheStore = new FakeCreatorDeckCacheStore();
+        var loader = BuildLoader(baseDir, profileStore, deckCacheStore, new FakeCreatorIdentityResolver { ThrowOn = "Conflict" });
+
+        var count = await loader.LoadIfPresentAsync();
+
+        Assert.Equal(1, count);
+        var stored = Assert.Single(profileStore.Upserts);
+        Assert.Equal("Control", stored.Slug);
+    }
+
+    [Fact]
+    public async Task LoadIfPresentAsync_PropagatesUnexpectedIdentityResolutionException()
+    {
+        var baseDir = CreateContentKbBase();
+        WriteSeed(baseDir, ContentKbPaths.CreatorStyleProfileSeedRelativePath, JsonSerializer.Serialize(new[] { CreateProfile("Broken") }));
+        var resolver = new FakeCreatorIdentityResolver { ThrowOn = "Broken", ExceptionToThrow = new InvalidOperationException("unexpected") };
+        var loader = BuildLoader(baseDir, new FakeCreatorStyleProfileStore(), new FakeCreatorDeckCacheStore(), resolver);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => loader.LoadIfPresentAsync());
+    }
+
+    [Fact]
     public async Task LoadIfPresentAsync_UpsertsProfilesAndDeckCacheRows_WhenBothSeedFilesPresent()
     {
         var baseDir = CreateContentKbBase();
@@ -213,7 +240,8 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
     private CreatorStyleSeedLoader BuildLoader(
         string baseDir,
         ICreatorStyleProfileStore profileStore,
-        ICreatorDeckCacheStore deckCacheStore)
+        ICreatorDeckCacheStore deckCacheStore,
+        FakeCreatorIdentityResolver? identityResolver = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["ContentKb:ContentBase"] = baseDir })
@@ -227,7 +255,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
             resolver,
             profileStore,
             deckCacheStore,
-            new FakeCreatorIdentityResolver(),
+            identityResolver ?? new FakeCreatorIdentityResolver(),
             new FakeCreatorSuppressionStore(),
             NullLogger<CreatorStyleSeedLoader>.Instance);
     }

@@ -41,6 +41,17 @@ public sealed class ContentKbSeedLoaderTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadIfPresentAsync_PropagatesUnexpectedIdentityResolutionException()
+    {
+        var baseDir = CreateContentKbBase();
+        WriteSeed(baseDir, "[{\"naturalKeyType\":\"youtube_channel\",\"naturalKeyValue\":\"bad\",\"source\":\"Broken\",\"title\":\"Bad\",\"videoUrl\":\"https://example.test/bad\",\"artifactPath\":\"content-kb/broken/bad.md\",\"indexedUtc\":\"2026-06-01T00:00:00Z\",\"archetypeTags\":[],\"bracketTags\":[],\"cardCategoryTags\":[]}]");
+        var resolver = new FakeCreatorIdentityResolver { ThrowOn = "Broken", ExceptionToThrow = new InvalidOperationException("unexpected") };
+        var loader = BuildLoader(baseDir, new FakeContentSiteIndexStore(), resolver);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => loader.LoadIfPresentAsync());
+    }
+
+    [Fact]
     public async Task LoadIfPresentAsync_ReturnsZero_WhenSeedFileAbsent()
     {
         var baseDir = CreateContentKbBase();
