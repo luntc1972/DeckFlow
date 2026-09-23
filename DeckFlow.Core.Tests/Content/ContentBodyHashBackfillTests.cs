@@ -93,6 +93,7 @@ internal sealed class ThrowingContentArtifactBodyResolver : IContentArtifactBody
 /// </summary>
 public sealed class ContentBodyHashBackfillTests : IDisposable
 {
+    private static void ClearPool(string path) => Microsoft.Data.Sqlite.SqliteConnection.ClearPool(new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
 
     public ContentBodyHashBackfillTests()
@@ -104,7 +105,7 @@ public sealed class ContentBodyHashBackfillTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);

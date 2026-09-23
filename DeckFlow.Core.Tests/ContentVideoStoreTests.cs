@@ -12,6 +12,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ContentVideoStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly ContentSourceStore _sourceStore;
     private readonly ContentVideoStore _store;
@@ -27,7 +28,7 @@ public sealed class ContentVideoStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
@@ -161,7 +162,7 @@ public sealed class ContentVideoStoreTests : IDisposable
         {
             if (File.Exists(guardedDbPath))
             {
-                SqliteConnection.ClearAllPools();
+                ClearPool(guardedDbPath);
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 File.Delete(guardedDbPath);

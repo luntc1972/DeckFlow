@@ -9,6 +9,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class RelationalDatabaseConnectionForeignKeyTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"fk-test-{Guid.NewGuid():N}.db");
 
     /// <summary>
@@ -73,7 +74,7 @@ public sealed class RelationalDatabaseConnectionForeignKeyTests : IDisposable
             return;
         }
 
-        SqliteConnection.ClearAllPools();
+        ClearPool(_databasePath);
         GC.Collect();
         GC.WaitForPendingFinalizers();
         File.Delete(_databasePath);

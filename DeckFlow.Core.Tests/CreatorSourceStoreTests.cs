@@ -13,6 +13,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class CreatorSourceStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly CreatorSourceStore _store;
 
@@ -26,7 +27,7 @@ public sealed class CreatorSourceStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
@@ -144,7 +145,7 @@ public sealed class CreatorSourceStoreTests : IDisposable
     public async Task EnsureSchemaAsync_MigratesLegacyTable_AddingColumns()
     {
         // Build a legacy creator_sources table WITHOUT the P87 columns, with one existing row.
-        await using (var connection = new SqliteConnection($"Data Source={_dbPath}"))
+        await using (var connection = new SqliteConnection($"Data Source={Path.GetFullPath(_dbPath)}"))
         {
             await connection.OpenAsync();
             await using var create = connection.CreateCommand();
@@ -162,7 +163,7 @@ public sealed class CreatorSourceStoreTests : IDisposable
             await create.ExecuteNonQueryAsync();
         }
 
-        SqliteConnection.ClearAllPools();
+        ClearPool(_dbPath);
 
         // A fresh store instance runs the additive migration; the legacy row survives and links.
         var store = new CreatorSourceStore(_dbPath);
