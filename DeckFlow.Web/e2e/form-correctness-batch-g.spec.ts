@@ -22,6 +22,8 @@ import { withToolEnabled } from './support/admin-tools';
 //        npx --no-install playwright test e2e/form-correctness-batch-g.spec.ts --reporter=line
 
 const MOXFIELD_URL = 'https://moxfield.com/decks/example-deck-id';
+// Why: a non-Moxfield URL is required because the bridge intercepts Moxfield URLs on these pages.
+const ARCHIDEKT_URL = 'https://archidekt.com/decks/1234567';
 
 const SAMPLE_DECK = ['1 Sol Ring', '1 Arcane Signet', '1 Command Tower'].join('\n');
 
@@ -165,7 +167,7 @@ test.describe('G1 — Enter must not trigger the sticky download bar', () => {
     const posted = await captureNextPost(page);
 
     await selectInputMode(page, 'manabase-input-source', 'PublicUrl');
-    await page.locator('#manabase-deck-url').fill(MOXFIELD_URL);
+    await page.locator('#manabase-deck-url').fill(ARCHIDEKT_URL);
     await page.locator('#manabase-deck-url').press('Enter');
 
     // "Load deck & detect costs" (formaction=/manabase/load) precedes "Analyze Mana Base"
@@ -240,7 +242,7 @@ test.describe('Bracket — G1 and G4 behind the tool flag', () => {
     const posted = await captureNextPost(page);
 
     await selectInputMode(page, 'bracket-input-source', 'PublicUrl');
-    await page.locator('#bracket-deck-url').fill(MOXFIELD_URL);
+    await page.locator('#bracket-deck-url').fill(ARCHIDEKT_URL);
     await page.locator('#bracket-deck-url').press('Enter');
 
     await expect.poll(posted).toBe('/bracket');

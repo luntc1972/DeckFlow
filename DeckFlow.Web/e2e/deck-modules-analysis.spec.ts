@@ -15,7 +15,8 @@ test('analyzes a compiled configuration', async ({ page }, testInfo) => {
   const response = await page.goto('/deck-modules');
   expect(response?.ok(), '/deck-modules should return 200 with flag ON').toBeTruthy();
 
-  await page.locator('[data-deck-modules-source]').fill(winotaDeck);
+  await page.locator('#deck-modules-input-source').selectOption('PasteText');
+  await page.locator('#deck-modules-deck-text').fill(winotaDeck);
   const importResponse = page.waitForResponse('/deck-modules/import');
   await page.getByRole('button', { name: 'Import deck' }).click();
   expect((await importResponse).status()).toBe(200);

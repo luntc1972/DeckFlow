@@ -6605,6 +6605,12 @@ html {
   margin-bottom: 0.5rem;
 }
 
+/* Why: Block-level strong is for the label; list items need inline emphasis. */
+.prompt-instructions li strong {
+  display: inline;
+  margin-bottom: 0;
+}
+
 .prompt-instructions ol {
   margin: 0;
   padding-left: 1.2rem;
@@ -7403,20 +7409,43 @@ pre {
 .deck-modules {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  row-gap: 0;
+  column-gap: 0.75rem;
   inline-size: 100%;
   min-inline-size: 0;
 }
 
 .deck-modules > h1,
+.deck-modules > p {
+  margin: 0;
+}
+
+.deck-modules > :not(:empty) {
+  margin-block-end: 0.75rem;
+}
+
+.deck-modules > [data-deck-modules-live]:empty,
+.deck-modules > [data-deck-modules-error]:empty,
+.deck-modules > [data-deck-modules-notice]:empty,
+.deck-modules > [data-deck-modules-reconciliation]:empty {
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.deck-modules > h1,
 .deck-modules > p,
 .deck-modules > form,
+.deck-modules > .prompt-instructions,
 .deck-modules > [data-deck-modules-live],
 .deck-modules > [data-deck-modules-error],
 .deck-modules > [data-deck-modules-notice],
-.deck-modules > [data-deck-modules-reconciliation],
+.deck-modules__commander,
+.deck-modules__overview,
+.deck-modules__howto,
+.deck-modules__empty,
 .deck-modules__configuration,
-.deck-modules__command-zone,
+.deck-modules__unassigned,
 .deck-modules__report {
   grid-column: 1 / -1;
   min-inline-size: 0;
@@ -7432,7 +7461,6 @@ pre {
 
 .deck-modules__path {
   display: grid;
-  grid-column: 1 / -1;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
   overflow: hidden;
@@ -7457,37 +7485,192 @@ pre {
 .deck-modules__path-name {
   margin: 0;
   color: var(--muted);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-sm, 0.85rem);
   font-weight: 700;
+}
+
+/* Why: sync-column__hint is tuned for helper text under an input; panel hints sit
+   under an h2 and need the page-local muted/small idiom with tight margins. */
+.deck-modules__hint {
+  margin: 0.15rem 0 0.75rem;
+  color: var(--muted);
+  font-size: var(--fs-sm, 0.85rem);
+  line-height: 1.4;
 }
 
 .deck-modules__shared-badge {
   display: inline-block;
-  margin-inline: 0.45rem;
   padding: 0.15rem 0.45rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-xs, 0.85rem);
   font-weight: 700;
   letter-spacing: 0.02em;
   vertical-align: middle;
 }
 
-.deck-modules > form,
-.deck-modules__configuration {
+.deck-modules > form {
   display: grid;
-  grid-template-columns: minmax(8rem, 0.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 0.65rem 0.85rem;
 }
 
-.deck-modules > form > label,
-.deck-modules > form > textarea,
-.deck-modules > form > button,
-.deck-modules__configuration > button,
-.deck-modules__configuration > p {
+.deck-modules__configuration {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+}
+
+.deck-modules__commander {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.deck-modules__command-zone {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.deck-modules__command-zone h2,
+.deck-modules__command-zone p,
+.deck-modules__configuration > h2,
+.deck-modules__configuration-summaries p {
+  margin: 0;
+}
+
+.deck-modules__command-zone h2 {
+  display: inline;
+  font-size: var(--fs-sm, 0.85rem);
+}
+
+/* Why: --fs-md is defined in none of the 24 theme stylesheets, so the fallback is the
+   value that actually ships -- 1rem keeps the size this heading already renders at. */
+.deck-modules__configuration > h2 {
+  font-size: var(--fs-md, 1rem);
+}
+
+.deck-modules__commander > [data-deck-modules-reconciliation]:empty {
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.deck-modules__commander > [data-deck-modules-restart] {
+  margin-inline-start: auto;
+  min-block-size: 2.5rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.deck-modules__overview {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.deck-modules__overview > [data-deck-modules-alternatives]:empty,
+.deck-modules__overview > [data-deck-modules-balance]:empty {
+  display: none;
+}
+
+.deck-modules__field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.deck-modules__configuration-summaries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  color: var(--muted);
+  font-size: var(--fs-sm, 0.85rem);
+}
+
+.deck-modules__configuration > [data-deck-modules-add-alternative] {
+  align-self: start;
+  margin-block-start: 1.4rem;
+}
+
+.deck-modules .deck-modules__configuration .deck-modules__field > textarea {
+  min-height: 0;
+  height: 5rem;
+  min-block-size: 0;
+  block-size: 5rem;
+}
+
+.deck-modules__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   grid-column: 1 / -1;
+}
+
+.deck-modules__actions [data-deck-modules-analyze],
+.deck-modules__actions [data-deck-modules-export],
+.deck-modules__actions [data-deck-modules-copy] {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.deck-modules__unassigned {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.deck-modules__unassigned > summary {
+  cursor: pointer;
+}
+
+.deck-modules__unassigned > summary h2 {
+  display: inline;
+  margin: 0;
+}
+
+.deck-modules__unassigned .deck-modules__assignment {
+  margin-block-start: 0.65rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.deck-modules__workspace {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+.deck-modules__comparison-details > summary {
+  cursor: pointer;
+}
+
+.deck-modules__comparison-details > summary h2 {
+  display: inline;
+}
+
+.deck-modules__comparison-details > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.deck-modules > form > button {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 /* Why: .deck-modules select is more specific than .df-select__native and otherwise expands
@@ -7499,7 +7682,7 @@ pre {
   box-sizing: border-box;
 }
 
-.deck-modules > form textarea {
+.deck-modules > form .field textarea {
   min-block-size: 7rem;
 }
 
@@ -7510,9 +7693,14 @@ pre {
   gap: 0.65rem;
 }
 
+/* Why: The heading carries a label, a count and an optional badge; baseline flex keeps them aligned when the badge is present. */
 .deck-modules__assignment h2,
 .deck-modules__report h2 {
   margin-top: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
 }
 
 .deck-modules__entries {
@@ -7551,11 +7739,6 @@ pre {
   padding-block-end: 0.15rem;
 }
 
-.deck-modules__path-header > [data-deck-modules-alternatives]:empty,
-.deck-modules__path-header > [data-deck-modules-balance]:empty {
-  display: none;
-}
-
 .deck-modules [data-deck-modules-alternative] {
   flex: 0 0 min(15rem, 78vw);
   min-block-size: 3.25rem;
@@ -7571,6 +7754,36 @@ pre {
 .deck-modules [data-deck-modules-alternative][aria-pressed="true"] {
   border-color: var(--accent, var(--ink));
   box-shadow: inset 0 0 0 1px var(--accent, var(--ink));
+}
+
+@media (min-width: 1024px) {
+  .deck-modules__configuration {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr) auto;
+    align-items: start;
+  }
+
+  .deck-modules__configuration > h2,
+  .deck-modules__configuration-summaries {
+    grid-column: 1 / -1;
+  }
+
+  /* Why: the profile hint spans the whole row so the Declared profile select stays
+     top-aligned with the Strategy name input and the play-plan textarea. */
+  .deck-modules__configuration > .deck-modules__hint {
+    grid-column: 1 / -1;
+  }
+
+  .deck-modules__unassigned .deck-modules__entries {
+    max-block-size: 14rem;
+    overflow-y: auto;
+  }
+
+  .deck-modules__workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: 0.75rem;
+    align-items: start;
+  }
 }
 
 @media (min-width: 761px) {
@@ -7608,7 +7821,8 @@ pre {
 @media (max-width: 760px) {
   .deck-modules {
     grid-template-columns: minmax(0, 1fr);
-    gap: 0.8rem;
+    row-gap: 0;
+    column-gap: 0.8rem;
   }
 
   .deck-modules > *,
@@ -7636,7 +7850,7 @@ pre {
   .deck-modules__assignment::before {
     content: "Assignment step " counter(deck-modules-step) " of 4";
     color: var(--muted);
-    font-size: var(--fs-xs);
+    font-size: var(--fs-xs, 0.85rem);
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -7714,6 +7928,101 @@ pre {
 .deck-modules__comparison td {
   min-width: 9rem;
   vertical-align: top;
+}
+
+.deck-modules__next,
+.deck-modules__blocked {
+  margin: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.deck-modules__howto {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.deck-modules__howto > summary {
+  display: flex;
+  align-items: center;
+  min-block-size: 44px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.deck-modules__howto > summary:focus-visible {
+  outline: 3px solid var(--focus, var(--accent));
+  outline-offset: 3px;
+}
+
+.deck-modules__howto-steps,
+.deck-modules__howto-note {
+  margin: 0.75rem 0 0;
+}
+
+.deck-modules__empty {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft-bg, var(--panel));
+}
+
+.deck-modules__empty h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs, 0.75rem);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deck-modules__empty-buckets {
+  margin: 0.75rem 0;
+  padding-inline-start: 1.25rem;
+}
+
+.deck-modules__empty-note {
+  margin: 0;
+}
+
+.deck-modules__actions > [data-deck-modules-blocked]:empty,
+.deck-modules__actions > [data-deck-modules-blocked-summary]:empty {
+  display: none;
+}
+
+.deck-modules__actions > [data-deck-modules-blocked],
+.deck-modules__actions > [data-deck-modules-blocked-summary] {
+  flex-basis: 100%;
+}
+
+.deck-modules [aria-disabled="true"] {
+  color: var(--muted);
+  background: var(--panel);
+  cursor: default;
+}
+
+@media (forced-colors: active) {
+  .deck-modules [aria-disabled="true"] {
+    color: GrayText;
+  }
+}
+
+[data-deck-modules-stage="empty"] .deck-modules__commander,
+[data-deck-modules-stage="empty"] .deck-modules__overview,
+[data-deck-modules-stage="empty"] .deck-modules__configuration,
+[data-deck-modules-stage="empty"] .deck-modules__unassigned,
+[data-deck-modules-stage="empty"] .deck-modules__workspace,
+[data-deck-modules-stage="empty"] .deck-modules__actions {
+  display: none;
+}
+
+.deck-modules__empty {
+  display: none;
+}
+
+[data-deck-modules-stage="empty"] .deck-modules__empty {
+  display: block;
 }
 /* end Phase 3: deck-modules analysis */
 
