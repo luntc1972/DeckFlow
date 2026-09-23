@@ -148,9 +148,8 @@ public sealed class ArchidektDeckCacheSession
                     // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
                     await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, cancellationToken: cancellationToken);
                     progress?.Report(added + updated);
-                    consecutiveUnexpectedFailures = 0;
                 }
-                catch (Exception exception)
+                catch (Exception exception) when (exception is not System.Data.Common.DbException)
                 {
                     consecutiveUnexpectedFailures++;
                     _logger?.LogWarning(exception, "Skipping deck {DeckId} after an unexpected cache failure.", deckId);

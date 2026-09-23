@@ -111,6 +111,22 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_BacklogAtThreshold_CrawlsDeepPageAndAdvancesCursor()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        await repository.SetRecentDeckCrawlPageAsync(7);
+        var recentImporter = new RecordingRecentDecksImporter();
+        using var cancellation = new CancellationTokenSource();
+
+        await new ArchidektDeckCacheSession(repository, new FakeDeckImporter(), recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1))
+            .RunAsync(TimeSpan.FromSeconds(1), discoveryBacklogThreshold: 1, cancellationToken: cancellation.Token);
+
+        Assert.Contains(recentImporter.RequestedPages, page => page > 1);
+        Assert.True(await repository.GetRecentDeckCrawlPageAsync() > 7);
+    }
+
+    [Fact]
     public async Task RunAsync_BacklogAboveThreshold_SkipsDeepCrawlAndPreservesCursor()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -132,7 +148,8 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
             cancellationToken: cancellation.Token,
             progress: stopAfterDeck);
 
-        Assert.All(recentImporter.RequestedPages, page => Assert.Equal(1, page));
+        Assert.NotEmpty(recentImporter.RequestedPages);
+        Assert.Contains(1, recentImporter.RequestedPages);
         Assert.Equal(7, await repository.GetRecentDeckCrawlPageAsync());
     }
 
@@ -204,6 +221,19 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         Assert.True(await IsDeckSkippedAsync("unexpected-2"));
         Assert.True(await IsDeckSkippedAsync("unexpected-3"));
         Assert.Equal(2, result.DecksProcessed);
+    }
+
+    [Fact]
+    public async Task RunAsync_ExpectedSkipsDoNotResetUnexpectedFailureBreaker()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(new[] { "unexpected-1", "expected-skip-1", "unexpected-2", "expected-skip-2", "unexpected-3" });
+
+        await Assert.ThrowsAsync<Exception>(() => new ArchidektDeckCacheSession(
+            repository,
+            new SelectiveFailureDeckImporter(),
+            new FakeRecentDecksImporter(),
+            idlePollDelay: TimeSpan.FromMilliseconds(1)).RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 5));
     }
 
     [Fact]
@@ -344,7 +374,7 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
         {
             RequestedPages.Add(page);
-            return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            return Task.FromResult<IReadOnlyList<string>>(page > 1 ? new[] { "discovered-deck" } : Array.Empty<string>());
         }
     }
 
@@ -368,7 +398,9 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => urlOrDeckId.StartsWith("unexpected", StringComparison.Ordinal)
                 ? throw new Exception("unexpected")
-                : Task.FromResult(new List<DeckEntry>());
+                : urlOrDeckId.StartsWith("expected-skip", StringComparison.Ordinal)
+                    ? throw new HttpRequestException("expected skip")
+                    : Task.FromResult(new List<DeckEntry>());
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => new(await ImportAsync(urlOrDeckId, cancellationToken), null);

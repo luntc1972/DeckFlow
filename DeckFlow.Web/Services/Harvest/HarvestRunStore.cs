@@ -373,8 +373,10 @@ public sealed class HarvestRunStore : IHarvestRunStore
         {
             null or DBNull => null,
             DateTimeOffset completedUtc => completedUtc,
-            DateTime completedUtc => new DateTimeOffset(completedUtc),
-            string completedUtc => DateTimeOffset.Parse(completedUtc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+            DateTime completedUtc => new DateTimeOffset(completedUtc.Kind == DateTimeKind.Local
+                ? completedUtc.ToUniversalTime()
+                : DateTime.SpecifyKind(completedUtc, DateTimeKind.Utc)),
+            string completedUtc => DateTimeOffset.Parse(completedUtc, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
             _ => throw new InvalidOperationException($"Unsupported completed_utc value type: {value.GetType().FullName}.")
         };
 

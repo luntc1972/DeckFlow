@@ -128,7 +128,7 @@ public sealed class HarvestScheduleService : BackgroundService
         {
             if (failureDue.HasValue && nextDue == failureDue)
             {
-                _logger.LogInformation("Harvest.Schedule.Tick.SuppressedByFailureBackoff consecutiveFailures={ConsecutiveFailures} nextDue={NextDue}", failureStreak.ConsecutiveFailures, nextDue);
+                _logger.LogDebug("Harvest.Schedule.Tick.SuppressedByFailureBackoff consecutiveFailures={ConsecutiveFailures} nextDue={NextDue}", failureStreak.ConsecutiveFailures, nextDue);
             }
             return;
         }
