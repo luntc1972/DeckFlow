@@ -98,7 +98,7 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains("Approve Entry", cut.Markup));
         var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
         suppressionStore.Suppressed.Add("blocked-creator");
-        cut.Find("button[aria-label^='Approve']").Click();
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button[aria-label^='Approve']").Click()).GetAwaiter().GetResult());
 
         cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
         Assert.Contains("blocked", cut.Markup);
@@ -106,40 +106,50 @@ public sealed class ReviewPageTests : BunitContext
     }
 
     [Fact]
-    public void ApproveSuppressedCreator_RefusalKeepsQueueRendered()
+    public void ApproveSuppressedCreator_SuccessfulControlApprovalClearsNotice()
     {
         var row = MakeYoutubeRow(1, "blocked") with { Source = "blocked-creator" };
-        var (cut, _) = RenderReview(new[] { row });
+        var control = MakeYoutubeRow(2, "control");
+        var (cut, store) = RenderReview(new[] { row, control });
         var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
         suppressionStore.Suppressed.Add("blocked-creator");
-
-        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Approve']"));
-        cut.Find("button[aria-label^='Approve']").Click();
+        cut.WaitForAssertion(() => cut.FindAll("button[aria-label='Approve Entry']").First().Click());
 
         cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
-        Assert.Contains("Video 1", cut.Markup);
-        suppressionStore.Suppressed.Clear();
-        cut.Find("button[aria-label^='Approve']").Click();
-        cut.WaitForAssertion(() => Assert.DoesNotContain("A suppressed creator cannot be approved.", cut.Markup));
+        cut.WaitForAssertion(() => cut.FindAll("button[aria-label='Approve Entry']").Last().Click());
+        cut.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("A suppressed creator cannot be approved.", cut.Markup);
+            Assert.Contains(store.SingleApprovalCalls, call => call.Value == "control" && call.Status == "approved");
+        });
     }
 
     [Fact]
-    public void BatchApproveSuppressedCreator_RefusalKeepsQueueRendered()
+    public void BatchApproveSuppressedCreator_SuccessfulControlApprovalClearsNotice()
     {
         var row = MakeYoutubeRow(1, "blocked") with { Source = "blocked-creator" };
-        var (cut, _) = RenderReview(new[] { row });
+        var control = MakeYoutubeRow(2, "control");
+        var (cut, store) = RenderReview(new[] { row, control });
         var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
         suppressionStore.Suppressed.Add("blocked-creator");
-
-        cut.WaitForAssertion(() => cut.Find("input[aria-label='Select Video 1']"));
-        cut.Find("input[aria-label='Select Video 1']").Change(true);
-        cut.FindAll("button").First(button => button.TextContent.Contains("Approve Selected", StringComparison.Ordinal)).Click();
+        cut.WaitForAssertion(() => cut.Find("input[aria-label='Select Video 1']").Change(true));
+        cut.WaitForAssertion(() => cut.FindAll("button").First(button => button.TextContent.Contains("Approve Selected", StringComparison.Ordinal)).Click());
 
         cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
-        Assert.Contains("Video 1", cut.Markup);
-        suppressionStore.Suppressed.Clear();
-        cut.FindAll("button").First(button => button.TextContent.Contains("Approve Selected", StringComparison.Ordinal)).Click();
-        cut.WaitForAssertion(() => Assert.DoesNotContain("A suppressed creator cannot be approved.", cut.Markup));
+        cut.WaitForAssertion(() => cut.Find("input[aria-label='Select Video 1']").Change(false));
+        cut.WaitForAssertion(() => cut.Find("input[aria-label='Select Video 2']").Change(true));
+        cut.WaitForAssertion(() => cut.FindAll("button").First(button => button.TextContent.Contains("Approve Selected", StringComparison.Ordinal)).Click());
+        cut.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("A suppressed creator cannot be approved.", cut.Markup);
+            Assert.Single(store.BatchApprovalCalls);
+            var (keys, status) = store.BatchApprovalCalls[0];
+            Assert.Equal("approved", status);
+            Assert.Single(keys);
+            Assert.Equal("control", keys[0].Value);
+        });
     }
 
     [Fact]
@@ -148,12 +158,11 @@ public sealed class ReviewPageTests : BunitContext
         var row = MakeYoutubeRow(1, "blocked") with { Source = "blocked-creator" };
         var (cut, _) = RenderReview(new[] { row });
         var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
         suppressionStore.Suppressed.Add("blocked-creator");
-
-        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Approve']"));
-        cut.Find("button[aria-label^='Approve']").Click();
-        cut.WaitForAssertion(() => cut.Find("button[aria-label='Dismiss']"));
-        cut.Find("button[aria-label='Dismiss']").Click();
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Approve']").Click());
+        cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
+        cut.WaitForAssertion(() => cut.Find("button[aria-label='Dismiss']").Click());
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("A suppressed creator cannot be approved.", cut.Markup));
         Assert.Contains("Video 1", cut.Markup);
@@ -166,10 +175,9 @@ public sealed class ReviewPageTests : BunitContext
         var control = MakeYoutubeRow(2, "control") with { Title = "CONTROL-ROW-SENTINEL" };
         var (cut, _) = RenderReview(new[] { suppressed, control });
         var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
         suppressionStore.Suppressed.Add("blocked-creator");
-
-        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Approve']"));
-        cut.Find("button[aria-label^='Approve']").Click();
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Approve']").Click());
         cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
         Assert.Contains("CONTROL-ROW-SENTINEL", cut.Markup);
     }
@@ -218,8 +226,7 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
         // Act: click Approved tab
-        var tabs = cut.FindAll("button[role='tab']");
-        tabs[1].Click(); // Approved tab
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.FindAll("button[role='tab']")[1].Click()).GetAwaiter().GetResult()); // Approved tab
 
         // Assert: empty-state message is visible
         cut.WaitForAssertion(() =>
@@ -267,7 +274,7 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
         // Act: click "Approve Entry" for the pending row
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Approve Entry']").Click());
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button[aria-label='Approve Entry']").Click()).GetAwaiter().GetResult());
 
         // Assert: single-overload called with (youtube_channel, "vidABC", "approved")
         cut.WaitForAssertion(() =>
@@ -293,13 +300,13 @@ public sealed class ReviewPageTests : BunitContext
         Assert.DoesNotContain("table-success", cut.Markup);
 
         // Act: approve the pending row.
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Approve Entry']").Click());
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button[aria-label='Approve Entry']").Click()).GetAwaiter().GetResult());
 
         // The default "pending" tab filters out the now-approved row, so view it on the "All"
         // tab where the approved row renders with its table-success class. (Tab buttons are the
         // 4 role='tab' buttons in document order: Pending, Approved, Rejected, All.)
         cut.WaitForAssertion(() => Assert.Single(store.SingleApprovalCalls));
-        cut.InvokeAsync(() => cut.FindAll("ul.nav-tabs button[role='tab']")[3].Click());
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.FindAll("ul.nav-tabs button[role='tab']")[3].Click()).GetAwaiter().GetResult());
 
         // Assert: row now has table-success class
         cut.WaitForAssertion(() =>
@@ -321,7 +328,7 @@ public sealed class ReviewPageTests : BunitContext
 
         // Act: re-find immediately before dispatch and wrap in InvokeAsync so the click
         // runs on the renderer's dispatcher with a fresh (non-stale) event-handler id.
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Reject Entry']").Click());
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button[aria-label='Reject Entry']").Click()).GetAwaiter().GetResult());
 
         // Assert
         cut.WaitForAssertion(() =>
@@ -344,12 +351,12 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
         // Act: reject the pending row.
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Reject Entry']").Click());
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button[aria-label='Reject Entry']").Click()).GetAwaiter().GetResult());
 
         // The default "pending" tab filters out the now-rejected row, so view it on the "All"
         // tab where the rejected row renders with its table-danger class.
         cut.WaitForAssertion(() => Assert.Single(store.SingleApprovalCalls));
-        cut.InvokeAsync(() => cut.FindAll("ul.nav-tabs button[role='tab']")[3].Click());
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.FindAll("ul.nav-tabs button[role='tab']")[3].Click()).GetAwaiter().GetResult());
 
         // Assert: row now has table-danger class
         cut.WaitForAssertion(() =>
@@ -370,7 +377,7 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
         // Act
-        cut.InvokeAsync(() => cut.Find("button[aria-label='Approve Entry']").Click());
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button[aria-label='Approve Entry']").Click()).GetAwaiter().GetResult());
 
         // Assert: natural key type is podcast_rss, value is the RssGuid
         cut.WaitForAssertion(() =>
@@ -386,7 +393,7 @@ public sealed class ReviewPageTests : BunitContext
     // ── Distill-baked prompt shown on expand ────────────────────────────────
 
     [Fact]
-    public async Task ExpandRow_WithBakedPromptSibling_ShowsPasteReadyPrompt()
+    public void ExpandRow_WithBakedPromptSibling_ShowsPasteReadyPrompt()
     {
         // Write a notes artifact + its baked sibling under the shared test artifact root at the
         // row's stored ArtifactPath (unique id avoids cross-test collision in the shared dir).
@@ -401,7 +408,7 @@ public sealed class ReviewPageTests : BunitContext
 
         // Expand the row via the chevron button. Await the dispatch so the click's async
         // continuation (LoadArtifactAsync) is scheduled before we assert — avoids the handler-id race.
-        await cut.InvokeAsync(() => cut.Find("button[aria-label^='Expand entry']").Click());
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button[aria-label^='Expand entry']").Click()).GetAwaiter().GetResult());
 
         cut.WaitForAssertion(() =>
         {
@@ -411,7 +418,7 @@ public sealed class ReviewPageTests : BunitContext
     }
 
     [Fact]
-    public async Task ExpandRow_RendersNotesAsHtml_NotRawMarkdown()
+    public void ExpandRow_RendersNotesAsHtml_NotRawMarkdown()
     {
         var videoId = "render" + Guid.NewGuid().ToString("N");
         var dir = Path.Combine(Path.GetTempPath(), "deckflow-tests", "content-kb", "test-channel");
@@ -423,7 +430,7 @@ public sealed class ReviewPageTests : BunitContext
         var (cut, _) = RenderReview(new[] { MakeYoutubeRow(1, videoId, "pending") });
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
-        await cut.InvokeAsync(() => cut.Find("button[aria-label^='Expand entry']").Click());
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button[aria-label^='Expand entry']").Click()).GetAwaiter().GetResult());
 
         cut.WaitForAssertion(() =>
         {
@@ -476,15 +483,13 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
         // Act: check all via select-all checkbox
-        var selectAll = cut.Find("input[aria-label='Select all']");
-        selectAll.Click();
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("input[aria-label='Select all']").Click()).GetAwaiter().GetResult());
 
         // Batch bar should appear
         cut.WaitForAssertion(() => Assert.Contains("Approve Selected", cut.Markup));
 
         // Click batch approve
-        var batchApproveBtn = cut.Find("button.btn-primary.btn-sm");
-        batchApproveBtn.Click();
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button.btn-primary.btn-sm").Click()).GetAwaiter().GetResult());
 
         // Assert: batch overload was called with two keys
         cut.WaitForAssertion(() =>
@@ -512,11 +517,11 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
         // Select all
-        cut.Find("input[aria-label='Select all']").Click();
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("input[aria-label='Select all']").Click()).GetAwaiter().GetResult());
         cut.WaitForAssertion(() => Assert.Contains("Approve Selected", cut.Markup));
 
         // Batch approve
-        cut.Find("button.btn-primary.btn-sm").Click();
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button.btn-primary.btn-sm").Click()).GetAwaiter().GetResult());
 
         // Assert: both rows have approved status in the store
         cut.WaitForAssertion(() =>
@@ -601,11 +606,11 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.DoesNotContain("Loading review queue", cut.Markup));
 
         // Click select-all
-        cut.Find("input[aria-label='Select all']").Click();
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("input[aria-label='Select all']").Click()).GetAwaiter().GetResult());
 
         // Batch approve fires — should only include the 2 pending rows (visible in pending tab)
         cut.WaitForAssertion(() => Assert.Contains("Approve Selected", cut.Markup));
-        cut.Find("button.btn-primary.btn-sm").Click();
+        cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.Find("button.btn-primary.btn-sm").Click()).GetAwaiter().GetResult());
 
         // Assert: batch approve called with exactly 2 keys (the pending ones)
         cut.WaitForAssertion(() =>
