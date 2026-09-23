@@ -64,6 +64,7 @@ public sealed class ArchidektDeckCacheSession
         var unchanged = 0;
         var skipped = 0;
         var decksEnqueued = 0;
+        var consecutiveUnexpectedFailures = 0;
 
         while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
         {
@@ -134,6 +135,7 @@ public sealed class ArchidektDeckCacheSession
                     // D-17: write commander_name in the same UPDATE that flips processed=1.
                     await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: false, metadata: metadata, cancellationToken: cancellationToken);
                     progress?.Report(added + updated);
+                    consecutiveUnexpectedFailures = 0;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
@@ -143,6 +145,21 @@ public sealed class ArchidektDeckCacheSession
                 {
                     skipped++;
                     _logger?.LogWarning(exception, "Skipping deck {DeckId} while caching categories.", deckId);
+                    // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
+                    await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, cancellationToken: cancellationToken);
+                    progress?.Report(added + updated);
+                    consecutiveUnexpectedFailures = 0;
+                }
+                catch (Exception exception)
+                {
+                    consecutiveUnexpectedFailures++;
+                    _logger?.LogWarning(exception, "Skipping deck {DeckId} after an unexpected cache failure.", deckId);
+                    if (consecutiveUnexpectedFailures >= 3)
+                    {
+                        throw;
+                    }
+
+                    skipped++;
                     // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
                     await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, cancellationToken: cancellationToken);
                     progress?.Report(added + updated);

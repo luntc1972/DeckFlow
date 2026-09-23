@@ -155,6 +155,21 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_UnexpectedDeckException_SkipsDeckAndContinues()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(new[] { "unexpected" });
+
+        var result = await new ArchidektDeckCacheSession(
+            repository,
+            new UnexpectedFailureDeckImporter(),
+            new FakeRecentDecksImporter(),
+            idlePollDelay: TimeSpan.FromMilliseconds(1)).RunAsync(TimeSpan.FromMilliseconds(30));
+
+        Assert.True(result.DecksSkipped >= 1);
+    }
+
+    [Fact]
     public async Task RunAsync_ImporterWithoutMetadataSupport_SkipsDeck()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -290,6 +305,15 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     {
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => Task.FromResult(new List<DeckEntry>());
+    }
+
+    private sealed class UnexpectedFailureDeckImporter : IArchidektDeckImporter
+    {
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => throw new Exception("Simulated unexpected deck failure.");
+
+        public Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => throw new Exception("Simulated unexpected deck failure.");
     }
 
     /// <summary>
