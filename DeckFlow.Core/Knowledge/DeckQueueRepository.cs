@@ -13,6 +13,13 @@ namespace DeckFlow.Core.Knowledge;
 internal sealed class DeckQueueRepository
 {
     private static readonly TimeSpan DeckRefreshCooldown = TimeSpan.FromDays(5);
+    // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
+    private const string DeckCountDescendingOrderBy = "ORDER BY deck_count DESC, CASE WHEN last_processed_utc IS NULL THEN 1 ELSE 0 END ASC, last_processed_utc DESC, CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key ASC, commander_name ASC";
+    private const string DeckCountAscendingOrderBy = "ORDER BY deck_count ASC, CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key ASC, commander_name ASC";
+    private const string NameAscendingOrderBy = "ORDER BY CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key ASC, commander_name ASC";
+    private const string NameDescendingOrderBy = "ORDER BY CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key DESC, commander_name DESC";
+    private const string LastProcessedDescendingOrderBy = "ORDER BY CASE WHEN last_processed_utc IS NULL THEN 1 ELSE 0 END ASC, last_processed_utc DESC, CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key ASC, commander_name ASC";
+    private const string LastProcessedAscendingOrderBy = "ORDER BY CASE WHEN last_processed_utc IS NULL THEN 1 ELSE 0 END ASC, last_processed_utc ASC, CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key ASC, commander_name ASC";
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
 
@@ -114,18 +121,19 @@ internal sealed class DeckQueueRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         var prefix = query.SqlPrefixPattern;
+        var orderBy = GetCommanderOrderBy(query);
         var sql = prefix is null
-            ? """
+            ? $"""
             SELECT commander_name, deck_count, last_processed_utc
             FROM processed_commander_summary
-            ORDER BY deck_count DESC, last_processed_utc DESC, commander_name ASC
+            {orderBy}
             LIMIT @limit OFFSET @offset;
             """
-            : """
+            : $"""
             SELECT commander_name, deck_count, last_processed_utc
             FROM processed_commander_summary
             WHERE commander_name_search_key LIKE @prefix ESCAPE '\'
-            ORDER BY deck_count DESC, last_processed_utc DESC, commander_name ASC
+            {orderBy}
             LIMIT @limit OFFSET @offset;
             """;
         var rows = await connection.QueryAsync<ProcessedCommanderAggregateRow>(new CommandDefinition(
@@ -134,6 +142,14 @@ internal sealed class DeckQueueRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return rows.Select(row => (row.CommanderName, checked((int)row.DeckCount), row.LastProcessedUtc)).ToList();
     }
+
+    private static string GetCommanderOrderBy(CommanderGridQuery query)
+        => query.SortBy switch
+        {
+            CommanderSortColumn.Name => query.Descending ? NameDescendingOrderBy : NameAscendingOrderBy,
+            CommanderSortColumn.LastProcessed => query.Descending ? LastProcessedDescendingOrderBy : LastProcessedAscendingOrderBy,
+            _ => query.Descending ? DeckCountDescendingOrderBy : DeckCountAscendingOrderBy
+        };
 
     internal async Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default)
     {

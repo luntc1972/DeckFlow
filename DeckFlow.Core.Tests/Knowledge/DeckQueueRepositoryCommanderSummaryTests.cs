@@ -107,6 +107,98 @@ public sealed class DeckQueueRepositoryCommanderSummaryTests : IDisposable
         Assert.Equal(CommanderSearchKey.Normalize("Éowyn, Lady of Rohan"), await ReadSearchKeyAsync(databasePath, "Éowyn, Lady of Rohan"));
     }
 
+    [Fact]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortDefault_UsesTimestampThenNameTotalOrder()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await SeedCommanderRowsAsync(repository, databasePath, ("Alpha", 2, "2026-01-01T00:00:00Z"), ("Beta", 2, null), ("Gamma", 2, "2026-01-03T00:00:00Z"));
+
+        var rows = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.Default);
+
+        Assert.Equal(new[] { "Gamma", "Alpha", "Beta" }, rows.Select(row => row.CommanderName));
+    }
+
+    [Fact]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortDeckCountAscending_OrdersLowestFirst()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await SeedCommanderRowsAsync(repository, databasePath, ("Three", 3, null), ("One", 1, null), ("Two", 2, null));
+
+        var rows = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "deck_count", "asc"));
+
+        Assert.Equal(new[] { "One", "Two", "Three" }, rows.Select(row => row.CommanderName));
+    }
+
+    [Fact]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortPaging_ProducesNoRepeatOrOmission()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await SeedCommanderRowsAsync(repository, databasePath, ("Alpha", 2, "2026-01-01T00:00:00Z"), ("Beta", 2, "2026-01-01T00:00:00Z"), ("Gamma", 2, "2026-01-01T00:00:00Z"));
+
+        var names = new[] { 1, 2, 3 }.SelectMany(page => repository.GetFilteredProcessedCommanderRowsAsync(page, 1, CommanderGridQuery.Default).Result).Select(row => row.CommanderName).ToArray();
+
+        Assert.Equal(3, names.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Theory]
+    [InlineData("desc", new[] { "Newest", "Oldest", "Missing" })]
+    [InlineData("asc", new[] { "Oldest", "Newest", "Missing" })]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortLastProcessed_PlacesNullLast(string direction, string[] expected)
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await SeedCommanderRowsAsync(repository, databasePath, ("Newest", 1, "2026-01-03T00:00:00Z"), ("Oldest", 1, "2026-01-01T00:00:00Z"), ("Missing", 1, null));
+
+        var rows = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "last_processed", direction));
+
+        Assert.Equal(expected, rows.Select(row => row.CommanderName));
+    }
+
+    [Fact]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortNameDescending_ReversesKeyedRows()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await SeedCommanderRowsAsync(repository, databasePath, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Zada", 1, null));
+
+        var ascending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "asc"));
+        var descending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "desc"));
+
+        Assert.Equal(ascending.Select(row => row.CommanderName).Reverse(), descending.Select(row => row.CommanderName));
+    }
+
+    [Fact]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortName_NullKeyStaysLast()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await SeedCommanderRowsAsync(repository, databasePath, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Zada", 1, null), ("\u0301", 1, null));
+
+        var ascending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "asc"));
+        var descending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "desc"));
+
+        Assert.Equal("\u0301", ascending[^1].CommanderName);
+        Assert.Equal("\u0301", descending[^1].CommanderName);
+    }
+
+    private static async Task SeedCommanderRowsAsync(DeckQueueRepository repository, string databasePath, params (string Name, int Count, string? LastProcessedUtc)[] rows)
+    {
+        await repository.AddDeckIdsAsync(rows.Select(row => $"deck-{row.Name}"));
+        foreach (var row in rows)
+        {
+            await repository.MarkDeckProcessedAsync($"deck-{row.Name}", row.Name);
+        }
+
+        await using var connection = new SqliteConnection($"Data Source={databasePath}");
+        await connection.OpenAsync();
+        foreach (var row in rows)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE processed_commander_summary SET deck_count = $count, last_processed_utc = $lastProcessedUtc WHERE commander_name = $name;";
+            command.Parameters.AddWithValue("$count", row.Count);
+            command.Parameters.AddWithValue("$lastProcessedUtc", (object?)row.LastProcessedUtc ?? DBNull.Value);
+            command.Parameters.AddWithValue("$name", row.Name);
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
     private async Task<(DeckQueueRepository Repository, string DatabasePath)> CreateRepositoryAsync()
     {
         Directory.CreateDirectory(_tempDirectory);
