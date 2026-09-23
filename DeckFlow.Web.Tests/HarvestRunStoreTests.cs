@@ -112,6 +112,22 @@ public sealed class HarvestRunStoreTests : IDisposable
         Assert.Equal(3, rows[0].DecksEnqueued);
     }
 
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_ReturnsFailuresAfterLatestSuccess()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T10:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T11:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T12:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T13:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(2, streak.ConsecutiveFailures);
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T13:00:00.0000000Z", CultureInfo.InvariantCulture), streak.LastFailureUtc);
+    }
+
     private async Task SeedHealthRunAsync(string kind, string state, string completedUtc, int? decksEnqueued, int? decksDrained)
     {
         await using var connection = new SqliteConnection($"Data Source={_dbPath}");

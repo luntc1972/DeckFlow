@@ -321,6 +321,24 @@ public sealed class HarvestRunStore : IHarvestRunStore
     }
 
     /// <inheritdoc />
+    public async Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        return await connection.QuerySingleAsync<HarvestFailureStreak>(new CommandDefinition(
+            """
+            SELECT COUNT(1) AS ConsecutiveFailures, MAX(completed_utc) AS LastFailureUtc
+            FROM harvest_runs
+            WHERE state = 'Failed'
+              AND completed_utc IS NOT NULL
+              AND (NOT EXISTS (SELECT 1 FROM harvest_runs WHERE state = 'Succeeded')
+                   OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded'));
+            """,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
