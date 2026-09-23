@@ -19,6 +19,7 @@ namespace DeckFlow.Web.Services;
 public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 {
     private const int HarvestDeckCount = 20;
+    private const int DiscoveryBacklogThreshold = 5000;
     private const string ProcessedCommanderCountCacheKey = "category-knowledge:processed-commanders:count";
     private readonly string _artifactsPath;
     private readonly RelationalDatabaseConnection _connectionInfo;
@@ -275,6 +276,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 TimeSpan.FromSeconds(durationSeconds),
                 queueBatchSize: 5,
                 fetchBatchSize: HarvestDeckCount,
+                discoveryBacklogThreshold: DiscoveryBacklogThreshold,
                 cancellationToken: cancellationToken,
                 progress: progress);
             logger.LogInformation(

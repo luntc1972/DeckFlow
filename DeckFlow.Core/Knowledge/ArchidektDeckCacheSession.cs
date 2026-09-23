@@ -47,13 +47,15 @@ public sealed class ArchidektDeckCacheSession
     /// <param name="duration">Duration to run.</param>
     /// <param name="queueBatchSize">Max queue size per iteration.</param>
     /// <param name="fetchBatchSize">Max deck fetches per cycle.</param>
+    /// <param name="discoveryBacklogThreshold">Exclusive unprocessed queue threshold for deep discovery.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="progress">Optional progress reporter for cumulative decks processed.</param>
-    public async Task<ArchidektCacheRunResult> RunAsync(TimeSpan duration, int queueBatchSize = 5, int fetchBatchSize = 10, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+    public async Task<ArchidektCacheRunResult> RunAsync(TimeSpan duration, int queueBatchSize = 5, int fetchBatchSize = 10, int discoveryBacklogThreshold = 5000, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         duration = duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
         queueBatchSize = Math.Max(1, queueBatchSize);
         fetchBatchSize = Math.Max(1, fetchBatchSize);
+        discoveryBacklogThreshold = Math.Max(0, discoveryBacklogThreshold);
 
         await _repository.EnsureSchemaAsync(cancellationToken);
         var stopwatch = Stopwatch.StartNew();
@@ -73,16 +75,23 @@ public sealed class ArchidektDeckCacheSession
                     decksEnqueued += await _repository.AddDeckIdsAsync(newestDeckIds, cancellationToken);
                 }
 
-                var crawlPage = await _repository.GetRecentDeckCrawlPageAsync(cancellationToken);
-                var deeperDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(crawlPage, cancellationToken);
-                if (deeperDeckIds.Count > 0)
+                if (await _repository.HasMoreThanUnprocessedDecksAsync(discoveryBacklogThreshold, cancellationToken))
                 {
-                    decksEnqueued += await _repository.AddDeckIdsAsync(deeperDeckIds, cancellationToken);
-                    await _repository.SetRecentDeckCrawlPageAsync(crawlPage + 1, cancellationToken);
+                    _logger?.LogInformation("Skipped deep Archidekt discovery because the unprocessed queue exceeds {DiscoveryBacklogThreshold}.", discoveryBacklogThreshold);
                 }
                 else
                 {
-                    await _repository.SetRecentDeckCrawlPageAsync(2, cancellationToken);
+                    var crawlPage = await _repository.GetRecentDeckCrawlPageAsync(cancellationToken);
+                    var deeperDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(crawlPage, cancellationToken);
+                    if (deeperDeckIds.Count > 0)
+                    {
+                        decksEnqueued += await _repository.AddDeckIdsAsync(deeperDeckIds, cancellationToken);
+                        await _repository.SetRecentDeckCrawlPageAsync(crawlPage + 1, cancellationToken);
+                    }
+                    else
+                    {
+                        await _repository.SetRecentDeckCrawlPageAsync(2, cancellationToken);
+                    }
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

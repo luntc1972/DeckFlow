@@ -111,6 +111,32 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_BacklogAboveThreshold_SkipsDeepCrawlAndPreservesCursor()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        await repository.AddDeckIdsAsync(new[] { "queued" });
+        await repository.SetRecentDeckCrawlPageAsync(7);
+        var recentImporter = new RecordingRecentDecksImporter();
+        var session = new ArchidektDeckCacheSession(
+            repository,
+            new FakeDeckImporter(),
+            recentImporter,
+            idlePollDelay: TimeSpan.FromMilliseconds(1));
+        using var cancellation = new CancellationTokenSource();
+        var stopAfterDeck = new SynchronousProgress<int>(_ => cancellation.Cancel());
+
+        await session.RunAsync(
+            TimeSpan.FromSeconds(1),
+            discoveryBacklogThreshold: 0,
+            cancellationToken: cancellation.Token,
+            progress: stopAfterDeck);
+
+        Assert.All(recentImporter.RequestedPages, page => Assert.Equal(1, page));
+        Assert.Equal(7, await repository.GetRecentDeckCrawlPageAsync());
+    }
+
+    [Fact]
     public async Task RunAsync_MetadataBearingImport_PersistsMetadata()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -241,6 +267,23 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+    }
+
+    private sealed class RecordingRecentDecksImporter : IArchidektRecentDecksImporter
+    {
+        public List<int> RequestedPages { get; } = new();
+
+        public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+
+        public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+
+        public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
+        {
+            RequestedPages.Add(page);
+            return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+        }
     }
 
     private sealed class ImportOnlyDeckImporter : IArchidektDeckImporter

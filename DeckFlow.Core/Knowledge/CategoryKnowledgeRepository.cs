@@ -226,6 +226,14 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.GetUnprocessedCountAsync(cancellationToken);
 
     /// <summary>
+    /// Determines whether the unprocessed deck queue exceeds a threshold.
+    /// </summary>
+    /// <param name="threshold">Exclusive queue threshold.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<bool> HasMoreThanUnprocessedDecksAsync(int threshold, CancellationToken cancellationToken = default)
+        => _deckQueue.HasMoreThanUnprocessedDecksAsync(threshold, cancellationToken);
+
+    /// <summary>
     /// Counts the number of decks that have been processed.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
