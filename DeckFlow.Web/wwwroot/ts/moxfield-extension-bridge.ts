@@ -15,6 +15,16 @@ type MoxfieldImportTask = {
   applyImportedText: (deckText: string) => void;
 };
 
+const selectBackedCacheKeys = new Set([
+  'prompt-packets',
+  'deck-history',
+  'prompt-cedh-meta-gap',
+  'bracket',
+  'manabase',
+  'deck-primer',
+]);
+
+
 type ExtensionBridgeSuccessResponse = {
   source: 'deckflow-extension';
   type: 'deckflow-moxfield-import-response';
@@ -187,6 +197,15 @@ const createTextareaImportTask = (sourceInput: HTMLTextAreaElement): MoxfieldImp
 };
 
 const collectMoxfieldImportTasks = (form: HTMLFormElement): MoxfieldImportTask[] => {
+  if (form.matches('[data-deck-modules-import-form]')) {
+    const task = createSelectBackedImportTask(
+      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
+      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
+      form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')!
+    );
+    return task ? [task] : [];
+  }
+
   const cacheKey = form.dataset.cacheKey;
   if (!cacheKey) {
     return [];
@@ -237,16 +256,7 @@ const collectMoxfieldImportTasks = (form: HTMLFormElement): MoxfieldImportTask[]
     return task ? [task] : [];
   }
 
-  if (cacheKey === 'prompt-packets') {
-    const task = createSelectBackedImportTask(
-      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
-      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
-      form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')!
-    );
-    return task ? [task] : [];
-  }
-
-  if (cacheKey === 'deck-history') {
+  if (selectBackedCacheKeys.has(cacheKey)) {
     const task = createSelectBackedImportTask(
       form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
       form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
@@ -268,15 +278,6 @@ const collectMoxfieldImportTasks = (form: HTMLFormElement): MoxfieldImportTask[]
         form.querySelector<HTMLSelectElement>('select[name="DeckBInputSource"]')!
       )
     ].filter((task): task is MoxfieldImportTask => task !== null);
-  }
-
-  if (cacheKey === 'prompt-cedh-meta-gap') {
-    const task = createSelectBackedImportTask(
-      form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!,
-      form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!,
-      form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')!
-    );
-    return task ? [task] : [];
   }
 
   if (cacheKey === 'cut-lab') {

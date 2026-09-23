@@ -190,4 +190,6 @@ The **DeckFlow Bridge** Chrome/Edge extension lets DeckFlow fetch Moxfield decks
 
 See [`browser-extensions/deckflow-bridge/README.md`](../browser-extensions/deckflow-bridge/README.md) for load-unpacked installation instructions, or open `/deckflow-bridge` in the running app to download the current ZIP package.
 
+Every page that shows the Bridge hint routes Moxfield deck URLs through the extension: Deck Sync, Deck Convert, Deck Analysis, Deck History, Deck Comparison, cEDH Meta Gap, Cut Lab, Bracket Check, Mana Base, Deck Primer, and Deck Modules. Archidekt URLs are unaffected and still resolve server-side. `MoxfieldBridgeCoverageTests` fails the build if a page renders the hint without a matching dispatch entry in `moxfield-extension-bridge.ts`, because an unrecognised form returns no import task silently — the hint would keep promising interception that never happens.
+
 ---

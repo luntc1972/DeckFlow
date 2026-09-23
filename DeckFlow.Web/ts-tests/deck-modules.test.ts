@@ -49,6 +49,22 @@ const comparisonDelta = (reference: Record<string, unknown> = {}, other: Record<
 describe('DeckFlowDeckModules', () => {
     beforeEach(() => { document.body.innerHTML = markup(); window.sessionStorage.clear(); vi.unstubAllGlobals(); });
 
+    it('initialize_PreventedBridgeSubmit_DoesNotImportUntilBypassResubmit', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => imported });
+        vi.stubGlobal('fetch', fetchMock);
+        (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
+        const form = document.querySelector<HTMLFormElement>('[data-deck-modules-import-form]')!;
+        const interceptedSubmit = new Event('submit', { bubbles: true, cancelable: true });
+        interceptedSubmit.preventDefault();
+
+        form.dispatchEvent(interceptedSubmit);
+
+        expect(fetchMock).not.toHaveBeenCalled();
+        form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!.value = 'https://example.test/deck';
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    });
+
     it('initialize_EmptyDraft_SetsGuidanceStageAndNextAction', () => {
         (globalThis.DeckFlowDeckModules as DeckModulesApi).initialize();
         expect(document.querySelector('[data-deck-modules]')!.getAttribute('data-deck-modules-stage')).toBe('empty');
