@@ -418,7 +418,7 @@ public sealed class ArchidektCacheJobServiceTests
         }
 
         public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(new HarvestFailureStreak(0, null));
+            => Task.FromResult(new HarvestFailureStreak(0, null, null));
 
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult((long)_rows.Values.Count(r => r.State == HarvestRunState.Succeeded));

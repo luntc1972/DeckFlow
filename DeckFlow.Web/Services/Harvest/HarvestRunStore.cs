@@ -328,9 +328,12 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         var row = await connection.QuerySingleAsync<FailureStreakRow>(new CommandDefinition(
             """
-            SELECT COUNT(1) AS ConsecutiveFailures, MAX(completed_utc) AS LastFailureUtc
+            SELECT COUNT(1) AS ConsecutiveFailures,
+                   MAX(completed_utc) AS LastFailureUtc,
+                   (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded') AS LastSuccessUtc
             FROM harvest_runs
             WHERE state = 'Failed'
+              AND kind = 'bulk'
               AND completed_utc IS NOT NULL
               AND (NOT EXISTS (SELECT 1 FROM harvest_runs WHERE state = 'Succeeded')
                    OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded'));
@@ -338,7 +341,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return new HarvestFailureStreak(
             checked((int)row.ConsecutiveFailures),
-            ConvertCompletedUtc(row.LastFailureUtc));
+            ConvertCompletedUtc(row.LastFailureUtc),
+            ConvertCompletedUtc(row.LastSuccessUtc));
     }
 
     /// <inheritdoc />
@@ -379,6 +383,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
         public long ConsecutiveFailures { get; init; }
 
         public object? LastFailureUtc { get; init; }
+
+        public object? LastSuccessUtc { get; init; }
     }
 
     private static HarvestRunRow ToHarvestRunRow(HarvestRunRowData row)

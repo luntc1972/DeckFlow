@@ -42,6 +42,28 @@ public sealed class HarvestScheduleServiceTests
         Assert.Equal(expectFire ? 1 : 0, job.Calls);
     }
 
+    [Fact]
+    public async Task TickAsync_DoesNotFireBeforeSuccessInterval()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "DeckFlow.Tests", Guid.NewGuid() + ".db");
+        var store = new HarvestRunStore(path);
+        await store.EnsureSchemaAsync();
+        var now = new DateTimeOffset(2026, 6, 12, 12, 0, 0, TimeSpan.Zero);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, now.AddMinutes(-10));
+        await store.UpdateStateAsync(id, HarvestRunState.Succeeded, null, now.AddMinutes(-10), null, null, null);
+
+        var job = new RecordingJob();
+        var service = new HarvestScheduleService(
+            new EnabledFlags(), new FixedSchedule(1), store, job,
+            NullLogger<HarvestScheduleService>.Instance,
+            new FakeTimeProvider(now));
+        var tick = typeof(HarvestScheduleService).GetMethod("TickAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        await (Task)tick.Invoke(service, new object[] { CancellationToken.None })!;
+
+        Assert.Equal(0, job.Calls);
+    }
+
     private sealed class EnabledFlags : IFeatureFlagCache
     {
         public bool IsEnabled(string key) => true;

@@ -112,13 +112,12 @@ public sealed class HarvestScheduleService : BackgroundService
         }
 
         // Single PG read per tick at 60s cadence (T-07-11 mitigation accepted).
-        var lastSuccess = await _runStore.GetLastSuccessUtcAsync(cancellationToken).ConfigureAwait(false);
         var failureStreak = await _runStore.GetFailureStreakSinceLastSuccessAsync(cancellationToken).ConfigureAwait(false);
 
         // No prior successful run yet — fire immediately so enabling cron doesn't have to
         // wait an entire interval for the first sweep.
-        DateTimeOffset? nextDue = lastSuccess.HasValue
-            ? lastSuccess.Value + TimeSpan.FromHours(snapshot.IntervalHours.Value)
+        DateTimeOffset? nextDue = failureStreak.LastSuccessUtc.HasValue
+            ? failureStreak.LastSuccessUtc.Value + TimeSpan.FromHours(snapshot.IntervalHours.Value)
             : null;
 
         var failureBackoff = GetFailureBackoff(failureStreak.ConsecutiveFailures, snapshot.IntervalHours.Value);
@@ -136,7 +135,7 @@ public sealed class HarvestScheduleService : BackgroundService
 
         _logger.LogInformation(
             "Harvest.Schedule.Tick.Fired intervalHours={IntervalHours} lastSuccess={LastSuccess} nextDue={NextDue}",
-            snapshot.IntervalHours, lastSuccess, nextDue);
+            snapshot.IntervalHours, failureStreak.LastSuccessUtc, nextDue);
 
         await _jobService.EnqueueAsync(FireDuration, cancellationToken).ConfigureAwait(false);
     }
