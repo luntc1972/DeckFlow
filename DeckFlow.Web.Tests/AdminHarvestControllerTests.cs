@@ -21,6 +21,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.ObjectPool;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -355,8 +356,9 @@ public sealed class AdminHarvestControllerTests
     public async Task CommandersGrid_Sort_DefaultRendersActiveDeckCountAndAriaSort()
     {
         var html = await RenderPartialViewAsync("_CommandersGrid", CreateSortGridModel(CommanderGridQuery.Default));
-        Assert.Contains("data-sort-column=\"deck_count\"", html, StringComparison.Ordinal);
-        Assert.Contains("aria-sort=\"descending\"", html, StringComparison.Ordinal);
+        AssertHeaderSort(html, "deck_count", "descending", active: true);
+        AssertHeaderSort(html, "name", "none");
+        AssertHeaderSort(html, "last_processed", "none");
     }
 
     [Fact]
@@ -364,7 +366,9 @@ public sealed class AdminHarvestControllerTests
     {
         var html = await RenderPartialViewAsync("_CommandersGrid", CreateSortGridModel(CommanderGridQuery.FromRequest("Te", "name", "asc")));
         Assert.Contains("data-sort-next-dir=\"desc\"", html, StringComparison.Ordinal);
-        Assert.Contains("aria-sort=\"ascending\"", html, StringComparison.Ordinal);
+        AssertHeaderSort(html, "name", "ascending", active: true);
+        AssertHeaderSort(html, "deck_count", "none");
+        AssertHeaderSort(html, "last_processed", "none");
     }
 
     [Fact]
@@ -374,6 +378,18 @@ public sealed class AdminHarvestControllerTests
         Assert.Contains("data-search=\"Te\"", html, StringComparison.Ordinal);
         Assert.Contains("data-sort-by=\"last_processed\"", html, StringComparison.Ordinal);
         Assert.Contains("data-sort-dir=\"desc\"", html, StringComparison.Ordinal);
+    }
+
+    private static void AssertHeaderSort(string html, string column, string expectedAriaSort, bool active = false)
+    {
+        var match = Regex.Match(html, $"<th(?:(?!</th>).)*data-sort-column=\\\"{Regex.Escape(column)}\\\"(?:(?!</th>).)*</th>", RegexOptions.Singleline);
+        Assert.True(match.Success, $"Missing sort header for {column}.");
+        Assert.Contains($"aria-sort=\"{expectedAriaSort}\"", match.Value, StringComparison.Ordinal);
+        if (active)
+        {
+            Assert.Contains("data-sort-active=\"true\"", match.Value, StringComparison.Ordinal);
+            Assert.Single(Regex.Matches(match.Value, "<span class=\"admin-table__sort-indicator\" aria-hidden=\"true\">").Cast<Match>());
+        }
     }
 
     private static CommandersGridViewModel CreateSortGridModel(CommanderGridQuery query)
