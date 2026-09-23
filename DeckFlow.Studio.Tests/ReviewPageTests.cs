@@ -105,6 +105,75 @@ public sealed class ReviewPageTests : BunitContext
         Assert.Empty(store.SingleApprovalCalls);
     }
 
+    [Fact]
+    public void ApproveSuppressedCreator_RefusalKeepsQueueRendered()
+    {
+        var row = MakeYoutubeRow(1, "blocked") with { Source = "blocked-creator" };
+        var (cut, _) = RenderReview(new[] { row });
+        var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
+        suppressionStore.Suppressed.Add("blocked-creator");
+
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Approve']"));
+        cut.Find("button[aria-label^='Approve']").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
+        Assert.Contains("Video 1", cut.Markup);
+        suppressionStore.Suppressed.Clear();
+        cut.Find("button[aria-label^='Approve']").Click();
+        cut.WaitForAssertion(() => Assert.DoesNotContain("A suppressed creator cannot be approved.", cut.Markup));
+    }
+
+    [Fact]
+    public void BatchApproveSuppressedCreator_RefusalKeepsQueueRendered()
+    {
+        var row = MakeYoutubeRow(1, "blocked") with { Source = "blocked-creator" };
+        var (cut, _) = RenderReview(new[] { row });
+        var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
+        suppressionStore.Suppressed.Add("blocked-creator");
+
+        cut.WaitForAssertion(() => cut.Find("input[aria-label='Select Video 1']"));
+        cut.Find("input[aria-label='Select Video 1']").Change(true);
+        cut.FindAll("button").First(button => button.TextContent.Contains("Approve Selected", StringComparison.Ordinal)).Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
+        Assert.Contains("Video 1", cut.Markup);
+        suppressionStore.Suppressed.Clear();
+        cut.FindAll("button").First(button => button.TextContent.Contains("Approve Selected", StringComparison.Ordinal)).Click();
+        cut.WaitForAssertion(() => Assert.DoesNotContain("A suppressed creator cannot be approved.", cut.Markup));
+    }
+
+    [Fact]
+    public void DismissSuppressedCreatorRefusal_RemovesNoticeAndKeepsQueueRendered()
+    {
+        var row = MakeYoutubeRow(1, "blocked") with { Source = "blocked-creator" };
+        var (cut, _) = RenderReview(new[] { row });
+        var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
+        suppressionStore.Suppressed.Add("blocked-creator");
+
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Approve']"));
+        cut.Find("button[aria-label^='Approve']").Click();
+        cut.WaitForAssertion(() => cut.Find("button[aria-label='Dismiss']"));
+        cut.Find("button[aria-label='Dismiss']").Click();
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("A suppressed creator cannot be approved.", cut.Markup));
+        Assert.Contains("Video 1", cut.Markup);
+    }
+
+    [Fact]
+    public void ApproveSuppressedCreator_RefusalKeepsControlRowRendered()
+    {
+        var suppressed = MakeYoutubeRow(1, "blocked") with { Source = "blocked-creator" };
+        var control = MakeYoutubeRow(2, "control") with { Title = "CONTROL-ROW-SENTINEL" };
+        var (cut, _) = RenderReview(new[] { suppressed, control });
+        var suppressionStore = Assert.IsType<FakeCreatorSuppressionStore>(Services.GetRequiredService<ICreatorSuppressionStore>());
+        suppressionStore.Suppressed.Add("blocked-creator");
+
+        cut.WaitForAssertion(() => cut.Find("button[aria-label^='Approve']"));
+        cut.Find("button[aria-label^='Approve']").Click();
+        cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
+        Assert.Contains("CONTROL-ROW-SENTINEL", cut.Markup);
+    }
+
     // ── REVQ-02: Filter tabs show correct count badges ───────────────────────
 
     [Fact]

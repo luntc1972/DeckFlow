@@ -42,6 +42,7 @@ public sealed class CreatorSuppressionRowFilter
                 .Concat(identity?.DisplayNames ?? Array.Empty<string>())
                 .Concat(identity?.FolderSlugs ?? Array.Empty<string>())
                 .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+                .OfType<string>()
                 .Distinct(StringComparer.OrdinalIgnoreCase);
             if (candidates.Any(matcher.IsSuppressed)) return true;
         }
