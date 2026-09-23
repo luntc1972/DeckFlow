@@ -13,7 +13,57 @@ public sealed class DeckModulesLayoutCssTests
         Assert.Matches(new Regex(@"\.deck-modules__commander\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;", RegexOptions.Singleline), content);
         Assert.Matches(new Regex(@"\.deck-modules__overview\s*\{", RegexOptions.Singleline), content);
         Assert.Matches(new Regex(@"\.deck-modules__unassigned\s*\{", RegexOptions.Singleline), content);
-        Assert.Matches(new Regex(@"\.deck-modules__howto,\s*\.deck-modules__empty,\s*\.deck-modules__configuration,\s*\.deck-modules__unassigned,\s*\.deck-modules__report\s*\{[^}]*grid-column:\s*1 / -1;", RegexOptions.Singleline), content);
+        AssertFullWidthRegions(content);
+    }
+
+    [Fact]
+    public void FullWidthRegions_ReorderedSelectorsPassButMissingRequirementsFail()
+    {
+        const string unrelatedRule = "@media (min-width: 1px) { .unrelated { grid-column: 1 / -1; } }";
+        string[] selectors =
+        [
+            ".deck-modules__report",
+            ".deck-modules__unassigned",
+            ".deck-modules__configuration",
+            ".deck-modules__empty",
+            ".deck-modules__howto",
+        ];
+        const string declaration = " { grid-column: 1 / -1; }";
+
+        AssertFullWidthRegions(unrelatedRule + string.Join(", ", selectors) + declaration);
+        foreach (var missingSelector in selectors)
+        {
+            var incompleteRule = string.Join(", ", selectors.Where(selector => selector != missingSelector)) + declaration;
+            Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertFullWidthRegions(unrelatedRule + incompleteRule));
+        }
+
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertFullWidthRegions(unrelatedRule + string.Join(", ", selectors) + " { color: red; }"));
+    }
+
+    private static void AssertFullWidthRegions(string content)
+    {
+        var uncommentedContent = Regex.Replace(content, @"/\*[\s\S]*?\*/", string.Empty);
+        var fullWidthRule = Regex.Matches(uncommentedContent,
+                @"(?:\A|(?<=[{}]))\s*(?<selectors>[^{};@]+)\{(?<declarations>[^{}]*)\}", RegexOptions.Singleline)
+            .Cast<Match>()
+            .FirstOrDefault(match => match.Groups["selectors"].Value
+                .Split(',', StringSplitOptions.TrimEntries).Contains(".deck-modules__howto", StringComparer.Ordinal));
+
+        Assert.NotNull(fullWidthRule);
+        Assert.Matches(@"(?:\A|;)\s*grid-column:\s*1\s*/\s*-1\s*;", fullWidthRule.Groups["declarations"].Value);
+        var ruleSelectors = fullWidthRule.Groups["selectors"].Value.Split(',', StringSplitOptions.TrimEntries);
+        foreach (var selector in new[]
+        {
+            ".deck-modules__howto",
+            ".deck-modules__empty",
+            ".deck-modules__configuration",
+            ".deck-modules__unassigned",
+            ".deck-modules__report",
+        })
+        {
+            Assert.Contains(selector, ruleSelectors);
+        }
     }
 
     [Fact]

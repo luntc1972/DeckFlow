@@ -24,7 +24,6 @@ const selectBackedCacheKeys = new Set([
   'deck-primer',
 ]);
 
-
 type ExtensionBridgeSuccessResponse = {
   source: 'deckflow-extension';
   type: 'deckflow-moxfield-import-response';
