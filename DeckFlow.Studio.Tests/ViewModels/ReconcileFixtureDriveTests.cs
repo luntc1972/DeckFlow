@@ -56,7 +56,8 @@ public sealed class ReconcileFixtureDriveTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(_prodDbPath)}"));
+        SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(_localDbPath)}"));
         GC.Collect();
         GC.WaitForPendingFinalizers();
         foreach (var db in new[] { _prodDbPath, _localDbPath })

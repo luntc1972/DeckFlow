@@ -58,7 +58,7 @@ public sealed class ContentBodyHashBackfillStudioTests : IDisposable
         {
             if (Directory.Exists(_dataRoot))
             {
-                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+                Microsoft.Data.Sqlite.SqliteConnection.ClearPool(new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.GetFullPath(_dbPath)}"));
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 Directory.Delete(_dataRoot, recursive: true);

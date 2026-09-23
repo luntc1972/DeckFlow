@@ -24,7 +24,7 @@ public sealed class ContentKbReconcileStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(_dbPath)}"));
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);

@@ -31,7 +31,7 @@ public sealed class ContentKbReconcileOrchestratorTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(_dbPath)}"));
         GC.Collect();
         GC.WaitForPendingFinalizers();
         try

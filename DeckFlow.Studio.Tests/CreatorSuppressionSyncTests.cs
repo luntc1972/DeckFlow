@@ -34,9 +34,10 @@ public sealed class CreatorSuppressionSyncTests : IDisposable
 
     public void Dispose()
     {
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); if (File.Exists(_localPath)) File.Delete(_localPath); if (File.Exists(_prodPath)) File.Delete(_prodPath);
+        ClearPool(_localPath); ClearPool(_prodPath); if (File.Exists(_localPath)) File.Delete(_localPath); if (File.Exists(_prodPath)) File.Delete(_prodPath);
     }
 
+    private static void ClearPool(string path) => Microsoft.Data.Sqlite.SqliteConnection.ClearPool(new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private static CreatorSuppressionStore Store(string path) => new(RelationalDatabaseConnection.FromSqlitePath(path));
     private static CreatorSuppressionSyncCoordinator CreateCoordinator(ICreatorSuppressionStore local, ICreatorSuppressionStore prod) => new(local, new Factory(prod), new Connection());
     private sealed class Connection : IStudioProdConnectionSource { public string ConnectionString => "test"; }

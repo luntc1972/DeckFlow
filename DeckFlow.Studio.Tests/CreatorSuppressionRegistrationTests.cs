@@ -58,7 +58,7 @@ public sealed class CreatorSuppressionRegistrationTests
         finally
         {
             provider?.Dispose();
-            SqliteConnection.ClearAllPools();
+            SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(databasePath)}"));
             File.Delete(databasePath);
         }
     }
