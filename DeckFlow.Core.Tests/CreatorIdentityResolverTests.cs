@@ -282,6 +282,41 @@ public sealed class CreatorIdentityResolverTests : IDisposable
         Assert.Equal(first.CanonicalSlug, second!.CanonicalSlug);
     }
 
+    [Fact]
+    public async Task ResolveAsync_BridgedIndexGroupsRetainSuppressedCanonical()
+    {
+        var identity = await ResolveDataAsync(
+            new[] { ("g2-folder", "G1 Name") },
+            new[]
+            {
+                CreateRow("G1 Name", "content-kb/g1-folder/one.md", "one"),
+                CreateRow("G2 Name", "content-kb/g2-folder/two.md", "two"),
+            },
+            new[] { ("gsup", (IReadOnlyList<string>)new[] { "G2 Name" }) },
+            "G1 Name");
+
+        Assert.Equal("gsup", identity!.CanonicalSlug);
+        Assert.Equal(new[] { "G1 Name", "G2 Name" }, identity.DisplayNames);
+        Assert.Equal(new[] { "g1-folder", "g2-folder", "gsup" }, identity.FolderSlugs);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_SuppressionOnlyCreatorResolvesAllAliases()
+    {
+        foreach (var representation in new[] { "ghost", "Ghost Creator", "ghost-archive" })
+        {
+            var identity = await ResolveDataAsync(
+                Array.Empty<(string, string)>(),
+                Array.Empty<ContentSiteIndexRow>(),
+                new[] { ("ghost", (IReadOnlyList<string>)new[] { "Ghost Creator", "ghost-archive" }) },
+                representation);
+
+            Assert.Equal("ghost", identity!.CanonicalSlug);
+            Assert.Equal(new[] { "Ghost Creator" }, identity.DisplayNames);
+            Assert.Equal(new[] { "ghost-archive" }, identity.FolderSlugs);
+        }
+    }
+
     private async Task<CreatorIdentityResolver> CreateResolverAsync()
     {
         var connection = RelationalDatabaseConnection.FromSqlitePath(_dbPath);
