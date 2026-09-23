@@ -61,6 +61,7 @@ public sealed class ArchidektDeckCacheSession
         var updated = 0;
         var unchanged = 0;
         var skipped = 0;
+        var decksEnqueued = 0;
 
         while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
         {
@@ -69,14 +70,14 @@ public sealed class ArchidektDeckCacheSession
                 var newestDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(1, cancellationToken);
                 if (newestDeckIds.Count > 0)
                 {
-                    await _repository.AddDeckIdsAsync(newestDeckIds, cancellationToken);
+                    decksEnqueued += await _repository.AddDeckIdsAsync(newestDeckIds, cancellationToken);
                 }
 
                 var crawlPage = await _repository.GetRecentDeckCrawlPageAsync(cancellationToken);
                 var deeperDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(crawlPage, cancellationToken);
                 if (deeperDeckIds.Count > 0)
                 {
-                    await _repository.AddDeckIdsAsync(deeperDeckIds, cancellationToken);
+                    decksEnqueued += await _repository.AddDeckIdsAsync(deeperDeckIds, cancellationToken);
                     await _repository.SetRecentDeckCrawlPageAsync(crawlPage + 1, cancellationToken);
                 }
                 else
@@ -146,7 +147,7 @@ public sealed class ArchidektDeckCacheSession
         }
 
         stopwatch.Stop();
-        return new ArchidektCacheRunResult(added, updated, unchanged, skipped, stopwatch.Elapsed);
+        return new ArchidektCacheRunResult(added, updated, unchanged, skipped, decksEnqueued, stopwatch.Elapsed);
     }
 
     private async Task DelayUntilNextRetryAsync(Stopwatch stopwatch, TimeSpan duration, CancellationToken cancellationToken)
@@ -210,8 +211,11 @@ internal enum DeckCacheWriteResult
 /// <summary>
 /// Holds aggregate statistics for a completed Archidekt deck-cache run.
 /// </summary>
-public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksUnchanged, int DecksSkipped, TimeSpan Duration)
+public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksUnchanged, int DecksSkipped, int DecksEnqueued, TimeSpan Duration)
 {
     /// <summary>Total number of decks that produced added or updated cache rows.</summary>
     public int DecksProcessed => DecksAdded + DecksUpdated;
+
+    /// <summary>All four dispositions call MarkDecksProcessedAsync and leave the unprocessed pool.</summary>
+    public int DecksDrained => DecksAdded + DecksUpdated + DecksUnchanged + DecksSkipped;
 }

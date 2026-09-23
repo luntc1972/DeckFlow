@@ -1,5 +1,6 @@
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
@@ -24,7 +25,7 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int RunCacheSweepCalls { get; private set; }
 
-    public int RunCacheSweepResult { get; set; }
+    public ArchidektCacheRunResult RunCacheSweepResult { get; set; } = new(0, 0, 0, 0, 0, TimeSpan.Zero);
 
     public Exception? RunCacheSweepException { get; set; }
 
@@ -39,6 +40,10 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     public int DistinctProcessedCommanderCount { get; set; }
 
     public int GetDistinctProcessedCommanderCountCalls { get; private set; }
+
+    public int UnprocessedCount { get; set; }
+
+    public int GetUnprocessedCountCalls { get; private set; }
 
     public IReadOnlyList<CategoryKnowledgeRow> CategoryRowsResult { get; set; } = Array.Empty<CategoryKnowledgeRow>();
 
@@ -79,7 +84,7 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(_lastProcessedDeckCount);
     }
 
-    public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+    public Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         RunCacheSweepCalls++;
 
@@ -154,6 +159,12 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
         => Task.FromResult(0);
 
+    public Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
+    {
+        GetUnprocessedCountCalls++;
+        return Task.FromResult(UnprocessedCount);
+    }
+
     public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
     {
         LastPagedCommanderPage = page;
@@ -167,7 +178,7 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(DistinctProcessedCommanderCount);
     }
 
-    public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+    public Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<long?>(null);
 
     public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)

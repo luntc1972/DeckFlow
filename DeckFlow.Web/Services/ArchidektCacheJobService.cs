@@ -93,7 +93,7 @@ public enum ArchidektCacheJobState
 /// <param name="StartedUtc">Wall-clock time the worker entered Running.</param>
 /// <param name="CompletedUtc">Wall-clock time the row reached a terminal state.</param>
 /// <param name="DecksProcessed">Decks fully imported during the run.</param>
-/// <param name="AdditionalDecksFound">Newly-discovered deck IDs added to the queue.</param>
+/// <param name="AdditionalDecksFound">Processed-row delta, not a count of newly queued IDs; see <see cref="IHarvestRunStore.SetSweepCountsAsync"/> for discoveries.</param>
 /// <param name="ErrorMessage">Failure / cancel / reaper reason; null on success.</param>
 public sealed record ArchidektCacheJobStatus(
     Guid JobId,
@@ -272,26 +272,28 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     HarvestRunState.Running,
                     startedUtc: DateTimeOffset.UtcNow,
                     completedUtc: null,
-                    decksProcessed: 0,
-                    additionalDecksFound: 0,
+                    decksProcessed: null,
+                    additionalDecksFound: null,
                     errorMessage: null,
                     jobCts.Token).ConfigureAwait(false);
 
                 var initialDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(jobCts.Token).ConfigureAwait(false);
                 var progress = new HarvestProgressWriter(signal.JobId, _runStore, _logger, jobCts.Token);
-                var decksProcessed = await _knowledgeStore.RunCacheSweepAsync(_logger, signal.DurationSeconds, jobCts.Token, progress).ConfigureAwait(false);
+                var sweepResult = await _knowledgeStore.RunCacheSweepAsync(_logger, signal.DurationSeconds, jobCts.Token, progress).ConfigureAwait(false);
                 var finalDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(jobCts.Token).ConfigureAwait(false);
 
                 _logger.LogInformation(
                     "Harvest.Run.StateChange jobId={JobId} state={State} decksProcessed={DecksProcessed}",
-                    signal.JobId, HarvestRunState.Succeeded, decksProcessed);
+                    signal.JobId, HarvestRunState.Succeeded, sweepResult.DecksProcessed);
+
+                await _runStore.SetSweepCountsAsync(signal.JobId, sweepResult.DecksEnqueued, sweepResult.DecksDrained, jobCts.Token).ConfigureAwait(false);
 
                 await _runStore.UpdateStateAsync(
                     signal.JobId,
                     HarvestRunState.Succeeded,
                     startedUtc: null,
                     completedUtc: DateTimeOffset.UtcNow,
-                    decksProcessed: decksProcessed,
+                    decksProcessed: sweepResult.DecksProcessed,
                     additionalDecksFound: Math.Max(finalDeckCount - initialDeckCount, 0),
                     errorMessage: null,
                     CancellationToken.None).ConfigureAwait(false);
@@ -316,8 +318,8 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                         HarvestRunState.Interrupted,
                         startedUtc: null,
                         completedUtc: DateTimeOffset.UtcNow,
-                        decksProcessed: 0,
-                        additionalDecksFound: 0,
+                        decksProcessed: null,
+                        additionalDecksFound: null,
                         errorMessage: "interrupted by host shutdown",
                         CancellationToken.None).ConfigureAwait(false);
                 }
@@ -343,8 +345,8 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     HarvestRunState.Cancelled,
                     startedUtc: null,
                     completedUtc: DateTimeOffset.UtcNow,
-                    decksProcessed: 0,
-                    additionalDecksFound: 0,
+                    decksProcessed: null,
+                    additionalDecksFound: null,
                     errorMessage: "cancelled by operator",
                     CancellationToken.None).ConfigureAwait(false);
             }
@@ -365,8 +367,8 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     HarvestRunState.Failed,
                     startedUtc: null,
                     completedUtc: DateTimeOffset.UtcNow,
-                    decksProcessed: 0,
-                    additionalDecksFound: 0,
+                    decksProcessed: null,
+                    additionalDecksFound: null,
                     errorMessage: "interrupted by unexpected cancellation",
                     CancellationToken.None).ConfigureAwait(false);
             }
@@ -378,8 +380,8 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     HarvestRunState.Failed,
                     startedUtc: null,
                     completedUtc: DateTimeOffset.UtcNow,
-                    decksProcessed: 0,
-                    additionalDecksFound: 0,
+                    decksProcessed: null,
+                    additionalDecksFound: null,
                     errorMessage: exception.Message,
                     CancellationToken.None).ConfigureAwait(false);
             }
@@ -480,7 +482,6 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                 await _runStore.UpdateProgressAsync(
                     _jobId,
                     decksProcessed,
-                    additionalDecksFound: 0,
                     _cancellationToken).ConfigureAwait(false);
 
                 lock (_gate)

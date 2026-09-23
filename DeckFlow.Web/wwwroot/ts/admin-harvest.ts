@@ -272,7 +272,63 @@
         void loadCommandersGrid(commandersGridContainer, page, { scrollIntoView: true });
       });
 
-      void loadCommandersGrid(commandersGridContainer, 1, { scrollIntoView: false });
+    }
+
+    const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-harvest-tab]'));
+    const panels = Array.from(document.querySelectorAll<HTMLElement>('[data-harvest-panel]'));
+    if (tabs.length === 0) {
+      return;
+    }
+
+    const activateTab = (name: string, focusTab: boolean): void => {
+      for (const tab of tabs) {
+        const isSelected = tab.dataset.harvestTab === name;
+        tab.setAttribute('aria-selected', String(isSelected));
+        tab.setAttribute('tabindex', isSelected ? '0' : '-1');
+        if (isSelected && focusTab) {
+          tab.focus();
+        }
+      }
+
+      for (const panel of panels) {
+        panel.toggleAttribute('hidden', panel.dataset.harvestPanel !== name);
+      }
+
+      if (name === 'commanders' && commandersGridContainer && !commandersGridContainer.hasAttribute('data-loaded')) {
+        commandersGridContainer.dataset.loaded = 'true';
+        void loadCommandersGrid(commandersGridContainer, 1, { scrollIntoView: false });
+      }
+    };
+
+    for (const tab of tabs) {
+      tab.addEventListener('click', () => {
+        activateTab(tab.dataset.harvestTab ?? 'overview', false);
+      });
+
+      tab.addEventListener('keydown', (event) => {
+        const currentIndex = tabs.indexOf(tab);
+        let nextIndex: number;
+        switch (event.key) {
+          case 'ArrowLeft':
+            nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+            break;
+          case 'ArrowRight':
+            nextIndex = (currentIndex + 1) % tabs.length;
+            break;
+          case 'Home':
+            nextIndex = 0;
+            break;
+          case 'End':
+            nextIndex = tabs.length - 1;
+            break;
+          default:
+            return;
+        }
+
+        event.preventDefault();
+        const next = tabs[nextIndex];
+        activateTab(next.dataset.harvestTab ?? 'overview', true);
+      });
     }
   });
 })();

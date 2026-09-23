@@ -1,4 +1,5 @@
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
@@ -35,8 +36,8 @@ public interface ICategoryKnowledgeStore
     /// <param name="durationSeconds">Maximum sweep duration in seconds.</param>
     /// <param name="cancellationToken">Token used to cancel the sweep.</param>
     /// <param name="progress">Optional progress reporter for processed deck counts.</param>
-    /// <returns>The number of decks swept during the run.</returns>
-    Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null);
+    /// <returns>Aggregate results from the completed sweep.</returns>
+    Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null);
     /// <summary>
     /// Returns cached category names for a card.
     /// </summary>
@@ -97,6 +98,10 @@ public interface ICategoryKnowledgeStore
     /// </summary>
     Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default);
     /// <summary>
+    /// Returns the number of queued decks not yet processed and not skipped.
+    /// </summary>
+    Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default);
+    /// <summary>
     /// Returns one page of processed harvested commander aggregates for the admin grid.
     /// </summary>
     /// <param name="page">One-based page number.</param>
@@ -109,10 +114,10 @@ public interface ICategoryKnowledgeStore
     /// </summary>
     Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default);
     /// <summary>
-    /// Returns the current Postgres database size when the store is backed by Postgres.
+    /// Returns the database size in bytes for the configured provider, or null when it cannot be determined.
     /// </summary>
-    /// <returns>The database size in bytes, or null when the active provider is not Postgres.</returns>
-    Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default);
+    /// <returns>The database size in bytes, or null when the size cannot be determined.</returns>
+    Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default);
     /// <summary>
     /// Returns deck-level totals for a card, optionally narrowed to one board.
     /// </summary>

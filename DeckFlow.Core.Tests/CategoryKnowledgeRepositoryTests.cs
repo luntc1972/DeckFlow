@@ -21,6 +21,27 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task AddDeckIdsAsync_ReturnsOnlyNovelIds()
+    {
+        var repository = CreateRepository();
+
+        Assert.Equal(3, await repository.AddDeckIdsAsync(new[] { "one", "two", "three" }));
+        Assert.Equal(0, await repository.AddDeckIdsAsync(new[] { "one", "two", "three" }));
+        Assert.Equal(1, await repository.AddDeckIdsAsync(new[] { "one", "two", "four", "four" }));
+    }
+
+    [Fact]
+    public async Task AddDeckIdsAsync_ProcessedRequeueIsNotNovel()
+    {
+        var repository = CreateRepository();
+
+        await repository.AddDeckIdsAsync(new[] { "processed" });
+        await repository.MarkDecksProcessedAsync(new[] { "processed" });
+
+        Assert.Equal(0, await repository.AddDeckIdsAsync(new[] { "processed" }));
+    }
+
+    [Fact]
     public async Task AddDeckIdsAsync_DoesNotRequeueRecentlyProcessedDeck()
     {
         var repository = CreateRepository();

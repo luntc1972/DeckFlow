@@ -72,7 +72,7 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public async Task Index_DoesNotCallCommanderCountOrPagedQuery()
+    public async Task Index_DoesNotQueryCommanderStoreDirectly()
     {
         var store = NewStore(distinctProcessedCommanderCount: 125);
         var controller = Build(store);
@@ -149,6 +149,110 @@ public sealed class AdminHarvestControllerTests
         Assert.DoesNotContain("data-page=\"2\"", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task HarvestRunLog_ErrorMessage_RendersErrorColumn()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(errorMessage: "upstream failed") });
+
+        Assert.Contains("upstream failed", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_Runs_RendersOneTableWithSixColumnHeadings()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun() });
+
+        Assert.Equal(1, html.Split("<table", StringSplitOptions.None).Length - 1);
+        Assert.Equal(6, html.Split("<th scope=\"col\">", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_EmptyList_RendersNamedEmptyStateWithoutTable()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", Array.Empty<HarvestRunRow>());
+
+        Assert.Contains("id=\"harvest-run-log-heading\"", html, StringComparison.Ordinal);
+        Assert.Contains("No runs recorded yet.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<table", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task HarvestIndex_StatsAvailability_RendersSameRunLogColumns(bool includesStats)
+    {
+        var runs = new[] { CreateHarvestRun() };
+        var model = CreateHarvestViewModel(runs, includesStats);
+
+        var html = await RenderPartialViewAsync("Index", model);
+
+        Assert.Equal(6, html.Split("<th scope=\"col\">", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_ShortError_RendersPlainEncodedText()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(errorMessage: "brief failure") });
+
+        Assert.Contains("brief failure", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin-harvest__run-error", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_LongError_RendersDisclosureWithSummaryAndBody()
+    {
+        var error = new string('x', 81);
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(errorMessage: error) });
+
+        Assert.Contains("admin-harvest__run-error", html, StringComparison.Ordinal);
+        Assert.Contains(new string('x', 80) + "&#x2026;", html, StringComparison.Ordinal);
+        Assert.Contains(error, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_NullError_RendersEmDashWithoutDisclosure()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun() });
+
+        Assert.Contains("&#x2014;", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin-harvest__run-error", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_HtmlError_EncodesSummaryAndBody()
+    {
+        var error = "<tag attr=\"quoted\">" + new string('x', 80);
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(errorMessage: error) });
+
+        Assert.Equal(2, html.Split("&lt;tag attr=&quot;quoted&quot;&gt;", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain(error, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_ImportPanel_RendersProtectedSubmitUrlForm()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), includesStats: false));
+        var importPanel = html[html.IndexOf("id=\"harvest-import-panel\"", StringComparison.Ordinal)..];
+
+        Assert.Contains("<form method=\"post\"", importPanel, StringComparison.Ordinal);
+        Assert.Contains("SubmitUrl", importPanel, StringComparison.Ordinal);
+        Assert.Contains("name=\"__RequestVerificationToken\"", importPanel, StringComparison.Ordinal);
+        Assert.Contains("id=\"url\" type=\"url\" name=\"url\"", importPanel, StringComparison.Ordinal);
+    }
+
+    private static HarvestRunRow CreateHarvestRun(string? errorMessage = null)
+        => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Failed, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), null, null, 900, 2, 0, null, null, errorMessage, null);
+
+    private static AdminHarvestViewModel CreateHarvestViewModel(IReadOnlyList<HarvestRunRow> runs, bool includesStats)
+        => new()
+        {
+            Schedule = new HarvestScheduleSnapshot(null, false, DateTimeOffset.Parse("2026-01-01T00:00:00Z")),
+            RecentRuns = runs,
+            Stats = includesStats
+                ? new HarvestStatsPayload(0, 0, 0, 0, 0, runs, null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false))
+                : null,
+        };
+
     private static FakeCategoryKnowledgeStore NewStore(int distinctProcessedCommanderCount)
         => new()
         {
@@ -224,6 +328,75 @@ public sealed class AdminHarvestControllerTests
         };
     }
 
+    [Fact]
+    public async Task HarvestHealthStrip_RendersValuesAndUnknownDatabaseSize()
+    {
+        var known = new HarvestStatsPayload(1234, 0, 56, 78, 0, Array.Empty<HarvestRunRow>(), 2048, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
+        var unknown = known with { DatabaseSizeBytes = null };
+
+        var knownHtml = await RenderPartialViewAsync("_HarvestHealthStrip", known);
+        var unknownHtml = await RenderPartialViewAsync("_HarvestHealthStrip", unknown);
+
+        Assert.Contains("health-processed-decks", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("1,234", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("health-queued-decks", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("56", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("health-distinct-commanders", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("78", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("health-database-size", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("2 KB", knownHtml, StringComparison.Ordinal);
+        Assert.Contains("&#x2014;", unknownHtml, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(HarvestBacklogReason.AboveFloor, "Backlog exceeds floor", "configured floor 100")]
+    [InlineData(HarvestBacklogReason.Growing, "Backlog growing", "3 consecutive runs")]
+    [InlineData(HarvestBacklogReason.AboveFloorAndGrowing, "Backlog exceeds floor and growing", "grew for 3 consecutive runs")]
+    public async Task HarvestHealthStrip_FlaggedReason_RendersReasonAndThreshold(
+        HarvestBacklogReason reason,
+        string expectedText,
+        string expectedTitle)
+    {
+        var payload = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, null, new HarvestHealthSignals(true, reason, 100, 3, 0, false));
+
+        var html = await RenderPartialViewAsync("_HarvestHealthStrip", payload);
+
+        Assert.Contains("health-backlog-flag", html, StringComparison.Ordinal);
+        Assert.Contains(expectedText, html, StringComparison.Ordinal);
+        Assert.Contains(expectedTitle, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestHealthStrip_NoneReason_DoesNotRenderBacklogBadge()
+    {
+        var payload = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
+
+        var html = await RenderPartialViewAsync("_HarvestHealthStrip", payload);
+
+        Assert.DoesNotContain("health-backlog-flag", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(0, false, 3, "Discovering new decks", false)]
+    [InlineData(2, false, 3, "Zero-discovery streak: 2", false)]
+    [InlineData(3, true, 3, "Zero-discovery streak: 3&#x2B;", true)]
+    [InlineData(2, false, 2, "Zero-discovery streak: 2", true)]
+    public async Task HarvestZeroDiscovery_RendersExpectedStreakState(
+        int streak,
+        bool capped,
+        int threshold,
+        string expectedText,
+        bool expectsWarning)
+    {
+        var signals = new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, threshold, streak, capped);
+
+        var html = await RenderPartialViewAsync("_HarvestZeroDiscovery", signals);
+
+        Assert.Contains("harvest-zero-discovery", html, StringComparison.Ordinal);
+        Assert.Contains(expectedText, html, StringComparison.Ordinal);
+        Assert.Equal(expectsWarning, html.Contains("admin-harvest__health-badge", StringComparison.Ordinal));
+    }
+
     private static async Task<string> RenderPartialViewAsync(string viewName, object model)
     {
         var services = new ServiceCollection();
@@ -241,10 +414,9 @@ public sealed class AdminHarvestControllerTests
             RequestServices = serviceProvider,
         };
 
-        var actionContext = new ActionContext(
-            httpContext,
-            new RouteData(new RouteValueDictionary(new Dictionary<string, object?> { ["controller"] = "AdminHarvest" })),
-            new ActionDescriptor());
+        var routeData = new RouteData(new RouteValueDictionary(new Dictionary<string, object?> { ["controller"] = "AdminHarvest" }));
+        routeData.Routers.Add(new TestRouter());
+        var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
         var viewEngine = serviceProvider.GetRequiredService<IRazorViewEngine>();
         var viewResult = viewEngine.FindView(actionContext, viewName, isMainPage: false);
         Assert.True(viewResult.Success, $"View '{viewName}' was not found. Searched: {string.Join(", ", viewResult.SearchedLocations ?? Array.Empty<string>())}");
@@ -282,6 +454,17 @@ public sealed class AdminHarvestControllerTests
         };
     }
 
+    private sealed class TestRouter : IRouter
+    {
+        public VirtualPathData? GetVirtualPath(VirtualPathContext context)
+        {
+            var action = context.Values["action"]?.ToString();
+            return action is null ? null : new VirtualPathData(this, $"Admin/Harvest/{action}");
+        }
+
+        public Task RouteAsync(RouteContext context) => Task.CompletedTask;
+    }
+
     private sealed class StubArchidektCacheJobService : IArchidektCacheJobService
     {
         public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default)
@@ -303,11 +486,14 @@ public sealed class AdminHarvestControllerTests
         public Task<Guid> InsertQueuedAsync(HarvestRunKind kind, int durationSeconds, string? url, DateTimeOffset now, CancellationToken cancellationToken = default)
             => Task.FromResult(Guid.NewGuid());
 
-        public Task UpdateStateAsync(Guid id, HarvestRunState state, DateTimeOffset? startedUtc, DateTimeOffset? completedUtc, int decksProcessed, int additionalDecksFound, string? errorMessage, CancellationToken cancellationToken = default)
+        public Task UpdateStateAsync(Guid id, HarvestRunState state, DateTimeOffset? startedUtc, DateTimeOffset? completedUtc, int? decksProcessed, int? additionalDecksFound, string? errorMessage, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task UpdateProgressAsync(Guid id, int decksProcessed, int additionalDecksFound, CancellationToken cancellationToken = default)
+        public Task UpdateProgressAsync(Guid id, int decksProcessed, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
+
+        public Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
 
         public Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<HarvestRunRow?>(null);
@@ -316,6 +502,9 @@ public sealed class AdminHarvestControllerTests
             => Task.FromResult<HarvestRunRow?>(null);
 
         public Task<IReadOnlyList<HarvestRunRow>> GetRecentAsync(int n, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<HarvestRunRow>>(Array.Empty<HarvestRunRow>());
+
+        public Task<IReadOnlyList<HarvestRunRow>> GetRecentHealthSignalRunsAsync(int n, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<HarvestRunRow>>(Array.Empty<HarvestRunRow>());
 
         public Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
@@ -355,10 +544,13 @@ public sealed class AdminHarvestControllerTests
                 0,
                 0,
                 0,
+                0,
+                0,
                 Array.Empty<HarvestRunRow>(),
                 null,
                 null,
-                null));
+                null,
+                new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false)));
 
         public void Invalidate()
         {
