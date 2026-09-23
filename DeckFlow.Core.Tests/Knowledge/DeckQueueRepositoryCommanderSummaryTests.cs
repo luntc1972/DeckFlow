@@ -154,28 +154,25 @@ public sealed class DeckQueueRepositoryCommanderSummaryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetFilteredProcessedCommanderRowsAsync_SortNameDescending_ReversesKeyedRows()
-    {
-        var (repository, databasePath) = await CreateRepositoryAsync();
-        await SeedCommanderRowsAsync(repository, databasePath, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Zada", 1, null));
-
-        var ascending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "asc"));
-        var descending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "desc"));
-
-        Assert.Equal(ascending.Select(row => row.CommanderName).Reverse(), descending.Select(row => row.CommanderName));
-    }
-
-    [Fact]
-    public async Task GetFilteredProcessedCommanderRowsAsync_SortName_NullKeyStaysLast()
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortNameAscending_ReturnsExactSequence()
     {
         var (repository, databasePath) = await CreateRepositoryAsync();
         await SeedCommanderRowsAsync(repository, databasePath, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Zada", 1, null), ("\u0301", 1, null));
 
         var ascending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "asc"));
+
+        Assert.Equal(new[] { "Atraxa", "Éowyn", "Krenko", "Zada", "\u0301" }, ascending.Select(row => row.CommanderName));
+    }
+
+    [Fact]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortNameDescending_ReturnsExactSequence()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await SeedCommanderRowsAsync(repository, databasePath, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Zada", 1, null), ("\u0301", 1, null));
+
         var descending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "desc"));
 
-        Assert.Equal("\u0301", ascending[^1].CommanderName);
-        Assert.Equal("\u0301", descending[^1].CommanderName);
+        Assert.Equal(new[] { "Zada", "Krenko", "Éowyn", "Atraxa", "\u0301" }, descending.Select(row => row.CommanderName));
     }
 
     private static async Task SeedCommanderRowsAsync(DeckQueueRepository repository, string databasePath, params (string Name, int Count, string? LastProcessedUtc)[] rows)

@@ -17,6 +17,43 @@ public sealed class CommanderSearchPostgresTests : IClassFixture<PostgresContain
         _fixture = fixture;
     }
 
+    [PostgresFact]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortDefault_ReturnsDeckCountDescendingWithNullLast()
+    {
+        var connectionInfo = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, await _fixture.GetConnectionStringOrSkipAsync());
+        var repository = new CategoryKnowledgeRepository(connectionInfo);
+        await SeedRowsAsync(connectionInfo, ("Alpha", 2, "2026-01-01T00:00:00Z"), ("Beta", 2, null), ("Gamma", 2, "2026-01-03T00:00:00Z"));
+
+        var rows = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.Default);
+
+        Assert.Equal(new[] { "Gamma", "Alpha", "Beta" }, rows.Select(row => row.CommanderName));
+    }
+
+    [PostgresFact]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortName_ReturnsExactAscendingAndDescendingSequences()
+    {
+        var connectionInfo = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, await _fixture.GetConnectionStringOrSkipAsync());
+        var repository = new CategoryKnowledgeRepository(connectionInfo);
+        await SeedRowsAsync(connectionInfo, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Zada", 1, null), ("\u0301", 1, null));
+
+        var ascending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "asc"));
+        var descending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "desc"));
+
+        Assert.Equal(new[] { "Atraxa", "Éowyn", "Krenko", "Zada", "\u0301" }, ascending.Select(row => row.CommanderName));
+        Assert.Equal(new[] { "Zada", "Krenko", "Éowyn", "Atraxa", "\u0301" }, descending.Select(row => row.CommanderName));
+    }
+
+    private static async Task SeedRowsAsync(RelationalDatabaseConnection connectionInfo, params (string Name, int Count, string? LastProcessed)[] rows)
+    {
+        await using var connection = connectionInfo.CreateConnection();
+        await connection.OpenAsync();
+        await connection.ExecuteAsync("DELETE FROM processed_commander_summary;");
+        foreach (var row in rows)
+        {
+            await connection.ExecuteAsync("INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc, commander_name_search_key) VALUES (@Name, @Count, @LastProcessed, @Key);", new { row.Name, row.Count, LastProcessed = row.LastProcessed, Key = CommanderSearchKey.Normalize(row.Name) });
+        }
+    }
+
     [PostgresTheory]
     [InlineData("deck_count", "desc")]
     [InlineData("deck_count", "asc")]
