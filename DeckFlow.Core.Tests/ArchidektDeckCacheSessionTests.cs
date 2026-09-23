@@ -164,7 +164,7 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
             repository,
             new UnexpectedFailureDeckImporter(),
             new FakeRecentDecksImporter(),
-            idlePollDelay: TimeSpan.FromMilliseconds(1)).RunAsync(TimeSpan.FromMilliseconds(30));
+            idlePollDelay: TimeSpan.FromMilliseconds(1)).RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 5);
 
         Assert.True(result.DecksSkipped >= 1);
     }
@@ -185,6 +185,25 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         Assert.True(await IsDeckSkippedAsync("unexpected-1"));
         Assert.True(await IsDeckSkippedAsync("unexpected-2"));
         Assert.False(await IsDeckSkippedAsync("unexpected-3"));
+    }
+
+    [Fact]
+    public async Task RunAsync_NonConsecutiveUnexpectedExceptions_SkipsAllUnexpectedDecks()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(new[] { "unexpected-1", "success-1", "unexpected-2", "success-2", "unexpected-3" });
+
+        var result = await new ArchidektDeckCacheSession(
+            repository,
+            new SelectiveFailureDeckImporter(),
+            new FakeRecentDecksImporter(),
+            idlePollDelay: TimeSpan.FromMilliseconds(1)).RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 5);
+
+        Assert.Equal(3, result.DecksSkipped);
+        Assert.True(await IsDeckSkippedAsync("unexpected-1"));
+        Assert.True(await IsDeckSkippedAsync("unexpected-2"));
+        Assert.True(await IsDeckSkippedAsync("unexpected-3"));
+        Assert.Equal(2, result.DecksProcessed);
     }
 
     [Fact]
@@ -342,6 +361,17 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
 
         public Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => throw new Exception("Simulated unexpected deck failure.");
+    }
+
+    private sealed class SelectiveFailureDeckImporter : IArchidektDeckImporter
+    {
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => urlOrDeckId.StartsWith("unexpected", StringComparison.Ordinal)
+                ? throw new Exception("unexpected")
+                : Task.FromResult(new List<DeckEntry>());
+
+        public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => new(await ImportAsync(urlOrDeckId, cancellationToken), null);
     }
 
     /// <summary>
