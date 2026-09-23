@@ -312,6 +312,80 @@ public sealed class AdminHarvestControllerTests
                 : null,
         };
 
+    [Fact]
+    public void Commanders_Sort_NextDirectionUsesAscendingForInactiveColumn()
+        => Assert.Equal("asc", CommanderGridQuery.Default.NextDirectionToken(CommanderSortColumn.Name));
+
+    [Theory]
+    [InlineData(true, "asc")]
+    [InlineData(false, "desc")]
+    public void Commanders_Sort_NextDirectionReversesActiveColumn(bool descending, string expected)
+    {
+        var query = CommanderGridQuery.FromRequest(null, "name", descending ? "desc" : "asc");
+        Assert.Equal(expected, query.NextDirectionToken(CommanderSortColumn.Name));
+    }
+
+    [Fact]
+    public void Commanders_Sort_IsActiveMatchesSelectedColumn()
+    {
+        var query = CommanderGridQuery.FromRequest(null, "last_processed", "asc");
+        Assert.True(query.IsActive(CommanderSortColumn.LastProcessed));
+        Assert.False(query.IsActive(CommanderSortColumn.Name));
+    }
+
+    [Fact]
+    public async Task Commanders_Sort_ControllerPassesNameAscendingQuery()
+    {
+        var store = NewStore(3);
+        var result = await Build(store, crossOrigin: false).Commanders(sortBy: "name", sortDir: "asc");
+        Assert.IsType<PartialViewResult>(result);
+        Assert.Equal("name", store.LastCommanderGridQuery!.SortByToken);
+        Assert.Equal("asc", store.LastCommanderGridQuery.SortDirToken);
+    }
+
+    [Fact]
+    public async Task Commanders_Sort_ControllerPassesLastProcessedDescendingQuery()
+    {
+        var store = NewStore(3);
+        await Build(store, crossOrigin: false).Commanders(sortBy: "last_processed", sortDir: "desc");
+        Assert.Equal("last_processed", store.LastCommanderGridQuery!.SortByToken);
+    }
+
+    [Fact]
+    public async Task CommandersGrid_Sort_DefaultRendersActiveDeckCountAndAriaSort()
+    {
+        var html = await RenderPartialViewAsync("_CommandersGrid", CreateSortGridModel(CommanderGridQuery.Default));
+        Assert.Contains("data-sort-column=\"deck_count\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-sort=\"descending\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommandersGrid_Sort_NameAscendingRendersAriaSortAndNextDirection()
+    {
+        var html = await RenderPartialViewAsync("_CommandersGrid", CreateSortGridModel(CommanderGridQuery.FromRequest("Te", "name", "asc")));
+        Assert.Contains("data-sort-next-dir=\"desc\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-sort=\"ascending\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommandersGrid_Sort_PaginationPreservesQueryState()
+    {
+        var html = await RenderPartialViewAsync("_CommandersGrid", CreateSortGridModel(CommanderGridQuery.FromRequest("Te", "last_processed", "desc")));
+        Assert.Contains("data-search=\"Te\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-sort-by=\"last_processed\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-sort-dir=\"desc\"", html, StringComparison.Ordinal);
+    }
+
+    private static CommandersGridViewModel CreateSortGridModel(CommanderGridQuery query)
+        => new()
+        {
+            Query = query,
+            DeckPage = 1,
+            DeckPageSize = 1,
+            DeckTotalCount = 2,
+            HarvestedCommanders = new[] { new HarvestedCommanderRow("Commander One", 1, null) },
+        };
+
     private static FakeCategoryKnowledgeStore NewStore(int distinctProcessedCommanderCount)
         => new()
         {

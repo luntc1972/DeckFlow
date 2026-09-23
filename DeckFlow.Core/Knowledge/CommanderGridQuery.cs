@@ -70,6 +70,17 @@ public sealed record CommanderGridQuery
     /// <summary>Canonical sort-direction token.</summary>
     public string SortDirToken => Descending ? "desc" : "asc";
 
+    /// <summary>Returns whether <paramref name="column"/> is the active sort column.</summary>
+    /// <param name="column">Column whose active state is requested.</param>
+    /// <returns><see langword="true"/> when the column is active.</returns>
+    public bool IsActive(CommanderSortColumn column) => SortBy == column;
+
+    /// <summary>Returns the direction token requested by clicking <paramref name="column"/>.</summary>
+    /// <param name="column">Column whose header was clicked.</param>
+    /// <returns>The <c>asc</c> or <c>desc</c> token for that click.</returns>
+    public string NextDirectionToken(CommanderSortColumn column)
+        => IsActive(column) ? (Descending ? "asc" : "desc") : "asc";
+
     /// <summary>Escaped, normalized SQL LIKE prefix pattern.</summary>
     public string? SqlPrefixPattern
     {
