@@ -6,6 +6,15 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.09.7 — Harvest PostgreSQL Hotfix (2026-09-23)
+
+Fixes scheduled harvest runs failing on PostgreSQL since 2026-09-18:
+- **Harvest runs:** marking a deck processed no longer fails with `42601: syntax error at or near "$1"` when refreshing the processed-commander summary; every harvest run on the live database had been failing at that step.
+- **Card category lookup:** the batch category lookup by card name had the same PostgreSQL defect and is fixed the same way.
+- **Cause:** Dapper binds a list parameter as a single array on PostgreSQL rather than expanding `IN @list`, so those queries now use `= ANY(@list)` on PostgreSQL and keep `IN` on SQLite.
+- **Tests:** new PostgreSQL integration tests cover both paths.
+- **Scope:** no schema, data, or feature-flag changes.
+
 ### 2026.09.6 — Admin Harvest Overview & Tab Split (2026-09-22)
 
 Admin-only redesign of the `/Admin/Harvest` page (Cycle 23, Phase 1 of 6):
