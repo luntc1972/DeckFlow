@@ -326,7 +326,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        return await connection.QuerySingleAsync<HarvestFailureStreak>(new CommandDefinition(
+        var row = await connection.QuerySingleAsync<FailureStreakRow>(new CommandDefinition(
             """
             SELECT COUNT(1) AS ConsecutiveFailures, MAX(completed_utc) AS LastFailureUtc
             FROM harvest_runs
@@ -336,6 +336,9 @@ public sealed class HarvestRunStore : IHarvestRunStore
                    OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded'));
             """,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return new HarvestFailureStreak(
+            checked((int)row.ConsecutiveFailures),
+            ConvertCompletedUtc(row.LastFailureUtc));
     }
 
     /// <inheritdoc />
@@ -359,6 +362,23 @@ public sealed class HarvestRunStore : IHarvestRunStore
         {
             // Best-effort invalidation must never break a successful write path.
         }
+    }
+
+    private static DateTimeOffset? ConvertCompletedUtc(object? value)
+        => value switch
+        {
+            null or DBNull => null,
+            DateTimeOffset completedUtc => completedUtc,
+            DateTime completedUtc => new DateTimeOffset(completedUtc),
+            string completedUtc => DateTimeOffset.Parse(completedUtc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+            _ => throw new InvalidOperationException($"Unsupported completed_utc value type: {value.GetType().FullName}.")
+        };
+
+    private sealed class FailureStreakRow
+    {
+        public long ConsecutiveFailures { get; init; }
+
+        public object? LastFailureUtc { get; init; }
     }
 
     private static HarvestRunRow ToHarvestRunRow(HarvestRunRowData row)

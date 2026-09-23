@@ -128,6 +128,58 @@ public sealed class HarvestRunStoreTests : IDisposable
         Assert.Equal(DateTimeOffset.Parse("2026-06-12T13:00:00.0000000Z", CultureInfo.InvariantCulture), streak.LastFailureUtc);
     }
 
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_NoRuns_ReturnsEmptyStreak()
+    {
+        var store = new HarvestRunStore(_dbPath);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(0, streak.ConsecutiveFailures);
+        Assert.Null(streak.LastFailureUtc);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_OnlySuccesses_ReturnsEmptyStreak()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(0, streak.ConsecutiveFailures);
+        Assert.Null(streak.LastFailureUtc);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_FailuresBeforeSuccess_AreNotCounted()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T10:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T11:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(0, streak.ConsecutiveFailures);
+        Assert.Null(streak.LastFailureUtc);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_NoSuccess_ReturnsAllFailures()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T10:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T11:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(2, streak.ConsecutiveFailures);
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T11:00:00.0000000Z", CultureInfo.InvariantCulture), streak.LastFailureUtc);
+    }
+
     private async Task SeedHealthRunAsync(string kind, string state, string completedUtc, int? decksEnqueued, int? decksDrained)
     {
         await using var connection = new SqliteConnection($"Data Source={_dbPath}");
