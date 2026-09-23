@@ -170,6 +170,24 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_ThreeConsecutiveUnexpectedExceptions_ThrowsAndLeavesThirdDeckPending()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(new[] { "unexpected-1", "unexpected-2", "unexpected-3" });
+        var session = new ArchidektDeckCacheSession(
+            repository,
+            new UnexpectedFailureDeckImporter(),
+            new FakeRecentDecksImporter(),
+            idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        await Assert.ThrowsAsync<Exception>(() => session.RunAsync(TimeSpan.FromSeconds(1), fetchBatchSize: 3));
+
+        Assert.True(await IsDeckSkippedAsync("unexpected-1"));
+        Assert.True(await IsDeckSkippedAsync("unexpected-2"));
+        Assert.False(await IsDeckSkippedAsync("unexpected-3"));
+    }
+
+    [Fact]
     public async Task RunAsync_ImporterWithoutMetadataSupport_SkipsDeck()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -228,6 +246,16 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         await using var reader = await command.ExecuteReaderAsync();
         Assert.True(await reader.ReadAsync());
         return new DeckQueueRow(reader.IsDBNull(0) ? null : reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetInt32(1), reader.IsDBNull(2) ? null : reader.GetInt32(2), reader.IsDBNull(3) ? null : reader.GetBoolean(3), reader.IsDBNull(4) ? null : DateTimeOffset.Parse(reader.GetString(4)), reader.IsDBNull(5) ? null : DateTimeOffset.Parse(reader.GetString(5)), reader.IsDBNull(6) ? null : DateTimeOffset.Parse(reader.GetString(6)));
+    }
+
+    private async Task<bool> IsDeckSkippedAsync(string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT skipped FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        return Convert.ToBoolean(await command.ExecuteScalarAsync());
     }
 
     private sealed record DeckQueueRow(string? ContentHash, int? EdhBracket, int? DeckFormat, bool? Theorycrafted, DateTimeOffset? CreatedUtc, DateTimeOffset? UpdatedUtc, DateTimeOffset? CapturedUtc);
