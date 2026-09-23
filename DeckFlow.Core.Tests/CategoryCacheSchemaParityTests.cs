@@ -540,6 +540,51 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
     }
 
     [Fact]
+    public async Task EnsureSchema_OnLegacyCommanderSummary_AddsAndBackfillsSearchKey()
+    {
+        await using (var connection = await OpenConnectionAsync())
+        {
+            await ExecuteNonQueryAsync(connection, "CREATE TABLE processed_commander_summary (commander_name TEXT NOT NULL PRIMARY KEY, deck_count INTEGER NOT NULL, last_processed_utc TEXT NULL); INSERT INTO processed_commander_summary VALUES ('Éowyn, Lady of Rohan', 1, NULL); INSERT INTO processed_commander_summary VALUES ('Krenko, Mob Boss', 1, NULL);");
+        }
+
+        var repository = CreateRepository();
+        await repository.EnsureSchemaAsync();
+        await repository.EnsureSchemaAsync();
+        await using var migrated = await OpenConnectionAsync();
+
+        Assert.Equal(1, await QuerySingleInt64Async(migrated, "SELECT COUNT(1) FROM pragma_table_info('processed_commander_summary') WHERE name = 'commander_name_search_key';"));
+        Assert.Equal(2, await QuerySingleInt64Async(migrated, "SELECT COUNT(1) FROM processed_commander_summary WHERE commander_name_search_key IS NOT NULL;"));
+    }
+
+    [Fact]
+    public async Task EnsureSchema_OnLegacyCommanderSummary_BackfillsAccentedKey()
+    {
+        await using (var connection = await OpenConnectionAsync())
+        {
+            await ExecuteNonQueryAsync(connection, "CREATE TABLE processed_commander_summary (commander_name TEXT NOT NULL PRIMARY KEY, deck_count INTEGER NOT NULL, last_processed_utc TEXT NULL); INSERT INTO processed_commander_summary VALUES ('Éowyn, Lady of Rohan', 1, NULL);");
+        }
+
+        await CreateRepository().EnsureSchemaAsync();
+        await using var migrated = await OpenConnectionAsync();
+        Assert.Equal("eowyn, lady of rohan", await QuerySingleStringAsync(migrated, "SELECT commander_name_search_key FROM processed_commander_summary;"));
+    }
+
+    [Fact]
+    public async Task EnsureSchema_OnLegacyCommanderSummary_HealsNullSearchKey()
+    {
+        var repository = CreateRepository();
+        await repository.EnsureSchemaAsync();
+        await using (var connection = await OpenConnectionAsync())
+        {
+            await ExecuteNonQueryAsync(connection, "INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc, commander_name_search_key) VALUES ('Éomer, Marshal of Rohan', 1, NULL, NULL);");
+        }
+
+        await repository.EnsureSchemaAsync();
+        await using var migrated = await OpenConnectionAsync();
+        Assert.Equal("eomer, marshal of rohan", await QuerySingleStringAsync(migrated, "SELECT commander_name_search_key FROM processed_commander_summary WHERE commander_name = 'Éomer, Marshal of Rohan';"));
+    }
+
+    [Fact]
     public async Task EnsureSchema_ConcurrentCallsOnLegacyDeckQueue_DoNotThrow()
     {
         for (var databaseNumber = 0; databaseNumber < 12; databaseNumber++)
@@ -620,6 +665,13 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
         command.CommandText = commandText;
         var result = await command.ExecuteScalarAsync();
         return Convert.ToInt64(result);
+    }
+
+    private static async Task<string?> QuerySingleStringAsync(SqliteConnection connection, string commandText)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        return await command.ExecuteScalarAsync() as string;
     }
 
     public void Dispose()

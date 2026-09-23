@@ -113,12 +113,24 @@
     }
   };
 
+  const commandersGridState = { search: '', sortBy: 'deck_count', sortDir: 'desc' };
+
   const fetchCommandersGrid = async (page: number): Promise<string | null> => {
     const abortController = new AbortController();
     const timeoutId = window.setTimeout(() => abortController.abort(), COMMANDERS_FETCH_TIMEOUT_MS);
 
     try {
-      const response = await fetch(`/Admin/Harvest/commanders?page=${page}`, {
+      const parameters = new URLSearchParams({ page: page.toString() });
+      if (commandersGridState.search !== '') {
+        parameters.set('search', commandersGridState.search);
+      }
+      if (commandersGridState.sortBy !== 'deck_count') {
+        parameters.set('sortBy', commandersGridState.sortBy);
+      }
+      if (commandersGridState.sortDir !== 'desc') {
+        parameters.set('sortDir', commandersGridState.sortDir);
+      }
+      const response = await fetch(`/Admin/Harvest/commanders?${parameters.toString()}`, {
         credentials: 'same-origin',
         headers: { Accept: 'text/html' },
         signal: abortController.signal

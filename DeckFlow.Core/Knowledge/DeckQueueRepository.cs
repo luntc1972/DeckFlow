@@ -101,6 +101,52 @@ internal sealed class DeckQueueRepository
         return checked((int)result);
     }
 
+    internal async Task<IReadOnlyList<(string CommanderName, int DeckCount, string? LastProcessedUtc)>> GetFilteredProcessedCommanderRowsAsync(
+        int page,
+        int pageSize,
+        CommanderGridQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Max(pageSize, 1);
+        var offset = ((long)page - 1) * pageSize;
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var prefix = query.SqlPrefixPattern;
+        var sql = prefix is null
+            ? """
+            SELECT commander_name, deck_count, last_processed_utc
+            FROM processed_commander_summary
+            ORDER BY deck_count DESC, last_processed_utc DESC, commander_name ASC
+            LIMIT @limit OFFSET @offset;
+            """
+            : """
+            SELECT commander_name, deck_count, last_processed_utc
+            FROM processed_commander_summary
+            WHERE commander_name_search_key LIKE @prefix ESCAPE '\'
+            ORDER BY deck_count DESC, last_processed_utc DESC, commander_name ASC
+            LIMIT @limit OFFSET @offset;
+            """;
+        var rows = await connection.QueryAsync<ProcessedCommanderAggregateRow>(new CommandDefinition(
+            sql,
+            new { limit = pageSize, offset, prefix },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Select(row => (row.CommanderName, checked((int)row.DeckCount), row.LastProcessedUtc)).ToList();
+    }
+
+    internal async Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var prefix = query.SqlPrefixPattern;
+        var sql = prefix is null
+            ? "SELECT COUNT(1) FROM processed_commander_summary;"
+            : "SELECT COUNT(1) FROM processed_commander_summary WHERE commander_name_search_key LIKE @prefix ESCAPE '\\';";
+        return checked((int)await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, new { prefix }, cancellationToken: cancellationToken)).ConfigureAwait(false));
+    }
+
     /// <summary>Inserts new deck IDs into the queue for processing.</summary>
     /// <param name="deckIds">Deck IDs to enqueue.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -566,6 +612,20 @@ internal sealed class DeckQueueRepository
 
     private DbConnection CreateConnection() => _connectionInfo.CreateConnection();
 
+    private static string ToAsciiLowerInvariant(string value)
+    {
+        var characters = value.ToCharArray();
+        for (var index = 0; index < characters.Length; index++)
+        {
+            if (characters[index] is >= 'A' and <= 'Z')
+            {
+                characters[index] = (char)(characters[index] + ('a' - 'A'));
+            }
+        }
+
+        return new string(characters);
+    }
+
     private static async Task RefreshCommanderSummaryAsync(
         DbConnection connection,
         DbTransaction? transaction,
@@ -574,7 +634,8 @@ internal sealed class DeckQueueRepository
     {
         var normalizedNames = commanderNames
             .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name!.ToLowerInvariant())
+            // Why: SQLite LOWER folds ASCII only, while PostgreSQL LOWER follows Unicode case rules.
+            .SelectMany(name => new[] { name!.ToLowerInvariant(), ToAsciiLowerInvariant(name) })
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
@@ -588,10 +649,9 @@ internal sealed class DeckQueueRepository
             new { normalizedNames },
             transaction: transaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        await connection.ExecuteAsync(new CommandDefinition(
+        var rows = await connection.QueryAsync<ProcessedCommanderAggregateRow>(new CommandDefinition(
             """
-            INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc)
-            SELECT MAX(commander_name), COUNT(1), MAX(last_checked_utc)
+            SELECT MAX(commander_name) AS commander_name, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc
             FROM deck_queue
             WHERE processed = 1 AND commander_name IS NOT NULL AND LOWER(commander_name) IN @normalizedNames
             GROUP BY LOWER(commander_name);
@@ -599,6 +659,27 @@ internal sealed class DeckQueueRepository
             new { normalizedNames },
             transaction: transaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
+        foreach (var row in rows)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc, commander_name_search_key)
+                VALUES (@commanderName, @deckCount, @lastProcessedUtc, @searchKey)
+                ON CONFLICT (commander_name) DO UPDATE SET
+                    deck_count = excluded.deck_count,
+                    last_processed_utc = excluded.last_processed_utc,
+                    commander_name_search_key = excluded.commander_name_search_key;
+                """,
+                new
+                {
+                    commanderName = row.CommanderName,
+                    deckCount = row.DeckCount,
+                    lastProcessedUtc = row.LastProcessedUtc,
+                    searchKey = CommanderSearchKey.Normalize(row.CommanderName)
+                },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
     }
 
     private sealed class ProcessedCommanderAggregateRow

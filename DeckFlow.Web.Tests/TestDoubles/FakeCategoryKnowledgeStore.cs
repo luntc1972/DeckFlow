@@ -57,6 +57,10 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int LastPagedCommanderPageSize { get; private set; }
 
+    public CommanderGridQuery? LastCommanderGridQuery { get; private set; }
+
+    public int? FilteredCommanderCount { get; set; }
+
     public void SetProcessedDeckCounts(params int[] counts)
     {
         _processedDeckCounts.Clear();
@@ -172,10 +176,24 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(PagedCommandersResult);
     }
 
+    public Task<IReadOnlyList<HarvestedCommanderRow>> GetFilteredProcessedCommandersAsync(int page, int pageSize, CommanderGridQuery query, CancellationToken cancellationToken = default)
+    {
+        LastPagedCommanderPage = page;
+        LastPagedCommanderPageSize = pageSize;
+        LastCommanderGridQuery = query;
+        return Task.FromResult(PagedCommandersResult);
+    }
+
     public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
     {
         GetDistinctProcessedCommanderCountCalls++;
         return Task.FromResult(DistinctProcessedCommanderCount);
+    }
+
+    public Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default)
+    {
+        LastCommanderGridQuery = query;
+        return Task.FromResult(FilteredCommanderCount ?? DistinctProcessedCommanderCount);
     }
 
     public Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)

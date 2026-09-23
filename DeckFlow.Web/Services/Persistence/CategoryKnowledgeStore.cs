@@ -218,6 +218,33 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<HarvestedCommanderRow>> GetFilteredProcessedCommandersAsync(int page, int pageSize, CommanderGridQuery query, CancellationToken cancellationToken = default)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Max(pageSize, 1);
+        var cacheKey = $"category-knowledge:filtered-commanders:rows:{page}:{pageSize}:{query.CacheToken}";
+        return await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
+            await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+            var rows = await _repository.GetFilteredProcessedCommanderRowsAsync(page, pageSize, query, cancellationToken).ConfigureAwait(false);
+            return (IReadOnlyList<HarvestedCommanderRow>)rows.Select(row => new HarvestedCommanderRow(row.CommanderName, row.DeckCount, row.LastProcessedUtc)).ToList();
+        }).ConfigureAwait(false) ?? Array.Empty<HarvestedCommanderRow>();
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default)
+    {
+        var cacheKey = $"category-knowledge:filtered-commanders:count:{query.CacheToken}";
+        return await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
+            await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+            return await _repository.GetFilteredProcessedCommanderCountAsync(query, cancellationToken).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
     public async Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);

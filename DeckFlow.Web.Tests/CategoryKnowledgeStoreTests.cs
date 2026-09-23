@@ -1,4 +1,5 @@
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.AspNetCore.Hosting;
@@ -258,6 +259,36 @@ public sealed class CategoryKnowledgeStoreTests
             Assert.Equal(1, await store.GetDistinctProcessedCommanderCountAsync());
             Assert.Single(initialRows);
             Assert.Equal(1, initialCount);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+        }
+    }
+
+    [Theory]
+    [InlineData("commander o", 1)]
+    [InlineData("commander t", 1)]
+    [InlineData("other", 1)]
+    [InlineData("commander", 2)]
+    [InlineData("*", 0)]
+    [InlineData(null, 3)]
+    public async Task FilteredCommanderGrid_ReturnsExpectedRows(string? search, int expectedCount)
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+            await store.MarkUrlDeckProcessedAsync("deck-001", "Commander One");
+            await store.MarkUrlDeckProcessedAsync("deck-002", "Commander Two");
+            await store.MarkUrlDeckProcessedAsync("deck-003", "Other Leader");
+
+            var query = CommanderGridQuery.FromRequest(search, null, null);
+            Assert.Equal(expectedCount, (await store.GetFilteredProcessedCommandersAsync(1, 20, query)).Count);
+            Assert.Equal(expectedCount, await store.GetFilteredProcessedCommanderCountAsync(query));
         }
         finally
         {

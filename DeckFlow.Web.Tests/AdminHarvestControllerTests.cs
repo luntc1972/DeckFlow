@@ -1,4 +1,5 @@
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Controllers.Admin;
 using DeckFlow.Web.Models.Admin;
@@ -69,6 +70,64 @@ public sealed class AdminHarvestControllerTests
         Assert.Equal(model.DeckTotalPages, store.LastPagedCommanderPage);
         Assert.Equal(AdminHarvestViewModel.DefaultDeckPageSize, store.LastPagedCommanderPageSize);
         Assert.NotEqual(999999, store.LastPagedCommanderPage);
+    }
+
+    [Fact]
+    public async Task Commanders_Search_PassesNormalizedSearchTermToStore()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 3);
+        var controller = Build(store, crossOrigin: false);
+
+        await controller.Commanders(page: 1, search: "tef");
+
+        Assert.Equal("tef", store.LastCommanderGridQuery?.SearchTerm);
+    }
+
+    [Fact]
+    public async Task Commanders_Search_BlankTermPassesNullToStore()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 3);
+        var controller = Build(store, crossOrigin: false);
+
+        await controller.Commanders(page: 1, search: "   ");
+
+        Assert.Null(store.LastCommanderGridQuery?.SearchTerm);
+    }
+
+    [Fact]
+    public async Task Commanders_Search_TruncatesTermBeforePassingToStore()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 3);
+        var controller = Build(store, crossOrigin: false);
+
+        await controller.Commanders(page: 1, search: new string('a', 101));
+
+        Assert.Equal(100, store.LastCommanderGridQuery?.SearchTerm?.Length);
+    }
+
+    [Fact]
+    public async Task Commanders_Search_ClampsPageUsingFilteredCount()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 500);
+        store.FilteredCommanderCount = 3;
+        var controller = Build(store, crossOrigin: false);
+
+        var result = await controller.Commanders(page: 2, search: "tef");
+
+        var view = Assert.IsType<PartialViewResult>(result);
+        Assert.Equal(1, Assert.IsType<CommandersGridViewModel>(view.Model).DeckPage);
+    }
+
+    [Fact]
+    public async Task Commanders_Search_PassesSortToStore()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 3);
+        var controller = Build(store, crossOrigin: false);
+
+        await controller.Commanders(page: 1, search: "tef", sortBy: "name", sortDir: "asc");
+
+        Assert.Equal(CommanderSortColumn.Name, store.LastCommanderGridQuery?.SortBy);
+        Assert.False(store.LastCommanderGridQuery?.Descending);
     }
 
     [Fact]

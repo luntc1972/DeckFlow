@@ -113,11 +113,26 @@ internal sealed class CategoryCacheSchema
             CREATE TABLE IF NOT EXISTS processed_commander_summary (
                 commander_name TEXT NOT NULL PRIMARY KEY,
                 deck_count INTEGER NOT NULL,
-                last_processed_utc TEXT NULL
+                last_processed_utc TEXT NULL,
+                commander_name_search_key TEXT NULL
             );
             CREATE UNIQUE INDEX IF NOT EXISTS ux_processed_commander_summary_lower ON processed_commander_summary(LOWER(commander_name));
             """;
         await summaryTableCommand.ExecuteNonQueryAsync(cancellationToken);
+
+        var summaryColumns = await GetTableColumnsAsync(connection, "processed_commander_summary", cancellationToken);
+        if (!summaryColumns.Contains("commander_name_search_key"))
+        {
+            try
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "ALTER TABLE processed_commander_summary ADD COLUMN commander_name_search_key TEXT NULL;",
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+            catch (DbException exception) when (IsDuplicateColumn(exception))
+            {
+            }
+        }
 
         // Why: one-time backfill of pre-existing processed rows; can legitimately take a while
         // over a large deck_queue, so it gets its own generous timeout and swallows failures
@@ -143,6 +158,17 @@ internal sealed class CategoryCacheSchema
             _logger?.LogWarning(
                 exception,
                 "processed_commander_summary one-time backfill failed; table exists but pre-existing commanders are missing until reprocessed.");
+        }
+
+        var missingSearchKeys = await connection.QueryAsync<string>(new CommandDefinition(
+            "SELECT commander_name FROM processed_commander_summary WHERE commander_name_search_key IS NULL;",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        foreach (var commanderName in missingSearchKeys)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "UPDATE processed_commander_summary SET commander_name_search_key = @searchKey WHERE commander_name = @commanderName;",
+                new { commanderName, searchKey = CommanderSearchKey.Normalize(commanderName) },
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
         }
 
         var indexCommand = connection.CreateCommand();

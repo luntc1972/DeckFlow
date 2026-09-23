@@ -143,6 +143,14 @@ public sealed class CategoryKnowledgeRepository
     public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
         => _deckQueue.GetDistinctProcessedCommanderCountAsync(cancellationToken);
 
+    /// <summary>Returns a filtered page of processed commander summaries.</summary>
+    public Task<IReadOnlyList<(string CommanderName, int DeckCount, string? LastProcessedUtc)>> GetFilteredProcessedCommanderRowsAsync(int page, int pageSize, CommanderGridQuery query, CancellationToken cancellationToken = default)
+        => _deckQueue.GetFilteredProcessedCommanderRowsAsync(page, pageSize, query, cancellationToken);
+
+    /// <summary>Returns the number of filtered processed commander summaries.</summary>
+    public Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default)
+        => _deckQueue.GetFilteredProcessedCommanderCountAsync(query, cancellationToken);
+
     /// <summary>
     /// Replaces all observations for a source with the provided rows.
     /// </summary>
