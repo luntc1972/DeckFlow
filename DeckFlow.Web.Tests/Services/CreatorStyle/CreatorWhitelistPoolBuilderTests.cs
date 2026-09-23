@@ -16,6 +16,92 @@ namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 public sealed class CreatorWhitelistPoolBuilderTests
 {
     [Fact]
+    public async Task BuildWithDiagnosticsAsync_SuppressedCreator_ReturnsEmptyWhileControlBuilds()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        suppressionStore.Suppressed.Add("suppressed");
+        var store = new FakeCreatorDeckCacheStore(
+            Deck("suppressed", "deck-1", Mainboard("Arcane Signet")),
+            Deck("control", "deck-2", Mainboard("Sol Ring")));
+        var guard = new FakeCardGroundingGuard();
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, suppressionStore, new FakeCreatorSuppressionGate(suppressionStore));
+
+        CreatorWhitelistPoolBuildResult suppressed = await sut.BuildWithDiagnosticsAsync("suppressed", EmptyDeckContext());
+        CreatorWhitelistPoolBuildResult control = await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext());
+
+        Assert.Empty(suppressed.AcceptedNames);
+        Assert.Equal(["Sol Ring"], control.AcceptedNames);
+    }
+
+    [Fact]
+    public async Task BuildWithDiagnosticsAsync_LinkedSuppressedCreator_ReturnsEmptyWhileUnrelatedControlBuilds()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        suppressionStore.Rows.Add(new CreatorSuppression { Slug = "linked-display", Aliases = [], Reason = "test", RequestedUtc = DateTimeOffset.UtcNow });
+        var resolver = new FakeCreatorIdentityResolver();
+        resolver.Identities["requested-slug"] = new CreatorIdentity("canonical", [], ["linked-display"], []);
+        var store = new FakeCreatorDeckCacheStore(Deck("requested-slug", "deck-1", Mainboard("Arcane Signet")), Deck("control", "deck-2", Mainboard("Sol Ring")));
+        var guard = new FakeCardGroundingGuard();
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, suppressionStore, new CreatorSuppressionGate(resolver, suppressionStore));
+
+        CreatorWhitelistPoolBuildResult suppressed = await sut.BuildWithDiagnosticsAsync("requested-slug", EmptyDeckContext());
+        CreatorWhitelistPoolBuildResult control = await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext());
+
+        Assert.Empty(suppressed.AcceptedNames);
+        Assert.Equal(["Sol Ring"], control.AcceptedNames);
+    }
+
+    [Fact]
+    public async Task BuildWithDiagnosticsAsync_SuppressionRevisionAndInvalidate_EvictCachedPool()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        var store = new FakeCreatorDeckCacheStore(Deck("control", "deck-1", Mainboard("Sol Ring")));
+        var guard = new FakeCardGroundingGuard();
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, suppressionStore);
+
+        CreatorWhitelistPoolBuildResult cached = await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext());
+        suppressionStore.Suppressed.Add("control");
+        suppressionStore.Revision++;
+        CreatorWhitelistPoolBuildResult suppressed = await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext());
+
+        Assert.Equal(["Sol Ring"], cached.AcceptedNames);
+        Assert.Empty(suppressed.AcceptedNames);
+        Assert.Single(guard.ValidatedBatches);
+
+        suppressionStore.Suppressed.Remove("control");
+        suppressionStore.Revision++;
+        await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext());
+        sut.Invalidate("control");
+        await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext());
+
+        Assert.Equal(3, guard.ValidatedBatches.Count);
+        Assert.Equal(3, store.GetByCreatorCallCount);
+    }
+
+    [Fact]
+    public async Task BuildWithDiagnosticsAsync_SuppressionStoreThrows_ThrowsWithoutReturningPool()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        var store = new FakeCreatorDeckCacheStore(Deck("control", "deck-1", Mainboard("Sol Ring")));
+        var guard = new FakeCardGroundingGuard();
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, suppressionStore);
+
+        CreatorWhitelistPoolBuildResult readable = await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext());
+        suppressionStore.ReadException = new InvalidOperationException("suppression store unavailable");
+        CreatorWhitelistPoolBuildResult? unavailable = null;
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            unavailable = await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext()));
+
+        Assert.Equal(["Sol Ring"], readable.AcceptedNames);
+        Assert.Equal("suppression store unavailable", exception.Message);
+        Assert.Null(unavailable);
+    }
+
+    [Fact]
     public async Task BuildAsync_FrequencyRanksByDistinctDeckCount()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
@@ -182,7 +268,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
     }
 
     [Fact]
-    public void ServiceCollection_ValidateOnBuild_ResolvesCreatorWhitelistPoolBuilder()
+    public async Task ServiceCollection_ValidateOnBuild_ResolvesCreatorWhitelistPoolBuilder()
     {
         var tempDirectory = Path.Combine(Path.GetTempPath(), "deckflow-98-03-di", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDirectory);
@@ -195,6 +281,9 @@ public sealed class CreatorWhitelistPoolBuilderTests
             services.AddSingleton<ICreatorDeckCacheStore>(_ =>
                 new CreatorDeckCacheStore(RelationalDatabaseConnection.FromSqlitePath(databasePath)));
             services.AddSingleton<ICardGroundingGuard, FakeCardGroundingGuard>();
+            var suppressionStore = new FakeCreatorSuppressionStore();
+            suppressionStore.Suppressed.Add("suppressed");
+            services.AddSingleton<ICreatorSuppressionStore>(suppressionStore);
             services.AddSingleton<CreatorWhitelistPoolBuilder>();
 
             using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
@@ -203,7 +292,10 @@ public sealed class CreatorWhitelistPoolBuilderTests
                 ValidateScopes = true,
             });
 
-            Assert.NotNull(provider.GetRequiredService<CreatorWhitelistPoolBuilder>());
+            CreatorWhitelistPoolBuilder builder = provider.GetRequiredService<CreatorWhitelistPoolBuilder>();
+            CreatorWhitelistPoolBuildResult result = await builder.BuildWithDiagnosticsAsync("suppressed", EmptyDeckContext());
+
+            Assert.Empty(result.AcceptedNames);
         }
         finally
         {

@@ -64,6 +64,22 @@ public sealed class CreatorStyleProfileStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task GetBySlugAsync_SuppressedCreator_ReturnsNullAndControlRemainsAvailable()
+    {
+        var connection = RelationalDatabaseConnection.FromSqlitePath(_dbPath);
+        var suppressions = new CreatorSuppressionStore(connection);
+        var store = new CreatorStyleProfileStore(connection, suppressionStore: suppressions);
+        await store.UpsertAsync(CreatorStyleProfileTestData.CreateFullProfile("suppressed"));
+        await store.UpsertAsync(CreatorStyleProfileTestData.CreateFullProfile("control"));
+        await suppressions.SuppressAsync("suppressed", [], "test", DateTimeOffset.UtcNow, null);
+
+        Assert.Null(await store.GetBySlugAsync("suppressed"));
+        Assert.NotNull(await store.GetBySlugAsync("control"));
+        Assert.DoesNotContain(await store.GetAllAsync(), profile => profile.Slug == "suppressed");
+        Assert.Contains(await store.GetAllAsync(), profile => profile.Slug == "control");
+    }
+
+    [Fact]
     public async Task GetAllAsync_AfterUpsertingProfiles_ReturnsMatchingSummaries()
     {
         var alpha = CreatorStyleProfileTestData.CreateFullProfile("alpha") with

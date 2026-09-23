@@ -118,6 +118,12 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
     public async Task<CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(slug);
+        if (_suppressionStore is not null
+            && await _suppressionStore.IsSuppressedAsync(slug, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
@@ -149,7 +155,22 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
              ORDER BY updated_utc DESC;
             """,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.AsList();
+        var profiles = rows.AsList();
+        if (_suppressionStore is null)
+        {
+            return profiles;
+        }
+
+        var visibleProfiles = new List<CreatorStyleProfileSummary>(profiles.Count);
+        foreach (CreatorStyleProfileSummary profile in profiles)
+        {
+            if (!await _suppressionStore.IsSuppressedAsync(profile.Slug, cancellationToken).ConfigureAwait(false))
+            {
+                visibleProfiles.Add(profile);
+            }
+        }
+
+        return visibleProfiles;
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)

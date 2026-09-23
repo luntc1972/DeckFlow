@@ -27,6 +27,7 @@ public sealed class AdminCreatorProfileController : Controller
     };
 
     private readonly ICreatorProfileSourceStore _sourceStore;
+    private readonly ICreatorSuppressionGate? _suppressionGate;
     private readonly Func<string, string, CancellationToken, Task<MeasuredStyleBuildResult>> _buildDetailedAsync;
     private readonly Func<DateTimeOffset> _nowUtc;
     private readonly TimeSpan _runTimeout;
@@ -37,16 +38,19 @@ public sealed class AdminCreatorProfileController : Controller
     /// </summary>
     /// <param name="sourceStore">Store persisting the creator profile-source mapping.</param>
     /// <param name="builder">Builder that runs the crawl-plus-measure pipeline.</param>
+    /// <param name="suppressionGate">Gate that determines whether a creator is suppressed.</param>
     /// <param name="logger">Logger.</param>
     public AdminCreatorProfileController(
         ICreatorProfileSourceStore sourceStore,
         MeasuredStyleProfileBuilder builder,
+        ICreatorSuppressionGate suppressionGate,
         ILogger<AdminCreatorProfileController>? logger = null)
         : this(
             sourceStore,
             BindBuildDelegate(builder),
             nowUtc: null,
-            logger)
+            logger: logger,
+            suppressionGate: suppressionGate)
     {
     }
 
@@ -62,16 +66,19 @@ public sealed class AdminCreatorProfileController : Controller
     /// Optional run-timeout override; defaults to the production ten-minute constant. Lets a fact
     /// supply a short deterministic interval instead of waiting out the real timeout.
     /// </param>
+    /// <param name="suppressionGate">Optional gate that determines whether a creator is suppressed.</param>
     internal AdminCreatorProfileController(
         ICreatorProfileSourceStore sourceStore,
         Func<string, string, CancellationToken, Task<MeasuredStyleBuildResult>> buildDetailedAsync,
         Func<DateTimeOffset>? nowUtc = null,
         ILogger<AdminCreatorProfileController>? logger = null,
-        TimeSpan? runTimeout = null)
+        TimeSpan? runTimeout = null,
+        ICreatorSuppressionGate? suppressionGate = null)
     {
         ArgumentNullException.ThrowIfNull(sourceStore);
         ArgumentNullException.ThrowIfNull(buildDetailedAsync);
         _sourceStore = sourceStore;
+        _suppressionGate = suppressionGate;
         _buildDetailedAsync = buildDetailedAsync;
         _nowUtc = nowUtc ?? (() => DateTimeOffset.UtcNow);
         _logger = logger ?? NullLogger<AdminCreatorProfileController>.Instance;
@@ -146,6 +153,14 @@ public sealed class AdminCreatorProfileController : Controller
         if (!ModelState.IsValid)
         {
             return View("Index", BuildViewModel(normalizedInput));
+        }
+
+        if (_suppressionGate is not null
+            && await _suppressionGate.IsSuppressedAsync(normalizedSlug, HttpContext?.RequestAborted ?? CancellationToken.None).ConfigureAwait(false))
+        {
+            return View("Index", BuildViewModel(
+                normalizedInput,
+                errorMessage: "This creator is suppressed and cannot be rebuilt."));
         }
 
         try

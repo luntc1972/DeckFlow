@@ -18,6 +18,114 @@ public sealed class CreatorStylePacketServiceTests
     private const string UpstreamOutageNotice = "Card validation is temporarily unavailable, so this packet uses a reduced card pool. Try again in a few minutes for the full picture.";
 
     [Fact]
+    public async Task BuildAsync_SuppressedCreator_ReturnsUnavailableWithoutReadingPacketInputs()
+    {
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        suppressionStore.Suppressed.Add("suppressed");
+        var packetInputReads = 0;
+        var sut = CreateSut(
+            getProfileAsync: (_, _) =>
+            {
+                packetInputReads++;
+                return Task.FromResult<CreatorStyleProfile?>(CreateProfile("suppressed"));
+            },
+            isSuppressedAsync: suppressionStore.IsSuppressedAsync);
+
+        CreatorStylePacketResult suppressed = await sut.BuildAsync(new CreatorStyleRequest
+        {
+            CreatorSlug = "suppressed",
+            DeckText = "1 Arcane Signet",
+        });
+        CreatorStylePacketResult control = await sut.BuildAsync(new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+        });
+
+        Assert.True(suppressed.ProfileUnavailable);
+        Assert.Equal("No creator style profile is available for the supplied creator slug.", suppressed.Notice);
+        Assert.Empty(suppressed.Exemplars);
+        Assert.Equal(1, packetInputReads);
+        Assert.False(control.ProfileUnavailable);
+    }
+
+    [Fact]
+    public async Task BuildAsync_LinkedSuppressedCreator_ReturnsUnavailableWhileUnrelatedControlBuilds()
+    {
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        suppressionStore.Rows.Add(new CreatorSuppression { Slug = "linked-display", Aliases = [], Reason = "test", RequestedUtc = DateTimeOffset.UtcNow });
+        var resolver = new FakeCreatorIdentityResolver();
+        resolver.Identities["requested-slug"] = new CreatorIdentity("canonical", [], ["linked-display"], []);
+        var packetInputReads = 0;
+        var sut = CreateSut(
+            getProfileAsync: (slug, _) =>
+            {
+                packetInputReads++;
+                return Task.FromResult<CreatorStyleProfile?>(CreateProfile(slug));
+            },
+            isSuppressedAsync: new CreatorSuppressionGate(resolver, suppressionStore).IsSuppressedAsync);
+
+        CreatorStylePacketResult suppressed = await sut.BuildAsync(new CreatorStyleRequest { CreatorSlug = "requested-slug", DeckText = "1 Arcane Signet" });
+        CreatorStylePacketResult control = await sut.BuildAsync(new CreatorStyleRequest { CreatorSlug = "control", DeckText = "1 Arcane Signet" });
+
+        Assert.True(suppressed.ProfileUnavailable);
+        Assert.False(control.ProfileUnavailable);
+        Assert.Equal(1, packetInputReads);
+    }
+
+    [Fact]
+    public async Task BuildAsync_PublicConstructorLinkedSuppressedCreator_ReturnsUnavailableWithoutReadingProfile()
+    {
+        var profileStore = new CountingCreatorStyleProfileStore();
+        ICreatorSuppressionGate gate = CreatorSuppressionGateFixture.LinkedRepresentation("linked", "suppressed");
+        var cache = new ThrowingCreatorDeckCacheStore();
+        var grounding = new ThrowingCardGroundingGuard();
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        var whitelistBuilder = new CreatorWhitelistPoolBuilder(
+            cache,
+            grounding,
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            suppressionStore,
+            gate);
+        var sut = new CreatorStylePacketService(
+            profileStore,
+            new ThrowingSubmittedDeckStatsBuilder(),
+            whitelistBuilder,
+            grounding,
+            cache,
+            gate);
+
+        CreatorStylePacketResult result = await sut.BuildAsync(new CreatorStyleRequest { CreatorSlug = "linked", DeckText = "1 Arcane Signet" });
+
+        Assert.True(result.ProfileUnavailable);
+        Assert.Equal("No creator style profile is available for the supplied creator slug.", result.Notice);
+        Assert.Empty(result.Exemplars);
+        Assert.Equal(0, profileStore.ReadCount);
+    }
+
+    [Fact]
+    public async Task BuildAsync_SuppressionStoreThrows_ThrowsWithoutReturningPacket()
+    {
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        var sut = CreateSut(isSuppressedAsync: suppressionStore.IsSuppressedAsync);
+        var request = new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Arcane Signet",
+        };
+
+        CreatorStylePacketResult readable = await sut.BuildAsync(request);
+        suppressionStore.ReadException = new InvalidOperationException("suppression store unavailable");
+        CreatorStylePacketResult? unavailable = null;
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            unavailable = await sut.BuildAsync(request));
+
+        Assert.False(readable.ProfileUnavailable);
+        Assert.Equal("suppression store unavailable", exception.Message);
+        Assert.Null(unavailable);
+    }
+
+    [Fact]
     public async Task BuildAsync_ProfileExists_ReturnsRubricScoresAndAcceptedCollections()
     {
         var request = new CreatorStyleRequest
@@ -995,7 +1103,8 @@ public sealed class CreatorStylePacketServiceTests
         Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>>? buildWhitelistAsync = null,
         Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>>? getCreatorDecksAsync = null,
         Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult>? scoreRubricFunc = null,
-        Action<IReadOnlyList<FusedTarget>>? onScoreTargets = null)
+        Action<IReadOnlyList<FusedTarget>>? onScoreTargets = null,
+        Func<string, CancellationToken, Task<bool>>? isSuppressedAsync = null)
     {
         CreatorStyleProfile defaultProfile = profile ?? CreateProfile("alpha");
         SubmittedDeckAnalysis defaultAnalysis = analysis ?? CreateAnalysis(
@@ -1029,7 +1138,8 @@ public sealed class CreatorStylePacketServiceTests
             {
                 onScoreTargets?.Invoke(targets);
                 return scoreRubric ?? defaultRubric;
-            }));
+            }),
+            isSuppressedAsync: isSuppressedAsync ?? ((_, _) => Task.FromResult(false)));
     }
 
     private static async Task<string> WithCultureAsync(CultureInfo culture, Func<Task<string>> action)

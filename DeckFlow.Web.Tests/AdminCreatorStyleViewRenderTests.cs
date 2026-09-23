@@ -277,7 +277,7 @@ public sealed class AdminCreatorStyleViewRenderTests
             httpContext.Request.Headers.Origin = "https://attacker.example";
         }
 
-        return new AdminCreatorStyleController(profileStore, packetService, NullLogger<AdminCreatorStyleController>.Instance)
+        return new AdminCreatorStyleController(profileStore, packetService, new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()), NullLogger<AdminCreatorStyleController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
         };

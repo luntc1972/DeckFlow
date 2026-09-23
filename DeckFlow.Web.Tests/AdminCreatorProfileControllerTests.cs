@@ -407,12 +407,127 @@ public sealed class AdminCreatorProfileControllerTests
         Assert.Contains("timed out", model.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Run_SuppressedCreator_ReturnsRefusalWithoutBuildOrUpsert()
+    {
+        var store = new FakeCreatorProfileSourceStore();
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        suppressionStore.Suppressed.Add("suppressed");
+        var calls = new List<string>();
+        var controller = Build(store, (slug, platform, ct) => { calls.Add("build"); return Task.FromResult(NewBuildResult(slug, platform)); }, suppressionStore: suppressionStore);
+
+        var result = await controller.Run(new AdminCreatorProfileInputModel { Slug = "suppressed", Username = "user", Platform = "archidekt" });
+
+        var model = Assert.IsType<AdminCreatorProfileViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("This creator is suppressed and cannot be rebuilt.", model.ErrorMessage);
+        Assert.Empty(calls);
+        Assert.Empty(store.Upserts);
+
+        var control = await controller.Run(new AdminCreatorProfileInputModel { Slug = "control", Username = "user", Platform = "archidekt" });
+        Assert.IsType<ViewResult>(control);
+        Assert.Single(calls);
+        Assert.Single(store.Upserts);
+    }
+
+    [Fact]
+    public async Task Run_LinkedSuppressedCreator_ReturnsRefusalWhileUnrelatedControlBuilds()
+    {
+        var store = new FakeCreatorProfileSourceStore();
+        ICreatorSuppressionGate gate = CreatorSuppressionGateFixture.LinkedRepresentation("requested-slug", "linked-display");
+        var calls = new List<string>();
+        var controller = Build(
+            store,
+            (slug, platform, ct) => { calls.Add(slug); return Task.FromResult(NewBuildResult(slug, platform)); },
+            suppressionGate: gate);
+
+        Assert.True(await gate.IsSuppressedAsync("requested-slug"));
+
+        var suppressed = await controller.Run(new AdminCreatorProfileInputModel { Slug = "requested-slug", Username = "user", Platform = "archidekt" });
+        var model = Assert.IsType<AdminCreatorProfileViewModel>(Assert.IsType<ViewResult>(suppressed).Model);
+        Assert.Equal("This creator is suppressed and cannot be rebuilt.", model.ErrorMessage);
+
+        var control = await controller.Run(new AdminCreatorProfileInputModel { Slug = "control", Username = "user", Platform = "archidekt" });
+        Assert.IsType<ViewResult>(control);
+        Assert.Equal(["control"], calls);
+        Assert.Single(store.Upserts);
+    }
+
+    [Fact]
+    public async Task Run_SuppressedCreator_HidesStoredProfileData()
+    {
+        var existing = new CreatorProfileSource { Slug = "suppressed", Platform = "archidekt", ProfileUsername = "stored-user", ProfileUrl = "https://example.test/private", FolderWeights = new Dictionary<int, double>(), UpdatedUtc = DateTimeOffset.UtcNow };
+        var store = new FakeCreatorProfileSourceStore(existing);
+        var suppressionStore = new FakeCreatorSuppressionStore();
+        suppressionStore.Suppressed.Add("suppressed");
+        var controller = Build(store, suppressionStore: suppressionStore);
+
+        var result = await controller.Run(new AdminCreatorProfileInputModel { Slug = "suppressed", Username = "submitted-user", Platform = "archidekt" });
+
+        var model = Assert.IsType<AdminCreatorProfileViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("This creator is suppressed and cannot be rebuilt.", model.ErrorMessage);
+        Assert.Null(model.Profile);
+        Assert.Null(model.Report);
+        Assert.Equal("submitted-user", model.Username);
+        Assert.Empty(store.Upserts);
+
+        var control = new CreatorProfileSource { Slug = "control", Platform = "archidekt", ProfileUsername = "control-user", ProfileUrl = "https://example.test/control", FolderWeights = new Dictionary<int, double>(), UpdatedUtc = DateTimeOffset.UtcNow };
+        var controlStore = new FakeCreatorProfileSourceStore(control);
+        var controlResult = await Build(controlStore, suppressionStore: new FakeCreatorSuppressionStore()).Run(new AdminCreatorProfileInputModel { Slug = "control", Username = "control-user", Platform = "archidekt" });
+        var controlModel = Assert.IsType<AdminCreatorProfileViewModel>(Assert.IsType<ViewResult>(controlResult).Model);
+        Assert.Equal("control", controlModel.Profile?.Slug);
+        Assert.Equal("archidekt", controlModel.Profile?.Platform);
+    }
+
+    [Fact]
+    public async Task Run_SuppressionReadFailure_PropagatesWithoutBuildOrUpsert()
+    {
+        var readableStore = new FakeCreatorProfileSourceStore();
+        var readableCalls = new List<string>();
+        var readableController = Build(readableStore, (slug, platform, ct) => { readableCalls.Add("build"); return Task.FromResult(NewBuildResult(slug, platform)); }, suppressionStore: new FakeCreatorSuppressionStore());
+        Assert.IsType<ViewResult>(await readableController.Run(new AdminCreatorProfileInputModel { Slug = "control", Username = "user", Platform = "archidekt" }));
+        Assert.Single(readableCalls);
+        Assert.Single(readableStore.Upserts);
+
+        var store = new FakeCreatorProfileSourceStore();
+        var suppressionStore = new FakeCreatorSuppressionStore { ReadException = new InvalidOperationException("suppression unavailable") };
+        var calls = new List<string>();
+        var controller = Build(store, (slug, platform, ct) => { calls.Add("build"); return Task.FromResult(NewBuildResult(slug, platform)); }, suppressionStore: suppressionStore);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => controller.Run(new AdminCreatorProfileInputModel { Slug = "control", Username = "user", Platform = "archidekt" }));
+
+        Assert.Equal("suppression unavailable", exception.Message);
+        Assert.Empty(calls);
+        Assert.Empty(store.Upserts);
+    }
+
+    [Fact]
+    public async Task Run_SuppressionReadFailure_HidesStoredProfileData()
+    {
+        var readableStore = new FakeCreatorProfileSourceStore();
+        var readableController = Build(readableStore, suppressionStore: new FakeCreatorSuppressionStore());
+        Assert.IsType<ViewResult>(await readableController.Run(new AdminCreatorProfileInputModel { Slug = "control", Username = "user", Platform = "archidekt" }));
+        Assert.Single(readableStore.Upserts);
+
+        var stored = new CreatorProfileSource { Slug = "suppressed", Platform = "archidekt", ProfileUsername = "stored-user", ProfileUrl = "https://example.test/private", FolderWeights = new Dictionary<int, double>(), UpdatedUtc = DateTimeOffset.UtcNow };
+        var store = new FakeCreatorProfileSourceStore(stored);
+        var calls = new List<string>();
+        var controller = Build(store, (slug, platform, ct) => { calls.Add("build"); return Task.FromResult(NewBuildResult(slug, platform)); }, suppressionStore: new FakeCreatorSuppressionStore { ReadException = new InvalidOperationException("suppression unavailable") });
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => controller.Run(new AdminCreatorProfileInputModel { Slug = "suppressed", Username = "user", Platform = "archidekt" }));
+
+        Assert.Equal("suppression unavailable", exception.Message);
+        Assert.Empty(calls);
+        Assert.Empty(store.Upserts);
+    }
+
     private static AdminCreatorProfileController Build(
         FakeCreatorProfileSourceStore? store = null,
         Func<string, string, CancellationToken, Task<MeasuredStyleBuildResult>>? buildDetailedAsync = null,
         Func<DateTimeOffset>? nowUtc = null,
         string? origin = "https://deckflow.test",
-        TimeSpan? runTimeout = null)
+        TimeSpan? runTimeout = null,
+        ICreatorSuppressionStore? suppressionStore = null,
+        ICreatorSuppressionGate? suppressionGate = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -427,7 +542,8 @@ public sealed class AdminCreatorProfileControllerTests
             buildDetailedAsync ?? ((slug, platform, ct) => Task.FromResult(NewBuildResult(slug, platform))),
             nowUtc ?? (() => new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero)),
             NullLogger<AdminCreatorProfileController>.Instance,
-            runTimeout)
+            runTimeout,
+            suppressionGate ?? (suppressionStore is null ? null : new FakeCreatorSuppressionGate(suppressionStore)))
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
         };

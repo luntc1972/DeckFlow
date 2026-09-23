@@ -38,20 +38,23 @@ public static class CreatorStyleServiceCollectionExtensions
         services.AddSingleton<ICardNameGrounder, ScryfallCardNameGrounder>();
         services.AddSingleton<ICardGroundingGuard, CardGroundingGuard>();
 
-        services.AddSingleton<ICreatorDeckCacheStore>(_ =>
+        services.AddSingleton<ICreatorDeckCacheStore>(provider =>
             new CreatorDeckCacheStore(
-                DeckFlowDatabaseConnectionFactory.CreateCreatorDeckCacheConnection(environment)));
+                DeckFlowDatabaseConnectionFactory.CreateCreatorDeckCacheConnection(environment),
+                suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>()));
         services.AddSingleton<ICreatorProfileSourceStore>(_ =>
             new CreatorProfileSourceStore(
                 DeckFlowDatabaseConnectionFactory.CreateCreatorDeckCacheConnection(environment)));
         services.AddSingleton(_ =>
             new CategoryKnowledgeRepository(
                 DeckFlowDatabaseConnectionFactory.CreateCategoryKnowledgeConnection(environment)));
-        services.AddSingleton<ICreatorStyleProfileStore>(_ =>
+        services.AddSingleton<ICreatorStyleProfileStore>(provider =>
             // Why: creator-style profiles live in the local-only content-kb DB because production never crawls; it only reads git-shipped seeds.
             new CreatorStyleProfileStore(
-                DeckFlowDatabaseConnectionFactory.CreateLocalContentKbConnection(environment)));
+                DeckFlowDatabaseConnectionFactory.CreateLocalContentKbConnection(environment),
+                suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>()));
 
+        services.AddSingleton<ICreatorSuppressionGate, CreatorSuppressionGate>();
         services.AddSingleton<CreatorWhitelistPoolBuilder>();
         services.AddSingleton<ICreatorStyleSeedLoader, CreatorStyleSeedLoader>();
         services.AddScoped<IArchidektOwnerClient, ArchidektOwnerClient>();

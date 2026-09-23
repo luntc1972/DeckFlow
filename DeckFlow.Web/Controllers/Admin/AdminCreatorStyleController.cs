@@ -60,6 +60,7 @@ public sealed class AdminCreatorStyleController : Controller
         "No creator style profiles are seeded yet. Run the operator pipeline to populate one, then come back and pick a creator here.";
 
     private readonly ICreatorStyleProfileStore _profileStore;
+    private readonly ICreatorSuppressionGate _suppressionGate;
     private readonly ICreatorStylePacketService _packetService;
     private readonly ILogger<AdminCreatorStyleController> _logger;
 
@@ -68,17 +69,21 @@ public sealed class AdminCreatorStyleController : Controller
     /// </summary>
     /// <param name="profileStore">Store backing the creator picker list.</param>
     /// <param name="packetService">Service that builds the creator-style critique packet.</param>
+    /// <param name="suppressionGate">Gate used to suppress creators from admin operations.</param>
     /// <param name="logger">Logger.</param>
     public AdminCreatorStyleController(
         ICreatorStyleProfileStore profileStore,
         ICreatorStylePacketService packetService,
+        ICreatorSuppressionGate suppressionGate,
         ILogger<AdminCreatorStyleController> logger)
     {
         ArgumentNullException.ThrowIfNull(profileStore);
         ArgumentNullException.ThrowIfNull(packetService);
+        ArgumentNullException.ThrowIfNull(suppressionGate);
         ArgumentNullException.ThrowIfNull(logger);
         _profileStore = profileStore;
         _packetService = packetService;
+        _suppressionGate = suppressionGate;
         _logger = logger;
     }
 
@@ -141,6 +146,15 @@ public sealed class AdminCreatorStyleController : Controller
         if (!ModelState.IsValid)
         {
             return View(nameof(Index), BuildViewModel(request, summaries, artifactText: null, notice: null));
+        }
+
+        if (await _suppressionGate.IsSuppressedAsync(request.CreatorSlug, cancellationToken).ConfigureAwait(false))
+        {
+            return View(nameof(Index), BuildViewModel(
+                request,
+                summaries,
+                artifactText: null,
+                notice: "This creator is suppressed and cannot be used for critique."));
         }
 
         CreatorStylePacketResult result;
@@ -208,13 +222,34 @@ public sealed class AdminCreatorStyleController : Controller
     /// </summary>
     private async Task<IReadOnlyList<CreatorStyleProfileSummary>> GetAvailableCreatorsAsync(CancellationToken cancellationToken)
     {
+        IReadOnlyList<CreatorStyleProfileSummary> summaries;
         try
         {
-            return await _profileStore.GetAllAsync(cancellationToken).ConfigureAwait(false);
+            summaries = await _profileStore.GetAllAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (NotSupportedException)
         {
             return Array.Empty<CreatorStyleProfileSummary>();
         }
+
+        return await FilterAvailableCreatorsAsync(summaries, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<CreatorStyleProfileSummary>> FilterAvailableCreatorsAsync(
+        IReadOnlyList<CreatorStyleProfileSummary> summaries,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlySet<string> unsuppressed = await _suppressionGate.GetUnsuppressedAsync(
+            summaries.Select(summary => summary.Slug), cancellationToken).ConfigureAwait(false);
+        var available = new List<CreatorStyleProfileSummary>(summaries.Count);
+        foreach (var summary in summaries)
+        {
+            if (unsuppressed.Contains(summary.Slug))
+            {
+                available.Add(summary);
+            }
+        }
+
+        return available;
     }
 }

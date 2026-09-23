@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge.CardGrounding;
 using DeckFlow.Core.Models;
@@ -34,9 +35,12 @@ public sealed class CreatorWhitelistPoolBuilder
     private const int WhitelistCap = 25; // Why: 25 keeps the whitelist materially useful while bounding grounding latency and packet size even when lift-metric count changes independently.
 
     private readonly ICreatorDeckCacheStore _creatorDeckCacheStore;
+    private readonly ICreatorSuppressionStore? _suppressionStore;
+    private readonly ICreatorSuppressionGate? _suppressionGate;
     private readonly ICardGroundingGuard _cardGroundingGuard;
     private readonly IMemoryCache _cache;
     private readonly ILogger<CreatorWhitelistPoolBuilder> _logger;
+    private readonly ConcurrentDictionary<string, byte> _cacheKeys = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Creates a creator-whitelist pool builder.
@@ -50,15 +54,69 @@ public sealed class CreatorWhitelistPoolBuilder
         ICardGroundingGuard cardGroundingGuard,
         IMemoryCache cache,
         ILogger<CreatorWhitelistPoolBuilder>? logger = null)
+        : this(creatorDeckCacheStore, cardGroundingGuard, cache, suppressionStore: null, logger, isInternal: true)
+    {
+    }
+
+    /// <summary>Creates a creator-whitelist pool builder that honours identity-aware creator suppression.</summary>
+    /// <param name="creatorDeckCacheStore">Creator deck corpus store.</param>
+    /// <param name="cardGroundingGuard">Strict guard used to validate ranked candidates.</param>
+    /// <param name="cache">In-memory cache for raw per-creator candidate pools.</param>
+    /// <param name="suppressionStore">Suppression store whose revision keys the cached pools.</param>
+    /// <param name="suppressionGate">Identity-aware gate that decides whether a creator is suppressed.</param>
+    /// <param name="logger">Optional logger.</param>
+    public CreatorWhitelistPoolBuilder(
+        ICreatorDeckCacheStore creatorDeckCacheStore,
+        ICardGroundingGuard cardGroundingGuard,
+        IMemoryCache cache,
+        ICreatorSuppressionStore suppressionStore,
+        ICreatorSuppressionGate suppressionGate,
+        ILogger<CreatorWhitelistPoolBuilder>? logger = null)
+        : this(creatorDeckCacheStore, cardGroundingGuard, cache, suppressionStore, logger, isInternal: true)
+    {
+        _suppressionGate = suppressionGate ?? throw new ArgumentNullException(nameof(suppressionGate));
+    }
+
+    /// <summary>Creates a creator-whitelist pool builder that honours creator suppression.</summary>
+    public CreatorWhitelistPoolBuilder(
+        ICreatorDeckCacheStore creatorDeckCacheStore,
+        ICardGroundingGuard cardGroundingGuard,
+        IMemoryCache cache,
+        ICreatorSuppressionStore suppressionStore,
+        ILogger<CreatorWhitelistPoolBuilder>? logger = null)
+        : this(creatorDeckCacheStore, cardGroundingGuard, cache, suppressionStore, logger, isInternal: true)
+    {
+    }
+
+    private CreatorWhitelistPoolBuilder(
+        ICreatorDeckCacheStore creatorDeckCacheStore,
+        ICardGroundingGuard cardGroundingGuard,
+        IMemoryCache cache,
+        ICreatorSuppressionStore? suppressionStore,
+        ILogger<CreatorWhitelistPoolBuilder>? logger,
+        bool isInternal)
     {
         ArgumentNullException.ThrowIfNull(creatorDeckCacheStore);
         ArgumentNullException.ThrowIfNull(cardGroundingGuard);
         ArgumentNullException.ThrowIfNull(cache);
 
         _creatorDeckCacheStore = creatorDeckCacheStore;
+        _suppressionStore = suppressionStore;
         _cardGroundingGuard = cardGroundingGuard;
         _cache = cache;
         _logger = logger ?? NullLogger<CreatorWhitelistPoolBuilder>.Instance;
+    }
+
+    /// <summary>Removes this process's cached raw pool for a creator.</summary>
+    public void Invalidate(string creatorSlug)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
+        var cacheKeyPrefix = CacheKeyPrefix + creatorSlug.Trim().ToLowerInvariant() + ":";
+        foreach (string cacheKey in _cacheKeys.Keys.Where(cacheKey => cacheKey.StartsWith(cacheKeyPrefix, StringComparison.Ordinal)))
+        {
+            _cache.Remove(cacheKey);
+            _cacheKeys.TryRemove(cacheKey, out _);
+        }
     }
 
     /// <summary>
@@ -111,7 +169,23 @@ public sealed class CreatorWhitelistPoolBuilder
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var cacheKey = BuildCacheKey(creatorSlug);
+        if (_suppressionGate is not null
+            && await _suppressionGate.IsSuppressedAsync(creatorSlug, cancellationToken).ConfigureAwait(false))
+        {
+            return Array.Empty<string>();
+        }
+
+        if (_suppressionGate is null && _suppressionStore is not null
+            && await _suppressionStore.IsSuppressedAsync(creatorSlug, cancellationToken).ConfigureAwait(false))
+        {
+            return Array.Empty<string>();
+        }
+
+        long revision = _suppressionStore is null
+            ? 0
+            : await _suppressionStore.GetRevisionAsync(cancellationToken).ConfigureAwait(false);
+        var cacheKey = BuildCacheKey(creatorSlug, revision);
+        _cacheKeys.TryAdd(cacheKey, 0);
 
         // Why (WR-15): the factory below runs under CancellationToken.None, not the calling
         // request's token. IMemoryCache.GetOrCreateAsync gives no stampede protection -
@@ -208,8 +282,8 @@ public sealed class CreatorWhitelistPoolBuilder
     private static string SelectPreferredDisplayName(string left, string right)
         => string.Compare(left, right, StringComparison.Ordinal) <= 0 ? left : right;
 
-    private static string BuildCacheKey(string creatorSlug)
-        => CacheKeyPrefix + creatorSlug.Trim().ToLowerInvariant();
+    private static string BuildCacheKey(string creatorSlug, long suppressionRevision)
+        => CacheKeyPrefix + creatorSlug.Trim().ToLowerInvariant() + ":" + suppressionRevision;
 
     private sealed record RawCandidate
     {

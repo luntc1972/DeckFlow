@@ -114,6 +114,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
     private readonly Func<string, CardGroundingDeckContext, CancellationToken, Task<CreatorWhitelistPoolBuildResult>> _buildWhitelistAsync;
     private readonly Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>> _validateAdditionalCardsAsync;
     private readonly Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>> _getCreatorDecksAsync;
+    private readonly Func<string, CancellationToken, Task<bool>> _isSuppressedAsync;
     private readonly Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult> _scoreRubric;
     private readonly ILogger<CreatorStylePacketService> _logger;
 
@@ -126,6 +127,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         CreatorWhitelistPoolBuilder creatorWhitelistPoolBuilder,
         ICardGroundingGuard cardGroundingGuard,
         ICreatorDeckCacheStore creatorDeckCacheStore,
+        ICreatorSuppressionGate creatorSuppressionGate,
         ILogger<CreatorStylePacketService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(creatorStyleProfileStore);
@@ -133,12 +135,14 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         ArgumentNullException.ThrowIfNull(creatorWhitelistPoolBuilder);
         ArgumentNullException.ThrowIfNull(cardGroundingGuard);
         ArgumentNullException.ThrowIfNull(creatorDeckCacheStore);
+        ArgumentNullException.ThrowIfNull(creatorSuppressionGate);
 
         _getProfileAsync = (creatorSlug, cancellationToken) => creatorStyleProfileStore.GetBySlugAsync(creatorSlug, cancellationToken);
         _buildSubmittedDeckAsync = (deckSource, cancellationToken) => submittedDeckStatsBuilder.BuildAsync(deckSource, cancellationToken);
         _buildWhitelistAsync = (creatorSlug, deckContext, cancellationToken) => creatorWhitelistPoolBuilder.BuildWithDiagnosticsAsync(creatorSlug, deckContext, cancellationToken);
         _validateAdditionalCardsAsync = (candidateNames, deckContext, cancellationToken) => cardGroundingGuard.ValidateAllAsync(candidateNames, deckContext, cancellationToken);
         _getCreatorDecksAsync = (creatorSlug, cancellationToken) => creatorDeckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken);
+        _isSuppressedAsync = (creatorSlug, cancellationToken) => creatorSuppressionGate.IsSuppressedAsync(creatorSlug, cancellationToken);
         _scoreRubric = (creatorSlug, targets, stats) => CreatorStyleRubricScorer.Score(creatorSlug, targets, stats);
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
     }
@@ -150,7 +154,8 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>> validateAdditionalCardsAsync,
         Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>> getCreatorDecksAsync,
         Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult> scoreRubric,
-        ILogger<CreatorStylePacketService>? logger = null)
+        ILogger<CreatorStylePacketService>? logger = null,
+        Func<string, CancellationToken, Task<bool>>? isSuppressedAsync = null)
     {
         ArgumentNullException.ThrowIfNull(getProfileAsync);
         ArgumentNullException.ThrowIfNull(buildSubmittedDeckAsync);
@@ -163,6 +168,7 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         _buildWhitelistAsync = buildWhitelistAsync;
         _validateAdditionalCardsAsync = validateAdditionalCardsAsync;
         _getCreatorDecksAsync = getCreatorDecksAsync;
+        _isSuppressedAsync = isSuppressedAsync ?? ((_, _) => Task.FromResult(false));
         _scoreRubric = scoreRubric;
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
     }
@@ -171,6 +177,11 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
     public async Task<CreatorStylePacketResult> BuildAsync(CreatorStyleRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        if (await _isSuppressedAsync(request.CreatorSlug, cancellationToken).ConfigureAwait(false))
+        {
+            return CreateUnavailableResult("No creator style profile is available for the supplied creator slug.");
+        }
 
         CreatorStyleProfile? profile = await _getProfileAsync(request.CreatorSlug, cancellationToken).ConfigureAwait(false);
         if (profile is null)

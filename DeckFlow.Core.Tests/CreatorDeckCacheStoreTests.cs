@@ -1,6 +1,7 @@
 using System.IO;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Storage;
 using Microsoft.Data.Sqlite;
 
 namespace DeckFlow.Core.Tests;
@@ -124,6 +125,22 @@ public sealed class CreatorDeckCacheStoreTests : IDisposable
         var entry = Assert.Single(actual);
         Assert.Equal("creator-a", entry.CreatorSlug);
         Assert.Equal("deck-1", entry.DeckId);
+    }
+
+    [Fact]
+    public async Task GetByCreatorAsync_SuppressedCreator_ReturnsEmptyAndControlRemainsAvailable()
+    {
+        var connection = RelationalDatabaseConnection.FromSqlitePath(_dbPath);
+        var suppressions = new CreatorSuppressionStore(connection);
+        var store = new CreatorDeckCacheStore(connection, suppressionStore: suppressions);
+        var suppressed = CreateEntry("suppressed", "deck-1", "hash-1", null, null, 100, "measured", CachedUtc, CreateEntries());
+        var control = CreateEntry("control", "deck-2", "hash-2", null, null, 100, "measured", CachedUtc, CreateEntries());
+        await store.UpsertAsync(suppressed);
+        await store.UpsertAsync(control);
+        await suppressions.SuppressAsync("suppressed", [], "test", DateTimeOffset.UtcNow, null);
+
+        Assert.Empty(await store.GetByCreatorAsync("suppressed"));
+        Assert.Single(await store.GetByCreatorAsync("control"));
     }
 
     private static List<CreatorDeckCacheEntry> CreateDeckSet(string creatorSlug)

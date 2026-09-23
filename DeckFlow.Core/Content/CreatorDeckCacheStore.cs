@@ -124,6 +124,12 @@ public sealed class CreatorDeckCacheStore : ICreatorDeckCacheStore
     public async Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
+        if (_suppressionStore is not null
+            && await _suppressionStore.IsSuppressedAsync(creatorSlug, cancellationToken).ConfigureAwait(false))
+        {
+            return Array.Empty<CreatorDeckCacheEntry>();
+        }
+
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
