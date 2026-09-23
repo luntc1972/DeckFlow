@@ -46,11 +46,19 @@ public static class ContentKbOrchestratorFactory
         ArgumentNullException.ThrowIfNull(chunker);
 
         var suppressionStore = new CreatorSuppressionStore(connection);
+        var sourceStore = new ContentSourceStore(connection, suppressionStore);
+        ContentSiteIndexStore? indexStore = null;
+        var identityResolver = new Lazy<ICreatorIdentityResolver>(
+            () => new CreatorIdentityResolver(suppressionStore, sourceStore, indexStore!));
+        indexStore = new ContentSiteIndexStore(
+            connection,
+            suppressionStore: suppressionStore,
+            identityResolver: identityResolver);
 
         return new ContentKbOrchestrator(
-            new ContentSourceStore(connection, suppressionStore),
+            sourceStore,
             new ContentVideoStore(connection, suppressionStore),
-            new ContentSiteIndexStore(connection, suppressionStore: suppressionStore),
+            indexStore,
             new BlockedVideoStore(connection),
             new ContentHarvestRunStore(connection),
             new LlmSpendLedger(connection),
