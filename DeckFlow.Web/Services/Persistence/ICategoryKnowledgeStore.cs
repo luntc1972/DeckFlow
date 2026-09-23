@@ -113,6 +113,12 @@ public interface ICategoryKnowledgeStore
     /// Returns the number of distinct commanders with processed decks.
     /// </summary>
     Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default);
+    /// <summary>Returns a filtered page of processed commander summaries.</summary>
+    Task<IReadOnlyList<HarvestedCommanderRow>> GetFilteredProcessedCommandersAsync(int page, int pageSize, CommanderGridQuery query, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Filtered processed commander reads are not supported by this store.");
+    /// <summary>Returns the number of filtered processed commander summaries.</summary>
+    Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Filtered processed commander reads are not supported by this store.");
     /// <summary>
     /// Returns the database size in bytes for the configured provider, or null when it cannot be determined.
     /// </summary>

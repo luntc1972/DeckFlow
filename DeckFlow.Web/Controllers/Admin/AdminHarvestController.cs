@@ -106,9 +106,12 @@ public sealed class AdminHarvestController : Controller
     /// Returns the harvested-commanders partial grid for the requested page.
     /// </summary>
     /// <param name="page">One-based processed-commander page to render.</param>
+    /// <param name="search">Optional commander-name prefix.</param>
+    /// <param name="sortBy">Optional sort-column token.</param>
+    /// <param name="sortDir">Optional sort-direction token.</param>
     /// <param name="cancellationToken">Cancellation token for admin data reads.</param>
     [HttpGet("commanders")]
-    public async Task<IActionResult> Commanders(int page = 1, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Commanders(int page = 1, string? search = null, string? sortBy = null, string? sortDir = null, CancellationToken cancellationToken = default)
     {
         if (!SameOriginRequestValidator.IsValid(Request))
         {
@@ -117,12 +120,13 @@ public sealed class AdminHarvestController : Controller
                 new { Message = "This endpoint only accepts same-origin browser requests." });
         }
 
+        var query = CommanderGridQuery.FromRequest(search, sortBy, sortDir);
         page = Math.Max(page, 1);
         const int pageSize = AdminHarvestViewModel.DefaultDeckPageSize;
-        var deckTotal = await _categoryStore.GetDistinctProcessedCommanderCountAsync(cancellationToken).ConfigureAwait(false);
+        var deckTotal = await _categoryStore.GetFilteredProcessedCommanderCountAsync(query, cancellationToken).ConfigureAwait(false);
         var deckTotalPages = (int)Math.Ceiling((double)Math.Max(deckTotal, 1) / Math.Max(pageSize, 1));
         page = Math.Min(page, deckTotalPages);
-        var pagedCommanders = await _categoryStore.GetPagedProcessedCommandersAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
+        var pagedCommanders = await _categoryStore.GetFilteredProcessedCommandersAsync(page, pageSize, query, cancellationToken).ConfigureAwait(false);
 
         var model = new CommandersGridViewModel
         {
@@ -130,6 +134,7 @@ public sealed class AdminHarvestController : Controller
             DeckPage = page,
             DeckPageSize = pageSize,
             DeckTotalCount = deckTotal,
+            Query = query,
         };
 
         return PartialView("_CommandersGrid", model);

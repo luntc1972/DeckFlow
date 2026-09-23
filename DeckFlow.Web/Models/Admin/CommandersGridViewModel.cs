@@ -1,3 +1,4 @@
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Services.Harvest;
 
 namespace DeckFlow.Web.Models.Admin;
@@ -7,6 +8,9 @@ namespace DeckFlow.Web.Models.Admin;
 /// </summary>
 public sealed record CommandersGridViewModel
 {
+    /// <summary>Search and sort state used to produce this grid.</summary>
+    public CommanderGridQuery Query { get; init; } = CommanderGridQuery.Default;
+
     /// <summary>Processed harvested commanders for the current admin grid page.</summary>
     public IReadOnlyList<HarvestedCommanderRow> HarvestedCommanders { get; init; } = Array.Empty<HarvestedCommanderRow>();
 
