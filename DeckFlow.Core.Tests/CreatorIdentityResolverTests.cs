@@ -150,6 +150,138 @@ public sealed class CreatorIdentityResolverTests : IDisposable
         Assert.Contains("sal2brious", first.FolderSlugs);
     }
 
+    [Fact]
+    public async Task ResolveAsync_SourceDisplayNameMatchesIndexRow()
+    {
+        var identity = await ResolveDataAsync(
+            new[] { ("snail-yt", "Salubrious Snail") },
+            new[] { CreateRow("Salubrious Snail", "content-kb/salubrioussnail/one.md", "one") },
+            Array.Empty<(string, IReadOnlyList<string>)>(), "Salubrious Snail");
+
+        Assert.Equal("snail-yt", identity!.CanonicalSlug);
+        Assert.Contains("salubrioussnail", identity.FolderSlugs);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_SuppressionSlugAndDisplayAliasResolveCompleteIdentity()
+    {
+        var sources = new[] { ("snail-yt", "Salubrious Snail") };
+        var rows = new[] { CreateRow("Salubrious Snail", "content-kb/salubrioussnail/one.md", "one") };
+        var suppressions = new[] { ("snail", (IReadOnlyList<string>)new[] { "Salubrious Snail" }) };
+
+        var identities = new List<CreatorIdentity>();
+        foreach (var representation in new[] { "snail", "Salubrious Snail" })
+        {
+            var identity = await ResolveDataAsync(sources, rows, suppressions, representation);
+
+            Assert.Equal("snail", identity!.CanonicalSlug);
+            Assert.Single(identity.SourceIds);
+            Assert.Contains("salubrioussnail", identity.FolderSlugs);
+            identities.Add(identity);
+        }
+
+        Assert.Equal(identities[0].SourceIds, identities[1].SourceIds);
+        Assert.Equal(identities[0].FolderSlugs, identities[1].FolderSlugs);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_SuppressionSlugAliasIsIncludedAsFolder()
+    {
+        var sources = Array.Empty<(string, string)>();
+        var rows = new[] { CreateRow("Salubrious Snail", "content-kb/salubrioussnail/one.md", "one") };
+        var suppressions = new[] { ("snail", (IReadOnlyList<string>)new[] { "Salubrious Snail", "snail-archive" }) };
+
+        var identities = new List<CreatorIdentity>();
+        foreach (var representation in new[] { "Salubrious Snail", "snail-archive" })
+        {
+            var identity = await ResolveDataAsync(sources, rows, suppressions, representation);
+
+            Assert.Equal("snail", identity!.CanonicalSlug);
+            Assert.Contains("salubrioussnail", identity.FolderSlugs);
+            Assert.Contains("snail-archive", identity.FolderSlugs);
+            identities.Add(identity);
+        }
+
+        Assert.Equal(identities[0].FolderSlugs, identities[1].FolderSlugs);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_MultipleSourcesInOneGroupMergeInEitherOrder()
+    {
+        var rows = new[]
+        {
+            CreateRow("Snail", "content-kb/snail-yt/one.md", "one"),
+            CreateRow("Snail", "content-kb/snail-pod/two.md", "two"),
+        };
+
+        foreach (var sources in new[]
+        {
+            new[] { ("snail-yt", "Snail"), ("snail-pod", "Snail") },
+            new[] { ("snail-pod", "Snail"), ("snail-yt", "Snail") },
+        })
+        {
+            var identity = await ResolveDataAsync(sources, rows, Array.Empty<(string, IReadOnlyList<string>)>(), "Snail");
+            Assert.Equal("snail-pod", identity!.CanonicalSlug);
+            Assert.Equal(2, identity.SourceIds.Count);
+            Assert.Contains("snail-yt", identity.FolderSlugs);
+            Assert.Contains("snail-pod", identity.FolderSlugs);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveAsync_UnmatchedConflictingGroupDoesNotBlockQuery()
+    {
+        var rows = new[]
+        {
+            CreateRow("Alice", "content-kb/f1/one.md", "one"),
+            CreateRow("Carol", "content-kb/f3/two.md", "two"),
+        };
+        var suppressions = new[] { ("s1", (IReadOnlyList<string>)new[] { "Alice" }), ("s2", (IReadOnlyList<string>)new[] { "f1" }) };
+
+        var carol = await ResolveDataAsync(Array.Empty<(string, string)>(), rows, suppressions, "Carol");
+        Assert.Equal("f3", carol!.CanonicalSlug);
+        await Assert.ThrowsAsync<CreatorAliasConflictException>(() => ResolveDataAsync(Array.Empty<(string, string)>(), rows, suppressions, "Alice"));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_UnrelatedCarolResolvesAlongsideMergedSources()
+    {
+        var identity = await ResolveDataAsync(
+            new[] { ("snail-yt", "Snail"), ("snail-pod", "Snail") },
+            new[] { CreateRow("Snail", "content-kb/snail-yt/one.md", "one"), CreateRow("Snail", "content-kb/snail-pod/two.md", "two"), CreateRow("Carol", "content-kb/f3/three.md", "three") },
+            Array.Empty<(string, IReadOnlyList<string>)>(), "Carol");
+
+        Assert.Equal("f3", identity!.CanonicalSlug);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_RepointedNodesMergeInEveryOrder()
+    {
+        var rows = new[]
+        {
+            CreateRow("X", "content-kb/f5/one.md", "one"), CreateRow("Y", "content-kb/f2/two.md", "two"),
+            CreateRow("Y", "content-kb/f5/three.md", "three"), CreateRow("Z", "content-kb/f3/four.md", "four"),
+            CreateRow("X", "content-kb/f3/five.md", "five"),
+        };
+
+        foreach (var orderedRows in Permute(rows))
+        {
+            var identity = await ResolveRowsAsync(orderedRows, "X");
+            Assert.Equal("f2", identity!.CanonicalSlug);
+            Assert.Equal(new[] { "f2", "f3", "f5" }, identity.FolderSlugs);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveAsync_CaseVariantFoldersUseDeterministicCanonical()
+    {
+        var rows = new[] { CreateRow("X", "content-kb/F1/one.md", "one"), CreateRow("X", "content-kb/f1/two.md", "two") };
+        var first = await ResolveRowsAsync(rows, "X");
+        var second = await ResolveRowsAsync(rows.Reverse().ToArray(), "X");
+        Assert.Equal("F1", first!.CanonicalSlug);
+        Assert.Equal(first.CanonicalSlug, second!.CanonicalSlug);
+    }
+
     private async Task<CreatorIdentityResolver> CreateResolverAsync()
     {
         var connection = RelationalDatabaseConnection.FromSqlitePath(_dbPath);
@@ -186,18 +318,31 @@ public sealed class CreatorIdentityResolverTests : IDisposable
         }
     }
 
+    private static async Task<CreatorIdentity?> ResolveDataAsync(IReadOnlyList<(string Slug, string Name)> sources, IReadOnlyList<ContentSiteIndexRow> rows, IReadOnlyList<(string Slug, IReadOnlyList<string> Aliases)> suppressions, string representation)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"creator-identity-data-{Guid.NewGuid():N}.db");
+        try
+        {
+            var connection = RelationalDatabaseConnection.FromSqlitePath(path);
+            var sourceStore = new ContentSourceStore(connection);
+            var index = new ContentSiteIndexStore(connection);
+            var suppressionStore = new CreatorSuppressionStore(connection);
+            foreach (var source in sources) await sourceStore.InsertSourceAsync(source.Slug, source.Name, ContentSourceType.Youtube, $"https://example.test/{source.Slug}");
+            foreach (var row in rows) await index.UpsertRowAsync(row);
+            foreach (var suppression in suppressions) await suppressionStore.SuppressAsync(suppression.Slug, suppression.Aliases, "request", DateTimeOffset.UtcNow, null);
+            return await new CreatorIdentityResolver(suppressionStore, sourceStore, index).ResolveAsync(representation);
+        }
+        finally { SqliteConnection.ClearAllPools(); if (File.Exists(path)) File.Delete(path); }
+    }
+
     private static IEnumerable<IReadOnlyList<ContentSiteIndexRow>> Permute(IReadOnlyList<ContentSiteIndexRow> rows)
     {
-        for (var first = 0; first < rows.Count; first++)
+        if (rows.Count <= 1) { yield return rows; yield break; }
+        for (var index = 0; index < rows.Count; index++)
         {
-            for (var second = 0; second < rows.Count; second++)
+            foreach (var remainder in Permute(rows.Where((_, candidate) => candidate != index).ToArray()))
             {
-                if (second == first) continue;
-                for (var third = 0; third < rows.Count; third++)
-                {
-                    if (third == first || third == second) continue;
-                    yield return new[] { rows[first], rows[second], rows[third], rows[6 - first - second - third] };
-                }
+                yield return new[] { rows[index] }.Concat(remainder).ToArray();
             }
         }
     }

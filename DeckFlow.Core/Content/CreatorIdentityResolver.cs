@@ -25,50 +25,89 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
         var sources = await _sourceStore.ListSourcesAsync(cancellationToken).ConfigureAwait(false);
         var indexRows = await _indexStore.ListCreatorIdentityRowsAsync(cancellationToken).ConfigureAwait(false);
         var match = Normalize(anyRepresentation);
-        var candidates = new Dictionary<string, Candidate>(StringComparer.OrdinalIgnoreCase);
+        var components = BuildIndexComponents(indexRows).ToList();
+        foreach (var source in sources)
+        {
+            var matches = components.Where(component => component.Values.Any(value => Same(value, source.SourceSlug) || Same(value, source.DisplayName))).ToList();
+            var component = matches.FirstOrDefault() ?? new IndexComponent();
+            foreach (var other in matches.Skip(1))
+            {
+                component.Merge(other);
+                components.Remove(other);
+            }
+            if (!components.Contains(component)) components.Add(component);
+            component.SourceIds.Add(source.Id);
+            component.SourceSlugs.Add(source.SourceSlug);
+            component.DisplayNames.Add(source.DisplayName);
+        }
 
         foreach (var suppression in suppressions)
         {
-            var candidate = Get(candidates, suppression.Slug);
-            candidate.Aliases.UnionWith(suppression.Aliases);
-            candidate.DisplayNames.UnionWith(suppression.Aliases.Where(alias => !LooksLikeSlug(alias)));
-            candidate.FolderSlugs.UnionWith(suppression.Aliases.Where(LooksLikeSlug));
+            foreach (var component in components.Where(component => component.Values.Any(value => SuppressionMatches(suppression, value))))
+            {
+                AddSuppressionValues(component, suppression);
+            }
         }
-        foreach (var source in sources)
+
+        var matchingComponents = components.Where(component => component.Values.Any(value => Same(value, match)) || component.SourceIds.Any(id => string.Equals(id.ToString(System.Globalization.CultureInfo.InvariantCulture), match, StringComparison.Ordinal))).ToList();
+        if (matchingComponents.Count == 0)
         {
-            var canonical = FindCanonical(suppressions, new[] { source.SourceSlug, source.DisplayName }) ?? source.SourceSlug;
-            var candidate = Get(candidates, canonical);
-            candidate.SourceIds.Add(source.Id);
-            candidate.Aliases.Add(source.SourceSlug);
-            candidate.DisplayNames.Add(source.DisplayName);
+            var suppression = suppressions.Where(row => Same(row.Slug, match) || row.Aliases.Any(alias => Same(alias, match))).ToList();
+            if (suppression.Count == 0) return null;
+            if (suppression.Select(row => row.Slug).Distinct(StringComparer.OrdinalIgnoreCase).Count() > 1) throw new CreatorAliasConflictException(anyRepresentation, string.Join(", ", suppression.Select(row => row.Slug)));
+            var row = suppression[0];
+            return new CreatorIdentity(row.Slug, [], DistinctOrdinalIgnoringCase(row.Aliases.Where(alias => !LooksLikeSlug(alias))), DistinctOrdinalIgnoringCase(row.Aliases.Where(LooksLikeSlug)));
         }
-        foreach (var component in BuildIndexComponents(indexRows))
+
+        var relevantSuppressions = suppressions.Where(row => matchingComponents.Any(component => component.Values.Any(value => Same(row.Slug, value) || row.Aliases.Any(alias => Same(alias, value))))).ToList();
+        foreach (var component in components.Where(component => relevantSuppressions.Any(row => component.Values.Any(value => Same(row.Slug, value) || row.Aliases.Any(alias => Same(alias, value))))))
+        {
+            if (!matchingComponents.Contains(component)) matchingComponents.Add(component);
+        }
+
+        var candidates = new Dictionary<string, Candidate>(StringComparer.OrdinalIgnoreCase);
+        foreach (var component in matchingComponents)
         {
             var canonical = FindCanonical(suppressions, component.Values)
-                ?? FindSourceCanonical(sources, component.Values)
+                ?? FindSourceCanonical(component.SourceSlugs)
                 ?? component.FolderSlugs.Order(StringComparer.Ordinal).First();
             var candidate = Get(candidates, canonical);
             candidate.Aliases.UnionWith(component.Values);
             candidate.DisplayNames.UnionWith(component.DisplayNames);
             candidate.FolderSlugs.UnionWith(component.FolderSlugs);
+            candidate.SourceIds.UnionWith(component.SourceIds);
         }
 
-        var matched = candidates.Values.Where(candidate => Same(candidate.Slug, match) || candidate.SourceIds.Any(id => string.Equals(id.ToString(System.Globalization.CultureInfo.InvariantCulture), match, StringComparison.Ordinal)) || candidate.Aliases.Any(alias => Same(alias, match)) || candidate.DisplayNames.Any(name => Same(name, match)) || candidate.FolderSlugs.Any(folder => Same(folder, match))).ToList();
-        if (matched.Count == 0) return null;
-        if (matched.Count > 1) throw new CreatorAliasConflictException(anyRepresentation, string.Join(", ", matched.Select(candidate => candidate.Slug)));
-        var identity = matched[0];
-        return new CreatorIdentity(identity.Slug, identity.SourceIds.Order().ToList(), identity.DisplayNames.Order(StringComparer.OrdinalIgnoreCase).ToList(), identity.FolderSlugs.Order(StringComparer.OrdinalIgnoreCase).ToList());
+        if (candidates.Count > 1) throw new CreatorAliasConflictException(anyRepresentation, string.Join(", ", candidates.Keys));
+        var identity = candidates.Values.Single();
+        return new CreatorIdentity(identity.Slug, identity.SourceIds.Order().ToList(), DistinctOrdinalIgnoringCase(identity.DisplayNames), DistinctOrdinalIgnoringCase(identity.FolderSlugs));
     }
 
     private static string? FindCanonical(IEnumerable<CreatorSuppression> suppressions, IEnumerable<string> values)
         => FindSingleCanonical(suppressions.Where(row => values.Any(value => Same(row.Slug, value) || row.Aliases.Any(alias => Same(alias, value)))).Select(row => row.Slug), values);
 
-    private static string? FindSourceCanonical(IEnumerable<ContentSource> sources, IEnumerable<string> values)
-        => FindSingleCanonical(sources.Where(source => values.Any(value => Same(source.SourceSlug, value))).Select(source => source.SourceSlug), values);
+    private static bool SuppressionMatches(CreatorSuppression suppression, string value)
+        => Same(suppression.Slug, value) || suppression.Aliases.Any(alias => Same(alias, value));
+
+    private static void AddSuppressionValues(IndexComponent component, CreatorSuppression suppression)
+    {
+        foreach (var value in suppression.Aliases.Prepend(suppression.Slug))
+        {
+            if (LooksLikeSlug(value)) component.FolderSlugs.Add(value);
+            else component.DisplayNames.Add(value);
+        }
+    }
+
+    private static string? FindSourceCanonical(IEnumerable<string> sourceSlugs)
+    {
+        var canonicalSlugs = sourceSlugs.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToList();
+        // Why: ordinal selection makes multi-channel creators deterministic while preserving salubrious-snail.
+        return canonicalSlugs.FirstOrDefault();
+    }
 
     private static string? FindSingleCanonical(IEnumerable<string> matches, IEnumerable<string> values)
     {
-        var canonicalSlugs = matches.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var canonicalSlugs = matches.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToList();
         if (canonicalSlugs.Count > 1) throw new CreatorAliasConflictException(string.Join(", ", values), string.Join(", ", canonicalSlugs));
         return canonicalSlugs.SingleOrDefault();
     }
@@ -107,12 +146,15 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
     private static bool LooksLikeSlug(string value) => value.All(character => char.IsLower(character) || char.IsDigit(character) || character == '-');
     private static bool Same(string left, string right) => string.Equals(Normalize(left), Normalize(right), StringComparison.Ordinal);
     private static string Normalize(string value) => value.Trim().ToLowerInvariant();
+    private static IReadOnlyList<string> DistinctOrdinalIgnoringCase(IEnumerable<string> values) => values.GroupBy(Normalize).Select(group => group.Order(StringComparer.Ordinal).First()).Order(StringComparer.Ordinal).ToList();
     private sealed class IndexComponent
     {
         public HashSet<string> DisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
-        public HashSet<string> FolderSlugs { get; } = new(StringComparer.OrdinalIgnoreCase);
-        public IEnumerable<string> Values => DisplayNames.Concat(FolderSlugs);
-        public void Merge(IndexComponent other) { DisplayNames.UnionWith(other.DisplayNames); FolderSlugs.UnionWith(other.FolderSlugs); }
+        public HashSet<string> FolderSlugs { get; } = new(StringComparer.Ordinal);
+        public HashSet<string> SourceSlugs { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public HashSet<long> SourceIds { get; } = [];
+        public IEnumerable<string> Values => DisplayNames.Concat(FolderSlugs).Concat(SourceSlugs);
+        public void Merge(IndexComponent other) { DisplayNames.UnionWith(other.DisplayNames); FolderSlugs.UnionWith(other.FolderSlugs); SourceSlugs.UnionWith(other.SourceSlugs); SourceIds.UnionWith(other.SourceIds); }
     }
     private sealed class Candidate(string slug) { public string Slug { get; } = slug; public HashSet<long> SourceIds { get; } = []; public HashSet<string> Aliases { get; } = new(StringComparer.OrdinalIgnoreCase); public HashSet<string> DisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase); public HashSet<string> FolderSlugs { get; } = new(StringComparer.OrdinalIgnoreCase); }
 }
