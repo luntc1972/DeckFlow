@@ -6,6 +6,15 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.09.8 — Admin Harvest Load-Time Hotfix (2026-09-23)
+
+Fixes `/Admin/Harvest` taking 4–19 seconds to load, sometimes timing out:
+- **Overview stats:** the page now shows the last computed harvest stats immediately and refreshes them in the background, one refresh at a time, instead of waiting on the deck-queue counts on nearly every visit. Only the first load after a restart waits for a build.
+- **Refresh safety:** a browser giving up no longer cancels the stats refresh, and a failed refresh keeps the last good stats. A harvest-run state change marks the stats stale instead of discarding them.
+- **30-day deck count:** on PostgreSQL the query compares `inserted_utc` as text, so the existing `(processed, inserted_utc)` index is used instead of scanning every processed deck.
+- **Tests:** new unit tests cover the stale-while-refresh cache, and a new PostgreSQL integration test covers both stored timestamp formats.
+- **Scope:** no schema, data, or feature-flag changes.
+
 ### 2026.09.7 — Harvest PostgreSQL Hotfix (2026-09-23)
 
 Fixes scheduled harvest runs failing on PostgreSQL since 2026-09-18:

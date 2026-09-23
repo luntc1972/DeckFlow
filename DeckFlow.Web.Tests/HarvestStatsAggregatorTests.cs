@@ -141,6 +141,108 @@ public sealed class HarvestStatsAggregatorTests
         Assert.Equal(expectedCapped, payload.Health.ZeroDiscoveryStreakCapped);
     }
 
+    [Fact]
+    public async Task GetAsync_FreshCachedPayload_ReturnsWithoutRebuilding()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache, new TestTimeProvider());
+
+        await aggregator.GetAsync();
+        var payload = await aggregator.GetAsync();
+
+        Assert.Equal(1, categoryStore.BuildCount);
+        Assert.Equal(42, payload.TotalDecks);
+    }
+
+    [Fact]
+    public async Task GetAsync_StaleCachedPayload_ReturnsImmediatelyAndStartsOneRebuild()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        var timeProvider = new TestTimeProvider();
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache, timeProvider);
+        var cached = await aggregator.GetAsync();
+        categoryStore.BlockNextBuild();
+        timeProvider.Advance(TimeSpan.FromSeconds(61));
+
+        var payloads = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => aggregator.GetAsync()));
+        await categoryStore.WaitForBlockedBuildAsync();
+
+        Assert.All(payloads, payload => Assert.Equal(cached, payload));
+        Assert.Equal(2, categoryStore.BuildCount);
+        categoryStore.ReleaseBlockedBuild();
+    }
+
+    [Fact]
+    public async Task GetAsync_ConcurrentColdCallers_ShareOneBuild()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        categoryStore.BlockNextBuild();
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache, new TestTimeProvider());
+
+        var payloadTasks = Enumerable.Range(0, 5).Select(_ => aggregator.GetAsync()).ToArray();
+        await categoryStore.WaitForBlockedBuildAsync();
+
+        Assert.Equal(1, categoryStore.BuildCount);
+        categoryStore.ReleaseBlockedBuild();
+        Assert.All(await Task.WhenAll(payloadTasks), payload => Assert.Equal(42, payload.TotalDecks));
+    }
+
+    [Fact]
+    public async Task Invalidate_KeepsCachedPayloadAndStartsRefresh()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache, new TestTimeProvider());
+        var cached = await aggregator.GetAsync();
+        categoryStore.BlockNextBuild();
+
+        aggregator.Invalidate();
+        var payload = await aggregator.GetAsync();
+        await categoryStore.WaitForBlockedBuildAsync();
+
+        Assert.Equal(cached, payload);
+        Assert.Equal(2, categoryStore.BuildCount);
+        categoryStore.ReleaseBlockedBuild();
+    }
+
+    [Fact]
+    public async Task GetAsync_FailedBackgroundRebuild_KeepsLastGoodPayload()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache, new TestTimeProvider());
+        var cached = await aggregator.GetAsync();
+        categoryStore.ThrowOnNextBuild();
+
+        aggregator.Invalidate();
+        Assert.Equal(cached, await aggregator.GetAsync());
+        await categoryStore.WaitForFailedBuildAsync();
+
+        Assert.Equal(cached, await aggregator.GetAsync());
+    }
+
+    [Fact]
+    public async Task GetAsync_CancelledCaller_DoesNotCancelBackgroundRebuild()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache, new TestTimeProvider());
+        await aggregator.GetAsync();
+        categoryStore.BlockNextBuild();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        aggregator.Invalidate();
+        await aggregator.GetAsync(cancellation.Token);
+        await categoryStore.WaitForBlockedBuildAsync();
+
+        Assert.False(categoryStore.BlockedBuildToken.CanBeCanceled);
+        categoryStore.ReleaseBlockedBuild();
+    }
+
     private static HarvestRunRow HealthRun(int enqueued, int drained)
         => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Succeeded, DateTimeOffset.UtcNow, null, DateTimeOffset.UtcNow, 0, 0, 0, enqueued, drained, null, null);
 
@@ -156,6 +258,20 @@ public sealed class HarvestStatsAggregatorTests
             cache,
             NullLogger<HarvestStatsAggregator>.Instance,
             Options.Create(new HarvestHealthOptions { BacklogFloor = 100 }));
+
+    private static HarvestStatsAggregator CreateAggregator(
+        IHarvestRunStore runStore,
+        ICategoryKnowledgeStore categoryStore,
+        IMemoryCache cache,
+        TimeProvider timeProvider)
+        => new(
+            runStore,
+            new FakeHarvestScheduleCache(),
+            categoryStore,
+            cache,
+            NullLogger<HarvestStatsAggregator>.Instance,
+            Options.Create(new HarvestHealthOptions { BacklogFloor = 100 }),
+            timeProvider);
 
     private sealed class BlockingCategoryKnowledgeStore : ICategoryKnowledgeStore
     {
@@ -234,8 +350,38 @@ public sealed class HarvestStatsAggregatorTests
     private sealed class ImmediateCategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         private readonly int _queuedDeckCount;
+        private TaskCompletionSource? _blockedBuildRelease;
+        private TaskCompletionSource? _blockedBuildStarted;
+        private TaskCompletionSource? _failedBuild;
+        private CancellationToken _blockedBuildToken;
+        private int _buildCount;
+        private int _throwNextBuild;
 
         public ImmediateCategoryKnowledgeStore(int queuedDeckCount = 12) => _queuedDeckCount = queuedDeckCount;
+
+        public int BuildCount => Volatile.Read(ref _buildCount);
+
+        public CancellationToken BlockedBuildToken => _blockedBuildToken;
+
+        public void BlockNextBuild()
+        {
+            _blockedBuildRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _blockedBuildStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        public Task WaitForBlockedBuildAsync()
+            => _blockedBuildStarted?.Task ?? throw new InvalidOperationException("No blocked build was configured.");
+
+        public void ReleaseBlockedBuild() => _blockedBuildRelease?.TrySetResult();
+
+        public void ThrowOnNextBuild()
+        {
+            _failedBuild = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Interlocked.Exchange(ref _throwNextBuild, 1);
+        }
+
+        public Task WaitForFailedBuildAsync()
+            => _failedBuild?.Task ?? throw new InvalidOperationException("No failing build was configured.");
         public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<CategoryKnowledgeRow>>(Array.Empty<CategoryKnowledgeRow>());
 
@@ -270,7 +416,23 @@ public sealed class HarvestStatsAggregatorTests
             => Task.CompletedTask;
 
         public Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(42);
+        {
+            Interlocked.Increment(ref _buildCount);
+            if (Interlocked.Exchange(ref _throwNextBuild, 0) == 1)
+            {
+                _failedBuild?.TrySetResult();
+                return Task.FromException<int>(new InvalidOperationException("Simulated rebuild failure."));
+            }
+
+            if (_blockedBuildRelease is null)
+            {
+                return Task.FromResult(42);
+            }
+
+            _blockedBuildToken = cancellationToken;
+            _blockedBuildStarted?.TrySetResult();
+            return WaitForBlockedBuildAsync(cancellationToken);
+        }
 
         public Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
             => Task.FromResult(7);
@@ -292,6 +454,21 @@ public sealed class HarvestStatsAggregatorTests
 
         public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
             => Task.FromResult(CardDeckTotals.Empty);
+
+        private async Task<int> WaitForBlockedBuildAsync(CancellationToken cancellationToken)
+        {
+            await _blockedBuildRelease!.Task.WaitAsync(cancellationToken);
+            return 42;
+        }
+    }
+
+    private sealed class TestTimeProvider : TimeProvider
+    {
+        private DateTimeOffset _utcNow = new(2026, 9, 23, 12, 0, 0, TimeSpan.Zero);
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        public void Advance(TimeSpan elapsed) => _utcNow += elapsed;
     }
 
     private sealed class BlockingHarvestRunStore : IHarvestRunStore

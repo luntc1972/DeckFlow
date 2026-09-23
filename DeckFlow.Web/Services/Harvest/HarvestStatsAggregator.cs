@@ -23,6 +23,9 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<HarvestStatsAggregator> _logger;
     private readonly IOptions<HarvestHealthOptions> _healthOptions;
+    private readonly TimeProvider _timeProvider;
+    private readonly object _rebuildGate = new();
+    private Task? _rebuildTask;
 
     /// <summary>
     /// Initializes the harvest stats aggregator with its SQL stores and cache.
@@ -40,6 +43,18 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         IMemoryCache memoryCache,
         ILogger<HarvestStatsAggregator> logger,
         IOptions<HarvestHealthOptions> healthOptions)
+        : this(runStore, scheduleCache, categoryStore, memoryCache, logger, healthOptions, TimeProvider.System)
+    {
+    }
+
+    internal HarvestStatsAggregator(
+        IHarvestRunStore runStore,
+        IHarvestScheduleCache scheduleCache,
+        ICategoryKnowledgeStore categoryStore,
+        IMemoryCache memoryCache,
+        ILogger<HarvestStatsAggregator> logger,
+        IOptions<HarvestHealthOptions> healthOptions,
+        TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(runStore);
         ArgumentNullException.ThrowIfNull(scheduleCache);
@@ -47,6 +62,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(healthOptions);
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         _runStore = runStore;
         _scheduleCache = scheduleCache;
@@ -54,21 +70,81 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         _memoryCache = memoryCache;
         _logger = logger;
         _healthOptions = healthOptions;
+        _timeProvider = timeProvider;
     }
 
     /// <inheritdoc/>
     public Task<HarvestStatsPayload> GetAsync(CancellationToken cancellationToken = default)
-        => _memoryCache.GetOrCreateAsync(CacheKey, async entry =>
+    {
+        if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached))
         {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
-            return await BuildAsync(cancellationToken).ConfigureAwait(false);
-        })!;
+            if (_timeProvider.GetUtcNow() - cached.CachedAtUtc < TimeSpan.FromSeconds(60))
+            {
+                return Task.FromResult(cached.Payload);
+            }
+
+            StartRebuild();
+            return Task.FromResult(cached.Payload);
+        }
+
+        return StartRebuild();
+    }
 
     /// <inheritdoc/>
     public void Invalidate()
     {
-        _memoryCache.Remove(CacheKey);
-        Log.Debug("Harvest stats cache invalidated");
+        if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached))
+        {
+            _memoryCache.Set(CacheKey, cached with { CachedAtUtc = DateTimeOffset.MinValue });
+        }
+
+        Log.Debug("Harvest stats cache marked stale");
+    }
+
+    private Task<HarvestStatsPayload> StartRebuild()
+    {
+        lock (_rebuildGate)
+        {
+            if (_rebuildTask is Task<HarvestStatsPayload> rebuildTask)
+            {
+                return rebuildTask;
+            }
+
+            var completion = new TaskCompletionSource<HarvestStatsPayload>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _rebuildTask = completion.Task;
+            _ = completion.Task.ContinueWith(
+                task => _ = task.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            _ = CompleteRebuildAsync(completion);
+            return completion.Task;
+        }
+    }
+
+    private async Task CompleteRebuildAsync(TaskCompletionSource<HarvestStatsPayload> completion)
+    {
+        try
+        {
+            var payload = await BuildAsync(CancellationToken.None).ConfigureAwait(false);
+            _memoryCache.Set(CacheKey, new CachedHarvestStats(payload, _timeProvider.GetUtcNow()));
+            completion.TrySetResult(payload);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Harvest stats refresh failed; retaining the last good payload.");
+            completion.TrySetException(exception);
+        }
+        finally
+        {
+            lock (_rebuildGate)
+            {
+                if (ReferenceEquals(_rebuildTask, completion.Task))
+                {
+                    _rebuildTask = null;
+                }
+            }
+        }
     }
 
     private async Task<HarvestStatsPayload> BuildAsync(CancellationToken cancellationToken)
@@ -77,7 +153,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
 
         var totalDecksTask = _categoryStore.GetTotalProcessedDeckCountAsync(cancellationToken);
         var totalDecks30dTask = _categoryStore.GetTotalProcessedDeckCountSinceAsync(
-            DateTime.UtcNow.AddDays(-30),
+            _timeProvider.GetUtcNow().UtcDateTime.AddDays(-30),
             cancellationToken);
         var queuedDeckCountTask = _categoryStore.GetUnprocessedCountAsync(cancellationToken);
         var distinctCommanderCountTask = _categoryStore.GetDistinctProcessedCommanderCountAsync(cancellationToken);
@@ -128,6 +204,8 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             nextScheduledUtc,
             health);
     }
+
+    private sealed record CachedHarvestStats(HarvestStatsPayload Payload, DateTimeOffset CachedAtUtc);
 
     /// <summary>
     /// Derives health only from persisted sweep counts (see plan 01-05 and
