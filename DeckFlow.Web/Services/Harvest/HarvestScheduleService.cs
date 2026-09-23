@@ -37,6 +37,7 @@ public sealed class HarvestScheduleService : BackgroundService
     /// <param name="runStore">Run-history store used to read <c>last_success_utc</c>.</param>
     /// <param name="jobService">Bulk-harvest job service called when a tick is due to fire.</param>
     /// <param name="logger">Structured logger for tick / fire / failure events.</param>
+    /// <param name="timeProvider">Clock used for due-time checks; defaults to <see cref="TimeProvider.System"/> so tests can pin time.</param>
     public HarvestScheduleService(
         IFeatureFlagCache flagCache,
         IHarvestScheduleCache scheduleCache,
