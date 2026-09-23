@@ -14,8 +14,7 @@ public interface IHarvestRunStore
     /// Gets the failed-run streak completed after the most recent successful run.
     /// </summary>
     /// <param name="cancellationToken">Token used to cancel the read.</param>
-    Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(new HarvestFailureStreak(0, null));
+    Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Idempotent. On first call: creates the <c>harvest_runs</c> table and indexes,

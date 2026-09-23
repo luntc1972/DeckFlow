@@ -515,6 +515,9 @@ public sealed class HarvestStatsAggregatorTests
         public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
             => BlockAsync<DateTimeOffset?>(LastSuccessUtc);
 
+        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
+            => BlockAsync(new HarvestFailureStreak(0, null));
+
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0L);
 
@@ -564,6 +567,9 @@ public sealed class HarvestStatsAggregatorTests
 
         public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<DateTimeOffset?>(DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+
+        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new HarvestFailureStreak(0, null));
 
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0L);
