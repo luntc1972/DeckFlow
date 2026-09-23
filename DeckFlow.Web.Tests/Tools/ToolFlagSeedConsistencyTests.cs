@@ -12,6 +12,7 @@ namespace DeckFlow.Web.Tests.Tools;
 /// </summary>
 public sealed class ToolFlagSeedConsistencyTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     // Why: some tool flags are intentionally dark-launched (seeded present but disabled
     // so the UI stays byte-identical before the operator flips them on):
     // tool.primer.stale-flag (PRIMER-01, phase 78), tool.cut-lab.enabled (phase 101), and
@@ -31,7 +32,7 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
     {
         if (File.Exists(_databasePath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_databasePath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_databasePath);

@@ -12,6 +12,7 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class FeedbackStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly FeedbackStore _store;
 
@@ -25,7 +26,7 @@ public sealed class FeedbackStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
@@ -180,7 +181,7 @@ public sealed class FeedbackStoreTests : IDisposable
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(otherDb);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             if (File.Exists(otherDb)) File.Delete(otherDb);

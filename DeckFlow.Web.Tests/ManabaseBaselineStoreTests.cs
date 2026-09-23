@@ -12,6 +12,7 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class ManabaseBaselineStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly ManabaseBaselineStore _store;
 
@@ -31,7 +32,7 @@ public sealed class ManabaseBaselineStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);

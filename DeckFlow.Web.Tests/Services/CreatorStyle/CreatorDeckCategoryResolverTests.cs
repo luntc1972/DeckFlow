@@ -11,6 +11,7 @@ namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 
 public sealed class CreatorDeckCategoryResolverTests
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     [Fact]
     public async Task ResolveAsync_BrokenCircuitForOneCard_SkipsCardAndContinues()
     {
@@ -42,7 +43,7 @@ public sealed class CreatorDeckCategoryResolverTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(Path.Combine(directory, "knowledge.db"));
             Directory.Delete(directory, recursive: true);
         }
     }

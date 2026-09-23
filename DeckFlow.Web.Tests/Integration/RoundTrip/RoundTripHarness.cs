@@ -17,6 +17,7 @@ namespace DeckFlow.Web.Tests.Integration.RoundTrip;
 /// </summary>
 public sealed class RoundTripHarness : IDisposable
 {
+    private static void ClearPool(string path) => Microsoft.Data.Sqlite.SqliteConnection.ClearPool(new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     /// <summary>Deterministic branch name the bootstrap repo is initialized on.</summary>
     public const string Branch = "main";
 
@@ -193,7 +194,7 @@ public sealed class RoundTripHarness : IDisposable
         }
 
         // Why: release SQLite file handles before deleting so the temp .db file isn't left locked.
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        ClearPool(_localDbPath);
         if (File.Exists(_localDbPath))
         {
             File.Delete(_localDbPath);

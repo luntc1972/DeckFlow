@@ -11,6 +11,7 @@ namespace DeckFlow.Web.Tests.Integration;
 /// </summary>
 public sealed class DapperTypeHandlerRoundTripTests : IClassFixture<PostgresContainerFixture>, IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly PostgresContainerFixture _fixture;
     private readonly List<string> _sqliteDirectories = new();
 
@@ -174,10 +175,9 @@ public sealed class DapperTypeHandlerRoundTripTests : IClassFixture<PostgresCont
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
-
         foreach (var directory in _sqliteDirectories)
         {
+            ClearPool(Path.Combine(directory, "handler-roundtrip.db"));
             if (Directory.Exists(directory))
             {
                 Directory.Delete(directory, recursive: true);

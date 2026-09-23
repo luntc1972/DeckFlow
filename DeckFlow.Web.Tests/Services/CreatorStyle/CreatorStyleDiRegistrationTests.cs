@@ -36,6 +36,7 @@ namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 [Collection("AdminEnvSerial")]
 public sealed class CreatorStyleDiRegistrationTests
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private static readonly Type[] CreatorStyleRegistrationFloor =
     [
         typeof(ICardNameGrounder),
@@ -203,9 +204,15 @@ public sealed class CreatorStyleDiRegistrationTests
 
         public void Dispose()
         {
-            SqliteConnection.ClearAllPools();
             if (Directory.Exists(parentDirectory))
             {
+                foreach (var pattern in new[] { "*.db", "*.sqlite" })
+                {
+                    foreach (var path in Directory.EnumerateFiles(parentDirectory, pattern, SearchOption.AllDirectories))
+                    {
+                        ClearPool(path);
+                    }
+                }
                 Directory.Delete(parentDirectory, recursive: true);
             }
         }

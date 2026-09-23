@@ -17,6 +17,7 @@ namespace DeckFlow.Web.Tests;
 
 public sealed class CreatorSuppressionConsumerTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"creator-suppression-consumer-{Guid.NewGuid():N}");
 
     [Fact]
@@ -57,7 +58,7 @@ public sealed class CreatorSuppressionConsumerTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        ClearPool(Path.Combine(_directory, "content.db"));
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
     }
 

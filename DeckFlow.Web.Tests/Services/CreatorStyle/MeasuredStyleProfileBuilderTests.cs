@@ -20,6 +20,7 @@ namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 /// </summary>
 public sealed class MeasuredStyleProfileBuilderTests
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     [Fact]
     public async Task BuildAsync_PersistsProfile_RoundTripsMetricsAndHandlesNullComboGracefully()
     {
@@ -593,7 +594,13 @@ public sealed class MeasuredStyleProfileBuilderTests
 
         public async ValueTask DisposeAsync()
         {
-            SqliteConnection.ClearAllPools();
+            if (System.IO.Directory.Exists(Directory))
+            {
+                foreach (var path in System.IO.Directory.EnumerateFiles(Directory, "*.sqlite", SearchOption.AllDirectories))
+                {
+                    ClearPool(path);
+                }
+            }
             try
             {
                 if (System.IO.Directory.Exists(Directory))

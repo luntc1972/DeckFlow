@@ -17,6 +17,7 @@ namespace DeckFlow.Web.Tests.Security;
 [Collection("AdminEnvSerial")]
 public sealed class AdminBruteForceTrackerStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly AdminBruteForceTrackerStore _store;
 
@@ -30,7 +31,7 @@ public sealed class AdminBruteForceTrackerStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             try { File.Delete(_dbPath); } catch { /* sqlite handle release timing */ }

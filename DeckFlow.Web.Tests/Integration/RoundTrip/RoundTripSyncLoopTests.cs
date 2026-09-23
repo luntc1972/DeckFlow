@@ -38,6 +38,7 @@ namespace DeckFlow.Web.Tests.Integration.RoundTrip;
 /// </remarks>
 public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixture>, IDisposable
 {
+    private static void ClearPool(string path) => Microsoft.Data.Sqlite.SqliteConnection.ClearPool(new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private static readonly JsonSerializerOptions SeedProbeJsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -321,7 +322,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
     public void Dispose()
     {
         _harness.Dispose();
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        ClearPool(_reconcileDbPath);
         foreach (var path in new[] { _localDataRoot, _pullApplyDataRoot })
         {
             if (Directory.Exists(path))

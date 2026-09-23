@@ -25,6 +25,7 @@ public sealed class CategoryKnowledgeStoreTestsCollection
 [Collection("CategoryKnowledgeStoreTests")]
 public sealed class CategoryKnowledgeStoreTests
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     [Fact]
     public void DatabasePath_UsesMtgDataDirWhenSet()
     {
@@ -266,7 +267,13 @@ public sealed class CategoryKnowledgeStoreTests
         finally
         {
             Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
-            SqliteConnection.ClearAllPools();
+            if (Directory.Exists(tempRoot))
+            {
+                foreach (var db in Directory.EnumerateFiles(tempRoot, "*.db", SearchOption.AllDirectories))
+                {
+                    ClearPool(db);
+                }
+            }
             if (Directory.Exists(tempRoot))
             {
                 Directory.Delete(tempRoot, recursive: true);
@@ -298,7 +305,13 @@ public sealed class CategoryKnowledgeStoreTests
         finally
         {
             Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
-            SqliteConnection.ClearAllPools();
+            if (Directory.Exists(tempRoot))
+            {
+                foreach (var db in Directory.EnumerateFiles(tempRoot, "*.db", SearchOption.AllDirectories))
+                {
+                    ClearPool(db);
+                }
+            }
             Directory.Delete(tempRoot, recursive: true);
         }
     }

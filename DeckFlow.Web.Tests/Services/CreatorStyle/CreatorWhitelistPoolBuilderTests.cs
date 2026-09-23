@@ -15,6 +15,7 @@ namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 /// </summary>
 public sealed class CreatorWhitelistPoolBuilderTests
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     [Fact]
     public async Task BuildWithDiagnosticsAsync_SuppressedCreator_ReturnsEmptyWhileControlBuilds()
     {
@@ -299,7 +300,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(databasePath);
             if (Directory.Exists(tempDirectory))
             {
                 Directory.Delete(tempDirectory, recursive: true);
