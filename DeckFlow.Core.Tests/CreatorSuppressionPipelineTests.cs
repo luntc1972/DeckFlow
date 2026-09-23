@@ -9,7 +9,15 @@ namespace DeckFlow.Core.Tests;
 
 public sealed class CreatorSuppressionPipelineTests : IDisposable
 {
-    private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"creator-suppression-pipeline-{Guid.NewGuid():N}.db");
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
+    private readonly string _databaseDirectory = Path.Combine(Path.GetTempPath(), $"creator-suppression-pipeline-{Guid.NewGuid():N}");
+    private readonly string _databasePath;
+
+    public CreatorSuppressionPipelineTests()
+    {
+        Directory.CreateDirectory(_databaseDirectory);
+        _databasePath = Path.Combine(_databaseDirectory, "creator-suppression-pipeline.db");
+    }
 
     [Fact]
     public async Task CliHarvest_SuppressedCreator_IsNotListedForHarvest()
@@ -147,7 +155,7 @@ public sealed class CreatorSuppressionPipelineTests : IDisposable
     private async Task CreateUnreadableSuppressionStoreAsync()
     {
         await SuppressAsync("unrelated-creator");
-        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await using var connection = new SqliteConnection($"Data Source={Path.GetFullPath(_databasePath)}");
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = "DROP TABLE creator_suppression; CREATE VIEW creator_suppression AS SELECT 'unrelated-creator' AS slug;";
@@ -170,7 +178,12 @@ public sealed class CreatorSuppressionPipelineTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
-        File.Delete(_databasePath);
+        ClearPool(_databasePath);
+        ClearPool(ContentKbCliPaths.ResolveCreatorDeckCacheDatabasePath(new FileInfo(_databasePath)));
+
+        if (Directory.Exists(_databaseDirectory))
+        {
+            Directory.Delete(_databaseDirectory, recursive: true);
+        }
     }
 }

@@ -15,6 +15,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class RunDistillAsyncTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _artifactRoot;
 
     public RunDistillAsyncTests()
@@ -373,7 +374,7 @@ public sealed class RunDistillAsyncTests : IDisposable
         {
             if (File.Exists(dbPath))
             {
-                SqliteConnection.ClearAllPools();
+                ClearPool(dbPath);
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 File.Delete(dbPath);

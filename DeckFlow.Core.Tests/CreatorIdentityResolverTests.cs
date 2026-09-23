@@ -9,11 +9,12 @@ namespace DeckFlow.Core.Tests;
 
 public sealed class CreatorIdentityResolverTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"creator-identity-{Guid.NewGuid():N}.db");
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        ClearPool(_dbPath);
         if (File.Exists(_dbPath)) File.Delete(_dbPath);
     }
 
@@ -348,7 +349,7 @@ public sealed class CreatorIdentityResolverTests : IDisposable
         }
         finally
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(path);
             if (File.Exists(path)) File.Delete(path);
         }
     }
@@ -367,7 +368,7 @@ public sealed class CreatorIdentityResolverTests : IDisposable
             foreach (var suppression in suppressions) await suppressionStore.SuppressAsync(suppression.Slug, suppression.Aliases, "request", DateTimeOffset.UtcNow, null);
             return await new CreatorIdentityResolver(suppressionStore, sourceStore, index).ResolveAsync(representation);
         }
-        finally { SqliteConnection.ClearAllPools(); if (File.Exists(path)) File.Delete(path); }
+        finally { ClearPool(path); if (File.Exists(path)) File.Delete(path); }
     }
 
     private static IEnumerable<IReadOnlyList<ContentSiteIndexRow>> Permute(IReadOnlyList<ContentSiteIndexRow> rows)

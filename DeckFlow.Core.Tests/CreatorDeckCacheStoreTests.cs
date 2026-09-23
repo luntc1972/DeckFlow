@@ -8,6 +8,7 @@ namespace DeckFlow.Core.Tests;
 
 public sealed class CreatorDeckCacheStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private static readonly DateTimeOffset CachedUtc = DateTimeOffset.Parse("2026-07-11T18:05:00Z");
     private readonly string _dbPath;
     private readonly CreatorDeckCacheStore _store;
@@ -22,7 +23,7 @@ public sealed class CreatorDeckCacheStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);

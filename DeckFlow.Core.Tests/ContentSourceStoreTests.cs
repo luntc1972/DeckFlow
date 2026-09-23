@@ -11,6 +11,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ContentSourceStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly ContentSourceStore _store;
 
@@ -24,7 +25,7 @@ public sealed class ContentSourceStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
@@ -138,7 +139,7 @@ public sealed class ContentSourceStoreTests : IDisposable
     {
         await _store.EnsureSchemaAsync();
 
-        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await using var connection = new SqliteConnection($"Data Source={Path.GetFullPath(_dbPath)}");
         await connection.OpenAsync();
         await using var trigger = connection.CreateCommand();
         trigger.CommandText = """

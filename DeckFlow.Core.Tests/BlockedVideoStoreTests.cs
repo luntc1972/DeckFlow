@@ -12,6 +12,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class BlockedVideoStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly BlockedVideoStore _store;
 
@@ -25,7 +26,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
@@ -102,7 +103,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
     {
         await _store.EnsureSchemaAsync();
 
-        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await using var connection = new SqliteConnection($"Data Source={Path.GetFullPath(_dbPath)}");
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = """

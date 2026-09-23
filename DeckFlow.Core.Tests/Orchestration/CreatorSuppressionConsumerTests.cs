@@ -9,6 +9,7 @@ namespace DeckFlow.Core.Tests;
 
 public sealed class CreatorSuppressionConsumerTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _tempDirectory = Path.Combine(Path.GetTempPath(), $"deckflow-consumer-suppression-{Guid.NewGuid():N}");
     private readonly string _databasePath;
 
@@ -20,7 +21,7 @@ public sealed class CreatorSuppressionConsumerTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        ClearPool(_databasePath);
         Directory.Delete(_tempDirectory, recursive: true);
     }
 
@@ -200,7 +201,7 @@ public sealed class CreatorSuppressionConsumerTests : IDisposable
     {
         await new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(_databasePath))
             .SuppressAsync("unrelated-creator", [], "test", DateTimeOffset.UtcNow, null);
-        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await using var connection = new SqliteConnection($"Data Source={Path.GetFullPath(_databasePath)}");
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = "DROP TABLE creator_suppression; CREATE VIEW creator_suppression AS SELECT 'unrelated-creator' AS slug;";

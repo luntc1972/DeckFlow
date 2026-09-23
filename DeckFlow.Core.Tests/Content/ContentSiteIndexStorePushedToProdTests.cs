@@ -14,6 +14,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ContentSiteIndexStorePushedToProdTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly ContentSiteIndexStore _store;
 
@@ -27,7 +28,7 @@ public sealed class ContentSiteIndexStorePushedToProdTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
@@ -56,7 +57,7 @@ public sealed class ContentSiteIndexStorePushedToProdTests : IDisposable
         {
             if (File.Exists(legacyDbPath))
             {
-                SqliteConnection.ClearAllPools();
+                ClearPool(legacyDbPath);
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 File.Delete(legacyDbPath);

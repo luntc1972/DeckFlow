@@ -11,6 +11,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class SlugifySourceNameTests
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     [Fact]
     public void Slugify_LowercasesAsciiNames()
     {
@@ -67,7 +68,7 @@ public sealed class SlugifySourceNameTests
         {
             if (File.Exists(dbPath))
             {
-                SqliteConnection.ClearAllPools();
+                ClearPool(dbPath);
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
                 File.Delete(dbPath);

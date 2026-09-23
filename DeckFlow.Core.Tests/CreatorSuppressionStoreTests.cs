@@ -8,11 +8,12 @@ namespace DeckFlow.Core.Tests;
 
 public sealed class CreatorSuppressionStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"creator-suppression-{Guid.NewGuid():N}.db");
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        ClearPool(_dbPath);
         if (File.Exists(_dbPath)) File.Delete(_dbPath);
     }
 
@@ -92,7 +93,7 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
     {
         var store = CreateStore();
         await store.EnsureSchemaAsync();
-        await using (var connection = new SqliteConnection($"Data Source={_dbPath}"))
+        await using (var connection = new SqliteConnection($"Data Source={Path.GetFullPath(_dbPath)}"))
         {
             await connection.OpenAsync();
             await using var command = connection.CreateCommand();
@@ -124,6 +125,7 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
 
 public sealed class CreatorSuppressionSyncTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _localPath = Path.Combine(Path.GetTempPath(), $"creator-suppression-local-{Guid.NewGuid():N}.db");
     private readonly string _prodPath = Path.Combine(Path.GetTempPath(), $"creator-suppression-prod-{Guid.NewGuid():N}.db");
 
@@ -185,7 +187,7 @@ public sealed class CreatorSuppressionSyncTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools(); if (File.Exists(_localPath)) File.Delete(_localPath); if (File.Exists(_prodPath)) File.Delete(_prodPath);
+        ClearPool(_localPath); ClearPool(_prodPath); if (File.Exists(_localPath)) File.Delete(_localPath); if (File.Exists(_prodPath)) File.Delete(_prodPath);
     }
     private static CreatorSuppressionStore Create(string path) => new(RelationalDatabaseConnection.FromSqlitePath(path));
 
