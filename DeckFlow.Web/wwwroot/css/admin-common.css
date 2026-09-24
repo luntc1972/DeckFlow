@@ -446,11 +446,6 @@ a:hover { text-decoration: underline; }
   cursor: pointer;
 }
 
-.admin-shell .admin-table__sort-header:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 .admin-shell .admin-table__sort-indicator {
   margin-left: 0.25rem;
 }
@@ -465,7 +460,8 @@ a:hover { text-decoration: underline; }
 }
 
 .admin-shell .admin-harvest__disclosure summary,
-.admin-shell .admin-harvest__run-error summary {
+.admin-shell .admin-harvest__run-error summary,
+.admin-shell .admin-harvest__category-toggle summary {
   cursor: pointer;
 }
 
@@ -490,15 +486,6 @@ a:hover { text-decoration: underline; }
 
 .admin-shell .admin-harvest__category-toggle {
   padding: 8px 0;
-}
-
-.admin-shell .admin-harvest__category-toggle summary {
-  cursor: pointer;
-}
-
-.admin-shell .admin-harvest__category-toggle summary:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
 }
 
 .admin-shell .admin-harvest__category-breakdown {
