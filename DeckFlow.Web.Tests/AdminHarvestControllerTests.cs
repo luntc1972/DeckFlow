@@ -411,10 +411,15 @@ public sealed class AdminHarvestControllerTests
         var match = Regex.Match(html, $"<th(?:(?!</th>).)*data-sort-column=\\\"{Regex.Escape(column)}\\\"(?:(?!</th>).)*</th>", RegexOptions.Singleline);
         Assert.True(match.Success, $"Missing sort header for {column}.");
         Assert.Contains($"aria-sort=\"{expectedAriaSort}\"", match.Value, StringComparison.Ordinal);
+        Assert.DoesNotContain("@if", html, StringComparison.Ordinal);
         if (active)
         {
             Assert.Contains("data-sort-active=\"true\"", match.Value, StringComparison.Ordinal);
             Assert.Single(Regex.Matches(match.Value, "<span class=\"admin-table__sort-indicator\" aria-hidden=\"true\">").Cast<Match>());
+        }
+        else
+        {
+            Assert.DoesNotContain("admin-table__sort-indicator", match.Value, StringComparison.Ordinal);
         }
     }
 
