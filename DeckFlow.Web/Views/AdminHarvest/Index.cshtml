@@ -127,6 +127,12 @@ else
 <section id="harvest-panel-commanders" role="tabpanel" data-harvest-panel="commanders" aria-labelledby="harvest-tab-commanders" hidden>
     <section id="harvested-commanders" class="admin-harvest__panel">
         <h2>Harvested Commanders</h2>
+        <form id="commanders-search-form" class="admin-harvest__search-form" role="search">
+            <label for="commanders-search">Search commanders</label>
+            <input id="commanders-search" name="search" type="search" maxlength="100" autocomplete="off" placeholder="Commander name starts with…" />
+            <button id="commanders-search-clear" type="button">Clear</button>
+            <button type="submit">Search</button>
+        </form>
         <div id="commanders-grid-container" aria-live="polite" aria-busy="false" aria-label="Harvested commanders grid">
             <p class="admin-harvest__grid-idle">The commander list loads when this tab is opened.</p>
         </div>

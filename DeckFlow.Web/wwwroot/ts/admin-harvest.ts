@@ -127,7 +127,7 @@
       if (commandersGridState.sortBy !== 'deck_count') {
         parameters.set('sortBy', commandersGridState.sortBy);
       }
-      if (commandersGridState.sortDir !== 'desc') {
+      if (commandersGridState.sortBy !== 'deck_count' || commandersGridState.sortDir !== 'desc') {
         parameters.set('sortDir', commandersGridState.sortDir);
       }
       const response = await fetch(`/Admin/Harvest/commanders?${parameters.toString()}`, {
@@ -161,7 +161,7 @@
   const loadCommandersGrid = async (
     container: HTMLElement,
     page: number,
-    options?: { scrollIntoView?: boolean }
+    options?: { scrollIntoView?: boolean; sortColumn?: string }
   ): Promise<void> => {
     const shouldScroll = options?.scrollIntoView ?? false;
     container.setAttribute('aria-busy', 'true');
@@ -178,6 +178,10 @@
 
       container.innerHTML = html;
       container.setAttribute('aria-busy', 'false');
+
+      if (options?.sortColumn) {
+        container.querySelector<HTMLElement>(`[data-sort-column="${options.sortColumn}"]`)?.focus();
+      }
 
       if (shouldScroll) {
         const section = document.getElementById('harvested-commanders');
@@ -269,6 +273,21 @@
           return;
         }
 
+        const sortHeader = target.closest<HTMLElement>('[data-sort-column]');
+        if (sortHeader) {
+          event.preventDefault();
+          const sortColumn = sortHeader.dataset.sortColumn;
+          const sortDirection = sortHeader.dataset.sortNextDir;
+          if (!sortColumn || !sortDirection) {
+            return;
+          }
+
+          commandersGridState.sortBy = sortColumn;
+          commandersGridState.sortDir = sortDirection;
+          void loadCommandersGrid(commandersGridContainer, 1, { scrollIntoView: true, sortColumn });
+          return;
+        }
+
         const pageLink = target.closest<HTMLElement>('[data-page]');
         if (!pageLink) {
           return;
@@ -281,9 +300,28 @@
           return;
         }
 
+        commandersGridState.search = pageLink.dataset.search ?? '';
+        commandersGridState.sortBy = pageLink.dataset.sortBy ?? 'deck_count';
+        commandersGridState.sortDir = pageLink.dataset.sortDir ?? 'desc';
         void loadCommandersGrid(commandersGridContainer, page, { scrollIntoView: true });
       });
+    }
 
+    const commandersSearchForm = document.getElementById('commanders-search-form');
+    const commandersSearchInput = document.getElementById('commanders-search') as HTMLInputElement | null;
+    const commandersSearchClear = document.getElementById('commanders-search-clear');
+    if (commandersGridContainer && commandersSearchForm && commandersSearchInput) {
+      commandersSearchForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        commandersGridState.search = commandersSearchInput.value;
+        void loadCommandersGrid(commandersGridContainer, 1, { scrollIntoView: true });
+      });
+
+      commandersSearchClear?.addEventListener('click', () => {
+        commandersSearchInput.value = '';
+        commandersGridState.search = '';
+        void loadCommandersGrid(commandersGridContainer, 1, { scrollIntoView: true });
+      });
     }
 
     const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-harvest-tab]'));
