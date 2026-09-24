@@ -175,13 +175,6 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(UnprocessedCount);
     }
 
-    public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
-    {
-        LastPagedCommanderPage = page;
-        LastPagedCommanderPageSize = pageSize;
-        return Task.FromResult(PagedCommandersResult);
-    }
-
     public Task<IReadOnlyList<HarvestedCommanderRow>> GetFilteredProcessedCommandersAsync(int page, int pageSize, CommanderGridQuery query, CancellationToken cancellationToken = default)
     {
         LastPagedCommanderPage = page;

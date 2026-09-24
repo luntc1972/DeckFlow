@@ -81,8 +81,7 @@ public interface ICategoryKnowledgeStore
     /// <summary>
     /// Marks a URL-imported deck as processed while preserving importer-captured metadata.
     /// </summary>
-    Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("Metadata-bearing URL processing is not supported by this store.");
+    Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, CancellationToken cancellationToken = default);
     /// <summary>
     /// Returns the total number of processed decks across the category cache.
     /// </summary>
@@ -102,26 +101,15 @@ public interface ICategoryKnowledgeStore
     /// </summary>
     Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default);
     /// <summary>
-    /// Returns one page of processed harvested commander aggregates for the admin grid.
-    /// </summary>
-    /// <param name="page">One-based page number.</param>
-    /// <param name="pageSize">Maximum number of commander rows to return.</param>
-    /// <param name="cancellationToken">Token used to cancel the page query.</param>
-    /// <returns>The processed commander aggregate rows for the requested page.</returns>
-    Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default);
-    /// <summary>
     /// Returns the number of distinct commanders with processed decks.
     /// </summary>
     Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default);
     /// <summary>Returns a filtered page of processed commander summaries.</summary>
-    Task<IReadOnlyList<HarvestedCommanderRow>> GetFilteredProcessedCommandersAsync(int page, int pageSize, CommanderGridQuery query, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("Filtered processed commander reads are not supported by this store.");
+    Task<IReadOnlyList<HarvestedCommanderRow>> GetFilteredProcessedCommandersAsync(int page, int pageSize, CommanderGridQuery query, CancellationToken cancellationToken = default);
     /// <summary>Returns at most <paramref name="maxRows"/> filtered processed commander summaries in grid order.</summary>
-    Task<IReadOnlyList<HarvestedCommanderRow>> GetAllFilteredProcessedCommandersAsync(CommanderGridQuery query, int maxRows, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("Unpaged filtered processed commander reads are not supported by this store.");
+    Task<IReadOnlyList<HarvestedCommanderRow>> GetAllFilteredProcessedCommandersAsync(CommanderGridQuery query, int maxRows, CancellationToken cancellationToken = default);
     /// <summary>Returns the number of filtered processed commander summaries.</summary>
-    Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException("Filtered processed commander reads are not supported by this store.");
+    Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default);
     /// <summary>
     /// Returns the database size in bytes for the configured provider, or null when it cannot be determined.
     /// </summary>
