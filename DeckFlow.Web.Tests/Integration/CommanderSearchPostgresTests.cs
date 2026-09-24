@@ -121,16 +121,3 @@ public sealed class CommanderSearchPostgresTests : IClassFixture<PostgresContain
         Assert.Equal(2L, count);
     }
 }
-
-/// <summary>Marks a Theory that requires PostgreSQL integration testing.</summary>
-public sealed class PostgresTheoryAttribute : TheoryAttribute
-{
-    /// <summary>Initializes PostgreSQL test skip behavior.</summary>
-    public PostgresTheoryAttribute()
-    {
-        if (!string.Equals(Environment.GetEnvironmentVariable("DECKFLOW_POSTGRES_TESTS"), "1", StringComparison.Ordinal))
-        {
-            Skip = "Postgres integration tests are disabled. Set DECKFLOW_POSTGRES_TESTS=1 and ensure Docker is running to enable.";
-        }
-    }
-}
