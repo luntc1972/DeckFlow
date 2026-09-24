@@ -164,6 +164,18 @@
     options?: { scrollIntoView?: boolean; sortColumn?: string }
   ): Promise<void> => {
     const shouldScroll = options?.scrollIntoView ?? false;
+    const exportSearch = document.querySelector<HTMLInputElement>('[data-export-search]');
+    const exportSortBy = document.querySelector<HTMLInputElement>('[data-export-sort-by]');
+    const exportSortDir = document.querySelector<HTMLInputElement>('[data-export-sort-dir]');
+    if (exportSearch) {
+      exportSearch.value = commandersGridState.search;
+    }
+    if (exportSortBy) {
+      exportSortBy.value = commandersGridState.sortBy;
+    }
+    if (exportSortDir) {
+      exportSortDir.value = commandersGridState.sortDir;
+    }
     container.setAttribute('aria-busy', 'true');
     container.innerHTML = COMMANDERS_LOADING_HTML;
 
