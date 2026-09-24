@@ -4,7 +4,6 @@
   const ACTIVE_POLL_INTERVAL_MS = 3000;
   const IDLE_POLL_INTERVAL_MS = 10000;
   const FETCH_TIMEOUT_MS = 10000;
-  const COMMANDERS_FETCH_TIMEOUT_MS = 10000;
   const ACTIVE_STATES = new Set<string>(['Queued', 'Running', 'Stopping']);
   const TERMINAL_STATES = new Set<string>(['Succeeded', 'Failed', 'Cancelled']);
   const COMMANDERS_LOADING_HTML = '<p class="admin-harvest__grid-loading">Loading commanders…</p>';
@@ -92,25 +91,27 @@
     }
   };
 
-  const fetchStatus = async (): Promise<HarvestStatusPayload | null> => {
-    const abortController = new AbortController();
+  const fetchWithTimeout = async <T>(input: RequestInfo | URL, init: RequestInit, read: (response: Response) => Promise<T>, abortController = new AbortController()): Promise<T> => {
     const timeoutId = window.setTimeout(() => abortController.abort(), FETCH_TIMEOUT_MS);
-
     try {
-      const response = await fetch('/Admin/Harvest/status', {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-        signal: abortController.signal
-      });
+      const response = await fetch(input, { ...init, signal: abortController.signal });
+      return await read(response);
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
 
+  const fetchStatus = async (): Promise<HarvestStatusPayload | null> => {
+    return await fetchWithTimeout('/Admin/Harvest/status', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    }, async response => {
       if (!response.ok) {
         return null;
       }
 
       return await response.json() as HarvestStatusPayload;
-    } finally {
-      window.clearTimeout(timeoutId);
-    }
+    });
   };
 
   const commandersGridState = { search: '', sortBy: 'deck_count', sortDir: 'desc' };
@@ -118,33 +119,21 @@
   let commandersAbortController: AbortController | null = null;
 
   const fetchCommandersGrid = async (page: number, abortController: AbortController): Promise<string | null> => {
-    const timeoutId = window.setTimeout(() => abortController.abort(), COMMANDERS_FETCH_TIMEOUT_MS);
-
-    try {
-      const parameters = new URLSearchParams({ page: page.toString() });
-      if (commandersGridState.search !== '') {
-        parameters.set('search', commandersGridState.search);
-      }
-      if (commandersGridState.sortBy !== 'deck_count') {
-        parameters.set('sortBy', commandersGridState.sortBy);
-      }
-      if (commandersGridState.sortBy !== 'deck_count' || commandersGridState.sortDir !== 'desc') {
-        parameters.set('sortDir', commandersGridState.sortDir);
-      }
-      const response = await fetch(`/Admin/Harvest/commanders?${parameters.toString()}`, {
-        credentials: 'same-origin',
-        headers: { Accept: 'text/html' },
-        signal: abortController.signal
-      });
-
-      if (!response.ok) {
-        return null;
-      }
-
-      return await response.text();
-    } finally {
-      window.clearTimeout(timeoutId);
+    const parameters = new URLSearchParams({ page: page.toString() });
+    if (commandersGridState.search !== '') {
+      parameters.set('search', commandersGridState.search);
     }
+    if (commandersGridState.sortBy !== 'deck_count') {
+      parameters.set('sortBy', commandersGridState.sortBy);
+    }
+    if (commandersGridState.sortBy !== 'deck_count' || commandersGridState.sortDir !== 'desc') {
+      parameters.set('sortDir', commandersGridState.sortDir);
+    }
+
+    return await fetchWithTimeout(`/Admin/Harvest/commanders?${parameters.toString()}`, {
+      credentials: 'same-origin',
+      headers: { Accept: 'text/html' }
+    }, async response => response.ok ? await response.text() : null, abortController);
   };
 
   const bindCommandersRetry = (container: HTMLElement, page: number): void => {
@@ -310,19 +299,19 @@
         details.setAttribute('data-commander-loading', 'true');
         panel.setAttribute('aria-busy', 'true');
         const abortController = new AbortController();
-        const timeoutId = window.setTimeout(() => abortController.abort(), COMMANDERS_FETCH_TIMEOUT_MS);
         try {
           const parameters = new URLSearchParams({ name: commanderName });
-          const response = await fetch(`/Admin/Harvest/commander-categories?${parameters.toString()}`, {
+          const html = await fetchWithTimeout(`/Admin/Harvest/commander-categories?${parameters.toString()}`, {
             credentials: 'same-origin',
-            headers: { Accept: 'text/html' },
-            signal: abortController.signal
-          });
-          if (!response.ok) {
-            throw new Error('Could not load commander categories.');
-          }
+            headers: { Accept: 'text/html' }
+          }, async response => {
+            if (!response.ok) {
+              throw new Error('Could not load commander categories.');
+            }
 
-          panel.innerHTML = await response.text();
+            return await response.text();
+          }, abortController);
+          panel.innerHTML = html;
           details.setAttribute('data-commander-loaded', 'true');
         } catch {
           details.setAttribute('data-commander-failed', 'true');
@@ -332,7 +321,6 @@
             void loadCommanderBreakdown(details);
           });
         } finally {
-          window.clearTimeout(timeoutId);
           details.removeAttribute('data-commander-loading');
           panel.removeAttribute('aria-busy');
         }
