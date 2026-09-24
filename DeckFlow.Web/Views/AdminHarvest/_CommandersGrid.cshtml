@@ -45,7 +45,7 @@
 
 @if (Model.HarvestedCommanders.Count == 0)
 {
-    <p class="admin-empty">No harvested commanders yet.</p>
+    <p class="admin-empty">@(Model.Query.SearchTerm is null ? "No harvested commanders yet." : $"No commanders start with \"{Model.Query.SearchTerm}\".")</p>
 }
 else
 {

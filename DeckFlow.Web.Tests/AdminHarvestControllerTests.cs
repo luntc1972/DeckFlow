@@ -192,6 +192,23 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
+    public async Task CommandersGrid_EmptySearch_RendersSearchSpecificEncodedMessage()
+    {
+        var model = new CommandersGridViewModel
+        {
+            Query = CommanderGridQuery.FromRequest("A < B", null, null),
+            DeckPage = 1,
+            DeckPageSize = AdminHarvestViewModel.DefaultDeckPageSize,
+            DeckTotalCount = 0,
+        };
+
+        var html = await RenderPartialViewAsync("_CommandersGrid", model);
+
+        Assert.Contains("No commanders start with &quot;A &lt; B&quot;.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("No harvested commanders yet.", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CommandersGrid_MultiPageModel_RendersNumberedPaginationWithCurrentPageStrong()
     {
         var model = new CommandersGridViewModel
