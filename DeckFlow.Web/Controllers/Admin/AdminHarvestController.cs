@@ -1,3 +1,4 @@
+using System.Text;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
@@ -20,6 +21,7 @@ public sealed class AdminHarvestController : Controller
 {
     private const string BannerKey = "AdminHarvestBanner";
     private const string StatusCacheKey = "admin.harvest.status.v1";
+    internal const int MaxCommanderExportRows = 25000;
 
     private readonly IArchidektCacheJobService _jobService;
     private readonly IHarvestRunStore _runStore;
@@ -142,6 +144,36 @@ public sealed class AdminHarvestController : Controller
         };
 
         return PartialView("_CommandersGrid", model);
+    }
+
+    /// <summary>
+    /// Downloads the current filtered and sorted harvested-commanders view as CSV.
+    /// </summary>
+    /// <param name="search">Optional commander-name prefix.</param>
+    /// <param name="sortBy">Optional sort-column token.</param>
+    /// <param name="sortDir">Optional sort-direction token.</param>
+    /// <param name="cancellationToken">Cancellation token for admin data reads.</param>
+    [HttpPost("commanders/export")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ExportCommanders(string? search = null, string? sortBy = null, string? sortDir = null, CancellationToken cancellationToken = default)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { Message = "This endpoint only accepts same-origin browser requests." });
+        }
+
+        var query = CommanderGridQuery.FromRequest(search, sortBy, sortDir);
+        var commanders = await _categoryStore.GetAllFilteredProcessedCommandersAsync(query, MaxCommanderExportRows + 1, cancellationToken);
+        var truncated = commanders.Count > MaxCommanderExportRows;
+        var exportedCommanders = truncated ? commanders.Take(MaxCommanderExportRows).ToArray() : commanders;
+        var csv = CommandersListExport.BuildCsv(exportedCommanders);
+        // Why: Excel otherwise reads accented commander names as the local system codepage.
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray();
+        var marker = truncated ? $"-truncated-first-{MaxCommanderExportRows}" : string.Empty;
+        var fileName = $"harvested-commanders-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}{marker}.csv";
+        return File(bytes, "text/csv; charset=utf-8", fileName);
     }
 
     /// <summary>

@@ -133,6 +133,13 @@ else
             <button id="commanders-search-clear" type="button">Clear</button>
             <button type="submit">Search</button>
         </form>
+        <form method="post" asp-action="ExportCommanders" class="admin-action-form admin-harvest__export-form">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="search" value="" data-export-search />
+            <input type="hidden" name="sortBy" value="deck_count" data-export-sort-by />
+            <input type="hidden" name="sortDir" value="desc" data-export-sort-dir />
+            <button type="submit">Export CSV</button>
+        </form>
         <div id="commanders-grid-container" aria-live="polite" aria-busy="false" aria-label="Harvested commanders grid">
             <p class="admin-harvest__grid-idle">The commander list loads when this tab is opened.</p>
         </div>
