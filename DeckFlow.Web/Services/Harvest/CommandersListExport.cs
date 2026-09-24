@@ -44,9 +44,9 @@ public static class CommandersListExport
 
     private static string CsvField(string value)
     {
-        // Why: commander names are attacker-influenced; a leading =,+,-,@ executes as a formula
+        // Why: commander names are attacker-influenced; a leading =,+,-,@, tab, or carriage return executes as a formula
         // when the CSV opens in Excel/Sheets, so neutralize with a quote prefix.
-        var guarded = value.Length > 0 && value[0] is '=' or '+' or '-' or '@'
+        var guarded = value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
             ? "'" + value
             : value;
         return "\"" + guarded.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
