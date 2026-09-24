@@ -213,6 +213,28 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
+    public async Task CommandersGrid_Disclosure_RendersOneFullWidthRowPerCommander()
+    {
+        var model = new CommandersGridViewModel { HarvestedCommanders = [new HarvestedCommanderRow("One", 1, "2026-01-01T00:00:00.0000000Z"), new HarvestedCommanderRow("Two", 2, "2026-01-02T00:00:00.0000000Z")] };
+
+        var html = await RenderPartialViewAsync("_CommandersGrid", model);
+
+        Assert.Equal(2, Regex.Matches(html, "data-commander-details").Count);
+        Assert.Equal(2, Regex.Matches(html, "<tr class=\"admin-harvest__category-row\">").Count);
+        Assert.Equal(2, Regex.Matches(html, "<td colspan=\"4\">").Count);
+    }
+
+    [Fact]
+    public async Task CommandersGrid_Disclosure_HtmlEncodesCommanderNameAttribute()
+    {
+        var model = new CommandersGridViewModel { HarvestedCommanders = [new HarvestedCommanderRow("A \" < B", 1, "2026-01-01T00:00:00.0000000Z")] };
+
+        var html = await RenderPartialViewAsync("_CommandersGrid", model);
+
+        Assert.Contains("data-commander-details=\"A &quot; &lt; B\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task HarvestRunLog_ErrorMessage_RendersErrorColumn()
     {
         var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(errorMessage: "upstream failed") });

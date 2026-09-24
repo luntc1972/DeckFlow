@@ -267,6 +267,59 @@
 
     const commandersGridContainer = document.getElementById('commanders-grid-container');
     if (commandersGridContainer) {
+      const loadCommanderBreakdown = async (details: HTMLDetailsElement): Promise<void> => {
+        if (details.hasAttribute('data-commander-loaded') || details.hasAttribute('data-commander-loading')) {
+          return;
+        }
+
+        const panel = details.querySelector<HTMLElement>('[data-commander-panel]');
+        const commanderName = details.dataset.commanderDetails;
+        if (!panel || !commanderName) {
+          return;
+        }
+
+        details.removeAttribute('data-commander-failed');
+
+        details.setAttribute('data-commander-loading', 'true');
+        panel.setAttribute('aria-busy', 'true');
+        try {
+          const parameters = new URLSearchParams({ name: commanderName });
+          const response = await fetch(`/Admin/Harvest/commander-categories?${parameters.toString()}`, {
+            credentials: 'same-origin',
+            headers: { Accept: 'text/html' }
+          });
+          if (!response.ok) {
+            throw new Error('Could not load commander categories.');
+          }
+
+          panel.innerHTML = await response.text();
+          details.setAttribute('data-commander-loaded', 'true');
+        } catch {
+          details.setAttribute('data-commander-failed', 'true');
+          panel.innerHTML = '<p class="admin-harvest__grid-error">Could not load category breakdown. <a href="#" data-commander-retry>Retry</a></p>';
+          panel.querySelector<HTMLAnchorElement>('[data-commander-retry]')?.addEventListener('click', (event) => {
+            event.preventDefault();
+            void loadCommanderBreakdown(details);
+          });
+        } finally {
+          details.removeAttribute('data-commander-loading');
+          panel.removeAttribute('aria-busy');
+        }
+      };
+
+      commandersGridContainer.addEventListener('toggle', (event) => {
+        const details = event.target;
+        if (!(details instanceof HTMLDetailsElement) || !details.hasAttribute('data-commander-details')) {
+          return;
+        }
+
+        if (!details.open) {
+          return;
+        }
+
+        void loadCommanderBreakdown(details);
+      }, true);
+
       commandersGridContainer.addEventListener('click', (event) => {
         const target = event.target;
         if (!(target instanceof Element)) {
