@@ -6,6 +6,17 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.09.10 — Creator Content Compliance (2026-09-24)
+
+Prepares the Content Knowledge Base for public launch. The pages stay dark: `tool.knowledge-base.enabled` is still OFF in production and is turned on separately from this release.
+- **Creator notice:** every Content KB index and detail page opens with a notice saying the summaries are independent and AI-assisted, and that the creators named did not write, review, or endorse them.
+- **Removal requests:** a **Request removal** link in the notice opens `/feedback` with a new Creator removal type and the page path already filled in. The Help page commits to acting on requests within **7 days**. Admin feedback views show the type's display name.
+- **Quote cap:** quoted text in each clip excerpt is limited to **25 words**. Distillation prompts ask for the cap, distilled clips over it are rejected, and existing clips over the cap were shortened or paraphrased.
+- **Creator suppression:** `/Admin/ContentKb` adds **Suppress**, which hides a creator's pages, style profile, and prompt material by display name and folder slug. It also adds **Purge**, which deletes the creator from all seven content stores after you type the exact canonical slug, and then lists the artifact folders to delete by hand.
+- **Suppression everywhere:** public reads, seed loaders, CLI and Studio harvest, review, publish, DirectPush, export, copy, distill, and the creator-style consumers all skip suppressed creators. Studio pulls production's suppression list before Harvest, Publish, and DirectPush, and blocks the run if production can't be read.
+- **Fail-closed flag seed:** `tool.knowledge-base.enabled` now seeds OFF in SQLite and Postgres, and existing flag rows are left alone. The Deck Analysis Knowledge Base note shows only while the flag is on, so it never links to a disabled page.
+- **Content fix:** 39 creator summaries that had garbled punctuation (for example `ΓÇö` in place of `—`) have been repaired, and a new test fails the build if that damage returns. It was left over from a distill encoding bug that was fixed in July.
+
 ### 2026.09.9 — Harvest Backlog Backpressure Hotfix (2026-09-24)
 
 Stops a failing harvest from growing the deck queue, after the 2026-09-18 to 09-23 PostgreSQL failures added roughly 300k decks and brought the queue to about 710k waiting:
