@@ -321,6 +321,31 @@ public sealed class HarvestRunStore : IHarvestRunStore
     }
 
     /// <inheritdoc />
+    public async Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var row = await connection.QuerySingleAsync<FailureStreakRow>(new CommandDefinition(
+            """
+            SELECT COUNT(1) AS ConsecutiveFailures,
+                   MAX(completed_utc) AS LastFailureUtc,
+                   (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded') AS LastSuccessUtc
+            FROM harvest_runs
+            WHERE state = 'Failed'
+              AND kind = 'bulk'
+              AND completed_utc IS NOT NULL
+              AND (NOT EXISTS (SELECT 1 FROM harvest_runs WHERE state = 'Succeeded')
+                   OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded'));
+            """,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return new HarvestFailureStreak(
+            checked((int)row.ConsecutiveFailures),
+            ConvertCompletedUtc(row.LastFailureUtc),
+            ConvertCompletedUtc(row.LastSuccessUtc));
+    }
+
+    /// <inheritdoc />
     public async Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -341,6 +366,27 @@ public sealed class HarvestRunStore : IHarvestRunStore
         {
             // Best-effort invalidation must never break a successful write path.
         }
+    }
+
+    private static DateTimeOffset? ConvertCompletedUtc(object? value)
+        => value switch
+        {
+            null or DBNull => null,
+            DateTimeOffset completedUtc => completedUtc,
+            DateTime completedUtc => new DateTimeOffset(completedUtc.Kind == DateTimeKind.Local
+                ? completedUtc.ToUniversalTime()
+                : DateTime.SpecifyKind(completedUtc, DateTimeKind.Utc)),
+            string completedUtc => DateTimeOffset.Parse(completedUtc, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+            _ => throw new InvalidOperationException($"Unsupported completed_utc value type: {value.GetType().FullName}.")
+        };
+
+    private sealed class FailureStreakRow
+    {
+        public long ConsecutiveFailures { get; init; }
+
+        public object? LastFailureUtc { get; init; }
+
+        public object? LastSuccessUtc { get; init; }
     }
 
     private static HarvestRunRow ToHarvestRunRow(HarvestRunRowData row)

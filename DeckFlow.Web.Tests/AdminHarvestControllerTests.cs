@@ -662,6 +662,9 @@ public sealed class AdminHarvestControllerTests
         public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<DateTimeOffset?>(null);
 
+        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new HarvestFailureStreak(0, null, null));
+
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0L);
     }

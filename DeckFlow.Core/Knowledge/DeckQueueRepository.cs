@@ -288,6 +288,25 @@ internal sealed class DeckQueueRepository
     }
 
     /// <summary>
+    /// Determines whether the unprocessed queue contains more than a supplied threshold.
+    /// </summary>
+    /// <param name="threshold">Exclusive queue threshold.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    internal async Task<bool> HasMoreThanUnprocessedDecksAsync(int threshold, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(threshold);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var result = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
+            "SELECT 1 FROM deck_queue WHERE processed = 0 AND skipped = 0 LIMIT 1 OFFSET @threshold;",
+            new { threshold },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return result.HasValue;
+    }
+
+    /// <summary>
     /// Counts the number of decks that have been processed.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>

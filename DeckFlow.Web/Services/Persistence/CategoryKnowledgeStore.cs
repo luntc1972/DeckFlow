@@ -149,17 +149,23 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        // Why: inserted_utc is a TEXT column on both dialects, but the Dapper DateTime
-        // handler binds @cutoff as a native timestamptz on Postgres — and Postgres has
-        // no `text >= timestamptz` operator (42883), so the comparison must cast the
-        // column to timestamptz there. SQLite keeps its lexical TEXT comparison
-        // unchanged. (F-51-PG-01)
-        var column = _connectionInfo.IsSqlite
-            ? "inserted_utc"
-            : "inserted_utc::timestamptz";
+        // Why: Postgres must compare TEXT to TEXT so ix_deck_queue_processed_inserted_deck
+        // remains usable; casting inserted_utc to timestamptz prevents that index use. The
+        // fixed-width UTC date/time prefix sorts lexically, and legacy T-format rows are all
+        // older than any 30-day cutoff, so their differing separator cannot affect this count.
+        // SQLite continues binding DateTime through Dapper because that is its stored format.
+        if (_connectionInfo.IsSqlite)
+        {
+            return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
+                "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;",
+                new { cutoff = cutoffUtc },
+                cancellationToken: cancellationToken)).ConfigureAwait(false));
+        }
+
+        var cutoff = cutoffUtc.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-            $"SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND {column} >= @cutoff;",
-            new { cutoff = cutoffUtc },
+            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;",
+            new { cutoff },
             cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 

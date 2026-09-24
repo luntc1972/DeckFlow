@@ -13,6 +13,7 @@ namespace DeckFlow.Core.Tests;
 
 public sealed class CliFeatureFlagServicesTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private const string CacheFlagKey = "service.scryfall-collection-cache.enabled";
     private readonly string _artifactsPath = Path.Combine(Path.GetTempPath(), $"deckflow-cli-flags-{Guid.NewGuid():N}");
     private readonly string? _previousArtifactsPath = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
@@ -25,7 +26,7 @@ public sealed class CliFeatureFlagServicesTests : IDisposable
     public void Dispose()
     {
         Environment.SetEnvironmentVariable("MTG_DATA_DIR", _previousArtifactsPath);
-        SqliteConnection.ClearAllPools();
+        ClearPool(Path.Combine(_artifactsPath, "feedback.db"));
         GC.Collect();
         GC.WaitForPendingFinalizers();
         if (Directory.Exists(_artifactsPath))

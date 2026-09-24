@@ -13,15 +13,28 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class CreatorStyleIndexExportTests : IDisposable
 {
-    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"creator-style-index-export-{Guid.NewGuid():N}.db");
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
+    private readonly string _databaseDirectory = Path.Combine(Path.GetTempPath(), $"creator-style-index-export-{Guid.NewGuid():N}");
+    private readonly string _dbPath;
     private readonly string _outputDir = Path.Combine(Path.GetTempPath(), $"creator-style-index-export-out-{Guid.NewGuid():N}");
+
+    public CreatorStyleIndexExportTests()
+    {
+        Directory.CreateDirectory(_databaseDirectory);
+        _dbPath = Path.Combine(_databaseDirectory, "creator-style-index-export.db");
+    }
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        ClearPool(_dbPath);
+        ClearPool(ContentKbCliPaths.ResolveCreatorDeckCacheDatabasePath(new FileInfo(_dbPath)));
         GC.Collect();
         GC.WaitForPendingFinalizers();
-        File.Delete(_dbPath);
+
+        if (Directory.Exists(_databaseDirectory))
+        {
+            Directory.Delete(_databaseDirectory, recursive: true);
+        }
 
         if (Directory.Exists(_outputDir))
         {

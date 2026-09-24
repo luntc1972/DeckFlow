@@ -27,6 +27,7 @@ public sealed class HarvestScheduleService : BackgroundService
     private readonly IHarvestRunStore _runStore;
     private readonly IArchidektCacheJobService _jobService;
     private readonly ILogger<HarvestScheduleService> _logger;
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>
     /// DI constructor. Registered as an <see cref="IHostedService"/> in Plan 07.
@@ -36,12 +37,14 @@ public sealed class HarvestScheduleService : BackgroundService
     /// <param name="runStore">Run-history store used to read <c>last_success_utc</c>.</param>
     /// <param name="jobService">Bulk-harvest job service called when a tick is due to fire.</param>
     /// <param name="logger">Structured logger for tick / fire / failure events.</param>
+    /// <param name="timeProvider">Clock used for due-time checks; defaults to <see cref="TimeProvider.System"/> so tests can pin time.</param>
     public HarvestScheduleService(
         IFeatureFlagCache flagCache,
         IHarvestScheduleCache scheduleCache,
         IHarvestRunStore runStore,
         IArchidektCacheJobService jobService,
-        ILogger<HarvestScheduleService> logger)
+        ILogger<HarvestScheduleService> logger,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(flagCache);
         ArgumentNullException.ThrowIfNull(scheduleCache);
@@ -53,6 +56,7 @@ public sealed class HarvestScheduleService : BackgroundService
         _runStore = runStore;
         _jobService = jobService;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -108,24 +112,46 @@ public sealed class HarvestScheduleService : BackgroundService
         }
 
         // Single PG read per tick at 60s cadence (T-07-11 mitigation accepted).
-        var lastSuccess = await _runStore.GetLastSuccessUtcAsync(cancellationToken).ConfigureAwait(false);
+        var failureStreak = await _runStore.GetFailureStreakSinceLastSuccessAsync(cancellationToken).ConfigureAwait(false);
 
         // No prior successful run yet — fire immediately so enabling cron doesn't have to
         // wait an entire interval for the first sweep.
-        DateTimeOffset? nextDue = lastSuccess.HasValue
-            ? lastSuccess.Value + TimeSpan.FromHours(snapshot.IntervalHours.Value)
+        DateTimeOffset? nextDue = failureStreak.LastSuccessUtc.HasValue
+            ? failureStreak.LastSuccessUtc.Value + TimeSpan.FromHours(snapshot.IntervalHours.Value)
             : null;
 
-        var now = DateTimeOffset.UtcNow;
+        var failureBackoff = GetFailureBackoff(failureStreak.ConsecutiveFailures, snapshot.IntervalHours.Value);
+        var failureDue = failureStreak.LastFailureUtc + failureBackoff;
+        nextDue = Max(nextDue, failureDue);
+        var now = _timeProvider.GetUtcNow();
         if (nextDue.HasValue && now < nextDue.Value)
         {
+            if (failureDue.HasValue && nextDue == failureDue)
+            {
+                _logger.LogDebug("Harvest.Schedule.Tick.SuppressedByFailureBackoff consecutiveFailures={ConsecutiveFailures} nextDue={NextDue}", failureStreak.ConsecutiveFailures, nextDue);
+            }
             return;
         }
 
         _logger.LogInformation(
             "Harvest.Schedule.Tick.Fired intervalHours={IntervalHours} lastSuccess={LastSuccess} nextDue={NextDue}",
-            snapshot.IntervalHours, lastSuccess, nextDue);
+            snapshot.IntervalHours, failureStreak.LastSuccessUtc, nextDue);
 
         await _jobService.EnqueueAsync(FireDuration, cancellationToken).ConfigureAwait(false);
     }
+
+    private static TimeSpan GetFailureBackoff(int consecutiveFailures, int intervalHours)
+    {
+        if (consecutiveFailures <= 0)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var exponent = Math.Min(consecutiveFailures - 1, 20);
+        var minutes = 15L << exponent;
+        return TimeSpan.FromMinutes(Math.Min(minutes, TimeSpan.FromHours(intervalHours).TotalMinutes));
+    }
+
+    private static DateTimeOffset? Max(DateTimeOffset? first, DateTimeOffset? second)
+        => first is null || (second.HasValue && second.Value > first.Value) ? second : first;
 }

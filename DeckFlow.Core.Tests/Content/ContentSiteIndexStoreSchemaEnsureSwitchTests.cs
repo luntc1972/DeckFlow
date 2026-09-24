@@ -19,6 +19,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ContentSiteIndexStoreSchemaEnsureSwitchTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     // Word-boundary, case-insensitive DDL detector — matches CREATE/ALTER/DROP as SQL keywords.
     private static readonly Regex DdlPattern =
         new(@"\b(CREATE|ALTER|DROP)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -34,7 +35,7 @@ public sealed class ContentSiteIndexStoreSchemaEnsureSwitchTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
@@ -50,7 +51,7 @@ public sealed class ContentSiteIndexStoreSchemaEnsureSwitchTests : IDisposable
         await onStore.EnsureSchemaAsync();
 
         var recorded = new List<string>();
-        var connectionString = $"Data Source={_dbPath}";
+        var connectionString = $"Data Source={Path.GetFullPath(_dbPath)}";
         var prodStore = new ContentSiteIndexStore(
             RelationalDatabaseConnection.FromSqlitePath(_dbPath),
             ensureSchemaEnabled: false,

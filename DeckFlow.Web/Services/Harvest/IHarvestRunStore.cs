@@ -11,6 +11,12 @@ namespace DeckFlow.Web.Services.Harvest;
 public interface IHarvestRunStore
 {
     /// <summary>
+    /// Gets the failed-run streak completed after the most recent successful run.
+    /// </summary>
+    /// <param name="cancellationToken">Token used to cancel the read.</param>
+    Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Idempotent. On first call: creates the <c>harvest_runs</c> table and indexes,
     /// then runs the D-02 startup reaper (UPDATE non-terminal rows to
     /// <see cref="HarvestRunState.Failed"/> with error_message
@@ -25,7 +31,7 @@ public interface IHarvestRunStore
     /// and returns the generated UUID. <paramref name="url"/> is null for
     /// <see cref="HarvestRunKind.Bulk"/>, populated for
     /// <see cref="HarvestRunKind.Url"/> (D-10). Implementations MUST call
-    /// <c>_stats?.Invalidate()</c> after the write succeeds (D-13).
+    /// <c>_stats?.Invalidate()</c> after the write succeeds (D-13), which marks the stats payload stale for background refresh.
     /// </summary>
     /// <param name="kind">Bulk vs URL discriminator.</param>
     /// <param name="durationSeconds">Operator-selected cap (bulk) or 0 (URL).</param>
@@ -46,7 +52,7 @@ public interface IHarvestRunStore
     /// <paramref name="completedUtc"/> only when transitioning to a terminal state.
     /// Null timestamp parameters preserve the existing column value via SQL COALESCE.
     /// Implementations MUST call <c>_stats?.Invalidate()</c> after the write
-    /// succeeds (D-13).
+    /// succeeds (D-13), marking the retained stats payload stale for background refresh.
     /// </summary>
     /// <param name="id">UUID primary key of the row to update.</param>
     /// <param name="state">New state to write.</param>
@@ -72,7 +78,7 @@ public interface IHarvestRunStore
     /// <c>started_utc</c>, <c>completed_utc</c>, or <c>error_message</c>. Used by
     /// the background harvest worker to surface incremental progress to the AJAX
     /// status endpoint without disturbing the state machine. Implementations MUST
-    /// call <c>_stats?.Invalidate()</c> after the write succeeds.
+    /// call <c>_stats?.Invalidate()</c> after the write succeeds, marking retained stats stale for background refresh.
     /// </summary>
     /// <param name="id">UUID primary key of the row to update.</param>
     /// <param name="decksProcessed">Decks imported so far during the run.</param>
