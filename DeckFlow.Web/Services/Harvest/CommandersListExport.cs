@@ -11,19 +11,20 @@ public static class CommandersListExport
     /// <summary>Builds a CSV export in the supplied commander ordering.</summary>
     /// <param name="commanders">Commander rows to export.</param>
     /// <returns>CSV text with LF line endings.</returns>
-    public static string BuildCsv(IReadOnlyList<HarvestedCommanderRow> commanders)
+    public static string BuildCsv(IEnumerable<HarvestedCommanderRow> commanders)
     {
         ArgumentNullException.ThrowIfNull(commanders);
 
         var builder = new StringBuilder();
         builder.Append(CsvHeader).Append('\n');
-        for (var index = 0; index < commanders.Count; index++)
+        var index = 0;
+        foreach (var row in commanders)
         {
-            var row = commanders[index];
             builder.Append(index + 1).Append(',');
             builder.Append(CsvField(row.CommanderName)).Append(',');
             builder.Append(row.DeckCount.ToString(CultureInfo.InvariantCulture)).Append(',');
             builder.Append(FormatLastProcessedUtc(row.LastProcessedUtc)).Append('\n');
+            index++;
         }
 
         return builder.ToString();
