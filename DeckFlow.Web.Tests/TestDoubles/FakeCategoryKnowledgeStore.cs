@@ -53,6 +53,12 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public IReadOnlyList<HarvestedCommanderRow> PagedCommandersResult { get; set; } = Array.Empty<HarvestedCommanderRow>();
 
+    public IReadOnlyList<HarvestedCommanderRow> AllFilteredCommandersResult { get; set; } = Array.Empty<HarvestedCommanderRow>();
+
+    public int GetAllFilteredProcessedCommandersCalls { get; private set; }
+
+    public int LastExportMaxRows { get; private set; }
+
     public int LastPagedCommanderPage { get; private set; }
 
     public int LastPagedCommanderPageSize { get; private set; }
@@ -182,6 +188,15 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         LastPagedCommanderPageSize = pageSize;
         LastCommanderGridQuery = query;
         return Task.FromResult(PagedCommandersResult);
+    }
+
+    public Task<IReadOnlyList<HarvestedCommanderRow>> GetAllFilteredProcessedCommandersAsync(CommanderGridQuery query, int maxRows, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxRows, 1);
+        LastCommanderGridQuery = query;
+        GetAllFilteredProcessedCommandersCalls++;
+        LastExportMaxRows = maxRows;
+        return Task.FromResult<IReadOnlyList<HarvestedCommanderRow>>(AllFilteredCommandersResult.Take(maxRows).ToList());
     }
 
     public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
