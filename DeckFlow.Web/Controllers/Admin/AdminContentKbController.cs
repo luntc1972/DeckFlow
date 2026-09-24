@@ -2,6 +2,7 @@ using DeckFlow.Core.Content;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Security;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.CreatorStyle;
 using DeckFlow.Web.Services.FeatureFlags;
 using Microsoft.AspNetCore.Mvc;
 
@@ -24,6 +25,10 @@ public sealed class AdminContentKbController : Controller
     private readonly IFeatureFlagCache _flagCache;
     private readonly PublishStateDeriver _deriver;
     private readonly ILogger<AdminContentKbController> _logger;
+    private readonly ICreatorSuppressionStore _suppressionStore;
+    private readonly ICreatorIdentityResolver _identityResolver;
+    private readonly CreatorPurgeService _purgeService;
+    private readonly CreatorWhitelistPoolBuilder _creatorWhitelistPoolBuilder;
 
     /// <summary>Constructor injecting the index store, seed loader, flag cache, and logger.</summary>
     /// <param name="store">Content site-index store (read all rows + flip visibility).</param>
@@ -31,23 +36,39 @@ public sealed class AdminContentKbController : Controller
     /// <param name="flagCache">Feature-flag cache for the tool.knowledge-base.enabled status display.</param>
     /// <param name="deriver">Shared publish-state deriver.</param>
     /// <param name="logger">Logger.</param>
+    /// <param name="suppressionStore">Creator suppression persistence.</param>
+    /// <param name="identityResolver">Creator representation resolver.</param>
+    /// <param name="purgeService">Creator-scoped multi-store purge service.</param>
+    /// <param name="creatorWhitelistPoolBuilder">Existing creator whitelist cache invalidator.</param>
     public AdminContentKbController(
         IContentSiteIndexStore store,
         IContentKbSeedLoader seedLoader,
         IFeatureFlagCache flagCache,
         PublishStateDeriver deriver,
-        ILogger<AdminContentKbController> logger)
+        ILogger<AdminContentKbController> logger,
+        ICreatorSuppressionStore suppressionStore,
+        ICreatorIdentityResolver identityResolver,
+        CreatorPurgeService purgeService,
+        CreatorWhitelistPoolBuilder creatorWhitelistPoolBuilder)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(seedLoader);
         ArgumentNullException.ThrowIfNull(flagCache);
         ArgumentNullException.ThrowIfNull(deriver);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(suppressionStore);
+        ArgumentNullException.ThrowIfNull(identityResolver);
+        ArgumentNullException.ThrowIfNull(purgeService);
+        ArgumentNullException.ThrowIfNull(creatorWhitelistPoolBuilder);
         _store = store;
         _seedLoader = seedLoader;
         _flagCache = flagCache;
         _deriver = deriver;
         _logger = logger;
+        _suppressionStore = suppressionStore;
+        _identityResolver = identityResolver;
+        _purgeService = purgeService;
+        _creatorWhitelistPoolBuilder = creatorWhitelistPoolBuilder;
     }
 
     /// <summary>
@@ -294,4 +315,94 @@ public sealed class AdminContentKbController : Controller
         TempData[BannerKey] = $"Reloaded seed ({rowCount} rows).";
         return RedirectToAction(nameof(Index), new { visibilityFilter });
     }
+
+    /// <summary>Suppresses a resolved creator and hides its indexed source rows.</summary>
+    [HttpPost("SuppressCreator")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SuppressCreator(string creator, string? reason, string? note, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, SameOriginRequestValidator.GetForbiddenMessage());
+        }
+
+        var utc = DateTimeOffset.UtcNow;
+        try
+        {
+            var identity = await RequireIdentityAsync(creator, cancellationToken).ConfigureAwait(false);
+            if (identity is null)
+            {
+                TempData[BannerKey] = "Creator was not found.";
+                _logger.LogInformation("Creator {Action} {Slug} at {Utc} failed: {Reason}", "suppress", creator, utc, "unknown");
+                return RedirectToAction(nameof(Index));
+            }
+
+            var aliases = identity.DisplayNames.Concat(identity.FolderSlugs)
+                .Where(alias => !string.Equals(alias, identity.CanonicalSlug, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            await _suppressionStore.SuppressAsync(identity.CanonicalSlug, aliases, reason ?? string.Empty, utc, note, cancellationToken).ConfigureAwait(false);
+            foreach (var displayName in identity.DisplayNames.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                await _store.SetVisibilityBySourceAsync(displayName, visible: false, cancellationToken).ConfigureAwait(false);
+            }
+            await _store.SetVisibilityByCreatorAsync(identity, visible: false, cancellationToken).ConfigureAwait(false);
+
+            _creatorWhitelistPoolBuilder.Invalidate(identity.CanonicalSlug);
+            TempData[BannerKey] = $"Creator {identity.CanonicalSlug} suppressed.";
+            _logger.LogInformation("Creator {Action} {Slug} at {Utc}", "suppress", identity.CanonicalSlug, utc);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            TempData[BannerKey] = $"Creator suppression failed: {exception.Message}";
+            _logger.LogWarning("Creator {Action} {Slug} at {Utc} failed: {Reason}", "suppress", creator, utc, exception.Message);
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>Purges resolved creator records after exact canonical-slug confirmation.</summary>
+    [HttpPost("PurgeCreator")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PurgeCreator(string creator, string confirmSlug, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, SameOriginRequestValidator.GetForbiddenMessage());
+        }
+
+        var utc = DateTimeOffset.UtcNow;
+        try
+        {
+            var identity = await RequireIdentityAsync(creator, cancellationToken).ConfigureAwait(false);
+            if (identity is null)
+            {
+                TempData[BannerKey] = "Creator was not found.";
+                _logger.LogInformation("Creator {Action} {Slug} at {Utc} failed: {Reason}", "purge", creator, utc, "unknown");
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (!string.Equals(confirmSlug, identity.CanonicalSlug, StringComparison.Ordinal))
+            {
+                TempData[BannerKey] = $"To purge, type the canonical slug {identity.CanonicalSlug}.";
+                _logger.LogInformation("Creator {Action} {Slug} at {Utc} failed: {Reason}", "purge", identity.CanonicalSlug, utc, "confirmation mismatch");
+                return RedirectToAction(nameof(Index));
+            }
+
+            var result = await _purgeService.PurgeAsync(identity, cancellationToken).ConfigureAwait(false);
+            _creatorWhitelistPoolBuilder.Invalidate(identity.CanonicalSlug);
+            var stores = string.Join(", ", result.Stores.Select(store => store.Succeeded ? $"{store.StoreName}: {store.RowsDeleted}" : $"{store.StoreName}: failed ({store.Error})"));
+            TempData[BannerKey] = $"Purge {identity.CanonicalSlug}: {stores}. Delete artifact folders by hand: {string.Join(", ", result.ArtifactFolders)}.";
+            _logger.LogInformation("Creator {Action} {Slug} at {Utc}; {Stores}", "purge", identity.CanonicalSlug, utc, stores);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            TempData[BannerKey] = $"Creator purge failed: {exception.Message}";
+            _logger.LogWarning("Creator {Action} {Slug} at {Utc} failed: {Reason}", "purge", creator, utc, exception.Message);
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    private async Task<CreatorIdentity?> RequireIdentityAsync(string creator, CancellationToken cancellationToken) =>
+        string.IsNullOrWhiteSpace(creator) ? null : await _identityResolver.ResolveAsync(creator, cancellationToken).ConfigureAwait(false);
 }

@@ -30,7 +30,9 @@ public static class ContentKbStoreServiceCollectionExtensions
         services.AddSingleton<ICreatorStyleStatedRuleStore>(provider => new CreatorStyleStatedRuleStore(
             connection,
             suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>()));
+        services.AddSingleton<ICreatorSourceStore>(_ => new CreatorSourceStore(connection));
         services.AddSingleton<ICreatorIdentityResolver, CreatorIdentityResolver>();
+        services.AddSingleton<CreatorPurgeService>();
         return services;
     }
 }

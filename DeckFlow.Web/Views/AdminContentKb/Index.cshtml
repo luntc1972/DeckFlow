@@ -52,6 +52,24 @@
     </div>
 </section>
 
+<section aria-labelledby="creator-suppression-heading">
+    <h2 id="creator-suppression-heading">Creator suppression</h2>
+    <form method="post" asp-action="SuppressCreator" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <label>Creator <input name="creator" required /></label>
+        <label>Reason <input name="reason" required /></label>
+        <label>Note <input name="note" /></label>
+        <button type="submit">Suppress creator</button>
+    </form>
+    <form method="post" asp-action="PurgeCreator" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <label>Creator <input name="creator" required /></label>
+        <label>Confirm canonical slug <input name="confirmSlug" required /></label>
+        <p class="admin-error" role="alert">Purge deletes stored creator records. Type the exact canonical slug; artifact folders must be deleted by hand.</p>
+        <button type="submit">Purge creator</button>
+    </form>
+</section>
+
 @if (Model.Sources.Count > 0)
 {
     <section aria-labelledby="kb-bulk-heading">
