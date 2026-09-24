@@ -32,7 +32,7 @@ public sealed class HarvestScheduleServiceTests
 
         var job = new RecordingJob();
         var service = new HarvestScheduleService(
-            new EnabledFlags(), new FixedSchedule(1), store, job,
+            new FakeFeatureFlagCache(), new FixedSchedule(1), store, job,
             NullLogger<HarvestScheduleService>.Instance,
             new FakeTimeProvider(now));
         var tick = typeof(HarvestScheduleService).GetMethod("TickAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -54,7 +54,7 @@ public sealed class HarvestScheduleServiceTests
 
         var job = new RecordingJob();
         var service = new HarvestScheduleService(
-            new EnabledFlags(), new FixedSchedule(1), store, job,
+            new FakeFeatureFlagCache(), new FixedSchedule(1), store, job,
             NullLogger<HarvestScheduleService>.Instance,
             new FakeTimeProvider(now));
         var tick = typeof(HarvestScheduleService).GetMethod("TickAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -62,13 +62,6 @@ public sealed class HarvestScheduleServiceTests
         await (Task)tick.Invoke(service, new object[] { CancellationToken.None })!;
 
         Assert.Equal(0, job.Calls);
-    }
-
-    private sealed class EnabledFlags : IFeatureFlagCache
-    {
-        public bool IsEnabled(string key) => true;
-        public IReadOnlyDictionary<string, bool> Snapshot() => new Dictionary<string, bool>();
-        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FixedSchedule(int hours) : IHarvestScheduleCache

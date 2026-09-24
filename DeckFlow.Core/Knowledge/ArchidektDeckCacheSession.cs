@@ -145,9 +145,7 @@ public sealed class ArchidektDeckCacheSession
                 {
                     skipped++;
                     _logger?.LogWarning(exception, "Skipping deck {DeckId} while caching categories.", deckId);
-                    // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
-                    await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, cancellationToken: cancellationToken);
-                    progress?.Report(added + updated);
+                    await SkipDeckAsync(deckId, added, updated, progress, cancellationToken);
                 }
                 catch (Exception exception) when (exception is not System.Data.Common.DbException)
                 {
@@ -159,9 +157,7 @@ public sealed class ArchidektDeckCacheSession
                     }
 
                     skipped++;
-                    // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
-                    await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, cancellationToken: cancellationToken);
-                    progress?.Report(added + updated);
+                    await SkipDeckAsync(deckId, added, updated, progress, cancellationToken);
                 }
 
                 if (stopwatch.Elapsed >= duration || cancellationToken.IsCancellationRequested)
@@ -173,6 +169,13 @@ public sealed class ArchidektDeckCacheSession
 
         stopwatch.Stop();
         return new ArchidektCacheRunResult(added, updated, unchanged, skipped, decksEnqueued, stopwatch.Elapsed);
+    }
+
+    private async Task SkipDeckAsync(string deckId, int added, int updated, IProgress<int>? progress, CancellationToken cancellationToken)
+    {
+        // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
+        await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, cancellationToken: cancellationToken);
+        progress?.Report(added + updated);
     }
 
     private async Task DelayUntilNextRetryAsync(Stopwatch stopwatch, TimeSpan duration, CancellationToken cancellationToken)
