@@ -30,6 +30,19 @@ public sealed class CommanderSearchPostgresTests : IClassFixture<PostgresContain
     }
 
     [PostgresFact]
+    public async Task GetFilteredProcessedCommanderRowsAsync_TiedDeckCounts_UsesOrdinalNameTail()
+    {
+        var connectionInfo = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, await _fixture.GetConnectionStringOrSkipAsync());
+        var repository = new CategoryKnowledgeRepository(connectionInfo);
+        await repository.EnsureSchemaAsync();
+        await SeedRowsAsync(connectionInfo, ("Éowyn", 2, null), ("Atraxa", 2, null), ("Zada", 2, null));
+
+        var rows = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.Default);
+
+        Assert.Equal(new[] { "Atraxa", "Zada", "Éowyn" }, rows.Select(row => row.CommanderName));
+    }
+
+    [PostgresFact]
     public async Task GetFilteredProcessedCommanderRowsAsync_SortName_ReturnsExactAscendingAndDescendingSequences()
     {
         var connectionInfo = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, await _fixture.GetConnectionStringOrSkipAsync());
