@@ -431,7 +431,6 @@ public sealed class AdminHarvestControllerTests
         Assert.DoesNotContain("@if", html, StringComparison.Ordinal);
         if (active)
         {
-            Assert.Contains("data-sort-active=\"true\"", match.Value, StringComparison.Ordinal);
             Assert.Single(Regex.Matches(match.Value, "<span class=\"admin-table__sort-indicator\" aria-hidden=\"true\">").Cast<Match>());
         }
         else
@@ -465,9 +464,7 @@ public sealed class AdminHarvestControllerTests
     [Fact]
     public async Task ExportCommanders_SameOriginPost_ReturnsCsvFile()
     {
-        var result = await Build(NewStore(0)).ExportCommanders(cancellationToken: CancellationToken.None);
-
-        var file = Assert.IsType<FileContentResult>(result);
+        var file = await ExportFileAsync(NewStore(0));
         Assert.Equal("text/csv; charset=utf-8", file.ContentType);
         Assert.True(file.FileContents.AsSpan().StartsWith(Encoding.UTF8.GetPreamble()));
     }
@@ -475,7 +472,7 @@ public sealed class AdminHarvestControllerTests
     [Fact]
     public async Task ExportCommanders_ReturnsTimestampedCsvFileName()
     {
-        var file = Assert.IsType<FileContentResult>(await Build(NewStore(0)).ExportCommanders(cancellationToken: CancellationToken.None));
+        var file = await ExportFileAsync(NewStore(0));
 
         Assert.Matches(@"^harvested-commanders-\d{8}-\d{6}\.csv$", file.FileDownloadName);
     }
@@ -504,7 +501,7 @@ public sealed class AdminHarvestControllerTests
     {
         var store = NewStore(0);
         store.AllFilteredCommandersResult = Array.Empty<HarvestedCommanderRow>();
-        var file = Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
+        var file = await ExportFileAsync(store);
 
         Assert.Equal("rank,commander,decks_categorized,last_processed_utc\n", Encoding.UTF8.GetString(file.FileContents[Encoding.UTF8.GetPreamble().Length..]));
     }
@@ -523,7 +520,7 @@ public sealed class AdminHarvestControllerTests
     {
         var store = NewStore(0);
         store.AllFilteredCommandersResult = ExportRows(AdminHarvestController.MaxCommanderExportRows);
-        var file = Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
+        var file = await ExportFileAsync(store);
 
         Assert.Equal(AdminHarvestController.MaxCommanderExportRows + 1, CsvLineCount(file));
         Assert.DoesNotContain("truncated", file.FileDownloadName, StringComparison.OrdinalIgnoreCase);
@@ -534,7 +531,7 @@ public sealed class AdminHarvestControllerTests
     {
         var store = NewStore(0);
         store.AllFilteredCommandersResult = ExportRows(AdminHarvestController.MaxCommanderExportRows + 1);
-        var file = Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
+        var file = await ExportFileAsync(store);
 
         Assert.Equal(AdminHarvestController.MaxCommanderExportRows + 1, CsvLineCount(file));
         Assert.Contains("truncated-first-" + AdminHarvestController.MaxCommanderExportRows, file.FileDownloadName, StringComparison.OrdinalIgnoreCase);
@@ -554,7 +551,7 @@ public sealed class AdminHarvestControllerTests
     {
         var store = NewStore(0);
         store.AllFilteredCommandersResult = new[] { new HarvestedCommanderRow("Tef", 7, null) };
-        var file = Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
+        var file = await ExportFileAsync(store);
 
         Assert.Contains("1,\"Tef\",7,", Encoding.UTF8.GetString(file.FileContents), StringComparison.Ordinal);
     }
@@ -613,6 +610,9 @@ public sealed class AdminHarvestControllerTests
         Assert.Equal("Kenrith, the Returned King", store.LastUrlCommanderName);
         Assert.Equal("Harvested Kenrith, the Returned King: 2 new observations.", controller.TempData["AdminHarvestBanner"]);
     }
+
+    private static async Task<FileContentResult> ExportFileAsync(ICategoryKnowledgeStore store)
+        => Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
 
     private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null)
     {

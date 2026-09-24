@@ -177,26 +177,17 @@ public sealed class DeckQueueRepositoryCommanderSummaryTests : IDisposable
         Assert.Equal(expected, rows.Select(row => row.CommanderName));
     }
 
-    [Fact]
-    public async Task GetFilteredProcessedCommanderRowsAsync_SortNameAscending_ReturnsExactSequence()
+    [Theory]
+    [InlineData("asc", "Atraxa|Éowyn|Krenko|Ob Nixilis, Reignited|Obeka, Splitter of Seconds|Zada|\u0301")]
+    [InlineData("desc", "Zada|Obeka, Splitter of Seconds|Ob Nixilis, Reignited|Krenko|Éowyn|Atraxa|\u0301")]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortName_ReturnsExactSequence(string direction, string expectedNames)
     {
         var (repository, databasePath) = await CreateRepositoryAsync();
         await SeedCommanderRowsAsync(repository, databasePath, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Ob Nixilis, Reignited", 1, null), ("Obeka, Splitter of Seconds", 1, null), ("Zada", 1, null), ("\u0301", 1, null));
 
-        var ascending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "asc"));
+        var rows = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", direction));
 
-        Assert.Equal(new[] { "Atraxa", "Éowyn", "Krenko", "Ob Nixilis, Reignited", "Obeka, Splitter of Seconds", "Zada", "\u0301" }, ascending.Select(row => row.CommanderName));
-    }
-
-    [Fact]
-    public async Task GetFilteredProcessedCommanderRowsAsync_SortNameDescending_ReturnsExactSequence()
-    {
-        var (repository, databasePath) = await CreateRepositoryAsync();
-        await SeedCommanderRowsAsync(repository, databasePath, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Ob Nixilis, Reignited", 1, null), ("Obeka, Splitter of Seconds", 1, null), ("Zada", 1, null), ("\u0301", 1, null));
-
-        var descending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "desc"));
-
-        Assert.Equal(new[] { "Zada", "Obeka, Splitter of Seconds", "Ob Nixilis, Reignited", "Krenko", "Éowyn", "Atraxa", "\u0301" }, descending.Select(row => row.CommanderName));
+        Assert.Equal(expectedNames.Split('|'), rows.Select(row => row.CommanderName));
     }
 
     private static async Task SeedCommanderRowsAsync(DeckQueueRepository repository, string databasePath, params (string Name, int Count, string? LastProcessedUtc)[] rows)
