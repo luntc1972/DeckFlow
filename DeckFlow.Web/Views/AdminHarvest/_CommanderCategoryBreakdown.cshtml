@@ -1,0 +1,37 @@
+@model DeckFlow.Web.Models.Admin.CommanderCategoryBreakdownViewModel
+@{
+    var hasSummaries = Model.Summaries.Count > 0;
+}
+
+<section aria-label="Category breakdown for @Model.CommanderName">
+    <p>Based on @Model.CommanderDeckCount harvested decks.</p>
+    @if (!hasSummaries)
+    {
+        <p class="admin-empty">No harvested category observations for this commander.</p>
+    }
+    else
+    {
+        <div class="admin-table-scroll" role="region" aria-label="Commander category breakdown" tabindex="0">
+            <table class="admin-table">
+                <caption class="sr-only">Category breakdown for @Model.CommanderName</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Category</th>
+                        <th scope="col">% of decks</th>
+                        <th scope="col">Decks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var summary in Model.Summaries)
+                    {
+                        <tr>
+                            <td>@summary.Category</td>
+                            <td>@($"{Math.Round(summary.DeckShare * 100)}%")</td>
+                            <td>@summary.DeckCount</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>

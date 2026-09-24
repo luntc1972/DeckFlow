@@ -28,6 +28,7 @@ public sealed class AdminHarvestController : Controller
     private readonly IHarvestStatsAggregator _statsAggregator;
     private readonly IArchidektDeckImporter _deckImporter;
     private readonly ICategoryKnowledgeStore _categoryStore;
+    private readonly ICommanderCategoryService _commanderCategoryService;
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<AdminHarvestController> _logger;
 
@@ -42,6 +43,7 @@ public sealed class AdminHarvestController : Controller
         IHarvestStatsAggregator statsAggregator,
         IArchidektDeckImporter deckImporter,
         ICategoryKnowledgeStore categoryStore,
+        ICommanderCategoryService commanderCategoryService,
         IMemoryCache memoryCache,
         ILogger<AdminHarvestController> logger)
     {
@@ -52,6 +54,7 @@ public sealed class AdminHarvestController : Controller
         ArgumentNullException.ThrowIfNull(statsAggregator);
         ArgumentNullException.ThrowIfNull(deckImporter);
         ArgumentNullException.ThrowIfNull(categoryStore);
+        ArgumentNullException.ThrowIfNull(commanderCategoryService);
         ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(logger);
 
@@ -62,6 +65,7 @@ public sealed class AdminHarvestController : Controller
         _statsAggregator = statsAggregator;
         _deckImporter = deckImporter;
         _categoryStore = categoryStore;
+        _commanderCategoryService = commanderCategoryService;
         _memoryCache = memoryCache;
         _logger = logger;
     }
@@ -138,6 +142,37 @@ public sealed class AdminHarvestController : Controller
         };
 
         return PartialView("_CommandersGrid", model);
+    }
+
+    /// <summary>
+    /// Renders category summaries for a harvested commander.
+    /// </summary>
+    /// <param name="name">Commander name supplied in the query string.</param>
+    /// <param name="cancellationToken">Cancellation token for the category lookup.</param>
+    [HttpGet("commander-categories")]
+    public async Task<IActionResult> CommanderCategories([FromQuery] string? name, CancellationToken cancellationToken = default)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { Message = "This endpoint only accepts same-origin browser requests." });
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest();
+        }
+
+        var result = await _commanderCategoryService.LookupAsync(name, cancellationToken).ConfigureAwait(false);
+        var model = new CommanderCategoryBreakdownViewModel
+        {
+            CommanderName = result.CommanderName,
+            Summaries = result.Summaries,
+            CommanderDeckCount = result.CardDeckTotals.TotalDeckCount,
+        };
+
+        return PartialView("_CommanderCategoryBreakdown", model);
     }
 
     /// <summary>
