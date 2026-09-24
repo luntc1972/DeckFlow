@@ -3,6 +3,7 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Tests.Infrastructure;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -19,6 +20,56 @@ namespace DeckFlow.Web.Tests;
 [Collection("AdminEnvSerial")]
 public sealed class ProgramStartupTests
 {
+    [Fact]
+    public async Task ValidateDatabaseConnectionsAsync_InProduction_DoesNotCreateOrQueryDeckQueue()
+    {
+        var contentRoot = Path.Combine(Path.GetTempPath(), "program-startup-validation-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(contentRoot);
+        var knowledgeConnectionString = $"Data Source={Path.Combine(contentRoot, "category-knowledge.db")}";
+        try
+        {
+            // Why: the probe must stay a pure connectivity check; the previous COUNT on deck_queue
+            // timed out on Render and aborted startup (deploy dep-daqo0eff3r2c73aeko2g).
+            using var providerScope = EnvScope.Clear("DECKFLOW_DATABASE_PROVIDER", "DECKFLOW_DATABASE_CONNECTION_STRING");
+            using var dataScope = EnvScope.Set("MTG_DATA_DIR", contentRoot);
+            await Program.ValidateDatabaseConnectionsAsync(
+                new StubWebHostEnvironment(contentRoot),
+                NullLogger<Program>.Instance);
+
+            await using var connection = new SqliteConnection(knowledgeConnectionString);
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'deck_queue'";
+            Assert.Equal(0L, await command.ExecuteScalarAsync());
+        }
+        finally
+        {
+            SqliteConnection.ClearPool(new SqliteConnection(knowledgeConnectionString));
+            SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.Combine(contentRoot, "feedback.db")}"));
+            Directory.Delete(contentRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ValidateDatabaseConnectionsAsync_WhenDatabaseUnreachable_Throws()
+    {
+        var contentRoot = Path.Combine(Path.GetTempPath(), "program-startup-unreachable-" + Guid.NewGuid().ToString("N"));
+        // Why: a directory where the feedback database file should be makes the SQLite open fail.
+        Directory.CreateDirectory(Path.Combine(contentRoot, "feedback.db"));
+        try
+        {
+            using var providerScope = EnvScope.Clear("DECKFLOW_DATABASE_PROVIDER", "DECKFLOW_DATABASE_CONNECTION_STRING");
+            using var dataScope = EnvScope.Set("MTG_DATA_DIR", contentRoot);
+            await Assert.ThrowsAnyAsync<Exception>(() => Program.ValidateDatabaseConnectionsAsync(
+                new StubWebHostEnvironment(contentRoot),
+                NullLogger<Program>.Instance));
+        }
+        finally
+        {
+            Directory.Delete(contentRoot, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task AwaitStartupSeedTasksAsync_WhenBothSeedTasksFault_LogsEachFailureBeforeRethrow()
     {

@@ -13,6 +13,7 @@ Stops a failing harvest from growing the deck queue, after the 2026-09-18 to 09-
 - **Failure breaker:** a run now aborts after 3 consecutive unexpected per-deck failures instead of marking every deck skipped and recording success. The count resets only after a deck is processed successfully, so expected skips (deleted or private decks, upstream errors) in between no longer hide a systemic failure. Database errors abort the run immediately, as they did before this cycle.
 - **Scheduler backoff:** after failed bulk runs, the next scheduled run waits 15 minutes, doubling per consecutive failure and capped at the schedule interval, instead of retrying every tick. A successful run clears the backoff.
 - **Schedule state:** the scheduler reads the failure streak and last success in one query, and single-URL import failures no longer count toward the streak.
+- **Deploy startup:** the startup database check now runs `SELECT 1` against the feedback and category-knowledge databases instead of counting the deck queue, so a slow count on the large queue can no longer time out and fail a deploy.
 - **Tests:** new unit tests cover the backpressure gate, the breaker and its reset, and the scheduler backoff; a new PostgreSQL integration test covers the queue probe.
 - **Scope:** no schema, data, or feature-flag changes. The existing backlog is not cleared by this release; it drains through normal runs.
 
