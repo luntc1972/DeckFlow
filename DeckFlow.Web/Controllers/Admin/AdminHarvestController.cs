@@ -165,10 +165,12 @@ public sealed class AdminHarvestController : Controller
         var query = CommanderGridQuery.FromRequest(search, sortBy, sortDir);
         var commanders = await _categoryStore.GetAllFilteredProcessedCommandersAsync(query, MaxCommanderExportRows + 1, cancellationToken);
         var truncated = commanders.Count > MaxCommanderExportRows;
-        var exportedCommanders = truncated ? commanders.Take(MaxCommanderExportRows).ToArray() : commanders;
-        var csv = CommandersListExport.BuildCsv(exportedCommanders);
+        var csv = CommandersListExport.BuildCsv(truncated ? commanders.Take(MaxCommanderExportRows) : commanders);
         // Why: Excel otherwise reads accented commander names as the local system codepage.
-        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(csv)).ToArray();
+        var preamble = Encoding.UTF8.GetPreamble();
+        var bytes = new byte[preamble.Length + Encoding.UTF8.GetByteCount(csv)];
+        preamble.CopyTo(bytes, 0);
+        Encoding.UTF8.GetBytes(csv, 0, csv.Length, bytes, preamble.Length);
         var marker = truncated ? $"-truncated-first-{MaxCommanderExportRows}" : string.Empty;
         var fileName = $"harvested-commanders-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}{marker}.csv";
         return File(bytes, "text/csv; charset=utf-8", fileName);
