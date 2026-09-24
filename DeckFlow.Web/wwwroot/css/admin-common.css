@@ -425,6 +425,31 @@ a:hover { text-decoration: underline; }
   margin-bottom: 16px;
 }
 
+.admin-shell .admin-harvest__search-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.admin-shell .admin-table__sort-header {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  background: inherit;
+  cursor: pointer;
+}
+
+.admin-shell .admin-table__sort-header:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.admin-shell .admin-table__sort-indicator {
+  margin-left: 0.25rem;
+}
+
 .admin-shell .admin-harvest__disclosure {
   display: block;
   background: var(--panel);

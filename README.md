@@ -33,6 +33,7 @@ These rules exist because breaking them produced silent, hard-to-report bugs. Th
 - Web and CLI layers orchestrate requests and rely on DI to resolve shared services.
 - Importers for Archidekt and Moxfield implement typed interfaces (`IMoxfieldDeckImporter`, `IArchidektDeckImporter`) for easy test substitution.
 - Archidekt harvest prospectively records deck-level bracket and provenance metadata on `deck_queue` without backfilling; admin URL imports also attribute the imported commander.
+- Admin/Harvest Commanders searches commander-name prefixes ignoring case and accents through `processed_commander_summary.commander_name_search_key`, computed by `CommanderSearchKey.Normalize` and added and backfilled by `CategoryCacheSchema`; it sorts by commander, decks categorized, or last processed, with deck count descending by default.
 - `DeckAnalysisPacketService` parallelizes independent fetches (banned-list, set-packet, Commander Spellbook) using `Task.WhenAll` to reduce total build time.
 - `DeckComparisonService` parses two decklists, resolves cards via Scryfall, queries Commander Spellbook for both decks, derives comparison context (role counts, mana curves, combo gaps), and generates structured AI prompts with a JSON output schema.
 - `CommanderSpellbookService` caches results for 30 minutes and degrades gracefully on API failure.
