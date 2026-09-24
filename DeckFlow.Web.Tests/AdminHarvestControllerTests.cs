@@ -1,7 +1,9 @@
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Controllers.Admin;
+using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Admin;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
@@ -21,6 +23,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.ObjectPool;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -454,7 +457,7 @@ public sealed class AdminHarvestControllerTests
         Assert.Equal("Harvested Kenrith, the Returned King: 2 new observations.", controller.TempData["AdminHarvestBanner"]);
     }
 
-    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null)
+    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -469,6 +472,7 @@ public sealed class AdminHarvestControllerTests
             new StubHarvestStatsAggregator(),
             importer ?? new StubArchidektDeckImporter(),
             store,
+            commanderCategoryService ?? new CommanderCategoryService(store),
             new MemoryCache(new MemoryCacheOptions()),
             NullLogger<AdminHarvestController>.Instance)
         {
@@ -720,6 +724,145 @@ public sealed class AdminHarvestControllerTests
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => new(await ImportAsync(urlOrDeckId, cancellationToken), Metadata);
+    }
+
+    [Fact]
+    public async Task CommanderCategories_SameOrigin_ReturnsTypedPartial()
+    {
+        var result = await Build(NewStore(0)).CommanderCategories("Krenko, Mob Boss");
+        var view = Assert.IsType<PartialViewResult>(result);
+        var model = Assert.IsType<CommanderCategoryBreakdownViewModel>(view.Model);
+        Assert.Equal("_CommanderCategoryBreakdown", view.ViewName);
+        Assert.Equal("Krenko, Mob Boss", model.CommanderName);
+    }
+
+    [Fact]
+    public async Task CommanderCategories_CrossOrigin_Returns403WithoutLookup()
+    {
+        var service = new CountingCommanderCategoryService();
+        var result = await Build(NewStore(0), crossOrigin: true, commanderCategoryService: service).CommanderCategories("Krenko");
+        AssertForbidden(result);
+        Assert.Equal(0, service.CallCount);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CommanderCategories_BlankName_Returns400WithoutLookup(string? name)
+    {
+        var service = new CountingCommanderCategoryService();
+        var result = await Build(NewStore(0), commanderCategoryService: service).CommanderCategories(name);
+        Assert.IsAssignableFrom<BadRequestResult>(result);
+        Assert.Equal(0, service.CallCount);
+    }
+
+    [Fact]
+    public async Task CommanderCategories_UsesExistingAggregationFiltersAndCollapsesCategories()
+    {
+        var store = NewStore(0);
+        store.CommanderDeckCount = 40;
+        store.CategoryRowsResult = [new CategoryKnowledgeRow("Ramp", "Bird", 4), new CategoryKnowledgeRow("Ramp", "Elf", 2), new CategoryKnowledgeRow("Junk", "Thing", 1)];
+        store.Memberships.AddRange([new CategoryDeckMembership("Ramp", "Bird", 1), new CategoryDeckMembership("Ramp", "Elf", 2), new CategoryDeckMembership("Ramp", "Other", 3), new CategoryDeckMembership("Junk", "Thing", 4)]);
+        var model = Assert.IsType<CommanderCategoryBreakdownViewModel>(Assert.IsType<PartialViewResult>(await Build(store).CommanderCategories("Krenko")).Model);
+        Assert.Single(model.Summaries);
+        Assert.Equal("Ramp", model.Summaries[0].Category);
+    }
+
+    [Fact]
+    public async Task CommanderCategories_EmptyObservations_ReturnsPartial()
+    {
+        var result = await Build(NewStore(0)).CommanderCategories("Nobody");
+        Assert.Empty(Assert.IsType<CommanderCategoryBreakdownViewModel>(Assert.IsType<PartialViewResult>(result).Model).Summaries);
+    }
+
+    [Fact]
+    public async Task CommanderCategories_ProjectsCommanderDeckCount()
+    {
+        var store = NewStore(0);
+        store.CommanderDeckCount = 40;
+        var model = Assert.IsType<CommanderCategoryBreakdownViewModel>(Assert.IsType<PartialViewResult>(await Build(store).CommanderCategories("Krenko")).Model);
+        Assert.Equal(40, model.CommanderDeckCount);
+    }
+
+    [Fact]
+    public async Task CommanderCategories_PartialRendersRowsHeadersAndRoundedShares()
+    {
+        var html = await RenderPartialViewAsync("_CommanderCategoryBreakdown", new CommanderCategoryBreakdownViewModel { CommanderName = "Krenko", CommanderDeckCount = 40, Summaries = [new CommanderCategorySummary("Ramp", 1, 5, .126), new CommanderCategorySummary("Card Draw", 1, 20, .5)] });
+        Assert.Contains("Category", html, StringComparison.Ordinal); Assert.Contains("% of decks", html, StringComparison.Ordinal); Assert.Contains("Decks", html, StringComparison.Ordinal);
+        var body = Regex.Match(html, "<tbody>([\\s\\S]*?)</tbody>").Groups[1].Value;
+        Assert.Equal(2, Regex.Matches(body, "<tr>").Count);
+        Assert.Matches("<td>Ramp</td>[\\s\\S]*?<td>13%</td>[\\s\\S]*?<td>5</td>", body);
+        Assert.Matches("<td>Card Draw</td>[\\s\\S]*?<td>50%</td>[\\s\\S]*?<td>20</td>", body);
+    }
+
+    [Fact]
+    public async Task CommanderCategories_PartialRendersDeckCountBeforeTable()
+    {
+        var html = await RenderPartialViewAsync("_CommanderCategoryBreakdown", new CommanderCategoryBreakdownViewModel { CommanderDeckCount = 40, Summaries = [new CommanderCategorySummary("Ramp", 1, 5, .1)] });
+        Assert.True(html.IndexOf("40", StringComparison.Ordinal) < html.IndexOf("<table", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task CommanderCategories_PartialShareMatchesPublicPageUnderInvariantCulture()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUICulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+            var html = await RenderPartialViewAsync("_CommanderCategoryBreakdown", new CommanderCategoryBreakdownViewModel { CommanderDeckCount = 40, Summaries = [new CommanderCategorySummary("Ramp", 1, 5, .125)] });
+            Assert.Contains("<td>12%</td>", html, StringComparison.Ordinal);
+            Assert.DoesNotContain(" %</td>", html, StringComparison.Ordinal);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUICulture;
+        }
+    }
+
+    [Fact]
+    public async Task CommanderCategories_PartialEmptyStateHasNoTable()
+    {
+        var html = await RenderPartialViewAsync("_CommanderCategoryBreakdown", new CommanderCategoryBreakdownViewModel());
+        Assert.Contains("class=\"admin-empty\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<table", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommanderCategories_PartialEscapesCommanderName()
+    {
+        var html = await RenderPartialViewAsync("_CommanderCategoryBreakdown", new CommanderCategoryBreakdownViewModel { CommanderName = "A < B" });
+        Assert.Contains("A &lt; B", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("A < B", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommanderCategories_PreservesDoubleFacedName()
+    {
+        const string name = "Esika, God of the Tree // The Prismatic Bridge";
+        var model = Assert.IsType<CommanderCategoryBreakdownViewModel>(Assert.IsType<PartialViewResult>(await Build(NewStore(0)).CommanderCategories(name)).Model);
+        Assert.Equal(name, model.CommanderName);
+    }
+
+    [Fact]
+    public void CommanderCategories_UsesQueryNameRouteContract()
+    {
+        var method = typeof(AdminHarvestController).GetMethod(nameof(AdminHarvestController.CommanderCategories))!;
+        Assert.Equal("commander-categories", method.GetCustomAttributes(typeof(HttpGetAttribute), false).Cast<HttpGetAttribute>().Single().Template);
+        Assert.IsType<FromQueryAttribute>(method.GetParameters()[0].GetCustomAttributes(typeof(FromQueryAttribute), false).Single());
+    }
+
+    private sealed class CountingCommanderCategoryService : ICommanderCategoryService
+    {
+        public int CallCount { get; private set; }
+        public Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            throw new InvalidOperationException("Lookup should not be called.");
+        }
     }
 
     private static HarvestScheduleSnapshot DefaultSchedule
