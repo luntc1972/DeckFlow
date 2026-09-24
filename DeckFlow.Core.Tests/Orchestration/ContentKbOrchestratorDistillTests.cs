@@ -106,6 +106,7 @@ public sealed class ContentKbOrchestratorDistillTests
 /// </summary>
 internal sealed class DistillTestVideoStore : IContentVideoStore
 {
+    public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     private readonly Dictionary<long, List<ContentVideo>> _pendingBySource = [];
     private readonly Dictionary<long, ContentTranscriptBody> _transcriptsByVideoId = [];
     private readonly Dictionary<long, string> _distillStatusByVideoId = [];

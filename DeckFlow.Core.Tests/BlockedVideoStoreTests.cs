@@ -352,6 +352,7 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
     private sealed class SpyContentVideoStore : IContentVideoStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private readonly List<string> _operations;
 
         public SpyContentVideoStore(List<string> operations)
@@ -415,6 +416,8 @@ public sealed class BlockedVideoStoreTests : IDisposable
 
     private sealed class SpyContentSiteIndexStore : IContentSiteIndexStore
     {
+        public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private readonly List<string> _operations;
 
         public SpyContentSiteIndexStore(List<string> operations)

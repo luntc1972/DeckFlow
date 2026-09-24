@@ -220,6 +220,8 @@ public interface IContentVideoStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of tag rows for the video.</returns>
     Task<int> CountTagsByVideoAsync(long videoId, CancellationToken cancellationToken = default);
+    /// <summary>Deletes videos and clips belonging to a resolved creator identity.</summary>
+    Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

@@ -5,6 +5,7 @@ namespace DeckFlow.Web.Tests;
 
 internal sealed class FakeCreatorStyleProfileSeedStore : ICreatorStyleProfileStore
 {
+    public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public List<CreatorStyleProfile> Upserts { get; } = [];
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task<CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default) => Task.FromResult<CreatorStyleProfile?>(null);
@@ -13,6 +14,7 @@ internal sealed class FakeCreatorStyleProfileSeedStore : ICreatorStyleProfileSto
 
 internal sealed class FakeCreatorDeckCacheSeedStore : ICreatorDeckCacheStore
 {
+    public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public List<CreatorDeckCacheEntry> Upserts { get; } = [];
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task<string?> GetContentHashAsync(string creatorSlug, string deckId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);

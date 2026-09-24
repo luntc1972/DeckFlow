@@ -243,6 +243,8 @@ internal sealed class ConfigurableDistillationService : ILlmDistillationService
 /// </summary>
 internal sealed class ClipCountTestIndexStore : IContentSiteIndexStore
 {
+    public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public List<ContentSiteIndexRow> UpsertedRows { get; } = [];
 
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -317,6 +319,7 @@ internal sealed class ClipCountTestIndexStore : IContentSiteIndexStore
 /// </summary>
 internal sealed class ClipCountTestVideoStore : IContentVideoStore
 {
+    public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     private readonly Dictionary<long, List<ContentVideo>> _pendingBySource = [];
     private readonly Dictionary<long, ContentTranscriptBody> _transcriptsByVideoId = [];
     private readonly Dictionary<long, string> _distillStatusByVideoId = [];

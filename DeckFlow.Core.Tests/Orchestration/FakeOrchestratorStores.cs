@@ -31,6 +31,7 @@ internal sealed class FakeContentSourceStore : IContentSourceStore
 
 internal sealed class FakeContentVideoStore : IContentVideoStore
 {
+    public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     private readonly Dictionary<long, List<ContentVideo>> _pendingBySource = [];
     private readonly Dictionary<long, ContentTranscriptBody> _transcriptsByVideoId = [];
 
@@ -138,6 +139,7 @@ internal sealed class FakeContentVideoStore : IContentVideoStore
 
 internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
 {
+    public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public List<ContentSiteIndexRow> UpsertedRows { get; } = [];
 
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
@@ -189,6 +191,9 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
         => throw new NotImplementedException();
 
     public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default)
+        => throw new NotImplementedException();
+
+    public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default)
         => throw new NotImplementedException();
 
     public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)

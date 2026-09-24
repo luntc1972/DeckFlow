@@ -457,6 +457,7 @@ public sealed class CommandRunnerHarvestTests
 
     private sealed class FakeContentVideoStore : IContentVideoStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private long _nextId = 10;
 
         public Dictionary<string, ContentVideo> ExistingVideos { get; } = [];

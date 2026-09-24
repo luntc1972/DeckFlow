@@ -153,6 +153,7 @@ public sealed class ProgramStartupTests
 
     private sealed class NoOpCreatorStyleProfileStore : ICreatorStyleProfileStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
@@ -164,6 +165,7 @@ public sealed class ProgramStartupTests
 
     private sealed class NoOpCreatorDeckCacheStore : ICreatorDeckCacheStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<string?> GetContentHashAsync(string creatorSlug, string deckId, CancellationToken cancellationToken = default)

@@ -115,6 +115,7 @@ public sealed class AdminCreatorStyleControllerTests
 
     private sealed class RecordingProfileStore : ICreatorStyleProfileStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public List<CreatorStyleProfileSummary> Summaries { get; } = [];
         public Exception? ReadException { get; init; }
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

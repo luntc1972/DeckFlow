@@ -327,6 +327,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
 
     private sealed class FakeCreatorStyleProfileStore : ICreatorStyleProfileStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public List<CreatorStyleProfile> Upserts { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -343,6 +344,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
 
     private sealed class FakeCreatorDeckCacheStore : ICreatorDeckCacheStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public List<CreatorDeckCacheEntry> Upserts { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -362,6 +364,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
 
     private sealed class ThrowingOnBlankSlugCreatorStyleProfileStore : ICreatorStyleProfileStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public List<CreatorStyleProfile> Upserts { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -380,6 +383,7 @@ public sealed class CreatorStyleSeedLoaderTests : IDisposable
 
     private sealed class ThrowingOnBlankCreatorSlugDeckCacheStore : ICreatorDeckCacheStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public List<CreatorDeckCacheEntry> Upserts { get; } = [];
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

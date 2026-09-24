@@ -3,13 +3,16 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Knowledge.CardGrounding;
 using DeckFlow.Web.Controllers.Admin;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.CreatorStyle;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Caching.Memory;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -394,7 +397,11 @@ public sealed class AdminContentKbControllerTests
             loader,
             flagCache,
             new DeckFlow.Core.Content.PublishStateDeriver(),
-            NullLogger<AdminContentKbController>.Instance);
+            NullLogger<AdminContentKbController>.Instance,
+            new FakeCreatorSuppressionStore(),
+            new FakeCreatorIdentityResolver(),
+            new CreatorPurgeService([]),
+            new CreatorWhitelistPoolBuilder(new FakeCreatorDeckCacheSeedStore(), new NoopGroundingGuard(), new MemoryCache(new MemoryCacheOptions())));
 
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -436,5 +443,12 @@ public sealed class AdminContentKbControllerTests
         public void SaveTempData(HttpContext context, IDictionary<string, object> values)
         {
         }
+    }
+
+    private sealed class NoopGroundingGuard : ICardGroundingGuard
+    {
+        public Task<CardGroundingVerdict> TryValidateAsync(string candidateName, CardGroundingDeckContext deckContext, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<CardGroundingBatchResult> ValidateAllAsync(IReadOnlyList<string> candidateNames, CardGroundingDeckContext deckContext, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

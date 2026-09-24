@@ -13,6 +13,8 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 internal sealed class InMemorySeedManagedStore : IContentSiteIndexStore
 {
+    public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public List<ContentSiteIndexRow> Rows { get; } = [];
 
     /// <summary>Ids passed to <see cref="SetSeedManagedIfNullAsync"/> that actually wrote (row was still null).</summary>

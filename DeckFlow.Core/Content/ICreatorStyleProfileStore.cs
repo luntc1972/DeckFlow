@@ -36,4 +36,6 @@ public interface ICreatorStyleProfileStore
     /// <returns>Stored creator style profile summaries, or an empty list when none exist.</returns>
     Task<IReadOnlyList<CreatorStyleProfileSummary>> GetAllAsync(CancellationToken cancellationToken = default)
         => throw new NotSupportedException("GetAllAsync is not supported by this implementation.");
+    /// <summary>Deletes profile data belonging to a resolved creator identity.</summary>
+    Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default);
 }

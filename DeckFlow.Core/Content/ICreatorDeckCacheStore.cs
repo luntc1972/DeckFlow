@@ -34,4 +34,6 @@ public interface ICreatorDeckCacheStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The stored canonical content hash when the row exists; otherwise <see langword="null"/>.</returns>
     Task<string?> GetContentHashAsync(string creatorSlug, string deckId, CancellationToken cancellationToken = default);
+    /// <summary>Deletes cached decks belonging to a resolved creator identity.</summary>
+    Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default);
 }

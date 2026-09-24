@@ -33,4 +33,6 @@ public interface ICreatorProfileSourceStore
     /// <param name="whenUtc">UTC timestamp to persist.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task SetLastCrawledAsync(string slug, DateTimeOffset whenUtc, CancellationToken cancellationToken = default);
+    /// <summary>Deletes profile-source rows belonging to a resolved creator identity.</summary>
+    Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default);
 }

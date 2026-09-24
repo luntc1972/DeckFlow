@@ -28,4 +28,6 @@ public interface ICreatorStyleStatedRuleStore
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Stated rule candidates for the slug, or an empty list when none exist.</returns>
     Task<IReadOnlyList<StatedRuleCandidate>> GetBySlugAsync(string slug, CancellationToken cancellationToken = default);
+    /// <summary>Deletes stated rules belonging to a resolved creator identity.</summary>
+    Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default);
 }

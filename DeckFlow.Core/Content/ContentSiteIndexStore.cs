@@ -976,6 +976,61 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             .Concat(identity.FolderSlugs);
     }
 
+    /// <inheritdoc />
+    public async Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var displayNames = identity.DisplayNames.ToArray();
+        var folderSlugs = identity.FolderSlugs.Distinct().ToArray();
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        var candidates = await connection.QueryAsync<CreatorPurgeCandidate>(new CommandDefinition(
+            "SELECT id, artifact_path AS ArtifactPath FROM content_site_index WHERE artifact_path LIKE 'content-kb/%';",
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var folderIds = candidates
+            .Where(candidate => folderSlugs.Contains(CreatorArtifactPathParser.GetFolder(candidate.ArtifactPath), StringComparer.Ordinal))
+            .Select(candidate => candidate.Id)
+            .ToArray();
+        var parameters = new { displayNames, folderIds };
+        var sql = _connectionInfo.IsPostgres
+            ? "DELETE FROM content_site_index WHERE source = ANY(@displayNames) OR id = ANY(@folderIds);"
+            : "DELETE FROM content_site_index WHERE source IN @displayNames OR id IN @folderIds;";
+        var count = await connection.ExecuteAsync(new CommandDefinition(sql, parameters, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return count;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var displayNames = identity.DisplayNames.ToArray();
+        var folderSlugs = identity.FolderSlugs.Distinct().ToArray();
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var candidates = await connection.QueryAsync<CreatorPurgeCandidate>(new CommandDefinition(
+            "SELECT id, artifact_path AS ArtifactPath FROM content_site_index WHERE artifact_path LIKE 'content-kb/%';",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var folderIds = candidates
+            .Where(candidate => folderSlugs.Contains(CreatorArtifactPathParser.GetFolder(candidate.ArtifactPath), StringComparer.Ordinal))
+            .Select(candidate => candidate.Id)
+            .ToArray();
+        var parameters = new { displayNames, folderIds, visible };
+        var sql = _connectionInfo.IsPostgres
+            ? "UPDATE content_site_index SET is_visible = @visible WHERE source = ANY(@displayNames) OR id = ANY(@folderIds);"
+            : "UPDATE content_site_index SET is_visible = @visible WHERE source IN @displayNames OR id IN @folderIds;";
+        return await connection.ExecuteAsync(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    private sealed class CreatorPurgeCandidate
+    {
+        public long Id { get; init; }
+
+        public string ArtifactPath { get; init; } = string.Empty;
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => _connectionFactoryOverride is not null
             ? await _connectionFactoryOverride(cancellationToken).ConfigureAwait(false)

@@ -8,6 +8,7 @@ namespace DeckFlow.Web.Tests;
 
 internal sealed class CountingCreatorStyleProfileStore : ICreatorStyleProfileStore
 {
+    public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public int ReadCount { get; private set; }
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task UpsertAsync(CreatorStyleProfile profile, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -20,6 +21,7 @@ internal sealed class CountingCreatorStyleProfileStore : ICreatorStyleProfileSto
 
 internal sealed class ThrowingCreatorDeckCacheStore : ICreatorDeckCacheStore
 {
+    public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default) => throw new NotSupportedException();

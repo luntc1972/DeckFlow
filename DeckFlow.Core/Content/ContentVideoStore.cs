@@ -349,6 +349,31 @@ public sealed class ContentVideoStore : IContentVideoStore
     public async Task<int> CountTagsByVideoAsync(long videoId, CancellationToken cancellationToken = default)
         => await CountByVideoAsync(CountTagsByVideoSql, videoId, cancellationToken).ConfigureAwait(false);
 
+    /// <inheritdoc />
+    public async Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var sourceIds = identity.SourceIds.ToArray();
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        var selectSql = _connectionInfo.IsPostgres
+            ? "SELECT id FROM content_videos WHERE source_id = ANY(@sourceIds);"
+            : "SELECT id FROM content_videos WHERE source_id IN @sourceIds;";
+        var videoIds = (await connection.QueryAsync<long>(new CommandDefinition(selectSql, new { sourceIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+        var clipCount = videoIds.Length == 0 ? 0 : await connection.ExecuteAsync(new CommandDefinition(
+            _connectionInfo.IsPostgres
+                ? "DELETE FROM content_clips WHERE video_id = ANY(@videoIds);"
+                : "DELETE FROM content_clips WHERE video_id IN @videoIds;",
+            new { videoIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var deleteSql = _connectionInfo.IsPostgres
+            ? "DELETE FROM content_videos WHERE source_id = ANY(@sourceIds);"
+            : "DELETE FROM content_videos WHERE source_id IN @sourceIds;";
+        var videoCount = await connection.ExecuteAsync(new CommandDefinition(deleteSql, new { sourceIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return clipCount + videoCount;
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
         => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
 

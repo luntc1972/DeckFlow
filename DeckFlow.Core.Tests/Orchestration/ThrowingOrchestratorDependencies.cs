@@ -39,6 +39,7 @@ internal sealed class ThrowingContentSourceStore : IContentSourceStore
 
 internal sealed class ThrowingContentVideoStore : IContentVideoStore
 {
+    public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentVideoStore)}.{nameof(EnsureSchemaAsync)} must not be called by the current path");
 
@@ -105,6 +106,7 @@ internal sealed class ThrowingContentVideoStore : IContentVideoStore
 
 internal sealed class ThrowingContentSiteIndexStore : IContentSiteIndexStore
 {
+    public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(EnsureSchemaAsync)} must not be called by the current path");
 
@@ -152,6 +154,9 @@ internal sealed class ThrowingContentSiteIndexStore : IContentSiteIndexStore
 
     public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(SetVisibilityBySourceAsync)} must not be called by the current path");
+
+    public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(SetVisibilityByCreatorAsync)} must not be called by the current path");
 
     public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
         => throw new InvalidOperationException($"{nameof(ThrowingContentSiteIndexStore)}.{nameof(SetHiddenBySourceAsync)} must not be called by the current path");

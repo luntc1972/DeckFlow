@@ -485,6 +485,7 @@ public sealed class RunDistillAsyncTests : IDisposable
 
     private sealed class FakeContentVideoStore : IContentVideoStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private readonly Dictionary<long, List<ContentVideo>> _pendingBySource = [];
         private readonly Dictionary<long, ContentTranscriptBody> _transcriptsByVideoId = [];
         private readonly Dictionary<long, string?> _statusByVideoId = [];
@@ -660,6 +661,8 @@ public sealed class RunDistillAsyncTests : IDisposable
 
     private sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
     {
+        public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public List<ContentSiteIndexRow> Rows { get; } = [];
 
         public List<ContentSiteIndexRow> ContentColumnsOnlyUpserts { get; } = [];

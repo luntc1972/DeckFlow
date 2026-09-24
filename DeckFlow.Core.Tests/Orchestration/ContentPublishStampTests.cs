@@ -65,6 +65,8 @@ public sealed class ContentPublishStampTests
 
     private sealed class RecordingContentSiteIndexStore : IContentSiteIndexStore
     {
+        public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private readonly List<ContentSiteIndexRow> _rows = [];
 
         public List<(IReadOnlyList<(string Type, string Value)> Keys, DateTimeOffset PushedUtc)> StampCalls { get; } = [];

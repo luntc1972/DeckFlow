@@ -9,6 +9,7 @@ namespace DeckFlow.Studio.Tests;
 /// </summary>
 internal sealed class FakeCreatorSourceStore : ICreatorSourceStore
 {
+    public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     private readonly List<CreatorSource> _creators = new();
     private long _nextId = 1;
 

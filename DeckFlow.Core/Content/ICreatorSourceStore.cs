@@ -56,6 +56,8 @@ public interface ICreatorSourceStore
     /// provisional display-derived slug stored at add time).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task LinkContentSourceAsync(long creatorId, long contentSourceId, string canonicalSlug, CancellationToken cancellationToken = default);
+    /// <summary>Deletes source rows belonging to a resolved creator identity.</summary>
+    Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default);
 }
 
 /// <summary>

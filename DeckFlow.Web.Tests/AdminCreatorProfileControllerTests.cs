@@ -633,6 +633,7 @@ public sealed class AdminCreatorProfileControllerTests
     /// </summary>
     private sealed class FakeCreatorProfileSourceStore(CreatorProfileSource? existing = null) : ICreatorProfileSourceStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private readonly CreatorProfileSource? _existing = existing;
 
         public List<CreatorProfileSource> Upserts { get; } = [];

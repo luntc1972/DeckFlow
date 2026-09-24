@@ -11,6 +11,7 @@ namespace DeckFlow.Studio.Tests;
 /// </summary>
 internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
 {
+    public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public List<ContentSiteIndexRow> Rows { get; } = new();
 
     // Approval-status call tracking
@@ -219,6 +220,9 @@ internal sealed class FakeContentSiteIndexStore : IContentSiteIndexStore
 
         return Task.FromResult(count);
     }
+
+    public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default)
+        => Task.FromResult(Rows.Count(row => identity.DisplayNames.Contains(row.Source, StringComparer.OrdinalIgnoreCase)));
 
     public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default)
     {

@@ -175,6 +175,8 @@ public sealed class ContentArtifactCopyTests : IDisposable
     /// </summary>
     private sealed class FakeApprovedIndexStore : IContentSiteIndexStore
     {
+        public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private readonly IReadOnlyList<ContentSiteIndexRow> _rows;
 
         public FakeApprovedIndexStore(IReadOnlyList<ContentSiteIndexRow> rows)

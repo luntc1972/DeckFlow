@@ -306,6 +306,7 @@ public sealed class CreatorStyleProfileStoreTests : IDisposable
 
     private sealed class MissingGetAllCreatorStyleProfileStore : ICreatorStyleProfileStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)

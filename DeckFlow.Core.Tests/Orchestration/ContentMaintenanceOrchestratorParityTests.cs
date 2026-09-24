@@ -128,6 +128,7 @@ public sealed class ContentMaintenanceOrchestratorParityTests
 
     private sealed class RecordingDeleteAllContentVideoStore : IContentVideoStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public int DeleteAllVideosCalls { get; private set; }
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
@@ -199,6 +200,8 @@ public sealed class ContentMaintenanceOrchestratorParityTests
 
     private sealed class RecordingDeleteAllContentSiteIndexStore : IContentSiteIndexStore
     {
+        public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public int DeleteAllRowsCalls { get; private set; }
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)

@@ -358,6 +358,7 @@ public sealed class AdminCreatorStyleViewRenderTests
 
     private sealed class FakeCreatorStyleProfileStore : ICreatorStyleProfileStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public List<CreatorStyleProfileSummary> Summaries { get; } = new();
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

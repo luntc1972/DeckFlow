@@ -1792,6 +1792,8 @@ namespace DeckFlow.Studio.Tests
 
         private sealed class MapSiteIndexStore : IContentSiteIndexStore
         {
+            public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+            public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
             public Dictionary<string, ContentSiteIndexRow> Rows { get; } = new();
 
             /// <summary>Records every batch SetApprovalStatusAsync(keys, status) call (keys + status).</summary>
@@ -1960,6 +1962,7 @@ namespace DeckFlow.Studio.Tests
 
         private sealed class EmptyVideoStore : IContentVideoStore
         {
+            public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
             public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             {
                 return Task.CompletedTask;

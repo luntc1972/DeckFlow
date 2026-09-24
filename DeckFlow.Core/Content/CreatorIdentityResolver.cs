@@ -142,7 +142,7 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
         return components;
     }
     private static Candidate Get(IDictionary<string, Candidate> candidates, string slug) => candidates.TryGetValue(slug, out var candidate) ? candidate : candidates[slug] = new Candidate(slug);
-    private static string? GetFolder(string artifactPath) { var parts = artifactPath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries); return parts.Length > 1 ? parts[^2] : null; }
+    private static string? GetFolder(string artifactPath) => CreatorArtifactPathParser.GetFolder(artifactPath);
     private static bool LooksLikeSlug(string value) => value.All(character => char.IsLower(character) || char.IsDigit(character) || character == '-');
     private static bool Same(string left, string right) => string.Equals(Normalize(left), Normalize(right), StringComparison.Ordinal);
     private static string Normalize(string value) => value.Trim().ToLowerInvariant();

@@ -309,4 +309,9 @@ public interface IContentSiteIndexStore
         IReadOnlyList<(string Type, string Value)> keys,
         CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This content site-index store does not support seed-managed soft-hide.");
+    /// <summary>Deletes site-index entries belonging to a resolved creator identity.</summary>
+    Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default);
+
+    /// <summary>Hides site-index entries belonging to a resolved creator identity.</summary>
+    Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default);
 }

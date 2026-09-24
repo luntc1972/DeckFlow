@@ -31,6 +31,8 @@ public sealed class VideoStatusResolverTests
 
     private sealed class FakeSiteIndexStore : IContentSiteIndexStore
     {
+        public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private readonly ContentSiteIndexRow? _row;
 
         public FakeSiteIndexStore(ContentSiteIndexRow? row) => _row = row;
@@ -82,6 +84,7 @@ public sealed class VideoStatusResolverTests
     /// </summary>
     private sealed class FakeVideoStore : IContentVideoStore
     {
+        public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private readonly long _hitSourceId;
         private readonly string _hitYoutubeVideoId;
         private readonly ContentVideo? _hitResult;

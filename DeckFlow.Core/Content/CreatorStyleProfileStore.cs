@@ -173,6 +173,22 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
         return visibleProfiles;
     }
 
+    /// <inheritdoc />
+    public async Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var slugKeys = identity.FolderSlugs.Append(identity.CanonicalSlug).Distinct().ToArray();
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        var sql = _connectionInfo.IsPostgres
+            ? "DELETE FROM creator_style_profile WHERE slug = ANY(@slugKeys);"
+            : "DELETE FROM creator_style_profile WHERE slug IN @slugKeys;";
+        var count = await connection.ExecuteAsync(new CommandDefinition(sql, new { slugKeys }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return count;
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         if (_connectionFactoryOverride is not null)
