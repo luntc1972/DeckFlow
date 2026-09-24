@@ -83,6 +83,29 @@ public sealed class CommanderSearchPostgresTests : IClassFixture<PostgresContain
         Assert.Equal(3, rows.Count);
         Assert.Equal(3, rows.Select(row => row.CommanderName).Distinct(StringComparer.Ordinal).Count());
     }
+
+    [PostgresFact]
+    public async Task MarkDeckProcessedAsync_ConcurrentCaseVariants_RefreshesOneCommanderSummary()
+    {
+        var connectionInfo = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, await _fixture.GetConnectionStringOrSkipAsync());
+        var repository = new CategoryKnowledgeRepository(connectionInfo);
+        var commanderName = $"Kinnan-{Guid.NewGuid():N}";
+        var lowerCommanderName = commanderName.ToLowerInvariant();
+        var firstDeckId = $"deck-{Guid.NewGuid():N}";
+        var secondDeckId = $"deck-{Guid.NewGuid():N}";
+
+        await repository.AddDeckIdsAsync(new[] { firstDeckId, secondDeckId });
+        await Task.WhenAll(
+            repository.MarkDeckProcessedAsync(firstDeckId, commanderName),
+            repository.MarkDeckProcessedAsync(secondDeckId, lowerCommanderName));
+
+        await using var connection = connectionInfo.CreateConnection();
+        await connection.OpenAsync();
+        var count = await connection.ExecuteScalarAsync<long>(
+            "SELECT deck_count FROM processed_commander_summary WHERE LOWER(commander_name) = LOWER(@commanderName);",
+            new { commanderName });
+        Assert.Equal(2L, count);
+    }
 }
 
 /// <summary>Marks a Theory that requires PostgreSQL integration testing.</summary>

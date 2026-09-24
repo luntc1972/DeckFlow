@@ -47,6 +47,30 @@ public sealed class DeckQueueRepositoryCommanderSummaryTests : IDisposable
         Assert.Equal(2, await repository.GetDistinctProcessedCommanderCountAsync());
     }
 
+    [Fact]
+    public async Task MarkDeckProcessedAsync_WhenSummaryInsertFails_RollsBackSummaryDelete()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await repository.AddDeckIdsAsync(new[] { "deck-1" });
+        await repository.MarkDeckProcessedAsync("deck-1", "Kinnan, Bonder Prodigy");
+
+        await using (var connection = new SqliteConnection($"Data Source={databasePath}"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "CREATE TRIGGER fail_summary_insert BEFORE INSERT ON processed_commander_summary BEGIN SELECT RAISE(FAIL, 'forced summary insert failure'); END;";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await Assert.ThrowsAsync<SqliteException>(() => repository.MarkDeckProcessedAsync("deck-1", "Kinnan, Bonder Prodigy"));
+
+        await using var verifyConnection = new SqliteConnection($"Data Source={databasePath}");
+        await verifyConnection.OpenAsync();
+        await using var verifyCommand = verifyConnection.CreateCommand();
+        verifyCommand.CommandText = "SELECT COUNT(1) FROM processed_commander_summary WHERE commander_name = 'Kinnan, Bonder Prodigy';";
+        Assert.Equal(1L, Convert.ToInt64(await verifyCommand.ExecuteScalarAsync()));
+    }
+
     [Theory]
     [InlineData("tef", 1)]
     [InlineData("TEF", 1)]
