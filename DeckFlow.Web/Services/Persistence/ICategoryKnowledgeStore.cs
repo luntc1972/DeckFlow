@@ -116,6 +116,9 @@ public interface ICategoryKnowledgeStore
     /// <summary>Returns a filtered page of processed commander summaries.</summary>
     Task<IReadOnlyList<HarvestedCommanderRow>> GetFilteredProcessedCommandersAsync(int page, int pageSize, CommanderGridQuery query, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Filtered processed commander reads are not supported by this store.");
+    /// <summary>Returns at most <paramref name="maxRows"/> filtered processed commander summaries in grid order.</summary>
+    Task<IReadOnlyList<HarvestedCommanderRow>> GetAllFilteredProcessedCommandersAsync(CommanderGridQuery query, int maxRows, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Unpaged filtered processed commander reads are not supported by this store.");
     /// <summary>Returns the number of filtered processed commander summaries.</summary>
     Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Filtered processed commander reads are not supported by this store.");

@@ -239,6 +239,16 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
+    public async Task<IReadOnlyList<HarvestedCommanderRow>> GetAllFilteredProcessedCommandersAsync(CommanderGridQuery query, int maxRows, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxRows, 1);
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        // Why: an export must observe newly categorized decks instead of a stale grid result.
+        var rows = await _repository.GetFilteredProcessedCommanderRowsAsync(1, maxRows, query, cancellationToken).ConfigureAwait(false);
+        return rows.Select(row => new HarvestedCommanderRow(row.CommanderName, row.DeckCount, row.LastProcessedUtc)).ToList();
+    }
+
+    /// <inheritdoc/>
     public async Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default)
     {
         var cacheKey = $"category-knowledge:filtered-commanders:count:{query.CacheToken}";

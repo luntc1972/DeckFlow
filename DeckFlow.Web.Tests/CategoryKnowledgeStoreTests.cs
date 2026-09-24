@@ -409,6 +409,82 @@ public sealed class CategoryKnowledgeStoreTests
     }
 
     [Fact]
+    public async Task AllFilteredCommanders_PrefixQuery_ReturnsMatchesInGridOrder()
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+            await store.MarkUrlDeckProcessedAsync("deck-001", "Alpha One");
+            await store.MarkUrlDeckProcessedAsync("deck-002", "Alpha Two");
+            await store.MarkUrlDeckProcessedAsync("deck-003", "Alpha Three");
+            await store.MarkUrlDeckProcessedAsync("deck-004", "Beta Four");
+
+            var rows = await store.GetAllFilteredProcessedCommandersAsync(CommanderGridQuery.FromRequest("Alpha", null, null), 20);
+
+            Assert.Equal(new[] { "Alpha Three", "Alpha Two", "Alpha One" }, rows.Select(row => row.CommanderName));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+        }
+    }
+
+    [Fact]
+    public async Task AllFilteredCommanders_MaxRows_ReturnsAtMostRequestedRows()
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+            await store.MarkUrlDeckProcessedAsync("deck-001", "Alpha One");
+            await store.MarkUrlDeckProcessedAsync("deck-002", "Alpha Two");
+            await store.MarkUrlDeckProcessedAsync("deck-003", "Alpha Three");
+
+            Assert.Equal(2, (await store.GetAllFilteredProcessedCommandersAsync(CommanderGridQuery.FromRequest("Alpha", null, null), 2)).Count);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+        }
+    }
+
+    [Fact]
+    public async Task AllFilteredCommanders_AfterNewMatchingCommander_ReturnsFreshRows()
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+            var query = CommanderGridQuery.FromRequest("Alpha", null, null);
+            await store.MarkUrlDeckProcessedAsync("deck-001", "Alpha One");
+            Assert.Single(await store.GetAllFilteredProcessedCommandersAsync(query, 20));
+
+            await store.MarkUrlDeckProcessedAsync("deck-002", "Alpha Two");
+
+            Assert.Equal(2, (await store.GetAllFilteredProcessedCommandersAsync(query, 20)).Count);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+        }
+    }
+
+    [Fact]
+    public async Task AllFilteredCommanders_MaxRowsBelowOne_ThrowsArgumentOutOfRangeException()
+    {
+        var store = CreateStore();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.GetAllFilteredProcessedCommandersAsync(CommanderGridQuery.FromRequest(null, null, null), 0));
+    }
+
+    [Fact]
     public async Task FakeCategoryKnowledgeStore_ReturnsConfiguredCategoryDeckCounts()
     {
         var fake = new FakeCategoryKnowledgeStore();
