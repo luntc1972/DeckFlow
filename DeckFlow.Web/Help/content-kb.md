@@ -11,6 +11,8 @@ The Knowledge Base (`/content-kb`) is a browsable library of deck-building knowl
 
 > The Knowledge Base is gated behind a feature flag. If it is turned off, visiting the page shows a short "Knowledge Base unavailable" notice instead.
 
+Creator pages contain independent summaries and short excerpts that are not written, reviewed, or endorsed by the creators named. Quoted text in each excerpt is limited to 25 words. Creators can use the Request removal link in the page notice, and we aim to act on requests within 7 days.
+
 ## Browsing entries
 
 The hub page (`/content-kb`) shows published entries as a grid of cards. Each card shows the entry **title** (a link to its detail page), a short description, and tag pills for its **source**, **bracket**, **archetype**, and **card-category** tags.

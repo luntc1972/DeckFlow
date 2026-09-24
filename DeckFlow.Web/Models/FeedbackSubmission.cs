@@ -19,6 +19,9 @@ public sealed class FeedbackSubmission
     [EmailAddress]
     public string? Email { get; set; }
 
+    /// <summary>Validated Content KB page source supplied by the feedback form.</summary>
+    public string? SourcePageUrl { get; set; }
+
     // Honeypot field. Must remain empty. Never surface to users.
     /// <summary>Hidden honeypot field used to reject automated submissions.</summary>
     public string? Website { get; set; }

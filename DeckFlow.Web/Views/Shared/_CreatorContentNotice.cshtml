@@ -1,0 +1,12 @@
+@model string?
+@{
+    var requestPath = Context.Request.Path.Value ?? string.Empty;
+    var removalUrl = $"/feedback?type=creator-removal&source={Uri.EscapeDataString(requestPath)}";
+}
+<aside class="creator-content-notice" role="note" aria-label="About this content">
+    @if (!string.IsNullOrWhiteSpace(Model))
+    {
+        <p>This page summarizes a video by @Model.</p>
+    }
+    <p>Independent summaries and short excerpts of publicly available videos, produced by DeckFlow with AI assistance. Not written, reviewed, or endorsed by the creators named. Excerpts belong to their creators - watch the original video at the source link. Are you a creator and want a page changed or removed? <a href="@removalUrl">Request removal</a>. We aim to act on requests within 7 days.</p>
+</aside>

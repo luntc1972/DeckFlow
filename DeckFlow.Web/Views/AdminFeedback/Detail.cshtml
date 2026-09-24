@@ -9,7 +9,7 @@
     <h1>Feedback #@Model.Id</h1>
     <dl class="detail-grid">
         <dt>Created (UTC)</dt><dd>@Model.CreatedUtc.ToString("yyyy-MM-dd HH:mm:ss")</dd>
-        <dt>Type</dt><dd>@Model.Type</dd>
+        <dt>Type</dt><dd>@FeedbackTypeDisplay.GetDisplayName(Model.Type)</dd>
         <dt>Status</dt><dd>@Model.Status</dd>
         <dt>Email</dt><dd>@(Model.Email ?? "(none)")</dd>
         <dt>Page URL</dt><dd>@(Model.PageUrl ?? "(none)")</dd>

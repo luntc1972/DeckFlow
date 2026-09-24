@@ -26,9 +26,17 @@ public sealed class FeedbackController : Controller
     /// Renders the public feedback submission form.
     /// </summary>
     [HttpGet]
-    public IActionResult Index()
+    public IActionResult Index(string? type = null, string? source = null)
     {
-        return View(new FeedbackSubmission());
+        // Why: query parameter `type` otherwise overrides the selected form field through ModelState.
+        ModelState.Remove(nameof(type));
+        return View(new FeedbackSubmission
+        {
+            Type = string.Equals(type, "creator-removal", StringComparison.OrdinalIgnoreCase)
+                ? FeedbackType.CreatorRemoval
+                : FeedbackType.Comment,
+            SourcePageUrl = ContentKbSourceValidator.GetValidSource(source),
+        });
     }
 
     /// <summary>
@@ -57,7 +65,7 @@ public sealed class FeedbackController : Controller
         var context = new FeedbackRequestContext(
             Ip: HttpContext.Connection.RemoteIpAddress?.ToString(),
             UserAgent: Request.Headers.UserAgent.ToString(),
-            PageUrl: Request.Headers.Referer.ToString(),
+            PageUrl: ContentKbSourceValidator.GetValidSource(submission.SourcePageUrl) ?? Request.Headers.Referer.ToString(),
             AppVersion: _versionService.GetVersion());
 
         await _store.AddAsync(submission, context, cancellationToken);

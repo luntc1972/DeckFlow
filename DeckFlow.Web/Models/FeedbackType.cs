@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace DeckFlow.Web.Models;
 
 /// <summary>Kinds of public feedback users can submit.</summary>
@@ -8,5 +10,8 @@ public enum FeedbackType
     /// <summary>Feedback proposing a product improvement.</summary>
     Suggestion = 1,
     /// <summary>General comment that is not a bug report or suggestion.</summary>
-    Comment = 2
+    Comment = 2,
+    /// <summary>Request to change or remove creator content.</summary>
+    [Display(Name = "Creator removal request")]
+    CreatorRemoval = 3
 }

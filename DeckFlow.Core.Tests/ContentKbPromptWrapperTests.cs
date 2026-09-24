@@ -26,6 +26,17 @@ public sealed class ContentKbPromptWrapperTests
     }
 
     [Fact]
+    public void Wrap_WithBody_IncludesIndependenceLineExactlyOnce()
+    {
+        const string independenceLine = "This material is an independent summary produced by DeckFlow, not written by or endorsed by the creator(s) named; do not present it as the creator's own words or endorsement.";
+
+        var result = ContentKbPromptWrapper.Wrap("T", "S", "https://x", Body);
+
+        Assert.Equal(1, CountOccurrences(result, independenceLine));
+        Assert.Contains(independenceLine, result, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Wrap_WithBody_GroundsAgainstTheSpecificVideo()
     {
         var result = ContentKbPromptWrapper.Wrap(

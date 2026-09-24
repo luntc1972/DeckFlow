@@ -13,6 +13,7 @@
     <h1 id="content-kb-title">Knowledge Base</h1>
     <p class="page-lede">Distilled advice from Commander and cEDH content — ready to paste into @platformList.</p>
     @await Html.PartialAsync("_DeckToolTabs", DeckFlow.Web.Models.DeckPageTab.ContentKb)
+    @await Html.PartialAsync("_CreatorContentNotice", (string?)null)
 
     <fieldset class="kb-filter-bar" @(hasEntries ? null : "disabled")>
         <legend class="sr-only">Filter knowledge base entries</legend>

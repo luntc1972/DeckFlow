@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { withKnowledgeBaseEnabled } from './support/knowledge-base-flag';
 
 // D-04 / D-15 / Codex HIGH+LOW: a drifted visible-but-pending row must render NOWHERE on the public
 // Content KB — neither in the browse list nor at its /content-kb/{id} detail route. This e2e seeds a
@@ -16,7 +17,7 @@ import { expect, test } from '@playwright/test';
 const dbPath = resolve(__dirname, '..', '..', 'artifacts', 'content-site-index.db');
 const contentKbE2eDirectory = resolve(__dirname, '..', '..', 'content-kb', 'e2e');
 
-const suffix = `${Date.now()}`;
+const suffix = `${Date.now()}-${process.pid}`;
 const pendingKey = `e2e-pending-${suffix}`;
 const approvedKey = `e2e-approved-${suffix}`;
 const pendingTitle = `E2E Pending Hidden ${suffix}`;
@@ -27,6 +28,8 @@ let approvedId = 0;
 let seeded = false;
 
 const approvedArtifactPath = resolve(contentKbE2eDirectory, `${approvedKey}.md`);
+
+withKnowledgeBaseEnabled();
 
 function sqlite(sql: string): string {
   // `.timeout` (via -cmd) SILENTLY sets the busy timeout to guard against the running server briefly
@@ -53,9 +56,9 @@ function seedRow(key: string, title: string, approval: string): number {
   );
 }
 
-test.beforeAll(async () => {
+async function seedRows(): Promise<void> {
   if (!existsSync(dbPath)) {
-    return; // Server not yet initialized against this DB; tests below self-skip.
+    return;
   }
 
   try {
@@ -68,7 +71,7 @@ test.beforeAll(async () => {
   } catch {
     seeded = false; // sqlite3 unavailable or table not yet created — self-skip.
   }
-});
+}
 
 test.afterAll(async () => {
   if (existsSync(dbPath)) {
@@ -97,11 +100,10 @@ test.afterAll(async () => {
 test('pending row is hidden from browse and 404s on detail; approved control renders', async ({
   page,
 }) => {
+  await seedRows();
   test.skip(!seeded, 'Content DB could not be seeded (KB DB absent or sqlite3 unavailable).');
 
   const browse = await page.goto('/content-kb');
-  // Flag off → route 404s; nothing to assert about serve filtering, so skip rather than false-fail.
-  test.skip(browse?.status() === 404, 'Knowledge Base flag disabled; serve-filter e2e not applicable.');
   expect(browse?.status()).toBe(200);
 
   // Browse list must include the approved control and exclude the pending row.

@@ -2,6 +2,11 @@
 
 DeckFlow feature highlights.
 
+## Content Knowledge Base
+
+- Creator pages support an opt-out through a creator removal request, and quoted text in each excerpt is limited to 25 words.
+- Admins can suppress a creator to hide their pages, style profile, and prompt material.
+
 ## Highlights
 - **Responsive UI redesign:** every tool page now has paired desktop and mobile layouts, with 44px-or-larger touch targets and 320px overflow coverage across 12 key routes; Deck Analysis adds a narrow-screen step progress rail, focus is restored after intake collapse, motion honors `prefers-reduced-motion`, and decorative chevrons are hidden from assistive technology.
 - `DeckFlow.Core` contains parsers, diffing logic, exporters, and the Archidekt/Moxfield integrations.
@@ -47,4 +52,3 @@ DeckFlow feature highlights.
 ### Personal tools (admin-only)
 - **Creator Style (`/Admin/CreatorStyle`):** an operator-only, admin-only surface reachable only through the existing `/Admin` BasicAuth branch — behind admin authentication, no public route, no feature flag, no public tool tile. An operator picks a seeded creator and pastes or links a deck to get a style critique against that creator's profile. The seed store now carries a real fused profile: the creator picker lists a seeded creator, and submitting a deck returns a critique scored against that creator's fused targets (land count, ramp, removal, draw, and the rest of the ten hand-authored stated rules) rather than the earlier no-profiles-seeded message. A handful of category-based targets still read as an inconclusive comparison rather than a scored verdict — see `docs/content-knowledge-base.md`'s operator-sequence note for why and what a follow-up phase does about it.
 - **Deck Tendencies (`/Admin/CreatorProfile`):** a second operator-only, admin-only surface behind the same admin authentication, with no public route. An operator submits a creator's slug, platform username, and platform (Archidekt or Moxfield); DeckFlow crawls that creator's public decks, measures a style profile, and renders a deck-tendencies report — per-deck rows, repeated non-commander and commander-board cards, and quantity-weighted category tendencies — on the same page. Re-submitting an unchanged identity preserves the prior crawl timestamp; changing the username/platform or setting force-refresh re-crawls. Linked from the same Personal Tools section as Creator Style on the `/Admin` landing page.
-

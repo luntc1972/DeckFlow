@@ -2,6 +2,10 @@
 
 DeckFlow content knowledge-base guidance.
 
+## Compliance and operations
+
+Admins can suppress a creator or process a creator removal request, and quoted text in each excerpt is limited to 25 words. The `tool.knowledge-base.enabled` feature flag is seeded off by default in SQLite and Postgres, while existing rows remain untouched. Moving the `content-kb/` source files to a private repository is planned but not yet done.
+
 ## Content Knowledge Base
 
 DeckFlow distills MTG content-creator videos into paste-ready prompt artifacts and a browsable site index. Heavy work (transcripts, audio, LLM calls, spend ledgers) runs **locally** via the CLI against `artifacts/content-kb.db`; only a slim index and the markdown artifacts ship to the site.
@@ -81,4 +85,3 @@ Each command follows the same exit-code convention as `role-floor-research` and 
 - **Pull from Prod — field-authoritative prod→local reconcile (Phase 92, SYNC-13/14/15):** Pull-from-Prod is strictly read-only toward production and now resolves each row's **body from the local git `content-kb` tree** — it does **not** SFTP-download prod bodies (prod `/data` is empty by design). Per-field authority governs an adopt: body and content follow the git tree, while the operator-owned DB fields (`is_visible`, `is_hidden`, `approval_status`) are read from prod and **preserved, never clobbered**. A **git-staleness guard** runs a bounded fetch and warns (or lets you proceed) when the local checkout is behind the remote — a stale tree would otherwise mis-report bodies as missing. Any **body-vs-index divergence** (the git body's hash disagrees with prod's `body_sha256`, or the body is absent/unreadable) is **surfaced per entry and excluded from the default adopt**, requiring an explicit per-entry opt-in rather than being silently adopted.
 
 ---
-

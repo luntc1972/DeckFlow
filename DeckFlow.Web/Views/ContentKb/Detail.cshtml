@@ -28,6 +28,7 @@
 </header>
 
 @await Html.PartialAsync("_DeckToolTabs", DeckFlow.Web.Models.DeckPageTab.ContentKb)
+@await Html.PartialAsync("_CreatorContentNotice", Model.SourceName)
 
 <article class="help-prose kb-artifact-prose">
     @if (Model.ArtifactUnavailable)

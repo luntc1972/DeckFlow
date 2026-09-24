@@ -193,15 +193,16 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
          WHERE key = @old AND EXISTS (SELECT 1 FROM feature_flags WHERE key = @new);
         """;
 
-    // D-09 seed. ON CONFLICT (key) DO NOTHING preserves operator-set values on
-    // re-bootstrap so toggles survive app restarts (FLAG-01 default-on contract).
+    // D-09 seed. These values are defaults for new rows only; ON CONFLICT (key) DO
+    // NOTHING preserves operator-set values on re-bootstrap. The knowledge-base flag
+    // ships OFF until creator-compliance go-live.
     private const string PostgresSeedSql = """
         INSERT INTO feature_flags (key, enabled) VALUES
           ('service.scryfall-tagger.enabled', TRUE),
           ('tool.help.enabled', TRUE),
           ('service.harvest-cron.enabled', TRUE),
           ('tool.categories.enabled', TRUE),
-          ('tool.knowledge-base.enabled', TRUE),
+          ('tool.knowledge-base.enabled', FALSE),
           ('tool.manabase.enabled', TRUE),
           ('tool.deck-analysis.enabled', TRUE),
           ('tool.deck-comparison.enabled', TRUE),
@@ -257,7 +258,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           ('tool.help.enabled', 1),
           ('service.harvest-cron.enabled', 1),
           ('tool.categories.enabled', 1),
-          ('tool.knowledge-base.enabled', 1),
+          ('tool.knowledge-base.enabled', 0),
           ('tool.manabase.enabled', 1),
           ('tool.deck-analysis.enabled', 1),
           ('tool.deck-comparison.enabled', 1),

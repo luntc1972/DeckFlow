@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { setToolEnabled } from './support/admin-tools';
+import { withKnowledgeBaseEnabled } from './support/knowledge-base-flag';
 import { cutLabPool, gotoOk } from './fixtures/cut-lab-pool';
 
 // Guards the Phase-1 mobile UI changes so desktop behavior stays intact while
@@ -179,6 +180,9 @@ test('deck primer section groups collapse on mobile', async ({ page }) => {
   expect(await secondGroup.evaluate((element) => (element as HTMLDetailsElement).open)).toBe(true);
 });
 
+test.describe('content kb responsive behavior', () => {
+  withKnowledgeBaseEnabled();
+
 test('content kb filters collapse on mobile', async ({ page }) => {
   const isMobile = test.info().project.name.includes('mobile');
   const response = await gotoOk(page, '/content-kb');
@@ -273,6 +277,8 @@ test('content kb enhanced filters do not create desktop horizontal overflow', as
   expect(response?.ok()).toBeTruthy();
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+});
+
 });
 
 for (const route of ['/deck-analysis', '/deck-primer', '/sync', '/card-lookup']) {

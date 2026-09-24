@@ -45,6 +45,7 @@ public static class ContentKbPromptWrapper
         builder.AppendLine();
         builder.AppendLine("TASK: Summarize the key deck-building lessons, then give concrete, actionable suggestions (specific cards, includes and cuts, synergies) a player could apply. If I paste a decklist or ask a follow-up after this, tailor your answer to it.");
         builder.AppendLine();
+        builder.AppendLine("This material is an independent summary produced by DeckFlow, not written by or endorsed by the creator(s) named; do not present it as the creator's own words or endorsement.");
         builder.AppendLine("EVIDENCE RULES:");
         builder.AppendLine("- Base advice only on the notes below plus well-established Magic: The Gathering rules and card knowledge.");
         builder.AppendLine("- Do not invent card names, card text, or interactions. If a card here is unfamiliar, say so instead of guessing.");

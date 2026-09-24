@@ -1,27 +1,15 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { publishFirstUnpublishedEntry, setEntryVisibility } from './support/content-kb-publish';
+import { configureAdminPageForTest, withKnowledgeBaseEnabled } from './support/knowledge-base-flag';
 
 type PublishedEntry = {
   id: number;
   title: string;
 };
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
 let publishedEntry: PublishedEntry | null = null;
 
 test.describe.configure({ mode: 'serial' });
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
 
 function requirePublishedEntry(): PublishedEntry {
   if (!publishedEntry) {
@@ -113,13 +101,13 @@ test.afterAll(async ({ browser }) => {
 async function restorePublishedEntry(browser: Browser, id: number): Promise<void> {
   const context = await browser.newContext();
   const page = await context.newPage();
-  let cleanupLock: LockHandle | null = null;
 
   try {
-    cleanupLock = await acquireAdminLockForTest(page);
+    await configureAdminPageForTest(page);
     await setEntryVisibility(page, id, false);
   } finally {
-    await releaseAdminLockForTest(cleanupLock);
     await context.close();
   }
 }
+
+withKnowledgeBaseEnabled();

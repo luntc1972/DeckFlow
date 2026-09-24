@@ -703,6 +703,28 @@ summary:focus-visible,
   line-height: 1.35;
 }
 
+.creator-content-notice {
+  box-sizing: border-box;
+  max-width: 100%;
+  margin: 0 0 1.5rem;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.creator-content-notice p {
+  margin: 0;
+}
+
+.creator-content-notice p + p {
+  margin-top: 0.5rem;
+}
+
 .kb-filter-bar {
   display: flex;
   flex-wrap: wrap;

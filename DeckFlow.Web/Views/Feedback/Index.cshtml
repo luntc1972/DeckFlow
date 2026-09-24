@@ -23,11 +23,17 @@
         @* Why: no `novalidate` — the native constraints below (required, minlength=10, type=email)
            are the only client-side validation this page has; the server re-checks in FeedbackSubmission. *@
         <form method="post" asp-action="Index" asp-antiforgery="true" class="feedback-form">
+            <input asp-for="SourcePageUrl" type="hidden" />
             <div class="feedback-field">
                 <label asp-for="Type">Type</label>
                 <select asp-for="Type" asp-items="Html.GetEnumSelectList<DeckFlow.Web.Models.FeedbackType>()" data-df-select></select>
                 <span asp-validation-for="Type" class="feedback-error"></span>
             </div>
+
+            @if (Model.Type == DeckFlow.Web.Models.FeedbackType.CreatorRemoval)
+            {
+                <p>Tell us which page(s) and whether you want them changed or removed.</p>
+            }
 
             <div class="feedback-field">
                 <label asp-for="Message">Message</label>
