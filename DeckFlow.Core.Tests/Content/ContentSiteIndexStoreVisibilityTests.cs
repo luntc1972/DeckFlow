@@ -42,6 +42,24 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
             => Task.FromResult<CreatorIdentity?>(new CreatorIdentity("canonical-creator", Array.Empty<long>(), new[] { "Display name" }, new[] { "historical-folder" }));
     }
 
+    private sealed class RecordingIdentityResolver : ICreatorIdentityResolver
+    {
+        public int ResolveAsyncCalls { get; private set; }
+        public int ResolveManyAsyncCalls { get; private set; }
+
+        public Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default)
+        {
+            ResolveAsyncCalls++;
+            return Task.FromResult<CreatorIdentity?>(null);
+        }
+
+        public Task<IReadOnlyDictionary<string, CreatorIdentity?>> ResolveManyAsync(IReadOnlyCollection<string> representations, CancellationToken cancellationToken = default)
+        {
+            ResolveManyAsyncCalls++;
+            return Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(new Dictionary<string, CreatorIdentity?>());
+        }
+    }
+
     private sealed class ThrowingSuppressionStore : ICreatorSuppressionStore
     {
         private static InvalidOperationException Failure() => new("Suppression table unreadable.");
@@ -164,6 +182,25 @@ public sealed class ContentSiteIndexStoreVisibilityTests : IDisposable
         var publishedRows = await _store.GetPublishedRowsAsync();
 
         Assert.Empty(publishedRows);
+    }
+
+    [Fact]
+    public async Task GetPublishedRowsAsync_SeveralCreatorsResolveManyOnce()
+    {
+        var resolver = new RecordingIdentityResolver();
+        var store = new ContentSiteIndexStore(_dbPath, _suppressionStore, new Lazy<ICreatorIdentityResolver>(() => resolver));
+        foreach (var videoId in new[] { "yt-one", "yt-two", "yt-three" })
+        {
+            await store.UpsertRowPreservingVisibilityAsync(CreateYoutubeRow(videoId, source: videoId));
+            var row = await store.GetByNaturalKeyAsync(ContentSourceType.Youtube, videoId);
+            await store.SetVisibilityAsync(row!.Id, visible: true);
+            await store.SetApprovalStatusAsync(ContentSourceType.Youtube, videoId, "approved");
+        }
+
+        await store.GetPublishedRowsAsync();
+
+        Assert.Equal(1, resolver.ResolveManyAsyncCalls);
+        Assert.Equal(0, resolver.ResolveAsyncCalls);
     }
 
     [Fact]

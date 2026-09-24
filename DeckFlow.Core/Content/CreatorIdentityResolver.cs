@@ -20,11 +20,30 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
 
     public async Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(anyRepresentation);
+        var snapshot = await LoadSnapshotAsync(cancellationToken).ConfigureAwait(false);
+        return Resolve(snapshot, anyRepresentation);
+    }
+
+    public async Task<IReadOnlyDictionary<string, CreatorIdentity?>> ResolveManyAsync(
+        IReadOnlyCollection<string> representations,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(representations);
+        var snapshot = await LoadSnapshotAsync(cancellationToken).ConfigureAwait(false);
+        var resolved = new Dictionary<string, CreatorIdentity?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var representation in representations.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            resolved[representation] = Resolve(snapshot, representation);
+        }
+
+        return resolved;
+    }
+
+    private async Task<Snapshot> LoadSnapshotAsync(CancellationToken cancellationToken)
+    {
         var suppressions = await _suppressionStore.ListAsync(cancellationToken).ConfigureAwait(false);
         var sources = await _sourceStore.ListSourcesAsync(cancellationToken).ConfigureAwait(false);
         var indexRows = await _indexStore.ListCreatorIdentityRowsAsync(cancellationToken).ConfigureAwait(false);
-        var match = Normalize(anyRepresentation);
         var components = BuildIndexComponents(indexRows).ToList();
         foreach (var source in sources)
         {
@@ -48,6 +67,16 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
                 AddSuppressionValues(component, suppression);
             }
         }
+
+        return new Snapshot(suppressions, components);
+    }
+
+    private static CreatorIdentity? Resolve(Snapshot snapshot, string anyRepresentation)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(anyRepresentation);
+        var match = Normalize(anyRepresentation);
+        var suppressions = snapshot.Suppressions;
+        var components = snapshot.Components;
 
         var matchingComponents = components.Where(component => component.Values.Any(value => Same(value, match)) || component.SourceIds.Any(id => string.Equals(id.ToString(System.Globalization.CultureInfo.InvariantCulture), match, StringComparison.Ordinal))).ToList();
         if (matchingComponents.Count == 0)
@@ -82,6 +111,8 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
         var identity = candidates.Values.Single();
         return new CreatorIdentity(identity.Slug, identity.SourceIds.Order().ToList(), DistinctOrdinalIgnoringCase(identity.DisplayNames), DistinctOrdinalIgnoringCase(identity.FolderSlugs));
     }
+
+    private sealed record Snapshot(IReadOnlyList<CreatorSuppression> Suppressions, IReadOnlyList<IndexComponent> Components);
 
     private static string? FindCanonical(IEnumerable<CreatorSuppression> suppressions, IEnumerable<string> values)
         => FindSingleCanonical(suppressions.Where(row => values.Any(value => Same(row.Slug, value) || row.Aliases.Any(alias => Same(alias, value)))).Select(row => row.Slug), values);

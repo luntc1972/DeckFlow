@@ -936,13 +936,10 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
             .SelectMany(row => GetCreatorRepresentations(row))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        var resolved = new Dictionary<string, CreatorIdentity?>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, CreatorIdentity?> resolved = new Dictionary<string, CreatorIdentity?>(StringComparer.OrdinalIgnoreCase);
         if (_identityResolver is not null)
         {
-            foreach (var representation in representations)
-            {
-                resolved[representation] = await _identityResolver.Value.ResolveAsync(representation, cancellationToken).ConfigureAwait(false);
-            }
+            resolved = await _identityResolver.Value.ResolveManyAsync(representations, cancellationToken).ConfigureAwait(false);
         }
 
         var matcher = new CreatorSuppressionMatcher(await _suppressionStore.ListAsync(cancellationToken).ConfigureAwait(false));

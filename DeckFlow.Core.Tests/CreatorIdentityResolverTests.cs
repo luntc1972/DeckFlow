@@ -36,6 +36,54 @@ public sealed class CreatorIdentityResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task ResolveManyAsync_FixtureRepresentationsMatchIndividualResolution()
+    {
+        var resolver = await CreateResolverAsync();
+        var representations = new[] { "salubrious-snail", "Salubrious Snail", "sal2brious" };
+
+        var many = await resolver.ResolveManyAsync(representations);
+
+        foreach (var representation in representations)
+        {
+            var single = await resolver.ResolveAsync(representation);
+            var resolved = many[representation];
+            Assert.Equal(single!.CanonicalSlug, resolved!.CanonicalSlug);
+            Assert.Equal(single.SourceIds, resolved.SourceIds);
+            Assert.Equal(single.DisplayNames, resolved.DisplayNames);
+            Assert.Equal(single.FolderSlugs, resolved.FolderSlugs);
+        }
+    }
+
+    [Fact]
+    public async Task ResolveManyAsync_ConflictingRepresentationThrowsCreatorAliasConflictException()
+    {
+        var connection = RelationalDatabaseConnection.FromSqlitePath(_dbPath);
+        var suppressions = new CreatorSuppressionStore(connection);
+        await suppressions.SuppressAsync("alice-one", new[] { "Alice" }, "request", DateTimeOffset.UtcNow, null);
+        await suppressions.SuppressAsync("alice-two", new[] { "folder-one" }, "request", DateTimeOffset.UtcNow, null);
+        var index = new ContentSiteIndexStore(connection);
+        await index.UpsertRowAsync(CreateRow("Alice", "content-kb/folder-one/entry.md", "entry"));
+        var resolver = new CreatorIdentityResolver(suppressions, new ContentSourceStore(connection), index);
+
+        await Assert.ThrowsAsync<CreatorAliasConflictException>(() => resolver.ResolveManyAsync(new[] { "Alice", "other" }));
+    }
+
+    [Fact]
+    public async Task ResolveManyAsync_SeveralRepresentationsLoadEachStoreOnce()
+    {
+        var suppressions = new CountingSuppressionStore();
+        var sources = new CountingSourceStore();
+        var index = new CountingIndexStore();
+        var resolver = new CreatorIdentityResolver(suppressions, sources, index);
+
+        await resolver.ResolveManyAsync(new[] { "one", "two", "three" });
+
+        Assert.Equal(1, suppressions.ListCalls);
+        Assert.Equal(1, sources.ListCalls);
+        Assert.Equal(1, index.ListCalls);
+    }
+
+    [Fact]
     public async Task ResolveAsync_IndexRowsInEitherOrderUseOrdinalLowestFolderCanonical()
     {
         var rows = new[]
@@ -396,4 +444,58 @@ public sealed class CreatorIdentityResolverTests : IDisposable
         CardCategoryTags = Array.Empty<string>(),
         YoutubeVideoId = videoId
     };
+
+    private sealed class CountingSuppressionStore : ICreatorSuppressionStore
+    {
+        public int ListCalls { get; private set; }
+        public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<long> GetRevisionAsync(CancellationToken cancellationToken = default) => Task.FromResult(0L);
+        public Task<long?> GetSyncedRevisionAsync(CancellationToken cancellationToken = default) => Task.FromResult<long?>(null);
+        public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) { ListCalls++; return Task.FromResult<IReadOnlyList<CreatorSuppression>>(Array.Empty<CreatorSuppression>()); }
+        public Task<CreatorSuppressionSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SetAliasesAsync(string slug, IReadOnlyList<string> aliases, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SuppressAsync(string slug, IReadOnlyList<string> aliases, string reason, DateTimeOffset requestedUtc, string? note, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UnsuppressAsync(string slug, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class CountingSourceStore : IContentSourceStore
+    {
+        public int ListCalls { get; private set; }
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<long> InsertSourceAsync(string sourceSlug, string displayName, string sourceType, string sourceUrl, CancellationToken cancellationToken = default) => Task.FromResult(0L);
+        public Task<ContentSource?> GetSourceAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult<ContentSource?>(null);
+        public Task<IReadOnlyList<ContentSource>> ListEnabledSourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContentSource>>(Array.Empty<ContentSource>());
+        public Task<IReadOnlyList<ContentSource>> ListSourcesAsync(CancellationToken cancellationToken = default) { ListCalls++; return Task.FromResult<IReadOnlyList<ContentSource>>(Array.Empty<ContentSource>()); }
+    }
+
+    private sealed class CountingIndexStore : IContentSiteIndexStore
+    {
+        public int ListCalls { get; private set; }
+        public Task<IReadOnlyList<ContentCreatorIdentityRow>> ListCreatorIdentityRowsAsync(CancellationToken cancellationToken = default) { ListCalls++; return Task.FromResult<IReadOnlyList<ContentCreatorIdentityRow>>(Array.Empty<ContentCreatorIdentityRow>()); }
+        public Task<int> DeleteBySourceAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityByCreatorAsync(CreatorIdentity identity, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpsertRowAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpsertRowPreservingVisibilityAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UpsertContentColumnsOnlyAsync(ContentSiteIndexRow row, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<ContentSiteIndexRow?> GetByNaturalKeyAsync(string naturalKeyType, string naturalKeyValue, CancellationToken cancellationToken = default) => Task.FromResult<ContentSiteIndexRow?>(null);
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishedRowsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Array.Empty<ContentSiteIndexRow>());
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetApprovedRowsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Array.Empty<ContentSiteIndexRow>());
+        public Task<IReadOnlyList<ContentSiteIndexRow>> GetAllRowsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ContentSiteIndexRow>>(Array.Empty<ContentSiteIndexRow>());
+        public Task<ContentSiteIndexRow?> GetByIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult<ContentSiteIndexRow?>(null);
+        public Task<ContentSiteIndexRow?> GetPublishedByIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult<ContentSiteIndexRow?>(null);
+        public Task<int> SetVisibilityAsync(long id, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetHiddenAsync(long id, bool hidden, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> DeleteByIdAsync(long id, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetEvergreenAsync(long id, bool evergreen, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityBySourceAsync(string source, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetHiddenBySourceAsync(string source, bool hidden, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetApprovalStatusAsync(string naturalKeyType, string naturalKeyValue, string status, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetApprovalStatusAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> StampPushedToProdAsync(IReadOnlyList<(string Type, string Value)> keys, DateTimeOffset pushedUtc, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> SetVisibilityAsync(IReadOnlyList<(string Type, string Value)> keys, bool visible, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    }
 }
