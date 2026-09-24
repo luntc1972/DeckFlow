@@ -46,6 +46,8 @@ public sealed class CommandersListExportTests
     [InlineData("+formula")]
     [InlineData("-formula")]
     [InlineData("@formula")]
+    [InlineData("\tformula")]
+    [InlineData("\rformula")]
     public void BuildCsv_NameStartsFormulaCharacter_PrefixesApostrophe(string name)
     {
         Assert.Contains("\"'" + name + "\"", CommandersListExport.BuildCsv(new[] { Row(name) }));
