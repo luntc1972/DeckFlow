@@ -6,6 +6,7 @@ namespace DeckFlow.Core.Tests;
 
 public sealed class CreatorProfileSourceStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private static readonly DateTimeOffset SourceUpdatedUtc = DateTimeOffset.Parse("2026-07-11T15:22:33Z");
     private readonly string _dbPath;
     private readonly CreatorProfileSourceStore _store;
@@ -20,7 +21,7 @@ public sealed class CreatorProfileSourceStoreTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);

@@ -15,12 +15,13 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class CreatorStyleCommandRunnersTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"creator-style-command-runners-{Guid.NewGuid():N}.db");
     private readonly string _seedPath = Path.Combine(Path.GetTempPath(), $"creator-stated-rules-{Guid.NewGuid():N}.json");
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        ClearPool(_dbPath);
         GC.Collect();
         GC.WaitForPendingFinalizers();
         File.Delete(_dbPath);

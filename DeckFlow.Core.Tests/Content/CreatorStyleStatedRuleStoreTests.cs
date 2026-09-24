@@ -12,6 +12,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class CreatorStyleStatedRuleStoreTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly CreatorStyleStatedRuleStore _store;
 
@@ -23,7 +24,7 @@ public sealed class CreatorStyleStatedRuleStoreTests : IDisposable
 
     public void Dispose()
     {
-        SqliteConnection.ClearAllPools();
+        ClearPool(_dbPath);
         GC.Collect();
         GC.WaitForPendingFinalizers();
         File.Delete(_dbPath);

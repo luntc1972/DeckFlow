@@ -11,6 +11,7 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class LlmSpendLedgerTests : IDisposable
 {
+    private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath;
     private readonly ContentSourceStore _sourceStore;
     private readonly ContentVideoStore _videoStore;
@@ -28,7 +29,7 @@ public sealed class LlmSpendLedgerTests : IDisposable
     {
         if (File.Exists(_dbPath))
         {
-            SqliteConnection.ClearAllPools();
+            ClearPool(_dbPath);
             GC.Collect();
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
