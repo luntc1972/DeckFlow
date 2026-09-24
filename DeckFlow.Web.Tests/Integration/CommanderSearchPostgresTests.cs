@@ -34,13 +34,14 @@ public sealed class CommanderSearchPostgresTests : IClassFixture<PostgresContain
     {
         var connectionInfo = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, await _fixture.GetConnectionStringOrSkipAsync());
         var repository = new CategoryKnowledgeRepository(connectionInfo);
-        await SeedRowsAsync(connectionInfo, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Zada", 1, null), ("\u0301", 1, null));
+        await repository.EnsureSchemaAsync();
+        await SeedRowsAsync(connectionInfo, ("Atraxa", 1, null), ("Éowyn", 1, null), ("Krenko", 1, null), ("Ob Nixilis, Reignited", 1, null), ("Obeka, Splitter of Seconds", 1, null), ("Zada", 1, null), ("\u0301", 1, null));
 
         var ascending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "asc"));
         var descending = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, "name", "desc"));
 
-        Assert.Equal(new[] { "Atraxa", "Éowyn", "Krenko", "Zada", "\u0301" }, ascending.Select(row => row.CommanderName));
-        Assert.Equal(new[] { "Zada", "Krenko", "Éowyn", "Atraxa", "\u0301" }, descending.Select(row => row.CommanderName));
+        Assert.Equal(new[] { "Atraxa", "Éowyn", "Krenko", "Ob Nixilis, Reignited", "Obeka, Splitter of Seconds", "Zada", "\u0301" }, ascending.Select(row => row.CommanderName));
+        Assert.Equal(new[] { "Zada", "Obeka, Splitter of Seconds", "Ob Nixilis, Reignited", "Krenko", "Éowyn", "Atraxa", "\u0301" }, descending.Select(row => row.CommanderName));
     }
 
     private static async Task SeedRowsAsync(RelationalDatabaseConnection connectionInfo, params (string Name, int Count, string? LastProcessed)[] rows)

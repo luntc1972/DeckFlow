@@ -18,6 +18,8 @@ internal sealed class DeckQueueRepository
     private const string DeckCountAscendingOrderBy = "ORDER BY deck_count ASC, CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key ASC, commander_name ASC";
     private const string NameAscendingOrderBy = "ORDER BY CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key ASC, commander_name ASC";
     private const string NameDescendingOrderBy = "ORDER BY CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key DESC, commander_name DESC";
+    private const string PostgresNameAscendingOrderBy = "ORDER BY CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key COLLATE \"C\" ASC, commander_name COLLATE \"C\" ASC";
+    private const string PostgresNameDescendingOrderBy = "ORDER BY CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key COLLATE \"C\" DESC, commander_name COLLATE \"C\" DESC";
     private const string LastProcessedDescendingOrderBy = "ORDER BY CASE WHEN last_processed_utc IS NULL THEN 1 ELSE 0 END ASC, last_processed_utc DESC, CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key ASC, commander_name ASC";
     private const string LastProcessedAscendingOrderBy = "ORDER BY CASE WHEN last_processed_utc IS NULL THEN 1 ELSE 0 END ASC, last_processed_utc ASC, CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key ASC, commander_name ASC";
     private readonly RelationalDatabaseConnection _connectionInfo;
@@ -143,10 +145,12 @@ internal sealed class DeckQueueRepository
         return rows.Select(row => (row.CommanderName, checked((int)row.DeckCount), row.LastProcessedUtc)).ToList();
     }
 
-    private static string GetCommanderOrderBy(CommanderGridQuery query)
+    private string GetCommanderOrderBy(CommanderGridQuery query)
         => query.SortBy switch
         {
-            CommanderSortColumn.Name => query.Descending ? NameDescendingOrderBy : NameAscendingOrderBy,
+            CommanderSortColumn.Name => query.Descending
+                ? (_connectionInfo.IsPostgres ? PostgresNameDescendingOrderBy : NameDescendingOrderBy)
+                : (_connectionInfo.IsPostgres ? PostgresNameAscendingOrderBy : NameAscendingOrderBy),
             CommanderSortColumn.LastProcessed => query.Descending ? LastProcessedDescendingOrderBy : LastProcessedAscendingOrderBy,
             _ => query.Descending ? DeckCountDescendingOrderBy : DeckCountAscendingOrderBy
         };
