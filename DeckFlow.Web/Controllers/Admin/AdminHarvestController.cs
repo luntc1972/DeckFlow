@@ -119,11 +119,10 @@ public sealed class AdminHarvestController : Controller
     [HttpGet("commanders")]
     public async Task<IActionResult> Commanders(int page = 1, string? search = null, string? sortBy = null, string? sortDir = null, CancellationToken cancellationToken = default)
     {
-        if (!SameOriginRequestValidator.IsValid(Request))
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null)
         {
-            return StatusCode(
-                StatusCodes.Status403Forbidden,
-                new { Message = "This endpoint only accepts same-origin browser requests." });
+            return sameOriginFailure;
         }
 
         var query = CommanderGridQuery.FromRequest(search, sortBy, sortDir);
@@ -157,11 +156,10 @@ public sealed class AdminHarvestController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ExportCommanders(string? search = null, string? sortBy = null, string? sortDir = null, CancellationToken cancellationToken = default)
     {
-        if (!SameOriginRequestValidator.IsValid(Request))
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null)
         {
-            return StatusCode(
-                StatusCodes.Status403Forbidden,
-                new { Message = "This endpoint only accepts same-origin browser requests." });
+            return sameOriginFailure;
         }
 
         var query = CommanderGridQuery.FromRequest(search, sortBy, sortDir);
@@ -184,11 +182,10 @@ public sealed class AdminHarvestController : Controller
     [HttpGet("commander-categories")]
     public async Task<IActionResult> CommanderCategories([FromQuery] string? name, CancellationToken cancellationToken = default)
     {
-        if (!SameOriginRequestValidator.IsValid(Request))
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null)
         {
-            return StatusCode(
-                StatusCodes.Status403Forbidden,
-                new { Message = "This endpoint only accepts same-origin browser requests." });
+            return sameOriginFailure;
         }
 
         if (string.IsNullOrWhiteSpace(name))
@@ -211,14 +208,22 @@ public sealed class AdminHarvestController : Controller
     /// Returns the cached harvest status payload used by the admin page polling loop.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token for status reads.</param>
+    private IActionResult? ValidateSameOriginRequest()
+    {
+        return SameOriginRequestValidator.IsValid(Request)
+            ? null
+            : StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { Message = "This endpoint only accepts same-origin browser requests." });
+    }
+
     [HttpGet("status")]
     public async Task<IActionResult> Status(CancellationToken cancellationToken)
     {
-        if (!SameOriginRequestValidator.IsValid(Request))
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null)
         {
-            return StatusCode(
-                StatusCodes.Status403Forbidden,
-                new { Message = "This endpoint only accepts same-origin browser requests." });
+            return sameOriginFailure;
         }
 
         var payload = await _memoryCache.GetOrCreateAsync(StatusCacheKey, async entry =>
