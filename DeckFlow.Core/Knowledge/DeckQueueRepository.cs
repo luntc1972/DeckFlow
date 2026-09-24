@@ -116,17 +116,11 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
         var prefix = query.SqlPrefixPattern;
         var orderBy = GetCommanderOrderBy(query);
-        var sql = prefix is null
-            ? $"""
+        var whereClause = prefix is null ? string.Empty : "WHERE commander_name_search_key LIKE @prefix ESCAPE '\\'";
+        var sql = $"""
             SELECT commander_name, deck_count, last_processed_utc
             FROM processed_commander_summary
-            {orderBy}
-            LIMIT @limit OFFSET @offset;
-            """
-            : $"""
-            SELECT commander_name, deck_count, last_processed_utc
-            FROM processed_commander_summary
-            WHERE commander_name_search_key LIKE @prefix ESCAPE '\'
+            {whereClause}
             {orderBy}
             LIMIT @limit OFFSET @offset;
             """;
@@ -158,9 +152,7 @@ internal sealed class DeckQueueRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         var prefix = query.SqlPrefixPattern;
-        var sql = prefix is null
-            ? "SELECT COUNT(1) FROM processed_commander_summary;"
-            : "SELECT COUNT(1) FROM processed_commander_summary WHERE commander_name_search_key LIKE @prefix ESCAPE '\\';";
+        var sql = $"SELECT COUNT(1) FROM processed_commander_summary {(prefix is null ? string.Empty : "WHERE commander_name_search_key LIKE @prefix ESCAPE '\\'")};";
         return checked((int)await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, new { prefix }, cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 
