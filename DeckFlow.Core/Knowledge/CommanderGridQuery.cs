@@ -21,8 +21,12 @@ public sealed record CommanderGridQuery
     /// <summary>Maximum number of search characters accepted from a request.</summary>
     public const int MaxSearchTermLength = 100;
 
-    /// <summary>Character used to escape SQL LIKE metacharacters.</summary>
-    public const char LikeEscapeCharacter = '\\';
+    private static readonly IReadOnlyDictionary<string, CommanderSortColumn> SortColumns = new Dictionary<string, CommanderSortColumn>(StringComparer.Ordinal)
+    {
+        ["name"] = CommanderSortColumn.Name,
+        ["last_processed"] = CommanderSortColumn.LastProcessed,
+        ["deck_count"] = CommanderSortColumn.DeckCount
+    };
 
     /// <summary>Optional operator-supplied search term.</summary>
     public string? SearchTerm { get; init; }
@@ -48,24 +52,13 @@ public sealed record CommanderGridQuery
         return new CommanderGridQuery
         {
             SearchTerm = trimmedSearch,
-            SortBy = sortBy switch
-            {
-                "name" => CommanderSortColumn.Name,
-                "last_processed" => CommanderSortColumn.LastProcessed,
-                "deck_count" => CommanderSortColumn.DeckCount,
-                _ => CommanderSortColumn.DeckCount
-            },
+            SortBy = sortBy is not null && SortColumns.TryGetValue(sortBy, out var sortColumn) ? sortColumn : CommanderSortColumn.DeckCount,
             Descending = sortDir != "asc"
         };
     }
 
     /// <summary>Canonical sort-column token.</summary>
-    public string SortByToken => SortBy switch
-    {
-        CommanderSortColumn.Name => "name",
-        CommanderSortColumn.LastProcessed => "last_processed",
-        _ => "deck_count"
-    };
+    public string SortByToken => SortColumns.FirstOrDefault(pair => pair.Value == SortBy).Key ?? "deck_count";
 
     /// <summary>Canonical sort-direction token.</summary>
     public string SortDirToken => Descending ? "desc" : "asc";
