@@ -427,7 +427,7 @@ public sealed class SuggestionsApiControllerTests
             _result = result;
         }
 
-        public Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default)
+        public Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default, bool includeProcessedDeckCount = true)
             => Task.FromResult(_result);
     }
 

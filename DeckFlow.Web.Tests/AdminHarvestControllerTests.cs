@@ -902,6 +902,14 @@ public sealed class AdminHarvestControllerTests
         Assert.Equal(0, service.CallCount);
     }
 
+    [Fact]
+    public async Task CommanderCategories_SkipsProcessedDeckCount()
+    {
+        var service = new CountingCommanderCategoryService();
+        await Build(NewStore(0), commanderCategoryService: service).CommanderCategories("Krenko");
+        Assert.False(service.IncludeProcessedDeckCount);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -1015,10 +1023,17 @@ public sealed class AdminHarvestControllerTests
     private sealed class CountingCommanderCategoryService : ICommanderCategoryService
     {
         public int CallCount { get; private set; }
-        public Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default)
+        public bool IncludeProcessedDeckCount { get; private set; }
+        public Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default, bool includeProcessedDeckCount = true)
         {
             CallCount++;
-            throw new InvalidOperationException("Lookup should not be called.");
+            IncludeProcessedDeckCount = includeProcessedDeckCount;
+            return Task.FromResult(new CommanderCategoryResult(
+                commanderName,
+                Array.Empty<CategoryKnowledgeRow>(),
+                Array.Empty<CommanderCategorySummary>(),
+                0,
+                new CardDeckTotals(0, new Dictionary<string, int>())));
         }
     }
 

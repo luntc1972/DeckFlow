@@ -141,7 +141,7 @@ public sealed class CommanderControllerTests
             _result = result;
         }
 
-        public Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default)
+        public Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default, bool includeProcessedDeckCount = true)
         {
             return Task.FromResult(_result);
         }
