@@ -224,7 +224,7 @@ public sealed class CategoryKnowledgeStoreTests
             await store.MarkUrlDeckProcessedAsync("deck-002", "Commander One");
             await store.MarkUrlDeckProcessedAsync("deck-003", "Commander Two");
 
-            var rows = await store.GetPagedProcessedCommandersAsync(page: 0, pageSize: 0);
+            var rows = await store.GetFilteredProcessedCommandersAsync(page: 0, pageSize: 0, CommanderGridQuery.Default);
             var count = await store.GetDistinctProcessedCommanderCountAsync();
 
             var row = Assert.Single(rows);
@@ -251,11 +251,11 @@ public sealed class CategoryKnowledgeStoreTests
             var store = CreateStore(Path.Combine(tempRoot, "content"));
             await store.MarkUrlDeckProcessedAsync("deck-001", "Commander One");
 
-            var initialRows = await store.GetPagedProcessedCommandersAsync(page: 1, pageSize: 20);
+            var initialRows = await store.GetFilteredProcessedCommandersAsync(page: 1, pageSize: 20, CommanderGridQuery.Default);
             var initialCount = await store.GetDistinctProcessedCommanderCountAsync();
             await store.MarkUrlDeckProcessedAsync("deck-002", "Commander Two");
 
-            Assert.Single(await store.GetPagedProcessedCommandersAsync(page: 1, pageSize: 20));
+            Assert.Single(await store.GetFilteredProcessedCommandersAsync(page: 1, pageSize: 20, CommanderGridQuery.Default));
             Assert.Equal(1, await store.GetDistinctProcessedCommanderCountAsync());
             Assert.Single(initialRows);
             Assert.Equal(1, initialCount);
@@ -399,7 +399,7 @@ public sealed class CategoryKnowledgeStoreTests
             }
         };
 
-        var rows = await fake.GetPagedProcessedCommandersAsync(page: 3, pageSize: 25);
+        var rows = await fake.GetFilteredProcessedCommandersAsync(page: 3, pageSize: 25, CommanderGridQuery.Default);
 
         var row = Assert.Single(rows);
         Assert.Equal("Commander", row.CommanderName);

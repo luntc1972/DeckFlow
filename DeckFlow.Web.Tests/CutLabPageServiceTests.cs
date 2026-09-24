@@ -3648,6 +3648,11 @@ public sealed class CutLabPageServiceTests
         public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, DeckFlow.Core.Integration.ArchidektDeckMetadata? metadata, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<HarvestedCommanderRow>> GetFilteredProcessedCommandersAsync(int page, int pageSize, CommanderGridQuery query, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<HarvestedCommanderRow>>(Array.Empty<HarvestedCommanderRow>());
+        public Task<IReadOnlyList<HarvestedCommanderRow>> GetAllFilteredProcessedCommandersAsync(CommanderGridQuery query, int maxRows, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<HarvestedCommanderRow>>(Array.Empty<HarvestedCommanderRow>());
+        public Task<int> GetFilteredProcessedCommanderCountAsync(CommanderGridQuery query, CancellationToken cancellationToken = default) => Task.FromResult(0);
+
         public Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

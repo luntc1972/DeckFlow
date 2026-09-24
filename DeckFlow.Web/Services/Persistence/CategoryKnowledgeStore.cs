@@ -195,24 +195,6 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
-    {
-        page = Math.Max(page, 1);
-        pageSize = Math.Max(pageSize, 1);
-
-        var cacheKey = $"category-knowledge:processed-commanders:{page}:{pageSize}";
-        return await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
-        {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
-            await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
-            var rows = await _repository.GetPagedProcessedCommanderRowsAsync(page, pageSize, cancellationToken).ConfigureAwait(false);
-            return (IReadOnlyList<HarvestedCommanderRow>)rows
-                .Select(row => new HarvestedCommanderRow(row.CommanderName, row.DeckCount, row.LastProcessedUtc))
-                .ToList();
-        }).ConfigureAwait(false) ?? Array.Empty<HarvestedCommanderRow>();
-    }
-
-    /// <inheritdoc/>
     public async Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
     {
         return await _memoryCache.GetOrCreateAsync(ProcessedCommanderCountCacheKey, async entry =>
