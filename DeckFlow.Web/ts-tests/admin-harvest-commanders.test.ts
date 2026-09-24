@@ -44,6 +44,26 @@ describe('admin harvest commanders', () => {
     expect(commanderUrls(fetchMock)[0]).toContain('page=1');
   });
 
+  it('keeps the newest grid response when an older request completes last', async () => {
+    let resolveFirst!: (value: { ok: boolean; text: () => Promise<string> }) => void;
+    let resolveSecond!: (value: { ok: boolean; text: () => Promise<string> }) => void;
+    const first = new Promise<{ ok: boolean; text: () => Promise<string> }>((resolve) => { resolveFirst = resolve; });
+    const second = new Promise<{ ok: boolean; text: () => Promise<string> }>((resolve) => { resolveSecond = resolve; });
+    const fetchMock = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
+    vi.stubGlobal('fetch', fetchMock);
+    renderFixture();
+    const search = document.querySelector<HTMLInputElement>('#commanders-search')!;
+    const form = document.querySelector<HTMLFormElement>('#commanders-search-form')!;
+    search.value = 'At'; form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    search.value = 'Kr'; form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await vi.waitFor(() => expect(commanderUrls(fetchMock)).toHaveLength(2));
+    resolveSecond({ ok: true, text: async () => '<p>Kr</p>' });
+    await vi.waitFor(() => expect(document.querySelector('#commanders-grid-container')!.innerHTML).toContain('Kr'));
+    resolveFirst({ ok: true, text: async () => '<p>At</p>' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.querySelector('#commanders-grid-container')!.innerHTML).toContain('Kr');
+  });
+
   it('preserves active sort when submitting search', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => gridMarkup() });
     vi.stubGlobal('fetch', fetchMock);
