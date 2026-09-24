@@ -52,7 +52,9 @@ if [ -z "$DOTNET" ]; then
 fi
 
 # WSL-exported vars do not cross into Windows .exe processes unless named in WSLENV.
-if [[ "$DOTNET" == *.exe || "$DOTNET" == *"/mnt/c/"* ]]; then
+# Why: resolve symlinks (e.g. ~/.local/bin/dotnet -> dotnet.exe) or the check misses and a browser opens.
+DOTNET_REAL="$(readlink -f "$DOTNET" 2>/dev/null || echo "$DOTNET")"
+if [[ "$DOTNET_REAL" == *.exe || "$DOTNET_REAL" == *"/mnt/c/"* ]]; then
   export WSLENV="${WSLENV:+${WSLENV}:}DECKFLOW_DISABLE_AUTO_BROWSER:DECKFLOW_E2E_PORT:ASPNETCORE_ENVIRONMENT:FEEDBACK_ADMIN_USER:FEEDBACK_ADMIN_PASSWORD"
 fi
 
