@@ -447,11 +447,14 @@ internal sealed class DeckQueueRepository
             parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
 
+        await using var summaryTransaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         var currentCommanderName = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
             "SELECT commander_name FROM deck_queue WHERE deck_id = @deckId;",
             new { deckId },
+            transaction: summaryTransaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        await RefreshCommanderSummaryAsync(connection, transaction: null, new[] { priorCommanderName, currentCommanderName }, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+        await RefreshCommanderSummaryAsync(connection, summaryTransaction, new[] { priorCommanderName, currentCommanderName }, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+        await summaryTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -585,11 +588,14 @@ internal sealed class DeckQueueRepository
             """,
             parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await using var summaryTransaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         var currentCommanderName = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
             "SELECT commander_name FROM deck_queue WHERE deck_id = @deckId;",
             new { deckId },
+            transaction: summaryTransaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        await RefreshCommanderSummaryAsync(connection, transaction: null, new[] { priorCommanderName, currentCommanderName }, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+        await RefreshCommanderSummaryAsync(connection, summaryTransaction, new[] { priorCommanderName, currentCommanderName }, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+        await summaryTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -682,6 +688,18 @@ internal sealed class DeckQueueRepository
 
         var membershipOperator = isPostgres ? "= ANY(@normalizedNames)" : "IN @normalizedNames";
         // Why: Dapper binds lists as arrays on Npgsql, so PostgreSQL requires ANY instead of IN.
+        if (isPostgres)
+        {
+            foreach (var normalizedName in normalizedNames.OrderBy(name => name, StringComparer.Ordinal))
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "SELECT pg_advisory_xact_lock(hashtext(lower(@commanderName)));",
+                    new { commanderName = normalizedName },
+                    transaction: transaction,
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+        }
+
         await connection.ExecuteAsync(new CommandDefinition(
             $"DELETE FROM processed_commander_summary WHERE LOWER(commander_name) {membershipOperator};",
             new { normalizedNames },
@@ -703,7 +721,7 @@ internal sealed class DeckQueueRepository
                 """
                 INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc, commander_name_search_key)
                 VALUES (@commanderName, @deckCount, @lastProcessedUtc, @searchKey)
-                ON CONFLICT (commander_name) DO UPDATE SET
+                ON CONFLICT (LOWER(commander_name)) DO UPDATE SET
                     deck_count = excluded.deck_count,
                     last_processed_utc = excluded.last_processed_utc,
                     commander_name_search_key = excluded.commander_name_search_key;
