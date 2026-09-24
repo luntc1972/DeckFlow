@@ -30,6 +30,23 @@ describe('admin harvest commander category breakdown', () => {
     await vi.waitFor(() => expect(categoryUrls(fetchMock)).toHaveLength(1)); expect(new URL(categoryUrls(fetchMock)[0], 'http://localhost').pathname).toBe('/Admin/Harvest/commander-categories');
   });
 
+  it('shows Retry after a category-breakdown request times out', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchMock = vi.fn((_url: string, options: RequestInit) => new Promise((_resolve, reject) => {
+        options.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      }));
+      vi.stubGlobal('fetch', fetchMock);
+      renderFixture();
+      open(details());
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(details().querySelector('[data-commander-retry]')).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('sends ordinary and slash-containing commander names intact as query name only', async () => {
     for (const [index, name] of ['Krenko, Mob Boss', 'Esika, God of the Tree // The Prismatic Bridge'].entries()) {
       const fetchMock = vi.fn().mockResolvedValue({ ok: true, text: async () => categoryMarkup }); vi.stubGlobal('fetch', fetchMock); renderFixture(); open(details(index));

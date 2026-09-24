@@ -309,11 +309,14 @@
 
         details.setAttribute('data-commander-loading', 'true');
         panel.setAttribute('aria-busy', 'true');
+        const abortController = new AbortController();
+        const timeoutId = window.setTimeout(() => abortController.abort(), COMMANDERS_FETCH_TIMEOUT_MS);
         try {
           const parameters = new URLSearchParams({ name: commanderName });
           const response = await fetch(`/Admin/Harvest/commander-categories?${parameters.toString()}`, {
             credentials: 'same-origin',
-            headers: { Accept: 'text/html' }
+            headers: { Accept: 'text/html' },
+            signal: abortController.signal
           });
           if (!response.ok) {
             throw new Error('Could not load commander categories.');
@@ -329,6 +332,7 @@
             void loadCommanderBreakdown(details);
           });
         } finally {
+          window.clearTimeout(timeoutId);
           details.removeAttribute('data-commander-loading');
           panel.removeAttribute('aria-busy');
         }
