@@ -67,8 +67,7 @@ internal sealed class CategoryCacheSchema
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
 
-        var deckQueueColumns = await GetTableColumnsAsync(connection, "deck_queue", cancellationToken);
-        foreach (var (name, definition) in new[]
+        await AddMissingColumnsAsync(connection, "deck_queue", new[]
                  {
                      ("content_hash", "TEXT NULL"),
                      ("archidekt_edh_bracket", "INTEGER NULL"),
@@ -77,22 +76,7 @@ internal sealed class CategoryCacheSchema
                      ("archidekt_created_utc", "TEXT NULL"),
                      ("archidekt_updated_utc", "TEXT NULL"),
                      ("archidekt_metadata_captured_utc", "TEXT NULL"),
-                 })
-        {
-            if (!deckQueueColumns.Contains(name))
-            {
-                var addColumnCommand = connection.CreateCommand();
-                addColumnCommand.CommandText = $"ALTER TABLE deck_queue ADD COLUMN {name} {definition};";
-                try
-                {
-                    await addColumnCommand.ExecuteNonQueryAsync(cancellationToken);
-                }
-                catch (DbException exception) when (IsDuplicateColumn(exception))
-                {
-                    _logger?.LogDebug(exception, "Ignoring concurrent duplicate {ColumnName} column migration on deck_queue.", name);
-                }
-            }
-        }
+                 }, cancellationToken);
 
         var crawlStateCommand = connection.CreateCommand();
         crawlStateCommand.CommandText = """
@@ -122,19 +106,10 @@ internal sealed class CategoryCacheSchema
             """;
         await summaryTableCommand.ExecuteNonQueryAsync(cancellationToken);
 
-        var summaryColumns = await GetTableColumnsAsync(connection, "processed_commander_summary", cancellationToken);
-        if (!summaryColumns.Contains("commander_name_search_key"))
+        await AddMissingColumnsAsync(connection, "processed_commander_summary", new[]
         {
-            try
-            {
-                await connection.ExecuteAsync(new CommandDefinition(
-                    "ALTER TABLE processed_commander_summary ADD COLUMN commander_name_search_key TEXT NULL;",
-                    cancellationToken: cancellationToken)).ConfigureAwait(false);
-            }
-            catch (DbException exception) when (IsDuplicateColumn(exception))
-            {
-            }
-        }
+            ("commander_name_search_key", "TEXT NULL")
+        }, cancellationToken);
 
         // Why: one-time backfill of pre-existing processed rows; can legitimately take a while
         // over a large deck_queue, so it gets its own generous timeout and swallows failures
@@ -225,6 +200,33 @@ internal sealed class CategoryCacheSchema
             _logger?.LogWarning(
                 exception,
                 "Category knowledge index creation failed during schema startup; continuing without optional indexes.");
+        }
+    }
+
+    private async Task AddMissingColumnsAsync(
+        DbConnection connection,
+        string table,
+        IEnumerable<(string Name, string Definition)> columns,
+        CancellationToken cancellationToken)
+    {
+        var existingColumns = await GetTableColumnsAsync(connection, table, cancellationToken);
+        foreach (var (name, definition) in columns)
+        {
+            if (existingColumns.Contains(name))
+            {
+                continue;
+            }
+
+            var addColumnCommand = connection.CreateCommand();
+            addColumnCommand.CommandText = $"ALTER TABLE {table} ADD COLUMN {name} {definition};";
+            try
+            {
+                await addColumnCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch (DbException exception) when (IsDuplicateColumn(exception))
+            {
+                _logger?.LogDebug(exception, "Ignoring concurrent duplicate {ColumnName} column migration on {TableName}.", name, table);
+            }
         }
     }
 
