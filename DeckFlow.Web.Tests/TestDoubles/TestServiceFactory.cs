@@ -29,16 +29,17 @@ internal static class TestServiceFactory
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>>? executeRulingsAsync = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallRulingsResponse>>>? executeRulingsAsync = null,
+        bool allowLive = false)
         => new(
             CreateScryfallRestClientFactory(),
             new FakeResiliencePipelineProvider(),
             null,   // cache — uses default CardLookupCache instance
             null,   // restClientOverride
-            executeAsync,
-            executeSearchAsync,
-            executeNamedAsync,
-            executeRulingsAsync);
+            allowLive ? executeAsync : executeAsync ?? ((_, _) => throw new InvalidOperationException("Scryfall collection executor not stubbed in this test")),
+            allowLive ? executeSearchAsync : executeSearchAsync ?? ((_, _) => throw new InvalidOperationException("Scryfall search executor not stubbed in this test")),
+            allowLive ? executeNamedAsync : executeNamedAsync ?? ((_, _) => throw new InvalidOperationException("Scryfall named executor not stubbed in this test")),
+            allowLive ? executeRulingsAsync : executeRulingsAsync ?? ((_, _) => throw new InvalidOperationException("Scryfall rulings executor not stubbed in this test")));
 
     public static ScryfallCardSearchService CreateScryfallCardSearchService(
         IMemoryCache cache,

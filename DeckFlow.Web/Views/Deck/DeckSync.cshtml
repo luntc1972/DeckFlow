@@ -44,18 +44,8 @@
     <div class="error-banner" role="alert">@Model.ErrorMessage</div>
 }
 
-<details class="cutlab-intake" data-cut-lab-intake-summary open="@(Model.Diff is null ? "open" : null)">
-    <summary class="cutlab-intake-summary">
-        @if (Model.Diff is not null)
-        {
-            <span class="cutlab-intake-summary__commander">Deck sync ready</span>
-            <span class="cutlab-intake-summary__change">Change decks</span>
-        }
-        else
-        {
-            <span class="cutlab-intake-summary__commander">Compare two decks</span>
-        }
-    </summary>
+@using (Html.BeginIntakeCard(new IntakeCardOptions(Model.Diff is not null, "Deck sync ready")))
+{
 <form id="deck-sync-form" method="post" class="deck-form result-panel" data-cache-key="deck-sync" data-busy-title="Running Deck Sync" data-busy-message="Comparing decks and building import output." data-deck-sync-api="@Url.Content("~/api/deck/diff")">
     @Html.AntiForgeryToken()
     <div class="toolbar">
@@ -166,7 +156,7 @@
         </section>
     </div>
 </form>
-</details>
+}
 
 <div id="deck-sync-error" class="error-banner hidden" role="alert"></div>
 

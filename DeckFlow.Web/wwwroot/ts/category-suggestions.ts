@@ -179,6 +179,7 @@
 
     const intakeHadFocus = document.activeElement !== null && intake.contains(document.activeElement);
     intake.open = open;
+    intake.dataset.intakeState = open ? 'empty' : 'result';
     const summary = intake.querySelector<HTMLElement>('.cutlab-intake-summary__commander');
     if (summary) {
       summary.textContent = cardName ?? 'Look up a card';

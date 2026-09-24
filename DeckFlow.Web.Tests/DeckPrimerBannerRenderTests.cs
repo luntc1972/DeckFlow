@@ -33,6 +33,49 @@ namespace DeckFlow.Web.Tests;
 public sealed class DeckPrimerBannerRenderTests
 {
     [Fact]
+    public async Task EmptyState_RendersExpandedIntakeInsideOuterFormWithPrimerInputs()
+    {
+        string html = await RenderDeckPrimerViewAsync(BuildModel(
+            staleDetectionEnabled: false,
+            generatedPrimerHash: null,
+            isStale: false,
+            changedCardCount: null,
+            primerPromptText: string.Empty));
+
+        int formStart = html.IndexOf("<form", StringComparison.Ordinal);
+        int intakeStart = html.IndexOf("<div class=\"cutlab-intake cutlab-intake--empty\">", StringComparison.Ordinal);
+        int formEnd = html.IndexOf("</form>", intakeStart, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("cutlab-intake-summary", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-intake-summary", html, StringComparison.Ordinal);
+        Assert.True(formStart >= 0 && intakeStart > formStart && formEnd > intakeStart);
+        AssertPrimerInputIsInsideIntake(html, intakeStart, formEnd, "name=\"DeckInputSource\"");
+        AssertPrimerInputIsInsideIntake(html, intakeStart, formEnd, "name=\"DeckUrl\"");
+        AssertPrimerInputIsInsideIntake(html, intakeStart, formEnd, "name=\"DeckText\"");
+        AssertPrimerInputIsInsideIntake(html, intakeStart, formEnd, "name=\"TargetCommanderBracket\"");
+        AssertPrimerInputIsInsideIntake(html, intakeStart, formEnd, "name=\"PrimerStyle\"");
+        AssertPrimerInputIsInsideIntake(html, intakeStart, formEnd, ">Generate Primer<");
+        AssertOuterFormContains(html, formStart, formEnd, "name=\"__RequestVerificationToken\"");
+        AssertOuterFormContains(html, formStart, formEnd, "name=\"zipFile\"");
+    }
+
+    [Fact]
+    public async Task ResultState_RendersCollapsedIntakeWithPrimerGeneratedLabelAndEdit()
+    {
+        string html = await RenderDeckPrimerViewAsync(BuildModel(
+            staleDetectionEnabled: false,
+            generatedPrimerHash: null,
+            isStale: false,
+            changedCardCount: null,
+            primerPromptText: "Existing primer text."));
+
+        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<details class=\"cutlab-intake\" data-cut-lab-intake-summary open", html, StringComparison.Ordinal);
+        Assert.Contains(">Primer generated<", html, StringComparison.Ordinal);
+        Assert.Contains(">Edit<", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task FlagOff_RendersNoStaleBannerOrGeneratedPrimerHashField()
     {
         string html = await RenderDeckPrimerViewAsync(BuildModel(
@@ -182,6 +225,18 @@ public sealed class DeckPrimerBannerRenderTests
         html,
         "(name=\"__RequestVerificationToken\"[^>]*value=\")[^\"]*\"",
         "${1}TOKEN\"");
+
+    private static void AssertPrimerInputIsInsideIntake(string html, int intakeStart, int formEnd, string expected)
+    {
+        int inputIndex = html.IndexOf(expected, intakeStart, StringComparison.Ordinal);
+        Assert.True(inputIndex > intakeStart && inputIndex < formEnd, $"Expected {expected} inside the intake wrapper.");
+    }
+
+    private static void AssertOuterFormContains(string html, int formStart, int formEnd, string expected)
+    {
+        int inputIndex = html.IndexOf(expected, formStart, StringComparison.Ordinal);
+        Assert.True(inputIndex > formStart && inputIndex < formEnd, $"Expected {expected} inside the outer form.");
+    }
 
     private static async Task<string> RenderDeckPrimerViewAsync(DeckPrimerViewModel model)
     {

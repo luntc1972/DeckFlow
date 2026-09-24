@@ -57,6 +57,215 @@ public sealed class HarvestRunStoreTests : IDisposable
         Assert.Equal(12, row.DecksProcessed);
         Assert.Equal(3, row.AdditionalDecksFound);
         Assert.Equal("interrupted by host shutdown", row.ErrorMessage);
+        Assert.Null(row.DecksEnqueued);
+        Assert.Null(row.DecksDrained);
+    }
+
+    [Fact]
+    public async Task SetSweepCountsAsync_RoundTripsCounts()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow);
+
+        await store.SetSweepCountsAsync(id, 7, 11);
+
+        var row = await store.GetByIdAsync(id);
+        Assert.NotNull(row);
+        Assert.Equal(7, row!.DecksEnqueued);
+        Assert.Equal(11, row.DecksDrained);
+    }
+
+    [Fact]
+    public async Task GetRecentHealthSignalRunsAsync_ReturnsOnlyQualifiedBulkSucceededRunsInCompletionOrder()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", 3, 1);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T11:00:00.0000000Z", 4, 1);
+        await SeedHealthRunAsync("url", "Succeeded", "2026-06-12T12:00:00.0000000Z", 5, 1);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T13:00:00.0000000Z", 5, 1);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T14:00:00.0000000Z", null, null);
+
+        var rows = await store.GetRecentHealthSignalRunsAsync(4);
+
+        Assert.Equal(2, rows.Count);
+        Assert.Equal(4, rows[0].DecksEnqueued);
+        Assert.Equal(3, rows[1].DecksEnqueued);
+    }
+
+    [Fact]
+    public async Task GetRecentHealthSignalRunsAsync_NonQualifyingRowsDoNotConsumeLimit()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        for (var index = 0; index < 11; index++)
+        {
+            await SeedHealthRunAsync("url", "Succeeded", $"2026-06-13T{index:00}:00:00.0000000Z", 1, 1);
+        }
+
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-14T01:00:00.0000000Z", 1, 0);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-14T02:00:00.0000000Z", 2, 0);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-14T03:00:00.0000000Z", 3, 0);
+
+        var rows = await store.GetRecentHealthSignalRunsAsync(4);
+
+        Assert.Equal(3, rows.Count);
+        Assert.Equal(3, rows[0].DecksEnqueued);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_ReturnsFailuresAfterLatestSuccess()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T10:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T11:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T12:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T13:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(2, streak.ConsecutiveFailures);
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T13:00:00.0000000Z", CultureInfo.InvariantCulture), streak.LastFailureUtc);
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T11:00:00.0000000Z", CultureInfo.InvariantCulture), streak.LastSuccessUtc);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_DoesNotCountUrlFailures()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T11:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("url", "Failed", "2026-06-12T12:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(0, streak.ConsecutiveFailures);
+        Assert.Null(streak.LastFailureUtc);
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T11:00:00.0000000Z", CultureInfo.InvariantCulture), streak.LastSuccessUtc);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_UsesLatestFailureCompletionTime()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T11:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T12:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T13:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(2, streak.ConsecutiveFailures);
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T13:00:00.0000000Z", CultureInfo.InvariantCulture), streak.LastFailureUtc);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_NoRuns_ReturnsEmptyStreak()
+    {
+        var store = new HarvestRunStore(_dbPath);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(0, streak.ConsecutiveFailures);
+        Assert.Null(streak.LastFailureUtc);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_OnlySuccesses_ReturnsEmptyStreak()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(0, streak.ConsecutiveFailures);
+        Assert.Null(streak.LastFailureUtc);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_FailuresBeforeSuccess_AreNotCounted()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T10:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T11:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(0, streak.ConsecutiveFailures);
+        Assert.Null(streak.LastFailureUtc);
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_NoSuccess_ReturnsAllFailures()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T10:00:00.0000000Z", null, null);
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T11:00:00.0000000Z", null, null);
+
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+
+        Assert.Equal(2, streak.ConsecutiveFailures);
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T11:00:00.0000000Z", CultureInfo.InvariantCulture), streak.LastFailureUtc);
+    }
+
+    private async Task SeedHealthRunAsync(string kind, string state, string completedUtc, int? decksEnqueued, int? decksDrained)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO harvest_runs (
+                id, kind, state, requested_utc, completed_utc, duration_seconds,
+                decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url)
+            VALUES ($id, $kind, $state, $completedUtc, $completedUtc, 0, 0, 0, $decksEnqueued, $decksDrained, NULL, NULL);
+            """;
+        command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
+        command.Parameters.AddWithValue("$kind", kind);
+        command.Parameters.AddWithValue("$state", state);
+        command.Parameters.AddWithValue("$completedUtc", completedUtc);
+        command.Parameters.AddWithValue("$decksEnqueued", (object?)decksEnqueued ?? DBNull.Value);
+        command.Parameters.AddWithValue("$decksDrained", (object?)decksDrained ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    [Fact]
+    public async Task UpdateStateAsync_NullCountersPreservesProgressAndAdditionalDecksFound()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow);
+        await store.UpdateProgressAsync(id, 4);
+        await store.UpdateStateAsync(id, HarvestRunState.Running, null, null, null, 9, null);
+        await store.UpdateProgressAsync(id, 6);
+        await store.UpdateStateAsync(id, HarvestRunState.Interrupted, null, DateTimeOffset.UtcNow, null, null, null);
+
+        var row = await store.GetByIdAsync(id);
+        Assert.NotNull(row);
+        Assert.Equal(HarvestRunState.Interrupted, row!.State);
+        Assert.Equal(6, row.DecksProcessed);
+        Assert.Equal(9, row.AdditionalDecksFound);
+        Assert.Null(row.DecksEnqueued);
+        Assert.Null(row.DecksDrained);
+    }
+
+    [Theory]
+    [InlineData(HarvestRunState.Interrupted)]
+    [InlineData(HarvestRunState.Cancelled)]
+    [InlineData(HarvestRunState.Failed)]
+    public async Task UpdateStateAsync_NonSucceededSweepLeavesCountsUnknown(HarvestRunState state)
+    {
+        var store = new HarvestRunStore(_dbPath);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow);
+
+        await store.UpdateStateAsync(id, state, null, DateTimeOffset.UtcNow, null, null, "stopped");
+
+        var row = await store.GetByIdAsync(id);
+        Assert.NotNull(row);
+        Assert.Null(row!.DecksEnqueued);
+        Assert.Null(row.DecksDrained);
     }
 
     [Fact]
@@ -68,6 +277,11 @@ public sealed class HarvestRunStoreTests : IDisposable
 
         await store.EnsureSchemaAsync();
         await store.EnsureSchemaAsync();
+
+        var historicalRow = await store.GetByIdAsync(Guid.Parse("f5b0eb2b-1af3-4a7b-982d-7a2370ae7397"));
+        Assert.NotNull(historicalRow);
+        Assert.Null(historicalRow!.DecksEnqueued);
+        Assert.Null(historicalRow.DecksDrained);
 
         await using var connection = new SqliteConnection($"Data Source={_dbPath}");
         await connection.OpenAsync();
@@ -133,6 +347,10 @@ public sealed class HarvestRunStoreTests : IDisposable
             """;
         var interruptedCount = Convert.ToInt32(await verifyCommand.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
         Assert.Equal(1, interruptedCount);
+
+        await using var columnsCommand = connection.CreateCommand();
+        columnsCommand.CommandText = "SELECT COUNT(1) FROM pragma_table_info('harvest_runs') WHERE name IN ('decks_enqueued', 'decks_drained');";
+        Assert.Equal(2, Convert.ToInt32(await columnsCommand.ExecuteScalarAsync(), CultureInfo.InvariantCulture));
     }
 
     private async Task SeedSqliteDatabaseWithOldHarvestRunsSchemaAsync()

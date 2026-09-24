@@ -1,5 +1,17 @@
 const togglePanel = (selector: string, shouldHide: boolean): void => {
   document.querySelectorAll<HTMLElement>(selector).forEach(element => {
+    const urlInputs = shouldHide
+      ? element.querySelectorAll<HTMLInputElement>('input[type="url"]')
+      : element.querySelectorAll<HTMLInputElement>('input[data-sync-restore-type]');
+    urlInputs.forEach(input => {
+      if (shouldHide) {
+        input.dataset.syncRestoreType = input.type;
+        input.type = 'text';
+      } else {
+        input.type = input.dataset.syncRestoreType ?? 'url';
+        delete input.dataset.syncRestoreType;
+      }
+    });
     element.classList.toggle('hidden', shouldHide);
     element.style.display = shouldHide ? 'none' : '';
   });
@@ -75,6 +87,11 @@ const panelConfigs: PanelConfig[] = [
     selectName: 'ArchidektInputSource',
     urlSelector: '[data-sync-panel="archidekt-url"]',
     textSelector: '[data-sync-panel="archidekt-text"]',
+  },
+  {
+    selectName: 'DeckInputSource',
+    urlSelector: '[data-sync-panel="deck-modules-deck-url"]',
+    textSelector: '[data-sync-panel="deck-modules-deck-text"]',
   },
   {
     selectName: 'DeckInputSource',
@@ -1015,7 +1032,14 @@ const hydrateFormState = (form: HTMLFormElement): void => {
 
   try {
     const state = JSON.parse(json) as Record<string, string[]>;
+    const inputSource = form.querySelector<HTMLSelectElement>(
+      'select[name="DeckInputSource"], select[name="InputSource"]',
+    );
+    const previousInputSource = inputSource?.value;
     restoreFormFields(form, state);
+    if (inputSource && inputSource.value !== previousInputSource) {
+      inputSource.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     const savedAtRaw = storageAvailable.getItem(`${formStateStoragePrefix}${key}:savedAt`);
     const savedAtMs = savedAtRaw ? parseInt(savedAtRaw, 10) : NaN;
     if (Number.isFinite(savedAtMs)) {
@@ -2331,6 +2355,10 @@ const scrollToOnLoadTarget = (): void => {
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
       target.scrollIntoView({ behavior: 'auto', block: 'start' });
+      // Why: screen-reader users land on the result after a full-page POST; aria-live does not fire on page load.
+      if (target.getAttribute('tabindex') === '-1') {
+        target.focus({ preventScroll: true });
+      }
     });
   });
 };

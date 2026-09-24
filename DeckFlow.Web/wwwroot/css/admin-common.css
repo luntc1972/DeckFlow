@@ -14,6 +14,7 @@
   --muted: #94a3b8;
   --accent: #3b82f6;
   --border: #334155;
+  --warning: #facc15;
   --danger: #dc2626;
   --on-accent: #fff;
   /* === WDG audit fixes (WDG-01, Phase 11 Sweep 2) ===
@@ -43,6 +44,21 @@ summary:focus-visible,
 .admin-shell .admin-table-scroll:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+.admin-shell .admin-harvest__health-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  color: var(--warning);
+  border: 1px solid currentColor;
+}
+
+.admin-shell .admin-harvest__health-badge::before {
+  content: "⚠ ";
+}
+
+.admin-shell .admin-harvest__streak {
+  color: var(--muted);
 }
 
 /* admin-only global */
@@ -409,10 +425,86 @@ a:hover { text-decoration: underline; }
   margin-bottom: 16px;
 }
 
+.admin-shell .admin-harvest__disclosure {
+  display: block;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.admin-shell .admin-harvest__disclosure summary,
+.admin-shell .admin-harvest__run-error summary {
+  cursor: pointer;
+}
+
+.admin-shell .admin-harvest__disclosure summary:focus-visible,
+.admin-shell .admin-harvest__run-error summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.admin-shell .admin-harvest__disclosure .admin-action-form {
+  margin-top: 16px;
+}
+
+.admin-shell .admin-harvest__run-error > div {
+  max-width: 40rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-shell .admin-harvest__health {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-shell .admin-harvest__health-tile {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.admin-shell .admin-harvest__health-tile span { font-size: 0.85rem; }
+.admin-shell .admin-harvest__health-tile strong { font-size: 1.2rem; overflow-wrap: anywhere; }
+.admin-shell .admin-harvest__health-unavailable { margin-bottom: 16px; }
+
 .admin-shell .admin-harvest__panel h2 {
   margin: 0 0 12px;
   font-size: 15px;
   font-weight: 600;
+}
+
+.admin-shell .admin-harvest__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-shell .admin-harvest__tabs [role="tab"] {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.admin-shell .admin-harvest__tabs [role="tab"][aria-selected="true"] {
+  border-bottom: 4px solid var(--accent);
+  font-weight: 700;
+}
+
+.admin-shell .admin-harvest__tabs [role="tab"]:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* 44px product floor (WCAG 2.5.5 AAA) — all admin interactive elements */
@@ -825,6 +917,13 @@ a:hover { text-decoration: underline; }
 
 /* Phase 44 — commander grid lazy load states */
 .admin-shell .admin-harvest__grid-loading {
+  color: var(--muted);
+  font-style: italic;
+  margin-top: 12px;
+  padding: 8px 0;
+}
+
+.admin-shell .admin-harvest__grid-idle {
   color: var(--muted);
   font-style: italic;
   margin-top: 12px;

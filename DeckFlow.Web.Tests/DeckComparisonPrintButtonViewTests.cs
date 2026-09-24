@@ -51,7 +51,7 @@ public sealed class DeckComparisonPrintButtonViewTests
     }
 
     [Fact]
-    public async Task NoComparisonResponse_RendersOpenStepThreeIntake()
+    public async Task NoComparisonResponse_RendersEmptyStepThreeIntake()
     {
         var model = new DeckComparisonViewModel
         {
@@ -61,9 +61,9 @@ public sealed class DeckComparisonPrintButtonViewTests
 
         string html = await RenderAsync(model);
 
-        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary open=\"open\">", html, StringComparison.Ordinal);
-        Assert.Contains("<span class=\"cutlab-intake-summary__commander\">Paste the returned comparison JSON</span>", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("Change intake", html, StringComparison.Ordinal);
+        Assert.Contains("<div class=\"cutlab-intake cutlab-intake--empty\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("cutlab-intake-summary", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-intake-summary", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -79,8 +79,9 @@ public sealed class DeckComparisonPrintButtonViewTests
         string html = await RenderAsync(model);
 
         Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<details class=\"cutlab-intake\" data-cut-lab-intake-summary open", html, StringComparison.Ordinal);
         Assert.Contains("<span class=\"cutlab-intake-summary__commander\">Deck comparison ready</span>", html, StringComparison.Ordinal);
-        Assert.Contains("<span class=\"cutlab-intake-summary__change\">Change intake</span>", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__change\">Edit</span>", html, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -129,3 +129,64 @@ describe('moxfield extension bridge cut-lab submit flow', () => {
     expect(document.querySelector<HTMLInputElement>('#cut-lab-deck-url')!.value).toBe('https://www.moxfield.com/decks/abc123');
   });
 });
+
+describe('moxfield extension bridge shared select-backed forms', () => {
+  it.each(['bracket', 'manabase', 'deck-primer'])('imports a %s-shaped form and switches it to pasted text', async cacheKey => {
+    const form = document.createElement('form');
+    form.dataset.cacheKey = cacheKey;
+    form.innerHTML = `
+      <select name="DeckInputSource"><option value="PasteText">PasteText</option><option value="PublicUrl" selected>PublicUrl</option></select>
+      <input name="DeckUrl" value="https://www.moxfield.com/decks/${cacheKey}" />
+      <textarea name="DeckText"></textarea>`;
+    document.body.append(form);
+    const requestSubmitSpy = vi.spyOn(HTMLFormElement.prototype, 'requestSubmit').mockImplementation(() => {});
+    const respond = (event: MessageEvent) => {
+      const message = event.data as { type?: string; requestId?: string };
+      if (!message.requestId) return;
+      if (message.type === 'deckflow-extension-ping') {
+        window.dispatchEvent(new MessageEvent('message', { source: window, data: { source: 'deckflow-extension', type: 'deckflow-extension-ping-response', requestId: message.requestId, allowed: true } }));
+      } else if (message.type === 'deckflow-moxfield-import') {
+        window.dispatchEvent(new MessageEvent('message', { source: window, data: { source: 'deckflow-extension', type: 'deckflow-moxfield-import-response', requestId: message.requestId, ok: true, deckText: importedDeckText } }));
+      }
+    };
+    window.addEventListener('message', respond);
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    await vi.waitFor(() => {
+      expect(requestSubmitSpy).toHaveBeenCalledTimes(1);
+      expect(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!.value).toBe(importedDeckText);
+      expect(form.querySelector<HTMLInputElement>('input[name="DeckUrl"]')!.value).toBe('');
+      expect(form.querySelector<HTMLSelectElement>('select[name="DeckInputSource"]')!.value).toBe('PasteText');
+    });
+    window.removeEventListener('message', respond);
+    form.remove();
+  });
+
+  it('imports deck modules without a cache key', async () => {
+    const form = document.createElement('form');
+    form.dataset.deckModulesImportForm = '';
+    form.innerHTML = '<select name="DeckInputSource"><option value="PasteText">PasteText</option><option value="PublicUrl" selected>PublicUrl</option></select><input name="DeckUrl" value="https://www.moxfield.com/decks/modules" /><textarea name="DeckText"></textarea>';
+    document.body.append(form);
+    const requestSubmitSpy = vi.spyOn(HTMLFormElement.prototype, 'requestSubmit').mockImplementation(() => {});
+    const respond = (event: MessageEvent) => {
+      const message = event.data as { type?: string; requestId?: string };
+      if (!message.requestId) return;
+      if (message.type === 'deckflow-extension-ping') {
+        window.dispatchEvent(new MessageEvent('message', { source: window, data: { source: 'deckflow-extension', type: 'deckflow-extension-ping-response', requestId: message.requestId, allowed: true } }));
+      } else if (message.type === 'deckflow-moxfield-import') {
+        window.dispatchEvent(new MessageEvent('message', { source: window, data: { source: 'deckflow-extension', type: 'deckflow-moxfield-import-response', requestId: message.requestId, ok: true, deckText: importedDeckText } }));
+      }
+    };
+    window.addEventListener('message', respond);
+
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    await vi.waitFor(() => {
+      expect(requestSubmitSpy).toHaveBeenCalledTimes(1);
+      expect(form.querySelector<HTMLTextAreaElement>('textarea[name="DeckText"]')!.value).toBe(importedDeckText);
+    });
+    window.removeEventListener('message', respond);
+    form.remove();
+  });
+});

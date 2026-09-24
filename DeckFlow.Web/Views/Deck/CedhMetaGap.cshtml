@@ -396,19 +396,8 @@
             </div>
         </div>
 
-        <details class="cutlab-intake" data-cut-lab-intake-summary open="@(Model.AnalysisResponse is null ? "open" : null)">
-            <summary class="cutlab-intake-summary">
-                @if (Model.AnalysisResponse is not null)
-                {
-                    <span class="cutlab-intake-summary__commander">Meta gap analysis ready</span>
-                    <span class="cutlab-intake-summary__change">Change intake</span>
-                }
-                else
-                {
-                    <span class="cutlab-intake-summary__commander">Paste the returned meta-gap JSON</span>
-                }
-            </summary>
-
+        @using (Html.BeginIntakeCard(new IntakeCardOptions(Model.AnalysisResponse is not null, "Meta gap analysis ready")))
+        {
             <label class="field">
                 <span>Meta gap JSON</span>
                 <textarea autocomplete="off" name="MetaGapResponseJson" spellcheck="false">@Model.Request.MetaGapResponseJson</textarea>
@@ -418,7 +407,7 @@
             <div class="toolbar prompt-step-actions">
                 <button type="submit" class="run-button" data-prompt-cedh-submit-step="3" data-default-action data-busy-title="Rendering cEDH Meta Gap Analysis" data-busy-message="Reading your pasted analysis and building the report.">Render Meta Gap Analysis</button>
             </div>
-        </details>
+        }
 
         @if (Model.AnalysisResponse is not null)
         {

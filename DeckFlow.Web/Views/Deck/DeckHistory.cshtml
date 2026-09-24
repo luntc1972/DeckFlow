@@ -4,8 +4,6 @@
 @{
     ViewData["Title"] = "MTG Commander Deck Version Tracker";
     ViewData["Description"] = "Track Commander deck versions in a local history, compare any two snapshots, and get a card-by-card changelog with an AI-ready review prompt.";
-    var isUrl = Model.Request.DeckInputSource == DeckInputSource.PublicUrl;
-
     async Task RenderVersionSelect(string id, string name, string label, int? selectedId)
     {
         <div class="field history-compare-controls__field">
@@ -53,18 +51,10 @@
     @Model.ErrorMessage
 </div>
 
-<details class="cutlab-intake" data-cut-lab-intake-summary open="@(!Model.HasResult ? "open" : null)">
-    <summary class="cutlab-intake-summary">
-        @if (Model.HasResult)
-        {
-            <span class="cutlab-intake-summary__commander">Deck history ready</span>
-            <span class="cutlab-intake-summary__change">Change intake</span>
-        }
-        else
-        {
-            <span class="cutlab-intake-summary__commander">Import a deck</span>
-        }
-    </summary>
+@using (Html.BeginIntakeCard(new IntakeCardOptions(
+    Model.HasResult,
+    string.IsNullOrWhiteSpace(Model.Request.DeckName) ? "Deck history ready" : Model.Request.DeckName)))
+{
 <form method="post" action="@Url.Content("~/deck-history")" enctype="multipart/form-data" class="result-panel deck-history-form"
       data-cache-key="deck-history"
       data-busy-title="Updating history"
@@ -90,26 +80,13 @@
         }
     </div>
 
-    <div class="field">
-        <label for="deck-history-input-source">Input method</label>
-        <select id="deck-history-input-source" name="DeckInputSource" data-df-select>
-            <option value="@DeckFlow.Web.Models.DeckInputSource.PublicUrl" selected="@(isUrl ? "selected" : null)">Use public deck URL</option>
-            <option value="@DeckFlow.Web.Models.DeckInputSource.PasteText" selected="@(!isUrl ? "selected" : null)">Paste text</option>
-        </select>
-    </div>
-
-    <div class="field @(isUrl ? string.Empty : "hidden")" data-sync-panel="bracket-deck-url">
-        <label for="deck-history-deck-url">Archidekt or Moxfield deck URL</label>
-        <input id="deck-history-deck-url" type="url" name="DeckUrl" spellcheck="false" autocomplete="off"
-               placeholder="https://moxfield.com/decks/… or https://archidekt.com/decks/…" value="@Model.Request.DeckUrl" />
-        @await Html.PartialAsync("_DeckFlowBridgeHint")
-    </div>
-
-    <div class="field @(isUrl ? "hidden" : string.Empty)" data-sync-panel="bracket-deck-text">
-        <label for="deck-history-deck-text">Paste a decklist (one card per line)</label>
-        <textarea id="deck-history-deck-text" name="DeckText" rows="6" spellcheck="false" autocomplete="off"
-                  placeholder="1 Sol Ring&#10;1 Command Tower&#10;…">@Model.Request.DeckText</textarea>
-    </div>
+    @await Html.PartialAsync("_DeckImportControl", new DeckImportControlModel(
+        IdPrefix: "deck-history",
+        PanelKeyPrefix: "bracket",
+        TextLabel: "Paste a decklist (one card per line)",
+        DeckUrl: Model.Request.DeckUrl,
+        DeckText: Model.Request.DeckText,
+        Source: Model.Request.DeckInputSource))
 
     <div class="field">
         <label for="deck-history-deck-name">Deck name (optional — used when starting a new history)</label>
@@ -135,11 +112,11 @@
         <a href="@Url.Content("~/deck-history")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
     </div>
 </form>
-</details>
+}
 
 @if (Model.HasResult)
 {
-    <section class="deck-history-results" data-scroll-on-load>
+    <section class="deck-history-results" data-scroll-on-load id="results" tabindex="-1" aria-label="Results">
         @if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
         {
             <div class="success-banner" role="status">

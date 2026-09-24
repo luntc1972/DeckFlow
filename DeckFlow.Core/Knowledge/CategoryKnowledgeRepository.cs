@@ -207,7 +207,7 @@ public sealed class CategoryKnowledgeRepository
     /// </summary>
     /// <param name="deckIds">Deck IDs to enqueue.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
+    public Task<int> AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
         => _deckQueue.AddDeckIdsAsync(deckIds, cancellationToken);
 
     /// <summary>
@@ -224,6 +224,14 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
         => _deckQueue.GetUnprocessedCountAsync(cancellationToken);
+
+    /// <summary>
+    /// Determines whether the unprocessed deck queue exceeds a threshold.
+    /// </summary>
+    /// <param name="threshold">Exclusive queue threshold.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public Task<bool> HasMoreThanUnprocessedDecksAsync(int threshold, CancellationToken cancellationToken = default)
+        => _deckQueue.HasMoreThanUnprocessedDecksAsync(threshold, cancellationToken);
 
     /// <summary>
     /// Counts the number of decks that have been processed.

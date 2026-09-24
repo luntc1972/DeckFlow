@@ -220,12 +220,14 @@ internal sealed class CardCategoryRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
+        // Why: Dapper binds lists as arrays on Npgsql, so PostgreSQL requires ANY instead of IN.
+        var membershipOperator = _connectionInfo.IsPostgres ? "= ANY(@normalized)" : "IN @normalized";
         var rows = await connection.QueryAsync<CardCategoryNameRow>(new CommandDefinition(
-            """
+            $"""
             SELECT c.normalized_card_name AS NormalizedCardName, o.category AS Category
             FROM card_category_observations o
             JOIN cards c ON c.id = o.card_id
-            WHERE c.normalized_card_name IN @normalized
+            WHERE c.normalized_card_name {membershipOperator}
             GROUP BY c.normalized_card_name, o.category
             ORDER BY c.normalized_card_name, LOWER(o.category), o.category
             """,

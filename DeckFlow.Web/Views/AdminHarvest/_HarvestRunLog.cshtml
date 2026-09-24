@@ -1,0 +1,71 @@
+@model IReadOnlyList<DeckFlow.Web.Services.Harvest.HarvestRunRow>
+@using DeckFlow.Web.Services.Harvest
+@{
+    const int ErrorMessageTruncationLength = 80;
+
+    static string GetRunStateBadgeClass(HarvestRunState state) => state switch
+    {
+        HarvestRunState.Succeeded => "badge text-bg-success",
+        HarvestRunState.Failed => "badge text-bg-danger",
+        HarvestRunState.Interrupted => "badge text-bg-secondary",
+        HarvestRunState.Cancelled => "badge text-bg-warning",
+        HarvestRunState.Running => "badge text-bg-primary",
+        HarvestRunState.Stopping => "badge text-bg-warning",
+        _ => "badge text-bg-light text-dark"
+    };
+
+    static (string Summary, string Body)? GetErrorDisclosure(string? errorMessage)
+        => errorMessage is { Length: > ErrorMessageTruncationLength }
+            ? (errorMessage[..ErrorMessageTruncationLength] + "…", errorMessage)
+            : null;
+}
+
+<h3 id="harvest-run-log-heading">Run Log</h3>
+@if (Model.Count == 0)
+{
+    <p class="admin-harvest__runs-empty">No runs recorded yet.</p>
+}
+else
+{
+    <div id="harvest-run-log" class="admin-table-scroll" role="region" aria-label="Harvest run log - scroll horizontally to see all columns" tabindex="0">
+        <table class="admin-table">
+            <caption class="sr-only">Harvest run log with timing, state, deck counts, and any error message</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Started</th>
+                    <th scope="col">Kind</th>
+                    <th scope="col">State</th>
+                    <th scope="col">Decks</th>
+                    <th scope="col">Duration</th>
+                    <th scope="col">Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var run in Model)
+                {
+                    var errorDisclosure = GetErrorDisclosure(run.ErrorMessage);
+                    <tr>
+                        <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
+                        <td>@run.Kind</td>
+                        <td><span class="@GetRunStateBadgeClass(run.State)">@run.State</span></td>
+                        <td>@run.DecksProcessed</td>
+                        <td>@run.DurationSeconds</td>
+                        <td>
+                            @if (errorDisclosure is not null)
+                            {
+                                <details class="admin-harvest__run-error">
+                                    <summary>@errorDisclosure.Value.Summary</summary>
+                                    <div>@errorDisclosure.Value.Body</div>
+                                </details>
+                            }
+                            else
+                            {
+                                @(run.ErrorMessage ?? "—")
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

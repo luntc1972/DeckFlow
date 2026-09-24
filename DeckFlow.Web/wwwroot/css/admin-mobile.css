@@ -65,6 +65,36 @@
     padding: 12px;
   }
 
+  .admin-shell .admin-harvest__disclosure {
+    padding: 12px;
+  }
+
+  .admin-shell .admin-harvest__disclosure summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .admin-shell .admin-harvest__run-error > div {
+    max-width: min(40rem, 70vw);
+  }
+
+  .admin-shell .admin-harvest__health {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-shell .admin-harvest__streak {
+    overflow-wrap: anywhere;
+  }
+
+  .admin-shell .admin-harvest__tabs {
+    flex-wrap: wrap;
+  }
+
+  .admin-shell .admin-harvest__tabs [role="tab"] {
+    min-height: 44px;
+  }
+
   .admin-shell .admin-table-scroll {
     padding-bottom: 4px;
   }

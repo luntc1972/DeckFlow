@@ -6,6 +6,45 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.09.9 — Harvest Backlog Backpressure Hotfix (2026-09-24)
+
+Stops a failing harvest from growing the deck queue, after the 2026-09-18 to 09-23 PostgreSQL failures added roughly 300k decks and brought the queue to about 710k waiting:
+- **Discovery backpressure:** when more than 5,000 decks are waiting in the queue, a harvest run fetches only the first page of recent Archidekt decks and skips deeper discovery, leaving the crawl cursor where it was. Deep discovery resumes once the backlog is at or below the threshold.
+- **Failure breaker:** a run now aborts after 3 consecutive unexpected per-deck failures instead of marking every deck skipped and recording success. The count resets only after a deck is processed successfully, so expected skips (deleted or private decks, upstream errors) in between no longer hide a systemic failure. Database errors abort the run immediately, as they did before this cycle.
+- **Scheduler backoff:** after failed bulk runs, the next scheduled run waits 15 minutes, doubling per consecutive failure and capped at the schedule interval, instead of retrying every tick. A successful run clears the backoff.
+- **Schedule state:** the scheduler reads the failure streak and last success in one query, and single-URL import failures no longer count toward the streak.
+- **Deploy startup:** the startup database check now runs `SELECT 1` against the feedback and category-knowledge databases instead of counting the deck queue, so a slow count on the large queue can no longer time out and fail a deploy.
+- **Tests:** new unit tests cover the backpressure gate, the breaker and its reset, and the scheduler backoff; a new PostgreSQL integration test covers the queue probe.
+- **Scope:** no schema, data, or feature-flag changes. The existing backlog is not cleared by this release; it drains through normal runs.
+
+### 2026.09.8 — Admin Harvest Load-Time Hotfix (2026-09-23)
+
+Fixes `/Admin/Harvest` taking 4–19 seconds to load, sometimes timing out:
+- **Overview stats:** the page now shows the last computed harvest stats immediately and refreshes them in the background, one refresh at a time, instead of waiting on the deck-queue counts on nearly every visit. Only the first load after a restart waits for a build.
+- **Refresh safety:** a browser giving up no longer cancels the stats refresh, and a failed refresh keeps the last good stats. A harvest-run state change marks the stats stale instead of discarding them.
+- **30-day deck count:** on PostgreSQL the query compares `inserted_utc` as text, so the existing `(processed, inserted_utc)` index is used instead of scanning every processed deck.
+- **Tests:** new unit tests cover the stale-while-refresh cache, and a new PostgreSQL integration test covers both stored timestamp formats.
+- **Scope:** no schema, data, or feature-flag changes.
+
+### 2026.09.7 — Harvest PostgreSQL Hotfix (2026-09-23)
+
+Fixes scheduled harvest runs failing on PostgreSQL since 2026-09-18:
+- **Harvest runs:** marking a deck processed no longer fails with `42601: syntax error at or near "$1"` when refreshing the processed-commander summary; every harvest run on the live database had been failing at that step.
+- **Card category lookup:** the batch category lookup by card name had the same PostgreSQL defect and is fixed the same way.
+- **Cause:** Dapper binds a list parameter as a single array on PostgreSQL rather than expanding `IN @list`, so those queries now use `= ANY(@list)` on PostgreSQL and keep `IN` on SQLite.
+- **Tests:** new PostgreSQL integration tests cover both paths.
+- **Scope:** no schema, data, or feature-flag changes.
+
+### 2026.09.6 — Admin Harvest Overview & Tab Split (2026-09-22)
+
+Admin-only redesign of the `/Admin/Harvest` page (Cycle 23, Phase 1 of 6):
+- **Tab split:** Overview and Commanders now separate tabs; the commander grid loads only on first activation instead of on every page load.
+- **Health strip:** processed-deck count, provider-agnostic database size, and cached distinct-commander count.
+- **Backlog signal:** a visually flagged badge when the queue exceeds the configured floor or grows across consecutive runs, plus a zero-discovery streak indicator.
+- **Run log:** the run table always shows all columns including a truncatable, in-place-expandable error column, replacing two silently-swapping table variants.
+- **Single URL import:** moved behind a collapsed panel on Overview.
+- **Scope:** admin-only (HTTP basic auth), no public route or feature flag involved.
+
 ### 2026.09.5 — Mobile UI Redesign (2026-09-20)
 
 Every tool page now has paired desktop and mobile layouts:

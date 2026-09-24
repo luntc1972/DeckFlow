@@ -29,6 +29,10 @@ public sealed class CardLookupServiceTests
             {
                 StatusCode = HttpStatusCode.OK,
                 Data = new ScryfallSearchResponse([])
+            }),
+            executeNamedAsync: (request, _) => Task.FromResult(new RestResponse<ScryfallCard>(request)
+            {
+                StatusCode = HttpStatusCode.NotFound
             }));
 
         var result = await service.LookupAsync("1 Sol Ring\nArcane Signet\nMade Up Card");
@@ -42,6 +46,7 @@ public sealed class CardLookupServiceTests
     public async Task LookupAsync_SendsCollectionRequestsInBatches()
     {
         var requestCount = 0;
+        var namedRequestCount = 0;
         var service = TestServiceFactory.CreateScryfallCardLookupService(
             executeAsync: (request, _) =>
             {
@@ -55,12 +60,21 @@ public sealed class CardLookupServiceTests
             {
                 StatusCode = HttpStatusCode.OK,
                 Data = new ScryfallSearchResponse([])
-            }));
+            }),
+            executeNamedAsync: (request, _) =>
+            {
+                namedRequestCount++;
+                return Task.FromResult(new RestResponse<ScryfallCard>(request)
+                {
+                    StatusCode = HttpStatusCode.NotFound
+                });
+            });
 
         var lines = string.Join('\n', Enumerable.Range(0, 100).Select(index => $"Card {index}"));
         await service.LookupAsync(lines);
 
         Assert.Equal(2, requestCount);
+        Assert.Equal(100, namedRequestCount);
     }
 
     [Fact]

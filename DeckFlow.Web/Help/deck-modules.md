@@ -39,6 +39,11 @@ From there you create additional alternatives (2-4 total, each a manually curate
 strategy) the same way, giving each a one-sentence play plan and a target profile — casual, bracket 4
 / high power, or cEDH.
 
+That profile is not only a label: it also selects the mana-base mode used when you analyze the
+compiled configuration. cEDH maps to the cEDH mode and bracket 4 / high power to Focused, both of
+which use tighter land targets and a higher colour-support bar than Casual. The equal-card-count
+balance check counts each alternative's strategy cards only — linked mana support is excluded.
+
 ## Compile one configuration
 
 Pick exactly one alternative and Deck Modules compiles it immediately: Core plus that alternative's

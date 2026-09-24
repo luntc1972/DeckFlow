@@ -77,7 +77,7 @@ public partial class Program
                 });
             }
 
-            await ValidateDatabaseConnectionsAsync(app.Services, app.Environment, app.Logger);
+            await ValidateDatabaseConnectionsAsync(app.Environment, app.Logger);
             app.Logger.LogInformation("Ensuring content site-index schema during startup.");
             await app.Services.GetRequiredService<DeckFlow.Core.Content.IContentSiteIndexStore>().EnsureSchemaAsync();
             // Why (WR-09): both branches' EnsureSchemaAsync issue CREATE TABLE IF NOT EXISTS;
@@ -214,6 +214,9 @@ public partial class Program
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
         builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
+        builder.Services.AddOptions<HarvestHealthOptions>()
+            .Bind(builder.Configuration.GetSection(HarvestHealthOptions.SectionName))
+            .ValidateDataAnnotations();
         builder.Services.Configure<Microsoft.AspNetCore.Mvc.Razor.RazorViewEngineOptions>(options => options.ViewLocationExpanders.Add(new DeckFlow.Web.Controllers.DeckViewLocationExpander()));
         builder.Services.AddMemoryCache();
 
@@ -541,21 +544,40 @@ public partial class Program
             seedTaskName);
     }
 
-    private static async Task ValidateDatabaseConnectionsAsync(IServiceProvider services, IWebHostEnvironment environment, Microsoft.Extensions.Logging.ILogger logger)
+    internal static async Task ValidateDatabaseConnectionsAsync(IWebHostEnvironment environment, Microsoft.Extensions.Logging.ILogger logger)
     {
         if (environment.IsDevelopment())
         {
             return;
         }
 
-        using var scope = services.CreateScope();
-        var feedbackStore = scope.ServiceProvider.GetRequiredService<IFeedbackStore>();
-        var knowledgeStore = scope.ServiceProvider.GetRequiredService<ICategoryKnowledgeStore>();
-
         logger.LogInformation("Validating database connections during startup.");
 
-        await feedbackStore.CountAsync(null, null);
-        await knowledgeStore.GetProcessedDeckCountAsync();
+        var connections = new[]
+        {
+            DeckFlowDatabaseConnectionFactory.CreateFeedbackConnection(environment),
+            DeckFlowDatabaseConnectionFactory.CreateCategoryKnowledgeConnection(environment)
+        };
+
+        foreach (var database in connections)
+        {
+            if (database.IsSqlite)
+            {
+                var path = database.ExtractSqlitePath();
+                var parent = Path.GetDirectoryName(path);
+                if (!string.IsNullOrWhiteSpace(parent))
+                {
+                    Directory.CreateDirectory(parent);
+                }
+            }
+
+            await using (var connection = await database.OpenConnectionAsync())
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = "SELECT 1";
+                await command.ExecuteScalarAsync();
+            }
+        }
 
         logger.LogInformation("Database connection validation completed successfully.");
     }

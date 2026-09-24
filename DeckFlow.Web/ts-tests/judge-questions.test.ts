@@ -4,7 +4,7 @@ const QUESTION = 'Can I cast this spell after a replacement effect changes how i
 
 const mountPage = (): void => {
   document.body.innerHTML = `
-    <details class="cutlab-intake" open>
+    <details class="cutlab-intake" data-intake-state="empty" open>
       <summary class="cutlab-intake-summary"><span class="cutlab-intake-summary__commander">Ask a question</span><span class="cutlab-intake-summary__change">Change question</span></summary>
       <div class="field-grid">
         <input data-judge-card-input />
@@ -38,6 +38,7 @@ describe('Judge questions intake', () => {
     await bootstrap();
 
     expect(document.querySelector<HTMLDetailsElement>('.cutlab-intake')!.open).toBe(true);
+    expect(document.querySelector<HTMLDetailsElement>('.cutlab-intake')!.dataset.intakeState).toBe('empty');
     expect(document.querySelector<HTMLElement>('.cutlab-intake-summary__commander')!.textContent).toBe('Ask a question');
   });
 
@@ -52,6 +53,7 @@ describe('Judge questions intake', () => {
     document.querySelector<HTMLButtonElement>('[data-judge-generate]')!.click();
     await vi.waitFor(() => expect(document.querySelector<HTMLDetailsElement>('.cutlab-intake')!.open).toBe(false));
 
+    expect(document.querySelector<HTMLDetailsElement>('.cutlab-intake')!.dataset.intakeState).toBe('result');
     expect(document.querySelector<HTMLElement>('.cutlab-intake-summary__commander')!.textContent).toBe(`${QUESTION.slice(0, 40)}...`);
     expect(document.activeElement).toBe(document.querySelector<HTMLElement>('[data-judge-result]'));
   });
@@ -67,6 +69,7 @@ describe('Judge questions intake', () => {
     document.querySelector<HTMLButtonElement>('[data-judge-clear]')!.click();
 
     expect(document.querySelector<HTMLDetailsElement>('.cutlab-intake')!.open).toBe(true);
+    expect(document.querySelector<HTMLDetailsElement>('.cutlab-intake')!.dataset.intakeState).toBe('empty');
     expect(document.querySelector<HTMLElement>('.cutlab-intake-summary__commander')!.textContent).toBe('Ask a question');
   });
 });

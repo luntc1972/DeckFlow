@@ -71,6 +71,46 @@ public sealed class CategoryKnowledgeStoreTests
         }
     }
 
+    [Fact]
+    public async Task GetDatabaseSizeBytesAsync_WithExistingCustomSqliteFile_ReturnsFileLength()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-size-" + Guid.NewGuid().ToString("N"));
+        var databasePath = Path.Combine(tempRoot, "custom.db");
+        Directory.CreateDirectory(tempRoot);
+        await File.WriteAllBytesAsync(databasePath, new byte[4096]);
+
+        await WithSqliteConnectionAsync($"Data Source={databasePath}", async () =>
+        {
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+            Assert.Equal(4096L, await store.GetDatabaseSizeBytesAsync());
+        });
+    }
+
+    [Fact]
+    public async Task GetDatabaseSizeBytesAsync_WithMissingSqliteFile_ReturnsNullWithoutCreatingFile()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-size-" + Guid.NewGuid().ToString("N"));
+        var databasePath = Path.Combine(tempRoot, "missing.db");
+        Directory.CreateDirectory(tempRoot);
+
+        await WithSqliteConnectionAsync($"Data Source={databasePath}", async () =>
+        {
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+            Assert.Null(await store.GetDatabaseSizeBytesAsync());
+            Assert.False(File.Exists(databasePath));
+        });
+    }
+
+    [Fact]
+    public async Task GetDatabaseSizeBytesAsync_WithInMemorySqlite_ReturnsNull()
+    {
+        await WithSqliteConnectionAsync("Data Source=:memory:", async () =>
+        {
+            var store = CreateStore();
+            Assert.Null(await store.GetDatabaseSizeBytesAsync());
+        });
+    }
+
     [Theory]
     [InlineData(null, typeof(ArgumentNullException))]
     [InlineData("", typeof(ArgumentException))]
@@ -380,6 +420,24 @@ public sealed class CategoryKnowledgeStoreTests
         => new(
             new FakeWebHostEnvironment(contentRootPath ?? Path.Combine(Path.GetTempPath(), "deckflow-content-root")),
             new MemoryCache(new MemoryCacheOptions()));
+
+    private static async Task WithSqliteConnectionAsync(string connectionString, Func<Task> action)
+    {
+        var originalProvider = Environment.GetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER");
+        var originalConnectionString = Environment.GetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING");
+
+        try
+        {
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER", "Sqlite");
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING", connectionString);
+            await action();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_PROVIDER", originalProvider);
+            Environment.SetEnvironmentVariable("DECKFLOW_DATABASE_CONNECTION_STRING", originalConnectionString);
+        }
+    }
 
     private sealed class FakeWebHostEnvironment(string contentRootPath) : IWebHostEnvironment
     {

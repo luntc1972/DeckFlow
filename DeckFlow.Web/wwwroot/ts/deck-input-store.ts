@@ -2,6 +2,7 @@
   'use strict';
 
   const LAST_DECK_KEY = 'deckflow.last-deck';
+  let isHydrating = false;
   // Why: cap stored deck text so oversized pastes do not trip sessionStorage quotas.
   const DECK_TEXT_MAX_BYTES = 100_000;
 
@@ -162,7 +163,18 @@
 
     const stored = getLastDeck();
     if (stored) {
-      const restored = restoreSplitFields(stored, inputSelect, urlInput, textArea);
+      const previousInputSource = inputSelect?.value;
+      let restored = false;
+      isHydrating = true;
+      try {
+        restored = restoreSplitFields(stored, inputSelect, urlInput, textArea);
+        if (restored && inputSelect && inputSelect.value !== previousInputSource) {
+          inputSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } finally {
+        isHydrating = false;
+      }
+
       if (restored) {
         const noticeAnchor = (urlInput?.closest('.field') as HTMLElement | null)
           ?? (textArea?.closest('.field') as HTMLElement | null);
@@ -181,6 +193,10 @@
     }
 
     const persist = (): void => {
+      if (isHydrating) {
+        return;
+      }
+
       setLastDeck({
         inputSource: inputSelect?.value ?? 'PasteText',
         deckUrl: urlInput?.value ?? '',

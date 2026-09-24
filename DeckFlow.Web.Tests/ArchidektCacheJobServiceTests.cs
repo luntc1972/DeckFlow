@@ -99,7 +99,7 @@ public sealed class ArchidektCacheJobServiceTests
     {
         var store = new FakeCategoryKnowledgeStore(initialProcessedDeckCount: 10, finalProcessedDeckCount: 14)
         {
-            RunCacheSweepResult = 7
+            RunCacheSweepResult = new(7, 0, 0, 0, 0, TimeSpan.Zero)
         };
         var runStore = new FakeHarvestRunStore();
         var service = CreateService(store, runStore);
@@ -113,6 +113,7 @@ public sealed class ArchidektCacheJobServiceTests
             Assert.Equal(ArchidektCacheJobState.Succeeded, job.State);
             Assert.Equal(7, job.DecksProcessed);
             Assert.Equal(4, job.AdditionalDecksFound);
+            Assert.Equal(new[] { (0, 7) }, runStore.SweepCounts);
             Assert.NotNull(job.CompletedUtc);
             Assert.Null(service.GetActiveJob());
             Assert.NotNull(service.GetJob(job.JobId));
@@ -142,6 +143,10 @@ public sealed class ArchidektCacheJobServiceTests
             Assert.Equal(ArchidektCacheJobState.Failed, job.State);
             Assert.Equal("cache sweep failed", job.ErrorMessage);
             Assert.NotNull(job.CompletedUtc);
+            Assert.Empty(runStore.SweepCounts);
+            var run = runStore.GetById(job.JobId);
+            Assert.Null(run!.DecksEnqueued);
+            Assert.Null(run.DecksDrained);
         }
         finally
         {
@@ -154,7 +159,7 @@ public sealed class ArchidektCacheJobServiceTests
     {
         var store = new FakeCategoryKnowledgeStore(initialProcessedDeckCount: 8, finalProcessedDeckCount: 11)
         {
-            RunCacheSweepResult = 2
+            RunCacheSweepResult = new(2, 0, 0, 0, 0, TimeSpan.Zero)
         };
         var runStore = new FakeHarvestRunStore();
         var service = CreateService(store, runStore);
@@ -180,7 +185,7 @@ public sealed class ArchidektCacheJobServiceTests
     {
         var store = new FakeCategoryKnowledgeStore(initialProcessedDeckCount: 6, finalProcessedDeckCount: 9)
         {
-            RunCacheSweepResult = 5
+            RunCacheSweepResult = new(5, 0, 0, 0, 0, TimeSpan.Zero)
         };
         var runStore = new FakeHarvestRunStore();
         var service = CreateService(store, runStore);
@@ -277,6 +282,8 @@ public sealed class ArchidektCacheJobServiceTests
     {
         private readonly ConcurrentDictionary<Guid, HarvestRunRow> _rows = new();
 
+        public List<(int DecksEnqueued, int DecksDrained)> SweepCounts { get; } = [];
+
         public HarvestRunRow? GetById(Guid id) => _rows.TryGetValue(id, out var row) ? row : null;
 
         public Task<HarvestRunRow?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(GetById(id));
@@ -301,8 +308,10 @@ public sealed class ArchidektCacheJobServiceTests
                 durationSeconds,
                 DecksProcessed: 0,
                 AdditionalDecksFound: 0,
+                DecksEnqueued: null,
+                DecksDrained: null,
                 ErrorMessage: null,
-                url);
+                Url: url);
             return Task.FromResult(id);
         }
 
@@ -311,8 +320,8 @@ public sealed class ArchidektCacheJobServiceTests
             HarvestRunState state,
             DateTimeOffset? startedUtc,
             DateTimeOffset? completedUtc,
-            int decksProcessed,
-            int additionalDecksFound,
+            int? decksProcessed,
+            int? additionalDecksFound,
             string? errorMessage,
             CancellationToken cancellationToken = default)
         {
@@ -324,8 +333,8 @@ public sealed class ArchidektCacheJobServiceTests
                     State = state,
                     StartedUtc = startedUtc ?? existing.StartedUtc,
                     CompletedUtc = completedUtc ?? existing.CompletedUtc,
-                    DecksProcessed = decksProcessed,
-                    AdditionalDecksFound = additionalDecksFound,
+                    DecksProcessed = decksProcessed ?? existing.DecksProcessed,
+                    AdditionalDecksFound = additionalDecksFound ?? existing.AdditionalDecksFound,
                     ErrorMessage = errorMessage
                 });
             return Task.CompletedTask;
@@ -334,7 +343,6 @@ public sealed class ArchidektCacheJobServiceTests
         public Task UpdateProgressAsync(
             Guid id,
             int decksProcessed,
-            int additionalDecksFound,
             CancellationToken cancellationToken = default)
         {
             _rows.AddOrUpdate(
@@ -343,8 +351,17 @@ public sealed class ArchidektCacheJobServiceTests
                 (_, existing) => existing with
                 {
                     DecksProcessed = decksProcessed,
-                    AdditionalDecksFound = additionalDecksFound
                 });
+            return Task.CompletedTask;
+        }
+
+        public Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default)
+        {
+            SweepCounts.Add((decksEnqueued, decksDrained));
+            _rows.AddOrUpdate(
+                id,
+                _ => throw new InvalidOperationException($"No queued row for {id}."),
+                (_, existing) => existing with { DecksEnqueued = decksEnqueued, DecksDrained = decksDrained });
             return Task.CompletedTask;
         }
 
@@ -365,6 +382,9 @@ public sealed class ArchidektCacheJobServiceTests
                 .ToList();
             return Task.FromResult(rows);
         }
+
+        public Task<IReadOnlyList<HarvestRunRow>> GetRecentHealthSignalRunsAsync(int n, CancellationToken cancellationToken = default)
+            => GetRecentAsync(n, cancellationToken);
 
         public Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
         {
@@ -396,6 +416,9 @@ public sealed class ArchidektCacheJobServiceTests
                 .Max();
             return Task.FromResult(max);
         }
+
+        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new HarvestFailureStreak(0, null, null));
 
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult((long)_rows.Values.Count(r => r.State == HarvestRunState.Succeeded));

@@ -4,6 +4,7 @@ using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Storage;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.Harvest;
 using Xunit;
 
 namespace DeckFlow.Web.Tests.Integration;
@@ -29,6 +30,42 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
 
     private async Task<CategoryKnowledgeRepository> CreateRepositoryAsync()
         => new(CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()));
+
+    [PostgresFact]
+    public async Task HarvestRunStore_PreexistingTable_AddsSweepCountColumns()
+    {
+        var connectionInfo = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync());
+        await using (var connection = connectionInfo.CreateConnection())
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = """
+                DROP TABLE IF EXISTS harvest_runs;
+                CREATE TABLE harvest_runs (
+                    id UUID PRIMARY KEY, kind TEXT NOT NULL, state TEXT NOT NULL,
+                    requested_utc TIMESTAMPTZ NOT NULL, started_utc TIMESTAMPTZ NULL,
+                    completed_utc TIMESTAMPTZ NULL, duration_seconds INT NOT NULL,
+                    decks_processed INT NOT NULL DEFAULT 0, additional_decks_found INT NOT NULL DEFAULT 0,
+                    error_message TEXT NULL, url TEXT NULL);
+                INSERT INTO harvest_runs (id, kind, state, requested_utc, duration_seconds, decks_processed, additional_decks_found)
+                VALUES ('f5b0eb2b-1af3-4a7b-982d-7a2370ae7397', 'bulk', 'Succeeded', NOW(), 60, 2, 1);
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var store = new HarvestRunStore(connectionInfo);
+        await store.EnsureSchemaAsync();
+        var row = await store.GetByIdAsync(Guid.Parse("f5b0eb2b-1af3-4a7b-982d-7a2370ae7397"));
+
+        Assert.NotNull(row);
+        Assert.Null(row!.DecksEnqueued);
+        Assert.Null(row.DecksDrained);
+
+        await store.SetSweepCountsAsync(row.Id, 3, 5);
+        row = await store.GetByIdAsync(row.Id);
+        Assert.Equal(3, row!.DecksEnqueued);
+        Assert.Equal(5, row.DecksDrained);
+    }
 
     [PostgresFact]
     public async Task MarkDeckProcessedAsync_Metadata_RoundTripsAllValues()

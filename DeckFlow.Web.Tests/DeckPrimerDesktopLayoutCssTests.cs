@@ -31,41 +31,21 @@ public sealed class DeckPrimerDesktopLayoutCssTests
     }
 
     [Fact]
-    public void DeckPrimerDesktopLayout_KeepsIntakeInConfigAndOutputOutsideDetails()
+    public void DeckPrimerDesktopLayout_KeepsIntakeInConfigAndOutputOutsideIntakeCard()
     {
         string view = ReadDeckPrimerView();
         int gridStart = view.IndexOf("primer-workbench-grid", StringComparison.Ordinal);
         int configStart = view.IndexOf("primer-workbench-grid__config", StringComparison.Ordinal);
-        int detailsStart = view.IndexOf("<details class=\"cutlab-intake\"", StringComparison.Ordinal);
-        int detailsEnd = -1;
-        int detailsDepth = 0;
-        int detailsIndex = detailsStart;
-        while (detailsDepth > 0 || detailsIndex == detailsStart)
-        {
-            int nextOpen = view.IndexOf("<details", detailsIndex, StringComparison.Ordinal);
-            int nextClose = view.IndexOf("</details>", detailsIndex, StringComparison.Ordinal);
-
-            if (nextOpen >= 0 && nextOpen < nextClose)
-            {
-                detailsDepth++;
-                detailsIndex = nextOpen + "<details".Length;
-            }
-            else
-            {
-                detailsDepth--;
-                detailsEnd = nextClose;
-                detailsIndex = nextClose + "</details>".Length;
-            }
-        }
+        int intakeStart = view.IndexOf("Html.BeginIntakeCard", StringComparison.Ordinal);
         int outputStart = view.IndexOf("primer-workbench-grid__output", StringComparison.Ordinal);
         int stepOne = view.IndexOf("id=\"primer-step-panel-1\"", StringComparison.Ordinal);
         int stepTwo = view.IndexOf("id=\"primer-step-panel-2\"", StringComparison.Ordinal);
         int stepThree = view.IndexOf("id=\"primer-step-panel-3\"", StringComparison.Ordinal);
 
-        Assert.True(gridStart >= 0 && configStart > gridStart && detailsStart > configStart);
-        Assert.True(stepOne > detailsStart && stepOne < detailsEnd);
-        Assert.True(stepTwo > detailsStart && stepTwo < detailsEnd);
-        Assert.True(outputStart > detailsEnd && stepThree > outputStart);
+        Assert.True(gridStart >= 0 && configStart > gridStart && intakeStart > configStart);
+        Assert.True(stepOne > intakeStart && stepOne < outputStart);
+        Assert.True(stepTwo > intakeStart && stepTwo < outputStart);
+        Assert.True(stepThree > outputStart);
     }
 
     private static string ExtractRuleBody(string css, string selector, int occurrence)

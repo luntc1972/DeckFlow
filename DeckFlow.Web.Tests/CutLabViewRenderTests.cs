@@ -30,6 +30,31 @@ public sealed class CutLabViewRenderTests
     private static readonly IReadOnlyDictionary<string, CutLabCardTextView> EmptyCardTextByCardName = new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
 
     [Fact]
+    public async Task EmptyState_RendersExpandedIntakeWithoutSummary()
+    {
+        string html = await RenderAsync(new CutLabViewModel());
+
+        Assert.Contains("<div class=\"cutlab-intake cutlab-intake--empty\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("cutlab-intake-summary", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-intake-summary", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ResultState_RendersCollapsedIntakeSummary()
+    {
+        string html = await RenderAsync(new CutLabViewModel
+        {
+            HasResult = true,
+            IntakeSummaryText = "Atraxa . 100 cards . B4",
+        });
+
+        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<details class=\"cutlab-intake\" data-cut-lab-intake-summary open", html, StringComparison.Ordinal);
+        Assert.Contains("Atraxa . 100 cards . B4", html, StringComparison.Ordinal);
+        Assert.Contains(">Edit<", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ResultView_RendersFloorFeasibilityWarningAfterRoleFloorsHeading()
     {
         var model = BuildTwinBadgeModel() with

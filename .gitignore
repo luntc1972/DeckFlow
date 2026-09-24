@@ -61,3 +61,7 @@ __pycache__/
 # in commit bodies and docs/decisions/ ADRs instead. Files stay on disk; history keeps the
 # 22 already committed.
 .foreman/
+
+# GSD dispatch bookkeeping: rewritten on every dispatch, read by guard hooks; never a code change.
+.gsd/dispatch-isolation-sentinel.json
+.gsd/WAITING.json

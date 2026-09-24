@@ -84,6 +84,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
             }
 
             await EnsureStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false);
+            // Add after SQLite rebuild: its legacy copy contains only the original eleven columns.
+            await EnsureSweepCountColumnsAsync(connection, cancellationToken).ConfigureAwait(false);
 
             await using (var reaper = connection.CreateCommand())
             {
@@ -137,8 +139,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
         HarvestRunState state,
         DateTimeOffset? startedUtc,
         DateTimeOffset? completedUtc,
-        int decksProcessed,
-        int additionalDecksFound,
+        int? decksProcessed,
+        int? additionalDecksFound,
         string? errorMessage,
         CancellationToken cancellationToken = default)
     {
@@ -151,8 +153,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
                SET state = @state,
                    started_utc = COALESCE(@startedUtc, started_utc),
                    completed_utc = COALESCE(@completedUtc, completed_utc),
-                   decks_processed = @decksProcessed,
-                   additional_decks_found = @additionalDecksFound,
+                   decks_processed = COALESCE(@decksProcessed, decks_processed),
+                   additional_decks_found = COALESCE(@additionalDecksFound, additional_decks_found),
                    error_message = @errorMessage
              WHERE id = @id;
             """,
@@ -176,7 +178,6 @@ public sealed class HarvestRunStore : IHarvestRunStore
     public async Task UpdateProgressAsync(
         Guid id,
         int decksProcessed,
-        int additionalDecksFound,
         CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -185,12 +186,22 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await connection.ExecuteAsync(new CommandDefinition(
             """
             UPDATE harvest_runs
-               SET decks_processed = @decksProcessed,
-                   additional_decks_found = @additionalDecksFound
+               SET decks_processed = @decksProcessed
              WHERE id = @id;
             """,
-            new { id, decksProcessed, additionalDecksFound },
+            new { id, decksProcessed },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
+        InvalidateStats();
+    }
+
+    /// <inheritdoc />
+    public async Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE harvest_runs SET decks_enqueued = @decksEnqueued, decks_drained = @decksDrained WHERE id = @id;",
+            new { id, decksEnqueued, decksDrained }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         InvalidateStats();
     }
 
@@ -203,7 +214,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         var row = await connection.QuerySingleOrDefaultAsync<HarvestRunRowData>(new CommandDefinition(
             """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                   duration_seconds, decks_processed, additional_decks_found, error_message, url
+                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url
               FROM harvest_runs
              WHERE state IN ('Queued','Running','Stopping')
              ORDER BY requested_utc DESC
@@ -222,7 +233,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         var row = await connection.QuerySingleOrDefaultAsync<HarvestRunRowData>(new CommandDefinition(
             """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                   duration_seconds, decks_processed, additional_decks_found, error_message, url
+                    duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url
               FROM harvest_runs
              WHERE id = @id
              LIMIT 1;
@@ -242,9 +253,31 @@ public sealed class HarvestRunStore : IHarvestRunStore
         var rows = await connection.QueryAsync<HarvestRunRowData>(new CommandDefinition(
             """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                   duration_seconds, decks_processed, additional_decks_found, error_message, url
+                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url
               FROM harvest_runs
              ORDER BY started_utc DESC NULLS LAST
+             LIMIT @n;
+            """,
+            new { n },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Select(ToHarvestRunRow).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<HarvestRunRow>> GetRecentHealthSignalRunsAsync(int n, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        // Succeeded is essential: sweep counts are written before the terminal state transition.
+        var rows = await connection.QueryAsync<HarvestRunRowData>(new CommandDefinition(
+            """
+            SELECT id, kind, state, requested_utc, started_utc, completed_utc,
+                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url
+              FROM harvest_runs
+             WHERE kind = 'bulk' AND state = 'Succeeded'
+               AND decks_enqueued IS NOT NULL AND decks_drained IS NOT NULL
+             ORDER BY completed_utc DESC NULLS LAST
              LIMIT @n;
             """,
             new { n },
@@ -288,6 +321,31 @@ public sealed class HarvestRunStore : IHarvestRunStore
     }
 
     /// <inheritdoc />
+    public async Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var row = await connection.QuerySingleAsync<FailureStreakRow>(new CommandDefinition(
+            """
+            SELECT COUNT(1) AS ConsecutiveFailures,
+                   MAX(completed_utc) AS LastFailureUtc,
+                   (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded') AS LastSuccessUtc
+            FROM harvest_runs
+            WHERE state = 'Failed'
+              AND kind = 'bulk'
+              AND completed_utc IS NOT NULL
+              AND (NOT EXISTS (SELECT 1 FROM harvest_runs WHERE state = 'Succeeded')
+                   OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded'));
+            """,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return new HarvestFailureStreak(
+            checked((int)row.ConsecutiveFailures),
+            ConvertCompletedUtc(row.LastFailureUtc),
+            ConvertCompletedUtc(row.LastSuccessUtc));
+    }
+
+    /// <inheritdoc />
     public async Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -310,6 +368,27 @@ public sealed class HarvestRunStore : IHarvestRunStore
         }
     }
 
+    private static DateTimeOffset? ConvertCompletedUtc(object? value)
+        => value switch
+        {
+            null or DBNull => null,
+            DateTimeOffset completedUtc => completedUtc,
+            DateTime completedUtc => new DateTimeOffset(completedUtc.Kind == DateTimeKind.Local
+                ? completedUtc.ToUniversalTime()
+                : DateTime.SpecifyKind(completedUtc, DateTimeKind.Utc)),
+            string completedUtc => DateTimeOffset.Parse(completedUtc, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
+            _ => throw new InvalidOperationException($"Unsupported completed_utc value type: {value.GetType().FullName}.")
+        };
+
+    private sealed class FailureStreakRow
+    {
+        public long ConsecutiveFailures { get; init; }
+
+        public object? LastFailureUtc { get; init; }
+
+        public object? LastSuccessUtc { get; init; }
+    }
+
     private static HarvestRunRow ToHarvestRunRow(HarvestRunRowData row)
         => new(
             row.Id,
@@ -321,6 +400,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
             row.DurationSeconds,
             row.DecksProcessed,
             row.AdditionalDecksFound,
+            row.DecksEnqueued,
+            row.DecksDrained,
             row.ErrorMessage,
             row.Url);
 
@@ -349,6 +430,39 @@ public sealed class HarvestRunStore : IHarvestRunStore
         }
 
         await EnsurePostgresStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task EnsureSweepCountColumnsAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        var columns = await GetHarvestRunColumnsAsync(connection, cancellationToken).ConfigureAwait(false);
+        var type = _connectionInfo.IsPostgres ? "INT" : "INTEGER";
+        foreach (var column in new[] { "decks_enqueued", "decks_drained" })
+        {
+            if (columns.Contains(column))
+            {
+                continue;
+            }
+
+            try
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    $"ALTER TABLE harvest_runs ADD COLUMN {(_connectionInfo.IsPostgres ? "IF NOT EXISTS " : string.Empty)}{column} {type} NULL;",
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+            catch (DbException exception) when (exception.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
+            {
+                // Another process won the additive migration race.
+            }
+        }
+    }
+
+    private async Task<HashSet<string>> GetHarvestRunColumnsAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        var sql = _connectionInfo.IsPostgres
+            ? "SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'harvest_runs';"
+            : "SELECT name FROM pragma_table_info('harvest_runs');";
+        var columns = await connection.QueryAsync<string>(new CommandDefinition(sql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return new HashSet<string>(columns, StringComparer.OrdinalIgnoreCase);
     }
 
     private static async Task EnsureSqliteStateConstraintAllowsInterruptedAsync(
@@ -532,6 +646,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
           duration_seconds         INT NOT NULL,
           decks_processed          INT NOT NULL DEFAULT 0,
           additional_decks_found   INT NOT NULL DEFAULT 0,
+          decks_enqueued           INT NULL,
+          decks_drained            INT NULL,
           error_message            TEXT NULL,
           url                      TEXT NULL,
           CONSTRAINT ck_harvest_runs_state CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled'))
@@ -552,6 +668,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
           duration_seconds         INTEGER NOT NULL,
           decks_processed          INTEGER NOT NULL DEFAULT 0,
           additional_decks_found   INTEGER NOT NULL DEFAULT 0,
+          decks_enqueued           INTEGER NULL,
+          decks_drained            INTEGER NULL,
           error_message            TEXT NULL,
           url                      TEXT NULL,
           CONSTRAINT ck_harvest_runs_state CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled'))
@@ -608,6 +726,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
         public int DurationSeconds { get; init; }
         public int DecksProcessed { get; init; }
         public int AdditionalDecksFound { get; init; }
+        public int? DecksEnqueued { get; init; }
+        public int? DecksDrained { get; init; }
         public string? ErrorMessage { get; init; }
         public string? Url { get; init; }
     }

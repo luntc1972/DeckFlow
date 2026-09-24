@@ -264,6 +264,85 @@ public sealed class DeckHistoryViewRenderTests
         Assert.DoesNotContain("class=\"history-fresh-start-caveat\"", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task EmptyView_RendersEmptyIntakeCardWithoutSummary()
+    {
+        string html = NeutralizeAntiforgery(await RenderAsync(new DeckHistoryViewModel { Request = new DeckHistoryRequest() }));
+
+        Assert.Contains("<div class=\"cutlab-intake cutlab-intake--empty\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<summary class=\"cutlab-intake-summary\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-intake-summary", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ResultView_WithDeckName_RendersDeckNameAndEditIntakeSummary()
+    {
+        var model = new DeckHistoryViewModel
+        {
+            HasResult = true,
+            Request = new DeckHistoryRequest { DeckName = "Zur Logbook" },
+        };
+
+        string html = NeutralizeAntiforgery(await RenderAsync(model));
+
+        Assert.Contains("<details class=\"cutlab-intake\" data-cut-lab-intake-summary>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<details class=\"cutlab-intake\" data-cut-lab-intake-summary open", html, StringComparison.Ordinal);
+        Assert.Contains("Zur Logbook", html, StringComparison.Ordinal);
+        Assert.Contains("<span class=\"cutlab-intake-summary__change\">Edit</span>", html, StringComparison.Ordinal);
+        Assert.Contains("<section class=\"deck-history-results\" data-scroll-on-load id=\"results\" tabindex=\"-1\" aria-label=\"Results\">", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ResultView_WithoutDeckName_RendersFallbackIntakeSummary()
+    {
+        var model = new DeckHistoryViewModel
+        {
+            HasResult = true,
+            Request = new DeckHistoryRequest { DeckName = "  " },
+        };
+
+        string html = NeutralizeAntiforgery(await RenderAsync(model));
+
+        Assert.Contains("Deck history ready", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InputForm_RendersDeckHistoryIdsAndBracketPanelKeys()
+    {
+        string html = NeutralizeAntiforgery(await RenderAsync(new DeckHistoryViewModel { Request = new DeckHistoryRequest() }));
+
+        Assert.Contains("id=\"deck-history-input-source\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"deck-history-deck-url\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"deck-history-deck-text\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-sync-panel=\"bracket-deck-url\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-sync-panel=\"bracket-deck-text\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InputForm_PreservesMultipartEncodingAndHistoryJsonInputs()
+    {
+        var model = new DeckHistoryViewModel
+        {
+            HasResult = true,
+            Request = new DeckHistoryRequest(),
+            HistoryJson = "{\"format\":\"deckflow/history/v1\"}",
+            TimelineRows =
+            [
+                new TimelineRow
+                {
+                    Id = 1,
+                    Date = DateTimeOffset.Parse("2026-07-16T00:00:00Z"),
+                    CardCount = 100,
+                },
+            ],
+        };
+
+        string html = NeutralizeAntiforgery(await RenderAsync(model));
+
+        Assert.Contains("enctype=\"multipart/form-data\"", html, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Matches(html, "name=\"HistoryJson\"", RegexOptions.CultureInvariant).Count);
+    }
+
     private static string NeutralizeAntiforgery(string html) => Regex.Replace(
         html,
         "(name=\"__RequestVerificationToken\"[^>]*value=\")[^\"]*\"",

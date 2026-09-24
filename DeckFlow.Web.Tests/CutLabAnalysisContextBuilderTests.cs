@@ -1,5 +1,6 @@
 using System.Net;
 using DeckFlow.Core.Manabase;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models.CutLab;
@@ -1259,7 +1260,7 @@ public sealed class CutLabAnalysisContextBuilderTests
         public Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+        public Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
             => throw new NotSupportedException();
 
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
@@ -1286,13 +1287,16 @@ public sealed class CutLabAnalysisContextBuilderTests
         public Task<int> GetTotalObservationCountAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task<IReadOnlyList<HarvestedCommanderRow>> GetPagedProcessedCommandersAsync(int page, int pageSize, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
-        public Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+        public Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public Task<CardDeckTotals> GetCardDeckTotalsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)

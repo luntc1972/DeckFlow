@@ -101,16 +101,19 @@ internal sealed class DeckQueueRepository
         return checked((int)result);
     }
 
-    /// <summary>
-    /// Inserts new deck IDs into the queue for processing.
-    /// </summary>
+    /// <summary>Inserts new deck IDs into the queue for processing.</summary>
     /// <param name="deckIds">Deck IDs to enqueue.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    internal async Task AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
+    /// <returns>
+    /// Number of IDs with no existing queue row. Requeued IDs, including already processed IDs, are
+    /// deliberately excluded because this count represents IDs discovered by the crawler.
+    /// </returns>
+    internal async Task<int> AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
     {
         var unique = deckIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Distinct(StringComparer.Ordinal);
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
         var insertedUtc = DateTime.UtcNow;
         var requeueBeforeUtc = insertedUtc.Subtract(DeckRefreshCooldown);
 
@@ -118,6 +121,7 @@ internal sealed class DeckQueueRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var existingIds = new List<string>();
 
         // Why: last_checked_utc is a TEXT column on both dialects, but the Dapper DateTime
         // handler binds @requeueBeforeUtc as a native timestamptz on Postgres — and Postgres
@@ -131,13 +135,28 @@ internal sealed class DeckQueueRepository
 
         foreach (var deckId in unique)
         {
-            await connection.ExecuteAsync(new CommandDefinition(
+            var rowsInserted = await connection.ExecuteAsync(new CommandDefinition(
                 $"""
                 INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc)
                 VALUES (@deckId, @insertedUtc, 0, 0, NULL)
-                ON CONFLICT(deck_id)
-                DO UPDATE SET
-                    inserted_utc = excluded.inserted_utc,
+                ON CONFLICT(deck_id) DO NOTHING;
+                """,
+                new { deckId, insertedUtc, requeueBeforeUtc },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+            if (rowsInserted == 0)
+            {
+                existingIds.Add(deckId);
+            }
+        }
+
+        foreach (var deckId in existingIds)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                $"""
+                UPDATE deck_queue
+                SET inserted_utc = @insertedUtc,
                     processed = CASE
                         WHEN deck_queue.processed = 0 AND deck_queue.skipped = 0 THEN 0
                         WHEN deck_queue.last_checked_utc IS NULL OR {lastChecked} <= @requeueBeforeUtc THEN 0
@@ -147,7 +166,8 @@ internal sealed class DeckQueueRepository
                         WHEN deck_queue.processed = 0 AND deck_queue.skipped = 0 THEN 0
                         WHEN deck_queue.last_checked_utc IS NULL OR {lastChecked} <= @requeueBeforeUtc THEN 0
                         ELSE deck_queue.skipped
-                    END;
+                    END
+                WHERE deck_id = @deckId;
                 """,
                 new { deckId, insertedUtc, requeueBeforeUtc },
                 transaction: transaction,
@@ -155,6 +175,7 @@ internal sealed class DeckQueueRepository
         }
 
         await transaction.CommitAsync(cancellationToken);
+        return unique.Count - existingIds.Count;
     }
 
     /// <summary>
@@ -202,6 +223,25 @@ internal sealed class DeckQueueRepository
             "SELECT COUNT(1) FROM deck_queue WHERE processed = 0 AND skipped = 0;",
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return checked((int)result);
+    }
+
+    /// <summary>
+    /// Determines whether the unprocessed queue contains more than a supplied threshold.
+    /// </summary>
+    /// <param name="threshold">Exclusive queue threshold.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    internal async Task<bool> HasMoreThanUnprocessedDecksAsync(int threshold, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(threshold);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var result = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
+            "SELECT 1 FROM deck_queue WHERE processed = 0 AND skipped = 0 LIMIT 1 OFFSET @threshold;",
+            new { threshold },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return result.HasValue;
     }
 
     /// <summary>
@@ -349,7 +389,7 @@ internal sealed class DeckQueueRepository
             "SELECT commander_name FROM deck_queue WHERE deck_id = @deckId;",
             new { deckId },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        await RefreshCommanderSummaryAsync(connection, transaction: null, new[] { priorCommanderName, currentCommanderName }, cancellationToken).ConfigureAwait(false);
+        await RefreshCommanderSummaryAsync(connection, transaction: null, new[] { priorCommanderName, currentCommanderName }, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -487,7 +527,7 @@ internal sealed class DeckQueueRepository
             "SELECT commander_name FROM deck_queue WHERE deck_id = @deckId;",
             new { deckId },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
-        await RefreshCommanderSummaryAsync(connection, transaction: null, new[] { priorCommanderName, currentCommanderName }, cancellationToken).ConfigureAwait(false);
+        await RefreshCommanderSummaryAsync(connection, transaction: null, new[] { priorCommanderName, currentCommanderName }, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -537,7 +577,7 @@ internal sealed class DeckQueueRepository
                 new { deckId },
                 transaction: transaction,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
-            await RefreshCommanderSummaryAsync(connection, transaction, new[] { commanderName }, cancellationToken).ConfigureAwait(false);
+            await RefreshCommanderSummaryAsync(connection, transaction, new[] { commanderName }, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
         }
 
         await transaction.CommitAsync(cancellationToken);
@@ -549,6 +589,7 @@ internal sealed class DeckQueueRepository
         DbConnection connection,
         DbTransaction? transaction,
         IEnumerable<string?> commanderNames,
+        bool isPostgres,
         CancellationToken cancellationToken)
     {
         var normalizedNames = commanderNames
@@ -562,17 +603,19 @@ internal sealed class DeckQueueRepository
             return;
         }
 
+        var membershipOperator = isPostgres ? "= ANY(@normalizedNames)" : "IN @normalizedNames";
+        // Why: Dapper binds lists as arrays on Npgsql, so PostgreSQL requires ANY instead of IN.
         await connection.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM processed_commander_summary WHERE LOWER(commander_name) IN @normalizedNames;",
+            $"DELETE FROM processed_commander_summary WHERE LOWER(commander_name) {membershipOperator};",
             new { normalizedNames },
             transaction: transaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         await connection.ExecuteAsync(new CommandDefinition(
-            """
+            $"""
             INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc)
             SELECT MAX(commander_name), COUNT(1), MAX(last_checked_utc)
             FROM deck_queue
-            WHERE processed = 1 AND commander_name IS NOT NULL AND LOWER(commander_name) IN @normalizedNames
+            WHERE processed = 1 AND commander_name IS NOT NULL AND LOWER(commander_name) {membershipOperator}
             GROUP BY LOWER(commander_name);
             """,
             new { normalizedNames },

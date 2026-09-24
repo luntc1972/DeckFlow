@@ -29,6 +29,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private readonly ArchidektApiDeckImporter _archidektImporter;
     private readonly ArchidektRecentDecksImporter _recentDeckImporter;
     private readonly IMemoryCache _memoryCache;
+    private readonly ILogger<CategoryKnowledgeStore>? _logger;
     private volatile bool _schemaReady;
 
     /// <summary>
@@ -36,7 +37,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// </summary>
     /// <param name="environment">Web host environment for locating artifacts.</param>
     /// <param name="memoryCache">Application cache for expensive harvested-commander grid queries.</param>
-    /// <param name="logger">Optional logger forwarded to the category repository.</param>
+    /// <param name="logger">Optional logger forwarded to the category repository and retained for store diagnostics.</param>
     public CategoryKnowledgeStore(IWebHostEnvironment environment, IMemoryCache memoryCache, ILogger<CategoryKnowledgeStore>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(memoryCache);
@@ -50,6 +51,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         _archidektImporter = new ArchidektApiDeckImporter(logger: logger);
         _recentDeckImporter = new ArchidektRecentDecksImporter();
         _memoryCache = memoryCache;
+        _logger = logger;
     }
 
     private static string ResolveArtifactsPath(IWebHostEnvironment environment)
@@ -147,17 +149,23 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        // Why: inserted_utc is a TEXT column on both dialects, but the Dapper DateTime
-        // handler binds @cutoff as a native timestamptz on Postgres — and Postgres has
-        // no `text >= timestamptz` operator (42883), so the comparison must cast the
-        // column to timestamptz there. SQLite keeps its lexical TEXT comparison
-        // unchanged. (F-51-PG-01)
-        var column = _connectionInfo.IsSqlite
-            ? "inserted_utc"
-            : "inserted_utc::timestamptz";
+        // Why: Postgres must compare TEXT to TEXT so ix_deck_queue_processed_inserted_deck
+        // remains usable; casting inserted_utc to timestamptz prevents that index use. The
+        // fixed-width UTC date/time prefix sorts lexically, and legacy T-format rows are all
+        // older than any 30-day cutoff, so their differing separator cannot affect this count.
+        // SQLite continues binding DateTime through Dapper because that is its stored format.
+        if (_connectionInfo.IsSqlite)
+        {
+            return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
+                "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;",
+                new { cutoff = cutoffUtc },
+                cancellationToken: cancellationToken)).ConfigureAwait(false));
+        }
+
+        var cutoff = cutoffUtc.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-            $"SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND {column} >= @cutoff;",
-            new { cutoff = cutoffUtc },
+            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;",
+            new { cutoff },
             cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 
@@ -216,14 +224,31 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
-    public async Task<long?> GetPostgresDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+    public async Task<int> GetUnprocessedCountAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        return await _repository.GetUnprocessedCountAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<long?> GetDatabaseSizeBytesAsync(CancellationToken cancellationToken = default)
+    {
         if (!_connectionInfo.IsPostgres)
         {
-            return null;
+            try
+            {
+                var databasePath = _connectionInfo.ExtractSqlitePath();
+                var databaseFile = new FileInfo(databasePath);
+                return databaseFile.Exists ? databaseFile.Length : null;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+            {
+                _logger?.LogDebug(exception, "Unable to determine SQLite database size.");
+                return null;
+            }
         }
 
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         var result = await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
             "SELECT pg_database_size(current_database())",
@@ -238,7 +263,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="durationSeconds">Duration in seconds.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="progress">Optional progress reporter for processed deck counts.</param>
-    public async Task<int> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+    public async Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         await EnsureSchemaReadyAsync(cancellationToken);
         await _sweepGate.WaitAsync(cancellationToken);
@@ -258,7 +283,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 result.DecksUpdated,
                 result.DecksUnchanged,
                 result.DecksSkipped);
-            return result.DecksProcessed;
+            return result;
         }
         finally
         {
