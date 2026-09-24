@@ -6,6 +6,16 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.09.9 — Harvest Backlog Backpressure Hotfix (2026-09-24)
+
+Stops a failing harvest from growing the deck queue, after the 2026-09-18 to 09-23 PostgreSQL failures added roughly 335k decks to a queue that already held about 318k older ones:
+- **Discovery backpressure:** when more than 5,000 decks are waiting in the queue, a harvest run fetches only the first page of recent Archidekt decks and skips deeper discovery, leaving the crawl cursor where it was. Deep discovery resumes once the backlog is at or below the threshold.
+- **Failure breaker:** a run now aborts after 3 consecutive unexpected per-deck failures instead of marking every deck skipped and recording success. The count resets only after a deck is processed successfully, so expected skips (deleted or private decks, upstream errors) in between no longer hide a systemic failure. Database errors abort the run immediately, as they did before this cycle.
+- **Scheduler backoff:** after failed bulk runs, the next scheduled run waits 15 minutes, doubling per consecutive failure and capped at the schedule interval, instead of retrying every tick. A successful run clears the backoff.
+- **Schedule state:** the scheduler reads the failure streak and last success in one query, and single-URL import failures no longer count toward the streak.
+- **Tests:** new unit tests cover the backpressure gate, the breaker and its reset, and the scheduler backoff; a new PostgreSQL integration test covers the queue probe.
+- **Scope:** no schema, data, or feature-flag changes. The existing backlog is not cleared by this release; it drains through normal runs.
+
 ### 2026.09.8 — Admin Harvest Load-Time Hotfix (2026-09-23)
 
 Fixes `/Admin/Harvest` taking 4–19 seconds to load, sometimes timing out:
