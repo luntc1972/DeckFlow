@@ -79,6 +79,14 @@ else
                         <td>@c.DeckCount</td>
                         <td>@FormatLastProcessedUtc(c.LastProcessedUtc)</td>
                     </tr>
+                    <tr class="admin-harvest__category-row">
+                        <td colspan="4">
+                            <details class="admin-harvest__category-toggle" data-commander-details="@c.CommanderName">
+                                <summary>Category breakdown</summary>
+                                <div data-commander-panel></div>
+                            </details>
+                        </td>
+                    </tr>
                 }
             </tbody>
         </table>
