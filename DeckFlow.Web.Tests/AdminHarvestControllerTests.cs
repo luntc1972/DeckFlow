@@ -24,6 +24,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.ObjectPool;
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -438,6 +439,118 @@ public sealed class AdminHarvestControllerTests
                 new HarvestedCommanderRow("Commander Three", 1, "2026-01-03T00:00:00.0000000Z"),
             },
         };
+
+    [Fact]
+    public async Task ExportCommanders_SameOriginPost_ReturnsCsvFile()
+    {
+        var result = await Build(NewStore(0)).ExportCommanders(cancellationToken: CancellationToken.None);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("text/csv; charset=utf-8", file.ContentType);
+        Assert.True(file.FileContents.AsSpan().StartsWith(Encoding.UTF8.GetPreamble()));
+    }
+
+    [Fact]
+    public async Task ExportCommanders_ReturnsTimestampedCsvFileName()
+    {
+        var file = Assert.IsType<FileContentResult>(await Build(NewStore(0)).ExportCommanders(cancellationToken: CancellationToken.None));
+
+        Assert.Matches(@"^harvested-commanders-\d{8}-\d{6}\.csv$", file.FileDownloadName);
+    }
+
+    [Fact]
+    public async Task ExportCommanders_CrossOrigin_ReturnsForbiddenWithoutStoreRead()
+    {
+        var store = NewStore(0);
+        var result = await Build(store, crossOrigin: true).ExportCommanders(cancellationToken: CancellationToken.None);
+
+        AssertForbidden(result);
+        Assert.Equal(0, store.GetAllFilteredProcessedCommandersCalls);
+    }
+
+    [Fact]
+    public async Task ExportCommanders_RequestParameters_PassesNormalizedGridQueryToStore()
+    {
+        var store = NewStore(0);
+        await Build(store).ExportCommanders(search: "tef", sortBy: "last_processed", sortDir: "asc", cancellationToken: CancellationToken.None);
+
+        Assert.Equal(CommanderGridQuery.FromRequest("tef", "last_processed", "asc"), store.LastCommanderGridQuery);
+    }
+
+    [Fact]
+    public async Task ExportCommanders_NoMatches_ReturnsHeaderOnly()
+    {
+        var store = NewStore(0);
+        store.AllFilteredCommandersResult = Array.Empty<HarvestedCommanderRow>();
+        var file = Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
+
+        Assert.Equal("rank,commander,decks_categorized,last_processed_utc\n", Encoding.UTF8.GetString(file.FileContents[Encoding.UTF8.GetPreamble().Length..]));
+    }
+
+    [Fact]
+    public async Task ExportCommanders_RequestsOneMoreThanMaximumRows()
+    {
+        var store = NewStore(0);
+        await Build(store).ExportCommanders(cancellationToken: CancellationToken.None);
+
+        Assert.Equal(AdminHarvestController.MaxCommanderExportRows + 1, store.LastExportMaxRows);
+    }
+
+    [Fact]
+    public async Task ExportCommanders_ExactlyAtCap_IsComplete()
+    {
+        var store = NewStore(0);
+        store.AllFilteredCommandersResult = ExportRows(AdminHarvestController.MaxCommanderExportRows);
+        var file = Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
+
+        Assert.Equal(AdminHarvestController.MaxCommanderExportRows + 1, CsvLineCount(file));
+        Assert.DoesNotContain("truncated", file.FileDownloadName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ExportCommanders_OverCap_TruncatesRowsAndMarksFileName()
+    {
+        var store = NewStore(0);
+        store.AllFilteredCommandersResult = ExportRows(AdminHarvestController.MaxCommanderExportRows + 1);
+        var file = Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
+
+        Assert.Equal(AdminHarvestController.MaxCommanderExportRows + 1, CsvLineCount(file));
+        Assert.Contains("truncated-first-" + AdminHarvestController.MaxCommanderExportRows, file.FileDownloadName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExportCommanders_HasPostRouteAndValidateAntiForgeryTokenAttributes()
+    {
+        var method = typeof(AdminHarvestController).GetMethod(nameof(AdminHarvestController.ExportCommanders))!;
+
+        Assert.Equal("commanders/export", Assert.IsType<HttpPostAttribute>(method.GetCustomAttributes(typeof(HttpPostAttribute), false).Single()).Template);
+        Assert.Single(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), false));
+    }
+
+    [Fact]
+    public async Task ExportCommanders_UsesStoreResultForCsvRows()
+    {
+        var store = NewStore(0);
+        store.AllFilteredCommandersResult = new[] { new HarvestedCommanderRow("Tef", 7, null) };
+        var file = Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
+
+        Assert.Contains("1,\"Tef\",7,", Encoding.UTF8.GetString(file.FileContents), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ExportCommanders_PerformsOneUnpagedStoreRead()
+    {
+        var store = NewStore(0);
+        await Build(store).ExportCommanders(cancellationToken: CancellationToken.None);
+
+        Assert.Equal(1, store.GetAllFilteredProcessedCommandersCalls);
+    }
+
+    private static IReadOnlyList<HarvestedCommanderRow> ExportRows(int count)
+        => Enumerable.Range(1, count).Select(index => new HarvestedCommanderRow($"Commander {index}", index, null)).ToArray();
+
+    private static int CsvLineCount(FileContentResult file)
+        => Encoding.UTF8.GetString(file.FileContents[Encoding.UTF8.GetPreamble().Length..]).Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
 
     private static void AssertForbidden(IActionResult result)
     {
