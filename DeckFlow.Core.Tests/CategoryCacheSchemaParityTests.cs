@@ -570,7 +570,7 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
     }
 
     [Fact]
-    public async Task EnsureSchema_OnLegacyCommanderSummary_HealsNullSearchKey()
+    public async Task EnsureSchema_AfterSearchKeyBackfill_DoesNotRunBackfillAgainForSameDatabase()
     {
         var repository = CreateRepository();
         await repository.EnsureSchemaAsync();
@@ -581,7 +581,7 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
 
         await repository.EnsureSchemaAsync();
         await using var migrated = await OpenConnectionAsync();
-        Assert.Equal("eomer, marshal of rohan", await QuerySingleStringAsync(migrated, "SELECT commander_name_search_key FROM processed_commander_summary WHERE commander_name = 'Éomer, Marshal of Rohan';"));
+        Assert.Null(await QuerySingleStringAsync(migrated, "SELECT commander_name_search_key FROM processed_commander_summary WHERE commander_name = 'Éomer, Marshal of Rohan';"));
     }
 
     [Fact]

@@ -11,6 +11,8 @@ namespace DeckFlow.Core.Knowledge;
 /// </summary>
 internal sealed class CategoryCacheSchema
 {
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> SearchKeyBackfills = new(StringComparer.Ordinal);
+
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly string _directoryPath;
     private readonly ILogger? _logger;
@@ -160,15 +162,35 @@ internal sealed class CategoryCacheSchema
                 "processed_commander_summary one-time backfill failed; table exists but pre-existing commanders are missing until reprocessed.");
         }
 
-        var missingSearchKeys = await connection.QueryAsync<string>(new CommandDefinition(
-            "SELECT commander_name FROM processed_commander_summary WHERE commander_name_search_key IS NULL;",
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-        foreach (var commanderName in missingSearchKeys)
+        var searchKeyBackfillKey = $"{_connectionInfo.Provider}:{_connectionInfo.ConnectionString}";
+        if (SearchKeyBackfills.TryAdd(searchKeyBackfillKey, 0))
         {
-            await connection.ExecuteAsync(new CommandDefinition(
-                "UPDATE processed_commander_summary SET commander_name_search_key = @searchKey WHERE commander_name = @commanderName;",
-                new { commanderName, searchKey = CommanderSearchKey.Normalize(commanderName) },
-                cancellationToken: cancellationToken)).ConfigureAwait(false);
+            try
+            {
+                await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+                var missingSearchKeys = await connection.QueryAsync<string>(new CommandDefinition(
+                    "SELECT commander_name FROM processed_commander_summary WHERE commander_name_search_key IS NULL;",
+                    transaction: transaction,
+                    commandTimeout: 60,
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+                foreach (var commanderName in missingSearchKeys)
+                {
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "UPDATE processed_commander_summary SET commander_name_search_key = @searchKey WHERE commander_name = @commanderName;",
+                        new { commanderName, searchKey = CommanderSearchKey.Normalize(commanderName) ?? string.Empty },
+                        transaction: transaction,
+                        commandTimeout: 60,
+                        cancellationToken: cancellationToken)).ConfigureAwait(false);
+                }
+
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is DbException or OperationCanceledException or TimeoutException)
+            {
+                _logger?.LogWarning(
+                    exception,
+                    "processed_commander_summary search-key backfill failed; rows without keys are excluded until a later process starts.");
+            }
         }
 
         var indexCommand = connection.CreateCommand();
