@@ -195,7 +195,7 @@ public sealed class AdminHarvestController : Controller
             return BadRequest();
         }
 
-        var result = await _commanderCategoryService.LookupAsync(name, cancellationToken).ConfigureAwait(false);
+        var result = await _commanderCategoryService.LookupAsync(name, cancellationToken, includeProcessedDeckCount: false).ConfigureAwait(false);
         var model = new CommanderCategoryBreakdownViewModel
         {
             CommanderName = result.CommanderName,

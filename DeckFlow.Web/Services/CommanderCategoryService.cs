@@ -17,7 +17,7 @@ public interface ICommanderCategoryService
     /// <summary>
     /// Retrieves category usage for the specified commander.
     /// </summary>
-    Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default);
+    Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default, bool includeProcessedDeckCount = true);
 }
 
 /// <summary>
@@ -46,7 +46,7 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
     }
 
     /// <inheritdoc />
-    public async Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default)
+    public async Task<CommanderCategoryResult> LookupAsync(string commanderName, CancellationToken cancellationToken = default, bool includeProcessedDeckCount = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
 
@@ -58,7 +58,9 @@ public sealed class CommanderCategoryService : ICommanderCategoryService
             .GroupBy(m => CategoryCanonicalizer.CanonicalKey(m.Category), StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.Select(m => m.DeckId).Distinct().Count(), StringComparer.Ordinal);
 
-        var deckCount = await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken);
+        var deckCount = includeProcessedDeckCount
+            ? await _knowledgeStore.GetProcessedDeckCountAsync(cancellationToken)
+            : 0;
         var commanderDeckCount = await _knowledgeStore.GetCommanderDeckCountAsync(trimmed, cancellationToken);
         var cardTotals = new CardDeckTotals(commanderDeckCount, new Dictionary<string, int>());
         var summaries = rows
