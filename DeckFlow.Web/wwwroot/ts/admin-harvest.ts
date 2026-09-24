@@ -114,9 +114,10 @@
   };
 
   const commandersGridState = { search: '', sortBy: 'deck_count', sortDir: 'desc' };
+  let commandersRequestId = 0;
+  let commandersAbortController: AbortController | null = null;
 
-  const fetchCommandersGrid = async (page: number): Promise<string | null> => {
-    const abortController = new AbortController();
+  const fetchCommandersGrid = async (page: number, abortController: AbortController): Promise<string | null> => {
     const timeoutId = window.setTimeout(() => abortController.abort(), COMMANDERS_FETCH_TIMEOUT_MS);
 
     try {
@@ -163,6 +164,10 @@
     page: number,
     options?: { scrollIntoView?: boolean; sortColumn?: string }
   ): Promise<void> => {
+    commandersAbortController?.abort();
+    const requestId = ++commandersRequestId;
+    const abortController = new AbortController();
+    commandersAbortController = abortController;
     const shouldScroll = options?.scrollIntoView ?? false;
     const exportSearch = document.querySelector<HTMLInputElement>('[data-export-search]');
     const exportSortBy = document.querySelector<HTMLInputElement>('[data-export-sort-by]');
@@ -180,7 +185,10 @@
     container.innerHTML = COMMANDERS_LOADING_HTML;
 
     try {
-      const html = await fetchCommandersGrid(page);
+      const html = await fetchCommandersGrid(page, abortController);
+      if (requestId !== commandersRequestId) {
+        return;
+      }
       if (html === null) {
         container.innerHTML = COMMANDERS_ERROR_HTML;
         container.setAttribute('aria-busy', 'false');
@@ -203,9 +211,16 @@
         }
       }
     } catch {
+      if (requestId !== commandersRequestId) {
+        return;
+      }
       container.innerHTML = COMMANDERS_ERROR_HTML;
       container.setAttribute('aria-busy', 'false');
       bindCommandersRetry(container, page);
+    } finally {
+      if (requestId === commandersRequestId) {
+        commandersAbortController = null;
+      }
     }
   };
 
