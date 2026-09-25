@@ -210,15 +210,6 @@ public sealed class AdminHarvestController : Controller
     /// Returns the cached harvest status payload used by the admin page polling loop.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token for status reads.</param>
-    private IActionResult? ValidateSameOriginRequest()
-    {
-        return SameOriginRequestValidator.IsValid(Request)
-            ? null
-            : StatusCode(
-                StatusCodes.Status403Forbidden,
-                new { Message = "This endpoint only accepts same-origin browser requests." });
-    }
-
     [HttpGet("status")]
     public async Task<IActionResult> Status(CancellationToken cancellationToken)
     {
@@ -428,6 +419,15 @@ public sealed class AdminHarvestController : Controller
 
         TempData[BannerKey] = paused ? "Schedule paused." : "Schedule resumed.";
         return RedirectToAction(nameof(Index));
+    }
+
+    private IActionResult? ValidateSameOriginRequest()
+    {
+        return SameOriginRequestValidator.IsValid(Request)
+            ? null
+            : StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { Message = "This endpoint only accepts same-origin browser requests." });
     }
 
     private async Task PersistImportedDeckEntriesAsync(string url, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
