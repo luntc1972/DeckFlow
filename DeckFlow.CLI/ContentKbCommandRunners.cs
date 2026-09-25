@@ -370,12 +370,15 @@ internal static class ContentKbCommandRunners
     /// <c>content-kb</c> directory itself — the handler normalizes both to a content base.
     /// </param>
     /// <returns>Process exit code: 1 when a published orphan exists, else 0.</returns>
-    public static async Task<int> RunContentKbCheckAsync(FileInfo? db, DirectoryInfo? artifactRoot)
+    public static async Task<int> RunContentKbCheckAsync(
+        FileInfo? db,
+        DirectoryInfo? artifactRoot,
+        Func<string, string?>? environmentVariableGetter = null)
     {
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var rawRoot = artifactRoot?.FullName ?? ContentKbCliPaths.ResolveArtifactRoot(db);
+            var rawRoot = artifactRoot?.FullName ?? ContentKbCliPaths.ResolveArtifactRoot(db, environmentVariableGetter);
             var contentBase = NormalizeToContentBase(rawRoot);
 
             var suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(dbPath));
@@ -451,15 +454,14 @@ internal static class ContentKbCommandRunners
         Serilog.ILogger logger,
         CancellationToken ct,
         IReadOnlyList<string>? videoIds = null,
-        long? sourceId = null,
-        string? artifactRoot = null)
+        long? sourceId = null)
     {
         ArgumentNullException.ThrowIfNull(logger);
 
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            artifactRoot ??= ContentKbCliPaths.ResolveArtifactRoot(db);
+            var artifactRoot = NonArtifactOperationRoot;
             await EnsureSuppressionReadableAsync(dbPath, ct).ConfigureAwait(false);
             using var youtubeHttpClient = new HttpClient();
             using var whisperHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };

@@ -23,7 +23,7 @@ public sealed class CreatorSuppressionPipelineTests : IDisposable
     public async Task CliHarvest_SuppressedCreator_IsNotListedForHarvest()
     {
         var sourceId = await CreateSuppressedSourceAsync();
-        var exitCode = await ContentKbCommandRunners.RunHarvestAsync(new FileInfo(_databasePath), 10, false, Serilog.Log.Logger, CancellationToken.None, artifactRoot: _databaseDirectory);
+        var exitCode = await ContentKbCommandRunners.RunHarvestAsync(new FileInfo(_databasePath), 10, false, Serilog.Log.Logger, CancellationToken.None);
         Assert.Equal(0, exitCode);
         Assert.Empty(await new ContentVideoStore(_databasePath).ListVideosPendingDistillAsync(sourceId));
     }

@@ -34,7 +34,9 @@ internal static class ContentKbCliPaths
     /// <returns>The full path to the Content KB artifact root.</returns>
     public static string ResolveArtifactRoot(FileInfo? db, Func<string, string?>? environmentVariableGetter = null)
     {
-        var dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var dataDir = environmentVariableGetter is null
+            ? Environment.GetEnvironmentVariable("MTG_DATA_DIR")
+            : environmentVariableGetter("MTG_DATA_DIR");
         if (!string.IsNullOrWhiteSpace(dataDir))
         {
             return Path.GetFullPath(Path.Combine(dataDir, "content-kb"));

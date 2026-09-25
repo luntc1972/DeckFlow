@@ -5,6 +5,7 @@ namespace DeckFlow.Core.Content;
 /// </summary>
 public sealed class PrivateKbRoot
 {
+    private const int MaximumCanonicalizationPasses = 64;
     /// <summary>
     /// The environment variable that supplies the private KB root.
     /// </summary>
@@ -73,6 +74,23 @@ public sealed class PrivateKbRoot
     }
 
     private static string CanonicalizeDirectory(string directoryPath)
+    {
+        var current = Path.GetFullPath(directoryPath);
+        for (var pass = 0; pass < MaximumCanonicalizationPasses; pass++)
+        {
+            var canonical = CanonicalizeDirectoryPass(current);
+            if (string.Equals(current, canonical, StringComparison.OrdinalIgnoreCase))
+            {
+                return canonical;
+            }
+
+            current = canonical;
+        }
+
+        throw new InvalidOperationException($"Unable to resolve {directoryPath}: too many symbolic link resolutions.");
+    }
+
+    private static string CanonicalizeDirectoryPass(string directoryPath)
     {
         var root = Path.GetPathRoot(directoryPath) ?? throw new InvalidOperationException($"Unable to resolve {directoryPath}.");
         var current = root;
