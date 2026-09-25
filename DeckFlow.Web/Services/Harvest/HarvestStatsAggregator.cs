@@ -76,7 +76,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     /// <inheritdoc/>
     public Task<HarvestStatsPayload> GetAsync(CancellationToken cancellationToken = default)
     {
-        if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached))
+        if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached) && cached is not null)
         {
             if (_timeProvider.GetUtcNow() - cached.CachedAtUtc < TimeSpan.FromSeconds(60))
             {
@@ -93,7 +93,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     /// <inheritdoc/>
     public void Invalidate()
     {
-        if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached))
+        if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached) && cached is not null)
         {
             _memoryCache.Set(CacheKey, cached with { CachedAtUtc = DateTimeOffset.MinValue });
         }
