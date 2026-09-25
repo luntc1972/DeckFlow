@@ -80,6 +80,29 @@ public sealed class PrivateRootTests
     }
 
     [Fact]
+    public void Constructor_DeepPathWithLinkPastFortySixSegments_Throws()
+    {
+        using var outside = new TempDirectory();
+        var checkout = Directory.CreateDirectory(Path.Combine(outside.Path, "c"));
+        File.WriteAllText(Path.Combine(checkout.FullName, "DeckFlow.sln"), string.Empty);
+        Directory.CreateDirectory(Path.Combine(checkout.FullName, ".git"));
+        var target = Directory.CreateDirectory(Path.Combine(checkout.FullName, "kb", "child"));
+        var deepPath = outside.Path;
+        for (var index = 0; index < 50; index++)
+        {
+            deepPath = Path.Combine(deepPath, $"d{index}");
+            Directory.CreateDirectory(deepPath);
+        }
+
+        var link = Path.Combine(deepPath, "link");
+        CreateSymbolicLinkOrSkip(link, Path.Combine(target.Parent!.FullName));
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new PrivateKbRoot(Path.Combine(link, "child")));
+
+        Assert.Contains("must not be inside a DeckFlow product checkout", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Constructor_ChainedSymlinkIntoCheckout_Throws()
     {
         using var checkout = new TempDirectory();
@@ -109,20 +132,13 @@ public sealed class PrivateRootTests
         var checkoutLink = Path.Combine(outside.Path, "j1");
         var relativeDotDotLink = Path.Combine(outside.Path, "reldots");
         CreateSymbolicLinkOrSkip(checkoutLink, Path.Combine(checkout, "child"));
-        // Why: Windows resolves link-target .. lexically, while POSIX resolves it through realpath.
+        // Why: Windows resolves link-target .. lexically, so the resolver is deliberately stricter there (fails closed).
         CreateSymbolicLinkOrSkip(relativeDotDotLink, "j1/../kb2");
 
         var exception = Assert.Throws<InvalidOperationException>(() => new PrivateKbRoot(relativeDotDotLink));
 
         Assert.Contains(PrivateKbRoot.EnvironmentVariableName, exception.Message, StringComparison.Ordinal);
-        if (OperatingSystem.IsWindows())
-        {
-            Assert.Contains("must name an existing directory", exception.Message, StringComparison.Ordinal);
-        }
-        else
-        {
-            Assert.Contains("must not be inside a DeckFlow product checkout", exception.Message, StringComparison.Ordinal);
-        }
+        Assert.Contains("must not be inside a DeckFlow product checkout", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -165,13 +181,25 @@ public sealed class PrivateRootTests
         {
             if (secondLinkCreated)
             {
-                Directory.Delete(secondLink);
+                DeleteLink(secondLink);
             }
 
             if (firstLinkCreated)
             {
-                Directory.Delete(firstLink);
+                DeleteLink(firstLink);
             }
+        }
+    }
+
+    private static void DeleteLink(string linkPath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Directory.Delete(linkPath);
+        }
+        else
+        {
+            File.Delete(linkPath);
         }
     }
 
@@ -181,7 +209,7 @@ public sealed class PrivateRootTests
         {
             Directory.CreateSymbolicLink(linkPath, targetPath);
         }
-        catch (Exception exception) when (exception is UnauthorizedAccessException or PlatformNotSupportedException)
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
         {
             throw Xunit.Sdk.SkipException.ForSkip("This operating system cannot create directory symbolic links for the chained-link test.");
         }

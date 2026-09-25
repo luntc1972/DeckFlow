@@ -159,7 +159,7 @@ public sealed class PrivateKbRoot
     }
 
     private static string[] SplitSegments(string path)
-        => path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+        => path.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
 
     private static bool IsInsideProductCheckout(string directoryPath)
     {
