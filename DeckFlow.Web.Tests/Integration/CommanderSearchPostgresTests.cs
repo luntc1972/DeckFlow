@@ -39,7 +39,7 @@ public sealed class CommanderSearchPostgresTests : IClassFixture<PostgresContain
 
         var rows = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.Default);
 
-        Assert.Equal(new[] { "Atraxa", "Zada", "Éowyn" }, rows.Select(row => row.CommanderName));
+        Assert.Equal(new[] { "Atraxa", "Éowyn", "Zada" }, rows.Select(row => row.CommanderName));
     }
 
     [PostgresFact]

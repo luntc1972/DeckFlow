@@ -190,6 +190,23 @@ public sealed class DeckQueueRepositoryCommanderSummaryTests : IDisposable
         Assert.Equal(expectedNames.Split('|'), rows.Select(row => row.CommanderName));
     }
 
+    [Theory]
+    [InlineData("deck_count", "desc", "Atraxa|Éowyn|Zada")]
+    [InlineData("deck_count", "asc", "Atraxa|Éowyn|Zada")]
+    [InlineData("last_processed", "desc", "Atraxa|Éowyn|Zada")]
+    [InlineData("last_processed", "asc", "Atraxa|Éowyn|Zada")]
+    [InlineData("name", "asc", "Atraxa|Éowyn|Zada")]
+    [InlineData("name", "desc", "Zada|Éowyn|Atraxa")]
+    public async Task GetFilteredProcessedCommanderRowsAsync_SortTiedPrimaryKeys_BreaksTiesByName(string sortBy, string sortDir, string expectedNames)
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await SeedCommanderRowsAsync(repository, databasePath, ("Éowyn", 2, "2026-01-02T00:00:00Z"), ("Atraxa", 2, "2026-01-02T00:00:00Z"), ("Zada", 2, "2026-01-02T00:00:00Z"));
+
+        var rows = await repository.GetFilteredProcessedCommanderRowsAsync(1, 20, CommanderGridQuery.FromRequest(null, sortBy, sortDir));
+
+        Assert.Equal(expectedNames.Split('|'), rows.Select(row => row.CommanderName));
+    }
+
     private static async Task SeedCommanderRowsAsync(DeckQueueRepository repository, string databasePath, params (string Name, int Count, string? LastProcessedUtc)[] rows)
     {
         await repository.AddDeckIdsAsync(rows.Select(row => $"deck-{row.Name}"));
