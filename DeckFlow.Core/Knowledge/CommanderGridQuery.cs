@@ -70,9 +70,12 @@ public sealed record CommanderGridQuery
 
     /// <summary>Returns the direction token requested by clicking <paramref name="column"/>.</summary>
     /// <param name="column">Column whose header was clicked.</param>
-    /// <returns>The <c>asc</c> or <c>desc</c> token for that click.</returns>
+    /// <returns>The reverse current direction for an active column; otherwise <c>asc</c> for Name and <c>desc</c> for Deck Count and Last Processed.</returns>
     public string NextDirectionToken(CommanderSortColumn column)
-        => IsActive(column) ? (Descending ? "asc" : "desc") : "asc";
+    {
+        // Why: Count and timestamp columns open on their most useful end (most decks, newest); names open A to Z.
+        return IsActive(column) ? (Descending ? "asc" : "desc") : column == CommanderSortColumn.Name ? "asc" : "desc";
+    }
 
     /// <summary>Escaped, normalized SQL LIKE prefix pattern.</summary>
     public string? SqlPrefixPattern
