@@ -142,7 +142,10 @@ internal sealed class DeckQueueRepository
             _ => string.Empty
         };
         var collation = _connectionInfo.IsPostgres ? " COLLATE \"C\"" : string.Empty;
-        var nameTail = $"CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key{collation} {direction}, commander_name{collation} {direction}";
+        // Why: The name chain is the user-facing order only for Name. For every other column it is a tiebreak,
+        // and stays A to Z so D-05's default view lists tied commanders as it did before phase 2 (02-01 Task 2).
+        var nameTailDirection = query.SortBy == CommanderSortColumn.Name && query.Descending ? "DESC" : "ASC";
+        var nameTail = $"CASE WHEN commander_name_search_key IS NULL THEN 1 ELSE 0 END ASC, commander_name_search_key{collation} {nameTailDirection}, commander_name{collation} {nameTailDirection}";
         return $"ORDER BY {string.Join(", ", new[] { primaryOrder, nameTail }.Where(part => part.Length > 0))}";
     }
 
