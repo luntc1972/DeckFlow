@@ -71,4 +71,32 @@ public sealed class CommanderGridQueryTests
 
         Assert.NotEqual(defaultQuery.CacheToken, hyphenQuery.CacheToken);
     }
+
+    [Theory]
+    [InlineData("deck_count", "desc", CommanderSortColumn.Name, "asc")]
+    [InlineData("last_processed", "asc", CommanderSortColumn.Name, "asc")]
+    [InlineData("name", "asc", CommanderSortColumn.DeckCount, "desc")]
+    [InlineData("last_processed", "desc", CommanderSortColumn.DeckCount, "desc")]
+    [InlineData("deck_count", "desc", CommanderSortColumn.LastProcessed, "desc")]
+    [InlineData("name", "asc", CommanderSortColumn.LastProcessed, "desc")]
+    public void NextDirectionToken_InactiveColumn_ReturnsColumnFirstDirection(string sortBy, string sortDir, CommanderSortColumn clicked, string expected)
+    {
+        var query = CommanderGridQuery.FromRequest(null, sortBy, sortDir);
+
+        Assert.Equal(expected, query.NextDirectionToken(clicked));
+    }
+
+    [Theory]
+    [InlineData("name", "asc", CommanderSortColumn.Name, "desc")]
+    [InlineData("name", "desc", CommanderSortColumn.Name, "asc")]
+    [InlineData("deck_count", "desc", CommanderSortColumn.DeckCount, "asc")]
+    [InlineData("deck_count", "asc", CommanderSortColumn.DeckCount, "desc")]
+    [InlineData("last_processed", "desc", CommanderSortColumn.LastProcessed, "asc")]
+    [InlineData("last_processed", "asc", CommanderSortColumn.LastProcessed, "desc")]
+    public void NextDirectionToken_ActiveColumn_ReversesDirection(string sortBy, string sortDir, CommanderSortColumn clicked, string expected)
+    {
+        var query = CommanderGridQuery.FromRequest(null, sortBy, sortDir);
+
+        Assert.Equal(expected, query.NextDirectionToken(clicked));
+    }
 }
