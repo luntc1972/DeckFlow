@@ -10,12 +10,14 @@ namespace DeckFlow.CLI;
 
 internal static class ContentKbCommandRunners
 {
+    private static readonly string NonArtifactOperationRoot = Path.GetTempPath();
+
     public static async Task<int> RunContentSourceAddAsync(string url, string name, string type, FileInfo? db)
     {
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            var artifactRoot = NonArtifactOperationRoot;
             var orchestrator = CreateSqliteOrchestrator(
                 dbPath,
                 artifactRoot,
@@ -55,7 +57,7 @@ internal static class ContentKbCommandRunners
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            var artifactRoot = NonArtifactOperationRoot;
             var orchestrator = CreateSqliteOrchestrator(
                 dbPath,
                 artifactRoot,
@@ -83,14 +85,16 @@ internal static class ContentKbCommandRunners
         bool dryRun,
         Serilog.ILogger logger,
         CancellationToken ct,
-        IReadOnlyList<string>? videoIds = null)
+        IReadOnlyList<string>? videoIds = null,
+        string? artifactRoot = null,
+        Func<string, string?>? environmentVariableGetter = null)
     {
         ArgumentNullException.ThrowIfNull(logger);
 
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            artifactRoot ??= ContentKbCliPaths.ResolveArtifactRoot(db, environmentVariableGetter);
             await EnsureSuppressionReadableAsync(dbPath, ct).ConfigureAwait(false);
             using var llmHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
             var providerEnv = Environment.GetEnvironmentVariable(LlmDistillationProviderFactory.EnvironmentVariableName);
@@ -143,7 +147,7 @@ internal static class ContentKbCommandRunners
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            var artifactRoot = NonArtifactOperationRoot;
             var orchestrator = CreateSqliteOrchestrator(
                 dbPath,
                 artifactRoot,
@@ -193,7 +197,7 @@ internal static class ContentKbCommandRunners
                     PostgresConnectionStringNormalizer.Normalize(connectionString));
                 orchestrator = CreateConnectionOrchestrator(
                     connection,
-                    ContentKbCliPaths.ResolveArtifactRoot(db),
+                    NonArtifactOperationRoot,
                     distiller: new ThrowingLlmDistillationService(),
                     lister: new ThrowingYouTubeChannelVideoLister(),
                     transcriptSource: new ThrowingTranscriptSource(),
@@ -204,7 +208,7 @@ internal static class ContentKbCommandRunners
                 var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
                 orchestrator = CreateSqliteOrchestrator(
                     dbPath,
-                    ContentKbCliPaths.ResolveArtifactRoot(db),
+                    NonArtifactOperationRoot,
                     distiller: new ThrowingLlmDistillationService(),
                     lister: new ThrowingYouTubeChannelVideoLister(),
                     transcriptSource: new ThrowingTranscriptSource(),
@@ -244,7 +248,7 @@ internal static class ContentKbCommandRunners
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            var artifactRoot = NonArtifactOperationRoot;
             var orchestrator = CreateSqliteOrchestrator(
                 dbPath,
                 artifactRoot,
@@ -283,7 +287,7 @@ internal static class ContentKbCommandRunners
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            var artifactRoot = NonArtifactOperationRoot;
             var orchestrator = CreateSqliteOrchestrator(
                 dbPath,
                 artifactRoot,
@@ -316,12 +320,19 @@ internal static class ContentKbCommandRunners
     /// <param name="db">Optional path to the content KB database.</param>
     /// <param name="output">Optional destination path for the seed file.</param>
     /// <returns>Process exit code.</returns>
-    public static async Task<int> RunContentIndexExportAsync(FileInfo? db, FileInfo? output)
+    public static async Task<int> RunContentIndexExportAsync(
+        FileInfo? db,
+        FileInfo? output,
+        Func<string, string?>? environmentVariableGetter = null)
     {
         try
         {
+            var outputPath = output?.FullName
+                ?? (environmentVariableGetter is null
+                    ? PrivateKbRoot.FromEnvironment()
+                    : PrivateKbRoot.FromEnvironment(environmentVariableGetter)).SeedFile;
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            var artifactRoot = NonArtifactOperationRoot;
             var orchestrator = CreateSqliteOrchestrator(
                 dbPath,
                 artifactRoot,
@@ -336,7 +347,6 @@ internal static class ContentKbCommandRunners
                 return 1;
             }
 
-            var outputPath = output?.FullName ?? ContentKbPaths.SeedRelativePath;
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? Directory.GetCurrentDirectory());
             await File.WriteAllTextAsync(outputPath, SerializeContentIndexExportRows(result.Rows)).ConfigureAwait(false);
             Console.WriteLine($"Exported {result.RowCount} rows to {outputPath}");
@@ -441,14 +451,15 @@ internal static class ContentKbCommandRunners
         Serilog.ILogger logger,
         CancellationToken ct,
         IReadOnlyList<string>? videoIds = null,
-        long? sourceId = null)
+        long? sourceId = null,
+        string? artifactRoot = null)
     {
         ArgumentNullException.ThrowIfNull(logger);
 
         try
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
-            var artifactRoot = ContentKbCliPaths.ResolveArtifactRoot(db);
+            artifactRoot ??= ContentKbCliPaths.ResolveArtifactRoot(db);
             await EnsureSuppressionReadableAsync(dbPath, ct).ConfigureAwait(false);
             using var youtubeHttpClient = new HttpClient();
             using var whisperHttpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };

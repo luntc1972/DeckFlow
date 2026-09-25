@@ -23,7 +23,7 @@ public sealed class CreatorSuppressionPipelineTests : IDisposable
     public async Task CliHarvest_SuppressedCreator_IsNotListedForHarvest()
     {
         var sourceId = await CreateSuppressedSourceAsync();
-        var exitCode = await ContentKbCommandRunners.RunHarvestAsync(new FileInfo(_databasePath), 10, false, Serilog.Log.Logger, CancellationToken.None);
+        var exitCode = await ContentKbCommandRunners.RunHarvestAsync(new FileInfo(_databasePath), 10, false, Serilog.Log.Logger, CancellationToken.None, artifactRoot: _databaseDirectory);
         Assert.Equal(0, exitCode);
         Assert.Empty(await new ContentVideoStore(_databasePath).ListVideosPendingDistillAsync(sourceId));
     }
@@ -33,7 +33,7 @@ public sealed class CreatorSuppressionPipelineTests : IDisposable
     {
         var sourceId = await CreateSuppressedSourceAsync();
         await new ContentVideoStore(_databasePath).InsertVideoAsync(sourceId, "suppressed-video", null, "Suppressed video", "https://example.test/video", DateTimeOffset.UtcNow, TranscriptStatus.Pending);
-        var exitCode = await ContentKbCommandRunners.RunDistillAsync(new FileInfo(_databasePath), 10, true, Serilog.Log.Logger, CancellationToken.None);
+        var exitCode = await ContentKbCommandRunners.RunDistillAsync(new FileInfo(_databasePath), 10, true, Serilog.Log.Logger, CancellationToken.None, artifactRoot: _databaseDirectory);
         Assert.Equal(0, exitCode);
         Assert.Equal(TranscriptStatus.Pending, (await new ContentVideoStore(_databasePath).GetVideoByYoutubeIdAsync(sourceId, "suppressed-video"))?.TranscriptStatus);
     }

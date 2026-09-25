@@ -1,3 +1,5 @@
+using DeckFlow.Core.Content;
+
 namespace DeckFlow.CLI;
 
 /// <summary>
@@ -30,7 +32,7 @@ internal static class ContentKbCliPaths
     /// </summary>
     /// <param name="db">Unused optional database file path kept for call-site compatibility.</param>
     /// <returns>The full path to the Content KB artifact root.</returns>
-    public static string ResolveArtifactRoot(FileInfo? db)
+    public static string ResolveArtifactRoot(FileInfo? db, Func<string, string?>? environmentVariableGetter = null)
     {
         var dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
         if (!string.IsNullOrWhiteSpace(dataDir))
@@ -38,7 +40,8 @@ internal static class ContentKbCliPaths
             return Path.GetFullPath(Path.Combine(dataDir, "content-kb"));
         }
 
-        // Why: D-11 / HSK-04 collapses the dual artifact tree to the repo-root content-kb so drift is impossible.
-        return Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "content-kb"));
+        return environmentVariableGetter is null
+            ? PrivateKbRoot.FromEnvironment().ContentKbDir
+            : PrivateKbRoot.FromEnvironment(environmentVariableGetter).ContentKbDir;
     }
 }

@@ -22,11 +22,18 @@ internal static class CreatorStyleCommandRunners
     /// <param name="file">Optional path to the stated-rules seed JSON file.</param>
     /// <param name="db">Optional path to the content KB database.</param>
     /// <returns>Process exit code.</returns>
-    public static async Task<int> RunCreatorStyleImportStatedAsync(FileInfo? file, FileInfo? db)
+    public static async Task<int> RunCreatorStyleImportStatedAsync(
+        FileInfo? file,
+        FileInfo? db,
+        Func<string, string?>? environmentVariableGetter = null)
     {
         try
         {
-            var seedPath = file?.FullName ?? ContentKbPaths.CreatorStatedRulesSeedRelativePath;
+            var seedPath = file?.FullName ?? Path.Combine(
+                environmentVariableGetter is null
+                    ? PrivateKbRoot.FromEnvironment().CreatorStyleSeedDir
+                    : PrivateKbRoot.FromEnvironment(environmentVariableGetter).CreatorStyleSeedDir,
+                "creator-stated-rules.json");
             if (!File.Exists(seedPath))
             {
                 Console.Error.WriteLine($"Stated-rules seed file not found: {seedPath}");
@@ -176,10 +183,19 @@ internal static class CreatorStyleCommandRunners
     /// <returns>Process exit code.</returns>
     // Why: registered as its own command in Program.cs, not chained onto fuse-profile (D-04) — the
     // three creator-style stages stay independently re-runnable.
-    public static async Task<int> RunCreatorStyleIndexExportAsync(FileInfo? db, FileInfo? profilesOutput, FileInfo? deckCacheOutput)
+    public static async Task<int> RunCreatorStyleIndexExportAsync(
+        FileInfo? db,
+        FileInfo? profilesOutput,
+        FileInfo? deckCacheOutput,
+        Func<string, string?>? environmentVariableGetter = null)
     {
         try
         {
+            var seedDirectory = profilesOutput is null || deckCacheOutput is null
+                ? (environmentVariableGetter is null
+                    ? PrivateKbRoot.FromEnvironment()
+                    : PrivateKbRoot.FromEnvironment(environmentVariableGetter)).CreatorStyleSeedDir
+                : null;
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var stores = CreateStoresForDatabase(dbPath);
             await stores.SuppressionStore.ListAsync().ConfigureAwait(false);
@@ -226,8 +242,10 @@ internal static class CreatorStyleCommandRunners
                 deckCacheEntries.AddRange(deckEntries);
             }
 
-            var profilesPath = profilesOutput?.FullName ?? ContentKbPaths.CreatorStyleProfileSeedRelativePath;
-            var deckCachePath = deckCacheOutput?.FullName ?? ContentKbPaths.CreatorDeckCacheSeedRelativePath;
+            var profilesPath = profilesOutput?.FullName
+                ?? Path.Combine(seedDirectory!, "creator-style-profiles.json");
+            var deckCachePath = deckCacheOutput?.FullName
+                ?? Path.Combine(seedDirectory!, "creator-deck-cache.json");
 
             EnsureParentDirectory(profilesPath);
             EnsureParentDirectory(deckCachePath);

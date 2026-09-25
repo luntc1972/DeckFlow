@@ -145,20 +145,20 @@ var distillDryRunOption = new Option<bool>("--dry-run", () => false) { Descripti
 var distillVideoIdsOption = new Option<string?>("--video-ids") { Description = "Comma-separated natural keys (YouTube video ids or RSS guids) to distill; other pending videos are skipped and --limit is ignored." };
 var contentIndexExportCommand = new Command("content-index-export", "Exports the local content_site_index to a tracked JSON seed file for commit-then-deploy.");
 var contentIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
-var contentIndexExportOutputOption = new Option<FileInfo?>("--output", () => new FileInfo(ContentKbPaths.SeedRelativePath)) { Description = "Path to the JSON seed file. Defaults to content-kb/seed/index-seed.json." };
+var contentIndexExportOutputOption = new Option<FileInfo?>("--output") { Description = "Path to the JSON seed file. Defaults to DECKFLOW_KB_ROOT/content-kb/seed/index-seed.json." };
 var contentKbCheckCommand = new Command("content-kb-check", "Checks content_site_index rows against local artifact files and reports orphans (read-only; exits 1 when a published orphan exists).");
 var contentKbCheckDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
-var contentKbCheckArtifactRootOption = new Option<DirectoryInfo?>("--artifact-root") { Description = "Artifact directory: either the data-root parent of content-kb/ or the content-kb directory itself (both are normalized). Defaults to the MTG_DATA_DIR/content-kb resolution." };
+var contentKbCheckArtifactRootOption = new Option<DirectoryInfo?>("--artifact-root") { Description = "Artifact directory: either the data-root parent of content-kb/ or the content-kb directory itself (both are normalized). Defaults to MTG_DATA_DIR/content-kb, then DECKFLOW_KB_ROOT/content-kb." };
 var creatorStyleImportStatedCommand = new Command("creator-style-import-stated", "Imports the tracked creator stated-rules seed into content_stated_rules. Exit codes: 0 = success with at least one rule imported; 1 = missing seed file or unhandled exception; 2 = the seed file parsed but held no rules.");
-var creatorStyleImportStatedFileOption = new Option<FileInfo?>("--file", () => new FileInfo(ContentKbPaths.CreatorStatedRulesSeedRelativePath)) { Description = "Path to the stated-rules seed JSON file. Defaults to content-kb/seed/creator-stated-rules.json." };
+var creatorStyleImportStatedFileOption = new Option<FileInfo?>("--file") { Description = "Path to the stated-rules seed JSON file. Defaults to DECKFLOW_KB_ROOT/creator-style-seed/creator-stated-rules.json." };
 var creatorStyleImportStatedDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var fuseProfileCommand = new Command("fuse-profile", "Fuses a creator's measured profile with its stated rules and persists the fused ledger. Exit codes: 0 = success with a non-empty fused ledger persisted; 1 = bad arguments or unhandled exception; 2 = ran successfully but the measured profile or stated rules were missing; 3 = creator is suppressed.");
 var fuseProfileSlugOption = new Option<string>("--slug") { IsRequired = true, Description = "Creator slug to fuse." };
 var fuseProfileDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
 var creatorStyleIndexExportCommand = new Command("creator-style-index-export", "Exports every stored creator style profile and its cached decks to tracked JSON seed files for commit-then-deploy. Exit codes: 0 = success with at least one profile exported; 1 = bad arguments or unhandled exception; 2 = ran successfully but the profile store held no profiles to export.");
 var creatorStyleIndexExportDbOption = new Option<FileInfo?>("--db") { Description = "Path to the content KB database. Defaults to artifacts/content-kb.db." };
-var creatorStyleIndexExportProfilesOutputOption = new Option<FileInfo?>("--profiles-output", () => new FileInfo(ContentKbPaths.CreatorStyleProfileSeedRelativePath)) { Description = "Path to the creator-style profile seed file. Defaults to content-kb/seed/creator-style-profiles.json." };
-var creatorStyleIndexExportDeckCacheOutputOption = new Option<FileInfo?>("--deck-cache-output", () => new FileInfo(ContentKbPaths.CreatorDeckCacheSeedRelativePath)) { Description = "Path to the creator deck-cache seed file. Defaults to content-kb/seed/creator-deck-cache.json." };
+var creatorStyleIndexExportProfilesOutputOption = new Option<FileInfo?>("--profiles-output") { Description = "Path to the creator-style profile seed file. Defaults to DECKFLOW_KB_ROOT/creator-style-seed/creator-style-profiles.json." };
+var creatorStyleIndexExportDeckCacheOutputOption = new Option<FileInfo?>("--deck-cache-output") { Description = "Path to the creator deck-cache seed file. Defaults to DECKFLOW_KB_ROOT/creator-style-seed/creator-deck-cache.json." };
 
 compareCommand.AddOption(moxfieldOption);
 compareCommand.AddOption(moxfieldUrlOption);
