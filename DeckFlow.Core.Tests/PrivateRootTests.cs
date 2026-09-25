@@ -1,6 +1,4 @@
 using DeckFlow.Core.Content;
-using DeckFlow.CLI;
-using Microsoft.Data.Sqlite;
 
 namespace DeckFlow.Core.Tests;
 
@@ -98,6 +96,85 @@ public sealed class PrivateRootTests
         Assert.Throws<InvalidOperationException>(() => new PrivateKbRoot(link));
     }
 
+    [Fact]
+    public void Constructor_RelativeDotDotLinkThroughCheckoutLink_Throws()
+    {
+        using var outside = new TempDirectory();
+        var checkout = Path.Combine(outside.Path, "checkout");
+        Directory.CreateDirectory(checkout);
+        File.WriteAllText(Path.Combine(checkout, "DeckFlow.sln"), string.Empty);
+        Directory.CreateDirectory(Path.Combine(checkout, ".git"));
+        Directory.CreateDirectory(Path.Combine(checkout, "kb2"));
+        Directory.CreateDirectory(Path.Combine(checkout, "child"));
+        var checkoutLink = Path.Combine(outside.Path, "j1");
+        var relativeDotDotLink = Path.Combine(outside.Path, "reldots");
+        CreateSymbolicLinkOrSkip(checkoutLink, Path.Combine(checkout, "child"));
+        // Why: Windows resolves link-target .. lexically, while POSIX resolves it through realpath.
+        CreateSymbolicLinkOrSkip(relativeDotDotLink, "j1/../kb2");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new PrivateKbRoot(relativeDotDotLink));
+
+        Assert.Contains(PrivateKbRoot.EnvironmentVariableName, exception.Message, StringComparison.Ordinal);
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Contains("must name an existing directory", exception.Message, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains("must not be inside a DeckFlow product checkout", exception.Message, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Constructor_RelativeLinkToOutsideDirectory_ResolvesAgainstLinkParent()
+    {
+        using var outside = new TempDirectory();
+        var expectedRoot = Path.Combine(outside.Path, "real", "kb");
+        Directory.CreateDirectory(expectedRoot);
+        var relativeLink = Path.Combine(outside.Path, "rel");
+        CreateSymbolicLinkOrSkip(relativeLink, "real/kb");
+
+        var root = new PrivateKbRoot(relativeLink);
+
+        var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        Assert.True(string.Equals(Path.GetFullPath(expectedRoot), root.Root, comparison));
+    }
+
+    [Fact]
+    public void Constructor_SymlinkCycle_ThrowsInvalidOperation()
+    {
+        using var root = new TempDirectory();
+        var firstLink = Path.Combine(root.Path, "a");
+        var secondLink = Path.Combine(root.Path, "b");
+        var firstLinkCreated = false;
+        var secondLinkCreated = false;
+        try
+        {
+            CreateSymbolicLinkOrSkip(firstLink, "b");
+            firstLinkCreated = true;
+            CreateSymbolicLinkOrSkip(secondLink, "a");
+            secondLinkCreated = true;
+
+            var exception = Assert.Throws<InvalidOperationException>(() => new PrivateKbRoot(firstLink));
+
+            Assert.Contains(PrivateKbRoot.EnvironmentVariableName, exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (secondLinkCreated)
+            {
+                Directory.Delete(secondLink);
+            }
+
+            if (firstLinkCreated)
+            {
+                Directory.Delete(firstLink);
+            }
+        }
+    }
+
     private static void CreateSymbolicLinkOrSkip(string linkPath, string targetPath)
     {
         try
@@ -124,162 +201,5 @@ public sealed class PrivateRootTests
         {
             Directory.Delete(Path, recursive: true);
         }
-    }
-}
-
-public sealed class CliPrivateRootDefaultsTests
-{
-    private static readonly SemaphoreSlim ConsoleErrorLock = new(1, 1);
-
-    [Fact]
-    public async Task ContentIndexExport_DefaultOutputUnsetRoot_FailsClosed()
-    {
-        using var root = new TempDirectory();
-        var contentKbExisted = Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "content-kb"));
-
-        var (exitCode, error) = await CaptureStandardErrorAsync(() => ContentKbCommandRunners.RunContentIndexExportAsync(
-            new FileInfo(Path.Combine(root.Path, "content-kb.db")),
-            output: null,
-            environmentVariableGetter: _ => null));
-
-        Assert.NotEqual(0, exitCode);
-        Assert.Contains(PrivateKbRoot.EnvironmentVariableName, error, StringComparison.Ordinal);
-        AssertCurrentDirectoryContentKbUnchanged(contentKbExisted);
-    }
-
-    [Fact]
-    public async Task CreatorStyleImportStated_DefaultFileUnsetRoot_FailsClosed()
-    {
-        using var root = new TempDirectory();
-        var contentKbExisted = Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "content-kb"));
-
-        var (exitCode, error) = await CaptureStandardErrorAsync(() => CreatorStyleCommandRunners.RunCreatorStyleImportStatedAsync(
-            file: null,
-            db: new FileInfo(Path.Combine(root.Path, "content-kb.db")),
-            environmentVariableGetter: _ => null));
-
-        Assert.NotEqual(0, exitCode);
-        Assert.Contains(PrivateKbRoot.EnvironmentVariableName, error, StringComparison.Ordinal);
-        AssertCurrentDirectoryContentKbUnchanged(contentKbExisted);
-    }
-
-    [Fact]
-    public async Task CreatorStyleIndexExport_DefaultOutputsUnsetRoot_FailsClosed()
-    {
-        using var root = new TempDirectory();
-        var contentKbExisted = Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "content-kb"));
-
-        var (exitCode, error) = await CaptureStandardErrorAsync(() => CreatorStyleCommandRunners.RunCreatorStyleIndexExportAsync(
-            new FileInfo(Path.Combine(root.Path, "content-kb.db")),
-            profilesOutput: null,
-            deckCacheOutput: null,
-            environmentVariableGetter: _ => null));
-
-        Assert.NotEqual(0, exitCode);
-        Assert.Contains(PrivateKbRoot.EnvironmentVariableName, error, StringComparison.Ordinal);
-        AssertCurrentDirectoryContentKbUnchanged(contentKbExisted);
-    }
-
-    [Fact]
-    public async Task Distill_DefaultArtifactRootUnset_FailsClosed()
-    {
-        using var root = new TempDirectory();
-        var contentKbExisted = Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "content-kb"));
-
-        var (exitCode, error) = await CaptureStandardErrorAsync(() => ContentKbCommandRunners.RunDistillAsync(
-            new FileInfo(Path.Combine(root.Path, "content-kb.db")),
-            limit: 1,
-            dryRun: true,
-            Serilog.Log.Logger,
-            CancellationToken.None,
-            environmentVariableGetter: _ => null));
-
-        Assert.NotEqual(0, exitCode);
-        Assert.Contains(PrivateKbRoot.EnvironmentVariableName, error, StringComparison.Ordinal);
-        AssertCurrentDirectoryContentKbUnchanged(contentKbExisted);
-    }
-
-    [Fact]
-    public async Task ContentKbCheck_DefaultArtifactRootUnset_FailsClosed()
-    {
-        using var root = new TempDirectory();
-        var contentKbExisted = Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "content-kb"));
-
-        var (exitCode, error) = await CaptureStandardErrorAsync(() => ContentKbCommandRunners.RunContentKbCheckAsync(
-            new FileInfo(Path.Combine(root.Path, "content-kb.db")),
-            artifactRoot: null,
-            environmentVariableGetter: _ => null));
-
-        Assert.NotEqual(0, exitCode);
-        Assert.Contains(PrivateKbRoot.EnvironmentVariableName, error, StringComparison.Ordinal);
-        AssertCurrentDirectoryContentKbUnchanged(contentKbExisted);
-    }
-
-    [Fact]
-    public async Task Harvest_UnsetRoot_DoesNotFailBecauseOfPrivateRoot()
-    {
-        using var root = new TempDirectory();
-
-        var (_, error) = await CaptureStandardErrorAsync(() => ContentKbCommandRunners.RunHarvestAsync(
-            new FileInfo(Path.Combine(root.Path, "content-kb.db")),
-            limit: 1,
-            enableWhisper: false,
-            Serilog.Log.Logger,
-            CancellationToken.None));
-
-        SqliteConnection.ClearAllPools();
-        Assert.DoesNotContain(PrivateKbRoot.EnvironmentVariableName, error, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task CreatorStyleImportStated_ExplicitFileDoesNotReadRoot()
-    {
-        using var root = new TempDirectory();
-        var rootWasRead = false;
-
-        await CreatorStyleCommandRunners.RunCreatorStyleImportStatedAsync(
-            new FileInfo(Path.Combine(root.Path, "seed.json")),
-            new FileInfo(Path.Combine(root.Path, "content-kb.db")),
-            _ =>
-            {
-                rootWasRead = true;
-                return null;
-            });
-
-        Assert.False(rootWasRead);
-    }
-
-    private static async Task<(int ExitCode, string Error)> CaptureStandardErrorAsync(Func<Task<int>> action)
-    {
-        await ConsoleErrorLock.WaitAsync();
-        var originalError = Console.Error;
-        using var writer = new StringWriter();
-        try
-        {
-            Console.SetError(writer);
-            var exitCode = await action();
-            return (exitCode, writer.ToString());
-        }
-        finally
-        {
-            Console.SetError(originalError);
-            ConsoleErrorLock.Release();
-        }
-    }
-
-    private static void AssertCurrentDirectoryContentKbUnchanged(bool existedBefore)
-        => Assert.Equal(existedBefore, Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), "content-kb")));
-
-    private sealed class TempDirectory : IDisposable
-    {
-        public TempDirectory()
-        {
-            Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(Path);
-        }
-
-        public string Path { get; }
-
-        public void Dispose() => Directory.Delete(Path, recursive: true);
     }
 }

@@ -6,6 +6,11 @@ namespace DeckFlow.Core.Content;
 public sealed class PrivateKbRoot
 {
     private const int MaximumCanonicalizationPasses = 64;
+    // Why: Unix path comparisons are case-sensitive, unlike Windows and macOS defaults.
+    private static StringComparison PathComparison => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
+
     /// <summary>
     /// The environment variable that supplies the private KB root.
     /// </summary>
@@ -29,6 +34,11 @@ public sealed class PrivateKbRoot
         }
 
         Root = CanonicalizeDirectory(configuredPath);
+        if (!Directory.Exists(Root))
+        {
+            throw new InvalidOperationException($"{EnvironmentVariableName} must name an existing directory: {Root}");
+        }
+
         if (IsInsideProductCheckout(configuredPath) || IsInsideProductCheckout(Root))
         {
             throw new InvalidOperationException($"{EnvironmentVariableName} must not be inside a DeckFlow product checkout.");
@@ -79,7 +89,7 @@ public sealed class PrivateKbRoot
         for (var pass = 0; pass < MaximumCanonicalizationPasses; pass++)
         {
             var canonical = CanonicalizeDirectoryPass(current);
-            if (string.Equals(current, canonical, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(current, canonical, PathComparison))
             {
                 return canonical;
             }
@@ -87,30 +97,69 @@ public sealed class PrivateKbRoot
             current = canonical;
         }
 
-        throw new InvalidOperationException($"Unable to resolve {directoryPath}: too many symbolic link resolutions.");
+        throw new InvalidOperationException($"Unable to resolve {EnvironmentVariableName}: too many symbolic link resolutions.");
     }
 
     private static string CanonicalizeDirectoryPass(string directoryPath)
     {
         var root = Path.GetPathRoot(directoryPath) ?? throw new InvalidOperationException($"Unable to resolve {directoryPath}.");
-        var current = root;
-        var remainder = directoryPath[root.Length..];
-        foreach (var segment in remainder.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        try
         {
-            if (string.IsNullOrEmpty(segment))
+            var current = root;
+            var pendingSegments = new LinkedList<string>(SplitSegments(directoryPath[root.Length..]));
+            var linkExpansions = 0;
+            while (pendingSegments.First is not null)
             {
-                continue;
+                var segment = pendingSegments.First.Value;
+                pendingSegments.RemoveFirst();
+                if (string.IsNullOrEmpty(segment) || segment == ".")
+                {
+                    continue;
+                }
+
+                if (segment == "..")
+                {
+                    current = Directory.GetParent(current)?.FullName ?? current;
+                    continue;
+                }
+
+                var candidate = new DirectoryInfo(Path.Combine(current, segment));
+                var linkTarget = candidate.LinkTarget;
+                if (linkTarget is null)
+                {
+                    current = candidate.FullName;
+                    continue;
+                }
+
+                if (++linkExpansions > MaximumCanonicalizationPasses)
+                {
+                    throw new InvalidOperationException($"Unable to resolve {EnvironmentVariableName}: too many symbolic link resolutions.");
+                }
+
+                var targetRoot = Path.GetPathRoot(linkTarget);
+                if (Path.IsPathRooted(linkTarget))
+                {
+                    current = targetRoot ?? throw new InvalidOperationException($"Unable to resolve {linkTarget}.");
+                    linkTarget = linkTarget[targetRoot.Length..];
+                }
+
+                var targetSegments = SplitSegments(linkTarget);
+                for (var index = targetSegments.Length - 1; index >= 0; index--)
+                {
+                    pendingSegments.AddFirst(targetSegments[index]);
+                }
             }
 
-            var candidate = new DirectoryInfo(Path.Combine(current, segment));
-            current = candidate.LinkTarget is null
-                ? candidate.FullName
-                : candidate.ResolveLinkTarget(returnFinalTarget: true)?.FullName
-                    ?? throw new InvalidOperationException($"Unable to resolve {directoryPath}.");
+            return Path.GetFullPath(current);
         }
-
-        return Path.GetFullPath(current);
+        catch (IOException exception)
+        {
+            throw new InvalidOperationException($"Unable to resolve {EnvironmentVariableName}.", exception);
+        }
     }
+
+    private static string[] SplitSegments(string path)
+        => path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
 
     private static bool IsInsideProductCheckout(string directoryPath)
     {
