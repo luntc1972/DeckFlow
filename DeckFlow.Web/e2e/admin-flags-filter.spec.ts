@@ -101,7 +101,7 @@ test('admin flags derives namespace chips from live keys', async ({ page }) => {
   const keys = await rows.evaluateAll((items) => items.map((item) => item.getAttribute('data-flag-key') ?? ''));
   const total = keys.length;
   const chips = page.locator('button[data-flag-prefix]');
-  const details = await chips.evaluateAll((items) => items.map((item) => ({ prefix: item.getAttribute('data-flag-prefix') ?? '', text: item.textContent?.trim() ?? '', title: item.getAttribute('title') ?? '' })).filter((item) => item.prefix !== ''));
+  const details = await chips.evaluateAll((items) => items.map((item) => ({ prefix: item.getAttribute('data-flag-prefix') ?? '', label: item.childNodes[0]?.textContent?.trim() ?? '', count: item.querySelector('.flag-filter__chip-count')?.textContent?.trim() ?? '' })).filter((item) => item.prefix !== ''));
   const expected = [...new Set(keys.map((key) => key.toLowerCase()).filter((key) => key.includes('.') && !key.startsWith('.')).map((key) => `${key.split('.')[0]}.`))].sort((left, right) => left.slice(0, -1) < right.slice(0, -1) ? -1 : left.slice(0, -1) > right.slice(0, -1) ? 1 : 0);
   expect(details.map((chip) => chip.prefix)).toEqual(expected);
   expect(details.length).toBeGreaterThan(2);
@@ -109,13 +109,13 @@ test('admin flags derives namespace chips from live keys', async ({ page }) => {
     expect(chip.prefix.endsWith('.')).toBeTruthy();
     expect(chip.prefix.split('.')).toHaveLength(2);
     expect(chip.prefix.startsWith('tool.')).toBeFalsy();
-    expect(chip.text).toBe(chip.prefix.slice(0, -1));
-    const button = page.getByRole('button', { name: chip.text, exact: true });
+    expect(chip.label).toBe(chip.prefix.slice(0, -1));
+    const button = page.locator(`button[data-flag-prefix="${chip.prefix}"]`);
     await button.click();
     const visible = await getVisibleFlagKeys(page);
     expect(visible).toEqual(keys.filter((key) => key.toLowerCase().startsWith(chip.prefix)));
     expect(visible.length).toBeGreaterThan(0);
-    expect(chip.title).toBe(`${visible.length} ${visible.length === 1 ? 'flag' : 'flags'}`);
+    expect(chip.count).toBe(String(visible.length));
     await expect(button).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#flag-filter-count')).toHaveText(`${visible.length} of ${total} flags shown`);
   }
