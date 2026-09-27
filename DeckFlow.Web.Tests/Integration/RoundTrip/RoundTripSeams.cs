@@ -52,12 +52,19 @@ internal sealed class CannedLlmDistillationService : ILlmDistillationService
 }
 
 /// <summary>
-/// Records every <see cref="SshUploadRequest"/> it receives and returns a success
-/// <see cref="SshUploadResult"/> per entry — no real SFTP transfer (D-05).
+/// Records every <see cref="SshUploadRequest"/>, copies its body to the data-overlay stand-in,
+/// and returns a success <see cref="SshUploadResult"/> per entry — no real SFTP transfer (D-05).
 /// </summary>
 internal sealed class RecordingSshArtifactUploader : ISshArtifactUploader
 {
+    private readonly string _dataRoot;
     private readonly List<SshUploadRequest> _uploads = [];
+
+    public RecordingSshArtifactUploader(string dataRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        _dataRoot = dataRoot;
+    }
 
     /// <summary>Gets every upload request recorded so far, in call order.</summary>
     public IReadOnlyList<SshUploadRequest> Uploads => _uploads;
@@ -74,6 +81,12 @@ internal sealed class RecordingSshArtifactUploader : ISshArtifactUploader
         var results = new List<SshUploadResult>(uploads.Count);
         foreach (var upload in uploads)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var destinationPath = Path.Combine(_dataRoot, upload.RemoteRelativePath);
+            var destinationDirectory = Path.GetDirectoryName(destinationPath)
+                ?? throw new InvalidOperationException("Upload destination requires a directory.");
+            Directory.CreateDirectory(destinationDirectory);
+            File.Copy(upload.LocalPath, destinationPath, overwrite: true);
             var result = new SshUploadResult(upload.LocalPath, upload.RemoteRelativePath, Success: true, FailureReason: null);
             results.Add(result);
             progress?.Report(result);

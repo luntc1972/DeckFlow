@@ -11,7 +11,7 @@ namespace DeckFlow.Web.Tests.Integration.RoundTrip;
 /// Postgres prod schema once over a Testcontainers connection, hands out schema-ensure-OFF prod
 /// stores and a distinct local (Studio-side) SQLite store over real connections (D-02), drives a
 /// real <c>git init</c> temp-repo bootstrap (D-03), and deploy-copies the committed tree into a
-/// distinct <c>/app</c> stand-in directory. Zero production-code change: every member here only
+/// distinct <c>/app</c> and <c>/data</c> stand-in directories. Zero production-code change: every member here only
 /// calls existing public constructors and interfaces, or a test-only <c>git</c> bootstrap helper
 /// scoped to this file.
 /// </summary>
@@ -39,6 +39,7 @@ public sealed class RoundTripHarness : IDisposable
         _localDbPath = Path.Combine(Path.GetTempPath(), $"roundtrip-local-{stamp}.db");
         RepoRoot = Path.Combine(Path.GetTempPath(), $"roundtrip-repo-{stamp}");
         AppRoot = Path.Combine(Path.GetTempPath(), $"roundtrip-app-{stamp}");
+        DataRoot = Path.Combine(Path.GetTempPath(), $"roundtrip-data-{stamp}");
         OriginRoot = Path.Combine(Path.GetTempPath(), $"roundtrip-origin-{stamp}.git");
     }
 
@@ -50,6 +51,9 @@ public sealed class RoundTripHarness : IDisposable
 
     /// <summary>Gets the distinct deploy-copy stand-in directory simulating Render's <c>/app</c> git checkout.</summary>
     public string AppRoot { get; }
+
+    /// <summary>Gets the distinct data-overlay stand-in directory simulating Render's <c>/data</c>.</summary>
+    public string DataRoot { get; }
 
     /// <summary>Gets the local bare-origin repo path <see cref="RepoRoot"/> pushes to.</summary>
     public string OriginRoot { get; }
@@ -111,6 +115,7 @@ public sealed class RoundTripHarness : IDisposable
     {
         Directory.CreateDirectory(Path.Combine(RepoRoot, "content-kb", "seed"));
         Directory.CreateDirectory(AppRoot);
+        Directory.CreateDirectory(DataRoot);
 
         // (a) deterministic default branch — never depends on the host's init.defaultBranch config.
         await RunGitBootstrapAsync(RepoRoot, ["init", "-b", Branch], cancellationToken).ConfigureAwait(false);
@@ -164,7 +169,8 @@ public sealed class RoundTripHarness : IDisposable
 
     /// <summary>
     /// Builds an in-memory <see cref="IConfiguration"/> pointing <c>ContentKb:ContentBase</c> at
-    /// <see cref="AppRoot"/> (web body resolution reads <c>/app</c>, not <c>/data</c>) with a
+    /// <see cref="AppRoot"/> and <c>MTG_DATA_DIR</c> at <see cref="DataRoot"/> so web body resolution
+    /// reads its <c>/app</c> root and <c>/data</c> overlay, with a
     /// fixture-ignored <c>Studio:ProdConnectionString</c> placeholder (mirrors
     /// <c>ReconcileFixtureDriveTests</c>'s configuration construction).
     /// </summary>
@@ -174,6 +180,7 @@ public sealed class RoundTripHarness : IDisposable
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ContentKb:ContentBase"] = AppRoot,
+                ["MTG_DATA_DIR"] = DataRoot,
                 ["Studio:ProdConnectionString"] = "fixture-ignored",
             })
             .Build();
@@ -200,7 +207,7 @@ public sealed class RoundTripHarness : IDisposable
             File.Delete(_localDbPath);
         }
 
-        foreach (var directory in new[] { RepoRoot, AppRoot, OriginRoot })
+        foreach (var directory in new[] { RepoRoot, AppRoot, DataRoot, OriginRoot })
         {
             ForceDeleteDirectory(directory);
         }

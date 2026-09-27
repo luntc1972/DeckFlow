@@ -19,8 +19,9 @@ namespace DeckFlow.Web.Tests.Integration.RoundTrip;
 /// <summary>
 /// SYNC-16 round-trip integration test (Plan 93-02): walks the ENTIRE Content-KB sync loop --
 /// distill (local) -&gt; approve -&gt; Publish (git commit) -&gt; operator push -&gt; deploy-copy + reseed
-/// (creates the prod row) -&gt; web body resolution -&gt; DirectPush a second row (flag ON, faked
-/// deploy-confirm) -&gt; re-export + second deploy-copy + SECOND reseed (redeploy) -&gt; PullFromProd
+/// (creates the prod row) -&gt; web body resolution -&gt; DirectPush a second row (data-overlay upload,
+/// private-root export, and publish confirmation) -&gt; re-export + second deploy-copy + SECOND reseed
+/// (redeploy) -&gt; PullFromProd
 /// (field authority) -&gt; Reconcile dry-run (idempotent) -- on the real Testcontainers Postgres +
 /// real git tree the 93-01 harness (<see cref="RoundTripHarness"/> plus the seams in
 /// <c>RoundTripSeams.cs</c>) bootstraps. Only the LLM and SFTP transport are faked
@@ -95,7 +96,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
 
         var prodReader = new FixtureProdReader(prodStore);
         var prodStoreFactory = new FixtureProdStoreFactory(prodStore);
-        var uploader = new RecordingSshArtifactUploader();
+        var uploader = new RecordingSshArtifactUploader(_harness.DataRoot);
         // Why: an empty, readable suppression store keeps the round trip on the unsuppressed path.
         var suppressionFilter = new CreatorSuppressionRowFilter(new FakeCreatorSuppressionStore(), new FakeCreatorIdentityResolver());
         var publish = new PublishCoordinator(
@@ -107,7 +108,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
             suppressionFilter);
         var directPush = new DirectPushCoordinator(
             localStore, uploader, prodStoreFactory, prodConnection, options,
-            new StudioPrivateKbRootProvider(null, _harness.AppRoot), orchestrator, prodReader, suppressionFilter);
+            new StudioPrivateKbRootProvider(_harness.RepoRoot, null), orchestrator, prodReader, suppressionFilter);
         var pull = new PullFromProdCoordinator(localStore, new StudioPrivateKbRootProvider(_harness.RepoRoot, null), prodReader, prodConnection, options, NullLogger<PullFromProdCoordinator>.Instance);
 
         _output.WriteLine("── Boot: real PG schema + real git tree bootstrapped; coordinators wired ──");
@@ -177,7 +178,10 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         await _harness.DeployToAppAsync();
 
         var stubEnvironment = new StubWebHostEnvironment(_harness.AppRoot);
-        var flagCache = new FakeFeatureFlagCache();
+        var flagCache = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            [ContentKbFeatureFlagKeys.DirectPushGitBody] = false,
+        });
         var pathResolver = new ContentKbArtifactPathResolver(
             stubEnvironment, config, flagCache, NullLogger<ContentKbArtifactPathResolver>.Instance);
         var bodyResolver = new ContentKbArtifactBodyResolver(pathResolver);
@@ -203,7 +207,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
 
         _output.WriteLine("── Reseed #1: /app deploy created prod row A; served==published, hash matches every hop ──");
 
-        // ── DirectPush row B (sync.directpush-gitbody ON, faked deploy-confirm) ────────────────
+        // ── DirectPush row B (private-root export, data-overlay upload, and publish confirmation) ──
         var distillB = await orchestrator.DistillAsync(limit: 10, dryRun: false, isSubscriptionProvider: true, videoIds: [videoIdB]);
         Assert.True(distillB.Success, $"Distill B did not succeed: {distillB.AbortedReason}");
         Assert.Equal(1, distillB.VideosDistilled);
@@ -217,6 +221,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         Assert.Equal(videoIdB, publishRows[0].YoutubeVideoId);
 
         await directPush.UploadArtifactsAsync(publishRows, _localDataRoot, new Progress<SshUploadResult>(), CancellationToken.None);
+        Assert.Single(uploader.Uploads);
         await directPush.WriteContentAsync(publishRows, CancellationToken.None);
 
         var exportedCount = await directPush.ExportBodiesToPrivateKbRootAsync(publishRows, _localDataRoot, CancellationToken.None);
@@ -228,6 +233,8 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         Assert.True(prodRowBAfterConfirm!.IsVisible);
         var servedBodyB = await bodyResolver.TryReadArtifactTextAsync(prodRowBAfterConfirm!.ArtifactPath);
         Assert.NotNull(servedBodyB);
+        var uploadedBodyB = await File.ReadAllTextAsync(Path.Combine(_harness.DataRoot, prodRowBAfterConfirm.ArtifactPath));
+        Assert.Equal(uploadedBodyB, servedBodyB);
         var hashServedB = ContentSiteIndexContentSignature.ComputeBodySha256(servedBodyB!);
         Assert.Equal(prodRowBAfterConfirm.BodySha256, hashServedB);
 
@@ -235,9 +242,11 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         Assert.Contains(seedEntriesAfterDirectPush, e => e.NaturalKeyValue == videoIdA);
         Assert.Contains(seedEntriesAfterDirectPush, e => e.NaturalKeyValue == videoIdB); // W-2/M1: both keys before the 2nd reseed
 
-        _output.WriteLine("── DirectPush: row B confirmed + visible; re-exported seed carries A AND B ──");
+        _output.WriteLine("── DirectPush: row B uploaded to data overlay, confirmed + visible; private seed carries A AND B ──");
 
         // ── SECOND reseed (redeploy) -- no-revert (SC3, the M2/C3 load-bearing check) ──────────
+        // Why: redeploy carries the hand-committed private root into the app-root seed reader.
+        await _harness.DeployToAppAsync();
         var reseededCount2 = await seedLoader.LoadIfPresentAsync();
         Assert.Equal(2, reseededCount2); // seed now carries both A and B
 
