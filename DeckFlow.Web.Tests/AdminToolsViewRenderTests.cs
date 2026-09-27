@@ -31,6 +31,7 @@ public sealed class AdminToolsViewRenderTests
         Assert.NotNull(document.QuerySelector("label[for=tools-filter-search]"));
         Assert.Equal(new[] { "", "on", "off" }, document.QuerySelectorAll("button[data-tools-status]").Select(x => x.GetAttribute("data-tools-status")));
         Assert.Equal("true", document.QuerySelector("button[data-tools-status]")!.GetAttribute("aria-pressed"));
+        Assert.Contains("hidden", document.QuerySelector(".tools-filter")!.ClassList);
         Assert.Equal("polite", document.QuerySelector("#tools-filter-count")!.GetAttribute("aria-live"));
         Assert.Contains("hidden", document.QuerySelector("#tools-filter-empty")!.ClassList);
     }
