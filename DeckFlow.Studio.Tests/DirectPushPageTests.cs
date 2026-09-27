@@ -134,8 +134,7 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton<IContentKbOrchestrator>(orchestratorOverride ?? new FakeContentKbOrchestrator());
         // Why (90-04): the coordinator's ReadFlagAsync dependency (D-04) — flag OFF by default so
         // [skip render] behavior in these bUnit page tests stays byte-identical to before this flag
-        // existed (D-05). Tests that exercise the ON /app deploy-confirm verify path (Codex-HIGH fix:
-        // VerifyAndPublishAsync only polls the confirmer when the flag is ON) pass directPushGitBodyOn: true.
+        // existed (D-05). Tests that exercise the fail-closed flag guard pass directPushGitBodyOn: true.
         Services.AddSingleton<IProdContentReader>(
             prodReaderOverride ?? new FakeDirectPushFlagReader { FlagValue = directPushGitBodyOn });
         // Why: the page now resolves its orchestration through DirectPushCoordinator (H1 split);
@@ -836,6 +835,69 @@ public sealed class DirectPushPageTests : BunitContext
             Assert.Contains("Awaiting Publish", cut.Markup);
             Assert.Contains("Video 1", cut.Markup);
             Assert.Contains("Resume", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void DirectPush_ResumeAwaitingRow_ExportsThenMakesRowVisible()
+    {
+        var row = MakeApprovedRow(1, "resume-success") with { AwaitingConfirmUtc = DateTimeOffset.UtcNow };
+        var orchestrator = new FakeContentKbOrchestrator();
+        var exportObservedBeforePublish = false;
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(
+            new[] { row }, new[] { row }, orchestratorOverride: orchestrator);
+        orchestrator.OnCopyArtifacts = () => exportObservedBeforePublish = orchestrator.ExportToFilePaths.Count == 1
+            && prodStore.VisibilityKeyCalls.Count == 0
+            && localStore.VisibilityKeyCalls.Count == 0;
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-warning").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(prodStore.VisibilityKeyCalls);
+            Assert.Single(localStore.VisibilityKeyCalls);
+            Assert.Single(localStore.ClearAwaitingConfirmCalls);
+            Assert.True(exportObservedBeforePublish);
+            Assert.DoesNotContain("Could not publish to the private KB root", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void DirectPush_ResumeExportFailure_ShowsErrorAndKeepsRowsHidden()
+    {
+        var row = MakeApprovedRow(1, "resume-export-failure") with { AwaitingConfirmUtc = DateTimeOffset.UtcNow };
+        var failedExport = new FakeContentKbOrchestrator { ThrowOnCopy = new IOException("copy failed") };
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(
+            new[] { row }, new[] { row }, orchestratorOverride: failedExport);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-warning").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Could not publish to the private KB root", cut.Markup);
+            Assert.Empty(prodStore.VisibilityKeyCalls);
+            Assert.Empty(localStore.VisibilityKeyCalls);
+            Assert.Empty(localStore.ClearAwaitingConfirmCalls);
+        });
+    }
+
+    [Fact]
+    public void DirectPush_ResumeFlagOn_ShowsErrorAndKeepsRowsHidden()
+    {
+        var row = MakeApprovedRow(1, "resume-flag-on") with { AwaitingConfirmUtc = DateTimeOffset.UtcNow };
+        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(
+            new[] { row }, new[] { row }, prodReaderOverride: new FakeDirectPushFlagReader { FlagValue = true });
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-warning").Click());
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Could not publish to the private KB root", cut.Markup);
+            Assert.Empty(prodStore.VisibilityKeyCalls);
+            Assert.Empty(localStore.VisibilityKeyCalls);
         });
     }
 

@@ -47,7 +47,7 @@ public interface IProdContentReader
     /// which collapses "definitely OFF" and "could not read" into a single <see langword="false"/>
     /// (correct for the fail-closed <c>[skip render]</c> decision) — this returns <see langword="null"/>
     /// ONLY on a caught connection/query failure, so the DirectPush publish gate can treat "unknown" as
-    /// "must verify the deployed body" rather than "publish immediately". A missing/absent flag row is a
+    /// "refuse to publish" rather than "publish immediately". A missing/absent flag row is a
     /// DEFINITIVE OFF (<see langword="false"/>), not indeterminate. Same single plain read-only SELECT as
     /// <see cref="ReadFlagAsync"/>; declared as a THROWING default interface method (89-02 / 90-03 idiom)
     /// so the hand-written <c>FakeProdContentReader</c> double keeps compiling unchanged.

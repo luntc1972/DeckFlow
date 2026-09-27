@@ -68,7 +68,7 @@ public sealed class ProdContentReader : IProdContentReader
 
             // A missing row / null enabled is a DEFINITIVE OFF (false), NOT indeterminate — only a
             // caught read failure below returns null. This lets the DirectPush publish gate fail SAFE
-            // (verify the deployed body) on a read blip rather than immediate-publishing.
+            // (refuse to publish) on a read blip rather than immediate-publishing.
             return enabled ?? false;
         }
         catch (OperationCanceledException)

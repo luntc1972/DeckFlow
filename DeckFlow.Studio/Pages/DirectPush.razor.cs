@@ -400,7 +400,7 @@ public partial class DirectPush
     }
 
     // ── Publish to private KB root ───────────────────────────────────────────
-    private async Task RunVerifyAndPublishAsync()
+    private async Task RunExportAndPublishAsync()
     {
         if (_initError is not null || !_scpSuccess || !_dbSuccess || _operationInFlight)
         {
@@ -416,8 +416,7 @@ public partial class DirectPush
         {
             await Task.Run(async () =>
             {
-                await Coordinator.ExportBodiesToPrivateKbRootAsync(_publishRows, _dataRoot, Cts.Token).ConfigureAwait(false);
-                await Coordinator.ConfirmAndPublishAsync(_publishRows, Cts.Token).ConfigureAwait(false);
+                await ExportAndConfirmAsync(_publishRows).ConfigureAwait(false);
                 await InvokeAsync(() =>
                 {
                     _confirmedResults = _publishRows.Select(row => ToRowResult(row, true, null)).ToList();
@@ -446,7 +445,7 @@ public partial class DirectPush
         }
     }
 
-    // ── Resume: re-run verify for rows awaiting confirm from a prior/interrupted session (D-10) ──
+    // ── Resume: publish rows awaiting confirmation from a prior/interrupted session (D-10) ──
     private async Task ResumeVerifyAsync()
     {
         if (_initError is not null || _operationInFlight || _awaitingConfirmRows.Count == 0)
@@ -456,10 +455,16 @@ public partial class DirectPush
 
         _operationInFlight = true;
         _resumeVerifyInFlight = true;
+        _resumeVerifyError = string.Empty;
         try
         {
-            await Coordinator.ConfirmAndPublishAsync(_awaitingConfirmRows, Cts.Token).ConfigureAwait(false);
+            await ExportAndConfirmAsync(_awaitingConfirmRows).ConfigureAwait(false);
             await RefreshAwaitingConfirmBucketAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Resume publish to private KB root failed");
+            _resumeVerifyError = "Could not publish to the private KB root. The rows remain hidden and awaiting confirmation.";
         }
         finally
         {
@@ -468,10 +473,12 @@ public partial class DirectPush
         }
     }
 
+    private async Task ExportAndConfirmAsync(IReadOnlyList<ContentSiteIndexRow> rows)
+    {
+        await Coordinator.ExportBodiesToPrivateKbRootAsync(rows, _dataRoot, Cts.Token).ConfigureAwait(false);
+        await Coordinator.ConfirmAndPublishAsync(rows, Cts.Token).ConfigureAwait(false);
+    }
+
     internal Task InvokeWriteRowsForTest() => WriteRowsAsync();
 
-    // Why: exercises the RunVerifyAndPublishAsync hard-guard directly — bUnit will not dispatch a
-    // click to a disabled button, so the guard is otherwise
-    // unreachable in a test. Calls the exact production handler; no behavior is duplicated.
-    internal Task InvokeVerifyAndPublishForTest() => RunVerifyAndPublishAsync();
 }

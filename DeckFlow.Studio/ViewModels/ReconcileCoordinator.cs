@@ -106,7 +106,7 @@ public sealed class ReconcileCoordinator
     /// <see cref="IProdContentReader.TryReadFlagAsync"/>. Only a confirmed <see langword="true"/>
     /// proceeds - both a definitive <see langword="false"/> AND an indeterminate
     /// <see langword="null"/> refuse (fail-safe-to-REFUSE; the destructive-write inverse of
-    /// <see cref="DirectPushCoordinator.VerifyAndPublishAsync"/>'s fail-safe-to-VERIFY tri-state use).
+    /// Direct Push's fail-safe-to-refuse tri-state use).
     /// </item>
     /// <item>
     /// <b>Seed-availability gate (Codex BLOCK / T-91-27).</b> Re-runs the reconcile diff FRESH via

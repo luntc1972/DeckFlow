@@ -51,7 +51,7 @@ already-distilled video** in that DB. If empty, browse a channel + distill one v
 
 Two flags gate Studio sync behavior; Studio reads them from the **production** `feature_flags` table through a read-only accessor that fails closed (a missing row or a connection failure reads as OFF). Both ship **OFF**:
 
-- `sync.directpush-gitbody` — when ON, Direct Push triggers a real Render redeploy and bodies are served from the private KB root's `/app` tree only (the `/data` overlay fallback is dropped from serving). Before flipping it ON, run the **Git Body Coverage** page and confirm **0 missing** (every approved+visible prod row's body is present in the private KB root).
+- `sync.directpush-gitbody` — must remain OFF. Direct Push refuses to run when this flag is ON or unreadable.
 - `sync.reconcile` — when ON, the **Reconcile** page's destructive **Apply removals** (seed-drift soft-hide) is enabled. The dry-run detection is always available regardless of this flag.
 
 Flipping either flag is an operator action in the prod web flag store; see the phase 93 pre-flip checklist.

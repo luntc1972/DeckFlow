@@ -67,8 +67,8 @@ public partial class Program
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:Username"])
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:KeyFile"])
                 && !string.IsNullOrEmpty(builder.Configuration["Studio:Scp:RemoteArtifactRoot"]);
-            // Why (D-09 REVISED/D-10): presence-only check for the three deploy-confirm keys the
-            // DirectPush hash-match poll needs — mirrors the isScpConfigured pattern. Never log the
+            // Why: retained presence-only configuration diagnostic for the three public-site keys.
+            // Never log the
             // values. AdminUser/AdminPassword must equal the web FEEDBACK_ADMIN_USER/PASSWORD so the
             // /Admin BasicAuth gate accepts the confirmer's request.
             var isConfirmerConfigured = !string.IsNullOrEmpty(builder.Configuration["Studio:PublicSiteBaseUrl"])
@@ -90,8 +90,7 @@ public partial class Program
             builder.Services.AddSingleton<IProdStoreFactory, ProdStoreFactory>();
             builder.Services.AddSingleton<CreatorSuppressionSyncCoordinator>();
             builder.Services.AddSingleton<IStudioProdConnectionSource, StudioProdConnectionSource>();
-            // Why (D-09 REVISED/SYNC-09): the DirectPush deploy-confirm poller. Depends only on the
-            // shared singleton HttpClient (registered below) + IConfiguration — safe as a singleton.
+            // Why: production content readers resolve through the registered store services below.
             builder.Services.AddStudioContentKbStores(contentKbDatabasePath);
             // Why (D-08): host-agnostic body_sha256 backfill, bound to the LOCAL content-kb.db
             // store above via the IContentSiteIndexStore singleton — explicitly NOT any
@@ -180,8 +179,8 @@ public partial class Program
             builder.Services.AddSingleton<CreatorSuppressionRowFilter>();
             builder.Services.AddScoped<ContentKbOrchestratorSmokeService>();
             // Why: DirectPush page orchestration (prod read / diff / SCP / transactional write /
-            // git durability push), extracted from the page code-behind (H1). Scoped because the
-            // git durability stage depends on the scoped IContentKbOrchestrator — a singleton would
+            // private-root export), extracted from the page code-behind (H1). Scoped because the
+            // private-root export depends on the scoped IContentKbOrchestrator — a singleton would
             // capture it (captive dependency), same as PublishCoordinator below.
             builder.Services.AddScoped<DeckFlow.Studio.ViewModels.DirectPushCoordinator>();
             // Why: Publish page orchestration (private-root seed export / artifact copy), extracted

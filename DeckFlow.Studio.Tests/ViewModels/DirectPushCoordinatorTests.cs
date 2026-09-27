@@ -403,6 +403,28 @@ public sealed class DirectPushCoordinatorTests
         Assert.Equal(2, local.ClearAwaitingConfirmCalls[0].Count);
     }
 
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task ConfirmAndPublishAsync_FlagNotOff_ThrowsBeforeStoreWrites(bool flagValue, bool flagReadIndeterminate)
+    {
+        var local = new FakeContentSiteIndexStore();
+        var prod = new FakeContentSiteIndexStore();
+        var coordinator = Build(local, prod, prodReader: new FakeDirectPushFlagReader
+        {
+            FlagValue = flagValue,
+            FlagReadIndeterminate = flagReadIndeterminate,
+        });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            coordinator.ConfirmAndPublishAsync(new[] { Youtube(1, "flag-guard") }, CancellationToken.None));
+
+        Assert.Empty(prod.StampCalls);
+        Assert.Empty(prod.VisibilityKeyCalls);
+        Assert.Empty(local.StampCalls);
+        Assert.Empty(local.VisibilityKeyCalls);
+    }
+
     [Fact]
     public async Task ConfirmAndPublishAsync_ExcludesSuppressedCreator()
     {
@@ -512,6 +534,33 @@ public sealed class DirectPushCoordinatorTests
 
         Assert.Equal(1, result);
         Assert.Equal(new[] { "content-kb/test-channel/equal.md" }, Assert.Single(orchestrator.CopyArtifactsCalls));
+    }
+
+    [Fact]
+    public async Task ExportBodiesToPrivateKbRootAsync_AllBlankArtifactPaths_Throws()
+    {
+        var orchestrator = new FakeContentKbOrchestrator();
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), orchestrator: orchestrator);
+        var rows = new[] { Youtube(1, "blank-a") with { ArtifactPath = "" }, Youtube(2, "blank-b") with { ArtifactPath = " " } };
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            coordinator.ExportBodiesToPrivateKbRootAsync(rows, "/data", CancellationToken.None));
+
+        Assert.Equal("no artifact bodies to export", exception.Message);
+        Assert.Empty(orchestrator.CopyArtifactsCalls);
+    }
+
+    [Fact]
+    public async Task ExportBodiesToPrivateKbRootAsync_SharedArtifactPath_CopiesOnce()
+    {
+        var orchestrator = new FakeContentKbOrchestrator();
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), orchestrator: orchestrator);
+        var sharedPath = "content-kb/test-channel/shared.md";
+        var rows = new[] { Youtube(1, "shared-a") with { ArtifactPath = sharedPath }, Youtube(2, "shared-b") with { ArtifactPath = sharedPath } };
+
+        await coordinator.ExportBodiesToPrivateKbRootAsync(rows, "/data", CancellationToken.None);
+
+        Assert.Equal(new[] { sharedPath }, Assert.Single(orchestrator.CopyArtifactsCalls));
     }
 
     [Fact]

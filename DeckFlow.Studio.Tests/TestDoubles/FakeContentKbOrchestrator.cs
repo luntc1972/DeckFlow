@@ -37,6 +37,8 @@ internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
 
     public Exception? ThrowOnExport { get; set; }
 
+    public Action? OnCopyArtifacts { get; set; }
+
     // ── IContentIndexExporter (exercised by Publish.razor) ──────────────────
     public Task<ContentIndexExportResult> ExportIndexToFileAsync(
         string seedPath,
@@ -73,6 +75,7 @@ internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
         CancellationToken cancellationToken = default)
     {
         CopyArtifactsCalls.Add(artifactPaths);
+        OnCopyArtifacts?.Invoke();
         if (ThrowOnCopy is not null)
         {
             throw ThrowOnCopy;

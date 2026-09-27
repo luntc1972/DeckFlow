@@ -18,7 +18,7 @@ namespace DeckFlow.Web.Tests.Integration.RoundTrip;
 
 /// <summary>
 /// SYNC-16 round-trip integration test (Plan 93-02): walks the ENTIRE Content-KB sync loop --
-/// distill (local) -&gt; approve -&gt; Publish (git commit) -&gt; operator push -&gt; deploy-copy + reseed
+/// distill (local) -&gt; approve -&gt; Publish (private-root export) -&gt; operator handoff -&gt; deploy-copy + reseed
 /// (creates the prod row) -&gt; web body resolution -&gt; DirectPush a second row (data-overlay upload,
 /// private-root export, and publish confirmation) -&gt; re-export + second deploy-copy + SECOND reseed
 /// (redeploy) -&gt; PullFromProd

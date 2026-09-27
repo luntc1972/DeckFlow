@@ -165,11 +165,11 @@ unlocks only after every file uploads.</p>
                                       aria-label="Operation in progress">
                                     <span class="visually-hidden">Loading…</span>
                                 </span>
-                                <span> Re-checking deploy…</span>
+                                <span> Exporting and publishing…</span>
                             }
                             else
                             {
-                                <span>Resume &mdash; Verify Deploy &amp; Publish</span>
+                                <span>Resume &mdash; Export &amp; Publish</span>
                             }
                         </button>
                     }
@@ -520,7 +520,7 @@ unlocks only after every file uploads.</p>
                     {
                         <div class="alert alert-danger py-2">@_verifyError</div>
                     }
-                    <button class="btn btn-primary" @onclick="RunVerifyAndPublishAsync" disabled="@(!_scpSuccess || !_dbSuccess || _operationInFlight)">
+                    <button class="btn btn-primary" @onclick="RunExportAndPublishAsync" disabled="@(!_scpSuccess || !_dbSuccess || _operationInFlight)">
                         @if (_verifyInFlight) { <span>Publishing...</span> } else { <span>Publish rows</span> }
                     </button>
                     @if (_verifyRanOnce)

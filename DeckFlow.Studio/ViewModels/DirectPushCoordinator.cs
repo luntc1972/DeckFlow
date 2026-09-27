@@ -192,9 +192,9 @@ public sealed class DirectPushCoordinator
     /// Content-only write stage (D-06/D-07 expand step): writes the publish set to prod as a single
     /// transactional batch (H4) and marks the pushed keys durably "awaiting confirm" in the LOCAL
     /// store (D-10). Does NOT stamp <c>pushed_to_prod_utc</c> or flip <c>is_visible</c> on either
-    /// store — those happen only in <see cref="ConfirmAndPublishAsync"/>, after a successful
-    /// deploy-confirm (SYNC-09), so a row can never go visible before its body is durably in git and
-    /// deployed. Only the content-columns-only upsert runs on prod, preserving is_visible /
+    /// store — those happen only in <see cref="ConfirmAndPublishAsync"/>, after the approved body
+    /// has been exported to the private KB root, so a row can never go visible before its body is
+    /// durably available there. Only the content-columns-only upsert runs on prod, preserving is_visible /
     /// is_evergreen on existing rows (SC3 / D-08) and still mirroring approval_status into prod (D-03
     /// / the P88 approval mirror at <c>ContentSiteIndexStore.UpsertContentColumnsOnlyBatchAsync</c> —
     /// unchanged by this split). Throws <see cref="ContentSiteIndexBatchUpsertException"/> (whole
@@ -232,15 +232,15 @@ public sealed class DirectPushCoordinator
     /// flips <c>is_visible</c>=true for the given rows, prod-FIRST-then-local (PUB-01/HIGH-3 — the
     /// SAME ordering the pre-split <c>WritePublishAsync</c> used, preserved exactly across the
     /// split), then clears the LOCAL awaiting-confirm marker (D-10) now that the push is fully
-    /// resolved. Callers MUST invoke this only for rows a deploy-confirm (SYNC-09,
-    /// <see cref="VerifyAndPublishAsync"/>) has already proven live at git <c>/app</c> with a
-    /// matching <c>body_sha256</c> — this method performs no confirmation itself.
+    /// resolved. Callers MUST export approved bodies to the private KB root before invoking this
+    /// method; this method performs no export itself.
     /// </summary>
     public async Task ConfirmAndPublishAsync(
         IReadOnlyList<ContentSiteIndexRow> publishRows,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(publishRows);
+        await EnsureDirectPushGitBodyFlagOffAsync(cancellationToken).ConfigureAwait(false);
         publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         var prodStore = CreateProdStore();
@@ -270,6 +270,10 @@ public sealed class DirectPushCoordinator
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.Ordinal)
             .ToList();
+        if (publishRows.Count > 0 && artifactPaths.Count == 0)
+        {
+            throw new InvalidOperationException("no artifact bodies to export");
+        }
         var export = await _orchestrator.ExportIndexToFileAsync(privateKbRoot.SeedFile, progress: null, cancellationToken)
             .ConfigureAwait(false);
         if (!export.Success)
@@ -280,14 +284,6 @@ public sealed class DirectPushCoordinator
         var copied = await _orchestrator.CopyArtifactsToRepoAsync(dataRoot, privateKbRoot.Root, artifactPaths, cancellationToken)
             .ConfigureAwait(false);
         return copied.Count;
-    }
-
-    public async Task<DirectPushVerifyResult> VerifyAndPublishAsync(
-        IReadOnlyList<ContentSiteIndexRow> publishRows,
-        CancellationToken cancellationToken)
-    {
-        await ConfirmAndPublishAsync(publishRows, cancellationToken).ConfigureAwait(false);
-        return new DirectPushVerifyResult(publishRows, Array.Empty<ContentSiteIndexRow>());
     }
 
     private Task<bool?> TryReadDirectPushGitBodyFlagAsync(CancellationToken cancellationToken)
@@ -338,12 +334,3 @@ public sealed record DirectPushDiff(
     int NewCount,
     int UpdatedCount,
     int UnchangedCount);
-
-/// <summary>
-/// Result of <see cref="DirectPushCoordinator.VerifyAndPublishAsync"/>: the rows whose deployed
-/// git <c>/app</c> body hash matched (and were therefore stamped + made visible) and the rows that
-/// did not confirm within the bounded retry budget (still content-upserted, still awaiting-confirm).
-/// </summary>
-public sealed record DirectPushVerifyResult(
-    IReadOnlyList<ContentSiteIndexRow> Confirmed,
-    IReadOnlyList<ContentSiteIndexRow> NotConfirmed);
