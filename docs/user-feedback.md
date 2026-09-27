@@ -20,6 +20,8 @@ Basic auth covers the whole admin shell: Dashboard (`/Admin`), Feedback, Flags, 
 
 On `/Admin/Flags`, operators can narrow the table instantly in-browser with a starts-with key filter, namespace chips for `service.` and `analysis.`, and status chips (**All statuses / Enabled / Disabled**) that filter rows by their current on/off state; all three compose, and the current filter is kept in `sessionStorage` across admin page reloads within the session. Public-tool visibility flags (`tool.*`) are **not** listed here — they are administered on `/Admin/Tools` (which cascades to the home tile, nav, help, and route), so a tool flag is toggled in exactly one place.
 
+On `/Admin/Tools`, operators can narrow the tool tables instantly in the browser with a starts-with filter. The filter matches a tool's name or flag key, case-insensitively, using the same rule as the Flags key filter. Status chips (**All statuses / Enabled / Disabled**) filter by each tool's current on/off state and compose with search. A section with no matching tools collapses, and a "No tools match the current filter." message appears when nothing matches. The current filter remains in `sessionStorage` across reloads within the session, including after a toggle.
+
 Public submissions are rate-limited to 5 per hour per IP.
 
 ### Feedback rate-limit identity (CF-Connecting-IP, Phase 5)
@@ -122,4 +124,3 @@ To run them:
 3. Run: `dotnet test DeckFlow.Web.Tests/DeckFlow.Web.Tests.csproj --filter "FullyQualifiedName~PostgresStorageTests"`
 
 Testcontainers.PostgreSql will start a `postgres:16-alpine` container, run the tests against the live database, and dispose the container at the end.
-
