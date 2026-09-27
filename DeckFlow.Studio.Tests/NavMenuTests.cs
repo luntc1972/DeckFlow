@@ -118,13 +118,13 @@ public sealed class NavMenuTests : BunitContext
     // ── A3/91-07: All destinations are present (count check) ──────────────────
 
     [Fact]
-    public void NavMenu_Renders_AllTwelveDestinations()
+    public void NavMenu_Renders_AllThirteenDestinations()
     {
         var cut = Render<NavMenu>();
         var navLinks = cut.FindAll("nav a.nav-link");
         // Home, Guide, Harvest, Creators, Review, Publish, Direct Push, Pull from Prod,
-        // Reconcile, Git Body Coverage, Skipped, Blocked = 12
-        Assert.Equal(12, navLinks.Count);
+        // Reconcile, Git Body Coverage, Data Coverage, Skipped, Blocked = 13
+        Assert.Equal(13, navLinks.Count);
     }
 
     // ── A3: Pipeline links appear before Support links in document order ──────

@@ -13,6 +13,9 @@ internal sealed class FakeSshArtifactDownloader : ISshArtifactDownloader
     /// <summary>Remote relative paths that should be reported as failed (no file written).</summary>
     public HashSet<string> FilesToFail { get; } = new();
 
+    /// <summary>UTF-8 artifact text keyed by requested remote relative path.</summary>
+    public Dictionary<string, string> FileContents { get; } = new();
+
     /// <summary>Records each download request received (success or failure).</summary>
     public List<SshDownloadRequest> DownloadedFiles { get; } = new();
 
@@ -41,7 +44,11 @@ internal sealed class FakeSshArtifactDownloader : ISshArtifactDownloader
                     Directory.CreateDirectory(dir);
                 }
 
-                File.WriteAllText(localPath, "staged artifact placeholder");
+                File.WriteAllText(
+                    localPath,
+                    FileContents.TryGetValue(req.RemoteRelativePath, out var content)
+                        ? content
+                        : "staged artifact placeholder");
             }
 
             var result = new SshDownloadResult(
