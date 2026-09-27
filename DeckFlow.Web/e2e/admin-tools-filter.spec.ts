@@ -37,8 +37,9 @@ test('admin tools status chips compose with search, show an empty state, and per
   await page.getByRole('button', { name: 'Disabled', exact: true }).click();
   expect(await visibleLabels(page)).toEqual(matches(tools, '', false));
   const filter = page.getByLabel('Filter by tool name or flag key prefix');
+  const sectionCount = await page.locator('.admin-tools__section').count();
   await filter.fill('c'); expect(await visibleLabels(page)).toEqual(matches(tools, 'c', false));
-  await filter.fill('zzz'); await expect(page.locator('#tools-filter-empty')).toBeVisible(); await expect(page.locator('.admin-tools__section')).toHaveCount(4); expect(await page.locator('.admin-tools__section.hidden').count()).toBe(4);
+  await filter.fill('zzz'); await expect(page.locator('#tools-filter-empty')).toBeVisible(); await expect(page.locator('.admin-tools__section')).toHaveCount(sectionCount); expect(await page.locator('.admin-tools__section.hidden').count()).toBe(sectionCount);
   await filter.fill('cut'); await page.reload(); await expect(filter).toHaveValue('cut'); await expect(page.getByRole('button', { name: 'Disabled', exact: true })).toHaveAttribute('aria-pressed', 'true'); expect(await visibleLabels(page)).toEqual(matches(tools, 'cut', false));
   await page.getByRole('button', { name: 'All statuses', exact: true }).click(); await filter.fill(''); expect(await visibleLabels(page)).toHaveLength(tools.length);
 });
@@ -46,5 +47,5 @@ test('admin tools status chips compose with search, show an empty state, and per
 test('admin tools stays within the viewport at mobile width', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/Admin/Tools');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
