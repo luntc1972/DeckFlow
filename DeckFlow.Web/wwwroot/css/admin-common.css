@@ -920,6 +920,11 @@ a:hover { text-decoration: underline; }
   background: rgba(59,130,246,0.12);
 }
 
+.admin-shell .flag-filter__chip-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-shell .flag-filter__count,
 .admin-shell .tools-filter__count {
   flex-basis: 100%;
