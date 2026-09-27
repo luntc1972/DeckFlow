@@ -12,17 +12,24 @@ public sealed class StudioSeedKeyMembershipSourcePrivateRootTests
     public void GetSeedMembership_PrivateRoot_ReadsPrivateSeedWithoutGitResolution()
     {
         var root = Path.Combine(Path.GetTempPath(), "studio-seed-membership-tests", Path.GetRandomFileName());
-        var seedFile = Path.Combine(root, "content-kb", "seed", "index-seed.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(seedFile)!);
-        File.WriteAllText(seedFile, "[{\"naturalKeyType\":\"youtube\",\"naturalKeyValue\":\"private-id\"}]");
-        var source = new StudioSeedKeyMembershipSource(
-            new StudioPrivateKbRootProvider(null, root),
-            NullLogger<StudioSeedKeyMembershipSource>.Instance);
+        try
+        {
+            var seedFile = Path.Combine(root, "content-kb", "seed", "index-seed.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(seedFile)!);
+            File.WriteAllText(seedFile, "[{\"naturalKeyType\":\"youtube\",\"naturalKeyValue\":\"private-id\"}]");
+            var source = new StudioSeedKeyMembershipSource(
+                new StudioPrivateKbRootProvider(null, root),
+                NullLogger<StudioSeedKeyMembershipSource>.Instance);
 
-        var result = source.GetSeedMembership();
+            var result = source.GetSeedMembership();
 
-        Assert.True(result.SeedAvailable);
-        Assert.Contains("youtube\u0000private-id", result.NaturalKeys);
+            Assert.True(result.SeedAvailable);
+            Assert.Contains("youtube\u0000private-id", result.NaturalKeys);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     [Fact]

@@ -22,15 +22,9 @@ public sealed class GitBodyCoveragePageTests : BunitContext
     };
 
     private (IRenderedComponent<GitBodyCoverage> Cut, FakeGitBodyCoverageAudit Audit) RenderPage(
-        FakeGitBodyCoverageAudit? auditOverride = null,
-        FakeGitRepository? gitOverride = null)
+        FakeGitBodyCoverageAudit? auditOverride = null)
     {
         var audit = auditOverride ?? new FakeGitBodyCoverageAudit();
-        var git = gitOverride ?? new FakeGitRepository
-        {
-            CannedRepoRoot = "/repo/root",
-        };
-
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -40,7 +34,6 @@ public sealed class GitBodyCoveragePageTests : BunitContext
 
         Services.AddLogging();
         Services.AddSingleton<IGitBodyCoverageAudit>(audit);
-        Services.AddSingleton<IGitRepository>(git);
         Services.AddSingleton<IStudioProdConnectionSource>(new StudioProdConnectionSource(configuration));
 
         var cut = Render<GitBodyCoverage>();
@@ -60,7 +53,7 @@ public sealed class GitBodyCoveragePageTests : BunitContext
         cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("All approved+visible production bodies are present in the git tree.", cut.Markup);
+            Assert.Contains("All approved+visible production bodies are present under the private KB root.", cut.Markup);
             Assert.Contains("SYNC-07 precondition is satisfied", cut.Markup);
         });
     }
@@ -88,7 +81,7 @@ public sealed class GitBodyCoveragePageTests : BunitContext
         {
             // The danger sentence wraps across a source line in the .razor, so assert only the
             // contiguous leading run (count + phrase up to the line break) to stay whitespace-robust.
-            Assert.Contains("1 approved+visible row(s) have no body in the git", cut.Markup);
+            Assert.Contains("1 approved+visible row(s) have no body under the private KB root", cut.Markup);
             Assert.Contains("Missing Title", cut.Markup);
             Assert.Contains("content-kb/test-channel/abc123.md", cut.Markup);
             Assert.Contains("youtube_channel:abc123", cut.Markup);

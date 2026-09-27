@@ -52,14 +52,16 @@ public sealed class GitBodyCoverageAuditTests
     [Fact]
     public async Task RunAsync_PrivateRootUnset_FailsClosed()
     {
+        var reader = new FakeProdContentReader();
         var audit = new GitBodyCoverageAudit(
-            new FakeProdContentReader(),
+            reader,
             new StudioPrivateKbRootProvider(null, null));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => audit.RunAsync("unused-conn-str", CancellationToken.None));
 
         Assert.Contains("DECKFLOW_KB_ROOT", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, reader.ReadCallCount);
     }
 
     [Fact]

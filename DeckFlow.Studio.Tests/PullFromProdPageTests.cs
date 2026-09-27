@@ -189,7 +189,10 @@ public sealed class PullFromProdPageTests : BunitContext
         cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
 
         cut.WaitForAssertion(() =>
-            Assert.Contains(PrivateKbRoot.EnvironmentVariableName, cut.Markup, StringComparison.Ordinal));
+        {
+            Assert.Contains(PrivateKbRoot.EnvironmentVariableName, cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("before it started", cut.Markup, StringComparison.Ordinal);
+        });
     }
 
     [Fact]

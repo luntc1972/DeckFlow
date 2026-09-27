@@ -164,7 +164,9 @@ public partial class PullFromProd
             _operationInFlight = false;
             await InvokeAsync(() =>
             {
-                AppendProgressLine($"Pull failed during: {_pullStage} — see the Studio log for details.");
+                AppendProgressLine(string.IsNullOrEmpty(_pullStage)
+                    ? "Pull failed before it started — see the Studio log for details."
+                    : $"Pull failed during: {_pullStage} — see the Studio log for details.");
                 SafeStateHasChanged();
             });
         }
