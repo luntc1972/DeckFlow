@@ -23,8 +23,10 @@ if [ -z "$DOTNET" ]; then
   exit 1
 fi
 
+# Why: resolve dotnet symlinks so WSLENV detects the Windows executable.
+DOTNET_RESOLVED="$(readlink -f "$DOTNET" 2>/dev/null || printf '%s' "$DOTNET")"
 # WSL-exported vars do not cross into Windows .exe processes unless named in WSLENV.
-if [[ "$DOTNET" == *.exe || "$DOTNET" == *"/mnt/c/"* ]]; then
+if [[ "$DOTNET_RESOLVED" == *.exe || "$DOTNET_RESOLVED" == *"/mnt/c/"* ]]; then
   export WSLENV="${WSLENV:+${WSLENV}:}DECKFLOW_DISABLE_AUTO_BROWSER:ASPNETCORE_ENVIRONMENT:FEEDBACK_ADMIN_USER:FEEDBACK_ADMIN_PASSWORD"
 fi
 
