@@ -63,11 +63,10 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
     [PostgresFact]
     public async Task RoundTrip_DistillToReconcile_HashMatchesEveryHop_NoRevertAfterReseed()
     {
-        // ── Boot: real PG schema + real git bootstrap; wire the real coordinators ──────────────
+        // ── Boot: real PG schema; wire the real coordinators ──────────────────────────────────
         var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
         await _harness.EnsureProdSchemaAsync(connectionString);
         await _harness.InitRepoAsync();
-        _harness.SetRepoRootEnv();
 
         // Why: WriteFile/ComputeRelativeArtifactPath agree only when the factory's artifactRoot
         // param already carries the content-kb/ segment -- exactly how Studio's Program.cs builds
@@ -81,7 +80,6 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         var sourceStore = new ContentSourceStore(localConnection);
         var videoStore = new ContentVideoStore(localConnection);
 
-        var git = new GitRepository();
         var config = _harness.BuildConfiguration();
         var prodConnection = new StudioProdConnectionSource(config);
         var options = new ContentKbOrchestratorOptions { ArtifactRoot = factoryArtifactRoot };
@@ -150,22 +148,12 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
 
         _output.WriteLine($"── Distill: row A written LOCAL only; hashDistillA={hashDistillA[..8]}… ──");
 
-        // ── Approve + Publish row A (export seed + copy body; operator commits + pushes) ──
+        // ── Approve + Publish row A (export seed + copy body; operator commits private root by hand) ──
         await localStore.SetApprovalStatusAsync(ContentSourceType.Youtube, videoIdA, "approved");
 
         var exportResult = await publish.ExportToPrivateRootAsync(
             _localDataRoot, new IOrchestratorProgress.NullOrchestratorProgress(), CancellationToken.None);
         Assert.Equal(PublishExportStatus.Success, exportResult.Status);
-
-        // Why: interim until DirectPush moves off git (T2b); DirectPush's foreign-commit guard
-        // still needs origin to be current.
-        var publishCommit = await git.StageAndCommitAsync(
-            _harness.RepoRoot,
-            exportResult.WrittenPaths,
-            "Publish approved content",
-            CancellationToken.None);
-        Assert.False(string.IsNullOrEmpty(publishCommit));
-        await git.PushAsync(_harness.RepoRoot, RoundTripHarness.OriginRemote, RoundTripHarness.Branch, CancellationToken.None);
 
         var seedPath = Path.Combine(_harness.RepoRoot, "content-kb", "seed", "index-seed.json");
         var seedEntriesAfterPublish = await ReadSeedEntriesAsync(seedPath);

@@ -4,8 +4,8 @@ How to run DeckFlow.Studio locally and (only if you need it) configure user-secr
 
 ## TL;DR — do the Phase 51 (51-02) smokes WITHOUT secrets
 
-The Phase 51 Studio smokes (P41 render, P45 re-distill/cap/cancel, P46 Review/Publish git
-commit) **do not need any user-secrets**. Studio boots against a **local SQLite** database and
+The Phase 51 Studio smokes (P41 render, P45 re-distill/cap/cancel, P46 Review/Publish) **do not
+need any user-secrets**. Studio boots against a **local SQLite** database and
 local artifact folder. User-secrets only gate the *direct prod-publish* page (DirectPush), which
 is Phase 52 work.
 
@@ -43,7 +43,6 @@ already-distilled video** in that DB. If empty, browse a channel + distill one v
 | Var | Purpose | Default |
 |-----|---------|---------|
 | `MTG_DATA_DIR` | Move the Studio data dir off the repo tree | unset → `.\artifacts\studio` |
-| `DECKFLOW_REPO_ROOT` | Repo working tree the git flows (Publish / Direct Push / Pull from Prod / Reconcile / Git Body Coverage) run from — lets a distributed exe publish without being launched from the repo | unset → process current directory |
 | `DECKFLOW_LLM_PROVIDER` | `claude` = subscription/$0; `openai` = metered (cap enforced) | unset (metered) |
 | `DECKFLOW_LLM_MONTHLY_CAP_USD` | Monthly spend cap (P45 cap-block smoke) | `15.00` |
 | `DECKFLOW_DISABLE_AUTO_BROWSER` | `true` stops the browser auto-pop | unset |
@@ -52,7 +51,7 @@ already-distilled video** in that DB. If empty, browse a channel + distill one v
 
 Two flags gate Studio sync behavior; Studio reads them from the **production** `feature_flags` table through a read-only accessor that fails closed (a missing row or a connection failure reads as OFF). Both ship **OFF**:
 
-- `sync.directpush-gitbody` — when ON, Direct Push triggers a real Render redeploy and bodies are served from the git `/app` tree only (the `/data` overlay fallback is dropped from serving). Before flipping it ON, run the **Git Body Coverage** page and confirm **0 missing** (every approved+visible prod row's body is present in the local git tree).
+- `sync.directpush-gitbody` — when ON, Direct Push triggers a real Render redeploy and bodies are served from the private KB root's `/app` tree only (the `/data` overlay fallback is dropped from serving). Before flipping it ON, run the **Git Body Coverage** page and confirm **0 missing** (every approved+visible prod row's body is present in the private KB root).
 - `sync.reconcile` — when ON, the **Reconcile** page's destructive **Apply removals** (seed-drift soft-hide) is enabled. The dry-run detection is always available regardless of this flag.
 
 Flipping either flag is an operator action in the prod web flag store; see the phase 93 pre-flip checklist.
@@ -234,7 +233,6 @@ Only two paths need extra config:
 |------|---------------|
 | DirectPush (SCP + prod Postgres upsert) | `Studio__Scp__*` + `Studio__ProdConnectionString` |
 | DirectPush deploy-confirm poll (D-09 REVISED) | `Studio__PublicSiteBaseUrl` + `Studio__AdminUser` + `Studio__AdminPassword` |
-| Git commit-publish | `git.exe` on `PATH`; launched from the repo working tree **or** `DECKFLOW_REPO_ROOT` set to it |
 
 LLM distill uses `DECKFLOW_LLM_PROVIDER=claude` (subscription, $0 spend) or
 `OPENAI_API_KEY` (metered). Not required to just browse and review existing entries.

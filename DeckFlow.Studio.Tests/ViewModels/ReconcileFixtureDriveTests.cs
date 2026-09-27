@@ -1,7 +1,6 @@
 using System.IO;
 using System.Text.Json;
 using DeckFlow.Core.Content;
-using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Studio.Services;
 using DeckFlow.Studio.ViewModels;
@@ -81,7 +80,6 @@ public sealed class ReconcileFixtureDriveTests : IDisposable
 
         var reader = new FixtureProdReader(_prod);
         var storeFactory = new FixtureProdStoreFactory(_prod);
-        var git = new FakeGitRepository { CannedRepoRoot = _repoRoot };
         var localStore = new ContentKbReconcileStore(_localDbPath);
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>

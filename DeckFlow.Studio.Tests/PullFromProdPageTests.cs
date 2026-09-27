@@ -1,6 +1,5 @@
 using Bunit;
 using DeckFlow.Core.Content;
-using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Pages;
@@ -52,14 +51,13 @@ public sealed class PullFromProdPageTests : BunitContext
     private (IRenderedComponent<PullFromProd> Cut,
              FakeContentSiteIndexStore LocalStore,
              FakeProdContentReader ProdReader,
-             FakeGitRepository Git)
+             string PrivateRoot)
         RenderPull(
             IEnumerable<ContentSiteIndexRow>? localRows = null,
             IEnumerable<ContentSiteIndexRow>? prodRows = null,
             FakeProdContentReader? prodReaderOverride = null,
             IEnumerable<string>? missingRepoBodies = null,
             IReadOnlyDictionary<string, string>? repoBodiesByArtifactPath = null,
-            FakeGitRepository? gitOverride = null,
             bool privateRootUnset = false,
             bool isProdConfigured = true,
             bool isScpConfigured = true)
@@ -68,8 +66,6 @@ public sealed class PullFromProdPageTests : BunitContext
         var prodReader = prodReaderOverride ?? new FakeProdContentReader();
         var repoRoot = Path.Combine(Path.GetTempPath(), "deckflow-tests-pull-repo", Path.GetRandomFileName());
         Directory.CreateDirectory(repoRoot);
-        var git = gitOverride ?? new FakeGitRepository();
-        git.CannedRepoRoot = repoRoot;
         var missing = new HashSet<string>(missingRepoBodies ?? Enumerable.Empty<string>(), StringComparer.Ordinal);
 
         foreach (var r in localRows ?? Enumerable.Empty<ContentSiteIndexRow>())
@@ -99,7 +95,6 @@ public sealed class PullFromProdPageTests : BunitContext
         Services.AddLogging();
         Services.AddSingleton<IContentSiteIndexStore>(localStore);
         Services.AddSingleton<IProdContentReader>(prodReader);
-        Services.AddSingleton<IGitRepository>(git);
         Services.AddSingleton<IPrivateKbRootProvider>(new StudioPrivateKbRootProvider(
             privateRootUnset ? null : repoRoot,
             privateRootUnset ? null : repoRoot));
@@ -113,7 +108,7 @@ public sealed class PullFromProdPageTests : BunitContext
         Services.AddSingleton<DeckFlow.Studio.ViewModels.PullFromProdCoordinator>();
 
         var cut = Render<PullFromProd>();
-        return (cut, localStore, prodReader, git);
+        return (cut, localStore, prodReader, repoRoot);
     }
 
     private static void Pull(IRenderedComponent<PullFromProd> cut)
@@ -252,21 +247,6 @@ public sealed class PullFromProdPageTests : BunitContext
         {
             Assert.DoesNotContain("checkout freshness", cut.Markup, StringComparison.OrdinalIgnoreCase);
         });
-    }
-
-    [Fact]
-    public void Pull_FreshCheckout_DoesNotRenderFreshnessBanner()
-    {
-        var git = new FakeGitRepository
-        {
-            CannedBranch = "main",
-            CannedBehindCount = 0,
-        };
-        var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") }, gitOverride: git);
-
-        Pull(cut);
-
-        Assert.Empty(cut.FindAll("[data-testid='freshness-banner']"));
     }
 
     // ── adopt-prod / keep-local apply ───────────────────────────────────────

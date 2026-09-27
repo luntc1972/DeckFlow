@@ -1,7 +1,5 @@
-using System.Diagnostics;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Storage;
-using DeckFlow.Studio.Services;
 using Microsoft.Extensions.Configuration;
 
 namespace DeckFlow.Web.Tests.Integration.RoundTrip;
@@ -10,28 +8,17 @@ namespace DeckFlow.Web.Tests.Integration.RoundTrip;
 /// Reusable round-trip harness for the SYNC-16 integration test (Plan 93-02): pre-creates the
 /// Postgres prod schema once over a Testcontainers connection, hands out schema-ensure-OFF prod
 /// stores and a distinct local (Studio-side) SQLite store over real connections (D-02), drives a
-/// real <c>git init</c> temp-repo bootstrap (D-03), and deploy-copies the committed tree into a
-/// distinct <c>/app</c> and <c>/data</c> stand-in directories. Zero production-code change: every member here only
-/// calls existing public constructors and interfaces, or a test-only <c>git</c> bootstrap helper
-/// scoped to this file.
+/// deploy-copies the private-root tree into distinct <c>/app</c> and <c>/data</c> stand-in directories.
 /// </summary>
 public sealed class RoundTripHarness : IDisposable
 {
     private static void ClearPool(string path) => Microsoft.Data.Sqlite.SqliteConnection.ClearPool(new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
-    /// <summary>Deterministic branch name the bootstrap repo is initialized on.</summary>
-    public const string Branch = "main";
-
-    /// <summary>Local bare-origin remote name.</summary>
-    public const string OriginRemote = "origin";
-
     private readonly string _localDbPath;
-    private string? _priorRepoRootEnv;
-    private bool _repoRootEnvSet;
     private bool _disposed;
 
     /// <summary>
     /// Creates a harness instance with fresh, uniquely-named temp paths (local SQLite database,
-    /// git repo root, deploy-copy <c>/app</c> stand-in, and bare origin) for this test's lifetime.
+    /// private-root, deploy-copy <c>/app</c> stand-in, and data root) for this test's lifetime.
     /// </summary>
     public RoundTripHarness()
     {
@@ -40,23 +27,20 @@ public sealed class RoundTripHarness : IDisposable
         RepoRoot = Path.Combine(Path.GetTempPath(), $"roundtrip-repo-{stamp}");
         AppRoot = Path.Combine(Path.GetTempPath(), $"roundtrip-app-{stamp}");
         DataRoot = Path.Combine(Path.GetTempPath(), $"roundtrip-data-{stamp}");
-        OriginRoot = Path.Combine(Path.GetTempPath(), $"roundtrip-origin-{stamp}.git");
     }
 
     /// <summary>Gets the local (Studio-side) SQLite database file path this harness instance owns.</summary>
     public string LocalDbPath => _localDbPath;
 
-    /// <summary>Gets the temp git working-tree root this harness bootstraps and drives.</summary>
+    /// <summary>Gets the temporary private-root directory this harness drives.</summary>
     public string RepoRoot { get; }
 
-    /// <summary>Gets the distinct deploy-copy stand-in directory simulating Render's <c>/app</c> git checkout.</summary>
+    /// <summary>Gets the distinct deploy-copy stand-in directory simulating Render's <c>/app</c> checkout.</summary>
     public string AppRoot { get; }
 
     /// <summary>Gets the distinct data-overlay stand-in directory simulating Render's <c>/data</c>.</summary>
     public string DataRoot { get; }
 
-    /// <summary>Gets the local bare-origin repo path <see cref="RepoRoot"/> pushes to.</summary>
-    public string OriginRoot { get; }
 
     /// <summary>
     /// Builds a Postgres <see cref="RelationalDatabaseConnection"/> descriptor from a raw
@@ -101,59 +85,21 @@ public sealed class RoundTripHarness : IDisposable
         => new ContentSiteIndexStore(_localDbPath);
 
     /// <summary>
-    /// Bootstraps <see cref="RepoRoot"/> as a real git working tree with a deterministic identity
-    /// and a local bare <see cref="OriginRoot"/>, then makes an initial commit and pushes it so
-    /// <c>origin/{Branch}</c> exists before any coordinator runs (CH1/CH2). <see cref="DeckFlow.Core.Integration.GitRepository"/>
-    /// has no <c>init</c>/<c>config</c> members, so this one-time sequence uses a test-only,
-    /// <see cref="ProcessStartInfo.ArgumentList"/>-only git shell helper scoped to this file — the
-    /// SOLE carve-out to the no-hand-rolled-<see cref="ProcessStartInfo"/> rule (D-03). Every
-    /// subsequent stage/commit/push/behind-count in the round-trip loop routes through the real
-    /// <see cref="DeckFlow.Core.Integration.GitRepository"/> instead.
+    /// Creates the private-root, app, and data directories used by the round-trip scenario.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task InitRepoAsync(CancellationToken cancellationToken = default)
+    public Task InitRepoAsync(CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(Path.Combine(RepoRoot, "content-kb", "seed"));
         Directory.CreateDirectory(AppRoot);
         Directory.CreateDirectory(DataRoot);
 
-        // (a) deterministic default branch — never depends on the host's init.defaultBranch config.
-        await RunGitBootstrapAsync(RepoRoot, ["init", "-b", Branch], cancellationToken).ConfigureAwait(false);
-        // (b) per-repo identity — a bare WSL/CI env has no global git identity configured.
-        await RunGitBootstrapAsync(RepoRoot, ["config", "user.name", "DeckFlow RoundTrip Test"], cancellationToken).ConfigureAwait(false);
-        await RunGitBootstrapAsync(RepoRoot, ["config", "user.email", "roundtrip-test@deckflow.local"], cancellationToken).ConfigureAwait(false);
-        // (c) local bare origin — no network, no real GitHub remote.
-        await RunGitBootstrapAsync(Path.GetTempPath(), ["init", "--bare", OriginRoot], cancellationToken).ConfigureAwait(false);
-        await RunGitBootstrapAsync(RepoRoot, ["remote", "add", OriginRemote, OriginRoot], cancellationToken).ConfigureAwait(false);
-
-        // (d) initial commit + push so origin/{Branch} EXISTS — a bare repo with no matching ref
-        // trips DirectPush's GetSubjectsAheadOfRemoteAsync/PushAsync (DirectPushPushBlockedException).
-        var placeholderRelativePath = "content-kb/seed/.gitkeep";
-        var placeholderPath = Path.Combine(RepoRoot, "content-kb", "seed", ".gitkeep");
-        await File.WriteAllTextAsync(placeholderPath, string.Empty, cancellationToken).ConfigureAwait(false);
-        await RunGitBootstrapAsync(RepoRoot, ["add", "--", placeholderRelativePath], cancellationToken).ConfigureAwait(false);
-        await RunGitBootstrapAsync(RepoRoot, ["commit", "-m", "initial commit"], cancellationToken).ConfigureAwait(false);
-        await RunGitBootstrapAsync(RepoRoot, ["push", "-u", OriginRemote, Branch], cancellationToken).ConfigureAwait(false);
+        return Task.CompletedTask;
     }
 
     /// <summary>
-    /// Sets <see cref="StudioRepoLocator.RepoRootEnvironmentVariable"/> = <see cref="RepoRoot"/> for
-    /// the harness lifetime, capturing the prior value so <see cref="Dispose"/> can restore it
-    /// (CM3) — <see cref="StudioRepoLocator"/> resolves the repo root from this env var (or CWD),
-    /// not from constructor injection, so without it the coordinators would target the wrong tree.
-    /// </summary>
-    public void SetRepoRootEnv()
-    {
-        _priorRepoRootEnv = Environment.GetEnvironmentVariable(StudioRepoLocator.RepoRootEnvironmentVariable);
-        Environment.SetEnvironmentVariable(StudioRepoLocator.RepoRootEnvironmentVariable, RepoRoot);
-        _repoRootEnvSet = true;
-    }
-
-    /// <summary>
-    /// Copies the committed <c>content-kb/**</c> tree from <see cref="RepoRoot"/> into the distinct
-    /// <see cref="AppRoot"/> stand-in directory — simulating Render's git checkout deploy. A plain
-    /// filesystem copy (not a second git invocation): the harness always stages+commits before
-    /// calling this, so the working tree already reflects the committed state.
+    /// Copies the private-root <c>content-kb/**</c> tree from <see cref="RepoRoot"/> into the distinct
+    /// <see cref="AppRoot"/> stand-in directory to simulate deployment.
     /// </summary>
     public Task DeployToAppAsync()
     {
@@ -195,11 +141,6 @@ public sealed class RoundTripHarness : IDisposable
 
         _disposed = true;
 
-        if (_repoRootEnvSet)
-        {
-            Environment.SetEnvironmentVariable(StudioRepoLocator.RepoRootEnvironmentVariable, _priorRepoRootEnv);
-        }
-
         // Why: release SQLite file handles before deleting so the temp .db file isn't left locked.
         ClearPool(_localDbPath);
         if (File.Exists(_localDbPath))
@@ -207,15 +148,12 @@ public sealed class RoundTripHarness : IDisposable
             File.Delete(_localDbPath);
         }
 
-        foreach (var directory in new[] { RepoRoot, AppRoot, DataRoot, OriginRoot })
+        foreach (var directory in new[] { RepoRoot, AppRoot, DataRoot })
         {
             ForceDeleteDirectory(directory);
         }
     }
 
-    // Why: git marks loose object files read-only, so a plain Directory.Delete throws
-    // UnauthorizedAccessException on Windows. Clear the read-only attribute on every entry
-    // before deleting so temp git-repo teardown never fails the test at Dispose time.
     private static void ForceDeleteDirectory(string directory)
     {
         if (!Directory.Exists(directory))
@@ -249,47 +187,4 @@ public sealed class RoundTripHarness : IDisposable
         }
     }
 
-    /// <summary>
-    /// Test-only git bootstrap runner — the SOLE hand-rolled <see cref="ProcessStartInfo"/> git
-    /// invocation permitted in this harness (D-03). <see cref="ProcessStartInfo.ArgumentList"/>-only
-    /// (never shell-interpolated), <c>UseShellExecute=false</c>, <c>GIT_TERMINAL_PROMPT=0</c> —
-    /// mirrors <see cref="DeckFlow.Core.Integration.GitRepository"/>'s own process-safety pattern.
-    /// Used ONLY by <see cref="InitRepoAsync"/> for the one-time init/config/bare-origin/push
-    /// sequence; every other git operation in the round-trip loop goes through the real
-    /// <see cref="DeckFlow.Core.Integration.GitRepository"/>.
-    /// </summary>
-    private static async Task RunGitBootstrapAsync(
-        string workingDirectory,
-        IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken)
-    {
-        var startInfo = new ProcessStartInfo("git")
-        {
-            WorkingDirectory = workingDirectory,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-        startInfo.Environment["GIT_TERMINAL_PROMPT"] = "0";
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException($"Failed to start git bootstrap process: git {string.Join(' ', arguments)}");
-
-        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        var stderr = await stderrTask.ConfigureAwait(false);
-        await stdoutTask.ConfigureAwait(false);
-
-        if (process.ExitCode != 0)
-        {
-            throw new InvalidOperationException(
-                $"git bootstrap command 'git {string.Join(' ', arguments)}' exited {process.ExitCode}: {stderr}");
-        }
-    }
 }

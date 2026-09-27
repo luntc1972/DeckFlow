@@ -90,7 +90,6 @@ public sealed class DirectPushPageTests : BunitContext
             bool isProdConfigured = true,
             bool isScpConfigured = true,
             bool isConfirmerConfigured = true,
-            FakeGitRepository? gitOverride = null,
             FakeContentKbOrchestrator? orchestratorOverride = null,
             IProdContentReader? prodReaderOverride = null,
             bool directPushGitBodyOn = false)
@@ -132,9 +131,6 @@ public sealed class DirectPushPageTests : BunitContext
             prodFactory,
             new FakeStudioProdConnectionSource()));
         Services.AddSingleton(new ContentKbOrchestratorOptions { ArtifactRoot = artifactRoot });
-        // Why: the git durability stage (Stage 4) resolves IGitRepository + IContentKbOrchestrator
-        // through the coordinator; register fakes so no real git process or file copy runs in bUnit.
-        Services.AddSingleton<DeckFlow.Core.Integration.IGitRepository>(gitOverride ?? new FakeGitRepository());
         Services.AddSingleton<IContentKbOrchestrator>(orchestratorOverride ?? new FakeContentKbOrchestrator());
         // Why (90-04): the coordinator's ReadFlagAsync dependency (D-04) — flag OFF by default so
         // [skip render] behavior in these bUnit page tests stays byte-identical to before this flag
