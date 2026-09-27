@@ -26,8 +26,26 @@ public sealed class DataCoveragePageTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("The audit could not be completed.", cut.Markup);
+            Assert.DoesNotContain("SSH unavailable", cut.Markup);
             Assert.DoesNotContain("data-coverage-results", cut.Markup);
         });
+    }
+
+    [Fact]
+    public void RunAudit_TransportFailure_ShowsSanitizedSshHint()
+    {
+        var audit = new FakeDataCoverageAudit { ExceptionToThrow = new DataCoverageTransportException() };
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Studio:ProdConnectionString"] = "Host=example" })
+            .Build();
+
+        Services.AddLogging();
+        Services.AddSingleton<IDataCoverageAudit>(audit);
+        Services.AddSingleton<IStudioProdConnectionSource>(new StudioProdConnectionSource(configuration));
+        var cut = Render<DataCoverage>();
+
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+        cut.WaitForAssertion(() => Assert.Contains(DataCoverageTransportException.OperatorMessage, cut.Markup));
     }
 
     [Fact]

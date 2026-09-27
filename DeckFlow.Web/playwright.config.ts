@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 import { resolveE2EPort } from './e2e/support/e2e-port';
-import { createContentKbE2eFixture } from './e2e/support/content-kb-e2e-fixture';
+import { createContentKbE2eFixture, getContentKbE2eFixtureSkipReason } from './e2e/support/content-kb-e2e-fixture';
 
 const windowsDotnetPath = '/mnt/c/Program Files/dotnet/dotnet.exe';
 const dotnetCommand = existsSync(windowsDotnetPath) ? `"${windowsDotnetPath}"` : 'dotnet';
@@ -9,14 +9,25 @@ const reuseExistingServer = !process.env.CI || Boolean(process.env.WSL_DISTRO_NA
 const e2ePort = resolveE2EPort();
 // Why: Playwright re-evaluates this config in every worker; reuse the main process's temp copy
 // so specs and the web server share one fixture and teardown removes the only copy.
-const contentKbE2eContentBase = process.env.DECKFLOW_E2E_CONTENT_BASE ?? createContentKbE2eFixture();
-process.env.DECKFLOW_E2E_CONTENT_BASE = contentKbE2eContentBase;
+const contentKbE2eFixtureSkipReason = process.env.DECKFLOW_E2E_CONTENT_BASE
+  ? undefined
+  : getContentKbE2eFixtureSkipReason();
+if (contentKbE2eFixtureSkipReason) {
+  console.warn(contentKbE2eFixtureSkipReason);
+  process.env.DECKFLOW_E2E_CONTENT_BASE = createContentKbE2eFixture(false);
+} else {
+  process.env.DECKFLOW_E2E_CONTENT_BASE ??= createContentKbE2eFixture();
+}
+const contentKbE2eContentBase = process.env.DECKFLOW_E2E_CONTENT_BASE;
 const webServerWslEnv = existsSync(windowsDotnetPath)
   ? `${process.env.WSLENV ? `${process.env.WSLENV}:` : ''}ContentKb__ContentBase/p`
   : process.env.WSLENV;
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: contentKbE2eFixtureSkipReason
+    ? /content-kb-(notice|public|pending-hidden)\.spec\.ts/
+    : undefined,
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   // Single-worker on CI: the cut-lab decide/tuning specs each drive a

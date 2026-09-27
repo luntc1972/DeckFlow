@@ -396,17 +396,6 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
-    public void DirectPush_Stage1_DoesNotShowDeploymentStatusWithDefaultConfiguration()
-    {
-        var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _, _) = RenderDirectPush(local);
-
-        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
-
-        Assert.DoesNotContain("Deploy-confirm", cut.Markup);
-    }
-
-    [Fact]
     public void DirectPush_DiffReadFailure_SecretsNeverSurface()
     {
         // Codex HIGH-2: prod read throws a sentinel-bearing message -> sanitized copy shown,

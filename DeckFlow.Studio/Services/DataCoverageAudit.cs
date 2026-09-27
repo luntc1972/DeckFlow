@@ -53,7 +53,7 @@ public sealed class DataCoverageAudit : IDataCoverageAudit
             var results = await _artifactDownloader.DownloadArtifactsAsync(downloads, stagingRoot, cancellationToken: cancellationToken);
             if (results.Any(result => result.FailureKind == SshDownloadFailureKind.Transport))
             {
-                throw new InvalidOperationException("Could not download any body from /data; check the SSH connection. No coverage result was recorded.");
+                throw new DataCoverageTransportException();
             }
             var matchCount = 0;
             var mismatchCount = 0;

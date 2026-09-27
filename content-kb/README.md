@@ -1,6 +1,6 @@
 # Content KB Publish Directory
 
-`content-kb/` is the tracked publish directory for the public content knowledge base. The site deploy reads these files from the runtime image after the Dockerfile copies this directory to `/app/content-kb`.
+`content-kb/` is the tracked publish directory for the public content knowledge base. The runtime image no longer ships this directory; bodies are served from the private KB root mounted as the `/data` overlay.
 
 ## Commit-Then-Deploy Flow
 
@@ -18,6 +18,6 @@
 
 3. Review the seed and copied markdown artifacts, then commit the tracked `content-kb/` changes.
 
-4. Deploy from git. The Docker runtime stage copies `content-kb/` into `/app/content-kb`, so resolver code should combine `ContentRootPath` with seed `artifactPath` values such as `content-kb/source/video.md`.
+4. Deploy from git. The Docker runtime stage does not copy `content-kb/` into `/app/content-kb`; resolver code reads seed `artifactPath` values such as `content-kb/source/video.md` from the private root / `/data` overlay.
 
 `artifacts/` stays ignored because it is local generation output. Only the curated publish tree under `content-kb/` is committed.

@@ -16,12 +16,37 @@ type ContentKbFixtureSeedEntry = {
   videoUrl: string;
 };
 
-export function createContentKbE2eFixture(): string {
+export function createContentKbE2eFixture(seedRows = true): string {
+  if (seedRows) {
+    const fixtureAvailability = getFixtureAvailability();
+    if (fixtureAvailability) {
+      throw new Error(fixtureAvailability);
+    }
+  }
   const temporaryFixtureDirectory = join(getTemporaryDirectory(), `deckflow-content-kb-e2e-${resolveE2EPort()}`);
   mkdirSync(temporaryFixtureDirectory, { recursive: true });
   cpSync(fixtureParentDirectory, temporaryFixtureDirectory, { recursive: true });
-  seedVisibleEntries(temporaryFixtureDirectory);
+  if (seedRows) {
+    seedVisibleEntries(temporaryFixtureDirectory);
+  }
   return temporaryFixtureDirectory;
+}
+
+export function getContentKbE2eFixtureSkipReason(): string | undefined {
+  return getFixtureAvailability();
+}
+
+function getFixtureAvailability(): string | undefined {
+  if (!existsSync(contentSiteIndexDbPath)) {
+    return `Content KB E2E specs skipped: artifacts database is missing at ${contentSiteIndexDbPath}.`;
+  }
+
+  try {
+    execFileSync('sqlite3', ['--version'], { encoding: 'utf8' });
+    return undefined;
+  } catch {
+    return 'Content KB E2E specs skipped: sqlite3 is not available on PATH to seed fixture rows.';
+  }
 }
 
 function seedVisibleEntries(contentBase: string): void {
@@ -45,7 +70,7 @@ function seedVisibleEntries(contentBase: string): void {
     published_utc TEXT NULL, pushed_to_prod_utc TEXT NULL,
     indexed_utc TEXT NOT NULL DEFAULT (datetime('now')), archetype_tags TEXT NOT NULL DEFAULT '[]',
     bracket_tags TEXT NOT NULL DEFAULT '[]', card_category_tags TEXT NOT NULL DEFAULT '[]',
-    natural_key_type TEXT NOT NULL, natural_key_value TEXT NOT NULL, is_visible INTEGER NOT NULL DEFAULT 0,
+    natural_key_type TEXT NOT NULL CHECK (natural_key_type IN ('youtube_channel','podcast_rss')), natural_key_value TEXT NOT NULL, is_visible INTEGER NOT NULL DEFAULT 0,
     is_hidden INTEGER NOT NULL DEFAULT 0, is_evergreen INTEGER NOT NULL DEFAULT 0,
     approval_status TEXT NOT NULL DEFAULT 'pending', body_sha256 TEXT NULL, awaiting_confirm_utc TEXT NULL,
     seed_managed INTEGER NULL, UNIQUE (natural_key_type, natural_key_value)

@@ -47,10 +47,25 @@ public sealed class DataCoverageAuditTests
         var downloader = new FakeSshArtifactDownloader { FailureKind = SshDownloadFailureKind.Transport };
         downloader.FilesToFail.Add(row.ArtifactPath);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => new DataCoverageAudit(reader, downloader)
+        var exception = await Assert.ThrowsAsync<DataCoverageTransportException>(() => new DataCoverageAudit(reader, downloader)
             .RunAsync("Host=example", CancellationToken.None));
 
-        Assert.Equal("Could not download any body from /data; check the SSH connection. No coverage result was recorded.", exception.Message);
+        Assert.Equal(DataCoverageTransportException.OperatorMessage, exception.Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_RejectedDownload_CountsMissingWithoutThrow()
+    {
+        var row = MakeRow("rejected", ContentSiteIndexContentSignature.ComputeBodySha256("body\n"));
+        var reader = new FakeProdContentReader();
+        reader.Rows.Add(row);
+        var downloader = new FakeSshArtifactDownloader { FailureKind = SshDownloadFailureKind.Rejected };
+        downloader.FilesToFail.Add(row.ArtifactPath);
+
+        var report = await new DataCoverageAudit(reader, downloader).RunAsync("Host=example", CancellationToken.None);
+
+        Assert.Equal(1, report.MissingCount);
+        Assert.Equal(DataCoverageFailureBucket.Missing, Assert.Single(report.FailingRows).Bucket);
     }
 
     [Fact]
@@ -84,10 +99,10 @@ public sealed class DataCoverageAuditTests
         downloader.FileContents[matching.ArtifactPath] = "matching\n";
         downloader.FilesToFail.Add(unavailable.ArtifactPath);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => new DataCoverageAudit(reader, downloader)
+        var exception = await Assert.ThrowsAsync<DataCoverageTransportException>(() => new DataCoverageAudit(reader, downloader)
             .RunAsync("Host=example", CancellationToken.None));
 
-        Assert.Equal("Could not download any body from /data; check the SSH connection. No coverage result was recorded.", exception.Message);
+        Assert.Equal(DataCoverageTransportException.OperatorMessage, exception.Message);
     }
 
     [Theory]

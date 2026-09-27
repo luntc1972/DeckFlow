@@ -40,6 +40,11 @@ public partial class DataCoverage
         {
             _runError = "The audit was cancelled.";
         }
+        catch (DataCoverageTransportException ex)
+        {
+            Logger.LogError(ex, "Data coverage audit could not download an artifact over SSH.");
+            _runError = DataCoverageTransportException.OperatorMessage;
+        }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Data coverage audit failed.");
