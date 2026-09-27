@@ -13,6 +13,9 @@ public sealed class AdminFlagsListViewModel
 {
     /// <summary>Sorted (Ordinal) list of flag rows from the live cache snapshot.</summary>
     public IReadOnlyList<FlagRow> Flags { get; init; } = Array.Empty<FlagRow>();
+
+    /// <summary>Namespace chips derived from listed rows (FLAGS-01, D-03), using raw D-02 labels.</summary>
+    public IReadOnlyList<FlagFilterGroup> Groups { get; init; } = Array.Empty<FlagFilterGroup>();
 }
 
 /// <summary>Single flag row: dotted key + current enabled state + operator description.</summary>
@@ -59,7 +62,8 @@ public sealed class AdminFlagsController : Controller
             .OrderBy(kv => kv.Key, StringComparer.Ordinal)
             .Select(kv => new FlagRow(kv.Key, kv.Value, FeatureFlagCatalog.Describe(kv.Key)))
             .ToArray();
-        var vm = new AdminFlagsListViewModel { Flags = rows };
+        // Why: derive from listed rows so tool.* cannot get a chip and every chip selects a visible row.
+        var vm = new AdminFlagsListViewModel { Flags = rows, Groups = FlagFilterGroups.Derive(rows.Select(row => row.Key)) };
         return View(vm);
     }
 
