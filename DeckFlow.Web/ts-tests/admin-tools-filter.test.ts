@@ -3,7 +3,7 @@ import '../wwwroot/ts/flag-filter';
 import '../wwwroot/ts/admin-tools';
 
 const fixture = `
-<div class="tools-filter">
+<div class="tools-filter hidden">
   <label for="tools-filter-search">Filter by tool name or flag key prefix</label>
   <input id="tools-filter-search" type="search" />
   <div class="tools-filter__chips" role="group" aria-label="Status filter">
@@ -41,6 +41,7 @@ afterEach(() => { vi.restoreAllMocks(); sessionStorage.clear(); document.body.in
 
 test('shows all rows and defaults to all statuses', () => { expect(labels()).toHaveLength(4); expect(document.querySelector('#tools-filter-count')!.textContent).toBe('4 of 4 tools shown'); expect(document.querySelector('#tools-filter-empty')!.classList.contains('hidden')).toBe(true); expect(document.querySelector('[data-tools-status=""]')!.getAttribute('aria-pressed')).toBe('true'); });
 test('search cut shows Cut Lab', () => { search('cut'); expect(labels()).toEqual(['Cut Lab']); expect(document.querySelector('#tools-filter-count')!.textContent).toBe('1 of 4 tools shown'); });
+test('shows controls after wiring the filter', () => { expect(document.querySelector('.tools-filter')!.classList.contains('hidden')).toBe(false); });
 test('hides empty sections only while filtered', () => { const emptySection = document.querySelectorAll<HTMLElement>('.admin-tools__section')[2]; expect(emptySection.classList.contains('hidden')).toBe(false); search('cut'); expect(emptySection.classList.contains('hidden')).toBe(true); search(''); expect(emptySection.classList.contains('hidden')).toBe(false); click('Enabled'); expect(emptySection.classList.contains('hidden')).toBe(true); });
 test('search CUT is case insensitive', () => { search('CUT'); expect(labels()).toEqual(['Cut Lab']); });
 test('search lab is prefix not substring', () => { search('lab'); expect(labels()).toEqual([]); });

@@ -96,4 +96,5 @@ document.addEventListener('DOMContentLoaded', () => {
     persist();
     applyFilter();
   }));
+  document.querySelector('.tools-filter')?.classList.remove('hidden');
 });
