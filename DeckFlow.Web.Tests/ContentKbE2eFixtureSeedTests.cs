@@ -1,5 +1,4 @@
 using System.Text.Json;
-using DeckFlow.Core.Content;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -12,22 +11,39 @@ public sealed class ContentKbE2eFixtureSeedTests
     {
         var seedPath = FindFixtureSeedPath();
 
-        var seed = SeedIndexFileReader.Read(seedPath);
-        Assert.True(seed.SeedAvailable);
-
-        using var document = JsonDocument.Parse(File.ReadAllText(seedPath));
-        var entries = document.RootElement.EnumerateArray().ToArray();
+        var entries = JsonSerializer.Deserialize<ContentKbSeedEntry[]>(File.ReadAllText(seedPath), JsonOptions)
+            ?? Array.Empty<ContentKbSeedEntry>();
         Assert.NotEmpty(entries);
-        Assert.Contains(entries, entry => entry.GetProperty("naturalKeyValue").GetString()?.StartsWith("e2e-visible-", StringComparison.Ordinal) == true);
-        Assert.Contains(entries, entry => entry.GetProperty("naturalKeyValue").GetString()?.StartsWith("e2e-publish-", StringComparison.Ordinal) == true);
+        Assert.Contains(entries, entry => entry.NaturalKeyValue.StartsWith("e2e-visible-", StringComparison.Ordinal));
+        Assert.Contains(entries, entry => entry.NaturalKeyValue.StartsWith("e2e-publish-", StringComparison.Ordinal));
 
         var fixtureRoot = Directory.GetParent(Directory.GetParent(Directory.GetParent(seedPath)!.FullName)!.FullName)!.FullName;
         foreach (var entry in entries)
         {
-            var artifactPath = entry.GetProperty("artifactPath").GetString();
-            Assert.False(string.IsNullOrWhiteSpace(artifactPath));
-            Assert.True(File.Exists(Path.Combine(fixtureRoot, artifactPath!)), $"Missing fixture artifact: {artifactPath}");
+            Assert.True(File.Exists(Path.Combine(fixtureRoot, entry.ArtifactPath)), $"Missing fixture artifact: {entry.ArtifactPath}");
         }
+    }
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+    };
+
+    private sealed record ContentKbSeedEntry
+    {
+        public required string NaturalKeyType { get; init; }
+        public required string NaturalKeyValue { get; init; }
+        public required string Source { get; init; }
+        public required string Title { get; init; }
+        public required string VideoUrl { get; init; }
+        public required string ArtifactPath { get; init; }
+        public DateTimeOffset? PublishedUtc { get; init; }
+        public required DateTimeOffset IndexedUtc { get; init; }
+        public required IReadOnlyList<string> ArchetypeTags { get; init; }
+        public required IReadOnlyList<string> BracketTags { get; init; }
+        public required IReadOnlyList<string> CardCategoryTags { get; init; }
+        public string? BodySha256 { get; init; }
     }
 
     private static string FindFixtureSeedPath()

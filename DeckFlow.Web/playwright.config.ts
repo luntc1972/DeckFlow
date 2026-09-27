@@ -9,11 +9,10 @@ const reuseExistingServer = !process.env.CI || Boolean(process.env.WSL_DISTRO_NA
 const e2ePort = resolveE2EPort();
 // Why: Playwright re-evaluates this config in every worker; reuse the main process's temp copy
 // so specs and the web server share one fixture and teardown removes the only copy.
-const contentKbE2eFixtureSkipReason = process.env.DECKFLOW_E2E_CONTENT_BASE
-  ? undefined
-  : getContentKbE2eFixtureSkipReason();
+const contentKbE2eFixtureSkipReason = process.env.DECKFLOW_E2E_CONTENT_KB_SKIP ?? getContentKbE2eFixtureSkipReason();
 if (contentKbE2eFixtureSkipReason) {
   console.warn(contentKbE2eFixtureSkipReason);
+  process.env.DECKFLOW_E2E_CONTENT_KB_SKIP = contentKbE2eFixtureSkipReason;
   process.env.DECKFLOW_E2E_CONTENT_BASE = createContentKbE2eFixture(false);
 } else {
   process.env.DECKFLOW_E2E_CONTENT_BASE ??= createContentKbE2eFixture();
