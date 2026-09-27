@@ -21,6 +21,7 @@ public sealed class AdminFlagsControllerIndexTests
         {
             ["tool.knowledge-base.enabled"] = true,
             ["tool.bracket.enabled"] = false,
+            ["Tool.case-insensitive.enabled"] = true,
             ["service.scryfall-tagger.enabled"] = true,
             ["analysis.manabase.accuracy"] = true,
         });
@@ -30,7 +31,8 @@ public sealed class AdminFlagsControllerIndexTests
         var vm = Assert.IsType<AdminFlagsListViewModel>(view.Model);
         var keys = vm.Flags.Select(f => f.Key).ToArray();
 
-        Assert.DoesNotContain(keys, k => k.StartsWith("tool."));
+        Assert.DoesNotContain(keys, k => k.StartsWith("tool.", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(vm.Groups, group => group.Prefix.StartsWith("tool.", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("service.scryfall-tagger.enabled", keys);
         Assert.Contains("analysis.manabase.accuracy", keys);
     }
