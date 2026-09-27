@@ -50,6 +50,19 @@ public sealed class GitBodyCoverageAuditTests
     }
 
     [Fact]
+    public async Task RunAsync_PrivateRootUnset_FailsClosed()
+    {
+        var audit = new GitBodyCoverageAudit(
+            new FakeProdContentReader(),
+            new StudioPrivateKbRootProvider(null, null));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => audit.RunAsync("unused-conn-str", CancellationToken.None));
+
+        Assert.Contains("DECKFLOW_KB_ROOT", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RunAsync_OnlyReportsApprovedVisibleMissingRows()
     {
         var repoRoot = MakeRepoRoot();
@@ -62,8 +75,8 @@ public sealed class GitBodyCoverageAuditTests
         reader.Rows.Add(present);
         reader.Rows.Add(missing);
 
-        var audit = new GitBodyCoverageAudit(reader);
-        var report = await audit.RunAsync("unused-conn-str", repoRoot, CancellationToken.None);
+        var audit = new GitBodyCoverageAudit(reader, new StudioPrivateKbRootProvider(null, repoRoot));
+        var report = await audit.RunAsync("unused-conn-str", CancellationToken.None);
 
         var row = Assert.Single(report.MissingRows);
         Assert.Equal("missing-vid", row.NaturalKeyValue);
@@ -81,8 +94,8 @@ public sealed class GitBodyCoverageAuditTests
         var reader = new FakeProdContentReader();
         reader.Rows.Add(present);
 
-        var audit = new GitBodyCoverageAudit(reader);
-        var report = await audit.RunAsync("unused-conn-str", repoRoot, CancellationToken.None);
+        var audit = new GitBodyCoverageAudit(reader, new StudioPrivateKbRootProvider(null, repoRoot));
+        var report = await audit.RunAsync("unused-conn-str", CancellationToken.None);
 
         Assert.Empty(report.MissingRows);
     }
@@ -96,8 +109,8 @@ public sealed class GitBodyCoverageAuditTests
         var reader = new FakeProdContentReader();
         reader.Rows.Add(hidden);
 
-        var audit = new GitBodyCoverageAudit(reader);
-        var report = await audit.RunAsync("unused-conn-str", repoRoot, CancellationToken.None);
+        var audit = new GitBodyCoverageAudit(reader, new StudioPrivateKbRootProvider(null, repoRoot));
+        var report = await audit.RunAsync("unused-conn-str", CancellationToken.None);
 
         Assert.Empty(report.MissingRows);
     }
@@ -111,8 +124,8 @@ public sealed class GitBodyCoverageAuditTests
         var reader = new FakeProdContentReader();
         reader.Rows.Add(pending);
 
-        var audit = new GitBodyCoverageAudit(reader);
-        var report = await audit.RunAsync("unused-conn-str", repoRoot, CancellationToken.None);
+        var audit = new GitBodyCoverageAudit(reader, new StudioPrivateKbRootProvider(null, repoRoot));
+        var report = await audit.RunAsync("unused-conn-str", CancellationToken.None);
 
         Assert.Empty(report.MissingRows);
     }
@@ -128,8 +141,8 @@ public sealed class GitBodyCoverageAuditTests
         var reader = new FakeProdContentReader();
         reader.Rows.Add(unsafeRow);
 
-        var audit = new GitBodyCoverageAudit(reader);
-        var report = await audit.RunAsync("unused-conn-str", repoRoot, CancellationToken.None);
+        var audit = new GitBodyCoverageAudit(reader, new StudioPrivateKbRootProvider(null, repoRoot));
+        var report = await audit.RunAsync("unused-conn-str", CancellationToken.None);
 
         var row = Assert.Single(report.MissingRows);
         Assert.Equal("content-kb/../../etc/passwd", row.ExpectedPath);
@@ -144,8 +157,8 @@ public sealed class GitBodyCoverageAuditTests
         var reader = new FakeProdContentReader();
         reader.Rows.Add(MakeRow(1, "vid-a", "content-kb/test-channel/vid-a.md", isVisible: true, approvalStatus: "approved"));
 
-        var audit = new GitBodyCoverageAudit(reader);
-        await audit.RunAsync("unused-conn-str", repoRoot, CancellationToken.None);
+        var audit = new GitBodyCoverageAudit(reader, new StudioPrivateKbRootProvider(null, repoRoot));
+        await audit.RunAsync("unused-conn-str", CancellationToken.None);
 
         Assert.Equal(1, reader.ReadCallCount);
     }

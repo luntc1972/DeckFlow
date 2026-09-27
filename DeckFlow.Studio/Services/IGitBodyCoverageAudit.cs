@@ -3,7 +3,7 @@ namespace DeckFlow.Studio.Services;
 /// <summary>
 /// Read-only pre-flip audit (90-CONTEXT.md D-11 / SYNC-07 rollout precondition): for every
 /// approved + visible production <c>content_site_index</c> row, checks whether its body <c>.md</c>
-/// exists in the local git content-kb tree (what will become <c>/app</c> after deploy) and reports
+/// exists under the private KB root and reports
 /// the rows whose body is MISSING. This is reporting only — it never deletes, reconciles, or
 /// writes anything to prod or the local store (that is Phase 91's reconciler).
 /// </summary>
@@ -11,16 +11,13 @@ public interface IGitBodyCoverageAudit
 {
     /// <summary>
     /// Reads all production rows via the read-only <c>IProdContentReader</c>, filters to approved +
-    /// visible, and cross-references each row's body against the local git tree rooted at
-    /// <paramref name="repoRoot"/>. Performs no writes.
+    /// visible, and cross-references each row's body against the private KB root. Performs no writes.
     /// </summary>
     /// <param name="prodConnectionString">Raw prod Postgres connection string (ephemeral, never stored).</param>
-    /// <param name="repoRoot">Local git repository root (the checkout that becomes <c>/app</c> after deploy).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A report listing every approved+visible row whose body is missing from the git tree.</returns>
+    /// <returns>A report listing every approved+visible row whose body is missing from the private KB root.</returns>
     Task<GitBodyCoverageReport> RunAsync(
         string prodConnectionString,
-        string repoRoot,
         CancellationToken cancellationToken = default);
 }
 

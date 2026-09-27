@@ -10,7 +10,6 @@ internal sealed class FakeGitBodyCoverageAudit : IGitBodyCoverageAudit
 
     public Task<GitBodyCoverageReport> RunAsync(
         string prodConnectionString,
-        string repoRoot,
         CancellationToken cancellationToken = default)
     {
         if (ThrowOnRun is not null)

@@ -1,4 +1,4 @@
-using DeckFlow.Core.Integration;
+using DeckFlow.Core.Content;
 using DeckFlow.Studio.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
@@ -14,9 +14,6 @@ public partial class GitBodyCoverage
 {
     [Inject]
     private IGitBodyCoverageAudit Audit { get; set; } = default!;
-
-    [Inject]
-    private IGitRepository Git { get; set; } = default!;
 
     [Inject]
     private IStudioProdConnectionSource ProdConnection { get; set; } = default!;
@@ -44,9 +41,8 @@ public partial class GitBodyCoverage
 
         try
         {
-            var repoRoot = await Git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), Cts.Token);
             var connectionString = ProdConnection.ConnectionString;
-            var report = await Audit.RunAsync(connectionString, repoRoot, Cts.Token);
+            var report = await Audit.RunAsync(connectionString, Cts.Token);
 
             _report = report;
         }
@@ -57,7 +53,10 @@ public partial class GitBodyCoverage
         catch (Exception ex)
         {
             Logger.LogError(ex, "Git body coverage audit failed.");
-            _runError = "The audit could not be completed.";
+            _runError = ex is InvalidOperationException invalidOperationException
+                && invalidOperationException.Message.Contains(PrivateKbRoot.EnvironmentVariableName, StringComparison.Ordinal)
+                ? invalidOperationException.Message
+                : "The audit could not be completed.";
         }
         finally
         {

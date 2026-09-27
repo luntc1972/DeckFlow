@@ -13,21 +13,23 @@ namespace DeckFlow.Studio.Services;
 public sealed class GitBodyCoverageAudit : IGitBodyCoverageAudit
 {
     private readonly IProdContentReader _prodReader;
+    private readonly IPrivateKbRootProvider _privateKbRootProvider;
 
     /// <summary>Creates the audit over the given read-only prod content reader.</summary>
-    public GitBodyCoverageAudit(IProdContentReader prodReader)
+    public GitBodyCoverageAudit(IProdContentReader prodReader, IPrivateKbRootProvider privateKbRootProvider)
     {
         ArgumentNullException.ThrowIfNull(prodReader);
+        ArgumentNullException.ThrowIfNull(privateKbRootProvider);
         _prodReader = prodReader;
+        _privateKbRootProvider = privateKbRootProvider;
     }
 
     /// <inheritdoc />
     public async Task<GitBodyCoverageReport> RunAsync(
         string prodConnectionString,
-        string repoRoot,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        var privateKbRoot = _privateKbRootProvider.GetRoot();
 
         var prodRows = await _prodReader
             .ReadAllAsync(prodConnectionString ?? string.Empty, cancellationToken)
@@ -52,7 +54,7 @@ public sealed class GitBodyCoverageAudit : IGitBodyCoverageAudit
             // Reuse the ONE shared Studio path-safety guard (Task 1) — an unsafe/uncontained
             // artifact path is reported as missing/invalid, never probed outside the content-kb
             // root (T-90-05).
-            var isPresent = ArtifactPathSafety.TryBuildContainedPath(repoRoot, row.ArtifactPath, out var fullPath)
+            var isPresent = ArtifactPathSafety.TryBuildContainedPath(privateKbRoot.Root, row.ArtifactPath, out var fullPath)
                 && File.Exists(fullPath);
 
             if (!isPresent)

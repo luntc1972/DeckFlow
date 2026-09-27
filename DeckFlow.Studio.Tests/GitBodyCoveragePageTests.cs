@@ -1,4 +1,5 @@
 using Bunit;
+using DeckFlow.Core.Content;
 using DeckFlow.Core.Integration;
 using DeckFlow.Studio.Pages;
 using DeckFlow.Studio.Services;
@@ -111,5 +112,22 @@ public sealed class GitBodyCoveragePageTests : BunitContext
         {
             Assert.DoesNotContain(substring, cut.Markup, StringComparison.Ordinal);
         }
+    }
+
+    [Fact]
+    public void Run_PrivateRootUnset_ShowsEnvironmentVariableError()
+    {
+        var message = $"{PrivateKbRoot.EnvironmentVariableName} is not set.";
+        var audit = new FakeGitBodyCoverageAudit
+        {
+            ThrowOnRun = new InvalidOperationException(message),
+        };
+
+        var (cut, _) = RenderPage(audit);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+
+        cut.WaitForAssertion(() => Assert.Contains(message, cut.Markup, StringComparison.Ordinal));
     }
 }
