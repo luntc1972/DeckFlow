@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Why: the shared formatter hard-codes the word "flags".
-  const formatCount = (matched: number, total: number): string => `${matched} of ${total} tools shown`;
+  const formatCount = (matched: number): string => `${matched} of ${total} tools shown`;
 
   const syncActiveChip = (): void => {
     chips.forEach((chip) => {
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     if (count !== null) {
-      count.textContent = formatCount(matched, total);
+      count.textContent = formatCount(matched);
     }
     if (empty !== null) {
       empty.classList.toggle('hidden', filter.emptyRowHidden(matched, total));
