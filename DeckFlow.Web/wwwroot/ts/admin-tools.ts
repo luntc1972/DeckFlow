@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const count = document.querySelector<HTMLElement>('#tools-filter-count');
   const empty = document.querySelector<HTMLElement>('#tools-filter-empty');
   const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-tool-label]'));
+  const total = rows.length;
   const sections = Array.from(document.querySelectorAll<HTMLElement>('.admin-tools__section'));
   const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-tools-status]'));
   const searchKey = 'deckflowAdminToolsSearch';
@@ -52,10 +53,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     if (count !== null) {
-      count.textContent = formatCount(matched, rows.length);
+      count.textContent = formatCount(matched, total);
     }
     if (empty !== null) {
-      empty.classList.toggle('hidden', filter.emptyRowHidden(matched, rows.length));
+      empty.classList.toggle('hidden', filter.emptyRowHidden(matched, total));
     }
   };
 
