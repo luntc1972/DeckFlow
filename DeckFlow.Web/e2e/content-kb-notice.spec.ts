@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { publishFirstUnpublishedEntry, setEntryVisibility } from './support/content-kb-publish';
+import { publishFixtureEntry, setEntryVisibility } from './support/content-kb-publish';
 import { configureAdminPageForTest, withKnowledgeBaseEnabled } from './support/knowledge-base-flag';
 
 withKnowledgeBaseEnabled();
 
-test('creator notice links a published detail page to a persisted removal request', async ({ page }) => {
-  const entry = await publishFirstUnpublishedEntry(page);
+test('creator notice links a published detail page to a persisted removal request', async ({ page }, testInfo) => {
+  const entry = await publishFixtureEntry(page, 'notice', testInfo.project.name);
   const detailPath = `/content-kb/${entry.id}`;
   const message = `E2E creator removal request ${Date.now()} ${test.info().project.name}`;
 

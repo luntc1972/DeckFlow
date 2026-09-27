@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { publishFirstUnpublishedEntry, setEntryVisibility } from './support/content-kb-publish';
+import { publishFixtureEntry, setEntryVisibility } from './support/content-kb-publish';
 import { configureAdminPageForTest, withKnowledgeBaseEnabled } from './support/knowledge-base-flag';
 
 type PublishedEntry = {
@@ -36,8 +36,8 @@ async function openPublishedEntry(page: Page): Promise<void> {
   expect(detailResponse?.ok()).toBeTruthy();
 }
 
-test('published entry appears on the public browse page', async ({ page }) => {
-  publishedEntry = await publishFirstUnpublishedEntry(page);
+test('published entry appears on the public browse page', async ({ page }, testInfo) => {
+  publishedEntry = await publishFixtureEntry(page, 'public', testInfo.project.name);
 
   const response = await page.goto('/content-kb');
   expect(response?.status()).toBe(200);

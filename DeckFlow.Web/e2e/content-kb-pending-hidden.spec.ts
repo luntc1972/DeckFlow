@@ -15,7 +15,12 @@ import { withKnowledgeBaseEnabled } from './support/knowledge-base-flag';
 // (no MTG_DATA_DIR): {ContentRoot}/../artifacts/content-site-index.db, where ContentRoot is the
 // DeckFlow.Web project dir the webServer command runs from.
 const dbPath = resolve(__dirname, '..', '..', 'artifacts', 'content-site-index.db');
-const contentKbE2eDirectory = resolve(__dirname, '..', '..', 'content-kb', 'e2e');
+const contentKbE2eContentBase = process.env.DECKFLOW_E2E_CONTENT_BASE;
+if (!contentKbE2eContentBase) {
+  throw new Error('DECKFLOW_E2E_CONTENT_BASE was not configured for Content KB E2E tests.');
+}
+
+const contentKbE2eDirectory = resolve(contentKbE2eContentBase, 'content-kb', 'e2e');
 
 const suffix = `${Date.now()}-${process.pid}`;
 const pendingKey = `e2e-pending-${suffix}`;

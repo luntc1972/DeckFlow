@@ -1,11 +1,19 @@
 import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
 import { resolveE2EPort } from './e2e/support/e2e-port';
+import { createContentKbE2eFixture } from './e2e/support/content-kb-e2e-fixture';
 
 const windowsDotnetPath = '/mnt/c/Program Files/dotnet/dotnet.exe';
 const dotnetCommand = existsSync(windowsDotnetPath) ? `"${windowsDotnetPath}"` : 'dotnet';
 const reuseExistingServer = !process.env.CI || Boolean(process.env.WSL_DISTRO_NAME);
 const e2ePort = resolveE2EPort();
+// Why: Playwright re-evaluates this config in every worker; reuse the main process's temp copy
+// so specs and the web server share one fixture and teardown removes the only copy.
+const contentKbE2eContentBase = process.env.DECKFLOW_E2E_CONTENT_BASE ?? createContentKbE2eFixture();
+process.env.DECKFLOW_E2E_CONTENT_BASE = contentKbE2eContentBase;
+const webServerWslEnv = existsSync(windowsDotnetPath)
+  ? `${process.env.WSLENV ? `${process.env.WSLENV}:` : ''}ContentKb__ContentBase/p`
+  : process.env.WSLENV;
 
 export default defineConfig({
   testDir: './e2e',
@@ -18,6 +26,7 @@ export default defineConfig({
   // (fast, many cores) keeps Playwright's core-count default.
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  globalTeardown: './e2e/support/content-kb-e2e-fixture-cleanup.ts',
   use: {
     // Force headless so a local WSL run never surfaces a browser window on the Windows host via WSLg.
     headless: true,
@@ -89,6 +98,9 @@ export default defineConfig({
       DECKFLOW_DISABLE_AUTO_BROWSER: 'true',
       FEEDBACK_ADMIN_USER: 'admin',
       FEEDBACK_ADMIN_PASSWORD: 'changeme-local',
+      ContentKb__ContentBase: contentKbE2eContentBase,
+      DECKFLOW_E2E_CONTENT_BASE: contentKbE2eContentBase,
+      WSLENV: webServerWslEnv,
     },
   },
 });
