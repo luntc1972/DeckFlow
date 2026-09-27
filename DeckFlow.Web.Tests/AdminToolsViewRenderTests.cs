@@ -105,52 +105,8 @@ public sealed class AdminToolsViewRenderTests
         },
     };
 
-    // Why: the test project has no shared Razor render helper, so this harness is copied per class.
-    private static async Task<string> RenderAsync(object model)
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton<ObjectPoolProvider, DefaultObjectPoolProvider>();
-        services.AddSingleton<DiagnosticListener>(_ => new DiagnosticListener("DeckFlow.Web.Tests"));
-        services.AddSingleton<DiagnosticSource>(sp => sp.GetRequiredService<DiagnosticListener>());
-        services.AddSingleton<IWebHostEnvironment>(CreateHostingEnvironment());
-        services.AddSingleton<IHostEnvironment>(sp => sp.GetRequiredService<IWebHostEnvironment>());
-        services.AddLogging();
-        services.AddDataProtection();
-        services.AddControllersWithViews().AddApplicationPart(typeof(AdminToolsController).Assembly);
-        using var provider = services.BuildServiceProvider();
-        var context = new DefaultHttpContext { RequestServices = provider };
-        var action = new ActionContext(context, new RouteData(new RouteValueDictionary(new Dictionary<string, object?> { ["controller"] = "AdminTools" })), new ActionDescriptor());
-        var result = provider.GetRequiredService<IRazorViewEngine>().FindView(action, "Index", isMainPage: false);
-        Assert.True(result.Success);
-        var data = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model };
-        await using var writer = new StringWriter();
-        await result.View!.RenderAsync(new ViewContext(action, result.View, data, new TempDataDictionary(context, new StubTempDataProvider()), writer, new HtmlHelperOptions()));
-        return writer.ToString();
-    }
-
-    private static IWebHostEnvironment CreateHostingEnvironment() => new TestWebHostEnvironment
-    {
-        ApplicationName = typeof(AdminToolsController).Assembly.GetName().Name ?? "DeckFlow.Web",
-        ContentRootPath = AppContext.BaseDirectory,
-        ContentRootFileProvider = new NullFileProvider(),
-        EnvironmentName = Environments.Development,
-        WebRootPath = AppContext.BaseDirectory,
-        WebRootFileProvider = new NullFileProvider(),
-    };
-
-    private sealed class StubTempDataProvider : ITempDataProvider
-    {
-        public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
-        public void SaveTempData(HttpContext context, IDictionary<string, object> values) { }
-    }
-
-    private sealed class TestWebHostEnvironment : IWebHostEnvironment
-    {
-        public string ApplicationName { get; set; } = string.Empty;
-        public IFileProvider ContentRootFileProvider { get; set; } = null!;
-        public string ContentRootPath { get; set; } = string.Empty;
-        public string EnvironmentName { get; set; } = string.Empty;
-        public IFileProvider WebRootFileProvider { get; set; } = null!;
-        public string WebRootPath { get; set; } = string.Empty;
-    }
+    private static Task<string> RenderAsync(object model) => RazorViewRenderer.RenderAsync(
+        model,
+        typeof(AdminToolsController),
+        "AdminTools");
 }
