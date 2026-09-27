@@ -25,13 +25,13 @@ public sealed class DataCoverageAudit : IDataCoverageAudit
         string prodConnectionString,
         CancellationToken cancellationToken = default)
     {
-        var publishedRows = (await _prodReader.ReadAllAsync(prodConnectionString, cancellationToken))
+        var liveRows = (await _prodReader.ReadAllAsync(prodConnectionString, cancellationToken))
             .Where(row => row.IsVisible && string.Equals(row.ApprovalStatus, "approved", StringComparison.Ordinal))
             .ToList();
         var failures = new List<DataCoverageFailureRow>();
         var hashableRows = new List<DeckFlow.Core.Knowledge.ContentSiteIndexRow>();
 
-        foreach (var row in publishedRows)
+        foreach (var row in liveRows)
         {
             if (IsSha256(row.BodySha256))
             {
@@ -51,6 +51,10 @@ public sealed class DataCoverageAudit : IDataCoverageAudit
                 .Select((row, index) => new SshDownloadRequest(row.ArtifactPath, $"{index}.md"))
                 .ToList();
             var results = await _artifactDownloader.DownloadArtifactsAsync(downloads, stagingRoot, cancellationToken: cancellationToken);
+            if (results.Any(result => result.FailureKind == SshDownloadFailureKind.Transport))
+            {
+                throw new InvalidOperationException("Could not download any body from /data; check the SSH connection. No coverage result was recorded.");
+            }
             var matchCount = 0;
             var mismatchCount = 0;
             var missingCount = 0;
@@ -80,7 +84,7 @@ public sealed class DataCoverageAudit : IDataCoverageAudit
             }
 
             return new DataCoverageReport(
-                publishedRows.Count,
+                liveRows.Count,
                 matchCount,
                 mismatchCount,
                 missingCount,

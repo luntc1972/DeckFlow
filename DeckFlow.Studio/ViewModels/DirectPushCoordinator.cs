@@ -266,14 +266,15 @@ public sealed class DirectPushCoordinator
         publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         var privateKbRoot = _privateKbRootProvider.GetRoot();
+        var blankArtifactPathCount = publishRows.Count(row => string.IsNullOrWhiteSpace(row.ArtifactPath));
+        if (blankArtifactPathCount > 0)
+        {
+            throw new InvalidOperationException($"{blankArtifactPathCount} row(s) have no artifact body to export");
+        }
         var artifactPaths = publishRows.Select(row => row.ArtifactPath)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.Ordinal)
             .ToList();
-        if (publishRows.Count > 0 && artifactPaths.Count == 0)
-        {
-            throw new InvalidOperationException("no artifact bodies to export");
-        }
         var export = await _orchestrator.ExportIndexToFileAsync(privateKbRoot.SeedFile, progress: null, cancellationToken)
             .ConfigureAwait(false);
         if (!export.Success)

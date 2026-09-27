@@ -89,7 +89,6 @@ public sealed class DirectPushPageTests : BunitContext
             FakeContentSiteIndexStore? prodStoreOverride = null,
             bool isProdConfigured = true,
             bool isScpConfigured = true,
-            bool isConfirmerConfigured = true,
             FakeContentKbOrchestrator? orchestratorOverride = null,
             IProdContentReader? prodReaderOverride = null,
             bool directPushGitBodyOn = false)
@@ -119,7 +118,7 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton<IContentSiteIndexStore>(localStore);
         Services.AddSingleton<ISshArtifactUploader>(uploader);
         Services.AddSingleton<IProdStoreFactory>(prodFactory);
-        Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured, isConfirmerConfigured));
+        Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton<IStudioProdConnectionSource>(new StudioProdConnectionSource(configuration));
         Services.AddSingleton<IPrivateKbRootProvider>(new StudioPrivateKbRootProvider(null, Path.GetTempPath()));
@@ -384,11 +383,11 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
-    public void DirectPush_ConfirmerNotConfigured_DoesNotBlockStage1()
+    public void DirectPush_Stage1_DoesNotShowDeploymentStatus()
     {
         // Direct publishing no longer waits for a deployment confirmation.
         var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _, _) = RenderDirectPush(local, isConfirmerConfigured: false);
+        var (cut, _, _, _, _, _) = RenderDirectPush(local);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
 
@@ -397,10 +396,10 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
-    public void DirectPush_ConfirmerConfigured_DeployConfirmStatusNotShown()
+    public void DirectPush_Stage1_DoesNotShowDeploymentStatusWithDefaultConfiguration()
     {
         var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _, _) = RenderDirectPush(local, isConfirmerConfigured: true);
+        var (cut, _, _, _, _, _) = RenderDirectPush(local);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
 
@@ -556,9 +555,8 @@ public sealed class DirectPushPageTests : BunitContext
     [Fact]
     public void DirectPush_Success_RowsStayHidden_AwaitingConfirm_NotYetPublishedVisible()
     {
-        // D-06/D-07: Stage 3 (content-only write) must NEVER flip is_visible — that only happens
-        // after a deploy-confirm (SYNC-09, not wired to this stage — see Plan 90-06). A row must
-        // never go visible before its body is durably in git and deployed.
+        // D-06/D-07: Stage 3 (content-only write) must NEVER flip is_visible. A row must never go
+        // visible before its body is durably in the private KB root.
         var local = new[] { MakeApprovedRow(1, "vid1"), MakeApprovedRow(2, "vid2") };
         var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local);
 
@@ -860,6 +858,7 @@ public sealed class DirectPushPageTests : BunitContext
             Assert.Single(localStore.ClearAwaitingConfirmCalls);
             Assert.True(exportObservedBeforePublish);
             Assert.DoesNotContain("Could not publish to the private KB root", cut.Markup);
+            Assert.DoesNotContain("Resume", cut.Markup);
         });
     }
 

@@ -32,7 +32,7 @@ public sealed record DataCoverageFailureRow(string ArtifactPath, DataCoverageFai
 
 /// <summary>Result of one production <c>/data</c> coverage audit.</summary>
 public sealed record DataCoverageReport(
-    int TotalPublishedCount,
+    int TotalLiveCount,
     int PresentMatchCount,
     int PresentMismatchCount,
     int MissingCount,

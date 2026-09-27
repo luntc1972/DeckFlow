@@ -546,7 +546,22 @@ public sealed class DirectPushCoordinatorTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             coordinator.ExportBodiesToPrivateKbRootAsync(rows, "/data", CancellationToken.None));
 
-        Assert.Equal("no artifact bodies to export", exception.Message);
+        Assert.Equal("2 row(s) have no artifact body to export", exception.Message);
+        Assert.Empty(orchestrator.CopyArtifactsCalls);
+    }
+
+    [Fact]
+    public async Task ExportBodiesToPrivateKbRootAsync_MixedBlankArtifactPath_ThrowsBeforeExportOrCopy()
+    {
+        var orchestrator = new FakeContentKbOrchestrator();
+        var coordinator = Build(new FakeContentSiteIndexStore(), new FakeContentSiteIndexStore(), orchestrator: orchestrator);
+        var rows = new[] { Youtube(1, "valid"), Youtube(2, "blank") with { ArtifactPath = " " } };
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            coordinator.ExportBodiesToPrivateKbRootAsync(rows, "/data", CancellationToken.None));
+
+        Assert.Equal("1 row(s) have no artifact body to export", exception.Message);
+        Assert.Empty(orchestrator.ExportToFilePaths);
         Assert.Empty(orchestrator.CopyArtifactsCalls);
     }
 

@@ -13,6 +13,9 @@ internal sealed class FakeSshArtifactDownloader : ISshArtifactDownloader
     /// <summary>Remote relative paths that should be reported as failed (no file written).</summary>
     public HashSet<string> FilesToFail { get; } = new();
 
+    /// <summary>Failure classification returned for failed files.</summary>
+    public SshDownloadFailureKind FailureKind { get; set; } = SshDownloadFailureKind.NotFound;
+
     /// <summary>UTF-8 artifact text keyed by requested remote relative path.</summary>
     public Dictionary<string, string> FileContents { get; } = new();
 
@@ -55,7 +58,8 @@ internal sealed class FakeSshArtifactDownloader : ISshArtifactDownloader
                 req.RemoteRelativePath,
                 localPath,
                 !failed,
-                failed ? FailureReason : null);
+                failed ? FailureReason : null,
+                failed ? FailureKind : SshDownloadFailureKind.None);
             results.Add(result);
             progress?.Report(result);
         }

@@ -50,7 +50,7 @@ public sealed class SftpArtifactDownloader : SftpArtifactSessionBase, ISshArtifa
             downloads,
             (client, request) => DownloadOne(client, request, stagingRootFull),
             request => new SshDownloadResult(
-                request.RemoteRelativePath, string.Empty, false, SanitizedFailureReason),
+                request.RemoteRelativePath, string.Empty, false, SanitizedFailureReason, SshDownloadFailureKind.Transport),
             progress,
             _logger,
             cancellationToken);
@@ -64,12 +64,14 @@ public sealed class SftpArtifactDownloader : SftpArtifactSessionBase, ISshArtifa
         // (T-60-04 / T-60-05, Pitfall 5).
         if (!TryBuildRemotePath(request.RemoteRelativePath, out var remotePath))
         {
-            return new SshDownloadResult(request.RemoteRelativePath, string.Empty, false, SanitizedFailureReason);
+            // Why: invalid database input is not evidence that the SSH transport is unavailable.
+            return new SshDownloadResult(request.RemoteRelativePath, string.Empty, false, SanitizedFailureReason, SshDownloadFailureKind.Rejected);
         }
 
         if (!TryBuildLocalPath(stagingRootFull, request.LocalRelativePath, out var localDest))
         {
-            return new SshDownloadResult(request.RemoteRelativePath, string.Empty, false, SanitizedFailureReason);
+            // Why: invalid local staging input is not evidence that the SSH transport is unavailable.
+            return new SshDownloadResult(request.RemoteRelativePath, string.Empty, false, SanitizedFailureReason, SshDownloadFailureKind.Rejected);
         }
 
         try
@@ -89,7 +91,10 @@ public sealed class SftpArtifactDownloader : SftpArtifactSessionBase, ISshArtifa
         {
             // Why: never surface ex.Message — it can carry the remote path or host (D-07 / Pitfall 3).
             _logger?.LogWarning("SFTP download of one artifact failed.");
-            return new SshDownloadResult(request.RemoteRelativePath, string.Empty, false, SanitizedFailureReason);
+            var failureKind = ex is SftpPathNotFoundException
+                ? SshDownloadFailureKind.NotFound
+                : SshDownloadFailureKind.Transport;
+            return new SshDownloadResult(request.RemoteRelativePath, string.Empty, false, SanitizedFailureReason, failureKind);
         }
     }
 

@@ -41,6 +41,22 @@ public interface ISshArtifactDownloader
 /// </param>
 public sealed record SshDownloadRequest(string RemoteRelativePath, string LocalRelativePath);
 
+/// <summary>Classifies an unsuccessful SFTP artifact download.</summary>
+public enum SshDownloadFailureKind
+{
+    /// <summary>The download succeeded.</summary>
+    None,
+
+    /// <summary>The requested remote artifact does not exist.</summary>
+    NotFound,
+
+    /// <summary>The request was rejected before an SFTP download was attempted.</summary>
+    Rejected,
+
+    /// <summary>The SFTP transport was unavailable or failed.</summary>
+    Transport,
+}
+
 /// <summary>Per-file result of an SFTP download attempt.</summary>
 /// <param name="RemoteRelativePath">The relative artifact path that was downloaded.</param>
 /// <param name="LocalPath">Absolute local path the file was written to (empty on pre-write failure).</param>
@@ -49,8 +65,10 @@ public sealed record SshDownloadRequest(string RemoteRelativePath, string LocalR
 /// Sanitized failure reason; <c>null</c> on success. Sanitized; never contains host/key/path
 /// secrets or <c>ex.Message</c>.
 /// </param>
+/// <param name="FailureKind">Failure classification; <see cref="SshDownloadFailureKind.None"/> on success.</param>
 public sealed record SshDownloadResult(
     string RemoteRelativePath,
     string LocalPath,
     bool Success,
-    string? FailureReason);
+    string? FailureReason,
+    SshDownloadFailureKind FailureKind = SshDownloadFailureKind.None);

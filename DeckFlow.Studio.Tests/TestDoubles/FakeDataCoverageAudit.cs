@@ -6,8 +6,12 @@ internal sealed class FakeDataCoverageAudit : IDataCoverageAudit
 {
     public DataCoverageReport? CannedReport { get; set; }
 
+    public Exception? ExceptionToThrow { get; set; }
+
     public Task<DataCoverageReport> RunAsync(
         string prodConnectionString,
         CancellationToken cancellationToken = default)
-        => Task.FromResult(CannedReport ?? new DataCoverageReport(0, 0, 0, 0, 0, Array.Empty<DataCoverageFailureRow>()));
+        => ExceptionToThrow is null
+            ? Task.FromResult(CannedReport ?? new DataCoverageReport(0, 0, 0, 0, 0, Array.Empty<DataCoverageFailureRow>()))
+            : Task.FromException<DataCoverageReport>(ExceptionToThrow);
 }

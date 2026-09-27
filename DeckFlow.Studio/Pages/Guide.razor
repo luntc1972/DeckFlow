@@ -28,6 +28,12 @@
                     <a href="/publish">Publish</a> exports approved content to the private KB root named by <code>DECKFLOW_KB_ROOT</code>. Review it and commit it by hand when needed.
                 </li>
                 <li class="mb-3">
+                    <a href="/data-coverage">Data Coverage</a> compares live rows' stored body hash to the files on <code>/data</code>.
+                </li>
+                <li class="mb-3">
+                    <a href="/git-body-coverage">Git Body Coverage</a> compares stored body hashes to the private KB root.
+                </li>
+                <li class="mb-3">
                     <a href="/direct-push">Direct Push to Production</a> is the alternate publish path when you need to write approved entries straight to prod. It uploads artifacts to <code>/data</code>, writes prod DB rows, exports the private KB root, then makes rows visible.
                 </li>
                 <li class="mb-3">

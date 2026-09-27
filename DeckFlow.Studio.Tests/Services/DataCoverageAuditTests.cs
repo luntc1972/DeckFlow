@@ -8,7 +8,7 @@ namespace DeckFlow.Studio.Tests.Services;
 public sealed class DataCoverageAuditTests
 {
     [Fact]
-    public async Task RunAsync_PublishedMatchingBody_CountsMatch()
+    public async Task RunAsync_LiveMatchingBody_CountsMatch()
     {
         var body = "# Body\n";
         var row = MakeRow("match", ContentSiteIndexContentSignature.ComputeBodySha256(body));
@@ -19,7 +19,7 @@ public sealed class DataCoverageAuditTests
     }
 
     [Fact]
-    public async Task RunAsync_PublishedDifferentBody_CountsMismatch()
+    public async Task RunAsync_LiveDifferentBody_CountsMismatch()
     {
         var row = MakeRow("mismatch", ContentSiteIndexContentSignature.ComputeBodySha256("expected\n"));
         var report = await RunAsync(row, "actual\n");
@@ -36,6 +36,58 @@ public sealed class DataCoverageAuditTests
 
         Assert.Equal(1, report.MissingCount);
         Assert.Equal(DataCoverageFailureBucket.Missing, Assert.Single(report.FailingRows).Bucket);
+    }
+
+    [Fact]
+    public async Task RunAsync_AllDownloadsFail_ThrowsWithoutRecordingCoverage()
+    {
+        var row = MakeRow("all-fail", ContentSiteIndexContentSignature.ComputeBodySha256("body\n"));
+        var reader = new FakeProdContentReader();
+        reader.Rows.Add(row);
+        var downloader = new FakeSshArtifactDownloader { FailureKind = SshDownloadFailureKind.Transport };
+        downloader.FilesToFail.Add(row.ArtifactPath);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => new DataCoverageAudit(reader, downloader)
+            .RunAsync("Host=example", CancellationToken.None));
+
+        Assert.Equal("Could not download any body from /data; check the SSH connection. No coverage result was recorded.", exception.Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_NotFoundAlongsideSuccess_CountsMissingWithoutThrow()
+    {
+        var matching = MakeRow("matching", ContentSiteIndexContentSignature.ComputeBodySha256("matching\n"));
+        var missing = MakeRow("missing", ContentSiteIndexContentSignature.ComputeBodySha256("missing\n"));
+        var reader = new FakeProdContentReader();
+        reader.Rows.Add(matching);
+        reader.Rows.Add(missing);
+        var downloader = new FakeSshArtifactDownloader();
+        downloader.FileContents[matching.ArtifactPath] = "matching\n";
+        downloader.FilesToFail.Add(missing.ArtifactPath);
+
+        var report = await new DataCoverageAudit(reader, downloader).RunAsync("Host=example", CancellationToken.None);
+
+        Assert.Equal(1, report.PresentMatchCount);
+        Assert.Equal(1, report.MissingCount);
+        Assert.Equal(missing.ArtifactPath, Assert.Single(report.FailingRows).ArtifactPath);
+    }
+
+    [Fact]
+    public async Task RunAsync_TransportFailureAlongsideSuccess_ThrowsWithoutRecordingCoverage()
+    {
+        var matching = MakeRow("matching", ContentSiteIndexContentSignature.ComputeBodySha256("matching\n"));
+        var unavailable = MakeRow("unavailable", ContentSiteIndexContentSignature.ComputeBodySha256("unavailable\n"));
+        var reader = new FakeProdContentReader();
+        reader.Rows.Add(matching);
+        reader.Rows.Add(unavailable);
+        var downloader = new FakeSshArtifactDownloader { FailureKind = SshDownloadFailureKind.Transport };
+        downloader.FileContents[matching.ArtifactPath] = "matching\n";
+        downloader.FilesToFail.Add(unavailable.ArtifactPath);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => new DataCoverageAudit(reader, downloader)
+            .RunAsync("Host=example", CancellationToken.None));
+
+        Assert.Equal("Could not download any body from /data; check the SSH connection. No coverage result was recorded.", exception.Message);
     }
 
     [Theory]
@@ -75,7 +127,7 @@ public sealed class DataCoverageAuditTests
         var row = MakeRow("not-visible", ContentSiteIndexContentSignature.ComputeBodySha256("body\n")) with { IsVisible = false };
         var report = await RunAsync(row, null);
 
-        Assert.Equal(0, report.TotalPublishedCount);
+        Assert.Equal(0, report.TotalLiveCount);
     }
 
     [Fact]
@@ -87,7 +139,7 @@ public sealed class DataCoverageAuditTests
         };
         var report = await RunAsync(row, "body\n");
 
-        Assert.Equal(1, report.TotalPublishedCount);
+        Assert.Equal(1, report.TotalLiveCount);
     }
 
     [Fact]
@@ -99,7 +151,7 @@ public sealed class DataCoverageAuditTests
         };
         var report = await RunAsync(row, null);
 
-        Assert.Equal(0, report.TotalPublishedCount);
+        Assert.Equal(0, report.TotalLiveCount);
     }
 
     private async Task<DataCoverageReport> RunAsync(ContentSiteIndexRow row, string? downloadedContent)
