@@ -2,6 +2,8 @@
 
 *Merges (a) a codebase+prod audit of DeckFlow's actual sync path with (b) a deep-research pass on git-body/DB-index sync patterns (8 findings, adversarially verified 3-0). 2026-07-05.*
 
+> **2026-09-25 status note:** This historical design assumes a tracked `content-kb/` corpus is the body source. The corpus now lives under a private root, and `/data/content-kb/` is the production body source; retain this document for its sync analysis, not as current storage guidance.
+
 ## The one principle that fixes most of it
 
 **Git is the single source of truth for BODIES; the prod DB index row is strictly subordinate and reconstructable from git.** This is the established Git-based CMS model (Decap/TinaCMS: "file system as the source of truth… the DB is an ephemeral cache/index") [1][2]. DeckFlow already half-implements this — bodies in `content-kb/*.md`, prod DB holds only `content_site_index`, and `ContentKbSeedLoader` rebuilds the index from `index-seed.json` on deploy. The sync bugs are all places where a path **violates** the subordination: DirectPush writes prod state that git can't reconstruct, and reads bodies from a store git doesn't own.

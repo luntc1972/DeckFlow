@@ -1,5 +1,7 @@
 # Cycle 17 (proposed) — Content-KB Prod↔Git↔Studio Sync Hardening
 
+> **2026-09-25 status note:** This roadmap predates the private-corpus transition. Any references to the tracked `content-kb/` tree are historical; use the private root and `/data/content-kb/` coverage gate for current operations.
+
 *Fix-cycle roadmap from the combined audit + web-research + Codex cross-check (`kb-prod-sync-fix-design.md`). 12 weaknesses → 6 phases. Planning artifact only — not executed.*
 
 ## ⚠ Priority note

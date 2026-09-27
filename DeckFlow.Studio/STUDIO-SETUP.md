@@ -47,6 +47,14 @@ already-distilled video** in that DB. If empty, browse a channel + distill one v
 | `DECKFLOW_LLM_MONTHLY_CAP_USD` | Monthly spend cap (P45 cap-block smoke) | `15.00` |
 | `DECKFLOW_DISABLE_AUTO_BROWSER` | `true` stops the browser auto-pop | unset |
 
+## Private Content KB root and coverage audit
+
+Set `DECKFLOW_KB_ROOT` to the private directory that contains `content-kb/`; Studio uses it before the optional `ContentKb:PrivateRoot` configuration setting. For example, set `DECKFLOW_KB_ROOT=C:\private\deckflow-artifacts` when `C:\private\deckflow-artifacts\content-kb\seed\index-seed.json` exists. Do not stage, commit, or otherwise put this private corpus in the DeckFlow checkout.
+
+For local Web development with real bodies, set `ContentKb__ContentBase` to that same private artifacts directory. The value is the parent of `content-kb/`, not the `content-kb/` directory itself.
+
+Keep `tool.knowledge-base.enabled` OFF while preparing or syncing the private corpus. After the production `/data/content-kb/` backfill, use Studio's **Data Coverage** page as a read-only gate: it audits only rows that are both visible and approved, and requires `Missing: 0` and `Present + mismatch: 0` before the image-copy removal deploy.
+
 ## Sync feature flags (web-DB `feature_flags`, read fail-closed)
 
 Two flags gate Studio sync behavior; Studio reads them from the **production** `feature_flags` table through a read-only accessor that fails closed (a missing row or a connection failure reads as OFF). Both ship **OFF**:

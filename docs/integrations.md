@@ -182,6 +182,8 @@ dotnet run --project DeckFlow.CLI -- category-find \
 
 Content KB distill selects its LLM backend with `DECKFLOW_LLM_PROVIDER` (`openai` default, `claude` for the local CLI subscription backend). See [`docs/ops/content-kb-llm-cli-backends.md`](ops/content-kb-llm-cli-backends.md) for exact WSL, Windows, and Windows `dotnet.exe` from WSL commands.
 
+Content KB artifacts are private. Set `ContentKb__ContentBase` to the private artifacts directory, which contains `content-kb/`, when running the Web app locally with real bodies. Studio resolves `DECKFLOW_KB_ROOT` first and `ContentKb:PrivateRoot` second. Keep `tool.knowledge-base.enabled` OFF until `/data/content-kb/` has been backfilled and Studio's Data Coverage audit reports zero missing and zero mismatched visible, approved rows.
+
 ---
 
 ## Browser Extension

@@ -142,6 +142,12 @@ For `openai`, `DECKFLOW_LLM_MONTHLY_CAP_USD` still governs the spend ledger cap 
 
 For provider values other than `openai`, including `claude`, DeckFlow bypasses the LLM spend ledger cap gate and bypasses OpenAI token pricing math. It still writes LLM call ledger rows with `cost_usd = 0` and completes the harvest run with `spend_usd = 0` so the run remains auditable.
 
+## Private artifact storage and release gate
+
+The Content KB corpus is private. For Studio, set `DECKFLOW_KB_ROOT` to the private root containing `content-kb/`; `ContentKb:PrivateRoot` is the fallback configuration setting. For local Web development, set `ContentKb__ContentBase` to the private artifacts directory, the parent of `content-kb/`.
+
+Keep `tool.knowledge-base.enabled` OFF during this transition. Before deploying without the image's corpus copy, bulk-backfill `/data/content-kb/` from the private tree. Run Studio's read-only Data Coverage audit afterward: it evaluates only visible, approved rows, and release is gated on zero missing and zero mismatched bodies.
+
 ## Security
 
 Treat transcripts as untrusted input. DeckFlow writes transcript text to stdin only; never put transcript text in `DECKFLOW_LLM_CLI_COMMAND` or any command arguments.

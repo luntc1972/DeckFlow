@@ -4,9 +4,15 @@ DeckFlow content knowledge-base guidance.
 
 ## Compliance and operations
 
-Admins can suppress a creator or process a creator removal request, and quoted text in each excerpt is limited to 25 words. The `tool.knowledge-base.enabled` feature flag is seeded off by default in SQLite and Postgres, while existing rows remain untouched. Moving the `content-kb/` source files to a private repository is planned but not yet done.
+Admins can suppress a creator or process a creator removal request, and quoted text in each excerpt is limited to 25 words. The `tool.knowledge-base.enabled` feature flag is seeded off by default in SQLite and Postgres, while existing rows remain untouched. Content KB artifacts are supplied from a private root and must not be added to the public checkout.
 
 ## Content Knowledge Base
+
+### Private corpus and production body coverage
+
+The private artifacts root contains `content-kb/`; set `DECKFLOW_KB_ROOT` for Studio, or set `ContentKb:PrivateRoot` as its configuration fallback. For local Web development, set `ContentKb__ContentBase` to the private artifacts root (the parent directory of `content-kb/`) to resolve real bodies.
+
+Production serves bodies from `/data/content-kb/` while the public feature flag remains OFF. Before removing the image's corpus copy, backfill `/data/content-kb/` with the complete private tree and run Studio's read-only **Data Coverage** audit. Its scope is visible, approved rows only; `Missing: 0` and `Present + mismatch: 0` are required before deployment.
 
 DeckFlow distills MTG content-creator videos into paste-ready prompt artifacts and a browsable site index. Heavy work (transcripts, audio, LLM calls, spend ledgers) runs **locally** via the CLI against `artifacts/content-kb.db`; only a slim index and the markdown artifacts ship to the site.
 

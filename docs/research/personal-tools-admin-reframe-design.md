@@ -2,6 +2,8 @@
 
 *Design spec, 2026-07-24. Supersedes the public-launch surface designed in Phase 100.*
 
+> **2026-09-25 status note:** References to a tracked Content KB corpus are historical. Current operations use a private artifact root and production `/data/content-kb/`; this design remains an admin-surface reference.
+
 ## Problem
 
 Cycle 17 (phases 94–100, branch `plan/cycle-17-creator-style`, head `6da5eb42`) is code-complete

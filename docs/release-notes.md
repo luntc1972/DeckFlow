@@ -6,6 +6,11 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Private Content KB corpus transition (2026-09-25)
+
+- Content KB artifacts now resolve from a private root for Studio (`DECKFLOW_KB_ROOT`, with `ContentKb:PrivateRoot` fallback); Web local development can use `ContentKb__ContentBase` pointed at the private artifacts directory.
+- The public Content KB flag remains OFF. Before a deploy removes the image copy, operators must bulk-backfill `/data/content-kb/` and use Studio's read-only Data Coverage audit to confirm zero missing and zero mismatched visible, approved rows.
+
 ### 2026.09.10 — Creator Content Compliance (2026-09-24)
 
 Prepares the Content Knowledge Base for public launch. The pages stay dark: `tool.knowledge-base.enabled` is still OFF in production and is turned on separately from this release.
