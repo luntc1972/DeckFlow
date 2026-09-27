@@ -50,6 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
       // Why: a heading over an empty table falsely implies this section has no tools.
       if (sectionRows.length > 0) {
         section.classList.toggle('hidden', Array.from(sectionRows).every((row) => row.classList.contains('hidden')));
+      } else {
+        section.classList.toggle('hidden', query !== '' || activeStatus !== '');
       }
     });
     if (count !== null) {
