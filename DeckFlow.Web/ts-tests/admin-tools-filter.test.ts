@@ -22,6 +22,7 @@ const fixture = `
     <tr data-tool-label="Cut Lab" data-tool-flag-key="tool.cut-lab.enabled" data-tool-enabled="true"><td>Cut Lab</td></tr>
     <tr data-tool-label="Convert Deck" data-tool-flag-key="tool.convert.enabled" data-tool-enabled="false"><td>Convert Deck</td></tr>
   </tbody></table></section>
+  <section class="admin-tools__section"><h2>Empty section</h2><table><tbody></tbody></table></section>
   <p id="tools-filter-empty" class="tools-filter__empty hidden">No tools match the current filter.</p>
 </div>`;
 
@@ -40,6 +41,7 @@ afterEach(() => { sessionStorage.clear(); document.body.innerHTML = ''; });
 
 test('shows all rows and defaults to all statuses', () => { expect(labels()).toHaveLength(4); expect(document.querySelector('#tools-filter-count')!.textContent).toBe('4 of 4 tools shown'); expect(document.querySelector('#tools-filter-empty')!.classList.contains('hidden')).toBe(true); expect(document.querySelector('[data-tools-status=""]')!.getAttribute('aria-pressed')).toBe('true'); });
 test('search cut shows Cut Lab', () => { search('cut'); expect(labels()).toEqual(['Cut Lab']); expect(document.querySelector('#tools-filter-count')!.textContent).toBe('1 of 4 tools shown'); });
+test('hides empty sections only while filtered', () => { const emptySection = document.querySelectorAll<HTMLElement>('.admin-tools__section')[2]; expect(emptySection.classList.contains('hidden')).toBe(false); search('cut'); expect(emptySection.classList.contains('hidden')).toBe(true); search(''); expect(emptySection.classList.contains('hidden')).toBe(false); click('Enabled'); expect(emptySection.classList.contains('hidden')).toBe(true); });
 test('search CUT is case insensitive', () => { search('CUT'); expect(labels()).toEqual(['Cut Lab']); });
 test('search lab is prefix not substring', () => { search('lab'); expect(labels()).toEqual([]); });
 test('search tool.man uses flag key prefix', () => { search('tool.man'); expect(labels()).toEqual(['Mana Base']); });
