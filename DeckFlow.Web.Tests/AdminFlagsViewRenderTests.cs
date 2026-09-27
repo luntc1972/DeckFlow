@@ -64,7 +64,11 @@ public sealed class AdminFlagsViewRenderTests
         Assert.Empty(document.QuerySelectorAll("button[data-flag-prefix]"));
     }
 
-    private static AdminFlagsListViewModel Model(params string[] keys) => new() { Flags = keys.Select(key => new FlagRow(key, true, key)).ToArray(), Groups = FlagFilterGroups.Derive(keys) };
+    private static AdminFlagsListViewModel Model(params string[] keys) => new()
+    {
+        Flags = keys.Select(key => new FlagRow(key, true, key)).ToArray(),
+        Groups = FlagFilterGroups.Derive(keys),
+    };
 
     private static Task<string> RenderAsync(object model) => RazorViewRenderer.RenderAsync(
         model,
