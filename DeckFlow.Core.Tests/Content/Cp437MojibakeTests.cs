@@ -1,19 +1,15 @@
 using System.Text;
+using DeckFlow.Core.Content;
 
 namespace DeckFlow.Core.Tests.Content;
 
 public sealed class Cp437MojibakeTests
 {
-    [Fact]
+    [Cp437Fact]
     public void ContentKbArtifacts_ContainNoCp437Mojibake_Signatures()
     {
-        var root = GetRepoRoot();
-        var contentKb = Path.Combine(root, "content-kb");
-        // Why: content-kb is untracked from the public repository in some CI phases.
-        if (!Directory.Exists(contentKb))
-        {
-            return;
-        }
+        var root = PrivateKbRoot.FromEnvironment();
+        var contentKb = root.ContentKbDir;
 
         var offenders = Directory.EnumerateFiles(contentKb, "*.md", SearchOption.AllDirectories)
             .Where(path =>
@@ -23,27 +19,10 @@ public sealed class Cp437MojibakeTests
                     || text.Contains("┬", StringComparison.Ordinal);
             })
             .OrderBy(path => path, StringComparer.Ordinal)
-            .Select(path => Path.GetRelativePath(root, path))
+            .Select(path => Path.GetRelativePath(root.Root, path))
             .ToArray();
 
         Assert.True(offenders.Length == 0, $"CP437 mojibake found in {offenders.Length} files:\n{string.Join('\n', offenders)}");
     }
 
-    private static string GetRepoRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-
-        while (directory is not null)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, ".editorconfig"))
-                && File.Exists(Path.Combine(directory.FullName, "DeckFlow.sln")))
-            {
-                return directory.FullName;
-            }
-
-            directory = directory.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate the repository root from the current test base directory.");
-    }
 }
