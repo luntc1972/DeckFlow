@@ -102,7 +102,7 @@ test('admin flags derives namespace chips from live keys', async ({ page }) => {
   const total = keys.length;
   const chips = page.locator('button[data-flag-prefix]');
   const details = await chips.evaluateAll((items) => items.map((item) => ({ prefix: item.getAttribute('data-flag-prefix') ?? '', text: item.textContent?.trim() ?? '', title: item.getAttribute('title') ?? '' })).filter((item) => item.prefix !== ''));
-  const expected = [...new Set(keys.map((key) => key.toLowerCase()).filter((key) => key.includes('.') && !key.startsWith('.')).map((key) => `${key.split('.')[0]}.`))].sort();
+  const expected = [...new Set(keys.map((key) => key.toLowerCase()).filter((key) => key.includes('.') && !key.startsWith('.')).map((key) => `${key.split('.')[0]}.`))].sort((left, right) => left.slice(0, -1) < right.slice(0, -1) ? -1 : left.slice(0, -1) > right.slice(0, -1) ? 1 : 0);
   expect(details.map((chip) => chip.prefix)).toEqual(expected);
   expect(details.length).toBeGreaterThan(2);
   for (const chip of details) {
