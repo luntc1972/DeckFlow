@@ -92,7 +92,6 @@ public partial class Program
             builder.Services.AddSingleton<IStudioProdConnectionSource, StudioProdConnectionSource>();
             // Why (D-09 REVISED/SYNC-09): the DirectPush deploy-confirm poller. Depends only on the
             // shared singleton HttpClient (registered below) + IConfiguration — safe as a singleton.
-            builder.Services.AddSingleton<IDeployedBodyConfirmer, DeployedBodyConfirmer>();
             builder.Services.AddStudioContentKbStores(contentKbDatabasePath);
             // Why (D-08): host-agnostic body_sha256 backfill, bound to the LOCAL content-kb.db
             // store above via the IContentSiteIndexStore singleton — explicitly NOT any

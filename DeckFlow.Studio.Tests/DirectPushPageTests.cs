@@ -92,7 +92,6 @@ public sealed class DirectPushPageTests : BunitContext
             bool isConfirmerConfigured = true,
             FakeGitRepository? gitOverride = null,
             FakeContentKbOrchestrator? orchestratorOverride = null,
-            IDeployedBodyConfirmer? confirmerOverride = null,
             IProdContentReader? prodReaderOverride = null,
             bool directPushGitBodyOn = false)
     {
@@ -124,6 +123,7 @@ public sealed class DirectPushPageTests : BunitContext
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured, isConfirmerConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton<IStudioProdConnectionSource>(new StudioProdConnectionSource(configuration));
+        Services.AddSingleton<IPrivateKbRootProvider>(new StudioPrivateKbRootProvider(null, Path.GetTempPath()));
         var suppressionStore = new FakeCreatorSuppressionStore();
         Services.AddSingleton<ICreatorSuppressionStore>(suppressionStore);
         Services.AddSingleton<ICreatorIdentityResolver>(new FakeCreatorIdentityResolver());
@@ -142,9 +142,6 @@ public sealed class DirectPushPageTests : BunitContext
         // VerifyAndPublishAsync only polls the confirmer when the flag is ON) pass directPushGitBodyOn: true.
         Services.AddSingleton<IProdContentReader>(
             prodReaderOverride ?? new FakeDirectPushFlagReader { FlagValue = directPushGitBodyOn });
-        // Why (90-05/SYNC-09, wired to Stage 5 in 90-06): confirmed=true by default so tests
-        // unrelated to the confirm step are unaffected; override to exercise the not-confirmed path.
-        Services.AddSingleton<IDeployedBodyConfirmer>(confirmerOverride ?? new FakeDeployedBodyConfirmer());
         // Why: the page now resolves its orchestration through DirectPushCoordinator (H1 split);
         // register it over the same fakes so the bUnit render wires up identically to production.
         Services.AddScoped<DirectPushCoordinator>();
@@ -392,29 +389,27 @@ public sealed class DirectPushPageTests : BunitContext
     }
 
     [Fact]
-    public void DirectPush_ConfirmerNotConfigured_BannerShown_AndStage1Disabled()
+    public void DirectPush_ConfirmerNotConfigured_DoesNotBlockStage1()
     {
-        // D-09 REVISED/D-10: a missing deploy-confirm config must refuse to start the DirectPush
-        // flow (never a silent 401 hang later) — mirrors the prod/SCP not-configured gate.
+        // Direct publishing no longer waits for a deployment confirmation.
         var local = new[] { MakeApprovedRow(1, "vid1") };
         var (cut, _, _, _, _, _) = RenderDirectPush(local, isConfirmerConfigured: false);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
 
-        Assert.Contains("Deploy-confirm: not configured", cut.Markup);
-        Assert.True(cut.Find("button.btn-outline-primary").HasAttribute("disabled"),
-            "Compute Prod Diff must be disabled when the deploy-confirm endpoint is not configured");
+        Assert.DoesNotContain("Deploy-confirm", cut.Markup);
+        Assert.False(cut.Find("button.btn-outline-primary").HasAttribute("disabled"));
     }
 
     [Fact]
-    public void DirectPush_ConfirmerConfigured_BadgeShowsSuccess()
+    public void DirectPush_ConfirmerConfigured_DeployConfirmStatusNotShown()
     {
         var local = new[] { MakeApprovedRow(1, "vid1") };
         var (cut, _, _, _, _, _) = RenderDirectPush(local, isConfirmerConfigured: true);
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
 
-        Assert.DoesNotContain("Deploy-confirm: not configured", cut.Markup);
+        Assert.DoesNotContain("Deploy-confirm", cut.Markup);
     }
 
     [Fact]
@@ -487,147 +482,13 @@ public sealed class DirectPushPageTests : BunitContext
         });
     }
 
-    [Fact]
-    public void DirectPush_Stage4InvokedBeforeDbWrite_NoCommitOrPush()
-    {
-        // The git durability stage must early-return before the prod DB write succeeds — no commit,
-        // no push (the disabled button alone is not sufficient; a stale render must not reach git).
-        var git = new FakeGitRepository();
-        var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _, _) = RenderDirectPush(local, gitOverride: git);
 
-        // Compute diff + confirm, but never run SCP or the DB write — Stage 4 is still locked.
-        ComputeDiffAndConfirm(cut);
-        cut.InvokeAsync(() => cut.Instance.InvokeCommitAndPushForTest());
 
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Empty(git.CommitCalls);
-            Assert.Empty(git.PushCalls);
-        });
-    }
 
-    [Fact]
-    public void DirectPush_Stage4_AfterDbWrite_CommitsBodiesAndPushes_NoRedeploy()
-    {
-        var git = new FakeGitRepository { CannedBranch = "main", CannedCommitSha = "cafe123" };
-        var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _, _) = RenderDirectPush(local, gitOverride: git);
 
-        // Drive Stage 1 (diff+confirm) → Stage 2 (SCP) → Stage 3 (DB write).
-        ComputeDiffAndConfirm(cut);
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
-        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
-        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
-        cut.WaitForState(() => cut.Markup.Contains("written to production"));
 
-        // Stage 4 button (btn-outline-primary) is now the LAST outline-primary button (Stage 1 is first).
-        cut.WaitForAssertion(() =>
-        {
-            var outlineButtons = cut.FindAll("button.btn-outline-primary");
-            Assert.False(outlineButtons[^1].HasAttribute("disabled"));
-        });
-        cut.InvokeAsync(() => cut.FindAll("button.btn-outline-primary")[^1].Click());
 
-        cut.WaitForState(() => cut.Markup.Contains("pushed to"));
-        cut.WaitForAssertion(() =>
-        {
-            // Committed the pushed body path AND the re-exported seed (D-08/SYNC-08), and pushed to
-            // origin/main. Flag OFF (bUnit's FakeDirectPushFlagReader default) → [skip render] stays,
-            // byte-identical to before this plan (D-09/D-05).
-            var commit = Assert.Single(git.CommitCalls);
-            Assert.Equal(
-                new[] { "content-kb/seed/index-seed.json", "content-kb/test-channel/vid1.md" },
-                commit.Paths);
-            Assert.Contains("[skip render]", commit.Message);
 
-            var push = Assert.Single(git.PushCalls);
-            Assert.Equal("origin", push.Remote);
-            Assert.Equal("main", push.Branch);
-
-            Assert.Contains("origin/main", cut.Markup);
-        });
-    }
-
-    [Fact]
-    public void DirectPush_Stage4_AlreadyInSync_DoesNotClaimAPush()
-    {
-        // Review R2-3: when the bodies are already committed AND the branch is in sync with origin,
-        // the coordinator returns AlreadyInSync WITHOUT pushing — the success alert must NOT claim a
-        // push happened.
-        var git = new FakeGitRepository
-        {
-            CannedBranch = "main",
-            CannedWorkingChangeCount = 0,   // nothing to commit
-            // CannedSubjectsAhead defaults empty = in sync → no push.
-        };
-        var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _, _) = RenderDirectPush(local, gitOverride: git);
-
-        ComputeDiffAndConfirm(cut);
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
-        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
-        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
-        cut.WaitForState(() => cut.Markup.Contains("written to production"));
-
-        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-outline-primary")[^1].HasAttribute("disabled")));
-        cut.InvokeAsync(() => cut.FindAll("button.btn-outline-primary")[^1].Click());
-
-        cut.WaitForState(() => cut.Markup.Contains("in sync"));
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Empty(git.PushCalls);                              // coordinator did not push
-            Assert.Contains("nothing to push", cut.Markup);          // honest copy
-            Assert.DoesNotContain("pushed to", cut.Markup);          // no false push claim
-        });
-    }
-
-    [Fact]
-    public void DirectPush_Stage4_PushedExistingCommits_ReportsCatchUpPush()
-    {
-        // UIAUDIT-03: the third Stage-4 outcome (PushedExistingCommits) — bodies are already committed
-        // (nothing new to commit this run) but the branch has previously-unpushed durability commit(s)
-        // ahead of origin. The coordinator performs a catch-up push; the alert must report that honestly
-        // (not the Committed copy, not the AlreadyInSync no-op copy).
-        var git = new FakeGitRepository
-        {
-            CannedBranch = "main",
-            CannedWorkingChangeCount = 0,                                    // nothing new to commit this run
-            // A prior run's OWN durability commit, still unpushed — must match the exact durability
-            // subject shape (content: direct-push N bod(y|ies) to prod [skip render]) so the foreign-commit
-            // guard accepts it and the coordinator does a catch-up push (outcome PushedExistingCommits).
-            CannedSubjectsAhead = new() { "content: direct-push 1 body to prod [skip render]" },
-        };
-        var local = new[] { MakeApprovedRow(1, "vid1") };
-        var (cut, _, _, _, _, _) = RenderDirectPush(local, gitOverride: git);
-
-        // Drive Stage 1 (diff+confirm) → Stage 2 (SCP) → Stage 3 (DB write).
-        ComputeDiffAndConfirm(cut);
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
-        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
-        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
-        cut.WaitForState(() => cut.Markup.Contains("written to production"));
-
-        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-outline-primary")[^1].HasAttribute("disabled")));
-        cut.InvokeAsync(() => cut.FindAll("button.btn-outline-primary")[^1].Click());
-
-        cut.WaitForState(() => cut.Markup.Contains("previously-unpushed"));
-        cut.WaitForAssertion(() =>
-        {
-            // Nothing new was committed this run (distinguishes from the Committed variant)...
-            Assert.Empty(git.CommitCalls);
-            // ...but a catch-up push happened to origin/main...
-            var push = Assert.Single(git.PushCalls);
-            Assert.Equal("origin", push.Remote);
-            Assert.Equal("main", push.Branch);
-            // ...reported with the catch-up copy, NOT the no-op "nothing to push" variant.
-            Assert.Contains("previously-unpushed", cut.Markup);
-            Assert.DoesNotContain("nothing to push", cut.Markup);
-        });
-    }
 
     [Fact]
     public void DirectPush_Success_SetsLocalAwaitingConfirmMarker_NoStampOnEitherStore()
@@ -718,7 +579,7 @@ public sealed class DirectPushPageTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("awaiting deploy confirmation", cut.Markup);
+            Assert.Contains("awaiting Publish", cut.Markup);
             Assert.Empty(localStore.VisibilityKeyCalls);
             Assert.Empty(prodStore.VisibilityKeyCalls);
             Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
@@ -927,79 +788,6 @@ public sealed class DirectPushPageTests : BunitContext
 
     // ── Stage 5: Verify Deploy & Publish (SYNC-09/D-06) ────────────────────────
 
-    [Fact]
-    public void DirectPush_Stage5InvokedBeforeGitSuccess_NoConfirmCall()
-    {
-        // The confirm-poll stage must early-return before Stage 4 (git commit+push) has completed —
-        // no confirmer call, no stamp/visibility (the disabled button alone is not sufficient; a
-        // stale render must not reach the confirm poll).
-        var confirmer = new FakeDeployedBodyConfirmer();
-        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, _, _, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer);
-
-        // Compute diff + confirm, but never run SCP/DB/git — Stage 5 is still locked.
-        ComputeDiffAndConfirm(cut);
-        cut.InvokeAsync(() => cut.Instance.InvokeVerifyAndPublishForTest());
-
-        cut.WaitForAssertion(() => Assert.Empty(confirmer.Calls));
-    }
-
-    [Fact]
-    public void DirectPush_Stage5_Confirmed_StampsAndPublishesVisible()
-    {
-        // D-06: only after Stage 4 has completed AND the confirmer reports a hash match does Stage 5
-        // stamp pushed_to_prod_utc and flip is_visible — prod and local both, mirroring the confirmed
-        // path already proven at the coordinator level (VerifyAndPublishAsync_ConfirmerTrue_...).
-        var git = new FakeGitRepository { CannedBranch = "main", CannedCommitSha = "cafe123" };
-        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = true };
-        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, gitOverride: git, confirmerOverride: confirmer, directPushGitBodyOn: true);
-
-        DriveThroughStage4(cut);
-
-        cut.InvokeAsync(() => cut.Find("button.btn-success").Click());
-
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Contains("PUBLISHED", cut.Markup);
-            Assert.Single(prodStore.StampCalls);
-            Assert.Single(prodStore.VisibilityKeyCalls);
-            Assert.Single(localStore.StampCalls);
-            Assert.Single(localStore.VisibilityKeyCalls);
-            Assert.All(localStore.Rows, row => Assert.True(row.IsVisible));
-            Assert.All(prodStore.Rows, row => Assert.True(row.IsVisible));
-            var call = Assert.Single(confirmer.Calls);
-            Assert.Equal("vid1", call.Value);
-            Assert.Equal("hash-vid1", call.ExpectedHash);
-        });
-    }
-
-    [Fact]
-    public void DirectPush_Stage5_NotConfirmed_RowsStayHiddenAndAwaitingConfirm_OperatorVisibleState()
-    {
-        // T-90-14: a bounded-poll failure must never flip a row visible — it stays hidden and the
-        // page surfaces an operator-visible "did not confirm" state, never a silent deadlock.
-        var git = new FakeGitRepository { CannedBranch = "main", CannedCommitSha = "cafe123" };
-        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
-        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, gitOverride: git, confirmerOverride: confirmer, directPushGitBodyOn: true);
-
-        DriveThroughStage4(cut);
-
-        cut.InvokeAsync(() => cut.Find("button.btn-success").Click());
-
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Contains("did NOT confirm", cut.Markup);
-            Assert.Empty(prodStore.StampCalls);
-            Assert.Empty(prodStore.VisibilityKeyCalls);
-            Assert.Empty(localStore.StampCalls);
-            Assert.Empty(localStore.VisibilityKeyCalls);
-            Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
-            Assert.All(prodStore.Rows, row => Assert.False(row.IsVisible));
-        });
-    }
-
     // ── Awaiting-confirm resume bucket (D-10/Plan 90-06) ────────────────────────
 
     [Fact]
@@ -1019,122 +807,17 @@ public sealed class DirectPushPageTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Awaiting Confirm", cut.Markup);
+            Assert.Contains("Awaiting Publish", cut.Markup);
             Assert.Contains("Video 1", cut.Markup);
             Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
         });
     }
 
-    [Fact]
-    public void DirectPush_Resume_FlagOnNotConfirmed_TriggersRedeploy_StaysAwaitingConfirm()
-    {
-        // FU-2: with git-body serving ON and a stranded row that still does not confirm, Resume must
-        // trigger exactly one empty durability commit/push to force a fresh Render redeploy, then
-        // keep the row awaiting-confirm until the operator resumes again after Render is healthy.
-        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
-        var git = new FakeGitRepository { CannedBranch = "main" };
-        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(
-            local,
-            gitOverride: git,
-            confirmerOverride: confirmer,
-            directPushGitBodyOn: true);
 
-        ComputeDiffAndConfirm(cut);
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
-        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
-        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
-        cut.WaitForAssertion(() => Assert.Contains("Awaiting Confirm", cut.Markup));
 
-        cut.InvokeAsync(() => cut.Find("button.btn-outline-warning").Click());
 
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Contains("Redeploy triggered", cut.Markup);
-            Assert.Single(confirmer.Calls);
-            var emptyCommit = Assert.Single(git.EmptyCommitCalls);
-            Assert.Equal("content: direct-push 0 bodies to prod", emptyCommit.Message);
-            Assert.Single(git.PushCalls);
-            Assert.Empty(prodStore.StampCalls);
-            Assert.Empty(localStore.StampCalls);
-            Assert.All(localStore.Rows, row => Assert.False(row.IsVisible));
-            // Still awaiting-confirm — the bucket must not empty on a failed resume, and it must be
-            // re-runnable (the button is still present, not removed).
-            Assert.Contains("Awaiting Confirm", cut.Markup);
-            Assert.False(cut.Find("button.btn-outline-warning").HasAttribute("disabled"));
-        });
-    }
 
-    [Fact]
-    public void DirectPush_Resume_FlagReadIndeterminate_SurfacesRetryMessage_LeavesRowsAwaitingConfirm()
-    {
-        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
-        var flagReader = new FakeDirectPushFlagReader { FlagValue = false, FlagReadIndeterminate = true };
-        var git = new FakeGitRepository { CannedBranch = "main" };
-        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(
-            local,
-            gitOverride: git,
-            confirmerOverride: confirmer,
-            prodReaderOverride: flagReader);
 
-        ComputeDiffAndConfirm(cut);
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
-        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
-        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
-        cut.WaitForAssertion(() => Assert.Contains("Awaiting Confirm", cut.Markup));
-
-        cut.InvokeAsync(() => cut.Find("button.btn-outline-warning").Click());
-
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Contains("prod flag DB unreachable", cut.Markup);
-            Assert.Single(confirmer.Calls);
-            Assert.Empty(git.EmptyCommitCalls);
-            Assert.Empty(git.PushCalls);
-            Assert.Empty(prodStore.StampCalls);
-            Assert.Empty(localStore.StampCalls);
-            Assert.Contains("Awaiting Confirm", cut.Markup);
-        });
-    }
-
-    [Fact]
-    public void DirectPush_Resume_ConfirmerConfirmed_PublishesRow_ClearsFromBucket()
-    {
-        // Test (c): resuming with a confirmer that now reports confirmed (simulating the deploy
-        // catching up) stamps + flips the row visible and clears it out of the awaiting-confirm
-        // bucket — the marker-clear happens inside ConfirmAndPublishAsync (D-10).
-        var confirmer = new FakeDeployedBodyConfirmer { ConfirmedResult = false };
-        var local = new[] { MakeApprovedRow(1, "vid1") with { BodySha256 = "hash-vid1" } };
-        var (cut, localStore, prodStore, _, _, _) = RenderDirectPush(local, confirmerOverride: confirmer, directPushGitBodyOn: true);
-
-        ComputeDiffAndConfirm(cut);
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[0].Click());
-        cut.WaitForState(() => cut.Markup.Contains("uploaded to production /data"));
-        cut.WaitForAssertion(() => Assert.False(cut.FindAll("button.btn-danger")[1].HasAttribute("disabled")));
-        cut.InvokeAsync(() => cut.FindAll("button.btn-danger")[1].Click());
-        cut.WaitForAssertion(() => Assert.Contains("Awaiting Confirm", cut.Markup));
-
-        // Flip the confirmer to confirmed before resuming — simulates the Render deploy going live.
-        confirmer.ConfirmedResult = true;
-        cut.InvokeAsync(() => cut.Find("button.btn-outline-warning").Click());
-
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Single(prodStore.StampCalls);
-            Assert.Single(prodStore.VisibilityKeyCalls);
-            Assert.Single(localStore.StampCalls);
-            Assert.Single(localStore.VisibilityKeyCalls);
-            Assert.All(localStore.Rows, row => Assert.True(row.IsVisible));
-            // The bucket is now empty (marker cleared) — the "still pending" list is gone and the
-            // resolved copy shows instead, but the success result table stays visible (the operator
-            // must SEE the confirm succeeded, not have it vanish the instant the marker clears).
-            Assert.Contains("All previously awaiting-confirm rows have been resolved", cut.Markup);
-            Assert.Contains("bg-success\">Confirmed", cut.Markup);
-        });
-    }
 
     [Fact]
     public void DirectPush_FreshLoad_MarkerSetRow_SurfacesResumeAction_NotClassifiedUnchanged()
@@ -1154,7 +837,7 @@ public sealed class DirectPushPageTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.DoesNotContain("Resolving configuration", cut.Markup);
-            Assert.Contains("Awaiting Confirm", cut.Markup);
+            Assert.Contains("Awaiting Publish", cut.Markup);
             Assert.Contains("Video 1", cut.Markup);
             Assert.Contains("Resume", cut.Markup);
         });

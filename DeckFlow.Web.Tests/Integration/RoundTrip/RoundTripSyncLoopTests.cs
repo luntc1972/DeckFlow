@@ -23,10 +23,8 @@ namespace DeckFlow.Web.Tests.Integration.RoundTrip;
 /// deploy-confirm) -&gt; re-export + second deploy-copy + SECOND reseed (redeploy) -&gt; PullFromProd
 /// (field authority) -&gt; Reconcile dry-run (idempotent) -- on the real Testcontainers Postgres +
 /// real git tree the 93-01 harness (<see cref="RoundTripHarness"/> plus the seams in
-/// <c>RoundTripSeams.cs</c>) bootstraps. Only the LLM, SFTP transport, and deploy-confirm HTTP
-/// transport are faked
-/// (<see cref="CannedLlmDistillationService"/>, <see cref="RecordingSshArtifactUploader"/>,
-/// <see cref="AppTreeDeployedBodyConfirmer"/> -- all in <c>RoundTripSeams.cs</c>); every
+/// <c>RoundTripSeams.cs</c>) bootstraps. Only the LLM and SFTP transport are faked
+/// (<see cref="CannedLlmDistillationService"/> and <see cref="RecordingSshArtifactUploader"/>); every
 /// coordinator (Publish, DirectPush, PullFromProd, Reconcile) and store is the real production type.
 /// </summary>
 /// <remarks>
@@ -98,8 +96,6 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         var prodReader = new FixtureProdReader(prodStore);
         var prodStoreFactory = new FixtureProdStoreFactory(prodStore);
         var uploader = new RecordingSshArtifactUploader();
-        var confirmer = new AppTreeDeployedBodyConfirmer(prodStore, _harness.AppRoot);
-
         // Why: an empty, readable suppression store keeps the round trip on the unsuppressed path.
         var suppressionFilter = new CreatorSuppressionRowFilter(new FakeCreatorSuppressionStore(), new FakeCreatorIdentityResolver());
         var publish = new PublishCoordinator(
@@ -110,7 +106,8 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
             new PublishStateDeriver(),
             suppressionFilter);
         var directPush = new DirectPushCoordinator(
-            localStore, uploader, prodStoreFactory, prodConnection, options, git, orchestrator, prodReader, confirmer, suppressionFilter);
+            localStore, uploader, prodStoreFactory, prodConnection, options,
+            new StudioPrivateKbRootProvider(null, _harness.AppRoot), orchestrator, prodReader, suppressionFilter);
         var pull = new PullFromProdCoordinator(localStore, new StudioPrivateKbRootProvider(_harness.RepoRoot, null), prodReader, prodConnection, options, NullLogger<PullFromProdCoordinator>.Instance);
 
         _output.WriteLine("── Boot: real PG schema + real git tree bootstrapped; coordinators wired ──");
@@ -212,7 +209,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         Assert.Equal(1, distillB.VideosDistilled);
         await localStore.SetApprovalStatusAsync(ContentSourceType.Youtube, videoIdB, "approved");
 
-        prodReader.Flag = true; // sync.directpush-gitbody ON
+        prodReader.Flag = false; // private-root export requires sync.directpush-gitbody OFF
 
         var diff = await directPush.ComputeDiffAsync(CancellationToken.None);
         var publishRows = diff.PublishRows;
@@ -222,14 +219,9 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         await directPush.UploadArtifactsAsync(publishRows, _localDataRoot, new Progress<SshUploadResult>(), CancellationToken.None);
         await directPush.WriteContentAsync(publishRows, CancellationToken.None);
 
-        var gitResult = await directPush.CommitAndPushBodiesAsync(publishRows, _localDataRoot, CancellationToken.None);
-        Assert.Equal(DirectPushGitOutcome.Committed, gitResult.Outcome);
-
-        await _harness.DeployToAppAsync(); // redeploy /app so it now carries B's body + the re-exported seed
-
-        var verifyResult = await directPush.VerifyAndPublishAsync(publishRows, CancellationToken.None);
-        Assert.Empty(verifyResult.NotConfirmed);
-        Assert.Single(verifyResult.Confirmed);
+        var exportedCount = await directPush.ExportBodiesToPrivateKbRootAsync(publishRows, _localDataRoot, CancellationToken.None);
+        Assert.Equal(1, exportedCount);
+        await directPush.ConfirmAndPublishAsync(publishRows, CancellationToken.None);
 
         var prodRowBAfterConfirm = await prodStore.GetByNaturalKeyAsync(ContentSourceType.Youtube, videoIdB);
         Assert.NotNull(prodRowBAfterConfirm);

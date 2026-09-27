@@ -800,44 +800,44 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
     /// <inheritdoc />
     public async Task<IReadOnlyList<string>> CopyApprovedArtifactsToRepoAsync(
         string dataRoot,
-        string repoRoot,
+        string targetRoot,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetRoot);
 
         var exportRows = await GetApprovedExportRowsAsync(cancellationToken).ConfigureAwait(false);
         var approvedPaths = exportRows.Select(r => r.ArtifactPath).ToList();
 
         // Why: delegate to the explicit-path copy so the containment guard + copy loop live in ONE
         // place; this method just supplies the approved set's paths (DRY with CopyArtifactsToRepoAsync).
-        return await CopyArtifactsToRepoAsync(dataRoot, repoRoot, approvedPaths, cancellationToken)
+        return await CopyArtifactsToRepoAsync(dataRoot, targetRoot, approvedPaths, cancellationToken)
             .ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public Task<IReadOnlyList<string>> CopyArtifactsToRepoAsync(
         string dataRoot,
-        string repoRoot,
+        string targetRoot,
         IReadOnlyList<string> artifactPaths,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repoRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetRoot);
         ArgumentNullException.ThrowIfNull(artifactPaths);
 
         var dataRootFull = Path.GetFullPath(dataRoot);
-        var repoRootFull = Path.GetFullPath(repoRoot);
+        var targetRootFull = Path.GetFullPath(targetRoot);
 
         var copiedPaths = new List<string>(artifactPaths.Count);
         foreach (var artifactPath in artifactPaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Why: containment-guard both source (under dataRoot) and dest (under repoRoot)
-            // to prevent path traversal out of the data dir or the repo tree (T-46-02-06).
+            // Why: containment-guard both source (under dataRoot) and dest (under targetRoot)
+            // to prevent path traversal out of the data dir or the configured private KB root (T-46-02-06).
             var sourceFull = ResolveContainedPath(dataRootFull, artifactPath);
-            var destFull = ResolveContainedPath(repoRootFull, artifactPath);
+            var destFull = ResolveContainedPath(targetRootFull, artifactPath);
 
             // Why: missing/unreadable source is a publish-blocking error (D-10); never
             // silently skip — callers must not commit a seed referencing absent files.
