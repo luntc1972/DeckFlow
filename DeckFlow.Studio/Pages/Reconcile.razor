@@ -5,14 +5,14 @@
 <PageTitle>Reconcile</PageTitle>
 
 <h1 class="h4 fw-semibold">Reconcile</h1>
-<p class="text-muted">Detect prod &lt;-&gt; git &lt;-&gt; seed drift across four discrepancy classes.
-This dry-run is <strong>read-only</strong> — it reads production and your local git tree, persists
+<p class="text-muted">Detect prod &lt;-&gt; private KB root &lt;-&gt; seed drift across four discrepancy classes.
+This dry-run is <strong>read-only</strong> — it reads production and your local private KB root, persists
 what it finds to the local discrepancy store, and writes a human-readable report. It never hides,
 deletes, or otherwise writes anything in production. Removal (soft-hide) is a separate, gated
 <strong>Apply removals</strong> action below — behind the <code>sync.reconcile</code> flag, scoped to
 seed-drift rows only, and re-validated fresh at apply time.</p>
-<HelpPanel Title="Audit drift across prod, git, and the seed">
-    <p class="mb-2">Run this page when you need a dry-run view of drift between production, the git content tree, and the exported seed. It classifies discrepancies, stores the audit locally, and writes a readable report without changing production.</p>
+<HelpPanel Title="Audit drift across prod, private KB root, and the seed">
+    <p class="mb-2">Run this page when you need a dry-run view of drift between production, the private KB root, and the exported seed. It classifies discrepancies, stores the audit locally, and writes a readable report without changing production.</p>
     <ul class="mb-0 ps-3">
         <li>Apply removals is a separate destructive step, and it only ever targets seed-drift rows.</li>
         <li>If the seed is unavailable, treat that as a warning state rather than a clean no-drift result.</li>
@@ -35,7 +35,7 @@ seed-drift rows only, and re-validated fresh at apply time.</p>
         <span class="oi oi-shield" aria-hidden="true"></span>
         <strong> READ-ONLY / detection-only.</strong> This dry-run performs no destructive write —
         no visibility change, no prod DDL. Results are also written to
-        <code>content-kb/reconcile-report.md</code> in your git checkout.
+        <code>content-kb/reconcile-report.md</code> under the configured private KB root.
     </div>
 
     <div class="card mt-3">
@@ -86,7 +86,7 @@ seed-drift rows only, and re-validated fresh at apply time.</p>
                     <div class="card border-secondary mt-2">
                         <div class="card-header py-1">
                             <span class="fw-semibold">Published Orphans (@publishedOrphans.Count)</span>
-                            <span class="text-muted small d-block">Visible/approved prod row with no git body.</span>
+                            <span class="text-muted small d-block">Visible/approved prod row with no private KB root body.</span>
                         </div>
                         <div class="card-body py-2">
                             @RenderDiscrepancyList(publishedOrphans)
@@ -97,7 +97,7 @@ seed-drift rows only, and re-validated fresh at apply time.</p>
                     <div class="card border-secondary mt-2">
                         <div class="card-header py-1">
                             <span class="fw-semibold">File Orphans (@fileOrphans.Count)</span>
-                            <span class="text-muted small d-block">Git body with no matching prod row.</span>
+                            <span class="text-muted small d-block">Private KB root body with no matching prod row.</span>
                         </div>
                         <div class="card-body py-2">
                             @RenderDiscrepancyList(fileOrphans)
@@ -136,7 +136,7 @@ seed-drift rows only, and re-validated fresh at apply time.</p>
                     <div class="card border-secondary mt-2">
                         <div class="card-header py-1">
                             <span class="fw-semibold">Body Hash Mismatches (@bodyHashMismatches.Count)</span>
-                            <span class="text-muted small d-block">Prod hash differs from the computed git body hash.</span>
+                            <span class="text-muted small d-block">Prod hash differs from the computed private KB root body hash.</span>
                         </div>
                         <div class="card-body py-2">
                             @RenderDiscrepancyList(bodyHashMismatches)

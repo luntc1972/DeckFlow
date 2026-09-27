@@ -217,6 +217,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
             coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None));
 
         Assert.Contains(PrivateKbRoot.EnvironmentVariableName, exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, prodReader.ReadCallCount);
     }
 
     [Fact]
@@ -416,6 +417,25 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var rr = Assert.Single(results);
         Assert.Equal("Skipped (divergent, not acknowledged)", rr.Action);
         Assert.Empty(store.UpsertMethodCalls);
+    }
+
+    [Fact]
+    public async Task ApplyAdoptionsAsync_PrivateRootUnset_FailsClosed()
+    {
+        var store = new FakeContentSiteIndexStore();
+        var coordinator = Build(store, new FakeProdContentReader(), new StudioPrivateKbRootProvider(null, null));
+        var prodRow = Youtube(1, "vid1", "approved", bodySha256: "prod-hash");
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.ApplyAdoptionsAsync(
+            new[] { AdoptEntry(prodRow, artifactDownloaded: false, bodyDivergence: BodyDivergenceStatus.Confirmed) },
+            _dataRoot,
+            new ListProgress<IReadOnlyList<PullApplyRowResult>>(),
+            new HashSet<string>(StringComparer.Ordinal),
+            CancellationToken.None));
+
+        Assert.Contains(PrivateKbRoot.EnvironmentVariableName, exception.Message, StringComparison.Ordinal);
+        Assert.Empty(store.UpsertMethodCalls);
+        Assert.False(File.Exists(Path.Combine(_dataRoot, prodRow.ArtifactPath)));
     }
 
     [Fact]

@@ -93,7 +93,7 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
     }
 
     /// <summary>
-    /// Enumerates every <c>.md</c> file under <c>{repoRoot}/content-kb</c>, converting each to a
+    /// Enumerates every <c>.md</c> file under <c>{privateKbRoot}/content-kb</c>, converting each to a
     /// content-kb-relative artifact path (forward-slash normalized, so the result is byte-identical
     /// on Windows and Linux checkouts) validated by <see cref="ArtifactPathSafety.IsSafeArtifactPath"/>
     /// before being added to either collection — ONE scan builds BOTH the existing-paths set
@@ -103,9 +103,9 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
     /// </summary>
     private static (
         IReadOnlySet<string> ExistingPaths,
-        IReadOnlyDictionary<string, string> BodyByRelPath) ReadPrivateContentTree(string repoRoot)
+        IReadOnlyDictionary<string, string> BodyByRelPath) ReadPrivateContentTree(string privateKbRoot)
     {
-        var contentKbRoot = Path.Combine(repoRoot, "content-kb");
+        var contentKbRoot = Path.Combine(privateKbRoot, "content-kb");
         var existingPaths = new HashSet<string>(StringComparer.Ordinal);
         var bodyByRelPath = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -116,7 +116,7 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
 
         foreach (var fullPath in Directory.EnumerateFiles(contentKbRoot, "*.md", SearchOption.AllDirectories))
         {
-            var relPath = Path.GetRelativePath(repoRoot, fullPath)
+            var relPath = Path.GetRelativePath(privateKbRoot, fullPath)
                 .Replace(Path.DirectorySeparatorChar, '/')
                 .Replace(Path.AltDirectorySeparatorChar, '/');
 

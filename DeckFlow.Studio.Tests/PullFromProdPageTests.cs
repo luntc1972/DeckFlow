@@ -60,6 +60,7 @@ public sealed class PullFromProdPageTests : BunitContext
             IEnumerable<string>? missingRepoBodies = null,
             IReadOnlyDictionary<string, string>? repoBodiesByArtifactPath = null,
             FakeGitRepository? gitOverride = null,
+            bool privateRootUnset = false,
             bool isProdConfigured = true,
             bool isScpConfigured = true)
     {
@@ -99,7 +100,9 @@ public sealed class PullFromProdPageTests : BunitContext
         Services.AddSingleton<IContentSiteIndexStore>(localStore);
         Services.AddSingleton<IProdContentReader>(prodReader);
         Services.AddSingleton<IGitRepository>(git);
-        Services.AddSingleton<IPrivateKbRootProvider>(new StudioPrivateKbRootProvider(null, repoRoot));
+        Services.AddSingleton<IPrivateKbRootProvider>(new StudioPrivateKbRootProvider(
+            privateRootUnset ? null : repoRoot,
+            privateRootUnset ? null : repoRoot));
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton<IStudioProdConnectionSource>(new StudioProdConnectionSource(configuration));
@@ -176,6 +179,20 @@ public sealed class PullFromProdPageTests : BunitContext
     // ── Diff render ─────────────────────────────────────────────────────────
 
     [Fact]
+    public void Pull_PrivateRootUnset_ShowsEnvironmentVariableError()
+    {
+        var (cut, _, _, _) = RenderPull(
+            prodRows: new[] { MakeRow(1, "vid-a") },
+            privateRootUnset: true);
+
+        cut.WaitForAssertion(() => Assert.DoesNotContain("Resolving configuration", cut.Markup));
+        cut.InvokeAsync(() => cut.Find("button.btn-outline-primary").Click());
+
+        cut.WaitForAssertion(() =>
+            Assert.Contains(PrivateKbRoot.EnvironmentVariableName, cut.Markup, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Pull_RendersAllFourKinds_LocalOnlyHasNoAdoptRadio()
     {
         var ts = new DateTimeOffset(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
@@ -212,6 +229,7 @@ public sealed class PullFromProdPageTests : BunitContext
         var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") });
 
         Pull(cut);
+        cut.WaitForAssertion(() => Assert.Contains("vid-a", cut.Markup, StringComparison.Ordinal));
 
         cut.WaitForAssertion(() =>
         {
@@ -225,6 +243,7 @@ public sealed class PullFromProdPageTests : BunitContext
         var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") });
 
         Pull(cut);
+        cut.WaitForAssertion(() => Assert.Contains("vid-a", cut.Markup, StringComparison.Ordinal));
 
         cut.WaitForAssertion(() =>
         {
@@ -322,6 +341,7 @@ public sealed class PullFromProdPageTests : BunitContext
         Assert.Empty(localStore.UpsertMethodCalls);
         Assert.Empty(localStore.SingleApprovalCalls);
         Assert.Contains("body not in private KB root", cut.Markup);
+        Assert.Contains("body missing in private KB root — adopting updates the row only", cut.Markup);
     }
 
     [Fact]

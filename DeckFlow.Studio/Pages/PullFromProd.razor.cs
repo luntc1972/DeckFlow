@@ -156,7 +156,10 @@ public partial class PullFromProd
             // in the UI (D-07). But DO log the full exception server-side (Serilog file sink) with the
             // failing stage so a failed pull is diagnosable; the operator reads the log, not the page.
             Logger.LogError(ex, "Pull from prod failed during stage: {PullStage}.", _pullStage);
-            _pullError = $"Could not pull from production while trying to {_pullStage} — check the prod connection and private KB root, then try again. Nothing was written. (See the Studio log for details.)";
+            _pullError = ex is InvalidOperationException invalidOperationException
+                && invalidOperationException.Message.Contains(PrivateKbRoot.EnvironmentVariableName, StringComparison.Ordinal)
+                ? invalidOperationException.Message
+                : $"Could not pull from production while trying to {_pullStage} — check the prod connection and private KB root, then try again. Nothing was written. (See the Studio log for details.)";
             _pullInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(() =>

@@ -137,7 +137,7 @@ public sealed class PublishPageTests : BunitContext
             {
                 Assert.Single(orchestrator.ExportToFilePaths);
                 Assert.Contains("Approved content exported to the private KB root.", cut.Markup);
-                Assert.Null(rows[0].PushedToProdUtc);
+                Assert.Empty(_lastStore.StampCalls);
             });
         }
         finally

@@ -172,7 +172,7 @@ mirror of Publish — it NEVER writes to production.</p>
                                                         }
                                                         else if (entry.ArtifactDownloaded)
                                                         {
-                                                            <span class="badge bg-success">in repo</span>
+                                                            <span class="badge bg-success">in private KB root</span>
                                                         }
                                                         else
                                                         {
@@ -216,7 +216,7 @@ mirror of Publish — it NEVER writes to production.</p>
                                                             </div>
                                                             @if (!entry.ArtifactDownloaded)
                                                             {
-                                                                <div class="text-warning small">body missing in local repo — adopting updates the row only</div>
+                                                                <div class="text-warning small">body missing in private KB root — adopting updates the row only</div>
                                                             }
                                                             @if (entry.BodyDivergence is BodyDivergenceStatus.Confirmed or BodyDivergenceStatus.Indeterminate)
                                                             {

@@ -80,8 +80,11 @@ public partial class Reconcile
         {
             // Why: never surface ex.Message (D-07 precedent); log the full detail server-side.
             Logger.LogError(ex, "Reconcile dry-run failed.");
-            _runError = "Could not run the reconcile dry-run — check the prod connection and local "
-                + "git repo, then try again. Nothing was written. (See the Studio log for details.)";
+            _runError = ex is InvalidOperationException invalidOperationException
+                && invalidOperationException.Message.Contains(PrivateKbRoot.EnvironmentVariableName, StringComparison.Ordinal)
+                ? invalidOperationException.Message
+                : "Could not run the reconcile dry-run — check the prod connection and private KB root, "
+                    + "then try again. Nothing was written. (See the Studio log for details.)";
             _runInFlight = false;
             await InvokeAsync(StateHasChanged);
         }
