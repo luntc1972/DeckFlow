@@ -24,6 +24,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const statuses = new Set(chips.map((chip) => chip.dataset.toolsStatus ?? ''));
   let activeStatus = '';
 
+  const readStorage = (key: string): string => {
+    try {
+      return window.sessionStorage.getItem(key) ?? '';
+    } catch {
+      return '';
+    }
+  };
+
+  const writeStorage = (key: string, value: string): void => {
+    try {
+      window.sessionStorage.setItem(key, value);
+    } catch {
+      // Why: filtering must remain usable when browser privacy settings block storage.
+    }
+  };
+
   // Why: the shared formatter hard-codes the word "flags".
   const formatCount = (matched: number, total: number): string => `${matched} of ${total} tools shown`;
 
@@ -63,12 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const persist = (): void => {
-    window.sessionStorage.setItem(searchKey, input.value);
-    window.sessionStorage.setItem(statusKey, activeStatus);
+    writeStorage(searchKey, input.value);
+    writeStorage(statusKey, activeStatus);
   };
 
-  input.value = window.sessionStorage.getItem(searchKey) ?? '';
-  const savedStatus = window.sessionStorage.getItem(statusKey) ?? '';
+  input.value = readStorage(searchKey);
+  const savedStatus = readStorage(statusKey);
   activeStatus = statuses.has(savedStatus) ? savedStatus : '';
   syncActiveChip();
   applyFilter();

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import '../wwwroot/ts/flag-filter';
 import '../wwwroot/ts/admin-tools';
 
@@ -37,7 +37,7 @@ const click = (name: string): void => (Array.from(document.querySelectorAll<HTML
 const search = (value: string): void => { input().value = value; input().dispatchEvent(new Event('input')); };
 
 beforeEach(() => { sessionStorage.clear(); reload(); });
-afterEach(() => { sessionStorage.clear(); document.body.innerHTML = ''; });
+afterEach(() => { vi.restoreAllMocks(); sessionStorage.clear(); document.body.innerHTML = ''; });
 
 test('shows all rows and defaults to all statuses', () => { expect(labels()).toHaveLength(4); expect(document.querySelector('#tools-filter-count')!.textContent).toBe('4 of 4 tools shown'); expect(document.querySelector('#tools-filter-empty')!.classList.contains('hidden')).toBe(true); expect(document.querySelector('[data-tools-status=""]')!.getAttribute('aria-pressed')).toBe('true'); });
 test('search cut shows Cut Lab', () => { search('cut'); expect(labels()).toEqual(['Cut Lab']); expect(document.querySelector('#tools-filter-count')!.textContent).toBe('1 of 4 tools shown'); });
@@ -55,4 +55,5 @@ test('persists search and status', () => { search('c'); click('Disabled'); expec
 test('restores search and status', () => { sessionStorage.setItem('deckflowAdminToolsSearch', 'c'); sessionStorage.setItem('deckflowAdminToolsStatus', 'off'); reload(); expect(input().value).toBe('c'); expect(labels()).toEqual(['Convert Deck']); });
 test('stale status falls back to all statuses', () => { sessionStorage.setItem('deckflowAdminToolsStatus', 'maybe'); reload(); expect(labels()).toHaveLength(4); expect(document.querySelector('[data-tools-status=""]')!.getAttribute('aria-pressed')).toBe('true'); });
 test('tools filter writes only its own storage keys', () => { search('cut'); click('Disabled'); expect(sessionStorage.getItem('deckflowAdminToolsSearch')).toBe('cut'); expect(sessionStorage.getItem('deckflowAdminToolsStatus')).toBe('off'); expect(sessionStorage.getItem('deckflowAdminFlagSearch')).toBeNull(); expect(sessionStorage.getItem('deckflowAdminFlagPrefix')).toBeNull(); expect(sessionStorage.getItem('deckflowAdminFlagStatus')).toBeNull(); });
+test('blocked session storage leaves the filter working', () => { vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new DOMException('Blocked', 'SecurityError'); }); vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('Blocked', 'SecurityError'); }); reload(); search('cut'); expect(labels()).toEqual(['Cut Lab']); search(''); click('Disabled'); expect(labels()).toEqual(['Mana Base', 'Convert Deck']); });
 test('missing markup does not throw', () => { document.body.innerHTML = ''; expect(() => document.dispatchEvent(new Event('DOMContentLoaded'))).not.toThrow(); });
