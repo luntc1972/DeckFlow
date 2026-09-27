@@ -4,6 +4,7 @@
     ViewData["Title"] = "Tools";
     var actionMessage = TempData["AdminToolsAction"] as string;
     var warningMessage = TempData["AdminToolsWarning"] as string;
+    var toolCount = Model.Sections.Sum(section => section.Tools.Count);
 }
 
 <section class="admin-tools">
@@ -28,9 +29,24 @@
         </div>
     }
 
-    @foreach (var toolSection in Model.Sections)
+    @if (toolCount > 0)
     {
-        <section class="admin-tools__section" aria-labelledby="tools-@toolSection.Section-heading">
+        <div class="tools-filter">
+            <label for="tools-filter-search">Filter by tool name or flag key prefix</label>
+            <input id="tools-filter-search" type="search" autocomplete="off" placeholder="e.g. cut or tool.cut" aria-controls="tools-sections" />
+            <div class="tools-filter__chips" role="group" aria-label="Status filter">
+                <button type="button" class="tools-filter__chip is-active" data-tools-status="" aria-pressed="true">All statuses</button>
+                <button type="button" class="tools-filter__chip" data-tools-status="on" aria-pressed="false">Enabled</button>
+                <button type="button" class="tools-filter__chip" data-tools-status="off" aria-pressed="false">Disabled</button>
+            </div>
+            <p class="tools-filter__count" id="tools-filter-count" role="status" aria-live="polite"></p>
+        </div>
+    }
+
+    <div id="tools-sections">
+        @foreach (var toolSection in Model.Sections)
+        {
+            <section class="admin-tools__section" aria-labelledby="tools-@toolSection.Section-heading">
             <h2 id="tools-@toolSection.Section-heading">@toolSection.Section</h2>
             <table class="admin-table admin-table--card">
                 <caption class="sr-only">@toolSection.Section tools and their current on/off status</caption>
@@ -45,7 +61,7 @@
                 <tbody>
                     @foreach (var tool in toolSection.Tools)
                     {
-                        <tr>
+                        <tr data-tool-label="@tool.Label" data-tool-flag-key="@tool.FlagKey" data-tool-enabled="@(tool.Enabled ? "true" : "false")">
                             <td data-label="Tool">
                                 <span>@tool.Label</span>
                                 @if (tool.Core)
@@ -66,6 +82,13 @@
                     }
                 </tbody>
             </table>
-        </section>
-    }
+            </section>
+        }
+        <p class="tools-filter__empty hidden" id="tools-filter-empty">No tools match the current filter.</p>
+    </div>
 </section>
+
+@section Scripts {
+    <script src="~/js/flag-filter.js" asp-append-version="true"></script>
+    <script src="~/js/admin-tools.js" asp-append-version="true"></script>
+}
