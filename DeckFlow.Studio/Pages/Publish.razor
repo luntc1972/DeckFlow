@@ -1,19 +1,60 @@
 @page "/publish"
 @inherits StudioCancellableComponentBase
+@using DeckFlow.Core.Knowledge
 
 <PageTitle>Export to private KB root</PageTitle>
 <h1 class="h4 fw-semibold">Export to private KB root</h1>
 <p class="text-muted">Writes approved content seed and bodies to the configured private KB root.</p>
+<HelpPanel Title="Export approved content to the private KB root">
+    <p class="mb-2">Export writes the approved seed and content bodies to the configured private KB root.</p>
+    <ul class="mb-0 ps-3">
+        <li>Only approved entries are eligible for export.</li>
+        <li>Commit the private KB changes by hand after reviewing them.</li>
+    </ul>
+</HelpPanel>
+
+<PipelineStepper CurrentStage="publish" />
+
 <article class="content px-4">
-    @if (!string.IsNullOrEmpty(_error))
+    @if (_loading)
     {
-        <div class="alert alert-danger py-2 mt-3">@_error</div>
+        <div class="d-flex align-items-center gap-2 mt-3">
+            <span class="spinner-border spinner-border-sm text-primary" role="status" aria-label="Operation in progress"></span>
+            <span class="text-muted">Loading approved content…</span>
+        </div>
     }
-    @if (_success)
+    else
     {
-        <div class="alert alert-success py-2 mt-3">Approved content exported to the private KB root.</div>
+        <p>
+            @if (_approvedCount == 0)
+            {
+                <span class="text-muted">No approved entries — approve entries on the Review page before exporting.</span>
+            }
+            else
+            {
+                <strong>@_approvedCount</strong>
+                <span> @(_approvedCount == 1 ? "entry" : "entries") approved and ready to export.</span>
+            }
+        </p>
+        @if (_publishStateSummary.Count > 0)
+        {
+            <div class="d-flex gap-2 flex-wrap mb-2">
+                @foreach (var (state, count) in _publishStateSummary)
+                {
+                    <span><PublishStateBadge State="state" /> <span class="text-muted small">@count</span></span>
+                }
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger py-2 mt-3">@_error</div>
+        }
+        @if (_success)
+        {
+            <div class="alert alert-success py-2 mt-3">Approved content exported to the private KB root.</div>
+        }
+        <button class="btn btn-primary mt-3" disabled="@(_inFlight || _approvedCount == 0)" @onclick="ExportToPrivateRootAsync">
+            @(_inFlight ? "Exporting…" : "Export to private KB root")
+        </button>
     }
-    <button class="btn btn-primary mt-3" disabled="@_inFlight" @onclick="ExportToPrivateRootAsync">
-        @(_inFlight ? "Exporting…" : "Export to private KB root")
-    </button>
 </article>

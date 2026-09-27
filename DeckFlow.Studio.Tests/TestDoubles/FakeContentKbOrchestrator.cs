@@ -35,6 +35,8 @@ internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
     // ── Fault injection ─────────────────────────────────────────────────────
     public Exception? ThrowOnCopy { get; set; }
 
+    public Exception? ThrowOnExport { get; set; }
+
     // ── IContentIndexExporter (exercised by Publish.razor) ──────────────────
     public Task<ContentIndexExportResult> ExportIndexToFileAsync(
         string seedPath,
@@ -42,6 +44,11 @@ internal sealed class FakeContentKbOrchestrator : IContentKbOrchestrator
         CancellationToken cancellationToken = default)
     {
         ExportToFilePaths.Add(seedPath);
+        if (ThrowOnExport is not null)
+        {
+            throw ThrowOnExport;
+        }
+
         return Task.FromResult(CannedExportResult);
     }
 

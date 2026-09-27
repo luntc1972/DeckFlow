@@ -82,7 +82,7 @@ public partial class Program
 
             builder.Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured, isConfirmerConfigured));
             builder.Services.AddSingleton<IPrivateKbRootProvider>(_ => new StudioPrivateKbRootProvider(
-                builder.Configuration[PrivateKbRoot.EnvironmentVariableName],
+                Environment.GetEnvironmentVariable(PrivateKbRoot.EnvironmentVariableName),
                 builder.Configuration["ContentKb:PrivateRoot"]));
             builder.Services.AddSingleton<ISshArtifactUploader, SftpArtifactUploader>();
             builder.Services.AddSingleton<ISshArtifactDownloader, SftpArtifactDownloader>();
