@@ -34,7 +34,7 @@ public partial class Publish
         }
         catch (OperationCanceledException)
         {
-            _error = "Export cancelled.";
+            _error = "Loading cancelled.";
         }
         catch (Exception exception)
         {
@@ -62,6 +62,9 @@ public partial class Publish
             var init = await Coordinator.LoadInitDataAsync(Cts.Token);
             if (init.ApprovedCount == 0)
             {
+                _approvedCount = init.ApprovedCount;
+                _publishStateSummary = init.StateSummary;
+                _error = "Nothing is approved for export.";
                 return;
             }
 
@@ -74,7 +77,7 @@ public partial class Publish
             else
             {
                 _error = result.Status == PublishExportStatus.SeedExportFailed
-                    ? result.SeedExportMessage
+                    ? $"Seed export failed — {result.SeedExportMessage}"
                     : "Could not copy approved content bodies to the private KB root.";
             }
         }

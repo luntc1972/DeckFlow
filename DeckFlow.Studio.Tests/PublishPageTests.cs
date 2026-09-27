@@ -14,6 +14,8 @@ namespace DeckFlow.Studio.Tests;
 /// <summary>bUnit tests for the private-root Publish action.</summary>
 public sealed class PublishPageTests : BunitContext
 {
+    private FakeContentSiteIndexStore _lastStore = default!;
+
     private IRenderedComponent<Publish> RenderPublish(
         string? root,
         IReadOnlyList<ContentSiteIndexRow>? rows = null,
@@ -22,6 +24,7 @@ public sealed class PublishPageTests : BunitContext
         IReadOnlyList<string>? suppressedCreators = null)
     {
         var store = new FakeContentSiteIndexStore();
+        _lastStore = store;
         store.Rows.AddRange(rows ?? Array.Empty<ContentSiteIndexRow>());
         var suppressionStore = new FakeCreatorSuppressionStore();
         foreach (var creator in suppressedCreators ?? Array.Empty<string>())
@@ -84,6 +87,8 @@ public sealed class PublishPageTests : BunitContext
         Assert.Contains("Export to private KB root", cut.Markup);
         Assert.DoesNotContain("Commit", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("branch", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        var publishSource = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../DeckFlow.Studio/Pages/Publish.razor"));
+        Assert.DoesNotContain("Commit", File.ReadAllText(publishSource), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -112,6 +117,88 @@ public sealed class PublishPageTests : BunitContext
             Assert.Contains("Never published", cut.Markup);
             Assert.Contains("Published", cut.Markup);
         });
+    }
+
+    [Fact]
+    public void ExportToPrivateRoot_ApprovedRows_ExportsAndDoesNotStampRows()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "deckflow-private-root-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var rows = new[] { MakeApprovedRow(1, "first") };
+            var orchestrator = new FakeContentKbOrchestrator();
+            var cut = RenderPublish(root, rows, orchestrator);
+
+            cut.WaitForAssertion(() => Assert.False(cut.Find("button.btn-primary").HasAttribute("disabled")));
+            cut.Find("button.btn-primary").Click();
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.Single(orchestrator.ExportToFilePaths);
+                Assert.Contains("Approved content exported to the private KB root.", cut.Markup);
+                Assert.Null(rows[0].PushedToProdUtc);
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ExportToPrivateRoot_SeedExportFailure_ShowsPrefixedMessage()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "deckflow-private-root-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var orchestrator = new FakeContentKbOrchestrator
+            {
+                CannedExportResult = new ContentIndexExportResult
+                {
+                    Success = false,
+                    Message = "seed unavailable",
+                },
+            };
+            var cut = RenderPublish(root, new[] { MakeApprovedRow(1, "first") }, orchestrator);
+
+            cut.WaitForAssertion(() => Assert.False(cut.Find("button.btn-primary").HasAttribute("disabled")));
+            cut.Find("button.btn-primary").Click();
+
+            cut.WaitForAssertion(() => Assert.Contains("Seed export failed — seed unavailable", cut.Markup));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ExportToPrivateRoot_ReloadFindsNoApprovedRows_ShowsMessageAndDisablesExport()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "deckflow-private-root-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var orchestrator = new FakeContentKbOrchestrator();
+            var cut = RenderPublish(root, new[] { MakeApprovedRow(1, "first") }, orchestrator);
+
+            cut.WaitForAssertion(() => Assert.False(cut.Find("button.btn-primary").HasAttribute("disabled")));
+            _lastStore.Rows.Clear();
+            cut.Find("button.btn-primary").Click();
+
+            cut.WaitForAssertion(() =>
+            {
+                Assert.Contains("Nothing is approved for export.", cut.Markup);
+                Assert.True(cut.Find("button.btn-primary").HasAttribute("disabled"));
+                Assert.Empty(orchestrator.ExportToFilePaths);
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
