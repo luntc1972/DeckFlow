@@ -871,7 +871,9 @@ a:hover { text-decoration: underline; }
   text-align: center;
 }
 
-.admin-shell .flag-filter {
+/* Why: Tools reuses these rules so both admin filters stay visually identical; Phase 4 owns any restyle. */
+.admin-shell .flag-filter,
+.admin-shell .tools-filter {
   display: flex;
   flex-flow: row wrap;
   align-items: center;
@@ -879,11 +881,13 @@ a:hover { text-decoration: underline; }
   margin: 16px 0 12px;
 }
 
-.admin-shell .flag-filter label {
+.admin-shell .flag-filter label,
+.admin-shell .tools-filter label {
   color: var(--muted);
 }
 
-.admin-shell #flag-filter-search {
+.admin-shell #flag-filter-search,
+.admin-shell #tools-filter-search {
   width: min(100%, 32rem);
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -892,13 +896,15 @@ a:hover { text-decoration: underline; }
   color: var(--text);
 }
 
-.admin-shell .flag-filter__chips {
+.admin-shell .flag-filter__chips,
+.admin-shell .tools-filter__chips {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.admin-shell .flag-filter__chip {
+.admin-shell .flag-filter__chip,
+.admin-shell .tools-filter__chip {
   padding: 0.35rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -907,13 +913,15 @@ a:hover { text-decoration: underline; }
   cursor: pointer;
 }
 
-.admin-shell .flag-filter__chip.is-active {
+.admin-shell .flag-filter__chip.is-active,
+.admin-shell .tools-filter__chip.is-active {
   border-color: var(--accent);
   color: var(--text);
   background: rgba(59,130,246,0.12);
 }
 
-.admin-shell .flag-filter__count {
+.admin-shell .flag-filter__count,
+.admin-shell .tools-filter__count {
   flex-basis: 100%;
   margin: 0;
   color: var(--muted);
@@ -921,7 +929,8 @@ a:hover { text-decoration: underline; }
   font-variant-numeric: tabular-nums;
 }
 
-.admin-shell .flag-filter__empty-row td {
+.admin-shell .flag-filter__empty-row td,
+.admin-shell .tools-filter__empty {
   padding: 24px 16px;
   color: var(--muted);
   text-align: center;
