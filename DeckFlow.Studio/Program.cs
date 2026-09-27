@@ -81,6 +81,9 @@ public partial class Program
             Directory.CreateDirectory(contentKbArtifactRoot);
 
             builder.Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured, isConfirmerConfigured));
+            builder.Services.AddSingleton<IPrivateKbRootProvider>(_ => new StudioPrivateKbRootProvider(
+                builder.Configuration[PrivateKbRoot.EnvironmentVariableName],
+                builder.Configuration["ContentKb:PrivateRoot"]));
             builder.Services.AddSingleton<ISshArtifactUploader, SftpArtifactUploader>();
             builder.Services.AddSingleton<ISshArtifactDownloader, SftpArtifactDownloader>();
             builder.Services.AddSingleton<IProdContentReader, ProdContentReader>();
@@ -182,9 +185,9 @@ public partial class Program
             // git durability stage depends on the scoped IContentKbOrchestrator — a singleton would
             // capture it (captive dependency), same as PublishCoordinator below.
             builder.Services.AddScoped<DeckFlow.Studio.ViewModels.DirectPushCoordinator>();
-            // Why: Publish page orchestration (git repo-info load / export / artifact-copy / diff /
-            // stage-and-commit), extracted from the page code-behind (H1). Scoped because it depends
-            // on the scoped IContentKbOrchestrator — a singleton would capture it (captive dependency).
+            // Why: Publish page orchestration (private-root seed export / artifact copy), extracted
+            // from the page code-behind (H1). Scoped because it depends on the scoped
+            // IContentKbOrchestrator — a singleton would capture it (captive dependency).
             builder.Services.AddScoped<DeckFlow.Studio.ViewModels.PublishCoordinator>();
             // Why: Review page orchestration (queue load / approval-status writes / artifact path
             // containment + read), extracted from the page code-behind (H1). Stateless and both its

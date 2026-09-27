@@ -102,7 +102,13 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
 
         // Why: an empty, readable suppression store keeps the round trip on the unsuppressed path.
         var suppressionFilter = new CreatorSuppressionRowFilter(new FakeCreatorSuppressionStore(), new FakeCreatorIdentityResolver());
-        var publish = new PublishCoordinator(git, orchestrator, localStore, options, new PublishStateDeriver(), suppressionFilter);
+        var publish = new PublishCoordinator(
+            new StudioPrivateKbRootProvider(_harness.RepoRoot, null),
+            orchestrator,
+            localStore,
+            options,
+            new PublishStateDeriver(),
+            suppressionFilter);
         var directPush = new DirectPushCoordinator(
             localStore, uploader, prodStoreFactory, prodConnection, options, git, orchestrator, prodReader, confirmer, suppressionFilter);
         var pull = new PullFromProdCoordinator(localStore, git, prodReader, prodConnection, options, NullLogger<PullFromProdCoordinator>.Instance);
@@ -146,22 +152,22 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
 
         _output.WriteLine($"── Distill: row A written LOCAL only; hashDistillA={hashDistillA[..8]}… ──");
 
-        // ── Approve + Publish row A (export seed + copy body + commit; operator reviews + pushes) ──
+        // ── Approve + Publish row A (export seed + copy body; operator commits + pushes) ──
         await localStore.SetApprovalStatusAsync(ContentSourceType.Youtube, videoIdA, "approved");
 
-        var initData = await publish.LoadInitDataAsync(CancellationToken.None);
-        var exportResult = await publish.ExportAndDiffAsync(
-            initData.RepoRoot, _localDataRoot, new IOrchestratorProgress.NullOrchestratorProgress(), CancellationToken.None);
+        var exportResult = await publish.ExportToPrivateRootAsync(
+            _localDataRoot, new IOrchestratorProgress.NullOrchestratorProgress(), CancellationToken.None);
         Assert.Equal(PublishExportStatus.Success, exportResult.Status);
 
-        var commitResult = await publish.CommitAsync(
-            initData.RepoRoot, exportResult.StagedPaths, exportResult.CommitMessage, exportResult.ExportedKeys, CancellationToken.None);
-        Assert.False(string.IsNullOrEmpty(commitResult.Sha));
-
-        // Why: Publish (D-01) never pushes -- the operator reviews then pushes by hand. Without this,
-        // DirectPush's foreign-commit guard would later see the unpushed Publish commit ahead of
-        // origin and refuse (DirectPushUnreviewedCommitsException). This IS the operator's push.
-        await git.PushAsync(initData.RepoRoot, "origin", initData.Branch, CancellationToken.None);
+        // Why: interim until DirectPush moves off git (T2b); DirectPush's foreign-commit guard
+        // still needs origin to be current.
+        var publishCommit = await git.StageAndCommitAsync(
+            _harness.RepoRoot,
+            exportResult.WrittenPaths,
+            "Publish approved content",
+            CancellationToken.None);
+        Assert.False(string.IsNullOrEmpty(publishCommit));
+        await git.PushAsync(_harness.RepoRoot, RoundTripHarness.OriginRemote, RoundTripHarness.Branch, CancellationToken.None);
 
         var seedPath = Path.Combine(_harness.RepoRoot, "content-kb", "seed", "index-seed.json");
         var seedEntriesAfterPublish = await ReadSeedEntriesAsync(seedPath);
