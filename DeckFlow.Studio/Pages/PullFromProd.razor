@@ -9,13 +9,13 @@
 <PageTitle>Pull from Production</PageTitle>
 
 <h1 class="h4 fw-semibold">Pull from Production</h1>
-<p class="text-muted">Read the live production content index, resolve bodies from the local git
-tree, see a per-entry diff against your local store, and resolve each one locally. This is the read
+<p class="text-muted">Read the live production content index, resolve bodies from the private KB
+root, see a per-entry diff against your local store, and resolve each one locally. This is the read
 mirror of Publish — it NEVER writes to production.</p>
 <HelpPanel Title="Sync production state down into your local Studio store">
     <p class="mb-2">Use this page to compare live production against your local Studio data and adopt selected prod changes locally. It is the read-only mirror of the publish flows and never writes back to production.</p>
     <ul class="mb-0 ps-3">
-        <li>Body resolution comes from your local git tree, so stale local checkout state can affect what you adopt.</li>
+        <li>Body resolution comes from the configured private KB root.</li>
         <li>Each resolution writes locally only; review the diff kinds before adopting prod over local work.</li>
     </ul>
 </HelpPanel>
@@ -51,7 +51,7 @@ mirror of Publish — it NEVER writes to production.</p>
         <div class="alert alert-info py-2 mt-3">
             <span class="oi oi-shield" aria-hidden="true"></span>
             <strong> READ-ONLY toward production.</strong> This page only reads prod rows and
-            resolves bodies from your local git tree. Every resolution you apply writes to your
+            resolves bodies from the configured private KB root. Every resolution you apply writes to your
             LOCAL store only.
         </div>
 
@@ -108,22 +108,6 @@ mirror of Publish — it NEVER writes to production.</p>
                                  role="log"
                                  aria-live="polite"
                                  aria-label="Pull progress log">@string.Join("\n", _progressLog)</pre>
-                        </div>
-                    </div>
-                }
-
-                @if (_freshness is not null && _freshness.Kind != PullFreshnessKind.Fresh)
-                {
-                    <div class="card border-warning mt-3" data-testid="freshness-banner">
-                        <div class="card-body py-2">
-                            @if (_freshness.Kind == PullFreshnessKind.Behind)
-                            {
-                                <span>Local checkout is @_freshness.BehindCount commit(s) behind origin/@_freshness.Branch — run <code>git pull</code> before adopting.</span>
-                            }
-                            else
-                            {
-                                <span>Could not verify checkout freshness (fetch failed or timed out) — proceeding against the local git tree as-is.</span>
-                            }
                         </div>
                     </div>
                 }

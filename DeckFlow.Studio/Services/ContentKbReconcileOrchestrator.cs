@@ -7,14 +7,14 @@ namespace DeckFlow.Studio.Services;
 
 /// <summary>
 /// I/O orchestrator for the SYNC-11 reconcile dry-run (D-04): reads prod exactly once, enumerates
-/// the operator's git <c>content-kb/**/*.md</c> tree, reads <c>index-seed.json</c> via the
+/// the operator's private-KB <c>content-kb/**/*.md</c> tree, reads <c>index-seed.json</c> via the
 /// availability-aware <see cref="SeedIndexFileReader.Read"/>, feeds the pure
 /// <see cref="ContentKbReconcileClassifier"/>, persists scope-tagged results to the local
-/// <see cref="IContentKbReconcileStore"/> (D-05), and writes the git-tracked D-06 human-readable
-/// report. Mirrors <see cref="GitBodyCoverageAudit"/>'s shape exactly (constructor takes only the
+/// <see cref="IContentKbReconcileStore"/> (D-05), and writes the D-06 human-readable
+/// report. Mirrors the body-coverage audit's shape exactly (constructor takes only the
 /// structurally read-only <see cref="IProdContentReader"/>, never <c>IProdStoreFactory</c> — T-90-04
 /// precedent) and reuses every existing I/O seam (<see cref="ArtifactPathSafety"/>,
-/// <see cref="StudioRepoLocator"/>). Issues no DDL and no destructive write of any kind.
+/// <see cref="IPrivateKbRootProvider"/>). Issues no DDL and no destructive write of any kind.
 /// </summary>
 public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestrator
 {
@@ -29,33 +29,32 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
 
     private readonly IProdContentReader _prodReader;
     private readonly IContentKbReconcileStore _store;
-    private readonly IGitRepository _git;
+    private readonly IPrivateKbRootProvider _privateKbRootProvider;
     private readonly IStudioProdConnectionSource _prodConnection;
     private readonly ILogger<ContentKbReconcileOrchestrator> _logger;
 
     /// <summary>
     /// Creates the orchestrator over the read-only prod reader, the local discrepancy store, the
-    /// git repository adapter (repo-root resolution only — no destructive git operation is ever
-    /// invoked here), configuration (for the ephemeral prod connection string, read exactly once
+    /// private-root provider, configuration (for the ephemeral prod connection string, read exactly once
     /// per run and never materialized into DI state — mirrors <c>PullFromProdCoordinator</c>), and
     /// a logger.
     /// </summary>
     public ContentKbReconcileOrchestrator(
         IProdContentReader prodReader,
         IContentKbReconcileStore store,
-        IGitRepository git,
+        IPrivateKbRootProvider privateKbRootProvider,
         IStudioProdConnectionSource prodConnection,
         ILogger<ContentKbReconcileOrchestrator> logger)
     {
         ArgumentNullException.ThrowIfNull(prodReader);
         ArgumentNullException.ThrowIfNull(store);
-        ArgumentNullException.ThrowIfNull(git);
+        ArgumentNullException.ThrowIfNull(privateKbRootProvider);
         ArgumentNullException.ThrowIfNull(prodConnection);
         ArgumentNullException.ThrowIfNull(logger);
 
         _prodReader = prodReader;
         _store = store;
-        _git = git;
+        _privateKbRootProvider = privateKbRootProvider;
         _prodConnection = prodConnection;
         _logger = logger;
     }
@@ -65,25 +64,23 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(scopeTag);
 
-        var repoRoot = await _git
-            .ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken)
-            .ConfigureAwait(false);
+        var privateKbRoot = _privateKbRootProvider.GetRoot();
 
         // Why (T-91-15): read prod EXACTLY ONCE per run, never per-row — the ephemeral connection
         // string is read here and never materialized into DI state (D-03/D-07 precedent).
         var rawConnStr = _prodConnection.ConnectionString;
         var prodRows = await _prodReader.ReadAllAsync(rawConnStr, cancellationToken).ConfigureAwait(false);
 
-        var (existingGitBodyRelPaths, gitBodyByRelPath) = ReadGitContentTree(repoRoot);
+        var (existingBodyRelPaths, bodyByRelPath) = ReadPrivateContentTree(privateKbRoot.Root);
 
-        var seedFilePath = Path.Combine(repoRoot, ContentKbSeedPaths.SeedRelativePath);
+        var seedFilePath = privateKbRoot.SeedFile;
         var seedIndex = SeedIndexFileReader.Read(seedFilePath, _logger);
 
         var discrepancies = ContentKbReconcileClassifier.Classify(
             prodRows,
-            existingGitBodyRelPaths,
+            existingBodyRelPaths,
             seedIndex,
-            gitBodyByRelPath,
+            bodyByRelPath,
             _logger);
 
         await _store
@@ -91,7 +88,7 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
             .ConfigureAwait(false);
 
         var result = new ReconcileDryRunResult(seedIndex.SeedAvailable, discrepancies);
-        WriteReport(repoRoot, result);
+        WriteReport(privateKbRoot.Root, result);
         return result;
     }
 
@@ -106,7 +103,7 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
     /// </summary>
     private static (
         IReadOnlySet<string> ExistingPaths,
-        IReadOnlyDictionary<string, string> BodyByRelPath) ReadGitContentTree(string repoRoot)
+        IReadOnlyDictionary<string, string> BodyByRelPath) ReadPrivateContentTree(string repoRoot)
     {
         var contentKbRoot = Path.Combine(repoRoot, "content-kb");
         var existingPaths = new HashSet<string>(StringComparer.Ordinal);
@@ -178,9 +175,9 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
         builder.AppendLine($"Generated: {DateTimeOffset.UtcNow:O}");
         builder.AppendLine();
 
-        AppendSection(builder, ContentKbReconcileKind.PublishedOrphan, "Published Orphans (visible+approved row, no git body)", result);
+        AppendSection(builder, ContentKbReconcileKind.PublishedOrphan, "Published Orphans (visible+approved row, no private-KB body)", result);
         builder.AppendLine();
-        AppendSection(builder, ContentKbReconcileKind.FileOrphan, "File Orphans (git body, no matching prod row)", result);
+        AppendSection(builder, ContentKbReconcileKind.FileOrphan, "File Orphans (private-KB body, no matching prod row)", result);
         builder.AppendLine();
 
         if (result.SeedAvailable)
@@ -198,7 +195,7 @@ public sealed class ContentKbReconcileOrchestrator : IContentKbReconcileOrchestr
         }
 
         builder.AppendLine();
-        AppendSection(builder, ContentKbReconcileKind.BodyHashMismatch, "Body Hash Mismatches (prod hash differs from computed git body hash)", result);
+        AppendSection(builder, ContentKbReconcileKind.BodyHashMismatch, "Body Hash Mismatches (prod hash differs from computed private-KB body hash)", result);
 
         return builder.ToString().TrimEnd();
     }

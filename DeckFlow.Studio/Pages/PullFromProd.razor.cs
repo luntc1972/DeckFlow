@@ -7,7 +7,7 @@ namespace DeckFlow.Studio.Pages;
 
 /// <summary>
 /// Code-behind for the Pull-from-Production page. The read-only prod pull (prod read, local
-/// git-tree body resolution, local classify) and the local-only adopt apply live in
+/// private-KB body resolution, local classify) and the local-only adopt apply live in
 /// <see cref="PullFromProdCoordinator"/> (H1 split); this page keeps the progress log, resolution
 /// map, busy guards, sanitized top-level error copy, cancellation, and re-render marshalling. The
 /// page never writes to production. Behavior is identical to the prior inline implementation.
@@ -15,7 +15,7 @@ namespace DeckFlow.Studio.Pages;
 public partial class PullFromProd
 {
     // ── Injected services ───────────────────────────────────────────────────
-    // Why: all prod read / git body resolution / store I/O is delegated to the coordinator so this page is thin UI
+    // Why: all prod read / private-KB body resolution / store I/O is delegated to the coordinator so this page is thin UI
     // glue and the pull/apply sequences are unit-testable without bUnit (H1).
     [Inject]
     private PullFromProdCoordinator Coordinator { get; set; } = default!;
@@ -46,7 +46,6 @@ public partial class PullFromProd
     private string _pullError = string.Empty;
     private string _pullStage = string.Empty;
     private bool _diffReady;
-    private PullFreshnessStatus? _freshness;
     private List<SyncDiffEntry> _diffEntries = new();
     private readonly Dictionary<string, Resolution> _resolutions = new(StringComparer.Ordinal);
     private readonly HashSet<string> _divergenceOverrides = new(StringComparer.Ordinal);
@@ -107,7 +106,6 @@ public partial class PullFromProd
         _pullInFlight = true;
         _pullError = string.Empty;
         _diffReady = false;
-        _freshness = null;
         _diffEntries = new();
         _progressLog = new();
         _resolutions.Clear();
@@ -136,7 +134,6 @@ public partial class PullFromProd
                 Cts.Token);
 
             _diffEntries = result.Entries.ToList();
-            _freshness = result.Freshness;
             _diffReady = true;
             _pullInFlight = false;
             _operationInFlight = false;
@@ -155,11 +152,11 @@ public partial class PullFromProd
         }
         catch (Exception ex)
         {
-            // Why: an Npgsql or git exception can carry host/db/user/path — NEVER surface ex.Message
+            // Why: an Npgsql or filesystem exception can carry host/db/user/path — NEVER surface ex.Message
             // in the UI (D-07). But DO log the full exception server-side (Serilog file sink) with the
             // failing stage so a failed pull is diagnosable; the operator reads the log, not the page.
             Logger.LogError(ex, "Pull from prod failed during stage: {PullStage}.", _pullStage);
-            _pullError = $"Could not pull from production while trying to {_pullStage} — check the prod connection and local git repo, then try again. Nothing was written. (See the Studio log for details.)";
+            _pullError = $"Could not pull from production while trying to {_pullStage} — check the prod connection and private KB root, then try again. Nothing was written. (See the Studio log for details.)";
             _pullInFlight = false;
             _operationInFlight = false;
             await InvokeAsync(() =>
@@ -174,7 +171,7 @@ public partial class PullFromProd
     private async Task ApplyResolutionsAsync()
     {
         // Why: hard-guard before any write — a stale render, test invocation, or future refactor
-        // must never reach the apply before a classify produced entries (mirror DirectPush).
+        // must never reach the apply before a classify produced entries (mirror the other apply lane).
         if (!_diffReady || _operationInFlight)
         {
             return;

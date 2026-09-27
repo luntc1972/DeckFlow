@@ -66,6 +66,7 @@ public sealed class PullFromProdPageTests : BunitContext
         var localStore = new FakeContentSiteIndexStore();
         var prodReader = prodReaderOverride ?? new FakeProdContentReader();
         var repoRoot = Path.Combine(Path.GetTempPath(), "deckflow-tests-pull-repo", Path.GetRandomFileName());
+        Directory.CreateDirectory(repoRoot);
         var git = gitOverride ?? new FakeGitRepository();
         git.CannedRepoRoot = repoRoot;
         var missing = new HashSet<string>(missingRepoBodies ?? Enumerable.Empty<string>(), StringComparer.Ordinal);
@@ -98,6 +99,7 @@ public sealed class PullFromProdPageTests : BunitContext
         Services.AddSingleton<IContentSiteIndexStore>(localStore);
         Services.AddSingleton<IProdContentReader>(prodReader);
         Services.AddSingleton<IGitRepository>(git);
+        Services.AddSingleton<IPrivateKbRootProvider>(new StudioPrivateKbRootProvider(null, repoRoot));
         Services.AddSingleton(new StudioConfig(isProdConfigured, isScpConfigured));
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton<IStudioProdConnectionSource>(new StudioProdConnectionSource(configuration));
@@ -205,39 +207,28 @@ public sealed class PullFromProdPageTests : BunitContext
     }
 
     [Fact]
-    public void Pull_BehindFreshness_RendersBanner()
+    public void Pull_PrivateRoot_DoesNotRenderFreshnessBanner()
     {
-        var git = new FakeGitRepository
-        {
-            CannedBranch = "main",
-            CannedBehindCount = 2,
-        };
-        var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") }, gitOverride: git);
+        var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") });
 
         Pull(cut);
 
         cut.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(cut.FindAll("[data-testid='freshness-banner']"));
-            Assert.Contains("Local checkout is 2 commit(s) behind origin/main", cut.Markup);
+            Assert.Empty(cut.FindAll("[data-testid='freshness-banner']"));
         });
     }
 
     [Fact]
-    public void Pull_UnverifiedFreshness_RendersDistinctBanner()
+    public void Pull_PrivateRoot_DoesNotRenderGitFreshnessCopy()
     {
-        var git = new FakeGitRepository
-        {
-            ThrowOnFetch = new GitCommandException("fetch failed"),
-        };
-        var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") }, gitOverride: git);
+        var (cut, _, _, _) = RenderPull(prodRows: new[] { MakeRow(1, "vid-a") });
 
         Pull(cut);
 
         cut.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(cut.FindAll("[data-testid='freshness-banner']"));
-            Assert.Contains("Could not verify checkout freshness (fetch failed or timed out)", cut.Markup);
+            Assert.DoesNotContain("checkout freshness", cut.Markup, StringComparison.OrdinalIgnoreCase);
         });
     }
 
@@ -330,7 +321,7 @@ public sealed class PullFromProdPageTests : BunitContext
 
         Assert.Empty(localStore.UpsertMethodCalls);
         Assert.Empty(localStore.SingleApprovalCalls);
-        Assert.Contains("body missing in local repo", cut.Markup);
+        Assert.Contains("body not in private KB root", cut.Markup);
     }
 
     [Fact]
@@ -444,7 +435,7 @@ public sealed class PullFromProdPageTests : BunitContext
         Pull(cut);
 
         cut.WaitForAssertion(() =>
-            Assert.Contains("body not in local git repo (prod-only/unpublished): content-kb/test-channel/vid-a.md", cut.Markup));
+            Assert.Contains("body not in private KB root (prod-only/unpublished): content-kb/test-channel/vid-a.md", cut.Markup));
         Assert.DoesNotContain(Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar, '/'), cut.Markup,
             StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SSH download failed", cut.Markup);
@@ -503,7 +494,7 @@ public sealed class PullFromProdPageTests : BunitContext
         // Missing body: repo-relative ArtifactPath only — no local filesystem path in markup.
         // WaitForAssertion: per-body line renders via a fire-and-forget Progress<T> hop.
         cut.WaitForAssertion(() =>
-            Assert.Contains("body not in local git repo (prod-only/unpublished): content-kb/test-channel/vid-a.md", cut.Markup));
+            Assert.Contains("body not in private KB root (prod-only/unpublished): content-kb/test-channel/vid-a.md", cut.Markup));
     }
 
     [Fact]

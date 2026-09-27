@@ -91,7 +91,7 @@ public sealed class ReconcileFixtureDriveTests : IDisposable
             .Build();
 
         var orchestrator = new ContentKbReconcileOrchestrator(
-            reader, localStore, git, new StudioProdConnectionSource(config), NullLogger<ContentKbReconcileOrchestrator>.Instance);
+            reader, localStore, new StudioPrivateKbRootProvider(null, _repoRoot), new StudioProdConnectionSource(config), NullLogger<ContentKbReconcileOrchestrator>.Instance);
         var coordinator = new ReconcileCoordinator(
             orchestrator, localStore, storeFactory, reader, new StudioProdConnectionSource(config), NullLogger<ReconcileCoordinator>.Instance);
 

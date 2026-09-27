@@ -111,7 +111,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
             suppressionFilter);
         var directPush = new DirectPushCoordinator(
             localStore, uploader, prodStoreFactory, prodConnection, options, git, orchestrator, prodReader, confirmer, suppressionFilter);
-        var pull = new PullFromProdCoordinator(localStore, git, prodReader, prodConnection, options, NullLogger<PullFromProdCoordinator>.Instance);
+        var pull = new PullFromProdCoordinator(localStore, new StudioPrivateKbRootProvider(_harness.RepoRoot, null), prodReader, prodConnection, options, NullLogger<PullFromProdCoordinator>.Instance);
 
         _output.WriteLine("── Boot: real PG schema + real git tree bootstrapped; coordinators wired ──");
 
@@ -306,7 +306,7 @@ public sealed class RoundTripSyncLoopTests : IClassFixture<PostgresContainerFixt
         // ════════════════════════════════════════════════════════════════════════════════════
         var reconcileStore = new ContentKbReconcileStore(_reconcileDbPath);
         var reconcileOrchestrator = new ContentKbReconcileOrchestrator(
-            prodReader, reconcileStore, git, new StudioProdConnectionSource(config), NullLogger<ContentKbReconcileOrchestrator>.Instance);
+            prodReader, reconcileStore, new StudioPrivateKbRootProvider(_harness.RepoRoot, null), new StudioProdConnectionSource(config), NullLogger<ContentKbReconcileOrchestrator>.Instance);
         var reconcile = new ReconcileCoordinator(
             reconcileOrchestrator, reconcileStore, prodStoreFactory, prodReader, prodConnection, NullLogger<ReconcileCoordinator>.Instance);
 

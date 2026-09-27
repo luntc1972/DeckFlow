@@ -89,13 +89,49 @@ public sealed class ContentKbReconcileOrchestratorTests : IDisposable
         File.WriteAllText(Path.Combine(seedDir, "index-seed.json"), $"[{string.Join(",", items)}]");
     }
 
-    private ContentKbReconcileOrchestrator Build(FakeProdContentReader reader, IContentKbReconcileStore? store = null)
+    private ContentKbReconcileOrchestrator Build(
+        FakeProdContentReader reader,
+        IContentKbReconcileStore? store = null,
+        IPrivateKbRootProvider? privateKbRootProvider = null)
         => new(
             reader,
             store ?? new ContentKbReconcileStore(_dbPath),
-            new FakeGitRepository { CannedRepoRoot = _repoRoot },
+            privateKbRootProvider ?? new StudioPrivateKbRootProvider(null, _repoRoot),
             new StudioProdConnectionSource(new ConfigurationBuilder().Build()),
             NullLogger<ContentKbReconcileOrchestrator>.Instance);
+
+    [Fact]
+    public async Task RunDryRunAsync_PrivateRootUnset_FailsClosed()
+    {
+        var reader = new FakeProdContentReader();
+        var store = new FakeContentKbReconcileStore();
+        var orchestrator = Build(
+            reader,
+            store,
+            privateKbRootProvider: new StudioPrivateKbRootProvider(null, null));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            orchestrator.RunDryRunAsync("test", CancellationToken.None));
+
+        Assert.Contains(PrivateKbRoot.EnvironmentVariableName, exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, reader.ReadCallCount);
+        Assert.Equal(0, store.PersistRunCallCount);
+    }
+
+    [Fact]
+    public async Task RunDryRunAsync_PrivateRoot_ReadsSeedAndBodyAndWritesReport()
+    {
+        WriteSeed(("youtube_channel", "vid1"));
+        WriteBody("content-kb/test-channel/vid1.md", "---\ntitle: Video 1\n---\nprivate body");
+        var reader = new FakeProdContentReader();
+        reader.Rows.Add(Youtube(1, "vid1", "content-kb/test-channel/vid1.md", bodySha256: null));
+
+        var result = await Build(reader).RunDryRunAsync("private-root", CancellationToken.None);
+
+        Assert.True(result.SeedAvailable);
+        Assert.DoesNotContain(result.Discrepancies, d => d.Kind == ContentKbReconcileKind.FileOrphan);
+        Assert.True(File.Exists(Path.Combine(_repoRoot, "content-kb", "reconcile-report.md")));
+    }
 
     [Fact]
     public async Task RunDryRunAsync_DetectsAllFourClasses_SeedAvailableTrue_PersistsToStore()

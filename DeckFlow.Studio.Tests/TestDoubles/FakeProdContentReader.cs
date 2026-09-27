@@ -21,11 +21,19 @@ internal sealed class FakeProdContentReader : IProdContentReader
     /// <summary>If set, <see cref="ReadAllAsync"/> throws with this message (may carry a sentinel).</summary>
     public string? ReadFailureMessage { get; set; }
 
+    /// <summary>When set, observes cancellation before returning seeded rows.</summary>
+    public bool ObserveCancellation { get; set; }
+
     public Task<IReadOnlyList<ContentSiteIndexRow>> ReadAllAsync(
         string connectionString,
         CancellationToken cancellationToken = default)
     {
         ReadCallCount++;
+        if (ObserveCancellation)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
         if (ReadFailureMessage is not null)
         {
             throw new InvalidOperationException(ReadFailureMessage);

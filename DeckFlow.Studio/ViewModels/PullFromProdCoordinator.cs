@@ -1,5 +1,4 @@
 using DeckFlow.Core.Content;
-using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Orchestration;
 using DeckFlow.Studio.Services;
@@ -10,7 +9,7 @@ namespace DeckFlow.Studio.ViewModels;
 /// <summary>
 /// Orchestration for the Pull-from-Production workflow, extracted from the <c>PullFromProd</c> page
 /// code-behind (H1 god-component split). Owns the read-only prod pull (read-only prod
-/// read, local git-tree body resolution, local classify) and the local-only adopt apply (content
+/// read, private-KB body resolution, local classify) and the local-only adopt apply (content
 /// upsert + approval mirror + body copy). This type performs no rendering and holds no
 /// per-page UI state — the page keeps the progress log, resolution map, busy guards, cancellation,
 /// and <c>StateHasChanged</c>. It NEVER writes to production. Behavior is identical to the prior
@@ -19,29 +18,29 @@ namespace DeckFlow.Studio.ViewModels;
 public sealed class PullFromProdCoordinator
 {
     private readonly IContentSiteIndexStore _indexStore;
-    private readonly IGitRepository _git;
+    private readonly IPrivateKbRootProvider _privateKbRootProvider;
     private readonly IProdContentReader _prodReader;
     private readonly IStudioProdConnectionSource _prodConnection;
     private readonly ContentKbOrchestratorOptions _options;
     private readonly ILogger<PullFromProdCoordinator> _logger;
 
-    /// <summary>Creates the coordinator with the local store, git repository, read-only prod reader, config, options, and logger.</summary>
+    /// <summary>Creates the coordinator with the local store, private-root provider, read-only prod reader, config, options, and logger.</summary>
     public PullFromProdCoordinator(
         IContentSiteIndexStore indexStore,
-        IGitRepository git,
+        IPrivateKbRootProvider privateKbRootProvider,
         IProdContentReader prodReader,
         IStudioProdConnectionSource prodConnection,
         ContentKbOrchestratorOptions options,
         ILogger<PullFromProdCoordinator> logger)
     {
         ArgumentNullException.ThrowIfNull(indexStore);
-        ArgumentNullException.ThrowIfNull(git);
+        ArgumentNullException.ThrowIfNull(privateKbRootProvider);
         ArgumentNullException.ThrowIfNull(prodReader);
         ArgumentNullException.ThrowIfNull(prodConnection);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(logger);
         _indexStore = indexStore;
-        _git = git;
+        _privateKbRootProvider = privateKbRootProvider;
         _prodReader = prodReader;
         _prodConnection = prodConnection;
         _options = options;
@@ -65,7 +64,7 @@ public sealed class PullFromProdCoordinator
 
     /// <summary>
     /// Reads the live production content index (read-only, NO DDL), resolves each prod body from the
-    /// local git tree, and classifies the result against the local store — returning only the
+    /// private KB root, and classifies the result against the local store — returning only the
     /// differing entries with their per-entry artifact-available flag stamped. Sets the current
     /// stage name via <paramref name="onStage"/> (a synchronous callback so a fault reads the exact
     /// stage in flight — diagnostic copy) and emits human-readable progress lines to
@@ -76,8 +75,7 @@ public sealed class PullFromProdCoordinator
         Action<string> onStage,
         CancellationToken cancellationToken)
     {
-        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
-        var freshness = await CheckFreshnessAsync(repoRoot, log, onStage, cancellationToken).ConfigureAwait(false);
+        var privateKbRoot = _privateKbRootProvider.GetRoot();
 
         // R1: read prod via the read-only reader — plain SELECT, NO EnsureSchemaAsync/DDL.
         onStage("read production content_site_index");
@@ -89,13 +87,13 @@ public sealed class PullFromProdCoordinator
 
         log.Report($"  {prodRows.Count} row(s) read from production.");
 
-        onStage("resolve local repo bodies");
-        log.Report($"Resolving {prodRows.Count} body/bodies from local repository…");
+        onStage("resolve private KB bodies");
+        log.Report($"Resolving {prodRows.Count} body/bodies from private KB root…");
 
         var availableBodies = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var prodRow in prodRows)
         {
-            if (!ArtifactPathSafety.TryBuildContainedPath(repoRoot, prodRow.ArtifactPath, out var repoBody))
+            if (!ArtifactPathSafety.TryBuildContainedPath(privateKbRoot.Root, prodRow.ArtifactPath, out var repoBody))
             {
                 log.Report("  body SKIPPED (invalid path)");
                 continue;
@@ -104,7 +102,7 @@ public sealed class PullFromProdCoordinator
             var present = File.Exists(repoBody);
             log.Report(present
                 ? $"  body present: {prodRow.ArtifactPath}"
-                : $"  body not in local git repo (prod-only/unpublished): {prodRow.ArtifactPath}");
+                : $"  body not in private KB root (prod-only/unpublished): {prodRow.ArtifactPath}");
             if (present)
             {
                 availableBodies[prodRow.ArtifactPath] = repoBody;
@@ -126,14 +124,14 @@ public sealed class PullFromProdCoordinator
             .ToList();
 
         log.Report($"Done — {entries.Count} differing entry/entries found. "
-            + $"{availableBodies.Count}/{prodRows.Count} body/bodies resolved from the local repo.");
+            + $"{availableBodies.Count}/{prodRows.Count} body/bodies resolved from the private KB root.");
 
-        return new PullClassifyResult(entries, freshness);
+        return new PullClassifyResult(entries);
     }
 
     /// <summary>
     /// Applies "adopt prod" resolutions to the LOCAL store only: content-columns-only upsert +
-    /// approval-status mirror, then best-effort copy of the git-tree body into the live tree.
+    /// approval-status mirror, then best-effort copy of the private-KB body into the live tree.
     /// Production is never modified. Reports the running per-entry result list to
     /// <paramref name="progress"/> after each entry so the page can render incrementally. The caller
     /// pre-filters <paramref name="adoptEntries"/> to entries whose resolution is "adopt prod", that
@@ -147,7 +145,7 @@ public sealed class PullFromProdCoordinator
         CancellationToken cancellationToken)
     {
         var results = new List<PullApplyRowResult>();
-        var repoRoot = await _git.ResolveRepoRootAsync(StudioRepoLocator.ResolveStartDirectory(), cancellationToken).ConfigureAwait(false);
+        var privateKbRoot = _privateKbRootProvider.GetRoot();
 
         foreach (var entry in adoptEntries)
         {
@@ -183,7 +181,7 @@ public sealed class PullFromProdCoordinator
                 await _indexStore.SetApprovalStatusAsync(keyType, keyValue, prodRow.ApprovalStatus, cancellationToken).ConfigureAwait(false);
 
                 var note = "row updated; approval mirrored from prod";
-                var validSource = ArtifactPathSafety.TryBuildContainedPath(repoRoot, entry.ArtifactPath, out var repoBody);
+                var validSource = ArtifactPathSafety.TryBuildContainedPath(privateKbRoot.Root, entry.ArtifactPath, out var repoBody);
                 var validDest = ArtifactPathSafety.TryBuildContainedPath(dataRoot, entry.ArtifactPath, out var liveDest);
                 if (!validSource || !validDest)
                 {
@@ -191,7 +189,7 @@ public sealed class PullFromProdCoordinator
                 }
                 else if (File.Exists(repoBody))
                 {
-                    // Copy the git-tree body into the live tree (local only). The row upsert above
+                    // Copy the private-KB body into the live tree (local only). The row upsert above
                     // is the primary effect of adopt and has already succeeded; body copy is
                     // best-effort and must NOT fail the whole entry.
                     var liveDir = Path.GetDirectoryName(liveDest);
@@ -201,12 +199,12 @@ public sealed class PullFromProdCoordinator
                     }
 
                     File.Copy(repoBody, liveDest, overwrite: true);
-                    note = "row updated + body copied from local repo; approval mirrored from prod";
+                    note = "row updated + body copied from private KB root; approval mirrored from prod";
                 }
                 else
                 {
-                    // R4: partial local repo — upsert + approval still applied; skip ONLY File.Copy.
-                    note = "row updated; body not in local git repo (prod-only or unpublished), not copied; approval mirrored from prod";
+                    // R4: partial private KB root — upsert + approval still applied; skip ONLY File.Copy.
+                    note = "row updated; body not in private KB root (prod-only or unpublished), not copied; approval mirrored from prod";
                 }
 
                 results.Add(new PullApplyRowResult(entry.Title, entry.NaturalKeyType, keyValue, true, "Adopted", note));
@@ -229,45 +227,6 @@ public sealed class PullFromProdCoordinator
         }
 
         return results;
-    }
-
-    private async Task<PullFreshnessStatus> CheckFreshnessAsync(
-        string repoRoot,
-        IProgress<string> log,
-        Action<string> onStage,
-        CancellationToken cancellationToken)
-    {
-        onStage("check local checkout freshness");
-        using var freshnessCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        freshnessCts.CancelAfter(TimeSpan.FromSeconds(5));
-        try
-        {
-            var branch = await _git.GetCurrentBranchAsync(repoRoot, freshnessCts.Token).ConfigureAwait(false);
-            await _git.FetchAsync(repoRoot, "origin", branch, freshnessCts.Token).ConfigureAwait(false);
-            var behindCount = await _git.GetBehindCountAsync(repoRoot, "origin", branch, freshnessCts.Token).ConfigureAwait(false);
-            if (behindCount > 0)
-            {
-                log.Report($"WARNING: Local checkout is {behindCount} commit(s) behind origin/{branch}; consider running 'git pull' before adopting. Proceeding with the current git tree.");
-                return new PullFreshnessStatus(PullFreshnessKind.Behind, behindCount, branch);
-            }
-
-            return new PullFreshnessStatus(PullFreshnessKind.Fresh, 0, branch);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            log.Report("Could not verify checkout freshness (fetch timed out — offline, VPN, or slow network). Proceeding with the local git tree as-is.");
-            return new PullFreshnessStatus(PullFreshnessKind.Unverified, 0, string.Empty);
-        }
-        catch (GitCommandException ex)
-        {
-            _logger.LogWarning(ex, "Could not verify checkout freshness before pull-from-prod.");
-            log.Report("Could not verify checkout freshness (fetch failed — offline, VPN, or auth). Proceeding with the local git tree as-is.");
-            return new PullFreshnessStatus(PullFreshnessKind.Unverified, 0, string.Empty);
-        }
     }
 
     private SyncDiffEntry StampArtifactAvailabilityAndDivergence(SyncDiffEntry entry, bool downloaded, string? repoBody) =>
@@ -301,7 +260,7 @@ public sealed class PullFromProdCoordinator
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "Unreadable git body for {ArtifactPath}; stamping Indeterminate.", entry.ArtifactPath);
+            _logger.LogWarning(ex, "Unreadable private-KB body for {ArtifactPath}; stamping Indeterminate.", entry.ArtifactPath);
             return BodyDivergenceStatus.Indeterminate;
         }
     }
@@ -312,29 +271,9 @@ public sealed class PullFromProdCoordinator
 /// <param name="DataRoot">Studio data root (parent of <c>ArtifactRoot</c>).</param>
 public sealed record PullPaths(string DataRoot);
 
-/// <summary>Freshness state of the local checkout relative to origin before pull-from-prod classification.</summary>
-public enum PullFreshnessKind
-{
-    /// <summary>The checkout was fetched and is not behind origin.</summary>
-    Fresh,
-
-    /// <summary>The checkout was fetched and is behind origin by one or more commits.</summary>
-    Behind,
-
-    /// <summary>The checkout freshness could not be verified because fetch timed out or failed.</summary>
-    Unverified
-}
-
-/// <summary>Freshness details surfaced to the operator after the bounded pre-check.</summary>
-/// <param name="Kind">Freshness outcome.</param>
-/// <param name="BehindCount">Number of commits behind origin when <see cref="Kind"/> is <see cref="PullFreshnessKind.Behind"/>.</param>
-/// <param name="Branch">Current branch name when known.</param>
-public sealed record PullFreshnessStatus(PullFreshnessKind Kind, int BehindCount, string Branch);
-
-/// <summary>Result of pull-from-prod classification: diff entries plus checkout freshness status.</summary>
+/// <summary>Result of pull-from-prod classification.</summary>
 /// <param name="Entries">Differing entries classified against the local store.</param>
-/// <param name="Freshness">Checkout freshness status from the pre-check stage.</param>
-public sealed record PullClassifyResult(IReadOnlyList<SyncDiffEntry> Entries, PullFreshnessStatus Freshness);
+public sealed record PullClassifyResult(IReadOnlyList<SyncDiffEntry> Entries);
 
 /// <summary>One per-entry outcome of applying a Pull-from-Prod adopt resolution to the local store.</summary>
 /// <param name="Title">Entry title (display).</param>

@@ -81,7 +81,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
     private PullFromProdCoordinator Build(
         FakeContentSiteIndexStore localStore,
         FakeProdContentReader prodReader,
-        FakeGitRepository? git = null)
+        IPrivateKbRootProvider? privateKbRootProvider = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -92,7 +92,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         return new PullFromProdCoordinator(
             localStore,
-            git ?? new FakeGitRepository { CannedRepoRoot = _repoRoot },
+            privateKbRootProvider ?? new StudioPrivateKbRootProvider(null, _repoRoot),
             prodReader,
             new StudioProdConnectionSource(configuration),
             new ContentKbOrchestratorOptions { ArtifactRoot = _artifactRoot },
@@ -149,7 +149,6 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         Assert.Equal(SyncDiffKind.MissingLocally, entry.Kind);
         Assert.True(entry.ArtifactDownloaded);
         Assert.Equal(BodyDivergenceStatus.Clean, entry.BodyDivergence);
-        Assert.Equal(PullFreshnessKind.Fresh, result.Freshness.Kind);
         Assert.Equal(1, prodReader.ReadCallCount);
         Assert.Contains("classify", stage);
         Assert.Contains(log.Items, l => l.StartsWith("Done — 1 differing", StringComparison.Ordinal));
@@ -157,7 +156,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
     }
 
     [Fact]
-    public async Task PullAndClassifyAsync_BodyAbsentFromGitTree_StampsArtifactUnavailableAndIndeterminate()
+    public async Task PullAndClassifyAsync_BodyAbsentFromPrivateRoot_StampsArtifactUnavailableAndIndeterminate()
     {
         var prodReader = new FakeProdContentReader();
         prodReader.Rows.Add(Youtube(1, "vid1", bodySha256: "prod-hash"));
@@ -170,7 +169,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var entry = Assert.Single(result.Entries);
         Assert.False(entry.ArtifactDownloaded);
         Assert.Equal(BodyDivergenceStatus.Indeterminate, entry.BodyDivergence);
-        Assert.Contains(log.Items, l => l.Contains("body not in local git repo (prod-only/unpublished): content-kb/test-channel/vid1.md", StringComparison.Ordinal));
+        Assert.Contains(log.Items, l => l.Contains("body not in private KB root (prod-only/unpublished): content-kb/test-channel/vid1.md", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -207,110 +206,29 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
     }
 
     [Fact]
-    public async Task PullAndClassifyAsync_BehindOrigin_WarnsAndProceeds()
-    {
-        var prodReader = new FakeProdContentReader();
-        var row = Youtube(1, "vid1");
-        prodReader.Rows.Add(row);
-        WriteRepoBody(row.ArtifactPath, "---\ntitle: Video 1\n---\nrepo body");
-        var git = new FakeGitRepository
-        {
-            CannedRepoRoot = _repoRoot,
-            CannedBranch = "main",
-            CannedBehindCount = 3,
-        };
-        var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
-        var log = new ListProgress<string>();
-
-        var result = await coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None);
-
-        Assert.Equal(PullFreshnessKind.Behind, result.Freshness.Kind);
-        Assert.Equal(3, result.Freshness.BehindCount);
-        Assert.Equal("main", result.Freshness.Branch);
-        Assert.Single(result.Entries);
-        Assert.Contains(log.Items, l => l.Contains("3 commit(s) behind origin/main", StringComparison.Ordinal));
-        var fetch = Assert.Single(git.FetchCalls);
-        Assert.Equal("origin", fetch.Remote);
-        Assert.Equal("main", fetch.Branch);
-    }
-
-    [Fact]
-    public async Task PullAndClassifyAsync_FetchFails_MarksUnverifiedAndProceeds()
+    public async Task PullAndClassifyAsync_PrivateRootUnset_FailsClosed()
     {
         var prodReader = new FakeProdContentReader();
         prodReader.Rows.Add(Youtube(1, "vid1"));
-        var git = new FakeGitRepository
-        {
-            CannedRepoRoot = _repoRoot,
-            ThrowOnFetch = new GitCommandException("fetch failed"),
-        };
-        var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
+        var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, new StudioPrivateKbRootProvider(null, null));
         var log = new ListProgress<string>();
 
-        var result = await coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None));
 
-        Assert.Equal(PullFreshnessKind.Unverified, result.Freshness.Kind);
-        Assert.Single(result.Entries);
-        Assert.Contains(log.Items, l => l.Contains("Could not verify checkout freshness (fetch failed", StringComparison.Ordinal));
+        Assert.Contains(PrivateKbRoot.EnvironmentVariableName, exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task PullAndClassifyAsync_FetchTimesOut_MarksUnverifiedAndProceeds()
+    public async Task PullAndClassifyAsync_PageCancellationDuringPull_Propagates()
     {
-        var prodReader = new FakeProdContentReader();
-        prodReader.Rows.Add(Youtube(1, "vid1"));
-        var git = new FakeGitRepository
-        {
-            CannedRepoRoot = _repoRoot,
-            ThrowOnFetch = new OperationCanceledException(),
-        };
-        var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
-        var log = new ListProgress<string>();
+        var prodReader = new FakeProdContentReader { ObserveCancellation = true };
+        var coordinator = Build(new FakeContentSiteIndexStore(), prodReader);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
 
-        var result = await coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None);
-
-        Assert.Equal(PullFreshnessKind.Unverified, result.Freshness.Kind);
-        Assert.Single(result.Entries);
-        Assert.Contains(log.Items, l => l.Contains("Could not verify checkout freshness (fetch timed out", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task PullAndClassifyAsync_PageCancellationDuringFreshness_Propagates()
-    {
-        var prodReader = new FakeProdContentReader();
-        prodReader.Rows.Add(Youtube(1, "vid1"));
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-        var git = new FakeGitRepository
-        {
-            CannedRepoRoot = _repoRoot,
-            ThrowOnFetch = new OperationCanceledException(cts.Token),
-        };
-        var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
-
-        await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            coordinator.PullAndClassifyAsync(new ListProgress<string>(), _ => { }, cts.Token));
-    }
-
-    [Fact]
-    public async Task PullAndClassifyAsync_CleanFreshness_EmitsNoFreshnessWarning()
-    {
-        var prodReader = new FakeProdContentReader();
-        prodReader.Rows.Add(Youtube(1, "vid1"));
-        var git = new FakeGitRepository
-        {
-            CannedRepoRoot = _repoRoot,
-            CannedBranch = "main",
-            CannedBehindCount = 0,
-        };
-        var coordinator = Build(new FakeContentSiteIndexStore(), prodReader, git);
-        var log = new ListProgress<string>();
-
-        var result = await coordinator.PullAndClassifyAsync(log, _ => { }, CancellationToken.None);
-
-        Assert.Equal(PullFreshnessKind.Fresh, result.Freshness.Kind);
-        Assert.DoesNotContain(log.Items, l => l.Contains("Could not verify checkout freshness", StringComparison.Ordinal)
-            || l.Contains("behind origin/", StringComparison.Ordinal));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            coordinator.PullAndClassifyAsync(new ListProgress<string>(), _ => { }, cancellation.Token));
     }
 
     [Fact]
@@ -378,7 +296,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
     // ── ApplyAdoptionsAsync ────────────────────────────────────────────────────
 
     [Fact]
-    public async Task ApplyAdoptionsAsync_CleanBodyPresentInGitTree_CopiesBodyAndPreservesVisibilityWrites()
+    public async Task ApplyAdoptionsAsync_CleanBodyPresentInPrivateRoot_CopiesBodyAndPreservesVisibilityWrites()
     {
         var store = new FakeContentSiteIndexStore();
         store.Rows.Add(Youtube(99, "vid1", isVisible: true, isHidden: true));
@@ -397,7 +315,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
 
         var rr = Assert.Single(results);
         Assert.True(rr.Success);
-        Assert.Contains("body copied from local repo", rr.Note, StringComparison.Ordinal);
+        Assert.Contains("body copied from private KB root", rr.Note, StringComparison.Ordinal);
         var liveDest = Path.Combine(_dataRoot, prodRow.ArtifactPath);
         Assert.True(File.Exists(liveDest));
         Assert.True(File.Exists(repoPath));
@@ -518,7 +436,7 @@ public sealed class PullFromProdCoordinatorTests : IDisposable
         var rr = Assert.Single(results);
         Assert.True(rr.Success);
         Assert.Equal("Adopted", rr.Action);
-        Assert.Equal("row updated; body not in local git repo (prod-only or unpublished), not copied; approval mirrored from prod", rr.Note);
+        Assert.Equal("row updated; body not in private KB root (prod-only or unpublished), not copied; approval mirrored from prod", rr.Note);
         Assert.Contains("UpsertContentColumnsOnlyAsync", store.UpsertMethodCalls);
         Assert.Single(store.SingleApprovalCalls);
         Assert.False(File.Exists(Path.Combine(_dataRoot, prodRow.ArtifactPath)));
