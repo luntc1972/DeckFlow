@@ -52,7 +52,6 @@ WORKDIR /app
 RUN mkdir -p /data
 
 COPY --from=build /app/publish .
-COPY content-kb/ ./content-kb/
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV MTG_DATA_DIR=/data
