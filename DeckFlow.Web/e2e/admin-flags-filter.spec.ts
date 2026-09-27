@@ -93,6 +93,36 @@ test('admin flags supports instant prefix filtering and namespace chips', async 
   expect(await getVisibleFlagKeys(page)).toHaveLength(0);
 });
 
+test('admin flags derives namespace chips from live keys', async ({ page }) => {
+  test.skip(!!process.env.CI, 'Flaky under CI admin-lock contention (per-test timeout blown by mutex wait); runs locally. Tracked: .planning/debug/e2e-admin-beforeeach-timeout.md');
+  const response = await page.goto('/Admin/Flags');
+  expect(response?.ok()).toBeTruthy();
+  const rows = page.locator('tr[data-flag-key]');
+  const keys = await rows.evaluateAll((items) => items.map((item) => item.getAttribute('data-flag-key') ?? ''));
+  const total = keys.length;
+  const chips = page.locator('button[data-flag-prefix]');
+  const details = await chips.evaluateAll((items) => items.map((item) => ({ prefix: item.getAttribute('data-flag-prefix') ?? '', text: item.textContent?.trim() ?? '', title: item.getAttribute('title') ?? '' })).filter((item) => item.prefix !== ''));
+  const expected = [...new Set(keys.map((key) => key.toLowerCase()).filter((key) => key.includes('.') && !key.startsWith('.')).map((key) => `${key.split('.')[0]}.`))].sort();
+  expect(details.map((chip) => chip.prefix)).toEqual(expected);
+  expect(details.length).toBeGreaterThan(2);
+  for (const chip of details) {
+    expect(chip.prefix.endsWith('.')).toBeTruthy();
+    expect(chip.prefix.split('.')).toHaveLength(2);
+    expect(chip.prefix.startsWith('tool.')).toBeFalsy();
+    expect(chip.text).toBe(chip.prefix.slice(0, -1));
+    const button = page.getByRole('button', { name: chip.text, exact: true });
+    await button.click();
+    const visible = await getVisibleFlagKeys(page);
+    expect(visible).toEqual(keys.filter((key) => key.toLowerCase().startsWith(chip.prefix)));
+    expect(visible.length).toBeGreaterThan(0);
+    expect(chip.title).toBe(`${visible.length} ${visible.length === 1 ? 'flag' : 'flags'}`);
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#flag-filter-count')).toHaveText(`${visible.length} of ${total} flags shown`);
+  }
+  await page.getByRole('button', { name: 'All', exact: true }).click();
+  expect(await getVisibleFlagKeys(page)).toEqual(keys);
+});
+
 test('admin flags stays within the viewport at mobile width', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 900 });
 
