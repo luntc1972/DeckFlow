@@ -121,6 +121,7 @@ test('admin flags derives namespace chips from live keys', async ({ page }) => {
     expect(chip.prefix.startsWith('tool.')).toBeFalsy();
     expect(chip.label).toBe(expectedChipLabel(chip.prefix.slice(0, -1)));
     const button = page.locator(`button[data-flag-prefix="${chip.prefix}"]`);
+    await expect(button).toHaveAttribute('title', chip.prefix.slice(0, -1));
     await button.click();
     const visible = await getVisibleFlagKeys(page);
     expect(visible).toEqual(keys.filter((key) => key.toLowerCase().startsWith(chip.prefix)));
@@ -129,6 +130,7 @@ test('admin flags derives namespace chips from live keys', async ({ page }) => {
     await expect(button).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#flag-filter-count')).toHaveText(`${visible.length} of ${total} flags shown`);
   }
+  await expect(page.locator('button[data-flag-prefix=""]')).not.toHaveAttribute('title');
   await page.getByRole('button', { name: 'All', exact: true }).click();
   expect(await getVisibleFlagKeys(page)).toEqual(keys);
 });
