@@ -199,7 +199,7 @@ test.describe('admin content kb flows @admin', () => {
 
     expect(response?.ok()).toBeTruthy();
 
-    const deleteButtons = page.locator('form[data-admin-confirm-twoclick] button.danger');
+    const deleteButtons = page.locator('form[data-admin-confirm-twoclick] button.admin-button--danger');
     const deleteButtonCount = await deleteButtons.count();
     test.skip(deleteButtonCount === 0, 'no KB rows seeded');
 
