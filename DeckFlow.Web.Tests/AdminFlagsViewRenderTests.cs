@@ -28,7 +28,7 @@ public sealed class AdminFlagsViewRenderTests
         var document = new HtmlParser().ParseDocument(await RenderAsync(Model("analysis.manabase.accuracy", "analysis.manabase.baseline", "analysis.wincon-map", "sync.reconcile")));
         var chips = document.QuerySelectorAll("[aria-label='Namespace filter'] button[data-flag-prefix]").ToArray();
         Assert.Equal(new[] { "", "analysis.", "sync." }, chips.Select(x => x.GetAttribute("data-flag-prefix")));
-        Assert.Equal(new[] { "All", "analysis", "sync" }, chips.Select(x => x.ChildNodes[0].TextContent.Trim()));
+        Assert.Equal(new[] { "All", "Analysis", "Sync" }, chips.Select(x => x.ChildNodes[0].TextContent.Trim()));
         Assert.Equal(new[] { null, "3", "1" }, chips.Select(x => x.QuerySelector(".flag-filter__chip-count")?.TextContent.Trim()));
         Assert.All(chips, x => Assert.Null(x.GetAttribute("title")));
         Assert.Equal("true", chips[0].GetAttribute("aria-pressed"));
