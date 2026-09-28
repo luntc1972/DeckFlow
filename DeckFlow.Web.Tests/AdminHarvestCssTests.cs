@@ -4,7 +4,7 @@ using Xunit;
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Guards the harvest backlog warning treatment in the admin stylesheet.
+/// Guards the harvest backlog warning treatment through the D-03 warning token.
 /// </summary>
 public sealed class AdminHarvestCssTests
 {
@@ -22,7 +22,7 @@ public sealed class AdminHarvestCssTests
             "css",
             "admin-common.css"));
 
-        Assert.Matches(new Regex(@"--warning:\s*#facc15", RegexOptions.IgnoreCase), content);
+        Assert.Matches(new Regex(@"--status-warning:\s*#eab308", RegexOptions.IgnoreCase), content);
         Assert.Matches(
             new Regex(
                 @"\.admin-harvest__health-badge\s*\{[^}]*border:\s*1px\s+solid\s+currentColor",
