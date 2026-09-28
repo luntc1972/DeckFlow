@@ -6,7 +6,7 @@
   const FETCH_TIMEOUT_MS = 10000;
   const ACTIVE_STATES = new Set<string>(['Queued', 'Running', 'Stopping']);
   const TERMINAL_STATES = new Set<string>(['Succeeded', 'Failed', 'Cancelled']);
-  const COMMANDERS_LOADING_HTML = '<p class="admin-harvest__grid-loading">Loading commanders…</p>';
+  const COMMANDERS_LOADING_HTML = '<p class="admin-empty">Loading commanders…</p>';
   const COMMANDERS_ERROR_HTML = '<div class="admin-banner admin-banner--danger" role="alert">Could not load commanders. <a href="#" id="commanders-retry">Retry</a></div>';
 
   type HarvestStatusPayload = {
@@ -315,7 +315,7 @@
           details.setAttribute('data-commander-loaded', 'true');
         } catch {
           details.setAttribute('data-commander-failed', 'true');
-          panel.innerHTML = '<p class="admin-harvest__grid-error">Could not load category breakdown. <a href="#" data-commander-retry>Retry</a></p>';
+          panel.innerHTML = '<div class="admin-banner admin-banner--danger" role="alert">Could not load category breakdown. <a href="#" data-commander-retry>Retry</a></div>';
           panel.querySelector<HTMLAnchorElement>('[data-commander-retry]')?.addEventListener('click', (event) => {
             event.preventDefault();
             void loadCommanderBreakdown(details);

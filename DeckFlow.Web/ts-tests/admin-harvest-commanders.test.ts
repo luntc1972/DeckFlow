@@ -12,9 +12,9 @@ const renderFixture = (): void => {
   vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }));
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
   document.body.innerHTML = `
-    <div class="admin-harvest__tabs" role="tablist">
-      <button type="button" id="harvest-tab-overview" data-harvest-tab="overview" role="tab" aria-controls="harvest-panel-overview" aria-selected="true" tabindex="0">Overview</button>
-      <button type="button" id="harvest-tab-commanders" data-harvest-tab="commanders" role="tab" aria-controls="harvest-panel-commanders" aria-selected="false" tabindex="-1">Commanders</button>
+    <div class="admin-tabs" role="tablist">
+      <button class="admin-tabs__tab" type="button" id="harvest-tab-overview" data-harvest-tab="overview" role="tab" aria-controls="harvest-panel-overview" aria-selected="true" tabindex="0">Overview</button>
+      <button class="admin-tabs__tab" type="button" id="harvest-tab-commanders" data-harvest-tab="commanders" role="tab" aria-controls="harvest-panel-commanders" aria-selected="false" tabindex="-1">Commanders</button>
     </div>
     <section id="harvest-panel-overview" data-harvest-panel="overview" role="tabpanel"></section>
     <section id="harvest-panel-commanders" data-harvest-panel="commanders" role="tabpanel">
@@ -169,5 +169,15 @@ describe('admin harvest commanders', () => {
     expect(banner.getAttribute('role')).toBe('alert');
     expect(banner.textContent).toMatch(/^Could not load commanders\./);
     expect(document.querySelector('#commanders-grid-container')!.getAttribute('aria-busy')).toBe('false');
+  });
+
+  it('shows the loading state as an admin empty message', () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(() => {})));
+    renderFixture();
+    document.querySelector<HTMLFormElement>('#commanders-search-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    const container = document.querySelector('#commanders-grid-container')!;
+    expect(container.getAttribute('aria-busy')).toBe('true');
+    expect(container.querySelector('p.admin-empty')?.textContent).toBe('Loading commanders…');
   });
 });

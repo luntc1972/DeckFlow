@@ -12,7 +12,7 @@ const gridMarkup = (): string => `
 const renderFixture = (): void => {
   vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }));
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
-  document.body.innerHTML = `<div class="admin-harvest__tabs" role="tablist"><button type="button" id="harvest-tab-overview" data-harvest-tab="overview" role="tab" aria-controls="harvest-panel-overview" aria-selected="true" tabindex="0">Overview</button><button type="button" id="harvest-tab-commanders" data-harvest-tab="commanders" role="tab" aria-controls="harvest-panel-commanders" aria-selected="false" tabindex="-1">Commanders</button></div><section id="harvest-panel-overview" data-harvest-panel="overview" role="tabpanel"></section><section id="harvest-panel-commanders" data-harvest-panel="commanders" role="tabpanel"><section id="harvested-commanders"><form id="commanders-search-form"><input id="commanders-search" maxlength="100" /><button id="commanders-search-clear" type="button">Clear</button></form><div id="commanders-grid-container">${gridMarkup()}</div></section></section>`;
+  document.body.innerHTML = `<div class="admin-tabs" role="tablist"><button class="admin-tabs__tab" type="button" id="harvest-tab-overview" data-harvest-tab="overview" role="tab" aria-controls="harvest-panel-overview" aria-selected="true" tabindex="0">Overview</button><button class="admin-tabs__tab" type="button" id="harvest-tab-commanders" data-harvest-tab="commanders" role="tab" aria-controls="harvest-panel-commanders" aria-selected="false" tabindex="-1">Commanders</button></div><section id="harvest-panel-overview" data-harvest-panel="overview" role="tabpanel"></section><section id="harvest-panel-commanders" data-harvest-panel="commanders" role="tabpanel"><section id="harvested-commanders"><form id="commanders-search-form"><input id="commanders-search" maxlength="100" /><button id="commanders-search-clear" type="button">Clear</button></form><div id="commanders-grid-container">${gridMarkup()}</div></section></section>`;
   document.dispatchEvent(new Event('DOMContentLoaded'));
 };
 
@@ -45,6 +45,20 @@ describe('admin harvest commander category breakdown', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('shows a breakdown failure as a danger alert with retry', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+    renderFixture();
+    const details = document.querySelector<HTMLDetailsElement>('[data-commander-details]')!;
+    open(details);
+    await flushToggle();
+
+    await vi.waitFor(() => expect(details.querySelector('[data-commander-retry]')).not.toBeNull());
+    const banner = details.querySelector('[data-commander-retry]')!.closest('.admin-banner')!;
+    expect(banner.classList.contains('admin-banner--danger')).toBe(true);
+    expect(banner.getAttribute('role')).toBe('alert');
+    expect(details.hasAttribute('data-commander-failed')).toBe(true);
   });
 
   it('sends ordinary and slash-containing commander names intact as query name only', async () => {
