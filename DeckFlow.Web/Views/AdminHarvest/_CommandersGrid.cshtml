@@ -41,7 +41,7 @@
         pages.Add(totalPages);
     }
 }
-<p class="admin-harvest__grid-meta">@Model.DeckTotalCount commanders — Page @Model.DeckPage of @Model.DeckTotalPages</p>
+<p class="admin-meta">@Model.DeckTotalCount commanders — Page @Model.DeckPage of @Model.DeckTotalPages</p>
 
 @if (Model.HarvestedCommanders.Count == 0)
 {
@@ -91,7 +91,7 @@ else
 
     @if (Model.DeckTotalPages > 1)
     {
-        <nav class="admin-feedback-pagination admin-harvest__grid-pager" aria-label="Commander grid pagination">
+        <nav class="admin-pagination" aria-label="Commander grid pagination">
             @if (currentPage > 1)
             {
                 <a href="#" data-page="@(currentPage - 1)" data-search="@Model.Query.SearchTerm" data-sort-by="@Model.Query.SortByToken" data-sort-dir="@Model.Query.SortDirToken">Prev</a>
