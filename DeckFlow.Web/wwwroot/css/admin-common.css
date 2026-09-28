@@ -183,14 +183,24 @@ a:hover { text-decoration: underline; }
   color: var(--text);
   border-left: 4px solid transparent;
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 .admin-shell .admin-sidebar__link:hover { background: var(--hover-tint); text-decoration: none; }
 
-.admin-shell .admin-sidebar__link--active {
+.admin-shell .admin-sidebar__link[aria-current="page"] {
   border-left: 4px solid var(--accent);
   font-weight: 600;
   background: var(--accent-subtle);
+}
+
+.admin-shell .admin-sidebar__group { display: flex; flex-direction: column; }
+.admin-shell .admin-sidebar__group-label {
+  color: var(--muted);
+  font-size: var(--text-small);
+  margin: var(--space-md) var(--space-md) var(--space-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .admin-shell .admin-topbar {
@@ -199,11 +209,10 @@ a:hover { text-decoration: underline; }
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 0 var(--space-lg);
 }
 
-.admin-shell .admin-topbar__title { margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); text-wrap: balance; }
 .admin-shell .admin-topbar__version { font-size: var(--text-small); color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .admin-shell .admin-content { grid-area: content; padding: var(--space-lg); max-width: 1200px; min-width: 0; }
@@ -299,8 +308,8 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-flags__desc { font-variant-numeric: normal; max-width: 46ch; white-space: normal; color: var(--muted, inherit); font-size: var(--text-label); line-height: var(--text-label-leading); }
 
 .admin-shell .admin-action-form { display: inline; }
-.admin-shell .admin-action-form button { background: var(--accent); color: var(--on-accent); border: none; padding: var(--space-sm) var(--space-md); border-radius: 3px; cursor: pointer; font-size: var(--text-label); }
-.admin-shell .admin-action-form button:hover { filter: brightness(1.1); }
+.admin-shell .admin-action-form button:not(.admin-button) { background: var(--accent); color: var(--on-accent); border: none; padding: var(--space-sm) var(--space-md); border-radius: 3px; cursor: pointer; font-size: var(--text-label); }
+.admin-shell .admin-action-form button:not(.admin-button):hover { filter: brightness(1.1); }
 .admin-shell .admin-harvest__export-form { display: inline-block; margin-left: var(--space-sm); }
 
 @media (max-width: 640px) {
@@ -375,8 +384,10 @@ a:hover { text-decoration: underline; }
 .admin-shell .maintenance-page p { color: var(--text); }
 
 /* Phase 8 — Analytics admin page (ANLY-04, ANLY-05) */
-.admin-shell .admin-page-header { margin-bottom: var(--space-md); }
-.admin-shell .admin-page-header h1 { margin: 0 0 var(--space-sm); font-size: var(--text-heading); font-weight: 600; }
+.admin-shell .admin-page-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--space-md); margin-bottom: var(--space-lg); }
+.admin-shell .admin-page-header__title { margin: 0; font-size: var(--text-heading); font-weight: 600; overflow-wrap: anywhere; }
+.admin-shell .admin-page-header__lede { color: var(--muted); margin: var(--space-xs) 0 0; }
+.admin-shell .admin-page-header__actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
 
 .admin-shell .admin-analytics .admin-range-selector {
   display: flex;
@@ -422,7 +433,7 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-empty {
   color: var(--muted);
   font-style: italic;
-  margin-top: var(--space-md);
+  padding: var(--space-lg) var(--space-md);
 }
 
 /* Admin feedback */
@@ -1040,3 +1051,63 @@ a:hover { text-decoration: underline; }
   color: var(--text);
   padding: 0 var(--space-xs);
 }
+
+/* === Phase 4 shared components (D-07) === */
+.admin-shell .admin-card { background: var(--panel); border: 1px solid var(--border); padding: var(--space-lg); border-radius: 8px; }
+.admin-shell .admin-card--link { display: flex; flex-direction: column; gap: var(--space-xs); color: var(--text); text-decoration: none; }
+.admin-shell .admin-card--link:hover, .admin-shell .admin-card--link:focus-visible { border-color: var(--accent); }
+.admin-shell .admin-card--link:focus-visible { outline: 2px solid var(--focus); }
+.admin-shell .admin-card__title { margin: 0; font-weight: 600; }
+.admin-shell .admin-card__description { color: var(--muted); }
+.admin-shell .admin-card__actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-md); }
+/* Why: owns vertical spacing so Dashboard grid gaps are never doubled. */
+.admin-shell .admin-stack { display: flex; flex-direction: column; gap: var(--space-lg); }
+/* Why: admin-harvest.ts toggles hidden tab panels. */
+.admin-shell .admin-stack[hidden] { display: none; }
+.admin-shell .admin-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-md); }
+.admin-shell .admin-stat-tile { background: var(--panel); border: 1px solid var(--border); padding: var(--space-md); }
+.admin-shell .admin-stat-tile__label { color: var(--muted); font-size: var(--text-small); }
+.admin-shell .admin-stat-tile__value { font-size: var(--text-heading); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.admin-shell .admin-stat-tile__value--muted { color: var(--muted); }
+.admin-shell .admin-tabs { display: flex; flex-wrap: wrap; gap: var(--space-xs); border-bottom: 1px solid var(--border); }
+.admin-shell .admin-tabs__tab { min-height: 44px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); }
+.admin-shell .admin-tabs__tab[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--text); }
+.admin-shell .admin-filter { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-md); align-items: flex-end; margin-bottom: var(--space-md); }
+.admin-shell .admin-filter-search { flex: 1 1 16rem; }
+.admin-shell .admin-filter-chips { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.admin-shell .admin-filter-chips__chip { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 999px; background: transparent; text-decoration: none; }
+.admin-shell .admin-filter-chips__chip.is-active { background: var(--accent-tint); border-color: var(--accent); }
+.admin-shell .admin-filter-chips__chip:disabled, .admin-shell .admin-filter-chips__chip[aria-disabled="true"] { cursor: not-allowed; color: var(--muted); }
+.admin-shell .admin-filter-chips__count, .admin-shell .admin-filter__count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.admin-shell .admin-filter__empty-row td, .admin-shell .admin-filter__empty { color: var(--muted); padding: var(--space-md); }
+.admin-shell .admin-banner--success { background: var(--status-success-bg); border-color: var(--status-success); }
+.admin-shell .admin-banner--warning { background: var(--status-warning-bg); border-color: var(--status-warning); }
+.admin-shell .admin-banner--danger { background: var(--status-danger-bg); border-color: var(--status-danger); }
+.admin-shell .admin-banner--info { background: var(--status-info-bg); border-color: var(--status-info); }
+.admin-shell .admin-badge { display: inline-flex; gap: var(--space-xs); border: 1px solid currentColor; border-radius: 999px; padding: 0 var(--space-sm); }
+.admin-shell .admin-badge--success { color: var(--status-success); background: var(--status-success-bg); }
+.admin-shell .admin-badge--warning { color: var(--status-warning); background: var(--status-warning-bg); }
+.admin-shell .admin-badge--danger { color: var(--status-danger); background: var(--status-danger-bg); }
+.admin-shell .admin-badge--info { color: var(--status-info); background: var(--status-info-bg); }
+.admin-shell .admin-badge--neutral { color: var(--muted); background: transparent; }
+/* Why: glyph gives warnings a non-color cue. */
+.admin-shell .admin-badge--alert::before { content: "⚠ "; }
+.admin-shell .admin-meta { color: var(--muted); font-size: var(--text-small); }
+.admin-shell .admin-table td { overflow-wrap: anywhere; }
+.admin-shell .admin-button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border: 1px solid transparent; border-radius: 4px; cursor: pointer; touch-action: manipulation; font-size: var(--text-label); }
+.admin-shell .admin-button--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.admin-shell .admin-button--primary:hover { filter: brightness(1.1); }
+.admin-shell .admin-button--secondary { background: transparent; border-color: var(--border); color: var(--text); }
+.admin-shell .admin-button--secondary:hover { background: var(--hover-tint); }
+/* Why: white on --status-danger is below AA; use solid danger fill. */
+.admin-shell .admin-button--danger { background: var(--status-danger-solid); color: var(--on-accent); }
+.admin-shell .admin-button--danger:hover { background: var(--status-danger-solid-hover); }
+.admin-shell .admin-button--danger.is-armed { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--status-danger-solid); }
+.admin-shell .admin-button:disabled, .admin-shell .admin-button[aria-disabled="true"] { cursor: not-allowed; opacity: 0.6; }
+.admin-shell :where(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select, textarea) { min-height: 44px; border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: var(--space-xs) var(--space-sm); border-radius: 3px; font-family: inherit; box-sizing: border-box; }
+.admin-shell .admin-field { display: flex; flex-direction: column; gap: var(--space-xs); margin-bottom: var(--space-md); }
+.admin-shell .admin-field label { font-size: var(--text-label); font-weight: 600; }
+.admin-shell .admin-pagination { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; margin-top: var(--space-md); }
+.admin-shell .admin-pagination a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+.admin-shell .admin-pagination [aria-current="page"] { font-weight: 600; }
+.admin-shell .admin-artifact { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: var(--space-md); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-small); }

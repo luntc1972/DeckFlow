@@ -2,7 +2,6 @@
 @{
     var controllerName = (ViewContext.RouteData.Values["controller"] as string) ?? string.Empty;
     bool IsActive(string c) => string.Equals(controllerName, c, StringComparison.OrdinalIgnoreCase);
-    string ActiveClass(string c) => IsActive(c) ? "admin-sidebar__link admin-sidebar__link--active" : "admin-sidebar__link";
     string? ActiveAria(string c) => IsActive(c) ? "page" : null;
     string CurrentSectionLabel() => controllerName switch
     {
@@ -14,6 +13,8 @@
         "AdminFlags" => "Flags",
         "AdminContentKb" => "Content KB",
         "AdminYoutubeExport" => "YouTube Export",
+        "AdminCreatorProfile" => "Deck Tendencies",
+        "AdminCreatorStyle" => "Creator Style",
         _ => "Menu"
     };
 }
@@ -39,22 +40,45 @@
                 </summary>
                 <a class="admin-sidebar__brand" href="@Url.Content("~/Admin")">DeckFlow Admin</a>
                 <nav class="admin-sidebar__nav">
-                    <a class="@ActiveClass("AdminLanding")"   aria-current="@ActiveAria("AdminLanding")"   href="@Url.Content("~/Admin")">Dashboard</a>
-                    <a class="@ActiveClass("AdminFeedback")"  aria-current="@ActiveAria("AdminFeedback")"  href="@Url.Content("~/Admin/Feedback")">Feedback</a>
-                    <a class="@ActiveClass("AdminHarvest")"   aria-current="@ActiveAria("AdminHarvest")"   href="@Url.Content("~/Admin/Harvest")">Harvest</a>
-                    <a class="@ActiveClass("AdminAnalytics")" aria-current="@ActiveAria("AdminAnalytics")" href="@Url.Content("~/Admin/Analytics")">Analytics</a>
-                    <a class="@ActiveClass("AdminTools")"     aria-current="@ActiveAria("AdminTools")"     href="@Url.Content("~/Admin/Tools")">Tools</a>
-                    <a class="@ActiveClass("AdminFlags")"     aria-current="@ActiveAria("AdminFlags")"     href="@Url.Content("~/Admin/Flags")">Flags</a>
-                    <a class="@ActiveClass("AdminContentKb")" aria-current="@ActiveAria("AdminContentKb")" href="@Url.Content("~/Admin/ContentKb")">Content KB</a>
-                    <a class="@ActiveClass("AdminYoutubeExport")" aria-current="@ActiveAria("AdminYoutubeExport")" href="@Url.Content("~/Admin/YoutubeExport")">YouTube Export</a>
+                    <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminLanding")" href="@Url.Content("~/Admin")">Dashboard</a>
+                    <div class="admin-sidebar__group" role="group" aria-labelledby="admin-nav-group-data">
+                        <p id="admin-nav-group-data" class="admin-sidebar__group-label">Data</p>
+                        <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminHarvest")" href="@Url.Content("~/Admin/Harvest")">Harvest</a>
+                        <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminAnalytics")" href="@Url.Content("~/Admin/Analytics")">Analytics</a>
+                        <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminContentKb")" href="@Url.Content("~/Admin/ContentKb")">Content KB</a>
+                    </div>
+                    <div class="admin-sidebar__group" role="group" aria-labelledby="admin-nav-group-creators">
+                        <p id="admin-nav-group-creators" class="admin-sidebar__group-label">Creators</p>
+                        <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminCreatorProfile")" href="@Url.Content("~/Admin/CreatorProfile")">Deck Tendencies</a>
+                        <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminCreatorStyle")" href="@Url.Content("~/Admin/CreatorStyle")">Creator Style</a>
+                        <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminYoutubeExport")" href="@Url.Content("~/Admin/YoutubeExport")">YouTube Export</a>
+                    </div>
+                    <div class="admin-sidebar__group" role="group" aria-labelledby="admin-nav-group-system">
+                        <p id="admin-nav-group-system" class="admin-sidebar__group-label">System</p>
+                        <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminTools")" href="@Url.Content("~/Admin/Tools")">Tools</a>
+                        <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminFlags")" href="@Url.Content("~/Admin/Flags")">Flags</a>
+                        <a class="admin-sidebar__link" aria-current="@ActiveAria("AdminFeedback")" href="@Url.Content("~/Admin/Feedback")">Feedback</a>
+                    </div>
                 </nav>
             </details>
         </aside>
         <header class="admin-topbar">
-            <h1 class="admin-topbar__title">@ViewData["Title"]</h1>
             <span class="admin-topbar__version">v@(VersionService.GetVersion())</span>
         </header>
         <main id="admin-content" class="admin-content" role="main">
+            <div class="admin-page-header">
+                <div class="admin-page-header__text">
+                    <h1 class="admin-page-header__title">@((ViewData["Heading"] as string) is { Length: > 0 } heading ? heading : ViewData["Title"])</h1>
+                    @if ((ViewData["Lede"] as string) is { Length: > 0 } lede)
+                    {
+                        <p class="admin-page-header__lede">@lede</p>
+                    }
+                </div>
+                @if (IsSectionDefined("PageActions"))
+                {
+                    <div class="admin-page-header__actions">@await RenderSectionAsync("PageActions", required: false)</div>
+                }
+            </div>
             @RenderBody()
         </main>
     </div>
