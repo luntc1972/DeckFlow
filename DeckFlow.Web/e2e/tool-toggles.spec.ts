@@ -159,8 +159,9 @@ test('disabling a core Analyze tool shows the inline warning banner and removes 
 
   await setToolEnabled(page, 'Deck Analysis', false);
 
-  await expect(page.locator('.admin-banner--warn')).toContainText('Deck Analysis');
-  await expect(page.locator('.admin-banner--warn')).toContainText('core Analyze workflow');
+  await expect(page.locator('.admin-banner--warning')).toHaveAttribute('role', 'status');
+  await expect(page.locator('.admin-banner--warning')).toContainText('Deck Analysis');
+  await expect(page.locator('.admin-banner--warning')).toContainText('core Analyze workflow');
 
   await page.goto('/');
   await expect(page.locator('.hub-grid a[href="/deck-analysis"]')).toHaveCount(0);

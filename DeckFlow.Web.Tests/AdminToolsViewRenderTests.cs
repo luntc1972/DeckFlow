@@ -39,6 +39,53 @@ public sealed class AdminToolsViewRenderTests
     }
 
     [Fact]
+    public async Task ToolsIndex_StatusAndCoreRenderAsTextBadges()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(Model()));
+        var deckAnalysis = document.QuerySelector("tr[data-tool-label='Deck Analysis']")!;
+        var manaBase = document.QuerySelector("tr[data-tool-label='Mana Base']")!;
+
+        Assert.Equal("On", deckAnalysis.QuerySelector("[data-label='Status'] span.admin-badge.admin-badge--success")!.TextContent);
+        Assert.Equal("Off", manaBase.QuerySelector("[data-label='Status'] span.admin-badge.admin-badge--neutral")!.TextContent);
+        Assert.Equal("Deck Analysis", deckAnalysis.QuerySelector("[data-label='Tool']")!.Children[0].TextContent);
+        Assert.Equal("Core", deckAnalysis.QuerySelector("[data-label='Tool'] span.admin-badge.admin-badge--warning")!.TextContent);
+        Assert.Empty(document.QuerySelectorAll(".admin-tools__core-badge"));
+    }
+
+    [Fact]
+    public async Task ToolsIndex_ToggleButtonsUseSecondaryVariant()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(Model()));
+        var forms = document.QuerySelectorAll("form.admin-action-form");
+
+        Assert.Equal(new[] { "Disable", "Enable" }, forms.Select(form => form.QuerySelector("button[type=submit]")!.TextContent.Trim()));
+        Assert.All(forms, form =>
+        {
+            var button = form.QuerySelector("button[type=submit]")!;
+            Assert.Contains("admin-button", button.ClassList);
+            Assert.Contains("admin-button--secondary", button.ClassList);
+            Assert.NotNull(form.QuerySelector("input[name=enabled]"));
+            Assert.NotNull(form.QuerySelector("input[name=__RequestVerificationToken]"));
+        });
+    }
+
+    [Fact]
+    public async Task ToolsIndex_DisabledCoreWarning_UsesWarningBannerWithText()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminToolsListViewModel
+        {
+            Sections = Model().Sections,
+            DisabledCoreToolLabels = new[] { "Deck Analysis" },
+        }));
+        var banner = Assert.Single(document.QuerySelectorAll("div.admin-banner.admin-banner--warning[role=status]"));
+
+        Assert.Contains("Core Analyze workflow warning.", banner.TextContent);
+        Assert.Contains("These core tools are currently hidden.", banner.TextContent);
+        Assert.Contains("Disabled core tools: Deck Analysis.", banner.TextContent);
+        Assert.Empty(document.QuerySelectorAll(".admin-banner--warn"));
+    }
+
+    [Fact]
     public async Task ToolsIndex_EveryRowCarriesLabelFlagKeyAndEnabledState()
     {
         var document = new HtmlParser().ParseDocument(await RenderAsync(Model()));
