@@ -116,6 +116,7 @@ test.describe('admin content kb flows @admin', () => {
     expect(await page.locator('script[src*="kb-entry-filter.js"]').count()).toBeGreaterThan(0);
     expect(await page.locator('script[src*="content-kb-admin.js"]').count()).toBeGreaterThan(0);
     await expect(page.locator('#kb-filter-search')).toBeVisible();
+    await expect(page.locator('.admin-page-header__lede')).toHaveText('Curate which distilled Content KB prompts are published to the site.');
 
     const totalRows = await page.locator('#kb-entries-table tbody tr').count();
     const visibleRowsBefore = await getVisibleRowCount(page);
@@ -138,7 +139,8 @@ test.describe('admin content kb flows @admin', () => {
     expect(response?.ok()).toBeTruthy();
 
     const sourcesY = await page.locator('#kb-bulk-heading').boundingBox();
-    const pillsY = await page.locator('.admin-kb-toggle').boundingBox();
+    const pills = page.locator('[data-kb-visibility]');
+    const pillsY = await pills.boundingBox();
     const filterY = await page.locator('#kb-filter-search').boundingBox();
     const gridY = await page.locator('#kb-entries-table').boundingBox();
 
@@ -151,6 +153,45 @@ test.describe('admin content kb flows @admin', () => {
     expect(sourcesY!.y).toBeLessThan(pillsY!.y);
     expect(pillsY!.y).toBeLessThan(filterY!.y);
     expect(filterY!.y).toBeLessThan(gridY!.y);
+    await expect(pills.locator('.is-active')).toHaveAttribute('aria-current', 'true');
+    expect(pillsY!.height).toBeGreaterThanOrEqual(44);
+  });
+
+  test('admin content kb reload asks for confirmation: cancel sends no POST, confirm sends exactly one', async ({ page }) => {
+    let posts = 0;
+    let postBody = '';
+    await page.route((url) => url.pathname.toLowerCase() === '/admin/contentkb/reloadseed', async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      posts++;
+      postBody = route.request().postData() ?? '';
+      await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<p id="reload-stub">ok</p>' });
+    });
+    const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+    expect(response?.ok()).toBeTruthy();
+    const startingUrl = page.url();
+    const reloadForm = page.locator('form[data-admin-confirm-reload]');
+    expect((await reloadForm.getAttribute('action'))!.toLowerCase()).toContain('/admin/contentkb/reloadseed');
+    expect(await page.evaluate(() => typeof window.DeckFlowAdminModal?.showConfirm)).toBe('function');
+    const button = page.getByRole('button', { name: 'Reload Index from Seed' });
+    await button.click();
+    await expect(page.locator('dialog#admin-confirm-modal')).toHaveJSProperty('open', true);
+    await expect(page.locator('#admin-modal-title')).toHaveText('Reload index from seed?');
+    await expect(page.locator('[data-admin-modal-confirm]')).toHaveText('Reload');
+    await page.locator('[data-admin-modal-cancel]').click();
+    await expect(page.locator('dialog#admin-confirm-modal')).toHaveJSProperty('open', false);
+    expect(posts).toBe(0);
+    expect(page.url()).toBe(startingUrl);
+    await expect(reloadForm).not.toHaveAttribute('data-confirmed');
+    await button.click();
+    await expect(page.locator('dialog#admin-confirm-modal')).toHaveJSProperty('open', true);
+    await page.locator('[data-admin-modal-confirm]').click();
+    await expect(page.locator('#reload-stub')).toBeVisible();
+    expect(posts).toBe(1);
+    expect(postBody).toContain('__RequestVerificationToken=');
+    expect(postBody).toContain('visibilityFilter=all');
   });
 
   test('admin content kb delete requires an arm click before submission', async ({ page }) => {
@@ -164,6 +205,16 @@ test.describe('admin content kb flows @admin', () => {
 
     const firstDeleteButton = deleteButtons.first();
     const startingUrl = page.url();
+    const action = await firstDeleteButton.evaluate((button) => (button.form as HTMLFormElement).action);
+    let posts = 0;
+    await page.route((url) => url.href === action, async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+      posts++;
+      await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: '<p id="twoclick-stub">ok</p>' });
+    });
 
     await firstDeleteButton.click();
 
@@ -173,6 +224,10 @@ test.describe('admin content kb flows @admin', () => {
     const isArmed = await firstDeleteButton.evaluate((button) => button.classList.contains('is-armed'));
 
     expect(isArmed || buttonText === 'Confirm delete').toBeTruthy();
+    expect(posts).toBe(0);
+    await firstDeleteButton.click();
+    await expect(page.locator('#twoclick-stub')).toBeVisible();
+    expect(posts).toBe(1);
   });
 
   test('admin content kb keeps creator + search filter across visibility tab switches', async ({ page }) => {
@@ -194,7 +249,7 @@ test.describe('admin content kb flows @admin', () => {
     // unpublished, so that tab is populated and renders the filter bar — the
     // Published tab can be empty (no entries -> no toggle/filter controls at all).
     // Target by href; matching on the text "Unpublished" is fine but href is exact.
-    await page.locator('.admin-kb-toggle a[href*="visibilityFilter=unpublished"]').click();
+    await page.locator('[data-kb-visibility] a[href*="visibilityFilter=unpublished"]').click();
     await expect(page).toHaveURL(/visibilityFilter=unpublished/);
 
     await expect(page.locator('#kb-creator-filter')).toHaveValue(chosenCreator!);

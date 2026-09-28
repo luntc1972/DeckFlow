@@ -2,6 +2,7 @@
 @using DeckFlow.Core.Content
 @{
     ViewData["Title"] = "Content KB";
+    ViewData["Lede"] = "Curate which distilled Content KB prompts are published to the site.";
     var allFilterUrl = Url.Action("Index", new
     {
         visibilityFilter = "all"
@@ -112,33 +113,33 @@
     </section>
 }
 
-<section aria-labelledby="kb-entries-heading">
+<section class="admin-card" aria-labelledby="kb-entries-heading">
     <div class="admin-section-header">
         <div>
-            <h2 id="kb-entries-heading">Entries</h2>
+            <h2 id="kb-entries-heading" class="admin-card__title">Entries</h2>
         </div>
-        <div class="admin-kb-toggle" role="tablist" aria-label="Visibility filter">
-            <a class="@(Model.VisibilityFilter == "all" ? "is-active" : null)" href="@allFilterUrl">All</a>
-            <a class="@(Model.VisibilityFilter == "published" ? "is-active" : null)" href="@publishedFilterUrl">Published</a>
-            <a class="@(Model.VisibilityFilter == "unpublished" ? "is-active" : null)" href="@unpublishedFilterUrl">Unpublished</a>
-            <a class="@(Model.VisibilityFilter == "hidden" ? "is-active" : null)" href="@hiddenFilterUrl">Hidden</a>
-        </div>
+        <nav class="admin-filter-chips" data-kb-visibility aria-label="Visibility filter">
+            <a class="admin-filter-chips__chip @(Model.VisibilityFilter == "all" ? "is-active" : null)" href="@allFilterUrl" aria-current="@(Model.VisibilityFilter == "all" ? "true" : null)">All</a>
+            <a class="admin-filter-chips__chip @(Model.VisibilityFilter == "published" ? "is-active" : null)" href="@publishedFilterUrl" aria-current="@(Model.VisibilityFilter == "published" ? "true" : null)">Published</a>
+            <a class="admin-filter-chips__chip @(Model.VisibilityFilter == "unpublished" ? "is-active" : null)" href="@unpublishedFilterUrl" aria-current="@(Model.VisibilityFilter == "unpublished" ? "true" : null)">Unpublished</a>
+            <a class="admin-filter-chips__chip @(Model.VisibilityFilter == "hidden" ? "is-active" : null)" href="@hiddenFilterUrl" aria-current="@(Model.VisibilityFilter == "hidden" ? "true" : null)">Hidden</a>
+        </nav>
     </div>
     @if (Model.Entries.Count == 0)
     {
-        <p class="admin-kb-empty">@(Model.Status.TotalCount == 0
+        <p class="admin-empty">@(Model.Status.TotalCount == 0
             ? "No entries loaded. Use 'Reload Index from Seed' to populate the index."
             : "No entries match the current filter.")</p>
     }
     else
     {
-        <div class="kb-filter">
-            <label>
-                Filter entries
+        <div class="admin-filter">
+            <div class="admin-field admin-filter-search">
+                <label for="kb-filter-search">Filter entries</label>
                 <input id="kb-filter-search" type="search" autocomplete="off" placeholder="Filter by title, source, or tag" aria-controls="kb-entries-table" />
-            </label>
-            <label>
-                Creator
+            </div>
+            <div class="admin-field">
+                <label for="kb-creator-filter">Creator</label>
                 <select id="kb-creator-filter" autocomplete="off" aria-controls="kb-entries-table">
                     <option value="">All creators</option>
                     @foreach (var source in Model.Sources)
@@ -146,8 +147,8 @@
                         <option value="@source.Source">@source.Source</option>
                     }
                 </select>
-            </label>
-            <p class="kb-filter__count" id="kb-filter-count" role="status" aria-live="polite"></p>
+            </div>
+            <p class="admin-filter__count" id="kb-filter-count" role="status" aria-live="polite"></p>
         </div>
         <div class="admin-table-scroll" tabindex="0">
             <table id="kb-entries-table" class="admin-table admin-table--card">
@@ -271,7 +272,7 @@
                             </td>
                         </tr>
                     }
-                    <tr class="kb-filter__empty-row hidden" id="kb-filter-empty">
+                    <tr class="admin-filter__empty-row hidden" id="kb-filter-empty">
                         <td colspan="6">No entries match the current filter.</td>
                     </tr>
                 </tbody>
