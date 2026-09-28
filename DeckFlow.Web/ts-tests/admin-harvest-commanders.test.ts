@@ -155,4 +155,19 @@ describe('admin harvest commanders', () => {
     await vi.waitFor(() => expect(commanderUrls(fetchMock)).toHaveLength(2));
     expect(commanderUrls(fetchMock)[1]).toBe(commanderUrls(fetchMock)[0]);
   });
+
+  it('shows a grid fetch failure as a danger alert with retry', async () => {
+    const fetchMock = vi.fn().mockRejectedValueOnce(new Error('offline'));
+    vi.stubGlobal('fetch', fetchMock);
+    renderFixture();
+    document.querySelector<HTMLFormElement>('#commanders-search-form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    await vi.waitFor(() => expect(document.querySelector('#commanders-retry')).not.toBeNull());
+    const banner = document.querySelector('#commanders-retry')!.parentElement!;
+    expect(banner.classList.contains('admin-banner')).toBe(true);
+    expect(banner.classList.contains('admin-banner--danger')).toBe(true);
+    expect(banner.getAttribute('role')).toBe('alert');
+    expect(banner.textContent).toMatch(/^Could not load commanders\./);
+    expect(document.querySelector('#commanders-grid-container')!.getAttribute('aria-busy')).toBe('false');
+  });
 });

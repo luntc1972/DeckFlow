@@ -7,7 +7,7 @@
   const ACTIVE_STATES = new Set<string>(['Queued', 'Running', 'Stopping']);
   const TERMINAL_STATES = new Set<string>(['Succeeded', 'Failed', 'Cancelled']);
   const COMMANDERS_LOADING_HTML = '<p class="admin-harvest__grid-loading">Loading commanders…</p>';
-  const COMMANDERS_ERROR_HTML = '<p class="admin-harvest__grid-error">Could not load commanders. <a href="#" id="commanders-retry">Retry</a></p>';
+  const COMMANDERS_ERROR_HTML = '<div class="admin-banner admin-banner--danger" role="alert">Could not load commanders. <a href="#" id="commanders-retry">Retry</a></div>';
 
   type HarvestStatusPayload = {
     state: string;
