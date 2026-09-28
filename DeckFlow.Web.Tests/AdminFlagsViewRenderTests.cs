@@ -95,7 +95,7 @@ public sealed class AdminFlagsViewRenderTests
     [Fact]
     public async Task FlagsIndex_TableInCardWithBadgesAndSecondaryToggles()
     {
-        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminFlagsListViewModel { Flags = new[] { new FlagRow("enabled.flag", true, "enabled"), new FlagRow("disabled.flag", false, null) } }));
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminFlagsListViewModel { Flags = new[] { new FlagRow("enabled.flag", true, "enabled"), new FlagRow("disabled.flag", false, "") } }));
         Assert.NotNull(document.QuerySelector("section.admin-card[aria-label='Feature flags'] table#flag-table"));
         Assert.Equal(new[] { "On", "Off" }, document.QuerySelectorAll("td[data-label='Status']").Select(x => x.TextContent.Trim()));
         Assert.NotNull(document.QuerySelector("span.admin-badge.admin-badge--success"));
