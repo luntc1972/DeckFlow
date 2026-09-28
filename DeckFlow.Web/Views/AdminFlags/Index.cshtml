@@ -23,7 +23,7 @@
                 <button type="button" class="flag-filter__chip is-active" data-flag-prefix="" aria-pressed="true">All</button>
                 @foreach (var group in Model.Groups)
                 {
-                    <button type="button" class="flag-filter__chip" data-flag-prefix="@group.Prefix" aria-pressed="false">@group.Label <span class="flag-filter__chip-count">@group.FlagCount</span></button>
+                    <button type="button" class="flag-filter__chip" data-flag-prefix="@group.Prefix" title="@group.Prefix.TrimEnd('.')" aria-pressed="false">@group.Label <span class="flag-filter__chip-count">@group.FlagCount</span></button>
                 }
             </div>
             <div class="flag-filter__chips" role="group" aria-label="Status filter">

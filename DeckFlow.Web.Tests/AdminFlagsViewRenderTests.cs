@@ -30,7 +30,8 @@ public sealed class AdminFlagsViewRenderTests
         Assert.Equal(new[] { "", "analysis.", "sync." }, chips.Select(x => x.GetAttribute("data-flag-prefix")));
         Assert.Equal(new[] { "All", "Analysis", "Sync" }, chips.Select(x => x.ChildNodes[0].TextContent.Trim()));
         Assert.Equal(new[] { null, "3", "1" }, chips.Select(x => x.QuerySelector(".flag-filter__chip-count")?.TextContent.Trim()));
-        Assert.All(chips, x => Assert.Null(x.GetAttribute("title")));
+        Assert.Null(chips[0].GetAttribute("title"));
+        Assert.Equal(new[] { "analysis", "sync" }, chips.Skip(1).Select(x => x.GetAttribute("title")));
         Assert.Equal("true", chips[0].GetAttribute("aria-pressed"));
         Assert.All(chips.Skip(1), x => Assert.Equal("false", x.GetAttribute("aria-pressed")));
         Assert.All(chips, x => Assert.True((x.GetAttribute("data-flag-prefix") ?? string.Empty).Count(c => c == '.') <= 1));
@@ -51,9 +52,21 @@ public sealed class AdminFlagsViewRenderTests
         var document = new HtmlParser().ParseDocument(await RenderAsync(model));
         var chip = document.QuerySelectorAll("button[data-flag-prefix]").Skip(1).Single();
         Assert.Equal("x\"<b>.", chip.GetAttribute("data-flag-prefix"));
+        Assert.Equal("x\"<b>", chip.GetAttribute("title"));
         Assert.Equal("x\"<b>", chip.ChildNodes[0].TextContent.Trim());
         Assert.Equal("1", chip.QuerySelector(".flag-filter__chip-count")!.TextContent.Trim());
         Assert.Null(document.QuerySelector("b"));
+    }
+
+    [Fact]
+    public async Task FlagsIndex_DerivedChips_ShowFriendlyLabelAndRawNamespaceTitle()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(Model("analysis.x", "service.y", "widgets.z")));
+        var chips = document.QuerySelectorAll("[aria-label='Namespace filter'] button[data-flag-prefix]").Skip(1).ToArray();
+
+        Assert.Equal(new[] { "Analysis", "Background services", "Widgets" }, chips.Select(x => x.ChildNodes[0].TextContent.Trim()));
+        Assert.Equal(new[] { "analysis", "service", "widgets" }, chips.Select(x => x.GetAttribute("title")));
+        Assert.Equal(new[] { "1", "1", "1" }, chips.Select(x => x.QuerySelector(".flag-filter__chip-count")!.TextContent.Trim()));
     }
 
     [Fact]
