@@ -107,12 +107,51 @@ public sealed class AdminContentKbViewRenderTests
         Assert.Equal("\"><u>x", document.QuerySelector("td[data-label='Tags'] span")!.TextContent);
     }
 
+    [Fact]
+    public async Task ContentKbIndex_StatusAndSourcesAreSharedCards()
+    {
+        var document = await DocumentAsync(Model());
+        var status = document.QuerySelector("section.admin-card[aria-labelledby='kb-status-heading']");
+        Assert.NotNull(status);
+        Assert.Equal("Index Status", status.QuerySelector("h2#kb-status-heading.admin-card__title")!.TextContent.Trim());
+        Assert.Contains("Index generated:", status.QuerySelector("p.admin-meta")!.TextContent);
+        Assert.NotNull(status.QuerySelector("div.admin-card__actions form.admin-action-form button.admin-button--secondary"));
+        var reload = status.QuerySelector("form[data-admin-confirm-reload]");
+        Assert.NotNull(reload);
+        Assert.Equal("Reload Index from Seed", reload.QuerySelector("button.admin-button--secondary")!.TextContent.Trim());
+        Assert.NotNull(reload.QuerySelector("input[name='visibilityFilter']"));
+
+        var sources = document.QuerySelector("section.admin-card[aria-labelledby='kb-bulk-heading']");
+        Assert.NotNull(sources);
+        Assert.Equal("Sources", sources.QuerySelector("h2#kb-bulk-heading.admin-card__title")!.TextContent.Trim());
+        Assert.All(sources.QuerySelectorAll("button").Where(x => x.TextContent.Trim() == "Publish All"), x => Assert.True(x.ClassList.Contains("admin-button--secondary")));
+        Assert.All(sources.QuerySelectorAll("button").Where(x => x.TextContent.Trim() == "Hide All"), x => Assert.True(x.ClassList.Contains("admin-button--danger") && x.Closest("form[data-admin-confirm-twoclick]") is not null && x.GetAttribute("data-confirm-label") == "Confirm Hide All"));
+        Assert.Empty(document.QuerySelectorAll(".admin-harvest__panel, .admin-kb-status__actions, button.danger"));
+
+        var stack = Assert.Single(document.QuerySelectorAll("div.admin-stack"));
+        Assert.Equal(new[] { "kb-status-heading", "kb-bulk-heading", "kb-entries-heading" }, stack.Children.Select(x => x.GetAttribute("aria-labelledby")));
+        Assert.Null(document.QuerySelector("p[data-admin-toast]")?.ParentElement?.Closest(".admin-stack"));
+        Assert.Null(document.QuerySelector("dialog#admin-confirm-modal")!.Closest(".admin-stack"));
+    }
+
+    [Fact]
+    public async Task ContentKbIndex_SuccessToastAndConfirmModalStay()
+    {
+        var document = await DocumentAsync(Model(successBanner: "Published 1 entry."));
+        var toast = Assert.Single(document.QuerySelectorAll("p.admin-banner.admin-banner--success[role='status'][data-admin-toast]"));
+        Assert.Equal("Published 1 entry.", toast.TextContent);
+        var dialog = Assert.Single(document.QuerySelectorAll("dialog#admin-confirm-modal"));
+        Assert.Single(dialog.QuerySelectorAll("[data-admin-modal-cancel]"));
+        Assert.Single(dialog.QuerySelectorAll("[data-admin-modal-confirm]"));
+    }
+
     private static async Task<AngleSharp.Html.Dom.IHtmlDocument> DocumentAsync(AdminContentKbViewModel model) =>
         new HtmlParser().ParseDocument(await RazorViewRenderer.RenderAsync(model, typeof(AdminContentKbController), "AdminContentKb", new TestRouter()));
 
-    private static AdminContentKbViewModel Model(string visibilityFilter = "all", IReadOnlyList<KbEntryRow>? entries = null, int totalCount = 3) => new()
+    private static AdminContentKbViewModel Model(string visibilityFilter = "all", IReadOnlyList<KbEntryRow>? entries = null, int totalCount = 3, string? successBanner = null) => new()
     {
         VisibilityFilter = visibilityFilter,
+        SuccessBanner = successBanner,
         Status = new KbIndexStatus { TotalCount = totalCount, PublishedCount = 1, UnpublishedCount = 1, HiddenCount = 1, SourceCount = 2, FlagEnabled = true, IndexGeneratedUtc = DateTimeOffset.UtcNow },
         Sources = new[] { new KbSourceGroup("Example Creator", 2), new KbSourceGroup("Based Deck Department", 1) },
         Entries = entries ?? new[]
