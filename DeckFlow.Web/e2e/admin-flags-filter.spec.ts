@@ -30,6 +30,8 @@ test('admin flags supports instant prefix filtering and namespace chips', async 
   test.skip(!!process.env.CI, 'Flaky under CI admin-lock contention (per-test timeout blown by mutex wait); runs locally. Tracked: .planning/debug/e2e-admin-beforeeach-timeout.md');
   const response = await page.goto('/Admin/Flags');
   expect(response?.ok()).toBeTruthy();
+  await expect(page.locator('.admin-page-header__lede')).toHaveText('Toggle feature flags on and off.');
+  expect(await page.locator('button[data-flag-prefix]').evaluateAll((buttons) => buttons.every((button) => button.classList.contains('admin-filter-chips__chip')))).toBeTruthy();
 
   const dataRows = page.locator('tr[data-flag-key]');
   const total = await dataRows.count();
@@ -111,7 +113,7 @@ test('admin flags derives namespace chips from live keys', async ({ page }) => {
   const keys = await rows.evaluateAll((items) => items.map((item) => item.getAttribute('data-flag-key') ?? ''));
   const total = keys.length;
   const chips = page.locator('button[data-flag-prefix]');
-  const details = await chips.evaluateAll((items) => items.map((item) => ({ prefix: item.getAttribute('data-flag-prefix') ?? '', label: item.childNodes[0]?.textContent?.trim() ?? '', count: item.querySelector('.flag-filter__chip-count')?.textContent?.trim() ?? '' })).filter((item) => item.prefix !== ''));
+  const details = await chips.evaluateAll((items) => items.map((item) => ({ prefix: item.getAttribute('data-flag-prefix') ?? '', label: item.childNodes[0]?.textContent?.trim() ?? '', count: item.querySelector('.admin-filter-chips__count')?.textContent?.trim() ?? '' })).filter((item) => item.prefix !== ''));
   const expected = [...new Set(keys.map((key) => key.toLowerCase()).filter((key) => key.includes('.') && !key.startsWith('.')).map((key) => `${key.split('.')[0]}.`))].sort((left, right) => left.slice(0, -1) < right.slice(0, -1) ? -1 : left.slice(0, -1) > right.slice(0, -1) ? 1 : 0);
   expect(details.map((chip) => chip.prefix)).toEqual(expected);
   expect(details.length).toBeGreaterThan(0);
@@ -143,6 +145,34 @@ test('admin flags stays within the viewport at mobile width', async ({ page }) =
 
   const hasNoOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
   expect(hasNoOverflow).toBeTruthy();
+});
+
+test('admin flags namespace chip wraps a long unbroken label at 375px', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  const response = await page.goto('/Admin/Flags');
+  expect(response?.ok()).toBeTruthy();
+  await page.locator('.admin-filter-chips[aria-label="Namespace filter"] button[data-flag-prefix]').last().waitFor();
+  const result = await page.evaluate(() => {
+    const row = document.querySelector<HTMLElement>('.admin-filter-chips[aria-label="Namespace filter"]')!;
+    const original = row.querySelector<HTMLButtonElement>('button[data-flag-prefix]:last-child')!;
+    const clone = original.cloneNode(true) as HTMLButtonElement;
+    const label = `namespace${'a'.repeat(110)}`;
+    clone.firstChild!.textContent = `${label} `;
+    clone.dataset.flagPrefix = 'long-unbroken.';
+    clone.title = label;
+    clone.querySelector<HTMLElement>('.admin-filter-chips__count')!.textContent = '0';
+    row.append(clone);
+    const box = clone.getBoundingClientRect();
+    const count = clone.querySelector<HTMLElement>('.admin-filter-chips__count')!;
+    return { left: box.left, right: box.right, height: box.height, scrollWidth: clone.scrollWidth, clientWidth: clone.clientWidth, count: count.textContent, countVisible: count.getBoundingClientRect().width > 0, documentFits: document.documentElement.scrollWidth <= window.innerWidth + 1 };
+  });
+  expect(result.left).toBeGreaterThanOrEqual(0);
+  expect(result.right).toBeLessThanOrEqual(375);
+  expect(result.scrollWidth).toBeLessThanOrEqual(result.clientWidth + 1);
+  expect(result.height).toBeGreaterThan(44);
+  expect(result.count).toBe('0');
+  expect(result.countVisible).toBeTruthy();
+  expect(result.documentFits).toBeTruthy();
 });
 
 async function getVisibleFlagKeys(page: Page): Promise<string[]> {

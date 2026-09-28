@@ -1,38 +1,43 @@
 @model DeckFlow.Web.Controllers.Admin.AdminFlagsListViewModel
 @{
     ViewData["Title"] = "Flags";
+    ViewData["Lede"] = "Toggle feature flags on and off.";
     var actionMessage = TempData["AdminFlagsAction"] as string;
 }
 
-<section class="admin-flags">
-    @if (!string.IsNullOrEmpty(actionMessage))
-    {
-        <div class="admin-banner admin-banner--success">@actionMessage</div>
-    }
+@if (!string.IsNullOrEmpty(actionMessage))
+{
+    <div class="admin-banner admin-banner--success" role="status">@actionMessage</div>
+}
 
-    @if (Model.Flags.Count == 0)
-    {
-        <p>No flags loaded yet.</p>
-    }
-    else
-    {
-        <div class="flag-filter">
+@if (Model.Flags.Count == 0)
+{
+    <section class="admin-card" aria-label="Feature flags">
+        <p class="admin-empty">No flags loaded yet.</p>
+    </section>
+}
+else
+{
+        <div class="admin-filter">
+            <div class="admin-field admin-filter-search">
             <label for="flag-filter-search">Filter by key prefix, e.g. analysis.</label>
             <input id="flag-filter-search" type="search" autocomplete="off" placeholder="Filter by key prefix, e.g. analysis." aria-controls="flag-table" />
-            <div class="flag-filter__chips" role="group" aria-label="Namespace filter">
-                <button type="button" class="flag-filter__chip is-active" data-flag-prefix="" aria-pressed="true">All</button>
+            </div>
+            <div class="admin-filter-chips" role="group" aria-label="Namespace filter">
+                <button type="button" class="admin-filter-chips__chip is-active" data-flag-prefix="" aria-pressed="true">All</button>
                 @foreach (var group in Model.Groups)
                 {
-                    <button type="button" class="flag-filter__chip" data-flag-prefix="@group.Prefix" title="@group.Prefix.TrimEnd('.')" aria-pressed="false">@group.Label <span class="flag-filter__chip-count">@group.FlagCount</span></button>
+                    <button type="button" class="admin-filter-chips__chip" data-flag-prefix="@group.Prefix" title="@group.Prefix.TrimEnd('.')" aria-pressed="false">@group.Label <span class="admin-filter-chips__count">@group.FlagCount</span></button>
                 }
             </div>
-            <div class="flag-filter__chips" role="group" aria-label="Status filter">
-                <button type="button" class="flag-filter__chip is-active" data-flag-status="" aria-pressed="true">All statuses</button>
-                <button type="button" class="flag-filter__chip" data-flag-status="on" aria-pressed="false">Enabled</button>
-                <button type="button" class="flag-filter__chip" data-flag-status="off" aria-pressed="false">Disabled</button>
+            <div class="admin-filter-chips" role="group" aria-label="Status filter">
+                <button type="button" class="admin-filter-chips__chip is-active" data-flag-status="" aria-pressed="true">All statuses</button>
+                <button type="button" class="admin-filter-chips__chip" data-flag-status="on" aria-pressed="false">Enabled</button>
+                <button type="button" class="admin-filter-chips__chip" data-flag-status="off" aria-pressed="false">Disabled</button>
             </div>
-            <p class="flag-filter__count" id="flag-filter-count" role="status" aria-live="polite"></p>
+            <p class="admin-filter__count" id="flag-filter-count" role="status" aria-live="polite"></p>
         </div>
+    <section class="admin-card" aria-label="Feature flags">
         <table id="flag-table" class="admin-table admin-table--card">
             <caption class="sr-only">Feature flags and their current on/off status</caption>
             <thead>
@@ -49,23 +54,23 @@
                     <tr data-flag-key="@flag.Key" data-flag-enabled="@(flag.Enabled ? "true" : "false")">
                         <td data-label="Key"><code>@flag.Key</code></td>
                         <td data-label="What it does" class="admin-flags__desc">@(string.IsNullOrEmpty(flag.Description) ? "—" : flag.Description)</td>
-                        <td data-label="Status">@(flag.Enabled ? "On" : "Off")</td>
+                        <td data-label="Status"><span class="admin-badge @(flag.Enabled ? "admin-badge--success" : "admin-badge--neutral")">@(flag.Enabled ? "On" : "Off")</span></td>
                         <td data-label="Action">
                             <form method="post" asp-action="Toggle" asp-route-key="@flag.Key" class="admin-action-form">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="enabled" value="@((!flag.Enabled).ToString().ToLowerInvariant())" />
-                                <button type="submit">@(flag.Enabled ? "Disable" : "Enable")</button>
+                                <button type="submit" class="admin-button admin-button--secondary">@(flag.Enabled ? "Disable" : "Enable")</button>
                             </form>
                         </td>
                     </tr>
                 }
-                <tr class="flag-filter__empty-row hidden" id="flag-filter-empty">
+                <tr class="admin-filter__empty-row hidden" id="flag-filter-empty">
                     <td colspan="4">No flags match the current filter.</td>
                 </tr>
             </tbody>
         </table>
-    }
-</section>
+    </section>
+}
 
 @section Scripts {
     <script src="~/js/flag-filter.js" asp-append-version="true"></script>
