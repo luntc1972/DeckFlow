@@ -96,7 +96,8 @@ public sealed class AdminCssTokenTests
             foreach (var declaration in Declarations(body).Where(item => Regex.IsMatch(item.Key, @"^(?:margin|padding)(?:-.+)?$|^(?:gap|row-gap|column-gap)$")))
             {
                 if (selector.Trim() == ".sr-only" && declaration.Key == "margin" && declaration.Value == "-1px") continue;
-                Assert.Matches(allowed, declaration.Value.Replace("!important", string.Empty).Trim());
+                var value = declaration.Value.Replace("!important", string.Empty).Trim();
+                Assert.True(allowed.IsMatch(value), $"{fileName}: {selector.Trim()} has {declaration.Key}: {declaration.Value}");
             }
         }
     }
@@ -169,7 +170,7 @@ public sealed class AdminCssTokenTests
         {
             if (Declarations(body).TryGetValue(property, out var value))
             {
-                Assert.Matches(new Regex(pattern), value);
+                Assert.True(new Regex(pattern).IsMatch(value), $"{fileName}: {selector.Trim()} has {property}: {value}");
             }
         }
     }

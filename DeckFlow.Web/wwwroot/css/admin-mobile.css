@@ -21,11 +21,11 @@
   .admin-shell .admin-sidebar__toggle {
     display: flex;
     align-items: center;
-    padding: 14px 20px;
+    padding: var(--space-md) var(--space-lg);
     min-height: 48px;
-    font-size: 1.05rem;
+    font-size: var(--text-body);
     cursor: pointer;
-    font-weight: 700;
+    font-weight: 600;
     list-style: none;
     user-select: none;
     color: var(--text);
@@ -46,7 +46,7 @@
 
   .admin-shell .admin-action-form {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
   }
 
   .admin-shell .admin-action-form input,
@@ -54,7 +54,7 @@
   .admin-shell .admin-action-form textarea {
     width: 100%;
     box-sizing: border-box;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
   }
 
   .admin-shell .admin-action-form button {
@@ -62,11 +62,11 @@
   }
 
   .admin-shell .admin-harvest__panel {
-    padding: 12px;
+    padding: var(--space-md);
   }
 
   .admin-shell .admin-harvest__disclosure {
-    padding: 12px;
+    padding: var(--space-md);
   }
 
   .admin-shell .admin-harvest__disclosure summary {
@@ -96,7 +96,7 @@
   }
 
   .admin-shell .admin-table-scroll {
-    padding-bottom: 4px;
+    padding-bottom: var(--space-xs);
   }
 
   /* The card-stack header uses the same visual clip pattern as .sr-only,
@@ -114,8 +114,8 @@
     display: block;
     border: 1px solid var(--border);
     border-radius: 4px;
-    margin-bottom: 8px;
-    padding: 8px 12px;
+    margin-bottom: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
   }
 
   /* Long unbroken user data must wrap at 320px: emails, page URLs,
@@ -123,10 +123,10 @@
   .admin-shell .admin-table--card td {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
-    padding: 4px 0;
+    gap: var(--space-sm);
+    padding: var(--space-xs) 0;
     border: none;
-    font-size: 0.9em;
+    font-size: var(--text-label);
     min-width: 0;
     overflow-wrap: anywhere;
   }
@@ -158,7 +158,7 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
+    gap: var(--space-sm);
   }
 
   .admin-shell .admin-table--card td[data-label="Actions"] .admin-action-form,
@@ -170,7 +170,7 @@
     align-items: flex-start;
     justify-content: flex-start;
     flex-wrap: wrap;
-    gap: 6px 8px;
+    gap: var(--space-sm) var(--space-sm);
   }
 
   .admin-shell .admin-table--card td[data-label="Tags"]::before {
