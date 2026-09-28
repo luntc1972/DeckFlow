@@ -1,9 +1,9 @@
 @model DeckFlow.Web.Services.Harvest.HarvestHealthSignals
 @if (Model.ZeroDiscoveryStreak == 0)
 {
-    <p id="harvest-zero-discovery" class="admin-harvest__streak">Discovering new decks</p>
+    <p id="harvest-zero-discovery" class="admin-meta">Discovering new decks</p>
 }
 else
 {
-    <p id="harvest-zero-discovery" class="admin-harvest__streak @(Model.ZeroDiscoveryStreak >= Model.BacklogGrowthRunCount ? "admin-harvest__health-badge" : string.Empty)">Zero-discovery streak: @Model.ZeroDiscoveryStreak@(Model.ZeroDiscoveryStreakCapped ? "+" : string.Empty)</p>
+    <p id="harvest-zero-discovery" class="admin-meta">Zero-discovery streak: @if (Model.ZeroDiscoveryStreak >= Model.BacklogGrowthRunCount) { <span class="admin-badge admin-badge--warning admin-badge--alert">@Model.ZeroDiscoveryStreak@(Model.ZeroDiscoveryStreakCapped ? "+" : string.Empty)</span> } else { @Model.ZeroDiscoveryStreak@(Model.ZeroDiscoveryStreakCapped ? "+" : string.Empty) }</p>
 }

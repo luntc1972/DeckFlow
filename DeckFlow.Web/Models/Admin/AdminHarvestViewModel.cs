@@ -43,6 +43,9 @@ public sealed record AdminHarvestViewModel
     /// <summary>Last operator-facing status banner shown by the admin console.</summary>
     public string? LastBanner { get; init; }
 
+    /// <summary>Whether the last operator-facing banner represents an error.</summary>
+    public bool LastBannerIsError { get; init; }
+
     /// <summary>Selectable harvest interval options in hours.</summary>
     public IReadOnlyList<int> IntervalOptions { get; init; } = AllowedIntervalHours;
 
