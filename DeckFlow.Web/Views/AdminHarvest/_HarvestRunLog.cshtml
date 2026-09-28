@@ -5,13 +5,13 @@
 
     static string GetRunStateBadgeClass(HarvestRunState state) => state switch
     {
-        HarvestRunState.Succeeded => "badge text-bg-success",
-        HarvestRunState.Failed => "badge text-bg-danger",
-        HarvestRunState.Interrupted => "badge text-bg-secondary",
-        HarvestRunState.Cancelled => "badge text-bg-warning",
-        HarvestRunState.Running => "badge text-bg-primary",
-        HarvestRunState.Stopping => "badge text-bg-warning",
-        _ => "badge text-bg-light text-dark"
+        HarvestRunState.Succeeded => "admin-badge admin-badge--success",
+        HarvestRunState.Failed => "admin-badge admin-badge--danger",
+        HarvestRunState.Interrupted => "admin-badge admin-badge--neutral",
+        HarvestRunState.Cancelled => "admin-badge admin-badge--warning",
+        HarvestRunState.Running => "admin-badge admin-badge--info",
+        HarvestRunState.Stopping => "admin-badge admin-badge--warning",
+        _ => "admin-badge admin-badge--neutral"
     };
 
     static (string Summary, string Body)? GetErrorDisclosure(string? errorMessage)
@@ -23,7 +23,7 @@
 <h3 id="harvest-run-log-heading">Run Log</h3>
 @if (Model.Count == 0)
 {
-    <p class="admin-harvest__runs-empty">No runs recorded yet.</p>
+    <p id="harvest-run-log-empty" class="admin-empty">No runs recorded yet.</p>
 }
 else
 {

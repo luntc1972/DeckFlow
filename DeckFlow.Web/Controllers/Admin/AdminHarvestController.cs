@@ -20,6 +20,7 @@ namespace DeckFlow.Web.Controllers.Admin;
 public sealed class AdminHarvestController : Controller
 {
     private const string BannerKey = "AdminHarvestBanner";
+    private const string BannerToneKey = "AdminHarvestBannerTone";
     private const string StatusCacheKey = "admin.harvest.status.v1";
     internal const int MaxCommanderExportRows = 25000;
 
@@ -102,6 +103,7 @@ public sealed class AdminHarvestController : Controller
             RecentRuns = recentRuns,
             Schedule = _scheduleCache.Snapshot(),
             LastBanner = TempData[BannerKey] as string,
+            LastBannerIsError = string.Equals(TempData[BannerToneKey] as string, "danger", StringComparison.Ordinal),
             Stats = stats,
         };
 
@@ -250,12 +252,12 @@ public sealed class AdminHarvestController : Controller
     {
         if (!AdminHarvestViewModel.AllowedDurationSeconds.Contains(durationSeconds))
         {
-            TempData[BannerKey] = "Invalid duration.";
+            SetBanner("Invalid duration.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
         await _jobService.EnqueueAsync(TimeSpan.FromSeconds(durationSeconds), cancellationToken).ConfigureAwait(false);
-        TempData[BannerKey] = $"Run queued (cap {durationSeconds / 60} min).";
+        SetBanner($"Run queued (cap {durationSeconds / 60} min).");
         return RedirectToAction(nameof(Index));
     }
 
@@ -273,7 +275,7 @@ public sealed class AdminHarvestController : Controller
             || active.Id != jobId
             || (active.State is not HarvestRunState.Running && active.State is not HarvestRunState.Queued))
         {
-            TempData[BannerKey] = "No matching active run to cancel.";
+            SetBanner("No matching active run to cancel.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
@@ -288,7 +290,7 @@ public sealed class AdminHarvestController : Controller
             cancellationToken).ConfigureAwait(false);
 
         await _jobService.CancelActiveAsync(cancellationToken).ConfigureAwait(false);
-        TempData[BannerKey] = "Cancel requested. Job will stop after current deck.";
+        SetBanner("Cancel requested. Job will stop after current deck.");
         return RedirectToAction(nameof(Index));
     }
 
@@ -303,13 +305,13 @@ public sealed class AdminHarvestController : Controller
     {
         if (string.IsNullOrWhiteSpace(url))
         {
-            TempData[BannerKey] = "URL is required.";
+            SetBanner("URL is required.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
         if (!ArchidektApiUrl.TryGetDeckId(url, out var deckId))
         {
-            TempData[BannerKey] = "URL must be an Archidekt deck URL.";
+            SetBanner("URL must be an Archidekt deck URL.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
@@ -352,7 +354,7 @@ public sealed class AdminHarvestController : Controller
                 errorMessage: null,
                 cancellationToken).ConfigureAwait(false);
 
-            TempData[BannerKey] = $"Harvested {commanderName ?? "deck"}: {entries.Count} new observations.";
+            SetBanner($"Harvested {commanderName ?? "deck"}: {entries.Count} new observations.");
             return RedirectToAction(nameof(Index));
         }
         catch (OperationCanceledException)
@@ -376,7 +378,7 @@ public sealed class AdminHarvestController : Controller
                 errorMessage: operatorMessage,
                 cancellationToken).ConfigureAwait(false);
 
-            TempData[BannerKey] = $"Failed to harvest URL: {operatorMessage}";
+            SetBanner($"Failed to harvest URL: {operatorMessage}", isError: true);
             return RedirectToAction(nameof(Index));
         }
     }
@@ -393,14 +395,14 @@ public sealed class AdminHarvestController : Controller
     {
         if (intervalHours.HasValue && !AdminHarvestViewModel.AllowedIntervalHours.Contains(intervalHours.Value))
         {
-            TempData[BannerKey] = "Invalid interval.";
+            SetBanner("Invalid interval.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
         await _scheduleStore.SaveAsync(intervalHours, paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
         await _scheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
-        TempData[BannerKey] = "Schedule updated.";
+        SetBanner("Schedule updated.");
         return RedirectToAction(nameof(Index));
     }
 
@@ -417,7 +419,7 @@ public sealed class AdminHarvestController : Controller
         await _scheduleStore.SaveAsync(snapshot.IntervalHours, paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
         await _scheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
-        TempData[BannerKey] = paused ? "Schedule paused." : "Schedule resumed.";
+        SetBanner(paused ? "Schedule paused." : "Schedule resumed.");
         return RedirectToAction(nameof(Index));
     }
 
@@ -468,6 +470,15 @@ public sealed class AdminHarvestController : Controller
         }
 
         return board.Trim().ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Stores the banner message and tone so an earlier unread tone never recolors a new message.
+    /// </summary>
+    private void SetBanner(string message, bool isError = false)
+    {
+        TempData[BannerKey] = message;
+        TempData[BannerToneKey] = isError ? "danger" : "success";
     }
 
     private sealed record HarvestStatusPayload(

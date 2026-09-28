@@ -5,9 +5,9 @@ const commandersUrl = '/Admin/Harvest/commanders?page=1';
 
 const renderFixture = (): void => {
   document.body.innerHTML = `
-    <div class="admin-harvest__tabs" role="tablist" aria-label="Harvest sections">
-      <button type="button" id="harvest-tab-overview" data-harvest-tab="overview" role="tab" aria-controls="harvest-panel-overview" aria-selected="true" tabindex="0">Overview</button>
-      <button type="button" id="harvest-tab-commanders" data-harvest-tab="commanders" role="tab" aria-controls="harvest-panel-commanders" aria-selected="false" tabindex="-1">Commanders</button>
+    <div class="admin-tabs" role="tablist" aria-label="Harvest sections">
+      <button class="admin-tabs__tab" type="button" id="harvest-tab-overview" data-harvest-tab="overview" role="tab" aria-controls="harvest-panel-overview" aria-selected="true" tabindex="0">Overview</button>
+      <button class="admin-tabs__tab" type="button" id="harvest-tab-commanders" data-harvest-tab="commanders" role="tab" aria-controls="harvest-panel-commanders" aria-selected="false" tabindex="-1">Commanders</button>
     </div>
     <section id="harvest-panel-overview" data-harvest-panel="overview" role="tabpanel"></section>
     <section id="harvest-panel-commanders" data-harvest-panel="commanders" role="tabpanel" hidden><div id="commanders-grid-container" aria-live="polite" aria-busy="false" aria-label="Harvested commanders grid"></div></section>`;

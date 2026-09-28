@@ -275,6 +275,8 @@ public sealed class AdminHarvestControllerTests
         var html = await RenderPartialViewAsync("_HarvestRunLog", Array.Empty<HarvestRunRow>());
 
         Assert.Contains("id=\"harvest-run-log-heading\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"harvest-run-log-empty\"", html, StringComparison.Ordinal);
+        Assert.Contains("class=\"admin-empty\"", html, StringComparison.Ordinal);
         Assert.Contains("No runs recorded yet.", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<table", html, StringComparison.Ordinal);
     }
@@ -341,6 +343,96 @@ public sealed class AdminHarvestControllerTests
         Assert.Contains("SubmitUrl", importPanel, StringComparison.Ordinal);
         Assert.Contains("name=\"__RequestVerificationToken\"", importPanel, StringComparison.Ordinal);
         Assert.Contains("id=\"url\" type=\"url\" name=\"url\"", importPanel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RunNow_InvalidDuration_SetsDangerBannerTone()
+    {
+        var controller = Build(NewStore(0));
+        await controller.RunNow(1, CancellationToken.None);
+        Assert.Equal("Invalid duration.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Fact]
+    public async Task PauseSchedule_Pause_SetsSuccessBannerTone()
+    {
+        var controller = Build(NewStore(0));
+        await controller.PauseSchedule(true, CancellationToken.None);
+        Assert.Equal("Schedule paused.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("success", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Fact]
+    public async Task Index_ReadsBannerToneIntoViewModel()
+    {
+        var controller = Build(NewStore(0));
+        controller.TempData["AdminHarvestBanner"] = "Banner";
+        controller.TempData["AdminHarvestBannerTone"] = "danger";
+        var result = await controller.Index();
+        var model = Assert.IsType<AdminHarvestViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal("Banner", model.LastBanner);
+        Assert.True(model.LastBannerIsError);
+    }
+
+    [Theory]
+    [InlineData(true, "admin-banner--danger", "alert")]
+    [InlineData(false, "admin-banner--success", "status")]
+    public async Task HarvestIndex_Banner_RendersToneAndRole(bool isError, string modifier, string role)
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { LastBanner = "Banner <b>x</b>", LastBannerIsError = isError });
+        Assert.Contains($"{modifier}\" role=\"{role}\"", html, StringComparison.Ordinal);
+        Assert.Contains("Banner &lt;b&gt;x&lt;/b&gt;", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<b>x</b>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestHealthStrip_RendersFourStatTiles()
+    {
+        var html = await RenderPartialViewAsync("_HarvestHealthStrip", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), true).Stats!);
+        Assert.Equal(4, html.Split("admin-stat-tile\"", StringSplitOptions.None).Length - 1);
+        Assert.Contains("health-database-size", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestHealthStrip_BacklogFlag_IsWarningAlertBadge()
+    {
+        var stats = CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), true).Stats! with { Health = new HarvestHealthSignals(true, HarvestBacklogReason.AboveFloor, 100, 3, 0, false) };
+        var html = await RenderPartialViewAsync("_HarvestHealthStrip", stats);
+        Assert.Contains("admin-badge--warning", html, StringComparison.Ordinal);
+        Assert.Contains("admin-badge--alert", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(HarvestRunState.Queued, "admin-badge--neutral")]
+    [InlineData(HarvestRunState.Running, "admin-badge--info")]
+    [InlineData(HarvestRunState.Stopping, "admin-badge--warning")]
+    [InlineData(HarvestRunState.Succeeded, "admin-badge--success")]
+    [InlineData(HarvestRunState.Interrupted, "admin-badge--neutral")]
+    [InlineData(HarvestRunState.Failed, "admin-badge--danger")]
+    [InlineData(HarvestRunState.Cancelled, "admin-badge--warning")]
+    public async Task HarvestRunLog_State_RendersTextBadge(HarvestRunState state, string modifier)
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun() with { State = state } });
+        Assert.Contains(modifier, html, StringComparison.Ordinal);
+        Assert.Contains($">{state}</span>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_UsesSharedTabsCardsAndButtons()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(new[] { CreateHarvestRun() }, true));
+        Assert.Contains("admin-tabs", html, StringComparison.Ordinal);
+        Assert.Contains("admin-stack", html, StringComparison.Ordinal);
+        Assert.Contains("admin-button--primary", html, StringComparison.Ordinal);
+        Assert.Contains("admin-filter", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_StatsUnavailable_RendersEmptyState()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false));
+        Assert.Contains("class=\"admin-empty\">Stats unavailable.", html, StringComparison.Ordinal);
     }
 
     private static HarvestRunRow CreateHarvestRun(string? errorMessage = null)
@@ -724,8 +816,8 @@ public sealed class AdminHarvestControllerTests
         var html = await RenderPartialViewAsync("_HarvestZeroDiscovery", signals);
 
         Assert.Contains("harvest-zero-discovery", html, StringComparison.Ordinal);
-        Assert.Contains(expectedText, html, StringComparison.Ordinal);
-        Assert.Equal(expectsWarning, html.Contains("admin-harvest__health-badge", StringComparison.Ordinal));
+        Assert.Contains(expectsWarning ? "Zero-discovery streak:" : expectedText, html, StringComparison.Ordinal);
+        Assert.Equal(expectsWarning, html.Contains("admin-badge--warning", StringComparison.Ordinal));
     }
 
     private static async Task<string> RenderPartialViewAsync(string viewName, object model)

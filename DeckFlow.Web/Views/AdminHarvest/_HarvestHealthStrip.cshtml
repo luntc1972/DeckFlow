@@ -15,9 +15,9 @@
         return $"{value:0.##} {units[unitIndex]}";
     }
 }
-<div class="admin-harvest__health">
-    <div class="admin-harvest__health-tile"><span>Processed decks</span><strong id="health-processed-decks">@Model.TotalDecks.ToString("N0")</strong></div>
-    <div class="admin-harvest__health-tile"><span>Queued</span><strong id="health-queued-decks">@Model.QueuedDeckCount.ToString("N0")</strong>@if (Model.Health.BacklogFlagged)
+<div class="admin-stat-grid">
+    <div class="admin-stat-tile"><span class="admin-stat-tile__label">Processed decks</span><strong id="health-processed-decks" class="admin-stat-tile__value">@Model.TotalDecks.ToString("N0")</strong></div>
+    <div class="admin-stat-tile"><span class="admin-stat-tile__label">Queued</span><strong id="health-queued-decks" class="admin-stat-tile__value">@Model.QueuedDeckCount.ToString("N0")</strong>@if (Model.Health.BacklogFlagged)
         {
             var badge = Model.Health.BacklogReason switch
             {
@@ -25,8 +25,8 @@
                 HarvestBacklogReason.Growing => ($"Backlog growing ({Model.Health.BacklogGrowthRunCount} runs)", $"Queue grew for {Model.Health.BacklogGrowthRunCount} consecutive runs."),
                 _ => ($"Backlog exceeds floor and growing", $"Queued decks exceed {Model.Health.BacklogFloor} and grew for {Model.Health.BacklogGrowthRunCount} consecutive runs.")
             };
-            <span id="health-backlog-flag" class="admin-harvest__health-badge" title="@badge.Item2">@badge.Item1</span>
+            <span id="health-backlog-flag" class="admin-badge admin-badge--warning admin-badge--alert" title="@badge.Item2">@badge.Item1</span>
         }</div>
-    <div class="admin-harvest__health-tile"><span>Commanders</span><strong id="health-distinct-commanders">@Model.DistinctCommanderCount.ToString("N0")</strong></div>
-    <div class="admin-harvest__health-tile"><span>Database</span><strong id="health-database-size">@(Model.DatabaseSizeBytes is long bytes ? FormatBytes(bytes) : "—")</strong></div>
+    <div class="admin-stat-tile"><span class="admin-stat-tile__label">Commanders</span><strong id="health-distinct-commanders" class="admin-stat-tile__value">@Model.DistinctCommanderCount.ToString("N0")</strong></div>
+    <div class="admin-stat-tile"><span class="admin-stat-tile__label">Database</span><strong id="health-database-size" class="admin-stat-tile__value @(Model.DatabaseSizeBytes is null ? "admin-stat-tile__value--muted" : string.Empty)">@(Model.DatabaseSizeBytes is long bytes ? FormatBytes(bytes) : "—")</strong></div>
 </div>
