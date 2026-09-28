@@ -60,10 +60,9 @@ public sealed class AdminCssPhase1Tests
     {
         var section = ReadPhase1Section();
 
-        // Phase 18 (4a85e1e) refactored the literal danger color into the --danger token.
-        // Assert both: the danger button binds to the token, and the token resolves to #dc2626.
-        Assert.Matches(new Regex(@"^\s+background:\s*var\(--danger\)", RegexOptions.Multiline), section);
-        Assert.Matches(new Regex(@"--danger:\s*#dc2626", RegexOptions.IgnoreCase), ReadAdminCss());
+        // The danger fill moved to the --status-danger-solid token in Phase 4.
+        Assert.Matches(new Regex(@"^\s+background:\s*var\(--status-danger-solid\)", RegexOptions.Multiline), section);
+        Assert.Matches(new Regex(@"--status-danger-solid:\s*#dc2626", RegexOptions.IgnoreCase), ReadAdminCss());
     }
 
     [Fact]
@@ -71,7 +70,7 @@ public sealed class AdminCssPhase1Tests
     {
         var section = ReadPhase1Section();
 
-        Assert.Matches(new Regex(@"^\s+background:\s*#b91c1c", RegexOptions.Multiline), section);
+        Assert.Matches(new Regex(@"^\s+background:\s*var\(--status-danger-solid-hover\)", RegexOptions.Multiline), section);
     }
 
     [Fact]
@@ -79,7 +78,8 @@ public sealed class AdminCssPhase1Tests
     {
         var section = ReadPhase1Section();
 
-        Assert.Contains("rgba(15, 23, 42, 0.72)", section);
+        Assert.Contains("var(--overlay-backdrop)", section);
+        Assert.Matches(new Regex(@"--overlay-backdrop:\s*rgba\(15, 23, 42, 0\.72\)"), ReadAdminCss());
     }
 
     [Fact]
