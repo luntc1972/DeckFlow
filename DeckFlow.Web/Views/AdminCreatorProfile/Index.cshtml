@@ -2,69 +2,51 @@
 @model DeckFlow.Web.Controllers.Admin.AdminCreatorProfileViewModel
 @{
     ViewData["Title"] = "Deck Tendencies";
+    ViewData["Lede"] = "Upsert a creator source, run crawl plus measurement, and render the current deck tendencies report. Operator-only — this page is never seen by end users.";
 }
 
-<section class="admin-tools">
-    <h1>Deck Tendencies</h1>
-    <p class="lede">Upsert a creator source, run crawl plus measurement, and render the current deck tendencies report. Operator-only — this page is never seen by end users.</p>
+<div class="admin-stack">
 
     @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
     {
-        <div class="error-banner" role="alert">@Model.ErrorMessage</div>
+        <div class="admin-banner admin-banner--danger" role="alert">@Model.ErrorMessage</div>
     }
 
     @if (Model.Profile?.InsufficientSample == true)
     {
-        <div class="warning-banner" role="status">
+        <div class="admin-banner admin-banner--warning" role="status">
             The measured profile sample is below the minimum deck floor. Review the partial results carefully.
         </div>
     }
 
-    <form method="post" action="@Url.Content("~/Admin/CreatorProfile/Run")" class="admin-action-form">
+    <form method="post" action="@Url.Content("~/Admin/CreatorProfile/Run")" class="admin-card" aria-label="Creator profile run form">
         @Html.AntiForgeryToken()
-        <table class="admin-table admin-table--card">
-            <caption class="sr-only">Creator profile run form</caption>
-            <tbody>
-                <tr>
-                    <th scope="row"><label for="creator-profile-slug">Slug</label></th>
-                    <td>
-                        <input id="creator-profile-slug" type="text" name="Slug" autocomplete="off" value="@Model.Slug" />
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="creator-profile-username">Username</label></th>
-                    <td>
-                        <input id="creator-profile-username" type="text" name="Username" autocomplete="off" value="@Model.Username" />
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="creator-profile-platform">Platform</label></th>
-                    <td>
-                        <select id="creator-profile-platform" name="Platform">
-                            <option value="archidekt" selected="@(string.Equals(Model.Platform, "archidekt", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">archidekt</option>
-                            <option value="moxfield" selected="@(string.Equals(Model.Platform, "moxfield", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">moxfield</option>
-                        </select>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="creator-profile-force-refresh">Force Refresh</label></th>
-                    <td>
-                        <input id="creator-profile-force-refresh" type="checkbox" name="ForceRefresh" value="true" checked="@(Model.ForceRefresh ? "checked" : null)" />
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row">Run</th>
-                    <td><button type="submit">Run Crawl + Measure</button></td>
-                </tr>
-            </tbody>
-        </table>
+        <div class="admin-field">
+            <label for="creator-profile-slug">Slug</label>
+            <input id="creator-profile-slug" type="text" name="Slug" autocomplete="off" value="@Model.Slug" />
+        </div>
+        <div class="admin-field">
+            <label for="creator-profile-username">Username</label>
+            <input id="creator-profile-username" type="text" name="Username" autocomplete="off" value="@Model.Username" />
+        </div>
+        <div class="admin-field">
+            <label for="creator-profile-platform">Platform</label>
+            <select id="creator-profile-platform" name="Platform">
+                <option value="archidekt" selected="@(string.Equals(Model.Platform, "archidekt", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">archidekt</option>
+                <option value="moxfield" selected="@(string.Equals(Model.Platform, "moxfield", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">moxfield</option>
+            </select>
+        </div>
+        <div class="admin-field">
+            <label for="creator-profile-force-refresh">Force Refresh</label>
+            <input id="creator-profile-force-refresh" type="checkbox" name="ForceRefresh" value="true" checked="@(Model.ForceRefresh ? "checked" : null)" />
+        </div>
+        <button type="submit" class="admin-button admin-button--primary">Run Crawl + Measure</button>
     </form>
-</section>
 
 @if (Model.Profile is not null)
 {
-    <section class="admin-tools__section" aria-labelledby="creator-profile-summary">
-        <h2 id="creator-profile-summary">Profile Summary</h2>
+    <section class="admin-card" aria-labelledby="creator-profile-summary">
+        <h2 id="creator-profile-summary" class="admin-card__title">Profile Summary</h2>
         <table class="admin-table admin-table--card">
             <caption class="sr-only">Measured creator profile summary</caption>
             <tbody>
@@ -95,8 +77,8 @@
 
 @if (Model.Profile?.MeasuredMetrics.Count > 0)
 {
-    <section class="admin-tools__section" aria-labelledby="creator-profile-metrics">
-        <h2 id="creator-profile-metrics">Measured Metrics</h2>
+    <section class="admin-card" aria-labelledby="creator-profile-metrics">
+        <h2 id="creator-profile-metrics" class="admin-card__title">Measured Metrics</h2>
         <table class="admin-table admin-table--card">
             <caption class="sr-only">Measured profile metrics</caption>
             <thead>
@@ -122,8 +104,8 @@
 
 @if (Model.Report is not null)
 {
-    <section class="admin-tools__section" aria-labelledby="creator-profile-decks">
-        <h2 id="creator-profile-decks">Decks</h2>
+    <section class="admin-card" aria-labelledby="creator-profile-decks">
+        <h2 id="creator-profile-decks" class="admin-card__title">Decks</h2>
         <table class="admin-table admin-table--card">
             <caption class="sr-only">Deck rows used in the creator tendencies report</caption>
             <thead>
@@ -159,8 +141,8 @@
         </table>
     </section>
 
-    <section class="admin-tools__section" aria-labelledby="creator-profile-repeat-cards">
-        <h2 id="creator-profile-repeat-cards">Repeat Cards</h2>
+    <section class="admin-card" aria-labelledby="creator-profile-repeat-cards">
+        <h2 id="creator-profile-repeat-cards" class="admin-card__title">Repeat Cards</h2>
         <table class="admin-table admin-table--card">
             <caption class="sr-only">Repeated non-commander cards across the creator sample</caption>
             <thead>
@@ -194,8 +176,8 @@
         </table>
     </section>
 
-    <section class="admin-tools__section" aria-labelledby="creator-profile-repeat-commanders">
-        <h2 id="creator-profile-repeat-commanders">Repeat Commanders</h2>
+    <section class="admin-card" aria-labelledby="creator-profile-repeat-commanders">
+        <h2 id="creator-profile-repeat-commanders" class="admin-card__title">Repeat Commanders</h2>
         <table class="admin-table admin-table--card">
             <caption class="sr-only">Repeated commander-board cards across the creator sample</caption>
             <thead>
@@ -229,8 +211,8 @@
         </table>
     </section>
 
-    <section class="admin-tools__section" aria-labelledby="creator-profile-category-tendencies">
-        <h2 id="creator-profile-category-tendencies">Category Tendencies</h2>
+    <section class="admin-card" aria-labelledby="creator-profile-category-tendencies">
+        <h2 id="creator-profile-category-tendencies" class="admin-card__title">Category Tendencies</h2>
         <table class="admin-table admin-table--card">
             <caption class="sr-only">Category tendencies for the creator sample</caption>
             <thead>
@@ -266,3 +248,4 @@
         </table>
     </section>
 }
+</div>
