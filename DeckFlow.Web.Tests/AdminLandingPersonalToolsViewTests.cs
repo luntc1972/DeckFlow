@@ -29,6 +29,22 @@ namespace DeckFlow.Web.Tests;
 public sealed class AdminLandingPersonalToolsViewTests
 {
     [Fact]
+    public async Task LandingIndex_HubCardsAreSharedLinkCards()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync());
+        var cards = document.QuerySelectorAll("a.admin-card.admin-card--link");
+        var hrefs = cards.Select(card => card.GetAttribute("href")).ToArray();
+
+        Assert.Equal(new[] { "/Admin/Feedback", "/Admin/Flags", "/Admin/Tools", "/Admin/Harvest", "/Admin/Analytics", "/Admin/ContentKb", "/Admin/YoutubeExport", "/Admin/CreatorStyle", "/Admin/CreatorProfile" }, hrefs);
+        Assert.All(cards, card =>
+        {
+            Assert.NotNull(card.QuerySelector("h2.admin-card__title"));
+            Assert.NotNull(card.QuerySelector("p.admin-card__description"));
+        });
+        Assert.Empty(document.QuerySelectorAll(".admin-hub-card, .admin-hub-card__title, .admin-hub-card__description"));
+    }
+
+    [Fact]
     public async Task Index_RendersPersonalToolsHeadingAndCreatorStyleLink()
     {
         var html = await RenderAsync();

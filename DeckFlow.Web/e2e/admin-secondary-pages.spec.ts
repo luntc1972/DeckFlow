@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Route } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 
 type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
@@ -88,5 +88,81 @@ test('feedback list and seeded detail use the shared components and delete confi
         await Promise.all([page.waitForURL(/\/admin\/feedback$/i), form.evaluate((element: HTMLFormElement) => element.submit())]);
       }
     }
+  }
+});
+
+test('dashboard and youtube export use shared cards', async ({ page }) => {
+  await page.goto('/Admin');
+  await expect(page.locator('h1')).toHaveText('Dashboard');
+  await expect(page.locator('.admin-page-header__lede')).toHaveText('Quick access to admin functions.');
+  await expect(page.locator('a.admin-card.admin-card--link')).toHaveCount(9);
+  await expect(page.locator('.admin-hub-personal-tools a.admin-card.admin-card--link')).toHaveCount(2);
+  await page.goto('/Admin/YoutubeExport');
+  await expect(page.locator('h1')).toHaveText('YouTube Export');
+  await expect(page.locator('.admin-page-header__lede')).toHaveText("Download a channel's video list with titles, views, and upload dates.");
+  await expect(page.locator('form[data-yt-export-form]').getByLabel('Channel')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download list' })).toHaveClass(/admin-button--primary/);
+  await page.setViewportSize({ width: 375, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
+
+test('youtube export pending state recovers through the download cookie', async ({ page, context }) => {
+  test.setTimeout(90_000);
+  const bounded = async <T>(promise: Promise<T>, ms: number, message: string): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([promise, new Promise<T>((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); })]);
+    } finally { if (timer) clearTimeout(timer); }
+  };
+  let releaseExport!: () => void;
+  const release = new Promise<void>(resolve => { releaseExport = resolve; });
+  let postSeen!: () => void;
+  const posted = new Promise<void>(resolve => { postSeen = resolve; });
+  let posts = 0;
+  let body = '';
+  let cleaningUp = false;
+  const predicate = (url: URL) => url.pathname.toLowerCase() === '/admin/youtubeexport/export';
+  const handler = async (route: Route) => {
+    if (route.request().method() !== 'POST') { await route.continue(); return; }
+    posts++;
+    body = route.request().postData() ?? '';
+    postSeen();
+    await release;
+    try { await route.fulfill({ status: 200, contentType: 'text/plain; charset=utf-8', headers: { 'Content-Disposition': 'attachment; filename="p04-08-export.txt"' }, body: 'export' }); }
+    catch (error) { if (!cleaningUp) throw error; }
+  };
+  await bounded(page.route(predicate, handler), 5_000, 'route setup timed out');
+  await bounded(page.goto('/Admin/YoutubeExport'), 10_000, 'youtube export page did not load');
+  await bounded(expect(page.locator('form[data-yt-export-form]')).toHaveAttribute('action', /\/admin\/youtubeexport\/export$/i), 5_000, 'export action mismatch');
+  await bounded(page.locator('form[data-yt-export-form]').getByLabel('Channel').fill('@examplechannel'), 5_000, 'channel fill timed out');
+  await bounded(page.evaluate(() => {
+    document.addEventListener('submit', () => {
+      const button = document.querySelector<HTMLButtonElement>('form[data-yt-export-form] button[type=submit]');
+      (window as Window & { p0408Busy?: { disabled: boolean; text: string } }).p0408Busy = { disabled: button!.disabled, text: button!.textContent! };
+    });
+  }), 5_000, 'busy-state observer setup timed out');
+  let clickDone: Promise<void> | undefined;
+  try {
+    const deadline = Date.now() + 30_000;
+    const within = <T>(promise: Promise<T>, ms: number, message: string) => bounded(promise, Math.min(ms, Math.max(1, deadline - Date.now())), message);
+    clickDone = page.getByRole('button', { name: 'Download list' }).click({ noWaitAfter: true });
+    await within(Promise.race([posted, clickDone.then(() => new Promise<void>(() => {}))]), 10_000, 'export POST not seen within 10 s');
+    expect(posts).toBe(1);
+    const token = new URLSearchParams(body).get('downloadToken');
+    expect(token).toMatch(/^[0-9a-f]{32}$/);
+    expect(body).toContain('__RequestVerificationToken=');
+    expect(body).toContain('channel=%40examplechannel');
+    await within(context.addCookies([{ name: 'yt-export-done', value: token!, domain: new URL(page.url()).hostname, path: '/', httpOnly: false, sameSite: 'Strict' }]), 5_000, 'cookie setup timed out');
+    releaseExport();
+    await within(clickDone, 10_000, 'download click did not settle within 10 s');
+    await within(expect.poll(() => page.evaluate(() => (window as Window & { p0408Busy?: { disabled: boolean; text: string } }).p0408Busy)).toEqual({ disabled: true, text: 'Fetching from YouTube… this can take a minute' }), 5_000, 'button did not become busy');
+    await within(expect(page.getByRole('button', { name: 'Download list' })).toBeEnabled(), 10_000, 'button did not restore');
+    await within(expect.poll(() => page.evaluate(() => document.cookie)).not.toContain(`yt-export-done=${token}`), 5_000, 'completion cookie did not expire');
+    expect(posts).toBe(1);
+  } finally {
+    cleaningUp = true;
+    releaseExport();
+    if (clickDone) await bounded(clickDone.catch(() => undefined), 5_000, 'click cleanup timed out').catch(() => undefined);
+    await bounded(page.unroute(predicate, handler), 5_000, 'route cleanup timed out').catch(() => undefined);
   }
 });
