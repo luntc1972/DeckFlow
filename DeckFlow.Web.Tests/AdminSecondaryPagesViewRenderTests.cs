@@ -13,6 +13,27 @@ namespace DeckFlow.Web.Tests;
 public sealed class AdminSecondaryPagesViewRenderTests
 {
     [Fact]
+    public async Task YoutubeExportIndex_FormIsSharedCardWithFieldsAndPrimaryButton()
+    {
+        var document = await YoutubeDocumentAsync(new AdminYoutubeExportViewModel { Channel = "@examplechannel", Limit = 50 });
+        var card = document.QuerySelector("section.admin-card[aria-labelledby=yt-export-heading]");
+        Assert.NotNull(card?.QuerySelector("h2#yt-export-heading.admin-card__title"));
+        Assert.Equal(3, card!.QuerySelectorAll("form[data-yt-export-form] .admin-field").Length);
+        Assert.Equal("@examplechannel", card.QuerySelector("input#yt-export-channel")!.GetAttribute("value"));
+        Assert.Equal("50", card.QuerySelector("input#yt-export-limit")!.GetAttribute("value"));
+        Assert.NotNull(card.QuerySelector("input[name=downloadToken], input[name=__RequestVerificationToken]"));
+        Assert.NotNull(card.QuerySelector("button.admin-button.admin-button--primary"));
+        Assert.Empty(document.QuerySelectorAll(".admin-banner, .admin-harvest__panel"));
+    }
+
+    [Fact]
+    public async Task YoutubeExportIndex_ErrorUsesDangerBannerWithAlertRole()
+    {
+        var document = await YoutubeDocumentAsync(new AdminYoutubeExportViewModel { ErrorMessage = "channel not found" });
+        Assert.Equal("channel not found", document.QuerySelector("p.admin-banner.admin-banner--danger[role=alert]")!.TextContent.Trim());
+        Assert.Empty(document.QuerySelectorAll(".admin-banner--error"));
+    }
+    [Fact]
     public async Task AnalyticsIndex_BodyHasNoPageHeadingAndKeepsTableHooks()
     {
         var document = await DocumentAsync(Model("7d", new[] { Row("/x?<img src=y>") }));
@@ -121,6 +142,9 @@ public sealed class AdminSecondaryPagesViewRenderTests
 
     private static async Task<AngleSharp.Html.Dom.IHtmlDocument> FeedbackDetailDocumentAsync(FeedbackItem model) =>
         new HtmlParser().ParseDocument(await RazorViewRenderer.RenderAsync(model, typeof(AdminFeedbackController), "AdminFeedback", new TestRouter(), viewName: "Detail"));
+
+    private static async Task<AngleSharp.Html.Dom.IHtmlDocument> YoutubeDocumentAsync(AdminYoutubeExportViewModel model) =>
+        new HtmlParser().ParseDocument(await RazorViewRenderer.RenderAsync(model, typeof(AdminYoutubeExportController), "AdminYoutubeExport", new TestRouter()));
 
     private static async Task<AngleSharp.Html.Dom.IHtmlDocument> LayoutDocumentAsync(AdminAnalyticsViewModel model)
     {

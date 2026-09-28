@@ -1,35 +1,41 @@
 @model DeckFlow.Web.Models.Admin.AdminYoutubeExportViewModel
 @{
     ViewData["Title"] = "YouTube Export";
+    ViewData["Lede"] = "Download a channel's video list with titles, views, and upload dates.";
 }
 
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
-    <p class="admin-banner admin-banner--error" role="alert">@Model.ErrorMessage</p>
+    <p class="admin-banner admin-banner--danger" role="alert">@Model.ErrorMessage</p>
 }
 
-<section class="admin-harvest__panel" aria-labelledby="yt-export-heading">
-    <h2 id="yt-export-heading">YouTube Channel Export</h2>
-    <p>
+<section class="admin-card" aria-labelledby="yt-export-heading">
+    <h2 id="yt-export-heading" class="admin-card__title">YouTube Channel Export</h2>
+    <p class="admin-card__description">
         Enter a YouTube channel (handle like <code>@@examplechannel</code>, full URL, or channel id)
         to download a text file listing its most recent uploads with title, view count, and upload
         date. Each video costs one metadata lookup, so large counts take a while.
     </p>
 
-    <form method="post" asp-action="Export" class="admin-action-form" data-yt-export-form>
+    <form method="post" asp-action="Export" data-yt-export-form>
         @Html.AntiForgeryToken()
         <input type="hidden" name="downloadToken" value="" />
-        <label for="yt-export-channel">Channel</label>
-        <input id="yt-export-channel" name="channel" type="text" required
-               value="@Model.Channel" placeholder="@@handle or channel URL" autocomplete="off" />
-        <label for="yt-export-limit">Max videos</label>
-        <input id="yt-export-limit" name="limit" type="number" min="1" max="500" value="@Model.Limit" />
-        <label for="yt-export-format">Format</label>
-        <select id="yt-export-format" name="format">
-            <option value="text" selected>Text file (.txt)</option>
-            <option value="csv">CSV (.csv)</option>
-        </select>
-        <button type="submit">Download list</button>
+        <div class="admin-field">
+            <label for="yt-export-channel">Channel</label>
+            <input id="yt-export-channel" name="channel" type="text" required value="@Model.Channel" placeholder="@@handle or channel URL" autocomplete="off" />
+        </div>
+        <div class="admin-field">
+            <label for="yt-export-limit">Max videos</label>
+            <input id="yt-export-limit" name="limit" type="number" min="1" max="500" value="@Model.Limit" />
+        </div>
+        <div class="admin-field">
+            <label for="yt-export-format">Format</label>
+            <select id="yt-export-format" name="format">
+                <option value="text" selected>Text file (.txt)</option>
+                <option value="csv">CSV (.csv)</option>
+            </select>
+        </div>
+        <button class="admin-button admin-button--primary" type="submit">Download list</button>
     </form>
 </section>
 

@@ -10,8 +10,14 @@ namespace DeckFlow.Web.Controllers.Admin;
 public sealed class AdminLandingController : Controller
 {
     /// <summary>
-    /// Renders the admin section landing page.
+    /// Renders the admin section landing page and sets its page-header lede.
     /// </summary>
     [HttpGet("")]
-    public IActionResult Index() => View();
+    public IActionResult Index()
+    {
+        // Why: render harnesses inject page-header data into this layout-host view.
+        ViewData["Title"] = "Dashboard";
+        ViewData["Lede"] = "Quick access to admin functions.";
+        return View();
+    }
 }
