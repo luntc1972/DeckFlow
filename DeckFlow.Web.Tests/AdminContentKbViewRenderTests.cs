@@ -53,6 +53,60 @@ public sealed class AdminContentKbViewRenderTests
         Assert.Null(document.QuerySelector("#kb-filter-search, .admin-kb-empty"));
     }
 
+    [Fact]
+    public async Task ContentKbIndex_EntryStatusPublishStateAndTagsRenderAsTextBadges()
+    {
+        var entries = new[]
+        {
+            new KbEntryRow { Id = 1, Title = "Visible", Source = "Example Creator", IsVisible = true, IndexedUtc = DateTimeOffset.UtcNow, PublishState = PublishState.Published },
+            new KbEntryRow { Id = 2, Title = "Hidden", Source = "Example Creator", IsVisible = false, IsHidden = true, IndexedUtc = DateTimeOffset.UtcNow, PublishState = PublishState.PushedHidden },
+            new KbEntryRow { Id = 3, Title = "Never", Source = "Based Deck Department", IsVisible = false, IndexedUtc = DateTimeOffset.UtcNow, PublishState = PublishState.NeverPublished },
+            new KbEntryRow { Id = 4, Title = "Local", Source = "Based Deck Department", IsVisible = false, IndexedUtc = DateTimeOffset.UtcNow, PublishState = PublishState.LocalNewer, Tags = new[] { "combo", "ramp" } },
+        };
+        var document = await DocumentAsync(Model(entries: entries));
+
+        Assert.Equal(new[] { "Published", "Hidden", "Unpublished", "Unpublished" }, document.QuerySelectorAll("td[data-label='Status'] span.admin-badge").Select(x => x.TextContent.Trim()));
+        Assert.NotNull(document.QuerySelector("td[data-label='Status'] .admin-badge--success[aria-label='Published']"));
+        Assert.NotNull(document.QuerySelector("td[data-label='Status'] .admin-badge--neutral[aria-label='Hidden']"));
+        Assert.Equal(2, document.QuerySelectorAll("td[data-label='Status'] .admin-badge--warning[aria-label='Unpublished']").Length);
+        Assert.Equal(new[] { "Published", "Pushed-hidden", "Never published", "Local-newer" }, document.QuerySelectorAll("td[data-label='Publish State'] span.admin-badge").Select(x => x.TextContent.Trim()));
+        Assert.NotNull(document.QuerySelector("td[data-label='Publish State'] .admin-badge--success"));
+        Assert.NotNull(document.QuerySelector("td[data-label='Publish State'] .admin-badge--neutral"));
+        Assert.NotNull(document.QuerySelector("td[data-label='Publish State'] .admin-badge--warning"));
+        Assert.NotNull(document.QuerySelector("td[data-label='Publish State'] .admin-badge--info"));
+        Assert.Equal(new[] { "combo", "ramp" }, document.QuerySelectorAll("span.admin-badge.admin-badge--neutral").Where(x => x.TextContent.Trim() is "combo" or "ramp").Select(x => x.TextContent.Trim()));
+        Assert.Empty(document.QuerySelectorAll(".kb-status, .kb-tag"));
+    }
+
+    [Fact]
+    public async Task ContentKbIndex_EntryActionsUseSharedButtonVariants()
+    {
+        var document = await DocumentAsync(Model());
+        var table = document.QuerySelector("table#kb-entries-table")!;
+        Assert.All(table.QuerySelectorAll("button").Where(x => x.TextContent.Trim() is "Publish" or "Unpublish" or "Evergreen: On" or "Evergreen: Off"), x => Assert.True(x.ClassList.Contains("admin-button") && x.ClassList.Contains("admin-button--secondary")));
+        Assert.All(table.QuerySelectorAll("button").Where(x => x.TextContent.Trim() is "Hide" or "Delete"), x => Assert.True(x.ClassList.Contains("admin-button") && x.ClassList.Contains("admin-button--danger") && x.Closest("form[data-admin-confirm-twoclick]") is not null));
+        Assert.NotNull(table.QuerySelector("button[data-confirm-label='Confirm hide'][aria-label=\"Hide 'Visible'\"]"));
+        Assert.NotNull(table.QuerySelector("button[data-confirm-label='Confirm delete'][aria-label=\"Delete 'Visible' permanently\"]"));
+        Assert.All(table.QuerySelectorAll("form.admin-action-form"), x =>
+        {
+            Assert.NotNull(x.QuerySelector("input[name='__RequestVerificationToken']"));
+            Assert.NotNull(x.QuerySelector("input[name='entryId']"));
+            Assert.NotNull(x.QuerySelector("input[name='visibilityFilter']"));
+        });
+        Assert.Empty(table.QuerySelectorAll("button.danger"));
+    }
+
+    [Fact]
+    public async Task ContentKbIndex_EncodesEntryTitleSourceAndTags()
+    {
+        var entry = new KbEntryRow { Id = 1, Title = "<b>t</b>", Source = "<i>s</i>", IsVisible = false, IndexedUtc = DateTimeOffset.UtcNow, PublishState = PublishState.NeverPublished, Tags = new[] { "\"><u>x" } };
+        var document = await DocumentAsync(Model(entries: new[] { entry }));
+        Assert.Empty(document.QuerySelectorAll("b, i, u"));
+        Assert.Equal("<b>t</b>", document.QuerySelector(".admin-kb-title")!.TextContent);
+        Assert.Equal("<i>s</i>", document.QuerySelector(".admin-kb-source")!.TextContent);
+        Assert.Equal("\"><u>x", document.QuerySelector("td[data-label='Tags'] span")!.TextContent);
+    }
+
     private static async Task<AngleSharp.Html.Dom.IHtmlDocument> DocumentAsync(AdminContentKbViewModel model) =>
         new HtmlParser().ParseDocument(await RazorViewRenderer.RenderAsync(model, typeof(AdminContentKbController), "AdminContentKb", new TestRouter()));
 
