@@ -191,7 +191,7 @@ public sealed class ScryfallCollectionCardCache
 
     private static int EstimateSizeChars(ScryfallCard card)
     {
-        var total = card.Name.Length + card.TypeLine.Length;
+        var total = (card.Name?.Length ?? 0) + (card.TypeLine?.Length ?? 0);
         total += card.ManaCost?.Length ?? 0;
         total += card.OracleText?.Length ?? 0;
         total += card.Power?.Length ?? 0;

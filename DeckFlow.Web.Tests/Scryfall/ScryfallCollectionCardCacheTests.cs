@@ -11,6 +11,32 @@ namespace DeckFlow.Web.Tests;
 public sealed class ScryfallCollectionCardCacheTests
 {
     [Fact]
+    public void SetPrintingPositive_CardWithNullTypeLine_DoesNotThrow()
+    {
+        var cache = new ScryfallCollectionCardCache(new FakeFeatureFlagCache(true));
+        var card = Card("Face-Only Card") with { TypeLine = null! };
+
+        var exception = Record.Exception(() => cache.SetPrintingPositive("set", "1", card));
+
+        Assert.Null(exception);
+        Assert.True(cache.TryGetPrinting("set", "1", out var cached));
+        Assert.Same(card, cached);
+    }
+
+    [Fact]
+    public void SetNamePositive_CardWithNullTypeLine_DoesNotThrow()
+    {
+        var cache = new ScryfallCollectionCardCache(new FakeFeatureFlagCache(true));
+        var card = Card("Face-Only Card") with { TypeLine = null! };
+
+        var exception = Record.Exception(() => cache.SetNamePositive("face-only-card", card));
+
+        Assert.Null(exception);
+        Assert.True(cache.TryGetName("face-only-card", out var cached));
+        Assert.Same(card, cached);
+    }
+
+    [Fact]
     public void NameAndPrintingNamespaces_CannotCollide()
     {
         var cache = new ScryfallCollectionCardCache();
