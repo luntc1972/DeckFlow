@@ -8,15 +8,14 @@
     var toolCount = Model.Sections.Sum(section => section.Tools.Count);
 }
 
-<section class="admin-tools">
     @if (!string.IsNullOrEmpty(actionMessage))
     {
-        <div class="admin-banner admin-banner--success">@actionMessage</div>
+        <div class="admin-banner admin-banner--success" role="status">@actionMessage</div>
     }
 
     @if (Model.DisabledCoreToolLabels.Count > 0)
     {
-        <div class="admin-banner admin-banner--warn" role="status">
+        <div class="admin-banner admin-banner--warning" role="status">
             <strong>Core Analyze workflow warning.</strong>
             @if (!string.IsNullOrEmpty(warningMessage))
             {
@@ -69,16 +68,25 @@
                                 <span>@tool.Label</span>
                                 @if (tool.Core)
                                 {
-                                    <span class="admin-tools__core-badge">Core</span>
+                                    <span class="admin-badge admin-badge--warning">Core</span>
                                 }
                             </td>
                             <td data-label="Flag"><code>@tool.FlagKey</code></td>
-                            <td data-label="Status">@(tool.Enabled ? "On" : "Off")</td>
+                            <td data-label="Status">
+                                @if (tool.Enabled)
+                                {
+                                    <span class="admin-badge admin-badge--success">On</span>
+                                }
+                                else
+                                {
+                                    <span class="admin-badge admin-badge--neutral">Off</span>
+                                }
+                            </td>
                             <td data-label="Action">
                                 <form method="post" action="@Url.Content($"~/Admin/Tools/{tool.FlagKey}/toggle")" class="admin-action-form">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="enabled" value="@((!tool.Enabled).ToString().ToLowerInvariant())" />
-                                    <button type="submit">@(tool.Enabled ? "Disable" : "Enable")</button>
+                                    <button type="submit" class="admin-button admin-button--secondary">@(tool.Enabled ? "Disable" : "Enable")</button>
                                 </form>
                             </td>
                         </tr>
@@ -89,8 +97,6 @@
         }
         <p class="admin-filter__empty hidden" id="tools-filter-empty">No tools match the current filter.</p>
     </div>
-</section>
-
 @section Scripts {
     <script src="~/js/flag-filter.js" asp-append-version="true"></script>
     <script src="~/js/admin-tools.js" asp-append-version="true"></script>
