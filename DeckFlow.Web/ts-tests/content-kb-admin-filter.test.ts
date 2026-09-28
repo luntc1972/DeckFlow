@@ -14,7 +14,7 @@ const TABLE_HTML = `
   <table id="kb-entries-table"><tbody>
     <tr data-kb-search="alpha snail combo" data-kb-source="Example Creator"><td>a</td></tr>
     <tr data-kb-search="beta based ramp" data-kb-source="Based Deck Department"><td>b</td></tr>
-    <tr class="kb-filter__empty-row hidden" id="kb-filter-empty"><td>none</td></tr>
+    <tr class="admin-filter__empty-row hidden" id="kb-filter-empty"><td>none</td></tr>
   </tbody></table>
 `;
 
