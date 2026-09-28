@@ -2,6 +2,7 @@
 @model DeckFlow.Web.Controllers.Admin.AdminToolsListViewModel
 @{
     ViewData["Title"] = "Tools";
+    ViewData["Lede"] = "Turn public tools on or off; cascades to home tile, nav, help, and route.";
     var actionMessage = TempData["AdminToolsAction"] as string;
     var warningMessage = TempData["AdminToolsWarning"] as string;
     var toolCount = Model.Sections.Sum(section => section.Tools.Count);
@@ -31,23 +32,25 @@
 
     @if (toolCount > 0)
     {
-        <div class="tools-filter hidden">
-            <label for="tools-filter-search">Filter by tool name or flag key prefix</label>
-            <input id="tools-filter-search" type="search" autocomplete="off" placeholder="e.g. cut or tool.cut" aria-controls="tools-sections" />
-            <div class="tools-filter__chips" role="group" aria-label="Status filter">
-                <button type="button" class="tools-filter__chip is-active" data-tools-status="" aria-pressed="true">All statuses</button>
-                <button type="button" class="tools-filter__chip" data-tools-status="on" aria-pressed="false">Enabled</button>
-                <button type="button" class="tools-filter__chip" data-tools-status="off" aria-pressed="false">Disabled</button>
+        <div class="admin-filter hidden" data-tools-filter>
+            <div class="admin-field admin-filter-search">
+                <label for="tools-filter-search">Filter by tool name or flag key prefix</label>
+                <input id="tools-filter-search" type="search" autocomplete="off" placeholder="e.g. cut or tool.cut" aria-controls="tools-sections" />
             </div>
-            <p class="tools-filter__count" id="tools-filter-count" role="status" aria-live="polite"></p>
+            <div class="admin-filter-chips" role="group" aria-label="Status filter">
+                <button type="button" class="admin-filter-chips__chip is-active" data-tools-status="" aria-pressed="true">All statuses</button>
+                <button type="button" class="admin-filter-chips__chip" data-tools-status="on" aria-pressed="false">Enabled</button>
+                <button type="button" class="admin-filter-chips__chip" data-tools-status="off" aria-pressed="false">Disabled</button>
+            </div>
+            <p class="admin-filter__count" id="tools-filter-count" role="status" aria-live="polite"></p>
         </div>
     }
 
-    <div id="tools-sections">
+    <div class="admin-stack" id="tools-sections">
         @foreach (var toolSection in Model.Sections)
         {
-            <section class="admin-tools__section" aria-labelledby="tools-@toolSection.Section-heading">
-            <h2 id="tools-@toolSection.Section-heading">@toolSection.Section</h2>
+            <section class="admin-card" data-tools-section aria-labelledby="tools-@toolSection.Section-heading">
+            <h2 class="admin-card__title" id="tools-@toolSection.Section-heading">@toolSection.Section</h2>
             <table class="admin-table admin-table--card">
                 <caption class="sr-only">@toolSection.Section tools and their current on/off status</caption>
                 <thead>
@@ -84,7 +87,7 @@
             </table>
             </section>
         }
-        <p class="tools-filter__empty hidden" id="tools-filter-empty">No tools match the current filter.</p>
+        <p class="admin-filter__empty hidden" id="tools-filter-empty">No tools match the current filter.</p>
     </div>
 </section>
 

@@ -31,7 +31,9 @@ public sealed class AdminToolsViewRenderTests
         Assert.NotNull(document.QuerySelector("label[for=tools-filter-search]"));
         Assert.Equal(new[] { "", "on", "off" }, document.QuerySelectorAll("button[data-tools-status]").Select(x => x.GetAttribute("data-tools-status")));
         Assert.Equal("true", document.QuerySelector("button[data-tools-status]")!.GetAttribute("aria-pressed"));
-        Assert.Contains("hidden", document.QuerySelector(".tools-filter")!.ClassList);
+        var filter = document.QuerySelector("[data-tools-filter]")!;
+        Assert.Contains("hidden", filter.ClassList);
+        Assert.Contains("admin-filter", filter.ClassList);
         Assert.Equal("polite", document.QuerySelector("#tools-filter-count")!.GetAttribute("aria-live"));
         Assert.Contains("hidden", document.QuerySelector("#tools-filter-empty")!.ClassList);
     }
@@ -68,9 +70,43 @@ public sealed class AdminToolsViewRenderTests
     {
         var document = new HtmlParser().ParseDocument(await RenderAsync(Model()));
         Assert.Equal("tools-sections", document.QuerySelector("#tools-filter-search")!.GetAttribute("aria-controls"));
-        Assert.NotEmpty(document.QuerySelector("#tools-sections")!.QuerySelectorAll("section.admin-tools__section"));
+        Assert.NotEmpty(document.QuerySelector("#tools-sections")!.QuerySelectorAll("section[data-tools-section]"));
         Assert.NotNull(document.QuerySelector("#tools-sections #tools-filter-empty"));
         Assert.Null(document.QuerySelector("tbody #tools-filter-empty"));
+    }
+
+    [Fact]
+    public async Task ToolsIndex_FilterUsesSharedFilterComponents()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(Model()));
+        var filter = document.QuerySelector("[data-tools-filter]")!;
+        Assert.NotNull(filter.QuerySelector(".admin-field.admin-filter-search label[for=tools-filter-search]"));
+        Assert.NotNull(filter.QuerySelector(".admin-field.admin-filter-search input#tools-filter-search"));
+        var chips = filter.QuerySelectorAll(".admin-filter-chips[role=group][aria-label='Status filter'] button");
+        Assert.Equal(3, chips.Length);
+        Assert.All(chips, chip => Assert.Contains("admin-filter-chips__chip", chip.ClassList));
+        Assert.Contains("admin-filter__count", document.QuerySelector("#tools-filter-count")!.ClassList);
+        var empty = document.QuerySelector("#tools-filter-empty")!;
+        Assert.Contains("admin-filter__empty", empty.ClassList);
+        Assert.Contains("hidden", empty.ClassList);
+        Assert.Null(document.QuerySelector(".tools-filter, .tools-filter__chips, .tools-filter__chip, .tools-filter__count, .tools-filter__empty"));
+    }
+
+    [Fact]
+    public async Task ToolsIndex_SectionsAreSharedCards()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(Model()));
+        var sections = document.QuerySelectorAll("section[data-tools-section]");
+        Assert.NotEmpty(sections);
+        Assert.All(sections, section =>
+        {
+            Assert.Contains("admin-card", section.ClassList);
+            var headingId = section.GetAttribute("aria-labelledby");
+            Assert.NotNull(headingId);
+            Assert.Equal(headingId, section.QuerySelector("h2.admin-card__title")!.Id);
+        });
+        Assert.Contains("admin-stack", document.QuerySelector("#tools-sections")!.ClassList);
+        Assert.Null(document.QuerySelector(".admin-tools__section"));
     }
 
     [Fact]
