@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AngleSharp.Html.Parser;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.MeasuredStyleExtraction;
 using DeckFlow.Web.Controllers.Admin;
@@ -182,6 +183,39 @@ public sealed class AdminCreatorProfileViewRenderTests
 
         Assert.DoesNotContain("<script>alert('x')</script>", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<script>", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Index_EmptyModel_UsesSharedFormCardFieldsAndPrimaryRun()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorProfileViewModel()));
+        var form = Assert.Single(document.QuerySelectorAll("form.admin-card[aria-label='Creator profile run form']"));
+        Assert.Equal(4, form.QuerySelectorAll(".admin-field").Length);
+        Assert.NotNull(form.QuerySelector("button.admin-button.admin-button--primary"));
+        Assert.Empty(document.QuerySelectorAll("h1, .admin-tools, .lede, .error-banner, .warning-banner"));
+    }
+
+    [Fact]
+    public async Task Index_ErrorAndInsufficientSample_UsesDangerBanner()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorProfileViewModel { ErrorMessage = "crawl failed <b>x</b>" }));
+        var banner = Assert.Single(document.QuerySelectorAll("div.admin-banner.admin-banner--danger[role=alert]"));
+        Assert.Equal("crawl failed <b>x</b>", banner.TextContent.Trim());
+        Assert.Empty(document.QuerySelectorAll("b"));
+    }
+
+    [Fact]
+    public async Task Index_EmptyModel_UsesSingleAdminStack()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorProfileViewModel()));
+        Assert.Single(document.QuerySelectorAll("div.admin-stack"));
+    }
+
+    [Fact]
+    public async Task Index_EmptyModel_RunFormHasNoTable()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorProfileViewModel()));
+        Assert.Null(document.QuerySelector("form.admin-card table"));
     }
 
     private static async Task<string> RenderAsync(AdminCreatorProfileViewModel model)
