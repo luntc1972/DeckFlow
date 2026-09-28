@@ -213,7 +213,7 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-hub-card:hover, .admin-shell .admin-hub-card:focus-visible { border-color: var(--accent); transform: translateY(-1px); text-decoration: none; }
 .admin-shell .admin-hub-card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .admin-shell .admin-hub-card__title { margin: 0; font-size: var(--text-body); font-weight: 600; color: var(--text); }
-.admin-shell .admin-hub-card__description { margin: 0; font-size: var(--text-label); color: var(--muted); line-height: var(--text-body-leading); }
+.admin-shell .admin-hub-card__description { margin: 0; font-size: var(--text-label); color: var(--muted); line-height: var(--text-label-leading); }
 
 .admin-shell .admin-hub-personal-tools { margin-top: var(--space-xl); padding-top: var(--space-lg); border-top: 1px solid var(--border); }
 .admin-shell .admin-hub-personal-tools__title { margin: 0 0 var(--space-xs); font-size: var(--text-heading); font-weight: 600; color: var(--text); }
@@ -296,7 +296,7 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-table td:not(.route) { font-variant-numeric: tabular-nums; }
 
 /* Flag descriptions: readable wrapped prose, capped so the key/status/action columns keep room. */
-.admin-shell .admin-flags__desc { font-variant-numeric: normal; max-width: 46ch; white-space: normal; color: var(--muted, inherit); font-size: var(--text-label); line-height: var(--text-body-leading); }
+.admin-shell .admin-flags__desc { font-variant-numeric: normal; max-width: 46ch; white-space: normal; color: var(--muted, inherit); font-size: var(--text-label); line-height: var(--text-label-leading); }
 
 .admin-shell .admin-action-form { display: inline; }
 .admin-shell .admin-action-form button { background: var(--accent); color: var(--on-accent); border: none; padding: var(--space-sm) var(--space-md); border-radius: 3px; cursor: pointer; font-size: var(--text-label); }
@@ -416,7 +416,7 @@ a:hover { text-decoration: underline; }
 
 .admin-shell .admin-sparkline {
   color: var(--muted);
-  line-height: var(--text-body-leading);
+  line-height: 0;
 }
 
 .admin-shell .admin-empty {
@@ -683,7 +683,7 @@ a:hover { text-decoration: underline; }
   margin: 0 0 var(--space-md) 0;
   font-size: var(--text-heading);
   font-weight: 600;
-  line-height: var(--text-body-leading);
+  line-height: var(--text-heading-leading);
   text-wrap: balance;
   color: var(--text);
 }
@@ -691,7 +691,7 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-modal__message {
   margin: 0 0 var(--space-lg) 0;
   font-size: var(--text-body);
-  line-height: var(--text-body-leading);
+  line-height: var(--text-label-leading);
   color: var(--text);
   word-wrap: break-word;
   overflow-wrap: anywhere;
