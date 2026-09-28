@@ -1,98 +1,73 @@
 @model DeckFlow.Web.Controllers.Admin.AdminFeedbackListViewModel
 @using DeckFlow.Web.Models
 @{
-    ViewData["Title"] = "Admin — Feedback";
+    ViewData["Title"] = "Feedback";
+    ViewData["Lede"] = "Review and triage user-submitted feedback and bug reports.";
     var actionMessage = TempData["AdminFeedbackAction"] as string;
 }
 
-<section class="admin-feedback">
-    <h1>Feedback</h1>
+@if (!string.IsNullOrEmpty(actionMessage))
+{
+    <div class="admin-banner admin-banner--success" role="status">@actionMessage</div>
+}
 
-    @if (!string.IsNullOrEmpty(actionMessage))
-    {
-        <div class="feedback-banner feedback-banner--success">@actionMessage</div>
-    }
-
-    <div class="admin-feedback-filters">
-        @{
-            FeedbackStatus?[] statuses = new FeedbackStatus?[] { FeedbackStatus.New, FeedbackStatus.Read, FeedbackStatus.Archived, null };
-        }
+<div class="admin-filter">
+    <nav class="admin-filter-chips" aria-label="Status filter">
+        @{ FeedbackStatus?[] statuses = new FeedbackStatus?[] { FeedbackStatus.New, FeedbackStatus.Read, FeedbackStatus.Archived, null }; }
         @foreach (var s in statuses)
         {
             var label = s.HasValue ? s.Value.ToString() : "All";
             var count = s.HasValue ? Model.CountsByStatus.GetValueOrDefault(s.Value, 0) : Model.CountsByStatus.Values.Sum();
-            var active = (Model.StatusFilter == s) ? "active" : "";
-            <a class="admin-feedback-filter @active" asp-action="Index" asp-route-status="@(s?.ToString())" asp-route-type="@Model.TypeFilter">
-                @label (@count)
-            </a>
+            var isActive = Model.StatusFilter == s;
+            <a class="admin-filter-chips__chip @(isActive ? "is-active" : "")" asp-action="Index" asp-route-status="@(s?.ToString())" asp-route-type="@Model.TypeFilter" aria-current="@(isActive ? "true" : null)">@label (@count)</a>
         }
+    </nav>
+    <form method="get" asp-action="Index" class="admin-field">
+        <input type="hidden" name="status" value="@Model.StatusFilter" />
+        <label for="typeSelect">Type:</label>
+        <select id="typeSelect" name="type" data-admin-feedback-submit-on-change data-df-select>
+            <option value="">All</option>
+            @foreach (var t in Enum.GetValues<FeedbackType>())
+            {
+                <option value="@t" selected="@(Model.TypeFilter == t)">@t</option>
+            }
+        </select>
+    </form>
+</div>
 
-        <form method="get" asp-action="Index" class="admin-feedback-type">
-            <input type="hidden" name="status" value="@Model.StatusFilter" />
-            <label for="typeSelect">Type:</label>
-            <select id="typeSelect" name="type" data-admin-feedback-submit-on-change data-df-select>
-                <option value="">All</option>
-                @foreach (var t in Enum.GetValues<FeedbackType>())
-                {
-                    <option value="@t" selected="@(Model.TypeFilter == t)">@t</option>
-                }
-            </select>
-        </form>
-    </div>
-
+<section class="admin-card" aria-label="Feedback submissions">
     @if (Model.Items.Count == 0)
     {
-        <p class="admin-feedback-empty">No feedback in this view.</p>
+        <p class="admin-empty">No feedback in this view.</p>
     }
     else
     {
-        <table class="admin-feedback-table admin-table--card">
+        <table class="admin-table admin-table--card">
             <caption class="sr-only">User feedback submissions, filtered by status and type</caption>
-            <thead>
-                <tr>
-                    <th scope="col">Created (UTC)</th>
-                    <th scope="col">Type</th>
-                    <th scope="col">Message</th>
-                    <th scope="col">Email</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Actions</th>
-                </tr>
-            </thead>
+            <thead><tr><th scope="col">Created (UTC)</th><th scope="col">Type</th><th scope="col">Message</th><th scope="col">Email</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
             <tbody>
             @foreach (var item in Model.Items)
             {
                 var preview = item.Message.Length > 80 ? item.Message.Substring(0, 80) + "…" : item.Message;
+                var statusClass = item.Status == FeedbackStatus.New ? "admin-badge--info" : "admin-badge--neutral";
                 <tr>
                     <td data-label="Created (UTC)"><time datetime="@item.CreatedUtc.ToString("o")" title="@item.CreatedUtc.ToLocalTime()">@item.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</time></td>
-                    <td data-label="Type"><span class="type-badge type-@item.Type.ToString().ToLower()">@FeedbackTypeDisplay.GetDisplayName(item.Type)</span></td>
-                    <td data-label="Message">@preview</td>
-                    <td data-label="Email">@item.Email</td>
-                    <td data-label="Status">@item.Status</td>
-                    <td data-label="Actions">
-                        <a asp-action="Detail" asp-route-id="@item.Id">View</a>
-                        @if (item.Status != FeedbackStatus.Archived)
-                        {
-                            <form method="post" asp-action="Apply" asp-route-id="@item.Id" asp-route-op="archive" class="admin-action-form">
-                                @Html.AntiForgeryToken()
-                                <button type="submit">Archive</button>
-                            </form>
-                        }
+                    <td data-label="Type"><span class="admin-badge admin-badge--neutral">@FeedbackTypeDisplay.GetDisplayName(item.Type)</span></td><td data-label="Message">@preview</td><td data-label="Email">@item.Email</td>
+                    <td data-label="Status"><span class="admin-badge @statusClass">@item.Status</span></td>
+                    <td data-label="Actions"><a asp-action="Detail" asp-route-id="@item.Id">View</a>
+                    @if (item.Status != FeedbackStatus.Archived)
+                    {
+                        <form method="post" asp-action="Apply" asp-route-id="@item.Id" asp-route-op="archive">@Html.AntiForgeryToken()<button type="submit" class="admin-button admin-button--secondary">Archive</button></form>
+                    }
                     </td>
                 </tr>
             }
             </tbody>
         </table>
-
-        <nav class="admin-feedback-pagination">
-            @if (Model.Page > 1)
-            {
-                <a asp-action="Index" asp-route-status="@(Model.StatusFilter?.ToString())" asp-route-type="@Model.TypeFilter" asp-route-page="@(Model.Page - 1)">Prev</a>
-            }
+        <nav class="admin-pagination" aria-label="Pagination">
+            @if (Model.Page > 1) { <a asp-action="Index" asp-route-status="@(Model.StatusFilter?.ToString())" asp-route-type="@Model.TypeFilter" asp-route-page="@(Model.Page - 1)">Prev</a> }
             <span>Page @Model.Page of @Model.TotalPages</span>
-            @if (Model.Page < Model.TotalPages)
-            {
-                <a asp-action="Index" asp-route-status="@(Model.StatusFilter?.ToString())" asp-route-type="@Model.TypeFilter" asp-route-page="@(Model.Page + 1)">Next</a>
-            }
+            @if (Model.Page < Model.TotalPages) { <a asp-action="Index" asp-route-status="@(Model.StatusFilter?.ToString())" asp-route-type="@Model.TypeFilter" asp-route-page="@(Model.Page + 1)">Next</a> }
         </nav>
     }
 </section>

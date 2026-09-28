@@ -34,3 +34,59 @@ test('analytics range chips sit in the page header actions', async ({ page }) =>
   await page.setViewportSize({ width: 375, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
+
+test('feedback list and seeded detail use the shared components and delete confirms', async ({ page }) => {
+  const marker = `p04-08 e2e feedback ${crypto.randomUUID().replaceAll('-', '').slice(0, 16)}`;
+  let feedbackId: string | undefined;
+  const feedbackPath = (url: URL) => url.pathname.toLowerCase() === '/feedback';
+  await page.route(feedbackPath, async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+    await route.continue({ headers: { ...route.request().headers(), 'cf-connecting-ip': '2001:db8:1:2:3:4' } });
+  });
+  try {
+    await page.goto('/Feedback');
+    await page.getByLabel('Message').fill(marker);
+    await page.getByRole('button', { name: 'Send Feedback' }).click();
+    await expect(page.locator('.feedback-banner--success[role=status]')).toBeVisible();
+    await page.unroute(feedbackPath);
+    await page.goto('/Admin/Feedback');
+    const row = page.locator('tr', { hasText: marker });
+    await expect(row).toHaveCount(1);
+    const view = row.getByRole('link', { name: 'View' });
+    feedbackId = new URL(await view.getAttribute('href')!, page.url()).pathname.match(/\/(\d+)$/)?.[1];
+    expect(feedbackId).toBeTruthy();
+    await expect(page.locator('h1')).toHaveText('Feedback');
+    await expect(page.locator('.admin-page-header__lede')).toHaveText('Review and triage user-submitted feedback and bug reports.');
+    await expect(page.locator('nav[aria-label="Status filter"] a.admin-filter-chips__chip')).toHaveCount(4);
+    await view.click();
+    await expect(page.locator('h1')).toHaveText(`Feedback #${feedbackId}`);
+    await expect(page.locator('pre.admin-artifact')).toContainText(marker);
+    const deleteForm = page.locator(`form[data-admin-confirm-delete][data-admin-feedback-id="${feedbackId}"]`);
+    await expect(deleteForm.locator('button.admin-button--danger')).toBeVisible();
+    let deletes = 0;
+    await page.route((url) => url.pathname.toLowerCase() === `/admin/feedback/${feedbackId}/delete`, async (route) => {
+      deletes++;
+      await route.continue();
+    });
+    await deleteForm.getByRole('button', { name: 'Delete' }).click();
+    await page.locator('[data-admin-modal-cancel]').click();
+    expect(deletes).toBe(0);
+    await deleteForm.getByRole('button', { name: 'Delete' }).click();
+    await page.locator('[data-admin-modal-confirm]').click();
+    await expect(page).toHaveURL(/\/admin\/feedback$/i);
+    expect(deletes).toBe(1);
+    await expect(page.locator('tr', { hasText: marker })).toHaveCount(0);
+    feedbackId = undefined;
+  } finally {
+    if (feedbackId) {
+      await page.goto(`/Admin/Feedback/${feedbackId}`);
+      const form = page.locator('form[data-admin-confirm-delete]');
+      if (await form.count()) {
+        await Promise.all([page.waitForURL(/\/admin\/feedback$/i), form.evaluate((element: HTMLFormElement) => element.submit())]);
+      }
+    }
+  }
+});

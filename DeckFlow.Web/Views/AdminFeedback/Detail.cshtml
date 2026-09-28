@@ -1,50 +1,43 @@
 @model DeckFlow.Web.Models.FeedbackItem
 @{
     ViewData["Title"] = $"Feedback #{Model.Id}";
+    ViewData["Lede"] = "Read the full submission and triage it.";
+    var statusClass = Model.Status == DeckFlow.Web.Models.FeedbackStatus.New ? "admin-badge--info" : "admin-badge--neutral";
 }
 
-<section class="admin-feedback-detail">
-    <p><a asp-action="Index">← Back to list</a></p>
-
-    <h1>Feedback #@Model.Id</h1>
-    <dl class="detail-grid">
-        <dt>Created (UTC)</dt><dd>@Model.CreatedUtc.ToString("yyyy-MM-dd HH:mm:ss")</dd>
-        <dt>Type</dt><dd>@FeedbackTypeDisplay.GetDisplayName(Model.Type)</dd>
-        <dt>Status</dt><dd>@Model.Status</dd>
-        <dt>Email</dt><dd>@(Model.Email ?? "(none)")</dd>
-        <dt>Page URL</dt><dd>@(Model.PageUrl ?? "(none)")</dd>
-        <dt>User agent</dt><dd>@(Model.UserAgent ?? "(none)")</dd>
-        <dt>IP hash</dt><dd><code>@(Model.IpHash ?? "(none)")</code></dd>
-        <dt>App version</dt><dd>@(Model.AppVersion ?? "(none)")</dd>
-    </dl>
-
-    <h2>Message</h2>
-    <pre class="detail-message">@Model.Message</pre>
-
-    <div class="detail-actions">
-        @if (Model.Status == DeckFlow.Web.Models.FeedbackStatus.New)
-        {
-            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="markRead" class="admin-action-form">
-                @Html.AntiForgeryToken()
-                <button type="submit">Mark Read</button>
+<p><a class="admin-button admin-button--secondary" asp-action="Index">← Back to list</a></p>
+<div class="admin-stack">
+    <section class="admin-card" aria-label="Submission details">
+        <dl class="detail-grid">
+            <dt>Created (UTC)</dt><dd>@Model.CreatedUtc.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+            <dt>Type</dt><dd><span class="admin-badge admin-badge--neutral">@FeedbackTypeDisplay.GetDisplayName(Model.Type)</span></dd>
+            <dt>Status</dt><dd><span class="admin-badge @statusClass">@Model.Status</span></dd>
+            <dt>Email</dt><dd>@(Model.Email ?? "(none)")</dd>
+            <dt>Page URL</dt><dd>@(Model.PageUrl ?? "(none)")</dd>
+            <dt>User agent</dt><dd>@(Model.UserAgent ?? "(none)")</dd>
+            <dt>IP hash</dt><dd><code>@(Model.IpHash ?? "(none)")</code></dd>
+            <dt>App version</dt><dd>@(Model.AppVersion ?? "(none)")</dd>
+        </dl>
+    </section>
+    <section class="admin-card" aria-labelledby="feedback-message-heading">
+        <h2 id="feedback-message-heading" class="admin-card__title">Message</h2>
+        <pre class="admin-artifact">@Model.Message</pre>
+        <div class="admin-card__actions">
+            @if (Model.Status == DeckFlow.Web.Models.FeedbackStatus.New)
+            {
+                <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="markRead">@Html.AntiForgeryToken()<button type="submit" class="admin-button admin-button--secondary">Mark Read</button></form>
+            }
+            @if (Model.Status != DeckFlow.Web.Models.FeedbackStatus.Archived)
+            {
+                <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="archive">@Html.AntiForgeryToken()<button type="submit" class="admin-button admin-button--secondary">Archive</button></form>
+            }
+            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete" data-admin-confirm-delete data-admin-feedback-id="@Model.Id">
+                @Html.AntiForgeryToken()<button type="submit" class="admin-button admin-button--danger">Delete</button>
             </form>
-        }
-        @if (Model.Status != DeckFlow.Web.Models.FeedbackStatus.Archived)
-        {
-            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="archive" class="admin-action-form">
-                @Html.AntiForgeryToken()
-                <button type="submit">Archive</button>
-            </form>
-        }
-        <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete"
-              class="admin-action-form" data-admin-confirm-delete data-admin-feedback-id="@Model.Id">
-            @Html.AntiForgeryToken()
-            <button type="submit" class="danger">Delete</button>
-        </form>
-    </div>
-
-    @await Html.PartialAsync("_AdminConfirmModal")
-</section>
+        </div>
+    </section>
+</div>
+@await Html.PartialAsync("_AdminConfirmModal")
 
 @section Scripts
 {
