@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Diagnostics;
 using Dapper;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
@@ -194,9 +195,12 @@ internal sealed class CardCategoryRepository
     /// exactly as the per-card path does. Blank names are skipped.
     /// </summary>
     /// <param name="cardNames">Card names to resolve (display spellings; duplicates share one lookup).</param>
+    /// <param name="timingReporter">Optional callback for reporting lookup step timings.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
     internal async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(
-        IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
+        IReadOnlyCollection<string> cardNames,
+        Action<string, long, int>? timingReporter = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(cardNames);
 
@@ -216,12 +220,17 @@ internal sealed class CardCategoryRepository
             return result;
         }
 
+        var stopwatch = Stopwatch.StartNew();
         await _schema.EnsureSchemaAsync(cancellationToken);
+        timingReporter?.Invoke("EnsureSchemaAsync", stopwatch.ElapsedMilliseconds, normalizedKeys.Count);
         await using var connection = CreateConnection();
+        stopwatch.Restart();
         await connection.OpenAsync(cancellationToken);
+        timingReporter?.Invoke("OpenAsync", stopwatch.ElapsedMilliseconds, normalizedKeys.Count);
 
         // Why: Dapper binds lists as arrays on Npgsql, so PostgreSQL requires ANY instead of IN.
         var membershipOperator = _connectionInfo.IsPostgres ? "= ANY(@normalized)" : "IN @normalized";
+        stopwatch.Restart();
         var rows = await connection.QueryAsync<CardCategoryNameRow>(new CommandDefinition(
             $"""
             SELECT c.normalized_card_name AS NormalizedCardName, o.category AS Category
@@ -233,6 +242,7 @@ internal sealed class CardCategoryRepository
             """,
             new { normalized = normalizedKeys.ToList() },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
+        timingReporter?.Invoke("QueryAsync", stopwatch.ElapsedMilliseconds, normalizedKeys.Count);
 
         var categoriesByNormalized = rows
             .GroupBy(row => row.NormalizedCardName, StringComparer.Ordinal)

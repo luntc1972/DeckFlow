@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using DeckFlow.Core.Manabase;
@@ -106,7 +107,7 @@ public sealed class ManabaseController : DeckToolControllerBase
 
         return await RunGuardedAsync(request, focusedTierEnabled, baselineEnabled, "load",
             "Something went wrong loading that deck. Please try again.",
-            async token =>
+            async (token, _) =>
             {
                 var result = await _manabaseAnalysisService.LoadAsync(request.DeckSource, token);
 
@@ -138,11 +139,11 @@ public sealed class ManabaseController : DeckToolControllerBase
 
         return await RunGuardedAsync(request, focusedTierEnabled, baselineEnabled, "analysis",
             "Something went wrong analyzing that deck. Please try again.",
-            async token =>
+            async (token, tracker) =>
             {
                 ManabaseCostOverrideParser.OverrideParseResult parsed =
                     ManabaseCostOverrideParser.ParseWithDiagnostics(request.CostOverridesText);
-                var result = await RunAnalysisAsync(request, parsed.Overrides, token);
+                var result = await RunAnalysisAsync(request, parsed.Overrides, token, tracker);
                 if (result.CommanderSelectionRequired || result.Report is null)
                 {
                     return View("Manabase", BuildCommanderSelectionViewModel(request, result, focusedTierEnabled, baselineEnabled));
@@ -209,10 +210,10 @@ public sealed class ManabaseController : DeckToolControllerBase
 
         return await RunGuardedAsync(request, focusedTierEnabled, baselineEnabled, "download",
             "Something went wrong analyzing that deck. Please try again.",
-            async token =>
+            async (token, tracker) =>
             {
                 var result = await RunAnalysisAsync(
-                    request, ManabaseCostOverrideParser.Parse(request.CostOverridesText), token);
+                    request, ManabaseCostOverrideParser.Parse(request.CostOverridesText), token, tracker);
                 if (result.CommanderSelectionRequired || result.Report is null)
                 {
                     return View("Manabase", BuildCommanderSelectionViewModel(request, result, focusedTierEnabled, baselineEnabled));
@@ -312,7 +313,8 @@ public sealed class ManabaseController : DeckToolControllerBase
     private async Task<ManabaseAnalysisResult> RunAnalysisAsync(
         ManabaseRequest request,
         IReadOnlyDictionary<string, string> overrides,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ManabaseStageTracker stageTracker)
     {
         (int? bracket, ManabaseBracketSource? bracketSource) =
             await ResolveEffectiveBracketAsync(request, cancellationToken);
@@ -330,6 +332,7 @@ public sealed class ManabaseController : DeckToolControllerBase
                 Bracket = bracket,
                 BracketSource = bracketSource,
             },
+            stageTracker,
             cancellationToken);
     }
 
@@ -372,17 +375,24 @@ public sealed class ManabaseController : DeckToolControllerBase
         bool baselineEnabled,
         string operation,
         string unexpectedMessage,
-        Func<CancellationToken, Task<IActionResult>> body)
+        Func<CancellationToken, ManabaseStageTracker, Task<IActionResult>> body)
     {
+        Stopwatch requestStopwatch = Stopwatch.StartNew();
         using var timeoutScope = CreateTimeoutScope(LookupTimeout);
+        var stageTracker = new ManabaseStageTracker();
 
         try
         {
-            return await body(timeoutScope.Token);
+            return await body(timeoutScope.Token, stageTracker);
         }
         catch (OperationCanceledException) when (timeoutScope.IsCancellationRequested)
         {
-            _logger.LogInformation("Mana-base {Operation} timed out.", operation);
+            _logger.LogWarning(
+                "Mana-base {Operation} timed out during stage {Stage} after {ElapsedMs} ms; completed stages: {Stages}",
+                operation,
+                stageTracker.CurrentStage ?? "none",
+                requestStopwatch.ElapsedMilliseconds,
+                stageTracker.CompletedStagesSummary);
             return View("Manabase", new ManabaseViewModel
             {
                 Request = request,

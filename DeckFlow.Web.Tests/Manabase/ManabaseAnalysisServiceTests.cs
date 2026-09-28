@@ -1306,7 +1306,7 @@ public sealed class ManabaseAnalysisServiceTests
             BindingFlags.Instance | BindingFlags.NonPublic)!;
         Task<ManabaseDeck> tagTask = (Task<ManabaseDeck>)tagPlanRoles.Invoke(
             service,
-            new object[] { classified, facts, entries, ManabaseMode.Cedh, CancellationToken.None })!;
+            new object[] { classified, facts, entries, ManabaseMode.Cedh, new ManabaseStageTracker(), CancellationToken.None })!;
         ManabaseDeck tagged = await tagTask;
         SpellRequirement counterspell = Assert.Single(tagged.Spells, spell => spell.Name == "Counterspell");
         Assert.False(counterspell.PlanRoles.HasFlag(PlanRole.Interaction));

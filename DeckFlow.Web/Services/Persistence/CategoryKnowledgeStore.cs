@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Threading;
@@ -102,8 +103,21 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     public async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(cardNames);
+        Stopwatch stopwatch = Stopwatch.StartNew();
         await EnsureSchemaReadyAsync(cancellationToken);
-        return await _repository.GetCategoriesForNamesAsync(cardNames, cancellationToken);
+        _logger?.LogInformation(
+            "Category lookup step {Step} took {ElapsedMs} ms for {NameCount} names",
+            "EnsureSchemaReadyAsync",
+            stopwatch.ElapsedMilliseconds,
+            cardNames.Count);
+        return await _repository.GetCategoriesForNamesAsync(
+            cardNames,
+            timingReporter: (step, elapsedMs, nameCount) => _logger?.LogInformation(
+                "Category lookup step {Step} took {ElapsedMs} ms for {NameCount} names",
+                step,
+                elapsedMs,
+                nameCount),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>

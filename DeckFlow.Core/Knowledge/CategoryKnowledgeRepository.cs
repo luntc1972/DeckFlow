@@ -79,10 +79,16 @@ public sealed class CategoryKnowledgeRepository
     /// single query. Returns a dictionary keyed by the original requested name (case-insensitive).
     /// </summary>
     /// <param name="cardNames">Card names to resolve.</param>
+    /// <param name="timingReporter">Optional callback for reporting lookup step timings.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
     public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(
-        IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
-        => _cardCategory.GetCategoriesForNamesAsync(cardNames, cancellationToken);
+        IReadOnlyCollection<string> cardNames,
+        Action<string, long, int>? timingReporter = null,
+        CancellationToken cancellationToken = default)
+        => _cardCategory.GetCategoriesForNamesAsync(
+            cardNames,
+            timingReporter: timingReporter,
+            cancellationToken: cancellationToken);
 
     /// <summary>
     /// Retrieves detail rows for a card, including display name and count.

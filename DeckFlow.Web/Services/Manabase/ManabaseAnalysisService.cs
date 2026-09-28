@@ -31,6 +31,15 @@ public interface IManabaseAnalysisService
         ManabaseAnalysisOptions? options = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Analyze with request-scoped stage timing diagnostics.</summary>
+    Task<ManabaseAnalysisResult> AnalyzeAsync(
+        string deckSource,
+        string? deckName,
+        ManabaseAnalysisOptions? options,
+        ManabaseStageTracker stageTracker,
+        CancellationToken cancellationToken = default)
+        => AnalyzeAsync(deckSource, deckName, options, cancellationToken);
+
     /// <summary>
     /// Resolve the deck and detect its reduced/alternative-cost suggestions WITHOUT running the
     /// (expensive) castability simulation. Backs the "Load deck" step so the user can review and
@@ -374,6 +383,15 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         string? deckName,
         ManabaseAnalysisOptions? options = null,
         CancellationToken cancellationToken = default)
+        => await AnalyzeAsync(deckSource, deckName, options, new ManabaseStageTracker(), cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public async Task<ManabaseAnalysisResult> AnalyzeAsync(
+        string deckSource,
+        string? deckName,
+        ManabaseAnalysisOptions? options,
+        ManabaseStageTracker stageTracker,
+        CancellationToken cancellationToken = default)
     {
         options ??= new ManabaseAnalysisOptions();
 
@@ -422,7 +440,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 options.Mode,
                 options.CompanionDesignator,
                 options.SelectedCommander,
-                cancellationToken)
+                cancellationToken,
+                stageTracker)
             .ConfigureAwait(false);
 
         if (resolved.CommanderSelectionRequired)
@@ -480,8 +499,14 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             int baselineN = 0;
             double? baselineSd = null;
             string? generated = null;
-            if (_cedhLandBaseline is not null
-                && _cedhLandBaseline.TryGetBaseline(resolved.CommanderNames, out double mean, out int n, out double sd, out generated))
+            double mean = 0;
+            int n = 0;
+            double sd = 0;
+            bool foundBaseline = _cedhLandBaseline is not null && TrackStage(
+                stageTracker,
+                "cEDH land-target baseline lookup",
+                () => _cedhLandBaseline.TryGetBaseline(resolved.CommanderNames, out mean, out n, out sd, out generated));
+            if (foundBaseline)
             {
                 baselineMean = mean;
                 baselineN = n;
@@ -491,7 +516,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             cedhContext = new CedhLandContext(baselineMean, baselineN, Enabled: true, BaselineSd: baselineSd, BaselineMonth: generated);
         }
 
-        ManabaseReport report = ManabaseAnalyzer.Analyze(
+        ManabaseReport report = TrackStage(stageTracker, "castability and mulligan simulation", () => ManabaseAnalyzer.Analyze(
             resolved.Deck, options.Mode, options.CommanderImportance, options.CostOverrides,
             useManaQuantity, colorAwareMulligan, gateRampOnCastable: true,
             ritualBurst: ritualBurst,
@@ -502,7 +527,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             interactionLens: interactionLens,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,
-            cedhContext: cedhContext);
+            cedhContext: cedhContext));
 
         bool plainLanguage = IsFlagOn(PlainLanguageVerdictFlagKey);
         ManabaseRampDrawBudget? budget = null;
@@ -549,7 +574,10 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             CommanderChoices = resolved.CommanderChoices,
             CommanderCastabilityEnabled = commanderCastability,
             CompanionRow = companionRow,
-            CommunityBaseline = BuildCommunityBaseline(options, resolved.CommanderNames, report),
+            CommunityBaseline = TrackStage(
+                stageTracker,
+                "community baseline lookup",
+                () => BuildCommunityBaseline(options, resolved.CommanderNames, report)),
             ShowFocusedTier = showFocusedTier,
             ShowTapAnalyzer = showTapAnalyzer,
             ShowMulliganEval = showMulliganEval,
@@ -581,7 +609,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 mode: ManabaseMode.Casual,
                 companionDesignator: null,
                 selectedCommander: null,
-                cancellationToken)
+                cancellationToken,
+                new ManabaseStageTracker())
             .ConfigureAwait(false);
 
         // No simulation here — Load just surfaces the detected cost suggestions for review/edit.
@@ -679,7 +708,8 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         ManabaseMode mode,
         string? companionDesignator,
         string? selectedCommander,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ManabaseStageTracker stageTracker)
     {
         if (string.IsNullOrWhiteSpace(deckSource))
         {
@@ -733,7 +763,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 string.Equals(entry.Board, "mainboard", StringComparison.OrdinalIgnoreCase)
                 && string.Equals(CardNormalizer.Normalize(entry.Name), normalizedCompanionName, StringComparison.Ordinal));
 
-        ScryfallCardNameIndex index = await ResolveCardsAsync(deckCards, cancellationToken).ConfigureAwait(false);
+        ScryfallCardNameIndex index = await TrackStageAsync(stageTracker, "card resolution", () => ResolveCardsAsync(deckCards, cancellationToken)).ConfigureAwait(false);
         ScryfallCardData? companionCard = null;
         if (commanderCastability && companionName is not null)
         {
@@ -810,18 +840,18 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         deckEntries = commanderValidation.Entries;
 
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
-        ManabaseDeck deck = ManabaseClassifier.Classify(
+        ManabaseDeck deck = TrackStage(stageTracker, "bracket classification", () => ManabaseClassifier.Classify(
             facts,
             isSingleton: true,
             rampCreditV2: rampCreditV2,
             landRampSim: landRampSim,
             payLifeUntapped: payLifeUntapped,
             checkLandUntapped: checkLandUntapped,
-            restrictedLands: restrictedLands);
+            restrictedLands: restrictedLands));
 
         if (classifyPlanRoles)
         {
-            deck = await TagPlanRolesAsync(deck, facts, deckCards, mode, cancellationToken).ConfigureAwait(false);
+            deck = await TagPlanRolesAsync(deck, facts, deckCards, mode, stageTracker, cancellationToken).ConfigureAwait(false);
         }
 
         string decklistText = string.Join(
@@ -859,6 +889,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         IReadOnlyList<CardFact> facts,
         IReadOnlyList<DeckEntry> deckCards,
         ManabaseMode mode,
+        ManabaseStageTracker stageTracker,
         CancellationToken cancellationToken)
     {
         // Source 2 (combo pieces), fetched once. Fail-open: a Spellbook outage leaves the set empty.
@@ -867,8 +898,10 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         {
             try
             {
-                CommanderSpellbookResult? combos =
-                    await _spellbook.FindCombosAsync(deckCards, cancellationToken).ConfigureAwait(false);
+                CommanderSpellbookResult? combos = await TrackStageAsync(
+                    stageTracker,
+                    "Commander Spellbook combos",
+                    () => _spellbook.FindCombosAsync(deckCards, cancellationToken)).ConfigureAwait(false);
                 if (combos is not null)
                 {
                     foreach (SpellbookCombo combo in combos.IncludedCombos)
@@ -901,9 +934,9 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         // exhausted the request timeout on a full decklist (~65 sequential Postgres round-trips ~= 20s).
         // Batching collapses it to a single query.
         IReadOnlyDictionary<string, IReadOnlyList<string>> categoriesByName =
-            await GetCategoriesFailOpenAsync(
+            await TrackStageAsync(stageTracker, "card categories", () => GetCategoriesFailOpenAsync(
                 deck.Spells.Where(s => factByName.ContainsKey(s.Name)).Select(s => s.Name).ToList(),
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken)).ConfigureAwait(false);
 
         var tagged = new List<SpellRequirement>(deck.Spells.Count);
         foreach (SpellRequirement spell in deck.Spells)
@@ -1092,6 +1125,48 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         return trimmed.Length <= MaxCompanionNameLength
             ? trimmed
             : trimmed[..MaxCompanionNameLength];
+    }
+
+    private async Task<T> TrackStageAsync<T>(ManabaseStageTracker tracker, string stage, Func<Task<T>> operation)
+    {
+        _logger.LogInformation("Manabase stage {Stage} started", stage);
+        tracker.StartStage(stage);
+        bool completed = false;
+        try
+        {
+            T result = await operation().ConfigureAwait(false);
+            completed = true;
+            return result;
+        }
+        finally
+        {
+            if (completed)
+            {
+                long elapsedMs = tracker.FinishStage();
+                _logger.LogInformation("Manabase stage {Stage} finished in {ElapsedMs} ms", stage, elapsedMs);
+            }
+        }
+    }
+
+    private T TrackStage<T>(ManabaseStageTracker tracker, string stage, Func<T> operation)
+    {
+        _logger.LogInformation("Manabase stage {Stage} started", stage);
+        tracker.StartStage(stage);
+        bool completed = false;
+        try
+        {
+            T result = operation();
+            completed = true;
+            return result;
+        }
+        finally
+        {
+            if (completed)
+            {
+                long elapsedMs = tracker.FinishStage();
+                _logger.LogInformation("Manabase stage {Stage} finished in {ElapsedMs} ms", stage, elapsedMs);
+            }
+        }
     }
 
     private async Task<ScryfallCardData?> ResolveCompanionFromDeckEntryAsync(
