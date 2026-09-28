@@ -54,3 +54,14 @@ test('commanders grid failure shows a danger alert and a deterministic retry rep
   await expect(grid).toHaveAttribute('aria-busy', 'false');
   expect(requestCount).toBe(2);
 });
+
+test('commanders grid loads with shared meta and fits the viewport', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  await page.locator('#harvest-tab-commanders').click();
+
+  const grid = commandersGrid(page);
+  await expect(grid.locator('p.admin-meta')).toBeVisible();
+  await expect(grid.locator('table, p.admin-empty')).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
