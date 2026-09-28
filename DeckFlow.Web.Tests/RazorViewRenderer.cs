@@ -22,10 +22,14 @@ namespace DeckFlow.Web.Tests;
 internal static class RazorViewRenderer
 {
     internal static async Task<string> RenderAsync(
-        object model,
+        object? model,
         Type applicationPartType,
         string controllerName,
-        IRouter? router = null)
+        IRouter? router = null,
+        string viewName = "Index",
+        bool isMainPage = false,
+        Action<IServiceCollection>? configureServices = null,
+        IReadOnlyDictionary<string, object?>? viewData = null)
     {
         var services = new ServiceCollection();
         services.AddSingleton<ObjectPoolProvider, DefaultObjectPoolProvider>();
@@ -36,6 +40,7 @@ internal static class RazorViewRenderer
         services.AddLogging();
         services.AddDataProtection();
         services.AddControllersWithViews().AddApplicationPart(applicationPartType.Assembly);
+        configureServices?.Invoke(services);
 
         using var provider = services.BuildServiceProvider();
         var context = new DefaultHttpContext { RequestServices = provider };
@@ -50,13 +55,23 @@ internal static class RazorViewRenderer
         }
 
         var action = new ActionContext(context, routeData, new ActionDescriptor());
-        var result = provider.GetRequiredService<IRazorViewEngine>().FindView(action, "Index", isMainPage: false);
-        Assert.True(result.Success);
+        var engine = provider.GetRequiredService<IRazorViewEngine>();
+        var result = viewName.StartsWith("~/", StringComparison.Ordinal)
+            ? engine.GetView(executingFilePath: null, viewPath: viewName, isMainPage)
+            : engine.FindView(action, viewName, isMainPage);
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.SearchedLocations));
 
         var data = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary())
         {
             Model = model,
         };
+        if (viewData is not null)
+        {
+            foreach (var entry in viewData)
+            {
+                data[entry.Key] = entry.Value;
+            }
+        }
         await using var writer = new StringWriter();
         await result.View!.RenderAsync(new ViewContext(
             action,

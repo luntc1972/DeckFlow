@@ -249,6 +249,8 @@
 
 /* === Phase 22 — Content KB Admin (card-stack deltas) === */
 @media (max-width: 768px) {
+  .admin-shell .admin-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-shell .admin-card { padding: var(--space-md); }
   /* In card-stack the title is its own row — let it wrap instead of ellipsis-clipping. */
   .admin-shell .admin-table--card .admin-kb-title {
     overflow: visible;
