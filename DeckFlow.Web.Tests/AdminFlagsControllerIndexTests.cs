@@ -71,7 +71,7 @@ public sealed class AdminFlagsControllerIndexTests
         var view = Assert.IsType<ViewResult>(Build(cache).Index());
         var vm = Assert.IsType<AdminFlagsListViewModel>(view.Model);
 
-        Assert.Equal(new[] { new FlagFilterGroup("analysis.", "analysis", 3), new FlagFilterGroup("service.", "service", 2) }, vm.Groups);
+        Assert.Equal(new[] { new FlagFilterGroup("analysis.", "Analysis", 3), new FlagFilterGroup("service.", "Background services", 2) }, vm.Groups);
         Assert.DoesNotContain(vm.Groups, group => group.Prefix.StartsWith("tool.", StringComparison.Ordinal));
         Assert.Equal(new[] { "analysis.m.x", "analysis.m.y", "analysis.z", "service.a.enabled", "service.b.enabled" }, vm.Flags.Select(flag => flag.Key));
     }

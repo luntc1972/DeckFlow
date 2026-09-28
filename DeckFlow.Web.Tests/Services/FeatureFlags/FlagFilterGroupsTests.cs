@@ -3,7 +3,7 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests.Services.FeatureFlags;
 
-/// <summary>Guards FLAGS-01 namespace-only (D-03), dot-terminated, raw-label (D-02) chip derivation.</summary>
+/// <summary>Guards namespace-only, dot-terminated chip derivation with friendly labels (D-13).</summary>
 public sealed class FlagFilterGroupsTests
 {
     [Fact]
@@ -12,9 +12,9 @@ public sealed class FlagFilterGroupsTests
         Assert.Equal(
             new[]
             {
-                new FlagFilterGroup("analysis.", "analysis", 4),
-                new FlagFilterGroup("service.", "service", 2),
-                new FlagFilterGroup("sync.", "sync", 1),
+                new FlagFilterGroup("analysis.", "Analysis", 4),
+                new FlagFilterGroup("service.", "Background services", 2),
+                new FlagFilterGroup("sync.", "Sync", 1),
             },
             FlagFilterGroups.Derive(Keys()));
     }
@@ -29,7 +29,7 @@ public sealed class FlagFilterGroupsTests
     public void Derive_MultiSegmentKeys_YieldNamespaceChipOnly()
     {
         Assert.Equal(
-            new[] { new FlagFilterGroup("x.", "x", 4) },
+            new[] { new FlagFilterGroup("x.", "X", 4) },
             FlagFilterGroups.Derive(new[] { "x.a.one", "x.a.two", "x.b.three", "x.solo" }));
     }
 
@@ -52,9 +52,9 @@ public sealed class FlagFilterGroupsTests
         Assert.Equal(
             new[]
             {
-                new FlagFilterGroup("service.", "service", 1),
-                new FlagFilterGroup("service-v2.", "service-v2", 1),
-                new FlagFilterGroup("services.", "services", 1),
+                new FlagFilterGroup("service.", "Background services", 1),
+                new FlagFilterGroup("service-v2.", "Service-v2", 1),
+                new FlagFilterGroup("services.", "Services", 1),
             },
             FlagFilterGroups.Derive(new[] { "service.a", "services.b", "service-v2.c" }));
     }
@@ -80,14 +80,14 @@ public sealed class FlagFilterGroupsTests
     [InlineData("ns.")]
     public void Derive_EmptyLaterSegment_StillYieldsNamespaceChip(string key)
     {
-        Assert.Equal(new[] { new FlagFilterGroup("ns.", "ns", 1) }, FlagFilterGroups.Derive(new[] { key }));
+        Assert.Equal(new[] { new FlagFilterGroup("ns.", "Ns", 1) }, FlagFilterGroups.Derive(new[] { key }));
     }
 
     [Fact]
     public void Derive_MixedCaseKeys_GroupCaseInsensitively()
     {
         Assert.Equal(
-            new[] { new FlagFilterGroup("service.", "service", 3) },
+            new[] { new FlagFilterGroup("service.", "Background services", 3) },
             FlagFilterGroups.Derive(new[] { "Service.Tagger.enabled", "service.tagger.other", "SERVICE.cron.enabled" }));
     }
 
@@ -101,8 +101,41 @@ public sealed class FlagFilterGroupsTests
     public void Derive_NullEntries_AreSkipped()
     {
         Assert.Equal(
-            new[] { new FlagFilterGroup("sync.", "sync", 1) },
+            new[] { new FlagFilterGroup("sync.", "Sync", 1) },
             FlagFilterGroups.Derive(new string?[] { null, "sync.reconcile" }!));
+    }
+
+    [Theory]
+    [InlineData("analysis", "Analysis")]
+    [InlineData("service", "Background services")]
+    [InlineData("sync", "Sync")]
+    [InlineData("tool", "Tools")]
+    [InlineData("service-v2", "Service-v2")]
+    [InlineData("foo", "Foo")]
+    [InlineData("x", "X")]
+    public void LabelFor_ReturnsFriendlyOrFallbackLabel(string segment, string expected)
+    {
+        Assert.Equal(expected, FlagFilterGroups.LabelFor(segment));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void LabelFor_NullOrEmpty_Throws(string? segment)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => FlagFilterGroups.LabelFor(segment!));
+    }
+
+    [Fact]
+    public void Derive_NamespacesSharingAFriendlyLabel_KeepSeparateChips()
+    {
+        Assert.Equal(
+            new[]
+            {
+                new FlagFilterGroup("tool.", "Tools", 1),
+                new FlagFilterGroup("tools.", "Tools", 1),
+            },
+            FlagFilterGroups.Derive(new[] { "tool.a", "tools.b" }));
     }
 
     private static string[] Keys() =>

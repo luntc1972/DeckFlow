@@ -5,6 +5,16 @@ type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
 let heldLock: LockHandle | null = null;
 
+function expectedChipLabel(namespaceSegment: string): string {
+  const labels: Record<string, string> = {
+    analysis: 'Analysis',
+    service: 'Background services',
+    sync: 'Sync',
+    tool: 'Tools',
+  };
+  return labels[namespaceSegment] ?? `${namespaceSegment[0].toUpperCase()}${namespaceSegment.slice(1)}`;
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test.beforeEach(async ({ page }) => {
@@ -43,7 +53,7 @@ test('admin flags supports instant prefix filtering and namespace chips', async 
   await expect(page.locator('#flag-filter-count')).toHaveText(`${visibleServiceKeys.length} of ${total} flags shown`);
 
   await page.getByLabel('Filter by key prefix, e.g. analysis.').fill('');
-  const analysisChip = page.getByRole('button', { name: 'analysis', exact: true });
+  const analysisChip = page.locator('button[data-flag-prefix="analysis."]');
   await analysisChip.click();
   await expect(analysisChip).toHaveAttribute('aria-pressed', 'true');
   const visibleAnalysisKeys = await getVisibleFlagKeys(page);
@@ -68,7 +78,7 @@ test('admin flags supports instant prefix filtering and namespace chips', async 
   const visibleDisabledKeys = await getVisibleFlagKeys(page);
   expect(visibleDisabledKeys).toEqual(disabledKeys);
 
-  const serviceChip = page.getByRole('button', { name: 'service', exact: true });
+  const serviceChip = page.locator('button[data-flag-prefix="service."]');
   await serviceChip.click();
   await expect(serviceChip).toHaveAttribute('aria-pressed', 'true');
   const visibleDisabledServiceKeys = await getVisibleFlagKeys(page);
@@ -109,7 +119,7 @@ test('admin flags derives namespace chips from live keys', async ({ page }) => {
     expect(chip.prefix.endsWith('.')).toBeTruthy();
     expect(chip.prefix.split('.')).toHaveLength(2);
     expect(chip.prefix.startsWith('tool.')).toBeFalsy();
-    expect(chip.label).toBe(chip.prefix.slice(0, -1));
+    expect(chip.label).toBe(expectedChipLabel(chip.prefix.slice(0, -1)));
     const button = page.locator(`button[data-flag-prefix="${chip.prefix}"]`);
     await button.click();
     const visible = await getVisibleFlagKeys(page);
