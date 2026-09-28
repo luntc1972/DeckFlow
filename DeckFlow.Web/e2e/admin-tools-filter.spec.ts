@@ -18,6 +18,10 @@ test('admin tools filters rows by name or flag key prefix', async ({ page }) => 
   expect(response?.ok()).toBeTruthy();
   const tools = await toolsOnPage(page);
   expect(tools.length).toBeGreaterThan(1);
+  await expect(page.locator('[data-tools-filter]')).toBeVisible();
+  await expect(page.locator('[data-tools-filter]')).toHaveClass(/admin-filter/);
+  expect(await page.locator('[data-tools-section]').evaluateAll((sections) => sections.every((section) => section.classList.contains('admin-card')))).toBe(true);
+  await expect(page.locator('.admin-page-header__lede')).toHaveText('Turn public tools on or off; cascades to home tile, nav, help, and route.');
   const filter = page.getByLabel('Filter by tool name or flag key prefix');
   await filter.fill('cut');
   expect(await visibleLabels(page)).toEqual(matches(tools, 'cut'));
@@ -37,9 +41,10 @@ test('admin tools status chips compose with search, show an empty state, and per
   await page.getByRole('button', { name: 'Disabled', exact: true }).click();
   expect(await visibleLabels(page)).toEqual(matches(tools, '', false));
   const filter = page.getByLabel('Filter by tool name or flag key prefix');
-  const sectionCount = await page.locator('.admin-tools__section').count();
+  const sectionCount = await page.locator('[data-tools-section]').count();
   await filter.fill('c'); expect(await visibleLabels(page)).toEqual(matches(tools, 'c', false));
-  await filter.fill('zzz'); await expect(page.locator('#tools-filter-empty')).toBeVisible(); await expect(page.locator('.admin-tools__section')).toHaveCount(sectionCount); expect(await page.locator('.admin-tools__section.hidden').count()).toBe(sectionCount);
+  await filter.fill('zzz'); await expect(page.locator('#tools-filter-empty')).toBeVisible(); await expect(page.locator('[data-tools-section]')).toHaveCount(sectionCount); expect(await page.locator('[data-tools-section].hidden').count()).toBe(sectionCount);
+  expect((await page.getByRole('button', { name: 'Disabled', exact: true }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await filter.fill('cut'); await page.reload(); await expect(filter).toHaveValue('cut'); await expect(page.getByRole('button', { name: 'Disabled', exact: true })).toHaveAttribute('aria-pressed', 'true'); expect(await visibleLabels(page)).toEqual(matches(tools, 'cut', false));
   await page.getByRole('button', { name: 'All statuses', exact: true }).click(); await filter.fill(''); expect(await visibleLabels(page)).toHaveLength(tools.length);
 });

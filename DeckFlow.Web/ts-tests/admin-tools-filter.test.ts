@@ -3,27 +3,27 @@ import '../wwwroot/ts/flag-filter';
 import '../wwwroot/ts/admin-tools';
 
 const fixture = `
-<div class="tools-filter hidden">
-  <label for="tools-filter-search">Filter by tool name or flag key prefix</label>
-  <input id="tools-filter-search" type="search" />
-  <div class="tools-filter__chips" role="group" aria-label="Status filter">
-    <button type="button" class="tools-filter__chip is-active" data-tools-status="" aria-pressed="true">All statuses</button>
-    <button type="button" class="tools-filter__chip" data-tools-status="on" aria-pressed="false">Enabled</button>
-    <button type="button" class="tools-filter__chip" data-tools-status="off" aria-pressed="false">Disabled</button>
+<div class="admin-filter hidden" data-tools-filter>
+  <div class="admin-field admin-filter-search"><label for="tools-filter-search">Filter by tool name or flag key prefix</label>
+  <input id="tools-filter-search" type="search" /></div>
+  <div class="admin-filter-chips" role="group" aria-label="Status filter">
+    <button type="button" class="admin-filter-chips__chip is-active" data-tools-status="" aria-pressed="true">All statuses</button>
+    <button type="button" class="admin-filter-chips__chip" data-tools-status="on" aria-pressed="false">Enabled</button>
+    <button type="button" class="admin-filter-chips__chip" data-tools-status="off" aria-pressed="false">Disabled</button>
   </div>
-  <p id="tools-filter-count"></p>
+  <p id="tools-filter-count" class="admin-filter__count"></p>
 </div>
 <div id="tools-sections">
-  <section class="admin-tools__section"><table><tbody>
+  <section class="admin-card" data-tools-section><table><tbody>
     <tr data-tool-label="Deck Analysis" data-tool-flag-key="tool.deck-analysis.enabled" data-tool-enabled="true"><td>Deck Analysis</td></tr>
     <tr data-tool-label="Mana Base" data-tool-flag-key="tool.manabase.enabled" data-tool-enabled="false"><td>Mana Base</td></tr>
   </tbody></table></section>
-  <section class="admin-tools__section"><table><tbody>
+  <section class="admin-card" data-tools-section><table><tbody>
     <tr data-tool-label="Cut Lab" data-tool-flag-key="tool.cut-lab.enabled" data-tool-enabled="true"><td>Cut Lab</td></tr>
     <tr data-tool-label="Convert Deck" data-tool-flag-key="tool.convert.enabled" data-tool-enabled="false"><td>Convert Deck</td></tr>
   </tbody></table></section>
-  <section class="admin-tools__section"><h2>Empty section</h2><table><tbody></tbody></table></section>
-  <p id="tools-filter-empty" class="tools-filter__empty hidden">No tools match the current filter.</p>
+  <section class="admin-card" data-tools-section><h2>Empty section</h2><table><tbody></tbody></table></section>
+  <p id="tools-filter-empty" class="admin-filter__empty hidden">No tools match the current filter.</p>
 </div>`;
 
 const reload = (): void => {
@@ -41,8 +41,8 @@ afterEach(() => { vi.restoreAllMocks(); sessionStorage.clear(); document.body.in
 
 test('shows all rows and defaults to all statuses', () => { expect(labels()).toHaveLength(4); expect(document.querySelector('#tools-filter-count')!.textContent).toBe('4 of 4 tools shown'); expect(document.querySelector('#tools-filter-empty')!.classList.contains('hidden')).toBe(true); expect(document.querySelector('[data-tools-status=""]')!.getAttribute('aria-pressed')).toBe('true'); });
 test('search cut shows Cut Lab', () => { search('cut'); expect(labels()).toEqual(['Cut Lab']); expect(document.querySelector('#tools-filter-count')!.textContent).toBe('1 of 4 tools shown'); });
-test('shows controls after wiring the filter', () => { expect(document.querySelector('.tools-filter')!.classList.contains('hidden')).toBe(false); });
-test('hides empty sections only while filtered', () => { const emptySection = document.querySelectorAll<HTMLElement>('.admin-tools__section')[2]; expect(emptySection.classList.contains('hidden')).toBe(false); search('cut'); expect(emptySection.classList.contains('hidden')).toBe(true); search(''); expect(emptySection.classList.contains('hidden')).toBe(false); click('Enabled'); expect(emptySection.classList.contains('hidden')).toBe(true); });
+test('shows controls after wiring the filter', () => { expect(document.querySelector('[data-tools-filter]')!.classList.contains('hidden')).toBe(false); });
+test('hides empty sections only while filtered', () => { const emptySection = document.querySelectorAll<HTMLElement>('[data-tools-section]')[2]; expect(emptySection.classList.contains('hidden')).toBe(false); search('cut'); expect(emptySection.classList.contains('hidden')).toBe(true); search(''); expect(emptySection.classList.contains('hidden')).toBe(false); click('Enabled'); expect(emptySection.classList.contains('hidden')).toBe(true); });
 test('search CUT is case insensitive', () => { search('CUT'); expect(labels()).toEqual(['Cut Lab']); });
 test('search lab is prefix not substring', () => { search('lab'); expect(labels()).toEqual([]); });
 test('search tool.man uses flag key prefix', () => { search('tool.man'); expect(labels()).toEqual(['Mana Base']); });
@@ -50,7 +50,7 @@ test('whitespace search is trimmed', () => { search('   '); expect(labels()).toH
 test('enabled chip filters enabled tools', () => { click('Enabled'); expect(labels()).toEqual(['Deck Analysis', 'Cut Lab']); expect(document.querySelector('[data-tools-status="on"]')!.classList.contains('is-active')).toBe(true); expect(document.querySelector('[data-tools-status=""]')!.getAttribute('aria-pressed')).toBe('false'); });
 test('disabled chip filters disabled tools', () => { click('Disabled'); expect(labels()).toEqual(['Mana Base', 'Convert Deck']); });
 test('disabled chip composes with search', () => { click('Disabled'); search('c'); expect(labels()).toEqual(['Convert Deck']); });
-test('search hides empty sections and restores them', () => { search('mana'); expect(document.querySelectorAll('.admin-tools__section')[1].classList.contains('hidden')).toBe(true); search(''); expect(Array.from(document.querySelectorAll('.admin-tools__section')).every((section) => !section.classList.contains('hidden'))).toBe(true); });
+test('search hides empty sections and restores them', () => { search('mana'); expect(document.querySelectorAll('[data-tools-section]')[1].classList.contains('hidden')).toBe(true); search(''); expect(Array.from(document.querySelectorAll('[data-tools-section]')).every((section) => !section.classList.contains('hidden'))).toBe(true); });
 test('empty search result shows empty state', () => { search('zzz'); expect(document.querySelector('#tools-filter-empty')!.classList.contains('hidden')).toBe(false); expect(document.querySelector('#tools-filter-count')!.textContent).toBe('0 of 4 tools shown'); search(''); expect(document.querySelector('#tools-filter-empty')!.classList.contains('hidden')).toBe(true); });
 test('persists search and status', () => { search('c'); click('Disabled'); expect(sessionStorage.getItem('deckflowAdminToolsSearch')).toBe('c'); expect(sessionStorage.getItem('deckflowAdminToolsStatus')).toBe('off'); });
 test('restores search and status', () => { sessionStorage.setItem('deckflowAdminToolsSearch', 'c'); sessionStorage.setItem('deckflowAdminToolsStatus', 'off'); reload(); expect(input().value).toBe('c'); expect(labels()).toEqual(['Convert Deck']); });
