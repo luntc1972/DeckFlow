@@ -1,26 +1,25 @@
 @model DeckFlow.Web.Models.Admin.AdminAnalyticsViewModel
 @{
     ViewData["Title"] = "Analytics";
+    ViewData["Heading"] = "Page-usage analytics";
+    ViewData["Lede"] = "Page-view and traffic analytics over time.";
 }
 
 <noscript>
     <meta http-equiv="refresh" content="60" />
 </noscript>
 
-<section class="admin-analytics">
-    <header class="admin-page-header">
-        <h1>Page-usage analytics</h1>
-        <nav class="admin-range-selector" aria-label="Time range">
-            <a href="@Url.Action("Index", new { range = "today" })"
-               class="@(Model.Range == "today" ? "is-active" : "")">Today</a>
-            <a href="@Url.Action("Index", new { range = "7d" })"
-               class="@(Model.Range == "7d" ? "is-active" : "")">Last 7 days</a>
-            <a href="@Url.Action("Index", new { range = "30d" })"
-               class="@(Model.Range == "30d" ? "is-active" : "")">Last 30 days</a>
-            <a href="@Url.Action("Index", new { range = "all" })"
-               class="@(Model.Range == "all" ? "is-active" : "")">All time</a>
-        </nav>
-    </header>
+@section PageActions
+{
+    <nav class="admin-filter-chips" aria-label="Time range">
+        <a href="@Url.Action("Index", new { range = "today" })" class="admin-filter-chips__chip @(Model.Range == "today" ? "is-active" : "")" aria-current="@(Model.Range == "today" ? "true" : null)">Today</a>
+        <a href="@Url.Action("Index", new { range = "7d" })" class="admin-filter-chips__chip @(Model.Range == "7d" ? "is-active" : "")" aria-current="@(Model.Range == "7d" ? "true" : null)">Last 7 days</a>
+        <a href="@Url.Action("Index", new { range = "30d" })" class="admin-filter-chips__chip @(Model.Range == "30d" ? "is-active" : "")" aria-current="@(Model.Range == "30d" ? "true" : null)">Last 30 days</a>
+        <a href="@Url.Action("Index", new { range = "all" })" class="admin-filter-chips__chip @(Model.Range == "all" ? "is-active" : "")" aria-current="@(Model.Range == "all" ? "true" : null)">All time</a>
+    </nav>
+}
+
+<section class="admin-card" data-admin-analytics aria-label="Top routes">
 
     @if (Model.Routes.Count == 0)
     {

@@ -30,7 +30,7 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
-    const root = document.querySelector<HTMLElement>('.admin-analytics');
+    const root = document.querySelector<HTMLElement>('[data-admin-analytics]');
     if (!root) {
       return;
     }
