@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AngleSharp.Html.Parser;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.CreatorStyleRubric;
@@ -281,6 +282,34 @@ public sealed class AdminCreatorStyleViewRenderTests
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
         };
+    }
+
+    [Fact]
+    public async Task Index_FormUsesSharedCardFieldsAndPrimaryButton()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorStyleViewModel()));
+        var form = Assert.Single(document.QuerySelectorAll("form.admin-card"));
+        Assert.Equal(5, form.QuerySelectorAll(".admin-field").Length);
+        Assert.NotNull(form.QuerySelector("button.admin-button.admin-button--primary"));
+        Assert.Single(document.QuerySelectorAll("div.admin-stack"));
+    }
+
+    [Fact]
+    public async Task Index_Notice_UsesWarningBannerInResultRegion()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorStyleViewModel { Notice = "profile missing <i>x</i>" }));
+        var notice = Assert.Single(document.QuerySelectorAll("[data-creator-style-result] p.admin-banner.admin-banner--warning[role=status][data-creator-style-notice]"));
+        Assert.Equal("profile missing <i>x</i>", notice.TextContent.Trim());
+        Assert.Empty(document.QuerySelectorAll("i"));
+    }
+
+    [Fact]
+    public async Task Index_ArtifactText_RendersInSharedArtifact()
+    {
+        const string artifact = "Creator Targets\n<script>x</script>";
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorStyleViewModel { ArtifactText = artifact }));
+        Assert.Equal(artifact, Assert.Single(document.QuerySelectorAll("pre.admin-artifact[data-creator-style-artifact]")).TextContent);
+        Assert.Empty(document.QuerySelectorAll("script"));
     }
 
     private static async Task<string> RenderAsync(AdminCreatorStyleViewModel model)
