@@ -289,9 +289,19 @@ public sealed class AdminCreatorStyleViewRenderTests
     {
         var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorStyleViewModel()));
         var form = Assert.Single(document.QuerySelectorAll("form.admin-card"));
+        Assert.NotNull(form.QuerySelector("input[name='__RequestVerificationToken']"));
         Assert.Equal(5, form.QuerySelectorAll(".admin-field").Length);
-        Assert.NotNull(form.QuerySelector("button.admin-button.admin-button--primary"));
-        Assert.Single(document.QuerySelectorAll("div.admin-stack"));
+        var ids = new[] { "creator-style-slug", "creator-style-input-source", "creator-style-deck-url", "creator-style-deck-text", "creator-style-format" };
+        Assert.Equal(ids, form.QuerySelectorAll(".admin-field").Select(field => field.QuerySelector("label")?.GetAttribute("for")).ToArray());
+        Assert.Equal(ids, form.QuerySelectorAll(".admin-field").Select(field => field.QuerySelector("[id]")?.Id).ToArray());
+        Assert.Contains("hidden", Assert.Single(form.QuerySelectorAll("[data-sync-panel='creator-style-deck-url']")).ClassName);
+        Assert.DoesNotContain("hidden", Assert.Single(form.QuerySelectorAll("[data-sync-panel='creator-style-deck-text']")).ClassName);
+        var button = Assert.Single(form.QuerySelectorAll("button[type='submit'].admin-button.admin-button--primary"));
+        Assert.Equal("Generate critique packet", button.TextContent.Trim());
+        Assert.Empty(document.QuerySelectorAll("h1, .admin-landing, .lede, .result-panel, .field, .admin-notice, .admin-result"));
+        var children = Assert.Single(document.QuerySelectorAll("div.admin-stack")).Children;
+        Assert.Same(form, children[0]);
+        Assert.True(children[1].HasAttribute("data-creator-style-result"));
     }
 
     [Fact]
@@ -310,6 +320,7 @@ public sealed class AdminCreatorStyleViewRenderTests
         var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorStyleViewModel { ArtifactText = artifact }));
         Assert.Equal(artifact, Assert.Single(document.QuerySelectorAll("pre.admin-artifact[data-creator-style-artifact]")).TextContent);
         Assert.Empty(document.QuerySelectorAll("script"));
+        Assert.Empty(document.QuerySelectorAll("[data-creator-style-notice]"));
     }
 
     private static async Task<string> RenderAsync(AdminCreatorStyleViewModel model)
