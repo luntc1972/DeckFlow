@@ -18,6 +18,9 @@ internal sealed class CardCategoryRepository
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
 
+    // Why: a bounded batch lookup lets callers fail open instead of consuming the analysis time budget.
+    internal int CategoriesBatchCommandTimeoutSeconds { get; set; } = 3;
+
     /// <summary>
     /// Initializes the card-category collaborator.
     /// </summary>
@@ -241,6 +244,7 @@ internal sealed class CardCategoryRepository
             ORDER BY c.normalized_card_name, LOWER(o.category), o.category
             """,
             new { normalized = normalizedKeys.ToList() },
+            commandTimeout: CategoriesBatchCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         timingReporter?.Invoke("QueryAsync", stopwatch.ElapsedMilliseconds, normalizedKeys.Count);
 

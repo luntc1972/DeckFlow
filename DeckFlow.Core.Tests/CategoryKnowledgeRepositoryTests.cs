@@ -315,6 +315,21 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public void GetCategoriesForNamesAsync_DefaultCommandTimeout_IsThreeSeconds()
+    {
+        var repository = CreateRepository();
+        var cardCategory = typeof(CategoryKnowledgeRepository)
+            .GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            ?.GetValue(repository);
+
+        var timeout = cardCategory?.GetType()
+            .GetProperty("CategoriesBatchCommandTimeoutSeconds", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            ?.GetValue(cardCategory);
+
+        Assert.Equal(3, timeout);
+    }
+
+    [Fact]
     public async Task GetCategoriesForNamesAsync_KeyedCaseInsensitively_AndSkipsBlankNames()
     {
         var repository = CreateRepository();
