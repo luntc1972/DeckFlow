@@ -25,6 +25,19 @@ test('deck tendencies uses the shared card and fields', async ({ page }) => {
   await expect(button).toHaveClass(/admin-button--primary/);
   expect((await button.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   await page.setViewportSize({ width: 375, height: 900 }); await assertNoOverflow(page);
+  const label = page.locator('label[for="creator-profile-force-refresh"]');
+  const checkbox = page.locator('#creator-profile-force-refresh');
+  const labelBox = await label.boundingBox();
+  const checkboxBox = await checkbox.boundingBox();
+  expect(labelBox?.height).toBeGreaterThanOrEqual(44);
+  expect(checkboxBox?.width).toBeGreaterThanOrEqual(19.5);
+  expect(checkboxBox?.height).toBeGreaterThanOrEqual(19.5);
+  expect((checkboxBox?.x ?? Infinity) + (checkboxBox?.width ?? 0)).toBeLessThanOrEqual((labelBox?.x ?? -Infinity) + 0.5);
+  const checked = await checkbox.isChecked();
+  await label.click();
+  await expect(checkbox).toBeChecked({ checked: !checked });
+  await label.click();
+  await expect(checkbox).toBeChecked({ checked });
 });
 
 test('deck tendencies report fixtures fit the viewport', async ({ page }) => {
