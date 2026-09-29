@@ -818,6 +818,12 @@ public sealed class AdminHarvestControllerTests
         Assert.Contains("harvest-zero-discovery", html, StringComparison.Ordinal);
         Assert.Contains(expectsWarning ? "Zero-discovery streak:" : expectedText, html, StringComparison.Ordinal);
         Assert.Equal(expectsWarning, html.Contains("admin-badge--warning", StringComparison.Ordinal));
+        if (expectsWarning)
+        {
+            var badgeContent = Regex.Escape(streak.ToString(CultureInfo.InvariantCulture))
+                + (capped ? Regex.Escape("&#x2B;") : string.Empty);
+            Assert.Matches(@"admin-badge--alert\"">\s*" + badgeContent + @"\s*</span>", html);
+        }
     }
 
     private static async Task<string> RenderPartialViewAsync(string viewName, object model)
