@@ -25,7 +25,7 @@ public sealed class AdminHarvestCssTests
         Assert.Matches(new Regex(@"--status-warning:\s*#eab308", RegexOptions.IgnoreCase), content);
         Assert.Matches(
             new Regex(
-                @"\.admin-harvest__health-badge\s*\{[^}]*border:\s*1px\s+solid\s+currentColor",
+                @"\.admin-shell\s+\.admin-badge\s*\{[^}]*border:\s*1px\s+solid\s+currentColor",
                 RegexOptions.Singleline),
             content);
     }

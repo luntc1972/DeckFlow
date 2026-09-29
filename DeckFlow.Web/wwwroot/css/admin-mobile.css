@@ -61,38 +61,8 @@
     width: 100%;
   }
 
-  .admin-shell .admin-harvest__panel {
-    padding: var(--space-md);
-  }
-
-  .admin-shell .admin-harvest__disclosure {
-    padding: var(--space-md);
-  }
-
-  .admin-shell .admin-harvest__disclosure summary {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-  }
-
   .admin-shell .admin-harvest__run-error > div {
     max-width: min(40rem, 70vw);
-  }
-
-  .admin-shell .admin-harvest__health {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .admin-shell .admin-harvest__streak {
-    overflow-wrap: anywhere;
-  }
-
-  .admin-shell .admin-harvest__tabs {
-    flex-wrap: wrap;
-  }
-
-  .admin-shell .admin-harvest__tabs [role="tab"] {
-    min-height: 44px;
   }
 
   .admin-shell .admin-table-scroll {
@@ -146,8 +116,7 @@
   }
 
   .admin-shell .detail-grid dd,
-  .admin-shell .detail-grid code,
-  .admin-shell .detail-message {
+  .admin-shell .detail-grid code {
     overflow-wrap: anywhere;
     min-width: 0;
   }
@@ -177,7 +146,7 @@
     width: 100%;
   }
 
-  .admin-shell .admin-table--card td[data-label="Tags"] .kb-tag {
+  .admin-shell .admin-table--card td[data-label="Tags"] .admin-badge {
     flex: 0 0 auto;
   }
 
