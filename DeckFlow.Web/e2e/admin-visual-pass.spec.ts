@@ -154,6 +154,42 @@ for (const state of ADMIN_STATES) {
   });
 }
 
+test('harvest stat tiles stack label, value and badge', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  const result = await page.locator('.admin-stat-grid').evaluate((grid) => {
+    const tiles = [...grid.querySelectorAll<HTMLElement>('.admin-stat-tile')];
+    const stacked = tiles.map((tile) => {
+      const label = tile.querySelector<HTMLElement>('.admin-stat-tile__label')!;
+      const value = tile.querySelector<HTMLElement>('.admin-stat-tile__value')!;
+      const labelBox = label.getBoundingClientRect();
+      const valueBox = value.getBoundingClientRect();
+      return labelBox.bottom <= valueBox.top + .5 && Math.abs(labelBox.left - valueBox.left) <= 1;
+    });
+    const tile = document.createElement('div');
+    tile.className = 'admin-stat-tile';
+    tile.innerHTML = '<span class="admin-stat-tile__label">Queued</span><strong class="admin-stat-tile__value">1</strong><span class="admin-badge admin-badge--warning">Backlog</span>';
+    grid.append(tile);
+    const value = tile.querySelector<HTMLElement>('.admin-stat-tile__value')!;
+    const badge = tile.querySelector<HTMLElement>('.admin-badge')!;
+    const style = getComputedStyle(tile);
+    const contentWidth = tile.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const badgeBox = badge.getBoundingClientRect();
+    const valueBox = value.getBoundingClientRect();
+    const ownRow = badgeBox.top >= valueBox.bottom - .5;
+    const ownWidth = badgeBox.width <= contentWidth - 8;
+    badge.style.justifySelf = 'stretch';
+    const stretches = badge.getBoundingClientRect().width >= contentWidth - 1;
+    tile.remove();
+    return { count: tiles.length, stacked, ownRow, ownWidth, stretches };
+  });
+  expect(result.count).toBe(4);
+  expect(result.stacked.every(Boolean)).toBeTruthy();
+  expect(result.ownRow).toBeTruthy();
+  expect(result.ownWidth).toBeTruthy();
+  expect(result.stretches).toBeTruthy();
+});
+
 test('admin page screenshots', async ({ page }, testInfo) => {
   test.skip(!process.env.ADMIN_SCREENSHOT_DIR, 'ADMIN_SCREENSHOT_DIR is not set.');
   test.setTimeout(180000);
