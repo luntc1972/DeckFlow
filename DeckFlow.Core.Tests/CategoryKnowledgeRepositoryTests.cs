@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Reporting;
 
 namespace DeckFlow.Core.Tests;
@@ -420,33 +421,32 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetCategoriesForNamesAsync_MatchesPerCardLookup_AndCoversEveryRequestedName()
+    public async Task GetCategoriesForNamesAsync_ExcludesRarePairsAndCoversEveryRequestedName()
     {
         var repository = CreateRepository();
-        await repository.PersistObservedCategoriesAsync("archidekt_live:1", "Rhystic Study", new[] { "Card Draw" });
-        await repository.PersistObservedCategoriesAsync("archidekt_live:1", "Cyclonic Rift", new[] { "Removal", "Board Wipe" });
+        var minObservationRows = GetCardCategoryRepository(repository).MinObservationRows;
+        Assert.Equal(5, minObservationRows);
+        await SeedThresholdObservationsAsync(repository, "Rhystic Study", new[] { "Card Draw" });
+        await SeedThresholdObservationsAsync(repository, "Cyclonic Rift", new[] { "Removal" });
+        await SeedThresholdObservationsAsync(repository, "Cyclonic Rift", new[] { "Board Wipe" }, count: minObservationRows - 1);
 
         var names = new[] { "Rhystic Study", "Cyclonic Rift", "Not In Cache" };
         var batch = await repository.GetCategoriesForNamesAsync(names);
 
         // Every requested name gets an entry, keyed by the requested spelling.
         Assert.Equal(names.Length, batch.Count);
-        foreach (var name in names)
-        {
-            // The batch is byte-identical to N single-card lookups, including the missing-card fallback.
-            var single = await repository.GetCategoriesAsync(name);
-            Assert.Equal(single, batch[name]);
-        }
+        Assert.Equal(new[] { "Card Draw" }, batch["Rhystic Study"]);
+        Assert.Equal(new[] { "Removal" }, batch["Cyclonic Rift"]);
+        Assert.Equal(CategoryFilter.IncludedOrFallback(Array.Empty<string>()), batch["Not In Cache"]);
     }
 
     [Fact]
-    public async Task GetCategoriesForNamesAsync_MatchesPerCardLookup_ForParityCases()
+    public async Task GetCategoriesForNamesAsync_MatchesThresholdedObservationReference_ForParityCases()
     {
         var repository = CreateRepository();
-        await repository.PersistObservedCategoriesAsync("archidekt_live:1", "Sol Ring", new[] { "Ramp", "Removal" });
-        await repository.PersistObservedCategoriesAsync("archidekt_live:2", "Sol Ring", new[] { "Ramp", "ramp" });
-        await repository.PersistObservedCategoriesAsync("archidekt_live:3", "Sol Ring", new[] { "Ramp" });
-        await repository.PersistObservedCategoriesAsync("archidekt_live:4", "Arcane Signet", new[] { "Ramp" });
+        await SeedThresholdObservationsAsync(repository, "Sol Ring", new[] { "Ramp", "ramp" });
+        await SeedThresholdObservationsAsync(repository, "Sol Ring", new[] { "Removal" });
+        await repository.PersistObservedCategoriesAsync("archidekt_live:rare", "Arcane Signet", new[] { "Ramp" });
         await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
         {
             await connection.OpenAsync();
@@ -462,7 +462,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         Assert.Equal(new[] { "Ramp", "ramp", "Removal" }, batch["Sol Ring"]);
         foreach (var name in names)
         {
-            Assert.Equal(await repository.GetCategoriesAsync(name), batch[name]);
+            Assert.Equal(await GetThresholdedObservationCategoriesAsync(repository, name), batch[name]);
         }
     }
 
@@ -485,7 +485,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     public async Task GetCategoriesForNamesAsync_KeyedCaseInsensitively_AndSkipsBlankNames()
     {
         var repository = CreateRepository();
-        await repository.PersistObservedCategoriesAsync("archidekt_live:1", "Sol Ring", new[] { "Ramp" });
+        await SeedThresholdObservationsAsync(repository, "Sol Ring", new[] { "Ramp" });
 
         var batch = await repository.GetCategoriesForNamesAsync(new[] { "SOL RING", "  ", "" });
 
@@ -689,6 +689,51 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
+
+    private static CardCategoryRepository GetCardCategoryRepository(CategoryKnowledgeRepository repository)
+    {
+        var field = typeof(CategoryKnowledgeRepository).GetField(
+            "_cardCategory",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        return Assert.IsType<CardCategoryRepository>(field?.GetValue(repository));
+    }
+
+    private static async Task SeedThresholdObservationsAsync(
+        CategoryKnowledgeRepository repository,
+        string cardName,
+        IReadOnlyList<string> categories,
+        int? count = null)
+    {
+        var observationCount = count ?? GetCardCategoryRepository(repository).MinObservationRows;
+        for (var i = 0; i < observationCount; i++)
+        {
+            await repository.PersistObservedCategoriesAsync($"archidekt_live:{i}", cardName, categories);
+        }
+    }
+
+    private async Task<IReadOnlyList<string>> GetThresholdedObservationCategoriesAsync(CategoryKnowledgeRepository repository, string cardName)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT o.category FROM card_category_observations o
+            JOIN cards c ON c.id = o.card_id
+            WHERE c.normalized_card_name = @normalized
+            GROUP BY c.normalized_card_name, o.category
+            HAVING COUNT(*) >= @minObservationRows
+            ORDER BY c.normalized_card_name, LOWER(o.category), o.category
+            """;
+        command.Parameters.AddWithValue("@normalized", CardNormalizer.Normalize(cardName));
+        command.Parameters.AddWithValue("@minObservationRows", GetCardCategoryRepository(repository).MinObservationRows);
+        var categories = new List<string>();
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            categories.Add(reader.GetString(0));
+        }
+        return CategoryFilter.IncludedOrFallback(categories);
+    }
 
     private async Task AssertCategorySummaryMatchesObservationsAsync()
     {

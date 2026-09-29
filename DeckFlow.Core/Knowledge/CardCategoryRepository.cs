@@ -21,6 +21,9 @@ internal sealed class CardCategoryRepository
     // Why: a bounded batch lookup lets callers fail open instead of consuming the analysis time budget.
     internal int CategoriesBatchCommandTimeoutSeconds { get; set; } = 3;
 
+    // Why: free-text tags seen on fewer than five decks are noise; see the plan's Dropped-tag check.
+    internal int MinObservationRows { get; set; } = 5;
+
     /// <summary>
     /// Initializes the card-category collaborator.
     /// </summary>
@@ -190,12 +193,13 @@ internal sealed class CardCategoryRepository
     }
 
     /// <summary>
-    /// Batch equivalent of <see cref="GetCategoriesAsync"/>: resolves categories for many cards in a
-    /// single round-trip (one <c>IN</c> query instead of one query per card). Returns a dictionary
+    /// Resolves categories for many cards in one round-trip from the summary, including only pairs
+    /// with at least <see cref="MinObservationRows"/> observation rows. Unlike the unthresholded
+    /// single-card <see cref="GetCategoriesAsync"/>, this excludes rare tags. Returns a dictionary
     /// keyed by the ORIGINAL requested name (case-insensitive) so the caller can look each spell up by
     /// the same string it passed in. Every distinct input name gets an entry — including cards with no
-    /// stored observations, which receive <see cref="CategoryFilter.IncludedOrFallback"/>'s fallback
-    /// exactly as the per-card path does. Blank names are skipped.
+    /// qualifying summary rows, which receive <see cref="CategoryFilter.IncludedOrFallback"/>'s fallback.
+    /// Blank names are skipped.
     /// </summary>
     /// <param name="cardNames">Card names to resolve (display spellings; duplicates share one lookup).</param>
     /// <param name="timingReporter">Optional callback for reporting lookup step timings.</param>
@@ -236,7 +240,7 @@ internal sealed class CardCategoryRepository
         stopwatch.Restart();
         var rows = await connection.QueryAsync<CardCategoryNameRow>(new CommandDefinition(
             BuildCategoryLookupSql(membershipOperator),
-            new { normalized = normalizedKeys.ToList() },
+            new { normalized = normalizedKeys.ToList(), minObservationRows = MinObservationRows },
             commandTimeout: CategoriesBatchCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         timingReporter?.Invoke("QueryAsync", stopwatch.ElapsedMilliseconds, normalizedKeys.Count);
@@ -247,7 +251,7 @@ internal sealed class CardCategoryRepository
 
         // Re-key by the caller's ORIGINAL spelling (re-normalizing to find its row set), so a spell can be
         // looked up by the same string it was passed in as. Every distinct requested name gets an entry,
-        // and a card absent from the cache still receives IncludedOrFallback's fallback (per-card parity).
+        // and a card without qualifying summary rows still receives IncludedOrFallback's fallback.
         foreach (var name in cardNames)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -267,12 +271,12 @@ internal sealed class CardCategoryRepository
     // Why: the Postgres plan test EXPLAINs this exact text to verify the indexed batch query plan.
     internal static string BuildCategoryLookupSql(string membershipOperator)
         => $"""
-            SELECT c.normalized_card_name AS NormalizedCardName, o.category AS Category
-            FROM card_category_observations o
-            JOIN cards c ON c.id = o.card_id
+            SELECT c.normalized_card_name AS NormalizedCardName, s.category AS Category
+            FROM card_category_summary s
+            JOIN cards c ON c.id = s.card_id
             WHERE c.normalized_card_name {membershipOperator}
-            GROUP BY c.normalized_card_name, o.category
-            ORDER BY c.normalized_card_name, LOWER(o.category), o.category
+              AND s.observation_rows >= @minObservationRows
+            ORDER BY c.normalized_card_name, LOWER(s.category), s.category
             """;
 
     /// <summary>

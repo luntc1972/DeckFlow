@@ -24,21 +24,16 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
         var repository = new CategoryKnowledgeRepository(
             new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, connectionString));
         var suffix = Guid.NewGuid().ToString("N");
-        var first = $"pg-loose-first-{suffix}";
-        var second = $"pg-loose-second-{suffix}";
-        var noObservations = $"pg-loose-empty-{suffix}";
-        var absent = $"pg-loose-absent-{suffix}";
-        var sources = new[] { $"loose-a-{suffix}", $"loose-b-{suffix}", $"loose-c-{suffix}" };
+        var first = $"pg-summary-first-{suffix}";
+        var second = $"pg-summary-second-{suffix}";
+        var noObservations = $"pg-summary-empty-{suffix}";
+        var absent = $"pg-summary-absent-{suffix}";
+        var minObservationRows = GetCardCategoryRepository(repository).MinObservationRows;
+        Assert.Equal(5, minObservationRows);
+        var sources = await SeedThresholdObservationsAsync(repository, first, new[] { "Ramp", "ramp", "Card Draw" }, suffix);
 
-        foreach (var source in sources)
-        {
-            await repository.PersistObservedCategoriesAsync(
-                source,
-                first,
-                new[] { "Ramp", "ramp", "Tutor", "Card Draw" });
-        }
-
-        await repository.PersistObservedCategoriesAsync(sources[0], second, new[] { "Removal", "Interaction" });
+        await repository.PersistObservedCategoriesAsync($"summary-rare-{suffix}", first, new[] { "Tutor" });
+        await SeedThresholdObservationsAsync(repository, second, new[] { "Removal", "Interaction" }, suffix, count: minObservationRows - 1);
         await repository.PersistCardDeckTotalsAsync(sources[0], noObservations);
 
         var names = new[] { first, second, noObservations, absent };
@@ -46,9 +41,10 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(
-            "SELECT c.normalized_card_name, o.category FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE c.normalized_card_name = ANY(@n) GROUP BY c.normalized_card_name, o.category ORDER BY c.normalized_card_name, LOWER(o.category), o.category",
+            "SELECT c.normalized_card_name, o.category FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE c.normalized_card_name = ANY(@n) GROUP BY c.normalized_card_name, o.category HAVING COUNT(*) >= @minObservationRows ORDER BY c.normalized_card_name, LOWER(o.category), o.category",
             connection);
         command.Parameters.AddWithValue("n", names.Select(CardNormalizer.Normalize).ToArray());
+        command.Parameters.AddWithValue("minObservationRows", GetCardCategoryRepository(repository).MinObservationRows);
         var reference = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -66,17 +62,46 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
                     : Array.Empty<string>());
             Assert.Equal(expected, actual[name]);
         }
+        Assert.Equal(names.Length, actual.Count);
+        Assert.Contains("Ramp", actual[first]);
+        Assert.DoesNotContain("Tutor", actual[first]);
+        Assert.Equal(CategoryFilter.IncludedOrFallback(Array.Empty<string>()), actual[second]);
+    }
+
+    private static CardCategoryRepository GetCardCategoryRepository(CategoryKnowledgeRepository repository)
+    {
+        var field = typeof(CategoryKnowledgeRepository).GetField(
+            "_cardCategory",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        return Assert.IsType<CardCategoryRepository>(field?.GetValue(repository));
+    }
+
+    private static async Task<IReadOnlyList<string>> SeedThresholdObservationsAsync(
+        CategoryKnowledgeRepository repository,
+        string cardName,
+        IReadOnlyList<string> categories,
+        string suffix,
+        int? count = null)
+    {
+        var sources = Enumerable.Range(0, count ?? GetCardCategoryRepository(repository).MinObservationRows)
+            .Select(i => $"summary-{i}-{suffix}").ToArray();
+        foreach (var source in sources)
+        {
+            await repository.PersistObservedCategoriesAsync(source, cardName, categories);
+        }
+
+        return sources;
     }
 
     [PostgresFact]
-    public async Task BatchCategoryLookup_Postgres_UsesCardCategoryIndex()
+    public async Task BatchCategoryLookup_Postgres_UsesSummaryPrimaryKeyIndex()
     {
         var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
         var repository = new CategoryKnowledgeRepository(
             new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, connectionString));
         var suffix = Guid.NewGuid().ToString("N");
-        var cardName = $"pg-loose-index-{suffix}";
-        await repository.PersistObservedCategoriesAsync($"loose-index-{suffix}", cardName, new[] { "Ramp" });
+        var cardName = $"pg-summary-index-{suffix}";
+        await repository.PersistObservedCategoriesAsync($"summary-index-{suffix}", cardName, new[] { "Ramp" });
 
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
@@ -91,6 +116,7 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
         planCommand.Parameters.AddWithValue(
             "normalized",
             new[] { CardNormalizer.Normalize(cardName) });
+        planCommand.Parameters.AddWithValue("minObservationRows", GetCardCategoryRepository(repository).MinObservationRows);
         await using var reader = await planCommand.ExecuteReaderAsync();
         var plan = new List<string>();
         while (await reader.ReadAsync())
@@ -98,6 +124,7 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
             plan.Add(reader.GetString(0));
         }
 
-        Assert.Contains(plan, line => line.Contains("ix_obs_card_category", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(plan, line => line.Contains("card_category_summary_pkey", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(plan, line => line.Contains("card_category_observations", StringComparison.OrdinalIgnoreCase));
     }
 }

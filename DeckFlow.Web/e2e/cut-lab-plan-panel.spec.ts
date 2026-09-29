@@ -277,6 +277,11 @@ test('checking a generic strategy the pool matches changes the proposed cut', as
        VALUES
          (${engineEffectSourceId}, ${cardId}, ${q(engineEffectCardName)}, ${q(engineEffectCategoryLabel)}, 'mainboard', 1, 1, '2026-01-01T00:00:00Z');`,
     );
+    // 5 matches CardCategoryRepository.MinObservationRows's default, so batch lookup returns this category.
+    sqlite(
+      `INSERT OR REPLACE INTO card_category_summary (card_id, category, observation_rows)
+       VALUES (${cardId}, ${q(engineEffectCategoryLabel)}, 5);`,
+    );
     observationSeeded = true;
   } catch (error: unknown) {
     console.warn('plan-panel category seed failed:', error);
