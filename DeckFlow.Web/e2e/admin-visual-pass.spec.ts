@@ -24,7 +24,8 @@ const ADMIN_STATES = [
       await page.locator('#harvest-tab-commanders').click();
       const grid = page.locator('#commanders-grid-container');
       await expect(grid).toHaveAttribute('aria-busy', 'false');
-      await expect(grid.locator('p.admin-meta:visible, .admin-banner--danger:visible')).toBeVisible();
+      await expect(grid.locator('p.admin-meta').first()).toBeVisible();
+      await expect(grid.locator('.admin-banner--danger')).toHaveCount(0);
     },
   },
   {
@@ -153,6 +154,25 @@ for (const state of ADMIN_STATES) {
     await assertVisualPass(page);
   });
 }
+
+test('harvest-commanders sweep state rejects a failed grid load', async ({ page }) => {
+  await page.route('**/Admin/Harvest/commanders**', async (route) => {
+    await route.fulfill({ status: 500, contentType: 'text/html', body: 'forced failure' });
+  });
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  const state = ADMIN_STATES.find((item) => item.slug === 'harvest-commanders')!;
+  let outcome = 'passed';
+  try {
+    await state.drive(page);
+  } catch {
+    outcome = 'rejected';
+  }
+  const banner = page.locator('#commanders-grid-container .admin-banner--danger[role="alert"]');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('Could not load commanders.');
+  expect(outcome).toBe('rejected');
+});
 
 test('harvest stat tiles stack label, value and badge', async ({ page }) => {
   const response = await page.goto('/Admin/Harvest');
