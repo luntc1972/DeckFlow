@@ -160,6 +160,8 @@ internal sealed class CategoryCacheSchema
             CREATE UNIQUE INDEX IF NOT EXISTS ux_obs_grain ON card_category_observations(source_id, card_id, category, board);
             CREATE INDEX IF NOT EXISTS ix_obs_card ON card_category_observations(card_id);
             CREATE INDEX IF NOT EXISTS ix_obs_card_board ON card_category_observations(card_id, board);
+            -- Why: production builds this out-of-band with CREATE INDEX CONCURRENTLY before deploy because 22M rows exceed the 15 s batch timeout.
+            CREATE INDEX IF NOT EXISTS ix_obs_card_category ON card_category_observations(card_id, category);
             CREATE INDEX IF NOT EXISTS ix_obs_source ON card_category_observations(source_id);
             CREATE UNIQUE INDEX IF NOT EXISTS ux_totals_grain ON card_deck_totals(source_id, card_id, board);
             CREATE INDEX IF NOT EXISTS ix_totals_card ON card_deck_totals(card_id);

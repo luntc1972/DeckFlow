@@ -235,14 +235,7 @@ internal sealed class CardCategoryRepository
         var membershipOperator = _connectionInfo.IsPostgres ? "= ANY(@normalized)" : "IN @normalized";
         stopwatch.Restart();
         var rows = await connection.QueryAsync<CardCategoryNameRow>(new CommandDefinition(
-            $"""
-            SELECT c.normalized_card_name AS NormalizedCardName, o.category AS Category
-            FROM card_category_observations o
-            JOIN cards c ON c.id = o.card_id
-            WHERE c.normalized_card_name {membershipOperator}
-            GROUP BY c.normalized_card_name, o.category
-            ORDER BY c.normalized_card_name, LOWER(o.category), o.category
-            """,
+            BuildCategoryLookupSql(membershipOperator),
             new { normalized = normalizedKeys.ToList() },
             commandTimeout: CategoriesBatchCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
@@ -270,6 +263,30 @@ internal sealed class CardCategoryRepository
 
         return result;
     }
+
+    // Why: the Postgres plan test EXPLAINs this exact text, so a revert of the loose scan fails a test.
+    internal static string BuildCategoryLookupSql(string membershipOperator)
+        => $"""
+            WITH RECURSIVE ids AS (
+                SELECT id, normalized_card_name
+                FROM cards
+                WHERE normalized_card_name {membershipOperator}
+            ),
+            walk(card_id, normalized_card_name, category) AS (
+                SELECT ids.id, ids.normalized_card_name,
+                       (SELECT MIN(o.category) FROM card_category_observations o WHERE o.card_id = ids.id)
+                FROM ids
+                UNION ALL
+                SELECT w.card_id, w.normalized_card_name,
+                       (SELECT MIN(o.category) FROM card_category_observations o WHERE o.card_id = w.card_id AND o.category > w.category)
+                FROM walk w
+                WHERE w.category IS NOT NULL
+            )
+            SELECT normalized_card_name AS NormalizedCardName, category AS Category
+            FROM walk
+            WHERE category IS NOT NULL
+            ORDER BY normalized_card_name, LOWER(category), category
+            """;
 
     /// <summary>
     /// Retrieves detail rows for a card, including display name and count.

@@ -315,6 +315,33 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoriesForNamesAsync_MatchesPerCardLookup_ForLooseScanParityCases()
+    {
+        var repository = CreateRepository();
+        await repository.PersistObservedCategoriesAsync("archidekt_live:1", "Sol Ring", new[] { "Ramp", "Removal" });
+        await repository.PersistObservedCategoriesAsync("archidekt_live:2", "Sol Ring", new[] { "Ramp", "ramp" });
+        await repository.PersistObservedCategoriesAsync("archidekt_live:3", "Sol Ring", new[] { "Ramp" });
+        await repository.PersistObservedCategoriesAsync("archidekt_live:4", "Arcane Signet", new[] { "Ramp" });
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO cards (normalized_card_name, display_name) VALUES ('card with no observations', 'Card With No Observations');";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var names = new[] { "Sol Ring", "Arcane Signet", "Card With No Observations", "Absent From Cards" };
+        var batch = await repository.GetCategoriesForNamesAsync(names);
+
+        Assert.Equal(names.Length, batch.Count);
+        Assert.Equal(new[] { "Ramp", "ramp", "Removal" }, batch["Sol Ring"]);
+        foreach (var name in names)
+        {
+            Assert.Equal(await repository.GetCategoriesAsync(name), batch[name]);
+        }
+    }
+
+    [Fact]
     public void GetCategoriesForNamesAsync_DefaultCommandTimeout_IsThreeSeconds()
     {
         var repository = CreateRepository();
@@ -453,6 +480,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         Assert.Contains("ux_cards_normalized", indexNames);
         Assert.Contains("ix_obs_card", indexNames);
         Assert.Contains("ix_obs_card_board", indexNames);
+        Assert.Contains("ix_obs_card_category", indexNames);
         Assert.Contains("ix_totals_card", indexNames);
         Assert.Contains("ix_totals_card_board", indexNames);
     }
@@ -667,6 +695,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
                 'ux_cards_normalized',
                 'ix_obs_card',
                 'ix_obs_card_board',
+                'ix_obs_card_category',
                 'ix_totals_card',
                 'ix_totals_card_board')
             ORDER BY name;
