@@ -55,4 +55,40 @@ public sealed class AdminCssComponentTests
         AssertDeclares(tile, "min-width", "0");
         AssertDeclares(".admin-shell .admin-stat-tile .admin-badge", "justify-self", "start");
     }
+
+    [Fact]
+    public void FilterChip_SharesPaddingColorCursorAndFont()
+    {
+        const string chip = ".admin-shell .admin-filter-chips__chip";
+        AssertDeclares(chip, "padding", "var(--space-xs) var(--space-md)");
+        AssertDeclares(chip, "color", "var(--muted)");
+        AssertDeclares(chip, "cursor", "pointer");
+        AssertDeclares(chip, "font", "inherit");
+        AssertDeclares(chip, "text-decoration", "none");
+        AssertDeclares($"{chip}:hover", "color", "var(--text)");
+        AssertDeclares($"{chip}:hover", "text-decoration", "none");
+        AssertDeclares($"{chip}.is-active", "color", "var(--text)");
+
+        var rules = AdminCssTokenTests.Rules(AdminCssTokenTests.ReadCss("admin-common.css"));
+        var hover = Array.FindIndex(rules.ToArray(), rule => Regex.Replace(rule.Selector, @"\s+", " ").Trim() == $"{chip}:hover");
+        var disabled = Array.FindIndex(rules.ToArray(), rule => Regex.Replace(rule.Selector, @"\s+", " ").Trim().StartsWith($"{chip}:disabled", StringComparison.Ordinal));
+        Assert.True(hover < disabled, "Chip hover rule must come before disabled rule.");
+    }
+
+    [Fact]
+    public void Tabs_DeclarePaddingCursorFontAndStripGap()
+    {
+        AssertDeclares(".admin-shell .admin-tabs__tab", "padding", "var(--space-sm) var(--space-md)");
+        AssertDeclares(".admin-shell .admin-tabs__tab", "cursor", "pointer");
+        AssertDeclares(".admin-shell .admin-tabs__tab", "font", "inherit");
+        AssertDeclares(".admin-shell .admin-tabs", "margin-bottom", "var(--space-md)");
+    }
+
+    [Fact]
+    public void SuccessBanner_IsDeclaredOnce()
+    {
+        const string selector = ".admin-shell .admin-banner--success";
+        AssertDeclares(selector, "background", "var(--status-success-bg)");
+        AssertDeclares(selector, "border-color", "var(--status-success)");
+    }
 }
