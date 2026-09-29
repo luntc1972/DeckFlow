@@ -295,6 +295,71 @@ test('harvest tabs carry padding, pointer and a gap before the panel', async ({ 
   expect(metrics.gap).toBeGreaterThanOrEqual(15.5);
 });
 
+test('content kb status and publish badges stay on one line', async ({ page }) => {
+  const response = await page.goto('/Admin/ContentKb');
+  expect(response?.ok()).toBeTruthy();
+  const rows = await page.locator('#kb-entries-table tbody tr').count();
+  test.skip(rows === 0, 'no KB rows seeded');
+  await expect(page.locator('td[data-label="Status"] .admin-badge:visible')).not.toHaveCount(0);
+  await expect(page.locator('td[data-label="Publish State"] .admin-badge:visible')).not.toHaveCount(0);
+  const result = await page.evaluate(() => {
+    const badges = [...document.querySelectorAll<HTMLElement>('#kb-entries-table .admin-badge')]
+      .filter((badge) => badge.checkVisibility())
+      .map((badge) => {
+        const box = badge.getBoundingClientRect();
+        const cell = badge.closest<HTMLElement>('td')!.getBoundingClientRect();
+        return { text: badge.textContent?.trim() ?? '', height: box.height, lineHeight: Number.parseFloat(getComputedStyle(badge).lineHeight), inside: box.left >= cell.left - .5 && box.right <= cell.right + .5 };
+      });
+    const wrapper = document.querySelector<HTMLElement>('.admin-table-scroll')!;
+    return { badges, scrollWidth: wrapper.scrollWidth, clientWidth: wrapper.clientWidth };
+  });
+  for (const badge of result.badges) {
+    expect(badge.lineHeight).toBeGreaterThan(0);
+    expect(Number.isFinite(badge.lineHeight)).toBeTruthy();
+    expect(badge.height / badge.lineHeight, `content kb badge renders on one line: ${badge.text}`).toBeLessThan(1.6);
+    expect(badge.inside, `content kb badge stays inside its cell: ${badge.text}`).toBeTruthy();
+  }
+  expect(result.scrollWidth, 'content kb table does not scroll horizontally').toBeLessThanOrEqual(result.clientWidth + 1);
+});
+
+test('harvest backlog badge stays inside its stat tile', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  const result = await page.locator('#health-queued-decks').evaluate((queued) => {
+    const tile = queued.closest<HTMLElement>('.admin-stat-tile')!;
+    const badge = document.createElement('span');
+    badge.className = 'admin-badge admin-badge--warning admin-badge--alert';
+    badge.textContent = 'Backlog exceeds floor and growing';
+    tile.append(badge);
+    try {
+      const style = getComputedStyle(tile); const rect = tile.getBoundingClientRect(); const box = badge.getBoundingClientRect();
+      const left = rect.left + Number.parseFloat(style.borderLeftWidth) + Number.parseFloat(style.paddingLeft);
+      const right = rect.right - Number.parseFloat(style.borderRightWidth) - Number.parseFloat(style.paddingRight);
+      return { left, right, badgeLeft: box.left, badgeRight: box.right, scrollWidth: badge.scrollWidth, clientWidth: badge.clientWidth, documentWidth: document.documentElement.scrollWidth, innerWidth };
+    } finally { badge.remove(); }
+  });
+  expect(result.badgeLeft, 'backlog badge fits its stat tile').toBeGreaterThanOrEqual(result.left - .5);
+  expect(result.badgeRight, 'backlog badge fits its stat tile').toBeLessThanOrEqual(result.right + .5);
+  expect(result.scrollWidth, 'backlog badge fits its stat tile').toBeLessThanOrEqual(result.clientWidth + 1);
+  expect(result.documentWidth, 'backlog badge fits its stat tile').toBeLessThanOrEqual(result.innerWidth + 1);
+});
+
+test('wrapped harvest backlog badge uses 4px corners', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  const result = await page.locator('#health-queued-decks').evaluate((queued) => {
+    const tile = queued.closest<HTMLElement>('.admin-stat-tile')!; const badge = document.createElement('span');
+    badge.className = 'admin-badge admin-badge--warning admin-badge--alert'; badge.textContent = 'Backlog exceeds floor and growing'; tile.append(badge);
+    try { const style = getComputedStyle(badge); return { height: badge.getBoundingClientRect().height, lineHeight: Number.parseFloat(style.lineHeight), topLeft: style.borderTopLeftRadius, bottomRight: style.borderBottomRightRadius }; }
+    finally { badge.remove(); }
+  });
+  expect(result.lineHeight).toBeGreaterThan(0);
+  expect(Number.isFinite(result.lineHeight)).toBeTruthy();
+  expect(result.height / result.lineHeight, 'backlog badge wraps in its stat tile').toBeGreaterThanOrEqual(1.6);
+  expect(result.topLeft, 'wrapped backlog badge uses 4px corners').toBe('4px');
+  expect(result.bottomRight, 'wrapped backlog badge uses 4px corners').toBe('4px');
+});
+
 test('admin page screenshots', async ({ page }, testInfo) => {
   test.skip(!process.env.ADMIN_SCREENSHOT_DIR, 'ADMIN_SCREENSHOT_DIR is not set.');
   test.setTimeout(180000);
