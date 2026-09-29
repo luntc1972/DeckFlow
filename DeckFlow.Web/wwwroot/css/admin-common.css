@@ -377,12 +377,6 @@ a:hover { text-decoration: underline; }
   outline: 0;
 }
 
-/* Maintenance page (FLAG-05 reusable). Renders inside _AdminLayout when triggered from
-   admin pages; the admin chrome owns these scoped panel-level defaults. */
-.admin-shell .maintenance-page { max-width: 600px; margin: var(--space-2xl) auto; text-align: center; }
-.admin-shell .maintenance-page h1 { font-size: var(--text-heading); margin-bottom: var(--space-md); }
-.admin-shell .maintenance-page p { color: var(--text); }
-
 /* Phase 8 — Analytics admin page (ANLY-04, ANLY-05) */
 .admin-shell .admin-page-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--space-md); margin-bottom: var(--space-lg); }
 .admin-shell .admin-page-header__title { margin: 0; font-size: var(--text-heading); font-weight: 600; overflow-wrap: anywhere; }
@@ -535,11 +529,6 @@ a:hover { text-decoration: underline; }
 
 .admin-shell .admin-harvest__category-toggle {
   padding: var(--space-sm) 0;
-}
-
-.admin-shell .admin-harvest__category-breakdown {
-  max-width: 100%;
-  table-layout: fixed;
 }
 
 .admin-shell .admin-harvest__health {

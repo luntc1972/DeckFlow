@@ -1,9 +1,49 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 
 type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
 let heldLock: LockHandle | null = null;
+
+const ADMIN_PAGES = [
+  { route: '/Admin', slug: 'admin' },
+  { route: '/Admin/Analytics', slug: 'analytics' },
+  { route: '/Admin/ContentKb', slug: 'content-kb' },
+  { route: '/Admin/CreatorProfile', slug: 'creator-profile' },
+  { route: '/Admin/CreatorStyle', slug: 'creator-style' },
+  { route: '/Admin/Feedback', slug: 'feedback' },
+  { route: '/Admin/Flags', slug: 'flags' },
+  { route: '/Admin/Harvest', slug: 'harvest' },
+  { route: '/Admin/Tools', slug: 'tools' },
+  { route: '/Admin/YoutubeExport', slug: 'youtube-export' },
+] as const;
+
+const ADMIN_STATES = [
+  {
+    slug: 'harvest-commanders', route: '/Admin/Harvest', drive: async (page: Page) => {
+      await page.locator('#harvest-tab-commanders').click();
+      const grid = page.locator('#commanders-grid-container');
+      await expect(grid).toHaveAttribute('aria-busy', 'false');
+      await expect(grid.locator('p.admin-meta:visible, .admin-banner--danger:visible')).toBeVisible();
+    },
+  },
+  {
+    slug: 'tools-filter-empty', route: '/Admin/Tools', drive: async (page: Page) => {
+      const search = page.locator('#tools-filter-search');
+      await expect(search).toBeVisible();
+      await search.fill('zz-04-10-no-match');
+      await expect(page.locator('#tools-filter-empty')).toBeVisible();
+    },
+  },
+  {
+    slug: 'flags-filter-empty', route: '/Admin/Flags', drive: async (page: Page) => {
+      const search = page.locator('#flag-filter-search');
+      await expect(search).toBeVisible();
+      await search.fill('zz-04-10-no-match');
+      await expect(page.locator('#flag-filter-empty')).toBeVisible();
+    },
+  },
+] as const;
 
 test.describe.configure({ mode: 'serial' });
 
@@ -71,4 +111,64 @@ test('admin filter chip wraps a long unbroken label at 375px', async ({ page }) 
     main.append(chip); return { overflow: chip.scrollWidth <= chip.clientWidth + 1, height: chip.getBoundingClientRect().height };
   });
   expect(result.overflow).toBeTruthy(); expect(result.height).toBeGreaterThan(44);
+});
+
+async function assertVisualPass(page: Page): Promise<void> {
+  await expect(page.locator('h1')).toHaveCount(1);
+  await expect(page.locator('h1')).toHaveClass(/admin-page-header__title/);
+
+  const tablesAreContained = await page.locator('table').evaluateAll((tables) =>
+    tables.every((table) => table.classList.contains('admin-table--card') || table.closest('.admin-table-scroll') !== null));
+  expect(tablesAreContained).toBeTruthy();
+
+  const emptyMessagesAreMuted = await page.locator('.admin-shell').evaluate((shell) => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--muted)';
+    shell.append(probe);
+    const muted = getComputedStyle(probe).color;
+    const emptyElements = Array.from(shell.querySelectorAll<HTMLElement>('.admin-empty, .admin-filter__empty, .admin-filter__empty-row td'));
+    const result = emptyElements.filter((element) => element.checkVisibility()).every((element) => getComputedStyle(element).color === muted);
+    probe.remove();
+    return result;
+  });
+  expect(emptyMessagesAreMuted).toBeTruthy();
+
+  await page.setViewportSize({ width: 375, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+}
+
+for (const adminPage of ADMIN_PAGES) {
+  test(`visual pass: ${adminPage.route}`, async ({ page }) => {
+    const response = await page.goto(adminPage.route);
+    expect(response?.ok()).toBeTruthy();
+    await assertVisualPass(page);
+  });
+}
+
+for (const state of ADMIN_STATES) {
+  test(`visual pass state: ${state.slug}`, async ({ page }) => {
+    const response = await page.goto(state.route);
+    expect(response?.ok()).toBeTruthy();
+    await state.drive(page);
+    await assertVisualPass(page);
+  });
+}
+
+test('admin page screenshots', async ({ page }, testInfo) => {
+  test.skip(!process.env.ADMIN_SCREENSHOT_DIR, 'ADMIN_SCREENSHOT_DIR is not set.');
+  test.setTimeout(180000);
+  const directory = process.env.ADMIN_SCREENSHOT_DIR!;
+
+  for (const adminPage of ADMIN_PAGES) {
+    const response = await page.goto(adminPage.route);
+    expect(response?.ok()).toBeTruthy();
+    await page.screenshot({ path: `${directory}/${testInfo.project.name}-${adminPage.slug}.png`, fullPage: true });
+  }
+
+  for (const state of ADMIN_STATES) {
+    const response = await page.goto(state.route);
+    expect(response?.ok()).toBeTruthy();
+    await state.drive(page);
+    await page.screenshot({ path: `${directory}/${testInfo.project.name}-${state.slug}.png`, fullPage: true });
+  }
 });

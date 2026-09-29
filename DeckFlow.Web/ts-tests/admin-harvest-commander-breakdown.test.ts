@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import '../wwwroot/ts/admin-harvest';
 
-const categoryMarkup = '<table class="admin-harvest__category-breakdown"><tbody><tr><td>Ramp</td></tr></tbody></table>';
+const categoryMarkup = '<table class="admin-table"><tbody><tr><td>Ramp</td></tr></tbody></table>';
 
 const gridMarkup = (): string => `
   <table><tbody>
