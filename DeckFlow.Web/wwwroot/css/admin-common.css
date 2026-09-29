@@ -597,7 +597,8 @@ a:hover { text-decoration: underline; }
 /* Why: admin-harvest.ts toggles hidden tab panels. */
 .admin-shell .admin-stack[hidden] { display: none; }
 .admin-shell .admin-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-md); }
-.admin-shell .admin-stat-tile { background: var(--panel); border: 1px solid var(--border); padding: var(--space-md); }
+.admin-shell .admin-stat-tile { background: var(--panel); border: 1px solid var(--border); padding: var(--space-md); display: grid; gap: var(--space-xs); align-content: start; min-width: 0; }
+.admin-shell .admin-stat-tile .admin-badge { justify-self: start; }
 .admin-shell .admin-stat-tile__label { color: var(--muted); font-size: var(--text-small); }
 .admin-shell .admin-stat-tile__value { font-size: var(--text-heading); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .admin-shell .admin-stat-tile__value--muted { color: var(--muted); }
