@@ -315,7 +315,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetCategoriesForNamesAsync_MatchesPerCardLookup_ForLooseScanParityCases()
+    public async Task GetCategoriesForNamesAsync_MatchesPerCardLookup_ForParityCases()
     {
         var repository = CreateRepository();
         await repository.PersistObservedCategoriesAsync("archidekt_live:1", "Sol Ring", new[] { "Ramp", "Removal" });

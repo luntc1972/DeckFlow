@@ -8,11 +8,11 @@ using Xunit;
 
 namespace DeckFlow.Web.Tests.Integration;
 
-public sealed class CategoryLookupLooseScanPostgresTests : IClassFixture<PostgresContainerFixture>
+public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContainerFixture>
 {
     private readonly PostgresContainerFixture _fixture;
 
-    public CategoryLookupLooseScanPostgresTests(PostgresContainerFixture fixture)
+    public CategoryLookupPostgresTests(PostgresContainerFixture fixture)
     {
         _fixture = fixture;
     }
@@ -69,7 +69,7 @@ public sealed class CategoryLookupLooseScanPostgresTests : IClassFixture<Postgre
     }
 
     [PostgresFact]
-    public async Task LooseScanSubquery_Postgres_UsesCardCategoryIndex()
+    public async Task BatchCategoryLookup_Postgres_UsesCardCategoryIndex()
     {
         var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
         var repository = new CategoryKnowledgeRepository(
@@ -98,7 +98,6 @@ public sealed class CategoryLookupLooseScanPostgresTests : IClassFixture<Postgre
             plan.Add(reader.GetString(0));
         }
 
-        Assert.Contains(plan, line => line.Contains("Recursive Union", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(plan, line => line.Contains("ix_obs_card_category", StringComparison.OrdinalIgnoreCase));
     }
 }
