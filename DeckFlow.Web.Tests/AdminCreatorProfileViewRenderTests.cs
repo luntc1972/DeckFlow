@@ -249,6 +249,17 @@ public sealed class AdminCreatorProfileViewRenderTests
         }
     }
 
+    [Fact]
+    public async Task Index_EmptyReportTables_RenderMutedEmptyCells()
+    {
+        var document = new HtmlParser().ParseDocument(await RenderAsync(CreateReportModel(emptyCollections: true)));
+        var cells = document.QuerySelectorAll("section.admin-card table.admin-table.admin-table--card td.admin-empty");
+
+        Assert.Equal(4, cells.Length);
+        Assert.Equal(["No decks.", "No repeat cards.", "No repeat commanders.", "No category tendencies."], cells.Select(cell => cell.TextContent.Trim()).ToArray());
+        Assert.Equal(["5", "4", "4", "5"], cells.Select(cell => cell.GetAttribute("colspan")!).ToArray());
+    }
+
     private static AdminCreatorProfileViewModel CreateReportModel(bool emptyCollections = false) => new()
     {
         Profile = new CreatorStyleProfile { Slug = "snail", Platform = "archidekt", MinDecks = 7, UpdatedUtc = DateTimeOffset.UtcNow, MeasuredMetrics = [new MeasuredMetric { Metric = "ramp", Value = 1, NumDecks = 2 }] },
