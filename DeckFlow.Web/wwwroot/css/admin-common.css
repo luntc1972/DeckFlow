@@ -640,6 +640,9 @@ a:hover { text-decoration: underline; }
 .admin-shell :where(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select, textarea) { min-height: 44px; border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: var(--space-xs) var(--space-sm); border-radius: 3px; font-family: inherit; box-sizing: border-box; }
 .admin-shell .admin-field { display: flex; flex-direction: column; gap: var(--space-xs); margin-bottom: var(--space-md); }
 .admin-shell .admin-field label { font-size: var(--text-label); font-weight: 600; }
+.admin-shell .admin-field--checkbox { flex-direction: row; align-items: center; gap: var(--space-sm); min-height: 44px; }
+.admin-shell .admin-field--checkbox label { flex: 1; display: flex; align-items: center; min-height: 44px; cursor: pointer; }
+.admin-shell .admin-field--checkbox input { width: 20px; height: 20px; margin: 0; }
 .admin-shell .admin-pagination { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; margin-top: var(--space-md); }
 .admin-shell .admin-pagination a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
 .admin-shell .admin-pagination [aria-current="page"] { font-weight: 600; }

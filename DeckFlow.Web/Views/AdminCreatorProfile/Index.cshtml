@@ -36,9 +36,9 @@
                 <option value="moxfield" selected="@(string.Equals(Model.Platform, "moxfield", StringComparison.OrdinalIgnoreCase) ? "selected" : null)">moxfield</option>
             </select>
         </div>
-        <div class="admin-field">
-            <label for="creator-profile-force-refresh">Force Refresh</label>
+        <div class="admin-field admin-field--checkbox">
             <input id="creator-profile-force-refresh" type="checkbox" name="ForceRefresh" value="true" checked="@(Model.ForceRefresh ? "checked" : null)" />
+            <label for="creator-profile-force-refresh">Force Refresh</label>
         </div>
         <button type="submit" class="admin-button admin-button--primary">Run Crawl + Measure</button>
     </form>
