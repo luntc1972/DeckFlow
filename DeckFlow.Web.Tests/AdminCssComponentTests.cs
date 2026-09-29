@@ -109,4 +109,30 @@ public sealed class AdminCssComponentTests
         AssertDeclares($"{field} input", "height", "20px");
         AssertDeclares($"{field} input", "margin", "0");
     }
+
+    [Fact]
+    public void Badge_StaysOnOneLine()
+    {
+        const string selector = ".admin-shell .admin-badge";
+        AssertDeclares(selector, "white-space", "nowrap");
+        AssertDeclares(selector, "align-items", "center");
+    }
+
+    [Fact]
+    public void StatTileBadge_KeepsWrapping()
+    {
+        AssertDeclares(".admin-shell .admin-stat-tile .admin-badge", "white-space", "normal");
+    }
+
+    [Fact]
+    public void Badge_UsesLabelTextSize()
+    {
+        AssertDeclares(".admin-shell .admin-badge", "font-size", "var(--text-label)");
+    }
+
+    [Fact]
+    public void StatTileBadge_UsesFourPixelRadius()
+    {
+        AssertDeclares(".admin-shell .admin-stat-tile .admin-badge", "border-radius", "4px");
+    }
 }
