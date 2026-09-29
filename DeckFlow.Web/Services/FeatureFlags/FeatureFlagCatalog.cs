@@ -65,21 +65,6 @@ public static class FeatureFlagCatalog
                 "Append computed deck statistics to the deck-analysis prompt.",
             ["analysis.manabase.accuracy"] =
                 "Bundled manabase sim-accuracy improvements (mana quantity, repeatable-ramp credit, color-aware mulligan, land-ramp simulation, health-band headline floor, pay-life untapped lands, and MDFC land backs modeled as real lands).",
-            // Legacy sim sub-flags below: all folded into analysis.manabase.accuracy and no longer
-            // read by the analyzer. They are not seeded anymore, but linger as rows on databases
-            // seeded before the consolidation (flipping the seed default never deletes stored rows).
-            // Kept here only so /Admin/Flags shows what they were instead of a blank cell; toggling
-            // any of them has no effect and the rows are safe to delete.
-            ["analysis.manabase.source-mana-quantity"] =
-                "Legacy sim sub-flag (counted a source's actual mana quantity), now folded into analysis.manabase.accuracy and no longer read. Lingering row on older databases; safe to delete.",
-            ["analysis.manabase.ramp-credit-v2"] =
-                "Legacy sim sub-flag (repeatable ramp/draw land-target credit), now folded into analysis.manabase.accuracy and no longer read. Lingering row on older databases; safe to delete.",
-            ["analysis.manabase.color-aware-mulligan"] =
-                "Legacy sim sub-flag (color-aware London mulligan in the castability sim), now folded into analysis.manabase.accuracy and no longer read. Lingering row on older databases; safe to delete.",
-            ["analysis.manabase.land-ramp-sim"] =
-                "Legacy sim sub-flag (credited land-ramp spells such as Cultivate in the sim), now folded into analysis.manabase.accuracy and no longer read. Lingering row on older databases; safe to delete.",
-            ["analysis.manabase.health-band-headline-floor"] =
-                "Legacy sim sub-flag (health-band headline castability floor), now folded into analysis.manabase.accuracy and no longer read. Lingering row on older databases; safe to delete.",
             ["analysis.manabase.health-band-castability"] =
                 "Let the deck's weakest color affect the overall health rating: if that color's hardest spell is cast below the target (80% Casual, 88% cEDH), it counts as a color problem and can drop the verdict from Solid to Workable. On by default.",
             ["analysis.manabase.plain-language-verdict"] =

@@ -13,6 +13,14 @@ public sealed class FeatureFlagStoreMigrationTests : IDisposable
     private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private static readonly string OldKey = Key("feature", "manabase", "enabled");
     private const string NewKey = "tool.manabase.enabled";
+    private static readonly string[] RetiredKeys =
+    [
+        "analysis.manabase.source-mana-quantity",
+        "analysis.manabase.ramp-credit-v2",
+        "analysis.manabase.color-aware-mulligan",
+        "analysis.manabase.land-ramp-sim",
+        "analysis.manabase.health-band-headline-floor",
+    ];
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"feature-flag-migration-{Guid.NewGuid():N}.db");
 
     public void Dispose()
@@ -66,6 +74,22 @@ public sealed class FeatureFlagStoreMigrationTests : IDisposable
     }
 
     [Fact]
+    public async Task EnsureSchemaAsync_DeletesRetiredManabaseFlags_AndPreservesAccuracyValue()
+    {
+        await SeedFlagsAsync(("analysis.manabase.accuracy", false), (RetiredKeys[0], true),
+            (RetiredKeys[1], true), (RetiredKeys[2], true), (RetiredKeys[3], true),
+            (RetiredKeys[4], true));
+        var store = new FeatureFlagStore(_dbPath);
+
+        await store.EnsureSchemaAsync();
+        await store.EnsureSchemaAsync();
+
+        var flags = await store.GetAllAsync();
+        Assert.False(flags["analysis.manabase.accuracy"]);
+        Assert.All(RetiredKeys, key => Assert.DoesNotContain(key, flags.Keys));
+    }
+
+    [Fact]
     public async Task EnsureSchemaAsync_RenamesCommanderCastabilityKey_AndPreservesDisabledValue()
     {
         // Phase-72 shipped this flag as the bare "manabase.commander-castability" outside the
@@ -84,6 +108,29 @@ public sealed class FeatureFlagStoreMigrationTests : IDisposable
     }
 
     private Task SeedLegacyFlagAsync(bool enabled) => SeedLegacyFlagAsync(OldKey, enabled);
+
+    private async Task SeedFlagsAsync(params (string Key, bool Enabled)[] flags)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE feature_flags (
+              key TEXT PRIMARY KEY,
+              enabled INTEGER NOT NULL DEFAULT 1,
+              updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            """;
+        await command.ExecuteNonQueryAsync();
+        foreach (var flag in flags)
+        {
+            command.CommandText = "INSERT INTO feature_flags (key, enabled) VALUES ($key, $enabled);";
+            command.Parameters.Clear();
+            command.Parameters.AddWithValue("$key", flag.Key);
+            command.Parameters.AddWithValue("$enabled", flag.Enabled ? 1 : 0);
+            await command.ExecuteNonQueryAsync();
+        }
+    }
 
     private async Task SeedLegacyFlagAsync(string key, bool enabled)
     {

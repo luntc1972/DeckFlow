@@ -36,6 +36,15 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
         ("analysis.mulligan-eval", "analysis.manabase.mulligan-eval"),
     ];
 
+    private static readonly string[] RetiredFlagKeys =
+    [
+        "analysis.manabase.source-mana-quantity",
+        "analysis.manabase.ramp-credit-v2",
+        "analysis.manabase.color-aware-mulligan",
+        "analysis.manabase.land-ramp-sim",
+        "analysis.manabase.health-band-headline-floor",
+    ];
+
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
@@ -145,6 +154,15 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
                     cancellationToken: cancellationToken)).ConfigureAwait(false);
             }
 
+            // Why: seeding never deletes rows, so retired keys remain dead configuration on older databases.
+            foreach (var key in RetiredFlagKeys)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    DeleteRetiredFlagSql,
+                    new { key },
+                    cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+
             await using (var seed = connection.CreateCommand())
             {
                 seed.CommandText = _connectionInfo.IsPostgres ? PostgresSeedSql : SqliteSeedSql;
@@ -191,6 +209,10 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
     private const string DeleteLegacyFlagSql = """
         DELETE FROM feature_flags
          WHERE key = @old AND EXISTS (SELECT 1 FROM feature_flags WHERE key = @new);
+        """;
+
+    private const string DeleteRetiredFlagSql = """
+        DELETE FROM feature_flags WHERE key = @key;
         """;
 
     // D-09 seed. These values are defaults for new rows only; ON CONFLICT (key) DO

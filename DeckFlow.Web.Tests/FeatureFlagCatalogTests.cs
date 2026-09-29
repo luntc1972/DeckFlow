@@ -11,6 +11,15 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class FeatureFlagCatalogTests
 {
+    [Fact]
+    public void Descriptions_ExcludeRetiredManabaseSimulationFlags()
+    {
+        Assert.DoesNotContain("analysis.manabase.source-mana-quantity", FeatureFlagCatalog.Descriptions.Keys);
+        Assert.DoesNotContain("analysis.manabase.ramp-credit-v2", FeatureFlagCatalog.Descriptions.Keys);
+        Assert.DoesNotContain("analysis.manabase.color-aware-mulligan", FeatureFlagCatalog.Descriptions.Keys);
+        Assert.DoesNotContain("analysis.manabase.land-ramp-sim", FeatureFlagCatalog.Descriptions.Keys);
+        Assert.DoesNotContain("analysis.manabase.health-band-headline-floor", FeatureFlagCatalog.Descriptions.Keys);
+    }
     // The seed contract from FeatureFlagStore. Kept in lockstep with FeatureFlagStoreSeedTests.
     [Theory]
     [InlineData("service.scryfall-tagger.enabled")]
