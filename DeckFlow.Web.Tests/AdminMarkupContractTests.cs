@@ -74,6 +74,22 @@ public sealed class AdminMarkupContractTests
     }
 
     [Fact]
+    public void FeedbackPostForms_CarryActionFormClassAndAntiforgeryToken()
+    {
+        var files = new[] { Path.Combine(ViewsRoot, "AdminFeedback", "Index.cshtml"), Path.Combine(ViewsRoot, "AdminFeedback", "Detail.cshtml") };
+        var forms = files.SelectMany(file => Regex.Matches(ReadView(file), @"<form\b(?<opening>[^>]*)>(?<body>.*?)</form>", RegexOptions.IgnoreCase | RegexOptions.Singleline)
+            .Where(match => Regex.IsMatch(match.Groups["opening"].Value, @"\bmethod\s*=\s*""post""", RegexOptions.IgnoreCase))
+            .Select(match => (file, match)));
+        var offenders = forms.Where(item => !Regex.IsMatch(item.match.Groups["opening"].Value, @"\bclass\s*=\s*""[^""]*\badmin-action-form\b[^""]*""", RegexOptions.IgnoreCase)
+                || !item.match.Groups["body"].Value.Contains("@Html.AntiForgeryToken()", StringComparison.Ordinal))
+            .Select(item => $"{Path.GetFileName(item.file)}:{LineNumber(ReadView(item.file), item.match.Value)}")
+            .ToArray();
+
+        Assert.Equal(4, forms.Count());
+        Assert.True(offenders.Length == 0, "Feedback post form offenders: " + string.Join(", ", offenders));
+    }
+
+    [Fact]
     public void RetiredAdminOnlyClasses_AreAbsentFromAdminViewsScriptsAndCss()
     {
         var offenders = RetiredAdminOnlyClasses.SelectMany(token => WholeTextOffenders(AdminAndScriptFiles(), token))
