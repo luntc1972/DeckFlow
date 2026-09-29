@@ -190,6 +190,91 @@ test('harvest stat tiles stack label, value and badge', async ({ page }) => {
   expect(result.stretches).toBeTruthy();
 });
 
+test('filter chips render alike on all five chip pages', async ({ page }) => {
+  test.setTimeout(90000);
+  const pages = ['/Admin/Analytics', '/Admin/ContentKb', '/Admin/Feedback', '/Admin/Flags', '/Admin/Tools'];
+  const fonts: string[] = [];
+  for (const route of pages) {
+    const response = await page.goto(route);
+    expect(response?.ok()).toBeTruthy();
+    const chip = page.locator('.admin-filter-chips__chip:not(.is-active)').first();
+    await expect(chip).toBeVisible();
+    const style = await chip.evaluate((element) => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--muted)';
+      element.closest('.admin-shell')!.append(probe);
+      const muted = getComputedStyle(probe).color;
+      probe.remove();
+      const computed = getComputedStyle(element);
+      return { paddingTop: computed.paddingTop, paddingLeft: computed.paddingLeft, paddingRight: computed.paddingRight, cursor: computed.cursor, decoration: computed.textDecorationLine, color: computed.color, font: `${computed.fontSize}|${computed.fontFamily}`, muted };
+    });
+    expect(style).toMatchObject({ paddingTop: '4px', paddingLeft: '16px', paddingRight: '16px', cursor: 'pointer', decoration: 'none', color: style.muted });
+    fonts.push(style.font);
+  }
+  expect(new Set(fonts).size).toBe(1);
+
+  for (const route of ['/Admin/Feedback', '/Admin/Tools']) {
+    await page.goto(route);
+    const activeChip = page.locator('.admin-filter-chips__chip.is-active').first();
+    await expect(activeChip).toBeVisible();
+    const colors = await activeChip.evaluate((element) => {
+      const probe = document.createElement('span');
+      probe.style.color = 'var(--text)';
+      element.closest('.admin-shell')!.append(probe);
+      const text = getComputedStyle(probe).color;
+      probe.remove();
+      return { chip: getComputedStyle(element).color, text };
+    });
+    expect(colors.chip).toBe(colors.text);
+  }
+
+  await page.goto('/Admin/Feedback');
+  const realChip = page.locator('.admin-filter-chips__chip:not(.is-active)').first();
+  await expect(realChip).toBeVisible();
+  await page.evaluate(() => {
+    const chips = document.querySelector('.admin-filter-chips')!;
+    chips.insertAdjacentHTML('beforeend', '<button id="disabled-filter-chip" class="admin-filter-chips__chip" disabled>Disabled</button><a id="aria-disabled-filter-chip" class="admin-filter-chips__chip" href="#" aria-disabled="true">Aria disabled</a>');
+  });
+  try {
+    for (const [selector, expectedDisabled] of [['.admin-filter-chips__chip:not(.is-active)', false], ['#disabled-filter-chip', true], ['#aria-disabled-filter-chip', true]] as const) {
+      const chip = page.locator(selector).first();
+      await chip.hover();
+      const state = await chip.evaluate((element) => {
+        const shell = element.closest('.admin-shell')!;
+        const mutedProbe = document.createElement('span');
+        mutedProbe.style.color = 'var(--muted)';
+        const textProbe = document.createElement('span');
+        textProbe.style.color = 'var(--text)';
+        shell.append(mutedProbe, textProbe);
+        const result = { hovered: element.matches(':hover'), color: getComputedStyle(element).color, cursor: getComputedStyle(element).cursor, decoration: getComputedStyle(element).textDecorationLine, muted: getComputedStyle(mutedProbe).color, text: getComputedStyle(textProbe).color };
+        mutedProbe.remove();
+        textProbe.remove();
+        return result;
+      });
+      expect(state.hovered).toBeTruthy();
+      expect(state.decoration).toBe('none');
+      expect(state.color).toBe(expectedDisabled ? state.muted : state.text);
+      if (expectedDisabled) expect(state.cursor).toBe('not-allowed');
+    }
+  } finally {
+    await page.locator('#disabled-filter-chip, #aria-disabled-filter-chip').evaluateAll((elements) => elements.forEach((element) => element.remove()));
+  }
+});
+
+test('harvest tabs carry padding, pointer and a gap before the panel', async ({ page }) => {
+  const response = await page.goto('/Admin/Harvest');
+  expect(response?.ok()).toBeTruthy();
+  const metrics = await page.evaluate(() => {
+    const tab = document.querySelector<HTMLElement>('#harvest-tab-overview')!;
+    const strip = document.querySelector<HTMLElement>('.admin-tabs')!;
+    const panel = document.querySelector<HTMLElement>('#harvest-panel-overview')!;
+    const tabStyle = getComputedStyle(tab);
+    return { paddingTop: tabStyle.paddingTop, paddingLeft: tabStyle.paddingLeft, cursor: tabStyle.cursor, marginBottom: getComputedStyle(strip).marginBottom, gap: panel.getBoundingClientRect().top - strip.getBoundingClientRect().bottom };
+  });
+  expect(metrics).toMatchObject({ paddingTop: '8px', paddingLeft: '16px', cursor: 'pointer', marginBottom: '16px' });
+  expect(metrics.gap).toBeGreaterThanOrEqual(15.5);
+});
+
 test('admin page screenshots', async ({ page }, testInfo) => {
   test.skip(!process.env.ADMIN_SCREENSHOT_DIR, 'ADMIN_SCREENSHOT_DIR is not set.');
   test.setTimeout(180000);
