@@ -597,7 +597,7 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-stack[hidden] { display: none; }
 .admin-shell .admin-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-md); }
 .admin-shell .admin-stat-tile { background: var(--panel); border: 1px solid var(--border); padding: var(--space-md); display: grid; gap: var(--space-xs); align-content: start; min-width: 0; }
-.admin-shell .admin-stat-tile .admin-badge { justify-self: start; }
+.admin-shell .admin-stat-tile .admin-badge { justify-self: start; white-space: normal; border-radius: 4px; }
 .admin-shell .admin-stat-tile__label { color: var(--muted); font-size: var(--text-small); }
 .admin-shell .admin-stat-tile__value { font-size: var(--text-heading); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .admin-shell .admin-stat-tile__value--muted { color: var(--muted); }
@@ -617,7 +617,7 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-banner--warning { background: var(--status-warning-bg); border-color: var(--status-warning); }
 .admin-shell .admin-banner--danger { background: var(--status-danger-bg); border-color: var(--status-danger); }
 .admin-shell .admin-banner--info { background: var(--status-info-bg); border-color: var(--status-info); }
-.admin-shell .admin-badge { display: inline-flex; gap: var(--space-xs); border: 1px solid currentColor; border-radius: 999px; padding: 0 var(--space-sm); }
+.admin-shell .admin-badge { display: inline-flex; gap: var(--space-xs); border: 1px solid currentColor; border-radius: 999px; padding: 0 var(--space-sm); white-space: nowrap; align-items: center; font-size: var(--text-label); }
 .admin-shell .admin-badge--success { color: var(--status-success); background: var(--status-success-bg); }
 .admin-shell .admin-badge--warning { color: var(--status-warning); background: var(--status-warning-bg); }
 .admin-shell .admin-badge--danger { color: var(--status-danger); background: var(--status-danger-bg); }
