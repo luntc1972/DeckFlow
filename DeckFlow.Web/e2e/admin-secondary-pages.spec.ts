@@ -58,12 +58,18 @@ test('feedback list and seeded detail use the shared components and delete confi
     const view = row.getByRole('link', { name: 'View' });
     feedbackId = new URL(await view.getAttribute('href')!, page.url()).pathname.match(/\/(\d+)$/)?.[1];
     expect(feedbackId).toBeTruthy();
+    const archiveForm = row.locator('td[data-label="Actions"] form');
+    await expect(archiveForm).toHaveClass(/admin-action-form/);
+    const archiveDisplay = await archiveForm.evaluate((element) => getComputedStyle(element).display);
+    expect(page.viewportSize()!.width > 768 ? archiveDisplay : ['flex', 'inline-flex']).toContain(page.viewportSize()!.width > 768 ? 'inline' : archiveDisplay);
     await expect(page.locator('h1')).toHaveText('Feedback');
     await expect(page.locator('.admin-page-header__lede')).toHaveText('Review and triage user-submitted feedback and bug reports.');
     await expect(page.locator('nav[aria-label="Status filter"] a.admin-filter-chips__chip')).toHaveCount(4);
     await view.click();
     await expect(page.locator('h1')).toHaveText(`Feedback #${feedbackId}`);
     await expect(page.locator('pre.admin-artifact')).toContainText(marker);
+    await expect(page.locator('div.admin-card__actions form.admin-action-form')).toHaveCount(3);
+    await expect(page.locator('div.admin-card__actions form.admin-action-form input[name="__RequestVerificationToken"]')).toHaveCount(3);
     const deleteForm = page.locator(`form[data-admin-confirm-delete][data-admin-feedback-id="${feedbackId}"]`);
     await expect(deleteForm.locator('button.admin-button--danger')).toBeVisible();
     let deletes = 0;
