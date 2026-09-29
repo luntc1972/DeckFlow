@@ -215,7 +215,6 @@ a:hover { text-decoration: underline; }
 }
 
 .admin-shell .admin-banner { padding: var(--space-md) var(--space-md); border-radius: 4px; margin-bottom: var(--space-md); background: var(--panel); border: 1px solid var(--border); }
-.admin-shell .admin-banner--success { border-color: var(--accent); }
 .admin-shell .admin-banner[data-admin-toast] {
   position: fixed;
   top: 16px;
@@ -602,14 +601,15 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-stat-tile__label { color: var(--muted); font-size: var(--text-small); }
 .admin-shell .admin-stat-tile__value { font-size: var(--text-heading); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .admin-shell .admin-stat-tile__value--muted { color: var(--muted); }
-.admin-shell .admin-tabs { display: flex; flex-wrap: wrap; gap: var(--space-xs); border-bottom: 1px solid var(--border); }
-.admin-shell .admin-tabs__tab { min-height: 44px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); }
+.admin-shell .admin-tabs { display: flex; flex-wrap: wrap; gap: var(--space-xs); border-bottom: 1px solid var(--border); margin-bottom: var(--space-md); }
+.admin-shell .admin-tabs__tab { min-height: 44px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: var(--space-sm) var(--space-md); cursor: pointer; font: inherit; }
 .admin-shell .admin-tabs__tab[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--text); }
 .admin-shell .admin-filter { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-md); align-items: flex-end; margin-bottom: var(--space-md); }
 .admin-shell .admin-filter-search { flex: 1 1 16rem; }
 .admin-shell .admin-filter-chips { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
-.admin-shell .admin-filter-chips__chip { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 999px; background: transparent; text-decoration: none; }
-.admin-shell .admin-filter-chips__chip.is-active { background: var(--accent-tint); border-color: var(--accent); }
+.admin-shell .admin-filter-chips__chip { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 999px; background: transparent; text-decoration: none; padding: var(--space-xs) var(--space-md); color: var(--muted); cursor: pointer; font: inherit; }
+.admin-shell .admin-filter-chips__chip:hover { color: var(--text); text-decoration: none; }
+.admin-shell .admin-filter-chips__chip.is-active { background: var(--accent-tint); border-color: var(--accent); color: var(--text); }
 .admin-shell .admin-filter-chips__chip:disabled, .admin-shell .admin-filter-chips__chip[aria-disabled="true"] { cursor: not-allowed; color: var(--muted); }
 .admin-shell .admin-filter-chips__count, .admin-shell .admin-filter__count { color: var(--muted); font-variant-numeric: tabular-nums; }
 .admin-shell .admin-filter__empty-row td, .admin-shell .admin-filter__empty { color: var(--muted); padding: var(--space-md); }
