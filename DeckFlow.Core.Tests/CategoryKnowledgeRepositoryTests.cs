@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Reporting;
 
 namespace DeckFlow.Core.Tests;
 
@@ -115,6 +116,130 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         var exists = await repository.HasSourceDataAsync("archidekt_live:123");
 
         Assert.False(exists);
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(1) FROM card_category_summary;";
+        Assert.Equal(0L, await command.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task PersistObservedCategoriesAsync_MaintainsSummaryForNewAndRepeatedObservation()
+    {
+        var repository = CreateRepository();
+
+        await repository.PersistObservedCategoriesAsync("edhrec", "Sol Ring", new[] { "Ramp" });
+        await repository.PersistObservedCategoriesAsync("edhrec", "Sol Ring", new[] { "Ramp" });
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT observation_rows FROM card_category_summary WHERE category = 'Ramp';";
+
+        Assert.Equal(1L, await command.ExecuteScalarAsync());
+        await AssertCategorySummaryMatchesObservationsAsync();
+    }
+
+    [Fact]
+    public async Task DeleteSourceDataAsync_OneOfTwoSources_KeepsOneSummaryObservation()
+    {
+        var repository = CreateRepository();
+
+        await repository.PersistObservedCategoriesAsync("summary-source-one", "Sol Ring", new[] { "Ramp" });
+        await repository.PersistObservedCategoriesAsync("summary-source-two", "Sol Ring", new[] { "Ramp" });
+        await repository.DeleteSourceDataAsync("summary-source-one");
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT observation_rows FROM card_category_summary WHERE category = 'Ramp';";
+        Assert.Equal(1L, await command.ExecuteScalarAsync());
+        await AssertCategorySummaryMatchesObservationsAsync();
+    }
+
+    [Fact]
+    public async Task EnsureSchemaAsync_SqliteBackfillsDirectObservationWhenSummaryIsEmpty()
+    {
+        var repository = CreateRepository();
+        await repository.AddDeckIdsAsync(new[] { "schema-seed" });
+
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO cards (normalized_card_name, display_name) VALUES ('direct summary card', 'Direct Summary Card'); INSERT INTO sources (source) VALUES ('direct-summary-source'); INSERT INTO card_category_observations (source_id, card_id, card_name, category, board, deck_count, count, last_seen_utc) VALUES (1, 1, 'Direct Summary Card', 'Ramp', 'mainboard', 1, 1, '2026-01-01T00:00:00.0000000+00:00'); DELETE FROM card_category_summary;";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await repository.GetCategoriesAsync("Direct Summary Card");
+
+        await using var verifyConnection = new SqliteConnection($"Data Source={_databasePath}");
+        await verifyConnection.OpenAsync();
+        var verifyCommand = verifyConnection.CreateCommand();
+        verifyCommand.CommandText = "SELECT observation_rows FROM card_category_summary WHERE category = 'Ramp';";
+        Assert.Equal(1L, await verifyCommand.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task CategoryObservationWrites_BatchReplaceDeleteAndReharvest_MatchSummary()
+    {
+        var repository = CreateRepository();
+        var observations = new[]
+        {
+            ("Sol Ring", "Ramp", "mainboard", 1, 1),
+            ("Sol Ring", "Draw", "mainboard", 1, 1),
+        };
+
+        await repository.PersistDeckCategoryBatchAsync("summary-batch", observations, new[] { ("Sol Ring", "mainboard") });
+        await AssertCategorySummaryMatchesObservationsAsync();
+
+        await repository.ReplaceSourceRowsAsync("summary-batch", new[] { new CategoryKnowledgeRow("Ramp", "Sol Ring", 1, 1) });
+        await AssertCategorySummaryMatchesObservationsAsync();
+
+        await repository.DeleteSourceDataAsync("summary-batch");
+        await AssertCategorySummaryMatchesObservationsAsync();
+
+        await repository.PersistDeckCategoryBatchAsync("summary-batch", observations, new[] { ("Sol Ring", "mainboard") });
+        await AssertCategorySummaryMatchesObservationsAsync();
+    }
+
+    [Fact]
+    public async Task PersistDeckCategoryBatchAsync_TwoBoardsAndTwoSources_DeleteFirstSourceKeepsOneObservation()
+    {
+        var repository = CreateRepository();
+        var observations = new[]
+        {
+            ("Sol Ring", "Ramp", "mainboard", 1, 1),
+            ("Sol Ring", "Ramp", "sideboard", 1, 1),
+        };
+
+        await repository.PersistDeckCategoryBatchAsync("two-board-first", observations, new[] { ("Sol Ring", "mainboard") });
+        await repository.PersistDeckCategoryBatchAsync("two-board-second", observations[..1], new[] { ("Sol Ring", "mainboard") });
+        await AssertSummaryObservationRowsAsync("Ramp", 3);
+
+        await repository.DeleteSourceDataAsync("two-board-first");
+
+        await AssertSummaryObservationRowsAsync("Ramp", 1);
+        await AssertCategorySummaryMatchesObservationsAsync();
+    }
+
+    [Fact]
+    public async Task PersistDeckCategoryBatchAsync_QuantityDoesNotMultiplyObservationRows()
+    {
+        var repository = CreateRepository();
+        var observations = new[] { ("Sol Ring", "Ramp", "mainboard", 4, 1) };
+
+        await repository.PersistDeckCategoryBatchAsync("quantity-summary", observations, new[] { ("Sol Ring", "mainboard") });
+        await AssertSummaryObservationRowsAsync("Ramp", 1);
+
+        await repository.PersistDeckCategoryBatchAsync("quantity-summary", new[] { ("Sol Ring", "Ramp", "mainboard", 3, 1) }, new[] { ("Sol Ring", "mainboard") });
+
+        await AssertSummaryObservationRowsAsync("Ramp", 1);
+
+        await repository.PersistDeckCategoryBatchAsync("quantity-summary-second", new[] { ("Sol Ring", "Ramp", "mainboard", 3, 1) }, new[] { ("Sol Ring", "mainboard") });
+
+        await AssertSummaryObservationRowsAsync("Ramp", 2);
+        await AssertCategorySummaryMatchesObservationsAsync();
     }
 
     [Fact]
@@ -565,6 +690,39 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
 
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
 
+    private async Task AssertCategorySummaryMatchesObservationsAsync()
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT card_id, category, COUNT(*) FROM card_category_observations GROUP BY card_id, category
+            EXCEPT
+            SELECT card_id, category, observation_rows FROM card_category_summary;
+            """;
+        await using (var reader = await command.ExecuteReaderAsync())
+        {
+            Assert.False(await reader.ReadAsync());
+        }
+        command.CommandText = """
+            SELECT card_id, category, observation_rows FROM card_category_summary
+            EXCEPT
+            SELECT card_id, category, COUNT(*) FROM card_category_observations GROUP BY card_id, category;
+            """;
+        await using var reverseReader = await command.ExecuteReaderAsync();
+        Assert.False(await reverseReader.ReadAsync());
+    }
+
+    private async Task AssertSummaryObservationRowsAsync(string category, long expected)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT observation_rows FROM card_category_summary WHERE category = @category;";
+        command.Parameters.AddWithValue("@category", category);
+        Assert.Equal(expected, Convert.ToInt64(await command.ExecuteScalarAsync()));
+    }
+
     private async Task<string?> GetCommanderNameAsync(string deckId)
     {
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
@@ -726,6 +884,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
                 'cards',
                 'sources',
                 'card_category_observations',
+                'card_category_summary',
                 'card_deck_totals')
             ORDER BY name;
             """;

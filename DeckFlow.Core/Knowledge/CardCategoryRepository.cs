@@ -415,11 +415,7 @@ internal sealed class CardCategoryRepository
             return;
         }
 
-        await connection.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM card_category_observations WHERE source_id = @sourceId;",
-            new { sourceId = sourceId.Value },
-            transaction: transaction,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await DeleteCategoryObservationsForSourceAsync(connection, transaction, sourceId.Value, cancellationToken);
 
         var cardIds = new Dictionary<string, long>(StringComparer.Ordinal);
         var normalizedBoard = NormalizeBoard(board);
@@ -469,11 +465,7 @@ internal sealed class CardCategoryRepository
             return;
         }
 
-        await connection.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM card_category_observations WHERE source_id = @sourceId;",
-            new { sourceId = sourceId.Value },
-            transaction: transaction,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await DeleteCategoryObservationsForSourceAsync(connection, transaction, sourceId.Value, cancellationToken);
 
         await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM card_deck_totals WHERE source_id = @sourceId;",
@@ -793,16 +785,15 @@ internal sealed class CardCategoryRepository
         DateTime lastSeenUtc,
         CancellationToken cancellationToken)
     {
-        await connection.ExecuteAsync(new CommandDefinition(
+        // Why: SQLite changes() also reports a conflict update, while Postgres xmax is dialect-specific.
+        // RETURNING identifies new rows uniformly so only they increment the row-count summary.
+        var insertedCardId = await connection.QuerySingleOrDefaultAsync<long?>(new CommandDefinition(
             """
             INSERT INTO card_category_observations (source_id, card_id, card_name, category, board, deck_count, count, last_seen_utc)
             VALUES (@sourceId, @cardId, @cardName, @category, @board, @deckCount, @quantity, @lastSeenUtc)
             ON CONFLICT(source_id, card_id, category, board)
-            DO UPDATE SET
-                count = card_category_observations.count + excluded.count,
-                deck_count = card_category_observations.deck_count + excluded.deck_count,
-                card_name = excluded.card_name,
-                last_seen_utc = excluded.last_seen_utc;
+            DO NOTHING
+            RETURNING card_id;
             """,
             new
             {
@@ -817,6 +808,55 @@ internal sealed class CardCategoryRepository
             },
             transaction: transaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        if (insertedCardId is not null)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO card_category_summary (card_id, category, observation_rows)
+                VALUES (@cardId, @category, 1)
+                ON CONFLICT(card_id, category)
+                DO UPDATE SET observation_rows = card_category_summary.observation_rows + 1;
+                """,
+                new { cardId, category },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+            return;
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE card_category_observations
+            SET count = count + @quantity,
+                deck_count = deck_count + @deckCount,
+                card_name = @cardName,
+                last_seen_utc = @lastSeenUtc
+            WHERE source_id = @sourceId AND card_id = @cardId AND category = @category AND board = @board;
+            """,
+            new { sourceId, cardId, cardName, category, board, deckCount = deckCountIncrement, quantity, lastSeenUtc },
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    private static async Task DeleteCategoryObservationsForSourceAsync(DbConnection connection, DbTransaction transaction, long sourceId, CancellationToken cancellationToken)
+    {
+        var deleted = await connection.QueryAsync<CategorySummaryKey>(new CommandDefinition(
+            "DELETE FROM card_category_observations WHERE source_id = @sourceId RETURNING card_id AS CardId, category AS Category;",
+            new { sourceId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        // Why: concurrent source deletes lock shared summary rows in this order to avoid PostgreSQL deadlocks.
+        foreach (var group in deleted.GroupBy(row => new { row.CardId, row.Category })
+                     .OrderBy(group => group.Key.CardId)
+                     .ThenBy(group => group.Key.Category, StringComparer.Ordinal))
+        {
+            var parameters = new { cardId = group.Key.CardId, category = group.Key.Category, deletedRows = group.Count() };
+            await connection.ExecuteAsync(new CommandDefinition(
+                "UPDATE card_category_summary SET observation_rows = observation_rows - @deletedRows WHERE card_id = @cardId AND category = @category;",
+                parameters, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            // Why: decrement before deleting ensures concurrent source deletes cannot both miss the row.
+            await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows <= 0;",
+                parameters, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
     }
 
     private static async Task UpsertCardDeckTotalAsync(
@@ -928,6 +968,12 @@ internal sealed class CardCategoryRepository
     private sealed class CardCategoryNameRow
     {
         public string NormalizedCardName { get; init; } = string.Empty;
+        public string Category { get; init; } = string.Empty;
+    }
+
+    private sealed class CategorySummaryKey
+    {
+        public long CardId { get; init; }
         public string Category { get; init; } = string.Empty;
     }
 }

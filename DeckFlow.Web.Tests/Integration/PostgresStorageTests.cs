@@ -1,3 +1,4 @@
+using System.Data.Common;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Reporting;
@@ -198,6 +199,195 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
     }
 
     [PostgresFact]
+    public async Task CategoryKnowledgeRepository_MaintainsCategorySummaryForNewRepeatedAndDeletedObservations()
+    {
+        var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
+        var repository = new CategoryKnowledgeRepository(CreateConnection(connectionString));
+        var source = $"summary-{Guid.NewGuid():N}";
+        var cardName = $"Summary Card {Guid.NewGuid():N}";
+        var category = $"Summary {Guid.NewGuid():N}";
+
+        await repository.PersistObservedCategoriesAsync(source, cardName, new[] { category });
+        await repository.PersistObservedCategoriesAsync(source, cardName, new[] { category });
+
+        await using var connection = CreateConnection(connectionString).CreateConnection();
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT observation_rows FROM card_category_summary WHERE category = @category;";
+        var categoryParameter = command.CreateParameter();
+        categoryParameter.ParameterName = "@category";
+        categoryParameter.Value = category;
+        command.Parameters.Add(categoryParameter);
+        Assert.Equal(1L, Convert.ToInt64(await command.ExecuteScalarAsync()));
+        await AssertCategorySummaryMatchesObservationsAsync(connection);
+
+        await repository.DeleteSourceDataAsync(source);
+        command.CommandText = "SELECT COUNT(1) FROM card_category_summary WHERE category = @category;";
+        Assert.Equal(0L, Convert.ToInt64(await command.ExecuteScalarAsync()));
+        await AssertCategorySummaryMatchesObservationsAsync(connection);
+    }
+
+    [PostgresFact]
+    public async Task CategoryKnowledgeRepository_DeleteOneOfTwoSources_KeepsOneSummaryObservation()
+    {
+        var repository = await CreateRepositoryAsync();
+        var unique = Guid.NewGuid().ToString("N");
+        var cardName = $"Shared Summary Card {unique}";
+        var category = $"Shared Summary {unique}";
+
+        await repository.PersistObservedCategoriesAsync($"summary-source-one-{unique}", cardName, new[] { category });
+        await repository.PersistObservedCategoriesAsync($"summary-source-two-{unique}", cardName, new[] { category });
+        await repository.DeleteSourceDataAsync($"summary-source-one-{unique}");
+
+        await using var connection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection();
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT observation_rows FROM card_category_summary WHERE category = @category;";
+        var categoryParameter = command.CreateParameter();
+        categoryParameter.ParameterName = "@category";
+        categoryParameter.Value = category;
+        command.Parameters.Add(categoryParameter);
+        Assert.Equal(1L, Convert.ToInt64(await command.ExecuteScalarAsync()));
+        await AssertCategorySummaryMatchesObservationsAsync(connection);
+    }
+
+    [PostgresFact]
+    public async Task CategoryObservationWrites_BatchReplaceDeleteAndReharvest_MatchSummary()
+    {
+        var repository = await CreateRepositoryAsync();
+        var unique = Guid.NewGuid().ToString("N");
+        var source = $"summary-batch-{unique}";
+        var cardName = $"Summary Batch Card {unique}";
+        var observations = new[]
+        {
+            (cardName, "Ramp", "mainboard", 1, 1),
+            (cardName, "Draw", "mainboard", 1, 1),
+        };
+
+        await using var connection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection();
+        await connection.OpenAsync();
+        await repository.PersistDeckCategoryBatchAsync(source, observations, new[] { (cardName, "mainboard") });
+        await AssertCategorySummaryMatchesObservationsAsync(connection);
+
+        await repository.ReplaceSourceRowsAsync(source, new[] { new CategoryKnowledgeRow("Ramp", cardName, 1, 1) });
+        await AssertCategorySummaryMatchesObservationsAsync(connection);
+
+        await repository.DeleteSourceDataAsync(source);
+        await AssertCategorySummaryMatchesObservationsAsync(connection);
+
+        await repository.PersistDeckCategoryBatchAsync(source, observations, new[] { (cardName, "mainboard") });
+        await AssertCategorySummaryMatchesObservationsAsync(connection);
+    }
+
+    [PostgresFact]
+    public async Task PersistDeckCategoryBatchAsync_TwoBoardsAndTwoSources_DeleteFirstSourceKeepsOneObservation()
+    {
+        var repository = await CreateRepositoryAsync();
+        var unique = Guid.NewGuid().ToString("N");
+        var category = $"Two Boards {unique}";
+        var cardName = $"Two Boards Card {unique}";
+        var observations = new[] { (cardName, category, "mainboard", 1, 1), (cardName, category, "sideboard", 1, 1) };
+
+        await using var connection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection();
+        await connection.OpenAsync();
+        await repository.PersistDeckCategoryBatchAsync($"two-board-first-{unique}", observations, new[] { (cardName, "mainboard") });
+        await repository.PersistDeckCategoryBatchAsync($"two-board-second-{unique}", observations[..1], new[] { (cardName, "mainboard") });
+        await AssertSummaryObservationRowsAsync(connection, category, 3);
+
+        await repository.DeleteSourceDataAsync($"two-board-first-{unique}");
+
+        await AssertSummaryObservationRowsAsync(connection, category, 1);
+        await AssertCategorySummaryMatchesObservationsAsync(connection);
+    }
+
+    [PostgresFact]
+    public async Task PersistDeckCategoryBatchAsync_QuantityDoesNotMultiplyObservationRows()
+    {
+        var repository = await CreateRepositoryAsync();
+        var unique = Guid.NewGuid().ToString("N");
+        var category = $"Quantity {unique}";
+        var cardName = $"Quantity Card {unique}";
+        var source = $"quantity-summary-{unique}";
+
+        await using var connection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection();
+        await connection.OpenAsync();
+        await repository.PersistDeckCategoryBatchAsync(source, new[] { (cardName, category, "mainboard", 4, 1) }, new[] { (cardName, "mainboard") });
+        await AssertSummaryObservationRowsAsync(connection, category, 1);
+
+        await repository.PersistDeckCategoryBatchAsync(source, new[] { (cardName, category, "mainboard", 3, 1) }, new[] { (cardName, "mainboard") });
+
+        await AssertSummaryObservationRowsAsync(connection, category, 1);
+
+        await repository.PersistDeckCategoryBatchAsync($"{source}-second", new[] { (cardName, category, "mainboard", 3, 1) }, new[] { (cardName, "mainboard") });
+
+        await AssertSummaryObservationRowsAsync(connection, category, 2);
+        await AssertCategorySummaryMatchesObservationsAsync(connection);
+    }
+
+    [PostgresFact]
+    public async Task EnsureSchemaAsync_PostgresDoesNotBackfillDirectObservationWhenSummaryIsEmpty()
+    {
+        var repository = await CreateRepositoryAsync();
+        var unique = Guid.NewGuid().ToString("N");
+        var cardName = $"Direct Summary Card {unique}";
+        var category = $"Direct Summary {unique}";
+        await repository.AddDeckIdsAsync(new[] { $"schema-seed-{unique}" });
+
+        try
+        {
+            await using (var connection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection())
+            {
+                await connection.OpenAsync();
+                var command = connection.CreateCommand();
+                command.CommandText = "INSERT INTO cards (normalized_card_name, display_name) VALUES (@cardName, @displayName) RETURNING id;";
+                var cardParameter = command.CreateParameter();
+                cardParameter.ParameterName = "@cardName";
+                cardParameter.Value = cardName.ToLowerInvariant();
+                command.Parameters.Add(cardParameter);
+                var displayNameParameter = command.CreateParameter();
+                displayNameParameter.ParameterName = "@displayName";
+                displayNameParameter.Value = cardName;
+                command.Parameters.Add(displayNameParameter);
+                var cardId = Convert.ToInt64(await command.ExecuteScalarAsync());
+                command.Parameters.Clear();
+                command.CommandText = "INSERT INTO sources (source) VALUES (@source) RETURNING id;";
+                var sourceParameter = command.CreateParameter();
+                sourceParameter.ParameterName = "@source";
+                sourceParameter.Value = $"direct-summary-source-{unique}";
+                command.Parameters.Add(sourceParameter);
+                var sourceId = Convert.ToInt64(await command.ExecuteScalarAsync());
+                command.Parameters.Clear();
+                command.CommandText = "INSERT INTO card_category_observations (source_id, card_id, card_name, category, board, deck_count, count, last_seen_utc) VALUES (@sourceId, @cardId, @cardName, @category, 'mainboard', 1, 1, NOW()); TRUNCATE card_category_summary;";
+                foreach (var (name, value) in new[] { ("@sourceId", (object)sourceId), ("@cardId", cardId), ("@cardName", cardName), ("@category", category) })
+                {
+                    var parameter = command.CreateParameter();
+                    parameter.ParameterName = name;
+                    parameter.Value = value;
+                    command.Parameters.Add(parameter);
+                }
+
+                await command.ExecuteNonQueryAsync();
+            }
+
+            await repository.GetCategoriesAsync(cardName);
+
+            await using var verifyConnection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection();
+            await verifyConnection.OpenAsync();
+            var verifyCommand = verifyConnection.CreateCommand();
+            verifyCommand.CommandText = "SELECT COUNT(1) FROM card_category_summary;";
+            Assert.Equal(0L, Convert.ToInt64(await verifyCommand.ExecuteScalarAsync()));
+        }
+        finally
+        {
+            await using var restoreConnection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection();
+            await restoreConnection.OpenAsync();
+            var restoreCommand = restoreConnection.CreateCommand();
+            restoreCommand.CommandText = "TRUNCATE card_category_summary; INSERT INTO card_category_summary SELECT card_id, category, COUNT(*) FROM card_category_observations GROUP BY 1, 2;";
+            await restoreCommand.ExecuteNonQueryAsync();
+        }
+    }
+
+    [PostgresFact]
     public async Task CategoryKnowledgeRepository_CommanderRows_UseLiveSourceIntegerLink()
     {
         var repo = await CreateRepositoryAsync();
@@ -272,6 +462,36 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
 
         await repo.SetRecentDeckCrawlPageAsync(7);
         Assert.Equal(7, await repo.GetRecentDeckCrawlPageAsync());
+    }
+
+    private static async Task AssertCategorySummaryMatchesObservationsAsync(DbConnection connection)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT card_id, category, COUNT(*) FROM card_category_observations GROUP BY card_id, category
+            EXCEPT
+            SELECT card_id, category, observation_rows FROM card_category_summary;
+            """;
+        await using (var reader = await command.ExecuteReaderAsync())
+        {
+            Assert.False(await reader.ReadAsync());
+        }
+
+        command.CommandText = """
+            SELECT card_id, category, observation_rows FROM card_category_summary
+            EXCEPT
+            SELECT card_id, category, COUNT(*) FROM card_category_observations GROUP BY card_id, category;
+            """;
+        await using var reverseReader = await command.ExecuteReaderAsync();
+        Assert.False(await reverseReader.ReadAsync());
+    }
+
+    private static async Task AssertSummaryObservationRowsAsync(DbConnection connection, string category, long expected)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT observation_rows FROM card_category_summary WHERE category = @category;";
+        RelationalDatabaseConnection.AddParameter(command, "@category", category);
+        Assert.Equal(expected, Convert.ToInt64(await command.ExecuteScalarAsync()));
     }
 
     private async Task<long> CountLinkedSourceRowsAsync(string source)

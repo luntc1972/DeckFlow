@@ -102,7 +102,12 @@ internal sealed class CategoryCacheSchema
         await crawlStateCommand.ExecuteNonQueryAsync(cancellationToken);
 
         await CreateCardCategoryObservationsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
+        await CreateCardCategorySummaryTableAsync(connection, cancellationToken);
         await CreateCardDeckTotalsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
+        if (_connectionInfo.IsSqlite)
+        {
+            await BackfillCardCategorySummaryAsync(connection, cancellationToken);
+        }
 
         // Why: this table backs the harvested-commanders admin grid and is maintained
         // incrementally by DeckQueueRepository on every processed=1 write, so it must exist
@@ -247,6 +252,41 @@ internal sealed class CategoryCacheSchema
                 deck_count INTEGER NOT NULL DEFAULT 0,
                 last_seen_utc TEXT NOT NULL
             );
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task CreateCardCategorySummaryTableAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = $"""
+            CREATE TABLE IF NOT EXISTS card_category_summary (
+                card_id INTEGER NOT NULL,
+                category TEXT NOT NULL,
+                observation_rows INTEGER NOT NULL,
+                PRIMARY KEY (card_id, category)
+            );
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task BackfillCardCategorySummaryAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        // Why: a populated summary is maintained incrementally, so avoid a full observation-index scan on every schema check.
+        command.CommandText = "SELECT EXISTS(SELECT 1 FROM card_category_summary);";
+        if (Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
+        {
+            return;
+        }
+
+        command.CommandText = """
+            INSERT INTO card_category_summary (card_id, category, observation_rows)
+            SELECT card_id, category, COUNT(*)
+            FROM card_category_observations
+            WHERE EXISTS (SELECT 1 FROM card_category_observations)
+              AND NOT EXISTS (SELECT 1 FROM card_category_summary)
+            GROUP BY card_id, category;
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }

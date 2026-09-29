@@ -60,6 +60,11 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
         await Assert.ThrowsAsync<SqliteException>(() => ExecuteNonQueryAsync(
             connection,
             "INSERT INTO cards (normalized_card_name, display_name) VALUES ('sol ring', 'SOL RING');"));
+
+        var summaryTableCount = await QuerySingleInt64Async(
+            connection,
+            "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = 'card_category_summary';");
+        Assert.Equal(1L, summaryTableCount);
     }
 
     [Fact]
@@ -80,6 +85,24 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
             """);
 
         Assert.Equal(1, indexCount);
+    }
+
+    [Fact]
+    public async Task EnsureSchema_OnSqliteWithObservationsAndEmptySummary_BackfillsSummary()
+    {
+        var repository = CreateRepository();
+        await repository.EnsureSchemaAsync();
+        await using (var connection = await OpenConnectionAsync())
+        {
+            await ExecuteNonQueryAsync(connection, "INSERT INTO cards (normalized_card_name, display_name) VALUES ('sol ring', 'Sol Ring');");
+            await ExecuteNonQueryAsync(connection, "INSERT INTO sources (source, deck_queue_id) VALUES ('source', NULL);");
+            await ExecuteNonQueryAsync(connection, "INSERT INTO card_category_observations (source_id, card_id, card_name, category, board, deck_count, count, last_seen_utc) VALUES (1, 1, 'Sol Ring', 'Ramp', 'mainboard', 1, 1, '2026-01-01T00:00:00.0000000Z');");
+            await ExecuteNonQueryAsync(connection, "DELETE FROM card_category_summary;");
+        }
+
+        await repository.EnsureSchemaAsync();
+        await using var verificationConnection = await OpenConnectionAsync();
+        Assert.Equal(1L, await QuerySingleInt64Async(verificationConnection, "SELECT observation_rows FROM card_category_summary WHERE card_id = 1 AND category = 'Ramp';"));
     }
 
     [Fact]
