@@ -190,33 +190,77 @@ public sealed class AdminCreatorProfileViewRenderTests
     {
         var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorProfileViewModel()));
         var form = Assert.Single(document.QuerySelectorAll("form.admin-card[aria-label='Creator profile run form']"));
+        Assert.NotNull(form.QuerySelector("input[name='__RequestVerificationToken']"));
         Assert.Equal(4, form.QuerySelectorAll(".admin-field").Length);
-        Assert.NotNull(form.QuerySelector("button.admin-button.admin-button--primary"));
+        var ids = new[] { "creator-profile-slug", "creator-profile-username", "creator-profile-platform", "creator-profile-force-refresh" };
+        Assert.Equal(ids, form.QuerySelectorAll(".admin-field").Select(field => field.QuerySelector("label")?.GetAttribute("for")).ToArray());
+        Assert.Equal(ids, form.QuerySelectorAll(".admin-field").Select(field => field.QuerySelector("[id]")?.Id).ToArray());
+        Assert.Null(form.QuerySelector("table"));
+        var button = Assert.Single(form.QuerySelectorAll("button[type='submit'].admin-button.admin-button--primary"));
+        Assert.Equal("Run Crawl + Measure", button.TextContent.Trim());
         Assert.Empty(document.QuerySelectorAll("h1, .admin-tools, .lede, .error-banner, .warning-banner"));
+        var stack = Assert.Single(document.QuerySelectorAll("div.admin-stack"));
+        Assert.Same(form, Assert.Single(stack.Children));
     }
 
     [Fact]
-    public async Task Index_ErrorAndInsufficientSample_UsesDangerBanner()
+    public async Task Index_ErrorAndInsufficientSample_UseDangerAndWarningBanners()
     {
-        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorProfileViewModel { ErrorMessage = "crawl failed <b>x</b>" }));
-        var banner = Assert.Single(document.QuerySelectorAll("div.admin-banner.admin-banner--danger[role=alert]"));
-        Assert.Equal("crawl failed <b>x</b>", banner.TextContent.Trim());
+        var profile = new CreatorStyleProfile { Slug = "snail", Platform = "archidekt", MinDecks = 7, InsufficientSample = true, UpdatedUtc = DateTimeOffset.UtcNow };
+        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorProfileViewModel { ErrorMessage = "crawl failed <b>x</b>", Profile = profile }));
+        Assert.Equal("crawl failed <b>x</b>", Assert.Single(document.QuerySelectorAll("div.admin-banner.admin-banner--danger[role=alert]")).TextContent.Trim());
+        Assert.Contains("below the minimum deck floor", Assert.Single(document.QuerySelectorAll("div.admin-banner.admin-banner--warning[role=status]")).TextContent, StringComparison.Ordinal);
         Assert.Empty(document.QuerySelectorAll("b"));
+        var children = Assert.Single(document.QuerySelectorAll("div.admin-stack")).Children;
+        Assert.Contains("danger", children[0].ClassName);
+        Assert.Contains("warning", children[1].ClassName);
+        Assert.Equal("FORM", children[2].TagName);
     }
 
     [Fact]
-    public async Task Index_EmptyModel_UsesSingleAdminStack()
+    public async Task Index_PopulatedReport_SectionsAreSharedCards()
     {
-        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorProfileViewModel()));
-        Assert.Single(document.QuerySelectorAll("div.admin-stack"));
+        var document = new HtmlParser().ParseDocument(await RenderAsync(CreateReportModel()));
+        var expected = new[] { "creator-profile-summary", "creator-profile-metrics", "creator-profile-decks", "creator-profile-repeat-cards", "creator-profile-repeat-commanders", "creator-profile-category-tendencies" };
+        var cards = document.QuerySelectorAll("section.admin-card[aria-labelledby]");
+        Assert.Equal(expected, cards.Select(card => card.GetAttribute("aria-labelledby")).ToArray());
+        foreach (var card in cards)
+        {
+            var id = card.GetAttribute("aria-labelledby");
+            Assert.NotNull(card.QuerySelector($"h2#{id}.admin-card__title"));
+            Assert.NotNull(card.QuerySelector("table.admin-table.admin-table--card caption"));
+        }
+        Assert.Empty(document.QuerySelectorAll(".admin-tools__section"));
+        Assert.Equal(expected, Assert.Single(document.QuerySelectorAll("div.admin-stack")).QuerySelectorAll("section").Select(card => card.GetAttribute("aria-labelledby")).ToArray());
     }
 
     [Fact]
-    public async Task Index_EmptyModel_RunFormHasNoTable()
+    public async Task Index_EmptyReportCollections_KeepEmptyRowsInsideCards()
     {
-        var document = new HtmlParser().ParseDocument(await RenderAsync(new AdminCreatorProfileViewModel()));
-        Assert.Null(document.QuerySelector("form.admin-card table"));
+        var model = CreateReportModel(emptyCollections: true);
+        var document = new HtmlParser().ParseDocument(await RenderAsync(model));
+        foreach (var (id, colspan, text) in new[] { ("creator-profile-decks", 5, "No decks."), ("creator-profile-repeat-cards", 4, "No repeat cards."), ("creator-profile-repeat-commanders", 4, "No repeat commanders."), ("creator-profile-category-tendencies", 5, "No category tendencies.") })
+        {
+            var card = Assert.Single(document.QuerySelectorAll($"div.admin-stack > section.admin-card[aria-labelledby='{id}']"));
+            var row = Assert.Single(card.QuerySelectorAll("table.admin-table.admin-table--card tbody tr"));
+            var cell = Assert.Single(row.QuerySelectorAll("td"));
+            Assert.Equal(colspan.ToString(), cell.GetAttribute("colspan"));
+            Assert.Equal(text, cell.TextContent.Trim());
+        }
     }
+
+    private static AdminCreatorProfileViewModel CreateReportModel(bool emptyCollections = false) => new()
+    {
+        Profile = new CreatorStyleProfile { Slug = "snail", Platform = "archidekt", MinDecks = 7, UpdatedUtc = DateTimeOffset.UtcNow, MeasuredMetrics = [new MeasuredMetric { Metric = "ramp", Value = 1, NumDecks = 2 }] },
+        Report = new DeckTendenciesReport
+        {
+            DeckCount = 2,
+            Decks = emptyCollections ? [] : [new DeckTendencyDeckRow { DeckId = "deck", DeckName = "Deck", CardCount = 100, FolderName = "Folder", Commanders = ["Commander"] }],
+            RepeatCards = emptyCollections ? [] : [new RepeatCardRow { CardName = "Card", DeckCount = 2, Frequency = 1, IsPersonalStaple = true }],
+            RepeatCommanders = emptyCollections ? [] : [new RepeatCardRow { CardName = "Commander", DeckCount = 2, Frequency = 1, IsPersonalStaple = false }],
+            CategoryTendencies = emptyCollections ? [] : [new CategoryTendencyRow { Category = "Ramp", AverageCountPerDeck = 1, PresenceRatio = 1 }],
+        },
+    };
 
     private static async Task<string> RenderAsync(AdminCreatorProfileViewModel model)
     {
