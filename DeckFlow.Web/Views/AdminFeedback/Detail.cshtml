@@ -25,13 +25,13 @@
         <div class="admin-card__actions">
             @if (Model.Status == DeckFlow.Web.Models.FeedbackStatus.New)
             {
-                <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="markRead">@Html.AntiForgeryToken()<button type="submit" class="admin-button admin-button--secondary">Mark Read</button></form>
+                <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="markRead" class="admin-action-form">@Html.AntiForgeryToken()<button type="submit" class="admin-button admin-button--secondary">Mark Read</button></form>
             }
             @if (Model.Status != DeckFlow.Web.Models.FeedbackStatus.Archived)
             {
-                <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="archive">@Html.AntiForgeryToken()<button type="submit" class="admin-button admin-button--secondary">Archive</button></form>
+                <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="archive" class="admin-action-form">@Html.AntiForgeryToken()<button type="submit" class="admin-button admin-button--secondary">Archive</button></form>
             }
-            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete" data-admin-confirm-delete data-admin-feedback-id="@Model.Id">
+            <form method="post" asp-action="Apply" asp-route-id="@Model.Id" asp-route-op="delete" class="admin-action-form" data-admin-confirm-delete data-admin-feedback-id="@Model.Id">
                 @Html.AntiForgeryToken()<button type="submit" class="admin-button admin-button--danger">Delete</button>
             </form>
         </div>
