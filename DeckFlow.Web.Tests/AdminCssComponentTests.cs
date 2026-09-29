@@ -91,4 +91,22 @@ public sealed class AdminCssComponentTests
         AssertDeclares(selector, "background", "var(--status-success-bg)");
         AssertDeclares(selector, "border-color", "var(--status-success)");
     }
+
+    [Fact]
+    public void CheckboxField_MeetsTouchTargetFloor()
+    {
+        const string field = ".admin-shell .admin-field--checkbox";
+        AssertDeclares(field, "flex-direction", "row");
+        AssertDeclares(field, "align-items", "center");
+        AssertDeclares(field, "gap", "var(--space-sm)");
+        AssertDeclares(field, "min-height", "44px");
+        AssertDeclares($"{field} label", "flex", "1");
+        AssertDeclares($"{field} label", "display", "flex");
+        AssertDeclares($"{field} label", "align-items", "center");
+        AssertDeclares($"{field} label", "min-height", "44px");
+        AssertDeclares($"{field} label", "cursor", "pointer");
+        AssertDeclares($"{field} input", "width", "20px");
+        AssertDeclares($"{field} input", "height", "20px");
+        AssertDeclares($"{field} input", "margin", "0");
+    }
 }
