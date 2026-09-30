@@ -56,7 +56,11 @@ test('feedback list and seeded detail use the shared components and delete confi
     const row = page.locator('tr', { hasText: marker });
     await expect(row).toHaveCount(1);
     const view = row.getByRole('link', { name: 'View' });
-    feedbackId = new URL(await view.getAttribute('href')!, page.url()).pathname.match(/\/(\d+)$/)?.[1];
+    const feedbackHref = await view.getAttribute('href');
+    if (feedbackHref === null) {
+      throw new Error('Feedback view link is missing an href.');
+    }
+    feedbackId = new URL(feedbackHref, page.url()).pathname.match(/\/(\d+)$/)?.[1];
     expect(feedbackId).toBeTruthy();
     const archiveForm = row.locator('td[data-label="Actions"] form');
     await expect(archiveForm).toHaveClass(/admin-action-form/);
