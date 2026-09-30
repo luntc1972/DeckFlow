@@ -602,27 +602,27 @@ internal static class DeckCommandRunners
         switch (mode)
         {
             case "named":
-            {
-                var request = new RestRequest("cards/named", Method.Get);
-                request.AddQueryParameter("exact", cardName ?? "Sol Ring");
-                return request;
-            }
+                {
+                    var request = new RestRequest("cards/named", Method.Get);
+                    request.AddQueryParameter("exact", cardName ?? "Sol Ring");
+                    return request;
+                }
             case "search":
-            {
-                var request = new RestRequest("cards/search", Method.Get);
-                request.AddQueryParameter("q", cardName ?? "Sol Ring");
-                return request;
-            }
+                {
+                    var request = new RestRequest("cards/search", Method.Get);
+                    request.AddQueryParameter("q", cardName ?? "Sol Ring");
+                    return request;
+                }
             case "random":
-            {
-                return new RestRequest("cards/random", Method.Get);
-            }
+                {
+                    return new RestRequest("cards/random", Method.Get);
+                }
             default:
-            {
-                var request = new RestRequest("cards/named", Method.Get);
-                request.AddQueryParameter("exact", cardName ?? "Sol Ring");
-                return request;
-            }
+                {
+                    var request = new RestRequest("cards/named", Method.Get);
+                    request.AddQueryParameter("exact", cardName ?? "Sol Ring");
+                    return request;
+                }
         }
     }
 

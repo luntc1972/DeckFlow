@@ -154,9 +154,9 @@ public sealed class AdminAnalyticsController : Controller
         var whereClause = range switch
         {
             "today" => "WHERE day_utc = CURRENT_DATE",
-            "7d"    => "WHERE day_utc >= CURRENT_DATE - INTERVAL '6 days'",
-            "30d"   => "WHERE day_utc >= CURRENT_DATE - INTERVAL '29 days'",
-            _        => "",   // all-time — no filter
+            "7d" => "WHERE day_utc >= CURRENT_DATE - INTERVAL '6 days'",
+            "30d" => "WHERE day_utc >= CURRENT_DATE - INTERVAL '29 days'",
+            _ => "",   // all-time — no filter
         };
 
         var dbConn = connInfo.CreateConnection();
@@ -198,9 +198,9 @@ public sealed class AdminAnalyticsController : Controller
         var ipSql = range switch
         {
             "today" => "SELECT route_key, COUNT(DISTINCT ip_hash)::bigint FROM request_metric_ip_seen WHERE day_utc = CURRENT_DATE AND route_key = ANY(@routeKeys) GROUP BY route_key;",
-            "7d"    => "SELECT route_key, COUNT(DISTINCT ip_hash)::bigint FROM request_metric_ip_seen WHERE day_utc >= CURRENT_DATE - INTERVAL '6 days' AND route_key = ANY(@routeKeys) GROUP BY route_key;",
-            "30d"   => "SELECT route_key, COUNT(DISTINCT ip_hash)::bigint FROM request_metric_ip_seen WHERE day_utc >= CURRENT_DATE - INTERVAL '29 days' AND route_key = ANY(@routeKeys) GROUP BY route_key;",
-            _        => "SELECT route_key, COUNT(DISTINCT ip_hash)::bigint FROM request_metric_ip_seen WHERE route_key = ANY(@routeKeys) GROUP BY route_key;",
+            "7d" => "SELECT route_key, COUNT(DISTINCT ip_hash)::bigint FROM request_metric_ip_seen WHERE day_utc >= CURRENT_DATE - INTERVAL '6 days' AND route_key = ANY(@routeKeys) GROUP BY route_key;",
+            "30d" => "SELECT route_key, COUNT(DISTINCT ip_hash)::bigint FROM request_metric_ip_seen WHERE day_utc >= CURRENT_DATE - INTERVAL '29 days' AND route_key = ANY(@routeKeys) GROUP BY route_key;",
+            _ => "SELECT route_key, COUNT(DISTINCT ip_hash)::bigint FROM request_metric_ip_seen WHERE route_key = ANY(@routeKeys) GROUP BY route_key;",
         };
 
         var ipCounts = new Dictionary<string, long>(StringComparer.Ordinal);
