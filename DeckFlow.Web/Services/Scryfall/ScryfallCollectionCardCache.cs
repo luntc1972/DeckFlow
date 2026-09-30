@@ -211,6 +211,7 @@ public sealed class ScryfallCollectionCardCache
         return Math.Max(total, 1);
     }
 
+    /// <summary>Adapts the injected time provider to the memory cache clock for deterministic expiration tests.</summary>
     private sealed class TimeProviderSystemClock(TimeProvider timeProvider) : ISystemClock
     {
         public DateTimeOffset UtcNow => timeProvider.GetUtcNow();

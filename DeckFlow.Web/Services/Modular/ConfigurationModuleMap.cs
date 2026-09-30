@@ -88,5 +88,6 @@ public sealed class ConfigurationModuleMap
         }
     }
 
+    /// <summary>Maps a normalized card name to its configuration module and optional display label.</summary>
     private sealed record ModuleMapping(ConfigurationModuleKind Kind, string? DisplayName);
 }

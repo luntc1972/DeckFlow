@@ -205,6 +205,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             health);
     }
 
+    /// <summary>Pairs aggregated harvest statistics with their cache time for freshness checks.</summary>
     private sealed record CachedHarvestStats(HarvestStatsPayload Payload, DateTimeOffset CachedAtUtc);
 
     /// <summary>

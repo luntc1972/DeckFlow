@@ -391,6 +391,7 @@ public sealed class AdminHarvestController : Controller
         return board.Trim().ToLowerInvariant();
     }
 
+    /// <summary>Reports active harvest progress and recent-run revision to the polling admin dashboard.</summary>
     private sealed record HarvestStatusPayload(
         string State,
         Guid? JobId,

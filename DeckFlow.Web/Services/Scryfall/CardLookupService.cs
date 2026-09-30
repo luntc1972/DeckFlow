@@ -462,6 +462,7 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         return name.Trim();
     }
 
+    /// <summary>Preserves submitted text while carrying sanitized card name and quantity into Scryfall lookup.</summary>
     private sealed record ParsedCardLine(string OriginalLine, string CardName, int? Quantity);
 }
 

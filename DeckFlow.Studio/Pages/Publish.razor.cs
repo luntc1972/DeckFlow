@@ -24,6 +24,7 @@ public partial class Publish
     private IReadOnlyList<(PublishState State, int Count)> _publishStateSummary = Array.Empty<(PublishState State, int Count)>();
     private string _error = string.Empty;
 
+    /// <summary>Loads approved content totals and publish-state counts before the Publish page renders.</summary>
     protected override async Task OnInitializedAsync()
     {
         try

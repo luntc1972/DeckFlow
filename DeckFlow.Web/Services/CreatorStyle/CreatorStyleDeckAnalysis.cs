@@ -239,10 +239,12 @@ internal static class CreatorStyleDeckAnalysis
         };
     }
 
+    /// <summary>Carries Scryfall-resolved deck entries and commander identity into creator-style analysis.</summary>
     private sealed record ResolvedDeckEntries(
         IReadOnlyList<DeckCardEntry> Entries,
         ScryfallCard? ResolvedCommanderCard);
 
+    /// <summary>Indexes resolved Scryfall cards while retaining raw-card mappings for creator-style deck reconstruction.</summary>
     internal sealed class ResolvedScryfallCards
     {
         private readonly ScryfallCardNameIndex _nameIndex = new();

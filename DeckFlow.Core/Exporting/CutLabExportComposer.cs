@@ -128,6 +128,7 @@ public static class CutLabExportComposer
         builder.AppendLine(body);
     }
 
+    /// <summary>Keys equivalent Cut Lab entries so quantities can be consolidated without losing board or printing details.</summary>
     private sealed record ConsolidatedEntryKey(
         string NormalizedName,
         string Board,

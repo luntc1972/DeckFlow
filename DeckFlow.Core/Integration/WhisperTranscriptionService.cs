@@ -255,5 +255,6 @@ public sealed class WhisperTranscriptionService : IWhisperTranscriptionService
         }
     }
 
+    /// <summary>Carries Whisper transcript text and billable audio duration into usage accounting.</summary>
     private sealed record TranscribedAudio(string Body, int SecondsBilled);
 }

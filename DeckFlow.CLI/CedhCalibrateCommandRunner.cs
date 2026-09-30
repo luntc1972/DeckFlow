@@ -181,6 +181,7 @@ internal static class CedhCalibrateCommandRunner
         }
     }
 
+    /// <summary>Carries tiered commander and maindeck inputs into cEDH bracket calibration.</summary>
     private sealed record CalibrationDeck
     {
         public required string Tier { get; init; }

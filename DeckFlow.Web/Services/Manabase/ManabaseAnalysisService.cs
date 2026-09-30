@@ -1109,6 +1109,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     // Internal carrier for the shared resolve+classify stage (no report yet).
+    /// <summary>Carries resolved deck, commander, companion, and intake details into manabase report generation.</summary>
     private sealed record ResolvedManabaseDeck(
         ManabaseDeck Deck,
         IReadOnlyList<string> Unresolved,
@@ -1120,6 +1121,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
         IReadOnlyList<string> CommanderChoices,
         bool CommanderSelectionRequired);
 
+    /// <summary>Returns validated deck entries and commander choices after manabase commander resolution.</summary>
     private sealed record CommanderValidationResult(
         List<DeckCardEntry> Entries,
         IReadOnlyList<string> CommanderChoices,

@@ -152,9 +152,11 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
         return new RestRequest($"/api/decks/v3/?orderBy=-updatedAt&page={page}", Method.Get);
     }
 
+    /// <summary>Deserializes one Archidekt recent-decks page so its deck IDs can be queued for import.</summary>
     private sealed record ArchidektRecentDecksResponse(
         [property: JsonPropertyName("results")] IReadOnlyList<ArchidektRecentDeck> Results);
 
+    /// <summary>Extracts the deck ID needed to enqueue an Archidekt recent-deck result.</summary>
     private sealed record ArchidektRecentDeck(
         [property: JsonPropertyName("id")] int Id);
 }

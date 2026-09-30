@@ -288,6 +288,7 @@ public sealed class FeedbackStore : IFeedbackStore
         }
     }
 
+    /// <summary>Maps a feedback status and aggregate count for the admin feedback dashboard.</summary>
     private sealed class FeedbackStatusCountRow
     {
         public string Status { get; init; } = string.Empty;

@@ -366,6 +366,7 @@ internal sealed class CategoryCacheSchema
         return columns;
     }
 
+    /// <summary>Maps SQLite table-info rows so cache migrations can detect existing columns.</summary>
     private sealed class SqliteTableInfoRow
     {
         public string Name { get; init; } = string.Empty;

@@ -445,6 +445,7 @@ public static class EdhrecCellReader
             Failure = failure,
         };
 
+    /// <summary>Deserializes EDHREC harvest metadata that selects commanders and bracket cells for research input.</summary>
     private sealed record ManifestDocument
     {
         public IReadOnlyList<string>? Brackets { get; init; }
@@ -454,11 +455,13 @@ public static class EdhrecCellReader
         public IReadOnlyList<SelectedCommanderDocument>? SelectedCommanders { get; init; }
     }
 
+    /// <summary>Extracts each selected commander slug from an EDHREC harvest manifest.</summary>
     private sealed record SelectedCommanderDocument
     {
         public string? Slug { get; init; }
     }
 
+    /// <summary>Deserializes one EDHREC commander-bracket cell into deck counts, card lists, and savedate metadata.</summary>
     private sealed record CellDocument
     {
         public int? Basic { get; init; }
@@ -482,6 +485,7 @@ public static class EdhrecCellReader
         public string? Slug { get; init; }
     }
 
+    /// <summary>Extracts the savedate range used to validate the freshness of an EDHREC research cell.</summary>
     private sealed record SavedateSummaryDocument
     {
         public string? MaxDate { get; init; }

@@ -943,6 +943,7 @@ internal sealed class CardCategoryRepository
 
     private DbConnection CreateConnection() => _connectionInfo.CreateConnection();
 
+    /// <summary>Maps category totals and pair counts used to build the global category baseline.</summary>
     private sealed class GlobalCategoryBaselineRow
     {
         public string RowType { get; init; } = string.Empty;
@@ -951,6 +952,7 @@ internal sealed class CardCategoryRepository
         public long DeckCount { get; init; }
     }
 
+    /// <summary>Maps per-card category aggregates used to calculate category knowledge statistics.</summary>
     private sealed class CategoryKnowledgeAggregateRow
     {
         public string Category { get; init; } = string.Empty;
@@ -959,12 +961,14 @@ internal sealed class CardCategoryRepository
         public long DeckTotal { get; init; }
     }
 
+    /// <summary>Maps deck totals by board so category rates use the matching commander or mainboard population.</summary>
     private sealed class BoardDeckTotalRow
     {
         public string Board { get; init; } = string.Empty;
         public long Total { get; init; }
     }
 
+    /// <summary>Maps persisted source, card, board, and category counts returned from category queries.</summary>
     private sealed class CategoryDeckCountRow
     {
         public long SourceId { get; init; }
@@ -974,12 +978,14 @@ internal sealed class CardCategoryRepository
         public long DeckCount { get; init; }
     }
 
+    /// <summary>Maps normalized card names to categories when rebuilding the category lookup.</summary>
     private sealed class CardCategoryNameRow
     {
         public string NormalizedCardName { get; init; } = string.Empty;
         public string Category { get; init; } = string.Empty;
     }
 
+    /// <summary>Identifies a card-category observation row deleted for a source, locked in key order on Postgres to avoid deadlocks.</summary>
     private sealed class CategoryObservationKey
     {
         public long CardId { get; init; }

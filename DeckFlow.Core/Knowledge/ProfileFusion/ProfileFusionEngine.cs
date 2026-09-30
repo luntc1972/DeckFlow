@@ -316,6 +316,7 @@ public static class ProfileFusionEngine
     private static bool IsSupportedComparator(string comparator)
         => comparator is "range" or "lte" or "gte" or "eq";
 
+    /// <summary>Carries a resolved measured value and sample sizes into stated-rule conflict evaluation.</summary>
     private readonly record struct MeasuredResolution(
         double Value,
         int NumDecks,

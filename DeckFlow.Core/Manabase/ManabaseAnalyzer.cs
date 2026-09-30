@@ -1266,6 +1266,7 @@ public static class ManabaseAnalyzer
         }
     }
 
+    /// <summary>Separately accumulates source-search probe and boundary-confirmation time for analysis diagnostics.</summary>
     private sealed class SearchTiming
     {
         private long _probeTicks;

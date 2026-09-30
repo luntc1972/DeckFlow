@@ -439,6 +439,7 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     /// <param name="DurationSeconds">Operator-selected sweep cap.</param>
     private sealed record QueuedJobSignal(Guid JobId, int DurationSeconds);
 
+    /// <summary>Throttles deck-count updates to the harvest run store so the admin dashboard can poll current progress.</summary>
     private sealed class HarvestProgressWriter : IProgress<int>
     {
         private static readonly TimeSpan WriteInterval = TimeSpan.FromSeconds(2);

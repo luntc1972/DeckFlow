@@ -175,6 +175,7 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
           updated_utc    = excluded.updated_utc;
         """;
 
+    /// <summary>Maps the persisted harvest interval, pause state, and update time from Dapper queries.</summary>
     private sealed class HarvestScheduleRow
     {
         public int? IntervalHours { get; set; }

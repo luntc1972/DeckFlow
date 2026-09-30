@@ -69,6 +69,7 @@ public sealed record RecencyCollapseResult(
     IReadOnlyList<StatedRuleCandidate> Active,
     IReadOnlyList<StatedRuleCandidate> Superseded);
 
+/// <summary>Groups stated rules by case-insensitive metric and condition so only the newest remains active.</summary>
 internal sealed record CollapseKey(
     string Metric,
     string Condition)

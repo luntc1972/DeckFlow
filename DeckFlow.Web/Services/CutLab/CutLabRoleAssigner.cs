@@ -223,6 +223,7 @@ public static class CutLabRoleAssigner
     }
 }
 
+/// <summary>Groups locked cards that exceed a role target for Cut Lab overshoot guidance.</summary>
 internal sealed record CutLabLockedOvershootGroupProjection(
     string RoleLabel,
     IReadOnlyList<string> CardNames);

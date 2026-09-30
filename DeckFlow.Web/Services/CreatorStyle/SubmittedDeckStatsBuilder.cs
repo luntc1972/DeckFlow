@@ -292,6 +292,7 @@ public sealed class SubmittedDeckStatsBuilder : ISubmittedDeckStatsBuilder
     }
 }
 
+/// <summary>Carries grounded deck, commander, and manabase results into submitted-deck creator statistics.</summary>
 internal sealed record SubmittedDeckResolution
 {
     public required ManabaseReport Report { get; init; }

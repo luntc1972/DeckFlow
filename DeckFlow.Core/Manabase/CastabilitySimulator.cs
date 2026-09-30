@@ -44,6 +44,7 @@ public static class CastabilitySimulator
 
     // Reusable category for a single library card. Lands carry their color set; ramp carries a deploy
     // cost (its mana value) plus the color set it taps for; filler is everything else.
+    /// <summary>Classifies library cards by the mana behavior simulated during opening hands and draw steps.</summary>
     private enum CardKind
     {
         UntappedLand,
@@ -54,6 +55,7 @@ public static class CastabilitySimulator
         Filler,
     }
 
+    /// <summary>Identifies which cEDH opening-hand plan justified keeping a simulated hand.</summary>
     private enum KeepShape
     {
         None,
@@ -62,8 +64,10 @@ public static class CastabilitySimulator
         Bridge,
     }
 
+    /// <summary>Tracks a played land's colors, mana amount, basic types, and turn it becomes usable.</summary>
     private readonly record struct PlayedLand(int Mask, int OnlineTurn, int Amount, int BasicTypeMask);
 
+    /// <summary>Stores compact mana and plan traits for each card processed by Monte Carlo castability trials.</summary>
     private readonly struct LibraryCard
     {
         public LibraryCard(

@@ -772,6 +772,7 @@ public static class CutLabStructuralFindings
             _ => roleKey,
         };
 
+    /// <summary>Compares ordered normalized card-name sets when grouping duplicate structural findings.</summary>
     private sealed class NormalizedNameSetComparer : IEqualityComparer<IReadOnlyList<string>>
     {
         public static readonly NormalizedNameSetComparer Instance = new();

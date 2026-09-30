@@ -170,6 +170,7 @@ public sealed class CreatorSuppressionStore : ICreatorSuppressionStore
     private static IReadOnlyList<string> Normalize(IReadOnlyList<string> aliases) => aliases.Where(alias => !string.IsNullOrWhiteSpace(alias)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     private static string NormalizeValue(string value) => CreatorSuppressionMatcher.NormalizeValue(value);
 
+    /// <summary>Groups provider-specific schema, suppression upsert, and revision-update SQL for store initialization.</summary>
     internal sealed record SqlText(string Schema, string Upsert, string Increment);
 
     internal static SqlText GetSql(RelationalDatabaseProvider provider)
@@ -188,6 +189,7 @@ public sealed class CreatorSuppressionStore : ICreatorSuppressionStore
         """;
     private const string UpsertSql = "INSERT INTO creator_suppression (slug, aliases, reason, requested_utc, note) VALUES (@slug, @aliases, @reason, @requestedUtc, @note) ON CONFLICT (slug) DO UPDATE SET aliases = EXCLUDED.aliases, reason = EXCLUDED.reason, requested_utc = EXCLUDED.requested_utc, note = EXCLUDED.note;";
     private const string IncrementSql = "UPDATE creator_suppression_state SET revision = revision + 1, updated_utc = @updatedUtc WHERE id = 1;";
+    /// <summary>Maps suppression rows before alias JSON is restored into creator suppression rules.</summary>
     private sealed class Row { public required string Slug { get; init; } public required string Aliases { get; init; } public required string Reason { get; init; } public required DateTimeOffset RequestedUtc { get; init; } public string? Note { get; init; } }
 }
 #pragma warning restore CS1591

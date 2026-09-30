@@ -72,6 +72,7 @@ public static class StatedRuleReducer
     }
 }
 
+/// <summary>Groups extracted rules by metric, condition, and comparator before confidence-based reduction.</summary>
 internal sealed record StatedRuleReducerKey(
     string Metric,
     string Condition,

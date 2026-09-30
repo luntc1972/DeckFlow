@@ -238,6 +238,7 @@ public sealed class CreatorProfileSourceStore : ICreatorProfileSourceStore
         );
         """;
 
+    /// <summary>Maps persisted creator profile settings before folder weights are deserialized for harvesting.</summary>
     private sealed class CreatorProfileSourceReadModel
     {
         public required string Slug { get; init; }
@@ -257,11 +258,13 @@ public sealed class CreatorProfileSourceStore : ICreatorProfileSourceStore
         public DateTimeOffset UpdatedUtc { get; init; }
     }
 
+    /// <summary>Centralizes the profile-source projection so every Dapper query maps the same columns.</summary>
     private static class CreatorProfileSourceReadColumns
     {
         public const string SelectList = "slug, platform, profile_username, profile_url, folder_weights_json, weights_uncurated, last_crawled_utc, updated_utc";
     }
 
+    /// <summary>Restores creator profile sources from relational rows, including serialized folder weights.</summary>
     private static class CreatorProfileSourceMapper
     {
         public static CreatorProfileSource ToSource(CreatorProfileSourceReadModel row)

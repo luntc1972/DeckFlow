@@ -2,6 +2,7 @@ using System.Globalization;
 
 namespace DeckFlow.Core.Content;
 
+/// <summary>Converts provider-specific insert results into stable content row IDs for relational stores.</summary>
 internal static class ContentStoreGeneratedId
 {
     public static long Read(object? scalar)

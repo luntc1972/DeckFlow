@@ -3,14 +3,17 @@ using System.IO.Compression;
 
 namespace DeckFlow.CLI;
 
+/// <summary>Collects downloaded EDHREC datasets and their output paths for CLI reporting.</summary>
 internal sealed record EdhrecDataDownloadResult(IReadOnlyList<EdhrecDataDownloadFile> Files);
 
+/// <summary>Identifies one downloaded EDHREC archive and its optional extracted CSV.</summary>
 internal sealed record EdhrecDataDownloadFile(
     string Dataset,
     string Url,
     string ArchivePath,
     string? ExtractedCsvPath);
 
+/// <summary>Downloads selected EDHREC bulk datasets and optionally extracts their CSV files for research commands.</summary>
 internal static class EdhrecDataDownloadCommandRunner
 {
     private const string UserAgent = "DeckFlow.CLI/1.0 (+https://github.com/luntc1972/DeckFlow)";
@@ -130,5 +133,6 @@ internal static class EdhrecDataDownloadCommandRunner
     private static string ToRelativeSlashPath(string baseDirectory, string path)
         => Path.GetRelativePath(baseDirectory, path).Replace(Path.DirectorySeparatorChar, '/');
 
+    /// <summary>Configures the URL and filenames for one supported EDHREC bulk dataset.</summary>
     private sealed record EdhrecDataset(string Name, string Url, string ArchiveFileName, string CsvFileName);
 }

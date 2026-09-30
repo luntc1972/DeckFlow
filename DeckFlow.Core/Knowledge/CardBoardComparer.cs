@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace DeckFlow.Core.Knowledge;
 
+/// <summary>Matches card-and-board keys case-insensitively so category cache rows deduplicate consistently.</summary>
 internal sealed class CardBoardComparer : IEqualityComparer<(string CardName, string Board)>
 {
     public static CardBoardComparer Instance { get; } = new();

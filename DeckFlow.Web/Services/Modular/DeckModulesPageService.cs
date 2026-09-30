@@ -409,9 +409,11 @@ public sealed class DeckModulesPageService : IDeckModulesPageService
             Quantity = entry.Quantity,
         }).ToArray());
 
+    /// <summary>Stores protected command-zone and mainboard snapshots for deck-module change detection.</summary>
     private sealed record DeckModulesBaseline(
         IReadOnlyList<DeckModulesBaselineEntry> CommandZone,
         IReadOnlyList<DeckModulesBaselineEntry> BaselineMainboardEntries);
 
+    /// <summary>Captures card identity, board, and quantity in a protected deck-modules baseline.</summary>
     private sealed record DeckModulesBaselineEntry(string Name, string Board, int Quantity);
 }

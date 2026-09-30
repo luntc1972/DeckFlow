@@ -416,6 +416,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
         return new CardLookupResult(resolvedCards, batchResolution.OracleNameMap);
     }
 
+    /// <summary>Returns resolved Scryfall cards and canonical-name mappings for deck comparison.</summary>
     private sealed record CardLookupResult(IReadOnlyList<ScryfallCard> Cards, IReadOnlyDictionary<string, string> OracleNameMap);
 
     private static DeckComparisonDeckSummary BuildDeckSummary(
@@ -869,6 +870,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
         return string.Join(Environment.NewLine, lines.Select(line => indent + line));
     }
 
+    /// <summary>Separates all, playable, and optional deck entries while retaining the resolved commander.</summary>
     private sealed record LoadedDeck(
         IReadOnlyList<DeckEntry> AllEntries,
         IReadOnlyList<DeckEntry> PlayableEntries,
@@ -876,6 +878,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
         string CommanderName);
 
     // Internal for test construction — exercised by the AI result contract tests.
+    /// <summary>Provides normalized deck counts, themes, and combo metrics to comparison prompts and contract tests.</summary>
     internal sealed record DeckComparisonDeckSummary(
         string Name,
         string CommanderName,

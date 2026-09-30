@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 
 namespace DeckFlow.Web.Infrastructure;
 
+/// <summary>Builds encoded opening and closing markup for collapsible deck-intake result cards.</summary>
 internal static class IntakeCardMarkup
 {
     public static string Open(IntakeCardOptions options, HtmlEncoder encoder)

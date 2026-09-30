@@ -23,6 +23,7 @@ using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCol
 
 namespace DeckFlow.CLI;
 
+/// <summary>Builds EDHREC role-grid artifacts by resolving cards through throttled Scryfall calls.</summary>
 internal static class EdhrecRoleGridCommandRunner
 {
     private const int ScryfallRateLimitRetryMaxAttempts = 4;
@@ -783,6 +784,7 @@ internal static class EdhrecRoleGridCommandRunner
     private static string FormatOptionalSha(string? sha256)
         => string.IsNullOrWhiteSpace(sha256) ? string.Empty : FormattableString.Invariant($", sha256={sha256}");
 
+    /// <summary>Groups resolved Scryfall cards with missing and rate-limited names for report diagnostics.</summary>
     private sealed record CardResolutionResult(
         IReadOnlyDictionary<string, ScryfallCardData> ResolvedCards,
         IReadOnlyCollection<string> UnresolvedNotFoundNames,
@@ -796,6 +798,7 @@ internal static class EdhrecRoleGridCommandRunner
                 .ToArray();
     }
 
+    /// <summary>Captures an input CSV path, byte size, and optional hash for research provenance.</summary>
     private sealed record InputFileDescriptor
     {
         public required string Path { get; init; }
@@ -803,6 +806,7 @@ internal static class EdhrecRoleGridCommandRunner
         public string? Sha256 { get; init; }
     }
 
+    /// <summary>Holds role-grid provenance, coverage, anomalies, and figures for Markdown and JSON output.</summary>
     private sealed record EdhrecRoleGridReport
     {
         public required string RunTimestampUtc { get; init; }

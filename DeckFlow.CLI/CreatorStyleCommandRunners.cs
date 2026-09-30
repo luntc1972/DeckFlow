@@ -21,6 +21,7 @@ internal static class CreatorStyleCommandRunners
     /// </summary>
     /// <param name="file">Optional path to the stated-rules seed JSON file.</param>
     /// <param name="db">Optional path to the content KB database.</param>
+    /// <param name="environmentVariableGetter">Optional environment-variable lookup override; tests inject one, production reads the process environment.</param>
     /// <returns>Process exit code.</returns>
     public static async Task<int> RunCreatorStyleImportStatedAsync(
         FileInfo? file,
@@ -180,6 +181,7 @@ internal static class CreatorStyleCommandRunners
     /// <param name="db">Optional path to the content KB database.</param>
     /// <param name="profilesOutput">Optional destination path for the creator-style profile seed file.</param>
     /// <param name="deckCacheOutput">Optional destination path for the creator deck-cache seed file.</param>
+    /// <param name="environmentVariableGetter">Optional environment-variable lookup override; tests inject one, production reads the process environment.</param>
     /// <returns>Process exit code.</returns>
     // Why: registered as its own command in Program.cs, not chained onto fuse-profile (D-04) — the
     // three creator-style stages stay independently re-runnable.

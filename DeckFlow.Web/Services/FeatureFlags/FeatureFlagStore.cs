@@ -348,6 +348,7 @@ public sealed class FeatureFlagStore : IFeatureFlagStore
           updated_at = excluded.updated_at;
         """;
 
+    /// <summary>Maps a persisted feature-flag key and enabled state from Dapper queries.</summary>
     private sealed class FeatureFlagRow
     {
         public required string Key { get; set; }

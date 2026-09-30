@@ -623,6 +623,7 @@ internal sealed class DeckQueueRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <summary>Maps processed-deck aggregates used to refresh each commander's queue summary.</summary>
     private sealed class ProcessedCommanderAggregateRow
     {
         public string CommanderName { get; init; } = string.Empty;
@@ -630,6 +631,7 @@ internal sealed class DeckQueueRepository
         public string? LastProcessedUtc { get; init; }
     }
 
+    /// <summary>Maps queued deck IDs and hashes so unchanged Archidekt decks can be detected efficiently.</summary>
     private sealed class DeckQueueContentHashRow
     {
         public long Id { get; init; }

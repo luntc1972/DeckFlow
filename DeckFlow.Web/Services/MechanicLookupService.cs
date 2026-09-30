@@ -422,14 +422,17 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
         return response.Content;
     }
 
+    /// <summary>Collects parsed comprehensive-rules sections, glossary entries, and numbered lines for mechanic lookup.</summary>
     private sealed record RulesDocument(
         string RulesTextUrl,
         IReadOnlyList<MechanicSection> Sections,
         IReadOnlyList<GlossaryEntry> GlossaryEntries,
         IReadOnlyList<RuleLineEntry> RuleLines);
 
+    /// <summary>Provides a titled comprehensive-rules section matched during mechanic lookup.</summary>
     private sealed record MechanicSection(string Title, string RuleReference, string RulesText);
 
+    /// <summary>Provides a glossary term, description, and optional rule citation for mechanic lookup.</summary>
     private sealed record GlossaryEntry(string Title, string Description, string? RuleReference)
     {
         public string RulesText => string.IsNullOrWhiteSpace(RuleReference)
@@ -437,6 +440,7 @@ public sealed partial class WotcMechanicLookupService : IMechanicLookupService
             : $"{Title}{Environment.NewLine}{Environment.NewLine}{Description}";
     }
 
+    /// <summary>Pairs a numbered comprehensive-rule reference with searchable rules text.</summary>
     private sealed record RuleLineEntry(string RuleReference, string Text);
 
     [GeneratedRegex(@"https://media\.wizards\.com/\d{4}/downloads/MagicCompRules[^""']+?\.txt", RegexOptions.IgnoreCase)]

@@ -200,6 +200,7 @@ public sealed class AdminBruteForceTrackerStore : IAdminBruteForceTrackerStore
             END;
         """;
 
+    /// <summary>Maps an admin login attempt count and rate-limit window start from persistent storage.</summary>
     private sealed class AdminBruteForceBucketRow
     {
         public required long Count { get; set; }

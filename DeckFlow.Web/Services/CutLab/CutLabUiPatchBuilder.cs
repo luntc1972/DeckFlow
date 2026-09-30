@@ -34,6 +34,7 @@ public interface ICutLabUiPatchBuilder
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>Builds shared role warnings, labels, and EDHREC theme results for Cut Lab UI patches.</summary>
 internal static class CutLabSharedHelpers
 {
     internal static IReadOnlyList<CutLabDecideFloorWarningDto> BuildFloorWarnings(
@@ -559,6 +560,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             .ToArray();
     }
 
+    /// <summary>Collects derived deck counts and card options needed to render a Cut Lab working-list patch.</summary>
     private sealed record WorkingListProjection(
         IReadOnlyList<CutLabPoolCard> WorkingList,
         IReadOnlySet<string> OriginalPoolNames,

@@ -76,6 +76,7 @@ public partial class DirectPush
     private string _dbError = string.Empty;
     private List<RowResult> _rowResults = new();
 
+    /// <summary>Tracks one content row's publish-stage result for Direct Push status lists.</summary>
     private sealed record RowResult(string Title, string KeyType, string KeyValue, bool Success, string? Reason);
 
     // ── Publish to private KB root (gated on SCP and DB success) ───────────
@@ -98,6 +99,7 @@ public partial class DirectPush
     private List<RowResult> _resumeNotConfirmedResults = new();
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
+    /// <summary>Loads suppression state, local index data, and pending confirmations when Direct Push starts.</summary>
     protected override async Task OnInitializedAsync()
     {
         try

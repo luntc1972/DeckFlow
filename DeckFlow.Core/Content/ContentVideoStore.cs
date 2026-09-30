@@ -792,6 +792,7 @@ public sealed class ContentVideoStore : IContentVideoStore
         return rows.ToList();
     }
 
+    /// <summary>Maps pending video rows into content videos selected for transcript distillation.</summary>
     private sealed record PendingDistillVideoRow
     {
         public required long Id { get; init; }

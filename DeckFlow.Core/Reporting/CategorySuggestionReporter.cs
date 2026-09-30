@@ -156,6 +156,7 @@ public static class CategorySuggestionReporter
         _ => 0,
     };
 
+    /// <summary>Ranks exact, inferred, EDHREC, and tagger evidence when category suggestions are merged.</summary>
     private enum SourceKind
     {
         Exact,
@@ -164,6 +165,7 @@ public static class CategorySuggestionReporter
         Tagger,
     }
 
+    /// <summary>Accumulates a category label's evidence count and strongest source for suggestion ranking.</summary>
     private sealed class MergeEntry
     {
         public MergeEntry(string displayLabel, SourceKind preferredSource)

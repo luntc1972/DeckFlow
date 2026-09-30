@@ -376,7 +376,9 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             _logger?.LogWarning(ex, "Unable to sweep expired EDHREC disk cache entries");
         }
     }
+    /// <summary>Stores an EDHREC response body, validator, and write time for conditional theme requests.</summary>
     private sealed record CacheEntry(string Body, string? ETag, DateTimeOffset WrittenAtUtc);
+    /// <summary>Distinguishes a successful EDHREC theme fetch from a fail-open response with no body.</summary>
     private sealed record FetchResult(string? Body, bool Succeeded);
 
     [GeneratedRegex("^[a-z0-9-]+$", RegexOptions.CultureInvariant)]

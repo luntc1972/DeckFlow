@@ -229,5 +229,6 @@ public sealed class DiffEngine
         _ => 4,
     };
 
+    /// <summary>Pairs one representative deck entry with the quantity combined across equivalent printings.</summary>
     private sealed record AggregatedEntry(DeckEntry Representative, int Quantity);
 }

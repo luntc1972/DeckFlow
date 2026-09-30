@@ -112,6 +112,7 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
         return new CreatorIdentity(identity.Slug, identity.SourceIds.Order().ToList(), DistinctOrdinalIgnoringCase(identity.DisplayNames), DistinctOrdinalIgnoringCase(identity.FolderSlugs));
     }
 
+    /// <summary>Captures suppression rules and connected creator identities for one resolution pass.</summary>
     private sealed record Snapshot(IReadOnlyList<CreatorSuppression> Suppressions, IReadOnlyList<IndexComponent> Components);
 
     private static string? FindCanonical(IEnumerable<CreatorSuppression> suppressions, IEnumerable<string> values)
@@ -178,6 +179,7 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
     private static bool Same(string left, string right) => string.Equals(Normalize(left), Normalize(right), StringComparison.Ordinal);
     private static string Normalize(string value) => value.Trim().ToLowerInvariant();
     private static IReadOnlyList<string> DistinctOrdinalIgnoringCase(IEnumerable<string> values) => values.GroupBy(Normalize).Select(group => group.Order(StringComparer.Ordinal).First()).Order(StringComparer.Ordinal).ToList();
+    /// <summary>Collects source names, folder slugs, and IDs joined into one creator identity component.</summary>
     private sealed class IndexComponent
     {
         public HashSet<string> DisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -187,6 +189,7 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
         public IEnumerable<string> Values => DisplayNames.Concat(FolderSlugs).Concat(SourceSlugs);
         public void Merge(IndexComponent other) { DisplayNames.UnionWith(other.DisplayNames); FolderSlugs.UnionWith(other.FolderSlugs); SourceSlugs.UnionWith(other.SourceSlugs); SourceIds.UnionWith(other.SourceIds); }
     }
+    /// <summary>Accumulates canonical creator details returned after aliases and suppression rules are resolved.</summary>
     private sealed class Candidate(string slug) { public string Slug { get; } = slug; public HashSet<long> SourceIds { get; } = []; public HashSet<string> Aliases { get; } = new(StringComparer.OrdinalIgnoreCase); public HashSet<string> DisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase); public HashSet<string> FolderSlugs { get; } = new(StringComparer.OrdinalIgnoreCase); }
 }
 #pragma warning restore CS1591

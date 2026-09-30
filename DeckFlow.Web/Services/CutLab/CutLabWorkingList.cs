@@ -150,10 +150,12 @@ public static class CutLabWorkingList
         return new CutLabQuantityAdjustmentFold(byName, orderedNames, orderedNames.ToHashSet(CutLabCardNames.Comparer));
     }
 
+    /// <summary>Collects ordered, merged, and unmatched quantity adjustments before updating a Cut Lab pool.</summary>
     private sealed record CutLabQuantityAdjustmentFold(
         Dictionary<string, CutLabQuantityAdjustmentState> ByName,
         List<string> OrderedNames,
         HashSet<string> UnmatchedNames);
 
+    /// <summary>Tracks one card's net quantity change and whether Cut Lab introduced it as a basic land.</summary>
     private sealed record CutLabQuantityAdjustmentState(string Name, int NetDelta, bool IsAddedBasic);
 }

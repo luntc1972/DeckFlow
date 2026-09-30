@@ -269,5 +269,6 @@ public sealed class ConfigurationAnalysisService : IConfigurationAnalysisService
             InteractionCount = counts.GetValueOrDefault(moduleKind),
         };
 
+    /// <summary>Defines the bracket bounds and label used to validate a declared deck-module profile.</summary>
     private sealed record DeclaredProfileRange(string DisplayLabel, int MinimumBracket, int MaximumBracket);
 }

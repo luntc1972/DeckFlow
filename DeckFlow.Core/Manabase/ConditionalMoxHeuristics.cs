@@ -108,6 +108,7 @@ public static class ConditionalMoxHeuristics
         return colors.Count > 0 ? colors : AllColors;
     }
 
+    /// <summary>Defines simulated colors, availability, weight, and fast-mana credit for a conditional Mox.</summary>
     private sealed record MoxAdjustment(
         IReadOnlyList<ManaColor> Produces,
         bool EntersUntapped,

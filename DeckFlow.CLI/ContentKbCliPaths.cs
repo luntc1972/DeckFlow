@@ -31,6 +31,7 @@ internal static class ContentKbCliPaths
     /// Resolves the Content KB artifact root from the current environment.
     /// </summary>
     /// <param name="db">Unused optional database file path kept for call-site compatibility.</param>
+    /// <param name="environmentVariableGetter">Optional environment-variable lookup override; tests inject one, production reads the process environment.</param>
     /// <returns>The full path to the Content KB artifact root.</returns>
     public static string ResolveArtifactRoot(FileInfo? db, Func<string, string?>? environmentVariableGetter = null)
     {

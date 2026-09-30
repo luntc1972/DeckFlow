@@ -209,6 +209,7 @@ namespace DeckFlow.Web.Services.Http
             || exception is TaskCanceledException;
     }
 
+    /// <summary>Registers named Polly pipelines and exposes their shared provider through dependency injection.</summary>
     internal static class DeckFlowResiliencePipelineRegistry
     {
         private static readonly ResiliencePipelineRegistry<string> Registry = new();
@@ -237,6 +238,7 @@ namespace DeckFlow.Web.Services.Http
             return services;
         }
 
+        /// <summary>Resolves named typed and untyped Polly pipelines from DeckFlow's shared registry.</summary>
         private sealed class DeckFlowResiliencePipelineProvider(ResiliencePipelineRegistry<string> registry) : ResiliencePipelineProvider<string>
         {
             public override bool TryGetPipeline(string key, out ResiliencePipeline pipeline)
@@ -258,6 +260,7 @@ namespace DeckFlow.Web.Services.Http
 
 namespace Microsoft.Extensions.DependencyInjection
 {
+    /// <summary>Adapts Polly pipeline registration calls to DeckFlow's shared named-pipeline registry.</summary>
     internal static class DeckFlowResiliencePipelineFactoryServiceCollectionExtensions
     {
         public static IServiceCollection AddResiliencePipeline<TKey, TResult>(

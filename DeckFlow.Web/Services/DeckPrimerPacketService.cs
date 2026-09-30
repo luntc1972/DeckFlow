@@ -861,6 +861,7 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
     }
 }
 
+/// <summary>Defines commander, deck, bracket, style, sections, and platform state for a primer packet cache key.</summary>
 internal sealed record PrimerCacheInputs(
     string Commander,
     string NormalizedDeckSource,
@@ -869,6 +870,7 @@ internal sealed record PrimerCacheInputs(
     IReadOnlyList<string> SelectedSectionIds,
     bool GeminiEnabled);
 
+/// <summary>Passes the effective primer style and selected sections into prompt generation.</summary>
 internal sealed record PrimerPromptOptions(
     PrimerOutputStyle EffectiveStyle,
     IReadOnlyList<string> SelectedSectionIds);

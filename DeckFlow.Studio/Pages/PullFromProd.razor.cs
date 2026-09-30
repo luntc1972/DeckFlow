@@ -62,6 +62,7 @@ public partial class PullFromProd
     private string _applyError = string.Empty;
     private List<PullApplyRowResult> _rowResults = new();
 
+    /// <summary>Selects whether a production difference is adopted locally or kept unchanged.</summary>
     private enum Resolution
     {
         None,
@@ -70,6 +71,7 @@ public partial class PullFromProd
     }
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
+    /// <summary>Resolves local content paths before production differences can be loaded.</summary>
     protected override async Task OnInitializedAsync()
     {
         try

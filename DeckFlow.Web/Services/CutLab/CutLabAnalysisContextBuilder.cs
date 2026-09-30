@@ -781,10 +781,12 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
         return entries;
     }
 
+    /// <summary>Carries card categories and lookup availability into fail-open Cut Lab context assembly.</summary>
     private sealed record CategoryLookupResult(
         IReadOnlyDictionary<string, IReadOnlyList<string>> CategoriesByName,
         bool CategoryDataAvailable);
 
+    /// <summary>Carries Spellbook near-combos, card memberships, and availability into Cut Lab context assembly.</summary>
     private sealed record SpellbookLookupResult(
         IReadOnlyList<SpellbookAlmostCombo> AlmostIncludedCombos,
         bool ComboDataAvailable,

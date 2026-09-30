@@ -122,3 +122,15 @@ dotnet_diagnostic.CS1587.severity = warning
 dotnet_diagnostic.CS1591.severity = warning
 dotnet_diagnostic.CS1573.severity = warning
 dotnet_diagnostic.CS1587.severity = warning
+
+[DeckFlow.Studio/**.cs]
+# XML doc-comment gate widened to DeckFlow.Studio
+dotnet_diagnostic.CS1591.severity = warning
+dotnet_diagnostic.CS1573.severity = warning
+dotnet_diagnostic.CS1587.severity = warning
+
+[DeckFlow.CLI/**.cs]
+# XML doc-comment gate widened to DeckFlow.CLI
+dotnet_diagnostic.CS1591.severity = warning
+dotnet_diagnostic.CS1573.severity = warning
+dotnet_diagnostic.CS1587.severity = warning

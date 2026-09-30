@@ -181,17 +181,28 @@ public sealed class ContentKbReconcileStore : IContentKbReconcileStore
         _ => throw new InvalidOperationException($"Unknown persisted reconcile discrepancy kind '{kindText}'.")
     };
 
+    /// <summary>Maps persisted reconciliation columns from Dapper into domain discrepancy records.</summary>
     private sealed class StoredReconcileDiscrepancyRow
     {
+        /// <summary>Stable identifier for the persisted discrepancy.</summary>
         public required string DiscrepancyId { get; set; }
+        /// <summary>Persisted token identifying the reconciliation discrepancy category.</summary>
         public required string Kind { get; set; }
+        /// <summary>Optional source-system key type for the affected content.</summary>
         public string? NaturalKeyType { get; set; }
+        /// <summary>Optional source-system key value for the affected content.</summary>
         public string? NaturalKeyValue { get; set; }
+        /// <summary>Optional artifact path involved in the discrepancy.</summary>
         public string? ArtifactPath { get; set; }
+        /// <summary>Optional content title retained for reconciliation reporting.</summary>
         public string? Title { get; set; }
+        /// <summary>Corpus scope used to filter open reconciliation discrepancies.</summary>
         public required string ScopeTag { get; set; }
+        /// <summary>Time when reconciliation first detected the discrepancy.</summary>
         public required DateTimeOffset FirstSeenUtc { get; set; }
+        /// <summary>Time when reconciliation most recently detected the discrepancy.</summary>
         public required DateTimeOffset LastSeenUtc { get; set; }
+        /// <summary>Time when the discrepancy was resolved, or null while it remains open.</summary>
         public DateTimeOffset? ResolvedUtc { get; set; }
     }
 

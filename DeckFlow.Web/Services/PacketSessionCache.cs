@@ -33,6 +33,7 @@ public sealed class PacketSessionCache
     private readonly IMemoryCache _cache;
     private readonly ILogger<PacketSessionCache> _logger;
 
+    /// <summary>Pairs a cached packet result with its estimated memory cost for capacity accounting.</summary>
     private sealed record CachedEntry<TResult>(TResult Result, int SizeBytes) where TResult : class;
 
     /// <summary>
@@ -218,6 +219,7 @@ internal static class PacketSizeEstimator
     }
 }
 
+/// <summary>Defines deck, option, platform, and question inputs for a deck-analysis packet cache key.</summary>
 internal sealed record DeckAnalysisCacheInputs(
     string Commander,
     string NormalizedDeckSource,
@@ -226,6 +228,7 @@ internal sealed record DeckAnalysisCacheInputs(
     string TargetAiPlatformKey,
     IReadOnlyList<string> SelectedQuestionIds);
 
+/// <summary>Defines both decks, brackets, and target platform for a deck-comparison packet cache key.</summary>
 internal sealed record DeckComparisonCacheInputs(
     string NormalizedDeckASource,
     string NormalizedDeckBSource,
@@ -233,6 +236,7 @@ internal sealed record DeckComparisonCacheInputs(
     string DeckBBracket,
     string TargetAiPlatformKey);
 
+/// <summary>Defines deck and tournament filters for a cEDH meta-gap packet cache key.</summary>
 internal sealed record MetaGapCacheInputs(
     string CommanderName,
     string NormalizedDeckSource,

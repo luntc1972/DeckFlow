@@ -1473,6 +1473,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         return false;
     }
 
+    /// <summary>Aggregates transcript distillation outcomes, LLM spend, failures, and generated clip results for a run.</summary>
     private sealed class DistillCounts
     {
         public int SourcesProcessed { get; set; }
@@ -1523,6 +1524,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         }
     }
 
+    /// <summary>Returns one video's distillation disposition and usage details to the run-level counters.</summary>
     private sealed record DistillVideoOutcome(
         bool IsDistilled,
         bool IsFiltered,
@@ -1550,6 +1552,7 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
             => new(false, false, llmCalls, llmSpendUsd, FailedVideoId: null, AbortedReason: reason);
     }
 
+    /// <summary>Tracks caption, Whisper, and no-caption outcomes used to report harvest fallback rates.</summary>
     private sealed class HarvestCounts
     {
         public int Captions { get; private set; }
@@ -1591,5 +1594,6 @@ public sealed class ContentKbOrchestrator : IContentKbOrchestrator
         }
     }
 
+    /// <summary>Identifies the persisted harvest video and whether a failed transcript attempt may update its status.</summary>
     private sealed record HarvestVideoResolution(long? VideoId, bool MayMarkFailed);
 }

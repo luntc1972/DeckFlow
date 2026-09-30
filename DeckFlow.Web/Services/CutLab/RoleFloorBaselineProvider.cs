@@ -149,5 +149,6 @@ public sealed class RoleFloorBaselineProvider : IRoleFloorBaselineProvider
             _dataFilePath);
     }
 
+    /// <summary>Caches a role-floor baseline, including a missing snapshot, to avoid repeated storage reads.</summary>
     private sealed record CacheEntry(RoleFloorBaselineSnapshot? Snapshot);
 }

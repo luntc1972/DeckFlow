@@ -8,6 +8,7 @@ using DeckFlow.Core.Reporting;
 
 namespace DeckFlow.Core.Knowledge;
 
+/// <summary>Writes normalized deck entries and canonical hashes into the category knowledge cache.</summary>
 internal static class DeckCategoryCacheWriter
 {
     /// <summary>

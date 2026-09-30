@@ -1197,6 +1197,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             Warnings = warnings ?? [],
         };
 
+    /// <summary>Carries a deck entry's quantity, board role, and resolved Scryfall card through Cut Lab intake.</summary>
     private sealed record ResolvedCutLabEntry(
         string Name,
         int Quantity,
@@ -1204,11 +1205,13 @@ internal sealed class CutLabPageService : ICutLabPageService
         bool IsCommander,
         ScryfallCardData? Card);
 
+    /// <summary>Returns validated commanders and fallback choices so Cut Lab can request ambiguous selections.</summary>
     private sealed record CommanderResolution(
         IReadOnlyList<string> CommanderNames,
         IReadOnlyList<string> CommanderChoices,
         bool SelectionRequired);
 
+    /// <summary>Separates analyzed deck entries from board counts before Scryfall resolution and Cut Lab validation.</summary>
     private sealed record EntryAnalysis
     {
         public required BoardCounts BoardCounts { get; init; }
@@ -1216,6 +1219,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         public required List<DeckEntry> AnalyzedEntries { get; init; }
     }
 
+    /// <summary>Supplies empty simulation results when Cut Lab simulation is not configured.</summary>
     private sealed class NoOpCutLabSimulationService : ICutLabSimulationService
     {
         public static NoOpCutLabSimulationService Instance { get; } = new();

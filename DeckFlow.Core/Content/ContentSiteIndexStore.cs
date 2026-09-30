@@ -1021,6 +1021,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         return await connection.ExecuteAsync(new CommandDefinition(sql, parameters, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <summary>Maps site-index rows needed to hide artifact folders belonging to a suppressed creator.</summary>
     private sealed class CreatorPurgeCandidate
     {
         public long Id { get; init; }

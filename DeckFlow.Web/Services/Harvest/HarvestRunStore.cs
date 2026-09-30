@@ -380,6 +380,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
             _ => throw new InvalidOperationException($"Unsupported completed_utc value type: {value.GetType().FullName}.")
         };
 
+    /// <summary>Maps consecutive failures and boundary timestamps used to measure harvest failure streaks.</summary>
     private sealed class FailureStreakRow
     {
         public long ConsecutiveFailures { get; init; }
@@ -715,6 +716,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
          WHERE state IN ('Queued','Running','Stopping');
         """;
 
+    /// <summary>Maps persisted harvest run columns before converting database values into the domain row.</summary>
     private sealed class HarvestRunRowData
     {
         public Guid Id { get; init; }
@@ -732,6 +734,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         public string? Url { get; init; }
     }
 
+    /// <summary>Supplies run timestamps and count for the admin harvest history revision token.</summary>
     private sealed record HarvestRunRevisionRow(
         DateTimeOffset? StartedUtc,
         DateTimeOffset? CompletedUtc,

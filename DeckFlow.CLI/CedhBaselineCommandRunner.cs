@@ -287,6 +287,7 @@ internal static class CedhBaselineCommandRunner
 
     private static string EscapePipe(string value) => value.Replace("|", "\\|", StringComparison.Ordinal);
 
+    /// <summary>Deserialized tier, commander, and maindeck input for cEDH land-statistic baselines.</summary>
     private sealed record CalibrationDeck
     {
         public required string Tier { get; init; }

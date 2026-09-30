@@ -2237,10 +2237,14 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private static partial Regex AbilityWordPattern();
 
 
+    /// <summary>Requests Scryfall grounding for a scoped deck card included in an analysis packet.</summary>
     private sealed record CardReferenceRequest(string Name, string Scope, int Quantity = 1, bool IsCommander = false);
+    /// <summary>Supplies grounded card rules and deck context to the analysis packet prompt.</summary>
     private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand, string? ReleasedAt = null, int Quantity = 1, bool IsCommander = false);
 
+    /// <summary>Bundles grounded cards, mechanics, and canonical names for analysis packet construction.</summary>
     private sealed record CardReferenceBundle(IReadOnlyList<CardReference> CardReferences, IReadOnlyList<string> MechanicNames, IReadOnlyDictionary<string, string> OracleNameMap);
 
+    /// <summary>Supplies a mechanic's rules description and citation to the deck analysis prompt.</summary>
     private sealed record MechanicReference(string Name, string Description, string? RuleReference);
 }

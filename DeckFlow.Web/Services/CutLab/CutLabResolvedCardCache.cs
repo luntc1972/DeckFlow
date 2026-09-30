@@ -18,6 +18,7 @@ public sealed class CutLabResolvedCardCache
     private readonly IMemoryCache _cache;
     private readonly ILogger<CutLabResolvedCardCache> _logger;
 
+    /// <summary>Stores resolved and missing Scryfall cards with their estimated cache size.</summary>
     private sealed record CachedEntry(IReadOnlyList<ScryfallCardData> Cards, IReadOnlySet<string> MissingCardNames, int SizeBytes);
 
     /// <summary>
@@ -185,5 +186,6 @@ public sealed class CutLabResolvedCardCache
         return Math.Max(total, 1);
     }
 
+    /// <summary>Contributes a normalized card name and quantity to a deterministic Cut Lab pool cache key.</summary>
     private sealed record PoolKeyEntry(string Name, int Quantity);
 }

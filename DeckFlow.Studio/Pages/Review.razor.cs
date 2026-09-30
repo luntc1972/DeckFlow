@@ -89,6 +89,7 @@ public partial class Review
     };
 
     // ── Lifecycle ──────────────────────────────────────────────────────────
+    /// <summary>Loads suppression state and review rows, then applies the requested initial tab.</summary>
     protected override async Task OnInitializedAsync()
     {
         // Why: this runs once per component instance, so an in-page tab click cannot be reverted by a re-render.
@@ -330,27 +331,44 @@ public partial class Review
     }
 
     // ── View model ──────────────────────────────────────────────────────────
+    /// <summary>Provides one content item and mutable selection state to the Review page.</summary>
     private sealed class ReviewViewModel
     {
+        /// <summary>Database identifier for the local content-index row.</summary>
         public long Id { get; }
+        /// <summary>Display title shown for the review item.</summary>
         public string Title { get; }
+        /// <summary>Creator or feed label shown to the reviewer.</summary>
         public string Source { get; }
+        /// <summary>Source media URL opened from the Review page.</summary>
         public string VideoUrl { get; }
+        /// <summary>Local distilled-artifact path expanded for review.</summary>
         public string ArtifactPath { get; }
+        /// <summary>Moderation state saved when the reviewer approves or rejects the item.</summary>
         public string ApprovalStatus { get; set; }
+        /// <summary>Time of the most recent production push shown in review metadata.</summary>
         public DateTimeOffset? PushedToProdUtc { get; }
+        /// <summary>Indicates whether the item is visible in the published knowledge base.</summary>
         public bool IsVisible { get; }
+        /// <summary>Time when the content entered the local index.</summary>
         public DateTimeOffset IndexedUtc { get; }
+        /// <summary>Archetype labels displayed while reviewing the content item.</summary>
         public IReadOnlyList<string> ArchetypeTags { get; }
+        /// <summary>Commander-bracket labels displayed while reviewing the content item.</summary>
         public IReadOnlyList<string> BracketTags { get; }
+        /// <summary>Card-category labels displayed while reviewing the content item.</summary>
         public IReadOnlyList<string> CardCategoryTags { get; }
 
         // Natural key: YouTube video id → (youtube_channel, videoId); else → (podcast_rss, rssGuid).
+        /// <summary>Source-system key type used to update this content row.</summary>
         public string NaturalKeyType { get; }
+        /// <summary>Source-system key value used to update and cache this content row.</summary>
         public string NaturalKeyValue { get; }
 
         // Mutable UI state.
+        /// <summary>Tracks whether the item participates in the next bulk review action.</summary>
         public bool Selected { get; set; }
+        /// <summary>Controls whether the item's artifact and prompt preview are visible.</summary>
         public bool Expanded { get; set; }
 
         public ReviewViewModel(ContentSiteIndexRow row)

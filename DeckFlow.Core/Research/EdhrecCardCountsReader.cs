@@ -609,8 +609,10 @@ public static class EdhrecCardCountsReader
         return value[..MalformedRowExcerptMaxLength];
     }
 
+    /// <summary>Stores resolved CSV column positions so EDHREC card-count rows can be parsed across header variants.</summary>
     private sealed record HeaderIndexes(int First, int Second, int Third);
 
+    /// <summary>Aggregates EDHREC inclusion rates and role expectations while one commander's rows are consumed.</summary>
     private sealed class CommanderAccumulator
     {
         public required string Commander { get; init; }

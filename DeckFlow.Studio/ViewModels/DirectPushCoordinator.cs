@@ -29,6 +29,7 @@ public sealed class DirectPushCoordinator
     private readonly IProdContentReader _prodReader;
     private readonly CreatorSuppressionRowFilter _suppressionFilter;
     private readonly ILogger<DirectPushCoordinator> _logger;
+    /// <summary>Creates the coordinator with local, production, upload, publishing, suppression, and logging dependencies.</summary>
     public DirectPushCoordinator(
         IContentSiteIndexStore localStore,
         ISshArtifactUploader uploader,
@@ -323,6 +324,7 @@ public sealed class DirectPushCoordinator
 /// <summary>Approved-row count and resolved data root for page initialization.</summary>
 public sealed record DirectPushInitData(int ApprovedCount, string DataRoot);
 
+/// <summary>Describes one Direct Push comparison row with its natural key, change kind, and artifact file.</summary>
 public sealed record DirectPushDiffRow(string Title, string KeyType, string KeyValue, bool IsNew, string ArtifactFile);
 
 /// <summary>

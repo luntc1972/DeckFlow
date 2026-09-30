@@ -714,13 +714,16 @@ public static class CutLabCutRoundEngine
             ? index
             : CutLabRoleAssigner.TypeGroupOrder.Length;
 
+    /// <summary>Pairs a cut candidate with its finding tally and plan rank for first-pass round selection.</summary>
     private sealed record FirstPassCard(CutLabRoundInputCard Card, CardFindingTally Tally, string RoundKey, int PlanRank);
 
+    /// <summary>Summarizes structural finding counts and kinds used to prioritize Cut Lab candidates.</summary>
     private sealed record CardFindingTally(int Count, IReadOnlyList<CutLabFindingKind> Kinds)
     {
         public static CardFindingTally Empty { get; } = new(0, []);
     }
 
+    /// <summary>Accumulates distinct structural finding kinds before producing a candidate tally.</summary>
     private sealed class CardFindingTallyBuilder
     {
         public HashSet<CutLabFindingKind> Kinds { get; } = [];

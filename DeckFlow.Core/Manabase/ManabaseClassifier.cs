@@ -422,6 +422,7 @@ public static class ManabaseClassifier
         return colors.Count;
     }
 
+    /// <summary>Captures a land's mana output and conditional availability before conversion to simulator sources.</summary>
     private sealed record LandSourceClassification
     {
         public required IReadOnlyList<ManaColor> Produces { get; init; }
@@ -1385,6 +1386,7 @@ public static class ManabaseClassifier
     private static SourceCapabilities GetSourceCapabilities(CardFact card) =>
         new(IsSnowPermanent(card), ProducesTrueColorless(card));
 
+    /// <summary>Caches snow and true-colorless traits reused while classifying one mana source.</summary>
     private readonly record struct SourceCapabilities(bool IsSnow, bool ProducesColorless);
 
     private static bool IsType(string typeLine, string type) =>
@@ -1676,6 +1678,7 @@ public static class ManabaseClassifier
         return count;
     }
 
+    /// <summary>Summarizes creature density and dominant type share for tribal and creature-dependent mana rules.</summary>
     private sealed record CreatureComposition
     {
         public static CreatureComposition Empty { get; } = new()

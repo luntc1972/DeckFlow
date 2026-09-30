@@ -170,6 +170,7 @@ public sealed class ManabaseBaselineProvider : IManabaseBaselineProvider
         return rows;
     }
 
+    /// <summary>Caches global and commander-specific manabase baselines to avoid repeated storage reads.</summary>
     private sealed record CacheEntry(
         ManabaseBaselineSnapshot? Snapshot,
         IReadOnlyDictionary<string, ManabaseCommanderBaseline>? Commanders);

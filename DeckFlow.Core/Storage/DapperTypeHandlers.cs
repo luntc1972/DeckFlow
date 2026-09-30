@@ -53,6 +53,7 @@ public static class DapperTypeHandlers
         => DateTime.SpecifyKind(value.ToUniversalTime(), DateTimeKind.Utc);
 }
 
+/// <summary>Normalizes database date-time values to UTC while preserving SQLite round-trip storage.</summary>
 internal sealed class DateTimeTypeHandler : SqlMapper.TypeHandler<DateTime>
 {
     public override DateTime Parse(object value)
@@ -75,6 +76,7 @@ internal sealed class DateTimeTypeHandler : SqlMapper.TypeHandler<DateTime>
     }
 }
 
+/// <summary>Converts provider-specific numeric values to decimals for consistent SQLite and PostgreSQL mapping.</summary>
 internal sealed class DecimalTypeHandler : SqlMapper.TypeHandler<decimal>
 {
     public override decimal Parse(object value)
@@ -95,6 +97,7 @@ internal sealed class DecimalTypeHandler : SqlMapper.TypeHandler<decimal>
     }
 }
 
+/// <summary>Maps database booleans across native PostgreSQL values and SQLite integer storage.</summary>
 internal sealed class BoolTypeHandler : SqlMapper.TypeHandler<bool>
 {
     public override bool Parse(object value)
@@ -116,6 +119,7 @@ internal sealed class BoolTypeHandler : SqlMapper.TypeHandler<bool>
     }
 }
 
+/// <summary>Maps GUID values across native database types and SQLite text storage.</summary>
 internal sealed class GuidTypeHandler : SqlMapper.TypeHandler<Guid>
 {
     public override Guid Parse(object value)
@@ -134,6 +138,7 @@ internal sealed class GuidTypeHandler : SqlMapper.TypeHandler<Guid>
     }
 }
 
+/// <summary>Maps timestamp values as UTC offsets while preserving SQLite round-trip storage.</summary>
 internal sealed class DateTimeOffsetTypeHandler : SqlMapper.TypeHandler<DateTimeOffset>
 {
     public override DateTimeOffset Parse(object value)

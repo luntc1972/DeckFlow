@@ -15,6 +15,7 @@ using Serilog;
 
 namespace DeckFlow.CLI;
 
+/// <summary>Implements deck comparison, export, tagging, and inspection commands for CLI entry points.</summary>
 internal static class DeckCommandRunners
 {
     /// <summary>
@@ -667,6 +668,7 @@ internal static class DeckCommandRunners
             new MoxfieldParser(),
             new ArchidektParser());
 
+    /// <summary>Maps Scryfall card fields into the CLI card-inspection response.</summary>
     private record ScryfallCardDto(
         string Name,
         [property: JsonPropertyName("mana_cost")] string? ManaCost,

@@ -8,6 +8,7 @@ using Serilog;
 
 namespace DeckFlow.CLI;
 
+/// <summary>Implements CLI source management, corpus resets, and video maintenance for the content knowledge base.</summary>
 internal static class ContentKbCommandRunners
 {
     private static readonly string NonArtifactOperationRoot = Path.GetTempPath();
@@ -319,6 +320,7 @@ internal static class ContentKbCommandRunners
     /// </summary>
     /// <param name="db">Optional path to the content KB database.</param>
     /// <param name="output">Optional destination path for the seed file.</param>
+    /// <param name="environmentVariableGetter">Optional environment-variable lookup override; tests inject one, production reads the process environment.</param>
     /// <returns>Process exit code.</returns>
     public static async Task<int> RunContentIndexExportAsync(
         FileInfo? db,
@@ -369,6 +371,7 @@ internal static class ContentKbCommandRunners
     /// Optional artifact directory. Accepts EITHER the data-root parent of <c>content-kb/</c> OR the
     /// <c>content-kb</c> directory itself — the handler normalizes both to a content base.
     /// </param>
+    /// <param name="environmentVariableGetter">Optional environment-variable lookup override; tests inject one, production reads the process environment.</param>
     /// <returns>Process exit code: 1 when a published orphan exists, else 0.</returns>
     public static async Task<int> RunContentKbCheckAsync(
         FileInfo? db,
@@ -570,6 +573,7 @@ internal static class ContentKbCommandRunners
         return exitCode;
     }
 
+    /// <summary>Writes orchestrator progress messages to standard output for interactive CLI runs.</summary>
     private sealed class ConsoleOrchestratorProgress : IOrchestratorProgress
     {
         public void Report(string message)
@@ -578,6 +582,7 @@ internal static class ContentKbCommandRunners
         }
     }
 
+    /// <summary>Fails fast when a non-distillation CLI path unexpectedly requests LLM analysis.</summary>
     private sealed class ThrowingLlmDistillationService : ILlmDistillationService
     {
         public Task<SummaryResult> SummarizeAsync(string transcript, CancellationToken cancellationToken = default)
@@ -593,6 +598,7 @@ internal static class ContentKbCommandRunners
             => throw new InvalidOperationException($"{nameof(ThrowingLlmDistillationService)}.{nameof(InferTagsAsync)} must not be called by this CLI path");
     }
 
+    /// <summary>Fails fast when a CLI path that does not list videos unexpectedly queries a YouTube channel.</summary>
     private sealed class ThrowingYouTubeChannelVideoLister : IYouTubeChannelVideoLister
     {
         public Task<IReadOnlyList<YouTubeChannelVideo>> ListRecentAsync(string channelUrl, int limit, int skip = 0, CancellationToken ct = default)
@@ -602,6 +608,7 @@ internal static class ContentKbCommandRunners
             => throw new InvalidOperationException($"{nameof(ThrowingYouTubeChannelVideoLister)}.{nameof(GetByIdsAsync)} must not be called by this CLI path");
     }
 
+    /// <summary>Fails fast when a CLI path that does not fetch transcripts unexpectedly requests one.</summary>
     private sealed class ThrowingTranscriptSource : ITranscriptSource
     {
         public string SourceType
@@ -611,6 +618,7 @@ internal static class ContentKbCommandRunners
             => throw new InvalidOperationException($"{nameof(ThrowingTranscriptSource)}.{nameof(FetchTranscriptAsync)} must not be called by this CLI path");
     }
 
+    /// <summary>Fails fast when a CLI path that does not process audio unexpectedly invokes FFmpeg.</summary>
     private sealed class ThrowingFfmpegAudioChunker : IFfmpegAudioChunker
     {
         public Task<bool> IsAvailableAsync(CancellationToken ct = default)

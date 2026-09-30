@@ -427,6 +427,7 @@ public sealed class CardGroundingGuard(
                 : CachedNameResolution.NegativeCacheTtl);
     }
 
+    /// <summary>Carries canonical Scryfall identity, deck-building fields, and rejection reason through grounding checks.</summary>
     private sealed record CardResolution
     {
         public required string CanonicalName { get; init; }

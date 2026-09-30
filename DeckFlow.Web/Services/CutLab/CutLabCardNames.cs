@@ -2,6 +2,7 @@ using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Web.Services.CutLab;
 
+/// <summary>Centralizes normalized card identity and last-wins lookups across Cut Lab calculations.</summary>
 internal static class CutLabCardNames
 {
     public static StringComparer Comparer { get; } = StringComparer.Ordinal;

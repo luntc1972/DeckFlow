@@ -27,6 +27,7 @@ using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCol
 
 namespace DeckFlow.CLI;
 
+/// <summary>Computes commander role floors from deck and EDHREC evidence, then emits research reports.</summary>
 internal static class RoleFloorResearchCommandRunner
 {
     private const double RatioLow = 0.667;
@@ -2261,6 +2262,7 @@ internal static class RoleFloorResearchCommandRunner
         return Math.Sqrt(variance);
     }
 
+    /// <summary>Holds raw and deduplicated decks plus role counts for one commander during corpus analysis.</summary>
     private sealed class CommanderDeckSet
     {
         public required string CommanderName { get; init; }
@@ -2271,6 +2273,7 @@ internal static class RoleFloorResearchCommandRunner
         public int DedupedN => RepresentativeDecks.Count;
     }
 
+    /// <summary>Aggregates provenance, coverage, baselines, statistics, and go/no-go outcomes for report generation.</summary>
     private sealed class ResearchComputation
     {
         public int MinDeckCount { get; init; }
@@ -2296,6 +2299,7 @@ internal static class RoleFloorResearchCommandRunner
         public Dictionary<string, RoleOutcome> GoNoGo { get; set; } = new(StringComparer.Ordinal);
     }
 
+    /// <summary>Stores one commander's sample sizes and per-role divergence statistics for research output.</summary>
     private sealed class CommanderResearch
     {
         public required string CommanderName { get; init; }
@@ -2304,6 +2308,7 @@ internal static class RoleFloorResearchCommandRunner
         public Dictionary<string, CommanderRoleStat> Roles { get; init; } = new(StringComparer.Ordinal);
     }
 
+    /// <summary>Captures mean, percentile, effect-size, and threshold results for one commander role.</summary>
     private sealed class CommanderRoleStat
     {
         public double Mean { get; init; }
@@ -2314,6 +2319,7 @@ internal static class RoleFloorResearchCommandRunner
         public bool ClearsBar { get; init; }
     }
 
+    /// <summary>Stores corpus mean, deviation, and lower quartile used to compare commander role counts.</summary>
     private sealed class RoleBaseline
     {
         public double Mean { get; init; }
@@ -2321,6 +2327,7 @@ internal static class RoleFloorResearchCommandRunner
         public double P25 { get; init; }
     }
 
+    /// <summary>Tracks commander and deck coverage plus unresolved Scryfall cards from the Postgres corpus.</summary>
     private sealed class PostgresCoverage
     {
         public int CommandersEnumerated { get; init; }
@@ -2333,6 +2340,7 @@ internal static class RoleFloorResearchCommandRunner
         public int UnresolvedCardCount => UnresolvedNotFoundCount + UnresolvedRateLimitedAfterRetryCount;
     }
 
+    /// <summary>Tracks EDHREC cell quality, date range, bracket support, and land-count checks for the report.</summary>
     private sealed class EdhrecCoverage
     {
         public int CellsFetched { get; init; }
@@ -2348,6 +2356,7 @@ internal static class RoleFloorResearchCommandRunner
         public IReadOnlyList<EdhrecLandSelfCheck> LandSelfChecks { get; init; } = [];
     }
 
+    /// <summary>Summarizes sample support for one EDHREC bracket in coverage reporting.</summary>
     private sealed class EdhrecBracketCoverage
     {
         public required string BracketSlug { get; init; }
@@ -2358,6 +2367,7 @@ internal static class RoleFloorResearchCommandRunner
         public required string SupportLabel { get; init; }
     }
 
+    /// <summary>Compares EDHREC and harness land counts for one bracket cell to validate parsing.</summary>
     private sealed class EdhrecLandSelfCheck
     {
         public required string CellId { get; init; }
@@ -2366,6 +2376,7 @@ internal static class RoleFloorResearchCommandRunner
         public int Delta { get; init; }
     }
 
+    /// <summary>Counts exact, near, and divergent EDHREC land checks for report disclosure.</summary>
     private sealed class EdhrecLandSelfCheckSummary
     {
         public int ExactMatchCount { get; init; }
@@ -2373,6 +2384,7 @@ internal static class RoleFloorResearchCommandRunner
         public int DivergedByMoreThanOneCount { get; init; }
     }
 
+    /// <summary>Holds a bracket's fresh EDHREC land mean and support for comparison with reference baselines.</summary>
     private sealed class FreshEdhrecLandBracketFigure
     {
         public int BracketIndex { get; init; }
@@ -2381,6 +2393,7 @@ internal static class RoleFloorResearchCommandRunner
         public required string SupportLabel { get; init; }
     }
 
+    /// <summary>Records spread and closest sources across three bracket-land references for report conclusions.</summary>
     private sealed class ThreeReferenceAgreement
     {
         public double MaximumSpread { get; init; }
@@ -2389,6 +2402,7 @@ internal static class RoleFloorResearchCommandRunner
         public required IReadOnlyList<string> ComparisonBrackets { get; init; }
     }
 
+    /// <summary>Names a known missed protection card with its evidence grade and research disclosure note.</summary>
     private sealed class ProtectionMissedCardDisclosure
     {
         public ProtectionMissedCardDisclosure(string name, string evidenceGrade, string evidenceNote)
@@ -2403,6 +2417,7 @@ internal static class RoleFloorResearchCommandRunner
         public string EvidenceNote { get; }
     }
 
+    /// <summary>Captures Markdown and JSON status plus supporting commanders for a role-floor go/no-go decision.</summary>
     private sealed class RoleOutcome
     {
         public required string MarkdownStatus { get; init; }
@@ -2411,6 +2426,7 @@ internal static class RoleFloorResearchCommandRunner
         public int ClearingCommanderCount { get; init; }
     }
 
+    /// <summary>Returns resolved Scryfall cards and categorized failure counts to corpus analysis.</summary>
     private sealed class CardResolutionResult
     {
         public CardResolutionResult(

@@ -16,6 +16,7 @@ public sealed class CutLabDeltaCache
     private readonly IMemoryCache _cache;
     private readonly ILogger<CutLabDeltaCache> _logger;
 
+    /// <summary>Pairs a cached Cut Lab calculation with its estimated memory cost for capacity accounting.</summary>
     private sealed record CachedEntry<TValue>(TValue Value, int SizeBytes) where TValue : class;
 
     /// <summary>
@@ -280,7 +281,10 @@ public sealed class CutLabDeltaCache
         return Math.Max(total, 1);
     }
 
+    /// <summary>Keys proposal-delta simulations by pool, candidate card, trial count, and normalized goals.</summary>
     private sealed record DeltaCacheKey(string PoolKey, string CardName, int? TrialsOverride, string GoalsKey);
+    /// <summary>Keys simulation snapshots by pool, play experience, trial count, and normalized goals.</summary>
     private sealed record SnapshotCacheKey(string PoolKey, string PlayExperience, int? TrialsOverride, string GoalsKey);
+    /// <summary>Keys complete Cut Lab simulation results while separating result entry kinds.</summary>
     private sealed record ResultCacheKey(string EntryKind, string PoolKey, string PlayExperience, int? TrialsOverride, string GoalsKey);
 }

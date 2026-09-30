@@ -2,6 +2,7 @@ using System.Linq;
 
 namespace DeckFlow.Core.Exporting;
 
+/// <summary>Normalizes deck categories for target builders, stripping Archidekt-only syntax and commander tags.</summary>
 internal static class CategoryNormalization
 {
     public static string? NormalizeSourceCategoriesForTarget(string? sourceCategory, string targetSystem)

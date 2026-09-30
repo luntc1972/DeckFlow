@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DeckFlow.Web.Controllers.Admin;
 
+/// <summary>Groups public tools by navigation section for the admin visibility-flags page.</summary>
 internal sealed class AdminToolSectionViewModel
 {
     public required ToolNavSection Section { get; init; }
@@ -12,8 +13,10 @@ internal sealed class AdminToolSectionViewModel
     public required IReadOnlyList<AdminToolRowViewModel> Tools { get; init; }
 }
 
+/// <summary>Describes one public tool and its feature-flag state for the admin tools table.</summary>
 internal sealed record AdminToolRowViewModel(string Key, string Label, string FlagKey, bool Core, bool Enabled);
 
+/// <summary>Supplies grouped tools and disabled core-tool warnings to the admin visibility-flags page.</summary>
 internal sealed class AdminToolsListViewModel
 {
     public IReadOnlyList<AdminToolSectionViewModel> Sections { get; init; } = Array.Empty<AdminToolSectionViewModel>();

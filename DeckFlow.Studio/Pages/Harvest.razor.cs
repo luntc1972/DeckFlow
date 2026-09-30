@@ -976,6 +976,7 @@ public partial class Harvest
         _focusConfirmPending = true;
     }
 
+    /// <summary>Moves focus to the block-confirmation control after the confirmation UI opens.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (_focusConfirmPending)

@@ -81,6 +81,7 @@ public static class SeoPaths
     private static readonly IReadOnlyDictionary<string, SeoPageKind> Kinds =
         Pages.ToDictionary(page => page.Path, page => page.Kind, StringComparer.Ordinal);
 
+    /// <summary>Pairs a public route with its indexing policy and SEO page category.</summary>
     private sealed record SeoPage(string Path, bool IsIndexable, SeoPageKind Kind);
 
     /// <summary>

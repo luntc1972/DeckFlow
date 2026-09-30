@@ -1,5 +1,6 @@
 namespace DeckFlow.Core.Content;
 
+/// <summary>Extracts creator folder slugs from artifact paths so identity and visibility updates target the same creator.</summary>
 internal static class CreatorArtifactPathParser
 {
     internal static string? GetFolder(string artifactPath)

@@ -285,6 +285,7 @@ public sealed class CreatorWhitelistPoolBuilder
     private static string BuildCacheKey(string creatorSlug, long suppressionRevision)
         => CacheKeyPrefix + creatorSlug.Trim().ToLowerInvariant() + ":" + suppressionRevision;
 
+    /// <summary>Holds a distinct mainboard card's normalized and display names before creator-whitelist ranking.</summary>
     private sealed record RawCandidate
     {
         public required string NormalizedName { get; init; }
@@ -292,6 +293,7 @@ public sealed class CreatorWhitelistPoolBuilder
         public required string DisplayName { get; init; }
     }
 
+    /// <summary>Tracks a candidate card's cross-deck frequency for creator-whitelist ranking.</summary>
     private sealed record RankedCandidate
     {
         public required string NormalizedName { get; init; }

@@ -131,5 +131,6 @@ public sealed class CedhLandBaselineProvider : ICedhLandBaselineProvider
             _dataFilePath);
     }
 
+    /// <summary>Caches a cEDH land baseline, including a missing snapshot, to avoid repeated file reads.</summary>
     private sealed record CacheEntry(CedhLandBaselineSnapshot? Snapshot);
 }

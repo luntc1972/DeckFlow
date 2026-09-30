@@ -266,6 +266,7 @@ public sealed class EdhTop16Client : IEdhTop16Client
             MainDeck = Array.Empty<EdhTop16Card>()
         };
 
+    /// <summary>Deserializes EDHTop16 commander-entry data and GraphQL errors from the remote response.</summary>
     private sealed class EdhTop16GraphQlResponse
     {
         public EdhTop16GraphQlData? Data { get; init; }
@@ -273,11 +274,13 @@ public sealed class EdhTop16Client : IEdhTop16Client
         public List<EdhTop16GraphQlError> Errors { get; init; } = new();
     }
 
+    /// <summary>Holds the commander node returned by an EDHTop16 deck-entry query.</summary>
     private sealed class EdhTop16GraphQlData
     {
         public EdhTop16CommanderNode? Commander { get; init; }
     }
 
+    /// <summary>Deserializes EDHTop16 archetype data and GraphQL errors from the remote response.</summary>
     private sealed class EdhTop16TopArchetypesGraphQlResponse
     {
         public EdhTop16TopArchetypesData? Data { get; init; }
@@ -285,31 +288,37 @@ public sealed class EdhTop16Client : IEdhTop16Client
         public List<EdhTop16GraphQlError> Errors { get; init; } = new();
     }
 
+    /// <summary>Holds the commander connection returned by an EDHTop16 top-archetypes query.</summary>
     private sealed class EdhTop16TopArchetypesData
     {
         public EdhTop16TopArchetypeConnection? Commanders { get; init; }
     }
 
+    /// <summary>Captures an EDHTop16 GraphQL error message for request-failure reporting.</summary>
     private sealed class EdhTop16GraphQlError
     {
         public string Message { get; init; } = string.Empty;
     }
 
+    /// <summary>Provides the tournament-entry connection nested under an EDHTop16 commander query.</summary>
     private sealed class EdhTop16CommanderNode
     {
         public EdhTop16EntryConnection? Entries { get; init; }
     }
 
+    /// <summary>Collects EDHTop16 tournament-entry edges for a queried commander.</summary>
     private sealed class EdhTop16EntryConnection
     {
         public List<EdhTop16EntryEdge> Edges { get; init; } = new();
     }
 
+    /// <summary>Wraps an optional EDHTop16 tournament entry returned through a GraphQL connection.</summary>
     private sealed class EdhTop16EntryEdge
     {
         public EdhTop16EntryNode? Node { get; init; }
     }
 
+    /// <summary>Captures placement, record, player, event, and deck cards for one EDHTop16 tournament entry.</summary>
     private sealed class EdhTop16EntryNode
     {
         public int Standing { get; init; }
@@ -329,11 +338,13 @@ public sealed class EdhTop16Client : IEdhTop16Client
         public List<EdhTop16CardNode> MainDeck { get; init; } = new();
     }
 
+    /// <summary>Provides the player name attached to an EDHTop16 tournament entry.</summary>
     private sealed class EdhTop16PlayerNode
     {
         public string? Name { get; init; }
     }
 
+    /// <summary>Provides event identity, date, and field size for an EDHTop16 tournament entry.</summary>
     private sealed class EdhTop16TournamentNode
     {
         public string? Name { get; init; }
@@ -347,6 +358,7 @@ public sealed class EdhTop16Client : IEdhTop16Client
         public string TournamentId => TID ?? string.Empty;
     }
 
+    /// <summary>Provides card name and board type from an EDHTop16 decklist.</summary>
     private sealed class EdhTop16CardNode
     {
         public string? Name { get; init; }
@@ -354,16 +366,19 @@ public sealed class EdhTop16Client : IEdhTop16Client
         public string? Type { get; init; }
     }
 
+    /// <summary>Collects commander edges returned by the EDHTop16 top-archetypes query.</summary>
     private sealed class EdhTop16TopArchetypeConnection
     {
         public List<EdhTop16TopArchetypeEdge> Edges { get; init; } = new();
     }
 
+    /// <summary>Wraps an optional commander archetype returned through an EDHTop16 GraphQL connection.</summary>
     private sealed class EdhTop16TopArchetypeEdge
     {
         public EdhTop16TopArchetypeNode? Node { get; init; }
     }
 
+    /// <summary>Provides commander and color identity for an EDHTop16 archetype result.</summary>
     private sealed class EdhTop16TopArchetypeNode
     {
         public string? Name { get; init; }

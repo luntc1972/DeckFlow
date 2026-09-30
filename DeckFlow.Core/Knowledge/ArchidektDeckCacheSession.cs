@@ -229,6 +229,7 @@ public sealed class ArchidektDeckCacheSession
     }
 }
 
+/// <summary>Classifies whether an Archidekt cache refresh inserted, replaced, or retained a deck.</summary>
 internal enum DeckCacheWriteResult
 {
     Added,

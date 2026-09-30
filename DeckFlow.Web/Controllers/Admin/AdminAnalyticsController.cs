@@ -268,5 +268,6 @@ public sealed class AdminAnalyticsController : Controller
         return result;
     }
 
+    /// <summary>Returns the current metrics revision so the analytics admin page can detect refreshed data.</summary>
     private sealed record AnalyticsStatusPayload(string MetricsRevision);
 }

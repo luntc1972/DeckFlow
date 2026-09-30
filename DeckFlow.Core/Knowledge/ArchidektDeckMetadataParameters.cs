@@ -3,6 +3,7 @@ using DeckFlow.Core.Integration;
 
 namespace DeckFlow.Core.Knowledge;
 
+/// <summary>Formats Archidekt deck metadata as provider-neutral parameters for cache persistence.</summary>
 internal sealed record ArchidektDeckMetadataParameters(
     int? EdhBracket,
     int? DeckFormat,

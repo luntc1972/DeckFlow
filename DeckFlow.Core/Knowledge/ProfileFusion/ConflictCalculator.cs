@@ -118,6 +118,7 @@ public static class ConflictCalculator
         return distance / denominator;
     }
 
+    /// <summary>Defines the accepted numeric interval for comparing a creator's stated rule with measured deck data.</summary>
     private sealed record Band(double? Min, double? Max);
 }
 

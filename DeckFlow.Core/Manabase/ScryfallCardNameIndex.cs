@@ -19,6 +19,7 @@ public sealed class ScryfallCardNameIndex
     // Why: the winning card's priority has to survive in the map, or a later Add cannot tell
     // whether it is allowed to displace what is already there. Printing rides along so a collision
     // never rebuilds a key Add has already computed.
+    /// <summary>Pairs a Scryfall card with precedence and printing identity for deterministic name resolution.</summary>
     private readonly record struct IndexEntry(ScryfallCardData Card, int Priority, string? Printing);
 
     /// <summary>

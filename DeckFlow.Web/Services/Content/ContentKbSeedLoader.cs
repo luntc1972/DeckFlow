@@ -127,6 +127,7 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
         };
     }
 
+    /// <summary>Deserializes one bundled knowledge entry before it is validated and seeded into the content store.</summary>
     private sealed record ContentKbSeedEntry
     {
         public required string NaturalKeyType { get; init; }

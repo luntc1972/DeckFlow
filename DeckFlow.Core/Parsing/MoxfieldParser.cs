@@ -474,5 +474,6 @@ public sealed partial class MoxfieldParser : IParser
     [GeneratedRegex(@"^Name\s+\S", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex DeckNamePreambleRegex();
 
+    /// <summary>Marks a contiguous Moxfield list block so commander promotion preserves headers and board boundaries.</summary>
     private sealed record ParseableBlock(int EntryStartIndex, string Board, bool HasHeader, bool PrecededByBlankLine);
 }

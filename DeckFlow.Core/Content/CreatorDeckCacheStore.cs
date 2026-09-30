@@ -220,6 +220,7 @@ public sealed class CreatorDeckCacheStore : ICreatorDeckCacheStore
         };
     }
 
+    /// <summary>Maps cached creator deck rows before their entry JSON is restored into deck entries.</summary>
     private sealed record CreatorDeckCacheReadModel
     {
         public required string CreatorSlug { get; init; }

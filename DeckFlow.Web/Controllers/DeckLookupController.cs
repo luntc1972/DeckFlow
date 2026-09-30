@@ -289,6 +289,7 @@ public sealed class DeckLookupController : DeckToolControllerBase
         return string.Join(Environment.NewLine, lines);
     }
 
+    /// <summary>Selects text or JSON serialization for downloaded Scryfall card lookup results.</summary>
     private enum CardLookupDownloadFormat
     {
         Text,
