@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Manabase;
@@ -527,7 +528,11 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             interactionLens: interactionLens,
             useHealthBandCastability: useHealthBandCastability,
             useHealthBandHeadlineFloor: useHealthBandHeadlineFloor,
-            cedhContext: cedhContext));
+            cedhContext: cedhContext,
+            timingHook: timing => _logger.LogInformation(
+                "Manabase stage {Stage} finished in {ElapsedMs} ms",
+                timing.Name,
+                timing.ElapsedMilliseconds)));
 
         bool plainLanguage = IsFlagOn(PlainLanguageVerdictFlagKey);
         ManabaseRampDrawBudget? budget = null;
@@ -567,7 +572,7 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
                 interactionLens: report.InteractionLens);
         }
 
-        return new ManabaseAnalysisResult(
+        ManabaseAnalysisResult result = new ManabaseAnalysisResult(
             report, resolved.InputSummary, resolved.Unresolved, resolved.FallbackNotice,
             swapPrompt, resolved.Deck.CostSuggestions, verdict, budget, plainLanguage)
         {
@@ -588,6 +593,15 @@ public sealed class ManabaseAnalysisService : IManabaseAnalysisService
             UnmatchedOverrideNames = report.UnmatchedOverrideNames,
             AnalyzedSpells = resolved.Deck.Spells,
         };
+
+        using Process process = Process.GetCurrentProcess();
+        GCMemoryInfo memoryInfo = GC.GetGCMemoryInfo();
+        _logger.LogInformation(
+            "Manabase analysis memory: peak working set {PeakWorkingSetBytes} bytes, GC heap {HeapSizeBytes} bytes, GC committed {TotalCommittedBytes} bytes",
+            process.PeakWorkingSet64,
+            memoryInfo.HeapSizeBytes,
+            memoryInfo.TotalCommittedBytes);
+        return result;
     }
 
     /// <inheritdoc />

@@ -44,6 +44,7 @@ public partial class Program
         try
         {
             var app = BuildApp(args);
+            app.Logger.LogInformation("Manabase analysis processor count: {ProcessorCount}", Environment.ProcessorCount);
 
             static bool IsAutoBrowserDisabled()
             {

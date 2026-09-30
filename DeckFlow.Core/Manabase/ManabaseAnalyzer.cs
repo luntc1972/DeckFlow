@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
@@ -167,6 +168,9 @@ public static class ManabaseAnalyzer
     /// Optional override for the existing simulator trial count. When omitted, the analyzer uses
     /// <see cref="CastabilitySimulator.DefaultTrials"/> and remains byte-identical to prior behavior.
     /// </param>
+    /// <param name="timingHook">
+    /// Optional callback for elapsed sub-stage timings. Omitting it leaves report content unchanged.
+    /// </param>
     public static ManabaseReport Analyze(
         ManabaseDeck deck,
         ManabaseMode mode,
@@ -184,7 +188,8 @@ public static class ManabaseAnalyzer
         bool useHealthBandCastability = false,
         bool useHealthBandHeadlineFloor = false,
         CedhLandContext cedhContext = default,
-        int? trialsOverride = null)
+        int? trialsOverride = null,
+        Action<ManabaseAnalysisTiming>? timingHook = null)
     {
         ArgumentNullException.ThrowIfNull(deck);
 
@@ -222,25 +227,32 @@ public static class ManabaseAnalyzer
         // Per-spell castability comes FIRST; the color findings then consume these rows so the
         // table and the color verdict never drift apart.
         var castabilityByName = new Dictionary<string, CardCastability>(StringComparer.Ordinal);
-        IReadOnlyList<CardCastability> castability = BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow, trials);
+        IReadOnlyList<CardCastability> castability = MeasureStage(
+            timingHook,
+            "castability per-spell loop",
+            () => BuildCastability(deck, librarySize, actualLands, castabilityByName, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow, trials));
 
         var colorSpellCounts = new Dictionary<ManaColor, int>();
         var demandingByName = new Dictionary<string, int>(StringComparer.Ordinal);
         double scrySourceCreditAmount = scryCredit ? KarstenManabase.ScrySourceCreditAmount(deck.ScrySourceCreditCopies) : 0.0;
         int scrySourceCreditCopies = scryCredit ? deck.ScrySourceCreditCopies : 0;
-        var findings = BuildColorFindings(
-            deck,
-            librarySize,
-            actualLands,
-            castabilityByName,
-            mode,
-            importance,
-            colorSpellCounts,
-            demandingByName,
-            scrySourceCreditAmount,
-            colorlessSnow,
-            sourceSearchTrials,
-            trials);
+        var findings = MeasureStage(
+            timingHook,
+            "color findings",
+            () => BuildColorFindings(
+                deck,
+                librarySize,
+                actualLands,
+                castabilityByName,
+                mode,
+                importance,
+                colorSpellCounts,
+                demandingByName,
+                scrySourceCreditAmount,
+                colorlessSnow,
+                sourceSearchTrials,
+                trials,
+                timingHook));
 
         // Demanding cards (below their color's bar) worst-first — surfaced by the two-tier verdict.
         IReadOnlyList<DemandingCard> demandingCards = demandingByName
@@ -273,10 +285,13 @@ public static class ManabaseAnalyzer
         // Plan-presence: a dedicated single deck-level pass, run ONLY when the deck carries plan-tagged
         // spells (the Web layer tags them only when the plan-presence flag is on). No tags → null, so
         // the flag-off path adds no sim and stays byte-identical.
-        ManabasePlanPresence? planPresence = deck.Spells.Any(s => s.PlanRoles != PlanRole.None)
-            ? CastabilitySimulator.SimulatePlanPresence(
-                deck, librarySize, trials, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow, mode, keepShapes)
-            : null;
+        ManabasePlanPresence? planPresence = MeasureStage(
+            timingHook,
+            "plan presence",
+            () => deck.Spells.Any(s => s.PlanRoles != PlanRole.None)
+                ? CastabilitySimulator.SimulatePlanPresence(
+                    deck, librarySize, trials, useManaQuantity, colorAwareMulligan, gateRampOnCastable, ritualBurstActive, colorlessSnow, mode, keepShapes)
+                : null);
 
         return new ManabaseReport
         {
@@ -315,7 +330,8 @@ public static class ManabaseAnalyzer
                 gateRampOnCastable,
                 ritualBurstActive,
                 colorlessSnow,
-                planPresence),
+                planPresence,
+                timingHook),
             InteractionLens = interactionLensActive
                 ? ComputeInteractionLens(deck, castability, trials, CedhSupportThreshold)
                 : null,
@@ -343,6 +359,29 @@ public static class ManabaseAnalyzer
             UnsupportedInteractions = AppendRestrictedLandUnsupportedInteraction(deck),
             Summary = summary,
         };
+    }
+
+    private static T MeasureStage<T>(
+        Action<ManabaseAnalysisTiming>? timingHook,
+        string name,
+        Func<T> operation)
+    {
+        if (timingHook is null)
+        {
+            return operation();
+        }
+
+        long startedTimestamp = Stopwatch.GetTimestamp();
+        try
+        {
+            return operation();
+        }
+        finally
+        {
+            timingHook(new ManabaseAnalysisTiming(
+                name,
+                (long)Math.Round(Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds)));
+        }
     }
 
     private static ManabaseInteractionLens ComputeInteractionLens(
@@ -719,8 +758,10 @@ public static class ManabaseAnalyzer
         double scrySourceCredit,
         bool colorlessSnow,
         int sourceSearchTrials,
-        int sourceSearchBoundaryTrials)
+        int sourceSearchBoundaryTrials,
+        Action<ManabaseAnalysisTiming>? timingHook)
     {
+        var searchTiming = timingHook is null ? null : new SearchTiming();
         var findings = new List<ColorSourceFinding>();
         var commanderColors = CommanderColors(deck);
 
@@ -796,7 +837,7 @@ public static class ManabaseAnalyzer
                 {
                     simNeed = SimRequiredSources(
                         librarySize, totalLands, color, pips, onCurveTurn,
-                        deck.AverageManaValue, deck.IsSingleton, threshold, sourceSearchTrials, sourceSearchBoundaryTrials);
+                        deck.AverageManaValue, deck.IsSingleton, threshold, sourceSearchTrials, sourceSearchBoundaryTrials, searchTiming);
                     simRequiredCache[sig] = simNeed;
                 }
 
@@ -939,7 +980,8 @@ public static class ManabaseAnalyzer
                     effectiveTurnBySpellName,
                     category,
                     sourceSearchTrials,
-                    sourceSearchBoundaryTrials);
+                    sourceSearchBoundaryTrials,
+                    searchTiming);
             }
         }
 
@@ -955,6 +997,7 @@ public static class ManabaseAnalyzer
             }
         }
 
+        searchTiming?.Report(timingHook!);
         return OrderFindings(findings, deck, mode, importance, commanderColors);
     }
     private static void AddSpecialCategoryFinding(
@@ -971,7 +1014,8 @@ public static class ManabaseAnalyzer
         IReadOnlyDictionary<string, int> effectiveTurnBySpellName,
         SourceRequirementCategory category,
         int sourceSearchTrials,
-        int sourceSearchBoundaryTrials)
+        int sourceSearchBoundaryTrials,
+        SearchTiming? searchTiming)
     {
         double allSources = EffectiveSources(deck, SourceQualifier(category), untappedOnly: false);
         double untappedSources = EffectiveSources(deck, SourceQualifier(category), untappedOnly: true);
@@ -1010,7 +1054,7 @@ public static class ManabaseAnalyzer
             {
                 simNeed = SimRequiredSpecialSources(
                     librarySize, totalLands, category, categoryPips, onCurveTurn,
-                    deck.AverageManaValue, deck.IsSingleton, threshold, sourceSearchTrials, sourceSearchBoundaryTrials);
+                    deck.AverageManaValue, deck.IsSingleton, threshold, sourceSearchTrials, sourceSearchBoundaryTrials, searchTiming);
                 simRequiredCache[sig] = simNeed;
             }
 
@@ -1092,7 +1136,7 @@ public static class ManabaseAnalyzer
     // confirmed at full trials so reduced-trial noise cannot off-by-one the deficit.
     private static int SimRequiredSources(
         int librarySize, int totalLands, ManaColor color, int pips, int onCurveTurn,
-        double averageManaValue, bool isSingleton, int threshold, int sourceSearchTrials, int sourceSearchBoundaryTrials)
+        double averageManaValue, bool isSingleton, int threshold, int sourceSearchTrials, int sourceSearchBoundaryTrials, SearchTiming? searchTiming)
         => SimRequiredSourcesCore(
             librarySize,
             totalLands,
@@ -1102,12 +1146,13 @@ public static class ManabaseAnalyzer
             threshold,
             sourceSearchTrials,
             sourceSearchBoundaryTrials,
+            searchTiming,
             (sources, trials) => SimColorCast(
                 librarySize, totalLands, color, pips, onCurveTurn, averageManaValue, isSingleton, sources, trials));
 
     private static int SimRequiredSpecialSources(
         int librarySize, int totalLands, SourceRequirementCategory category, int pips, int onCurveTurn,
-        double averageManaValue, bool isSingleton, int threshold, int sourceSearchTrials, int sourceSearchBoundaryTrials)
+        double averageManaValue, bool isSingleton, int threshold, int sourceSearchTrials, int sourceSearchBoundaryTrials, SearchTiming? searchTiming)
     {
         if (pips <= 0 || totalLands <= 0)
         {
@@ -1123,6 +1168,7 @@ public static class ManabaseAnalyzer
             threshold,
             sourceSearchTrials,
             sourceSearchBoundaryTrials,
+            searchTiming,
             (sources, trials) => SimSpecialCategoryCast(
                 librarySize, totalLands, category, pips, onCurveTurn, averageManaValue, isSingleton, sources, trials));
     }
@@ -1136,6 +1182,7 @@ public static class ManabaseAnalyzer
         int threshold,
         int sourceSearchTrials,
         int sourceSearchBoundaryTrials,
+        SearchTiming? searchTiming,
         Func<int, int, int> simCast)
     {
         if (pips <= 0 || totalLands <= 0)
@@ -1149,7 +1196,7 @@ public static class ManabaseAnalyzer
         while (lo <= hi)
         {
             int mid = (lo + hi) / 2;
-            int pct = simCast(mid, sourceSearchTrials);
+            int pct = MeasureSearchSimulation(simCast, mid, sourceSearchTrials, searchTiming, boundary: false);
             if (pct >= threshold)
             {
                 result = mid;
@@ -1166,17 +1213,17 @@ public static class ManabaseAnalyzer
         // and that difficulty already shows up in its castability %. Reporting "needs ~totalLands" here
         // would resurrect the phantom deficit this phase set out to kill (e.g. a turn-4 commander on a
         // ramp-free isolation deck), so clamp the requirement to the irreducible minimum (the pips).
-        if (result >= totalLands && simCast(totalLands, sourceSearchBoundaryTrials) < threshold)
+        if (result >= totalLands && MeasureSearchSimulation(simCast, totalLands, sourceSearchBoundaryTrials, searchTiming, boundary: true) < threshold)
         {
             return pips;
         }
 
         // Boundary confirm at full trials (reduced-trial noise can mis-place the crossing by one).
-        if (result > pips && simCast(result - 1, sourceSearchBoundaryTrials) >= threshold)
+        if (result > pips && MeasureSearchSimulation(simCast, result - 1, sourceSearchBoundaryTrials, searchTiming, boundary: true) >= threshold)
         {
             result -= 1;
         }
-        else if (result < totalLands && simCast(result, sourceSearchBoundaryTrials) < threshold)
+        else if (result < totalLands && MeasureSearchSimulation(simCast, result, sourceSearchBoundaryTrials, searchTiming, boundary: true) < threshold)
         {
             result += 1;
         }
@@ -1194,6 +1241,56 @@ public static class ManabaseAnalyzer
             Math.Max(1, onCurveTurn),
             onPlay: !isSingleton);
         return Math.Min(result, karstenCeiling);
+    }
+
+    private static int MeasureSearchSimulation(
+        Func<int, int, int> simCast,
+        int sources,
+        int trials,
+        SearchTiming? timing,
+        bool boundary)
+    {
+        if (timing is null)
+        {
+            return simCast(sources, trials);
+        }
+
+        long startedTimestamp = Stopwatch.GetTimestamp();
+        try
+        {
+            return simCast(sources, trials);
+        }
+        finally
+        {
+            timing.AddElapsed(Stopwatch.GetTimestamp() - startedTimestamp, boundary);
+        }
+    }
+
+    private sealed class SearchTiming
+    {
+        private long _probeTicks;
+        private long _boundaryTicks;
+
+        public void AddElapsed(long ticks, bool boundary)
+        {
+            if (boundary)
+            {
+                _boundaryTicks += ticks;
+            }
+            else
+            {
+                _probeTicks += ticks;
+            }
+        }
+
+        public void Report(Action<ManabaseAnalysisTiming> timingHook)
+        {
+            timingHook(new ManabaseAnalysisTiming("source search probes", ToMilliseconds(_probeTicks)));
+            timingHook(new ManabaseAnalysisTiming("boundary confirms", ToMilliseconds(_boundaryTicks)));
+        }
+
+        private static long ToMilliseconds(long ticks) =>
+            (long)Math.Round(TimeSpan.FromSeconds((double)ticks / Stopwatch.Frequency).TotalMilliseconds);
     }
 
     // True when THIS color is part of why the card casts late. LimitingFactor (from
@@ -1531,7 +1628,8 @@ public static class ManabaseAnalyzer
         bool gateRampOnCastable,
         bool ritualBurst,
         bool colorlessSnow,
-        ManabasePlanPresence? planPresence = null)
+        ManabasePlanPresence? planPresence = null,
+        Action<ManabaseAnalysisTiming>? timingHook = null)
     {
         var nonCommanderRows = castability.Where(r => !r.IsCommander).ToList();
         IReadOnlyList<CardCastability> avgRows = nonCommanderRows.Count > 0 ? nonCommanderRows : castability;
@@ -1594,17 +1692,20 @@ public static class ManabaseAnalyzer
                 .Select(g => g.First())
                 .Take(3)
                 .ToList();
-        double curveCoverageTurns = keepShapes
-            ? CastabilitySimulator.SimulateCurveCoverage(
-                deck,
-                librarySize,
-                defaultTrials,
-                useManaQuantity,
-                colorAwareMulligan,
-                gateRampOnCastable,
-                ritualBurst,
-                colorlessSnow)
-            : 0.0;
+        double curveCoverageTurns = MeasureStage(
+            timingHook,
+            "curve coverage",
+            () => keepShapes
+                ? CastabilitySimulator.SimulateCurveCoverage(
+                    deck,
+                    librarySize,
+                    defaultTrials,
+                    useManaQuantity,
+                    colorAwareMulligan,
+                    gateRampOnCastable,
+                    ritualBurst,
+                    colorlessSnow)
+                : 0.0);
 
         return new ManabaseMulliganEvaluation
         {
