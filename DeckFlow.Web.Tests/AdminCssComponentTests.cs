@@ -6,9 +6,9 @@ namespace DeckFlow.Web.Tests;
 /// <summary>CSS component contracts for D-07, D-10 and D-12.</summary>
 public sealed class AdminCssComponentTests
 {
-    private static IReadOnlyDictionary<string, string> SingleRule(string selector)
+    private static IReadOnlyDictionary<string, string> SingleRule(string selector, string fileName = "admin-common.css")
     {
-        var matches = AdminCssTokenTests.Rules(AdminCssTokenTests.ReadCss("admin-common.css"))
+        var matches = AdminCssTokenTests.Rules(AdminCssTokenTests.ReadCss(fileName))
             .Where(rule => Regex.Replace(rule.Selector, @"\s+", " ").Trim() == selector)
             .ToArray();
         Assert.True(matches.Length == 1, $"Expected one rule for {selector}; found {matches.Length}.");
@@ -129,8 +129,9 @@ public sealed class AdminCssComponentTests
     {
         const string selector = ".admin-shell .admin-table td[data-label=\"Tags\"] .admin-badge";
         AssertDeclares(selector, "white-space", "normal");
-        AssertDeclares(selector, "overflow-wrap", "anywhere");
+        AssertDeclares(selector, "overflow-wrap", "break-word");
         AssertDeclares(selector, "max-width", "100%");
+        AssertDeclares(selector, "border-radius", "var(--radius-sm)");
     }
 
     [Fact]
@@ -143,5 +144,20 @@ public sealed class AdminCssComponentTests
     public void StatTileBadge_UsesFourPixelRadius()
     {
         AssertDeclares(".admin-shell .admin-stat-tile .admin-badge", "border-radius", "var(--radius-sm)");
+    }
+
+    [Fact]
+    public void ContentKbTitleAndSource_BreakAtWordBoundaries()
+    {
+        const string selector = ".admin-shell #kb-entries-table .admin-kb-title, .admin-shell #kb-entries-table .admin-kb-source";
+        AssertDeclares(selector, "overflow-wrap", "break-word");
+    }
+
+    [Fact]
+    public void CardTableHiddenRow_StaysHidden()
+    {
+        var declarations = SingleRule(".admin-shell .admin-table--card tr[hidden]", "admin-mobile.css");
+        declarations.TryGetValue("display", out var display);
+        Assert.True(display == "none", ".admin-shell .admin-table--card tr[hidden] must declare display: none; actual: " + (display ?? "missing"));
     }
 }

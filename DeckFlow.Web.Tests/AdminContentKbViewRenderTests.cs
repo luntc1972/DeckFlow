@@ -129,9 +129,63 @@ public sealed class AdminContentKbViewRenderTests
         Assert.Empty(document.QuerySelectorAll(".admin-harvest__panel, .admin-kb-status__actions, button.danger"));
 
         var stack = Assert.Single(document.QuerySelectorAll("div.admin-stack"));
-        Assert.Equal(new[] { "kb-status-heading", "kb-bulk-heading", "kb-entries-heading" }, stack.Children.Select(x => x.GetAttribute("aria-labelledby")));
+        Assert.Equal(
+            new[] { "kb-status-heading", "creator-suppression-heading", "kb-bulk-heading", "kb-entries-heading" },
+            stack.Children.Select(x => x.GetAttribute("aria-labelledby")));
         Assert.Null(document.QuerySelector("p[data-admin-toast]")?.ParentElement?.Closest(".admin-stack"));
         Assert.Null(document.QuerySelector("dialog#admin-confirm-modal")!.Closest(".admin-stack"));
+    }
+
+    [Fact]
+    public async Task ContentKbIndex_CreatorSuppressionIsSharedCard()
+    {
+        var document = await DocumentAsync(Model());
+        var section = Assert.Single(
+            document.QuerySelectorAll("section.admin-card[aria-labelledby='creator-suppression-heading']"));
+        var heading = section.QuerySelector("h2#creator-suppression-heading.admin-card__title")!;
+        Assert.Equal("Creator suppression", heading.TextContent.Trim());
+        var forms = section.QuerySelectorAll("form.admin-action-form");
+        Assert.Equal(2, forms.Length);
+        var expectedInputs = new[]
+        {
+            ("Creator", "creator", true, "suppress-creator"),
+            ("Reason", "reason", true, "suppress-reason"),
+            ("Note", "note", false, "suppress-note"),
+            ("Creator", "creator", true, "purge-creator"),
+            ("Confirm canonical slug", "confirmSlug", true, "purge-confirm-slug"),
+        };
+        var formContracts = new[]
+        {
+            (forms[0], "SuppressCreator", "Suppress creator", "admin-button--secondary", expectedInputs.Take(3)),
+            (forms[1], "PurgeCreator", "Purge creator", "admin-button--danger", expectedInputs.Skip(3)),
+        };
+        foreach (var (form, action, buttonText, buttonClass, inputs) in formContracts)
+        {
+            Assert.Equal("post", form.GetAttribute("method"), ignoreCase: true);
+            Assert.NotNull(form.QuerySelector("input[name='__RequestVerificationToken']"));
+            Assert.DoesNotContain(form.Attributes, attribute => attribute.Name.StartsWith("data-admin-confirm", StringComparison.Ordinal));
+            Assert.EndsWith(action, form.GetAttribute("action"));
+            var button = Assert.Single(form.QuerySelectorAll("button"));
+            Assert.Equal("submit", button.GetAttribute("type"));
+            Assert.True(button.ClassList.Contains("admin-button") && button.ClassList.Contains(buttonClass));
+            Assert.Equal(buttonText, button.TextContent.Trim());
+            foreach (var (labelText, name, required, id) in inputs)
+            {
+                var input = form.QuerySelector($"input#{id}");
+                Assert.NotNull(input);
+                Assert.Equal(name, input.GetAttribute("name"));
+                Assert.Equal(required, input.HasAttribute("required"));
+                var field = input.ParentElement;
+                Assert.True(field is not null && field.ClassList.Contains("admin-field"));
+                var label = Assert.Single(field.QuerySelectorAll($"label[for='{id}']"));
+                Assert.Equal(labelText, label.TextContent.Trim());
+            }
+        }
+        var warning = Assert.Single(
+            forms[1].QuerySelectorAll("p.admin-banner.admin-banner--danger[role='alert']"));
+        Assert.StartsWith("Purge deletes stored creator records.", warning.TextContent.Trim());
+        Assert.Equal("Purge creator", warning.NextElementSibling!.TextContent.Trim());
+        Assert.Empty(section.QuerySelectorAll(".admin-error"));
     }
 
     [Fact]

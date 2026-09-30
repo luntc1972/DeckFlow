@@ -406,6 +406,181 @@ test('wrapped harvest backlog badge uses 4px corners', async ({ page }) => {
   expect(result.bottomRight, 'wrapped backlog badge uses 4px corners').toBe('4px');
 });
 
+async function measureTagWrapping(page: Page, mode: 'live' | 'synthetic') {
+  return page.evaluate((measureMode) => {
+    const isWordCharacter = /[\p{L}\p{N}]/u;
+    const findSplits = (element: HTMLElement) => {
+      const splits: string[] = [];
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode() as Text | null;
+      while (node) {
+        const text = node.textContent ?? '';
+        let previousIndex: number | undefined;
+        let previousTop: number | undefined;
+        for (let index = 0; index < text.length; index += 1) {
+          const character = text[index];
+          if (/\s/u.test(character)) {
+            previousIndex = undefined;
+            previousTop = undefined;
+            continue;
+          }
+          const range = document.createRange();
+          range.setStart(node, index);
+          range.setEnd(node, index + 1);
+          const top = range.getBoundingClientRect().top;
+          if (previousIndex !== undefined
+            && previousTop !== undefined
+            && top > previousTop + 1
+            && isWordCharacter.test(text[previousIndex])
+            && isWordCharacter.test(character)) {
+            splits.push(text.slice(previousIndex, index + 1));
+          }
+          previousIndex = index;
+          previousTop = top;
+        }
+        node = walker.nextNode() as Text | null;
+      }
+      return splits;
+    };
+    const scope = document.querySelector<HTMLElement>('#kb-entries-table')!;
+    let table: HTMLTableElement | undefined;
+    let injectedBadge: HTMLElement;
+    let tagScope: ParentNode = scope;
+    let titleScope: ParentNode = scope;
+    if (measureMode === 'synthetic') {
+      table = document.createElement('table');
+      table.className = 'admin-table admin-table--card';
+      table.style.width = '16rem';
+      table.style.tableLayout = 'auto';
+      table.innerHTML = '<tbody><tr><td data-label="Title">This plainwordtitlecontainsmorethanonehundredcharacterswithoutspacesandprovesautolayoutdoesnotbreakinsideordinarywordswhenwrappingtheadministrativecontenttable.</td><td data-label="Tags"><span class="admin-badge admin-badge--neutral">value-engine</span> <span class="admin-badge admin-badge--neutral">midrange</span></td></tr></tbody>';
+      document.querySelector<HTMLElement>('main#admin-content')!.append(table);
+      injectedBadge = table.querySelector<HTMLElement>('.admin-badge')!;
+      tagScope = table;
+      titleScope = table;
+    } else {
+      const row = [...scope.querySelectorAll<HTMLTableRowElement>('tbody tr:not(#kb-filter-empty)')]
+        .find(candidate => candidate.checkVisibility())!;
+      const cell = row.querySelector<HTMLElement>('td[data-label="Tags"]')!;
+      injectedBadge = document.createElement('span');
+      injectedBadge.className = 'admin-badge admin-badge--neutral';
+      injectedBadge.textContent = 'spellslinger-tribal-graveyard-value-engine-combo-control-midrange';
+      cell.append(injectedBadge);
+    }
+    try {
+      const style = getComputedStyle(injectedBadge);
+      const box = injectedBadge.getBoundingClientRect();
+      const lineHeight = Number.parseFloat(style.lineHeight);
+      const tags = [...tagScope.querySelectorAll<HTMLElement>('td[data-label="Tags"] .admin-badge')]
+        .filter(tag => tag.checkVisibility());
+      const titles = [...titleScope.querySelectorAll<HTMLElement>('td.admin-kb-title')]
+        .filter(title => title.checkVisibility());
+      return {
+        lineHeight,
+        injectedLines: box.height / lineHeight,
+        tagSplits: tags.flatMap(findSplits),
+        titleSplits: titles.flatMap(findSplits),
+        roundTags: tags.filter(tag => getComputedStyle(tag).borderTopLeftRadius !== '4px'
+          || getComputedStyle(tag).borderBottomRightRadius !== '4px').map(tag => tag.textContent?.trim() ?? ''),
+        documentWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+      };
+    } finally {
+      if (table) {
+        table.remove();
+      } else {
+        injectedBadge.remove();
+      }
+    }
+  }, mode);
+}
+
+test('content kb tag badges keep word breaks and 4px corners at 1024px', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  const response = await page.goto('/Admin/ContentKb');
+  expect(response?.ok()).toBeTruthy();
+  test.skip(await page.locator('#kb-entries-table tbody tr:not(#kb-filter-empty):visible').count() === 0, 'no KB rows seeded');
+  const result = await measureTagWrapping(page, 'live');
+  expect(Number.isFinite(result.lineHeight)).toBeTruthy();
+  expect(result.lineHeight).toBeGreaterThan(0);
+  expect(result.injectedLines, 'injected content kb tag wraps at 1024px').toBeGreaterThanOrEqual(1.3);
+  expect(result.roundTags, 'content kb tag badge uses 4px corners').toEqual([]);
+  expect(result.tagSplits, 'content kb tags break only between words or after hyphens').toEqual([]);
+  expect(result.titleSplits, 'content kb titles break only between words').toEqual([]);
+  expect(result.documentWidth, 'content kb page does not scroll horizontally at 1024px').toBeLessThanOrEqual(result.innerWidth + 1);
+});
+
+test('synthetic auto-layout tag badges keep word breaks at 1024px', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  const response = await page.goto('/Admin/ContentKb');
+  expect(response?.ok()).toBeTruthy();
+  const result = await measureTagWrapping(page, 'synthetic');
+  expect(result.tagSplits, 'synthetic tag badge breaks only between words or after hyphens').toEqual([]);
+  expect(result.roundTags, 'synthetic tag badge uses 4px corners').toEqual([]);
+});
+
+test('unwrapped admin table keeps a long email inside the page at 1024px and 800px', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  const response = await page.goto('/Admin/Feedback');
+  expect(response?.ok()).toBeTruthy();
+  await page.evaluate(() => {
+    const card = document.createElement('section');
+    card.id = 'unwrapped-email-probe';
+    card.className = 'admin-card';
+    card.innerHTML = '<table class="admin-table admin-table--card"><thead><tr><th>Created (UTC)</th><th>Type</th><th>Message</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead><tbody><tr><td data-label="Created (UTC)">2026-09-30 14:22</td><td data-label="Type"><span class="admin-badge admin-badge--neutral">Suggestion</span></td><td data-label="Message">The cut lab page would be easier to use if the sort order stayed after reload.</td><td data-label="Email">firstname.lastname.contact@exampledomainname.com</td><td data-label="Status"><span class="admin-badge admin-badge--info">New</span></td><td data-label="Actions"><a href="#">View</a><form class="admin-action-form"><button class="admin-button admin-button--secondary" type="submit">Archive</button></form></td></tr></tbody></table>';
+    document.querySelector<HTMLElement>('main#admin-content')!.append(card);
+  });
+  try {
+    const desktop = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth }));
+    expect(desktop.scrollWidth, 'long email in an unwrapped admin table stays inside the page at 1024px').toBeLessThanOrEqual(desktop.innerWidth + 1);
+    await page.setViewportSize({ width: 800, height: 900 });
+    const narrow = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth }));
+    expect(narrow.scrollWidth, 'long email in an unwrapped admin table stays inside the page at 800px').toBeLessThanOrEqual(narrow.innerWidth + 1);
+  } finally {
+    await page.evaluate(() => document.querySelector('#unwrapped-email-probe')?.remove());
+  }
+});
+
+test('card table hides rows marked hidden at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const response = await page.goto('/Admin/ContentKb');
+  expect(response?.ok()).toBeTruthy();
+  const result = await page.evaluate(() => {
+    const table = document.createElement('table');
+    table.className = 'admin-table admin-table--card';
+    table.innerHTML = '<tbody><tr><td data-label="Name">shown</td></tr><tr hidden><td data-label="Name">hidden</td></tr></tbody>';
+    document.querySelector<HTMLElement>('main#admin-content')!.append(table);
+    try {
+      const [shown, hidden] = [...table.querySelectorAll('tr')] as HTMLElement[];
+      return {
+        shown: shown.checkVisibility(),
+        display: getComputedStyle(hidden).display,
+        hidden: hidden.checkVisibility(),
+      };
+    } finally {
+      table.remove();
+    }
+  });
+  expect(result.shown, 'synthetic card row without hidden renders').toBeTruthy();
+  expect(result.display, 'card table row marked hidden is not displayed').toBe('none');
+  expect(result.hidden, 'card table row marked hidden is not displayed').toBeFalsy();
+});
+
+test('content kb filter hides non-matching rows at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+  expect(response?.ok()).toBeTruthy();
+  const rows = page.locator('#kb-entries-table tbody tr:not(#kb-filter-empty)');
+  test.skip(await rows.count() === 0, 'no KB rows seeded');
+  await page.locator('#kb-filter-search').fill('zzzznomatch');
+  await expect(page.locator('#kb-filter-empty')).toBeVisible();
+  const marked = await rows.evaluateAll(items => items.filter(row => (row as HTMLElement).hidden).length);
+  const visible = await rows.evaluateAll(items => items.filter(row => (row as HTMLElement).hidden && (row as HTMLElement).checkVisibility()).length);
+  expect(marked, 'content kb filter marks rows hidden').toBe(await rows.count());
+  expect(visible, 'content kb filter hides non-matching rows at 390px').toBe(0);
+  await page.locator('#kb-filter-search').fill('');
+  expect(await rows.evaluateAll(items => items.filter(row => !(row as HTMLElement).checkVisibility()).length), 'clearing the content kb filter shows every row again').toBe(0);
+});
+
 test('admin page screenshots', async ({ page }, testInfo) => {
   test.skip(!process.env.ADMIN_SCREENSHOT_DIR, 'ADMIN_SCREENSHOT_DIR is not set.');
   test.setTimeout(180000);
