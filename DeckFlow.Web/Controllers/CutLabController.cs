@@ -140,6 +140,11 @@ public sealed class CutLabController : Controller
         try
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            if (CutLabDecisionApplier.IsLockedDecision(state, cardName, decision))
+            {
+                return CutLabView(request, error: CutLabDecisionApplier.GetLockedDecisionMessage(cardName));
+            }
+
             string resolvedRoundKey = DetermineRoundKey(state, cardName, decision, roundKey);
             state = CutLabDecisionApplier.Apply(state, cardName, decision, resolvedRoundKey, checkedCommanderThemesAvailable);
             RehydrateIntakeRequestFromState(request, state);

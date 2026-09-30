@@ -65,6 +65,7 @@ public sealed class CutLabApiController : ControllerBase
     [RequestSizeLimit(2 * 1024 * 1024)]
     [ProducesResponseType(typeof(CutLabDecideApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<CutLabDecideApiResponse>> PostDecideAsync([FromBody] CutLabDecideApiRequest request, CancellationToken cancellationToken)
     {
@@ -89,6 +90,11 @@ public sealed class CutLabApiController : ControllerBase
             if (state.Pool.Count == 0)
             {
                 return BadRequest(new { Message = InvalidStateMessage });
+            }
+
+            if (CutLabDecisionApplier.IsLockedDecision(state, request.CardName, request.Decision))
+            {
+                return Conflict(new { Message = CutLabDecisionApplier.GetLockedDecisionMessage(request.CardName) });
             }
 
             IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);

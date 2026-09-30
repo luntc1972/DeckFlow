@@ -218,6 +218,30 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task Decide_AcceptLockedCard_ReRendersUnlockMessageWithoutRecordingDecision()
+    {
+        var service = new FakeCutLabPageService();
+        var controller = CreateController(service);
+        CutLabState unlockedState = CreateState();
+        CutLabState lockedState = unlockedState with
+        {
+            Pool = unlockedState.Pool.Select(card => card.Name == "Arcane Signet" ? card with { IsLocked = true } : card).ToArray(),
+        };
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(lockedState),
+        };
+
+        var result = await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept, CutLabCutRoundEngine.Round2Key);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal(0, service.CallCount);
+        Assert.Contains("Arcane Signet", model.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("unlock", model.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Decide_PostedThemeAvailability_PersistsOnDecision()
     {
         var service = new FakeCutLabPageService { Result = new CutLabProcessResult { State = new CutLabState() } };

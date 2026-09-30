@@ -4409,12 +4409,38 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
+  const syncLockedProposalState = (row: HTMLTableRowElement, checkbox: HTMLInputElement): void => {
+    const proposal = document.querySelector<HTMLDivElement>('.cutlab-proposal[data-cut-lab-card]');
+    if (!proposal || normalizeAsciiCase(proposal.dataset.cutLabCard ?? '') !== normalizeAsciiCase(row.dataset.cutLabCard ?? '')) {
+      return;
+    }
+
+    const decisionForms = proposal.querySelectorAll<HTMLFormElement>('form[data-cut-lab-decide-form]');
+    if (decisionForms.length === 0) {
+      return;
+    }
+
+    decisionForms.forEach(decisionForm => {
+      decisionForm.querySelectorAll<HTMLButtonElement>('button[type="submit"]').forEach(button => {
+        button.disabled = checkbox.checked;
+      });
+    });
+
+    if (checkbox.checked) {
+      // Why: locking changes only local state, so there is no server patch to replace this proposal.
+      renderDecisionError(decisionForms[0], `${row.dataset.cutLabCard ?? 'This card'} is locked. Unlock it before deciding.`);
+    } else {
+      proposal.querySelector<HTMLElement>('[data-cut-lab-decision-error]')?.remove();
+    }
+  };
+
   const attachRowHandlers = (): void => {
     getPoolRows().forEach(row => {
       const checkbox = getLockCheckbox(row);
       if (checkbox) {
         checkbox.addEventListener('change', () => {
           refreshAndSerialize();
+          syncLockedProposalState(row, checkbox);
         });
       }
 

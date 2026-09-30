@@ -125,6 +125,25 @@ test.afterEach(async ({ page }) => {
   }
 });
 
+test('locking the current proposal disables decisions and explains why', async ({ page }) => {
+  await importPool(page, '4');
+  await waitForCutRounds(page);
+
+  const proposal = page.locator('.cutlab-proposal');
+  const proposalHeading = await proposal.locator('.cutlab-proposal__heading').textContent();
+  const proposedCard = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
+  const row = page.locator('tr[data-cut-lab-card]').filter({ hasText: proposedCard });
+
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await row.locator('input[data-cut-lab-lock-card]').check();
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
+
+  await expect(proposal.locator('.cutlab-decision-btn--accept')).toBeDisabled();
+  await expect(proposal.locator('.cutlab-decision-btn--reject')).toBeDisabled();
+  await expect(proposal.locator('.cutlab-decision-btn--defer')).toBeDisabled();
+  await expect(proposal.locator('[data-cut-lab-decision-error]')).toContainText(`${proposedCard} is locked. Unlock it before deciding.`);
+});
+
 test('saves a named scenario, then restores the saved session after a fresh import', async ({ page }) => {
   const savedBracket = '4';
   const freshBracket = '1';

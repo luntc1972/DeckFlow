@@ -6,6 +6,27 @@ namespace DeckFlow.Web.Services.CutLab;
 /// <summary>Pure immutable decision-application rules shared by the JSON and no-JS Cut Lab flows.</summary>
 public static class CutLabDecisionApplier
 {
+    /// <summary>Determines whether a non-restore decision targets a locked pool card.</summary>
+    /// <param name="state">Current working-session state.</param>
+    /// <param name="cardName">Card receiving the decision.</param>
+    /// <param name="action">Requested decision action.</param>
+    /// <returns>True when the decision must be rejected because the card is locked.</returns>
+    public static bool IsLockedDecision(CutLabState state, string cardName, CutLabDecideAction action)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
+
+        // Why: restore must remain available for an already-cut card even when it is later locked.
+        return action != CutLabDecideAction.Restore
+            && state.Pool.Any(card => card.IsLocked && string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Builds the shared message for a rejected locked-card decision.</summary>
+    /// <param name="cardName">Locked card receiving the attempted decision.</param>
+    /// <returns>User-readable guidance for unlocking the card.</returns>
+    public static string GetLockedDecisionMessage(string cardName)
+        => $"{cardName} is locked. Unlock it before deciding.";
+
     /// <summary>Applies one Cut Lab decision while preserving pool immutability and commander locks.</summary>
     /// <param name="state">Current working-session state.</param>
     /// <param name="cardName">Card receiving the decision.</param>
@@ -24,8 +45,7 @@ public static class CutLabDecisionApplier
             return Restore(state, cardName);
         }
 
-        CutLabPoolCard? poolCard = state.Pool.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase));
-        if (poolCard is not null && poolCard.IsLocked)
+        if (IsLockedDecision(state, cardName, action))
         {
             return CutLabLockRules.EnforceCommanderLock(state);
         }

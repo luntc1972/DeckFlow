@@ -178,6 +178,31 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostDecideAsync_AcceptLockedCard_ReturnsConflictWithUnlockMessage()
+    {
+        CutLabState state = CreateState() with
+        {
+            Pool = CreateState().Pool.Select(card => card.Name == "Arcane Signet" ? card with { IsLocked = true } : card).ToArray(),
+        };
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        ConflictObjectResult conflict = Assert.IsType<ConflictObjectResult>(response.Result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflict.StatusCode);
+        string payload = System.Text.Json.JsonSerializer.Serialize(conflict.Value);
+        Assert.Contains("Arcane Signet", payload, StringComparison.Ordinal);
+        Assert.Contains("unlock", payload, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task PostDecideAsync_Accept_AppendsAcceptedDecisionAndRoundTripsState()
     {
         CutLabState state = CreateState();
