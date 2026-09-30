@@ -54,21 +54,36 @@
     </div>
 </section>
 
-<section aria-labelledby="creator-suppression-heading">
-    <h2 id="creator-suppression-heading">Creator suppression</h2>
+<section class="admin-card" aria-labelledby="creator-suppression-heading">
+    <h2 id="creator-suppression-heading" class="admin-card__title">Creator suppression</h2>
     <form method="post" asp-action="SuppressCreator" class="admin-action-form">
         @Html.AntiForgeryToken()
-        <label>Creator <input name="creator" required /></label>
-        <label>Reason <input name="reason" required /></label>
-        <label>Note <input name="note" /></label>
-        <button type="submit">Suppress creator</button>
+        <div class="admin-field">
+            <label for="suppress-creator">Creator</label>
+            <input id="suppress-creator" name="creator" required />
+        </div>
+        <div class="admin-field">
+            <label for="suppress-reason">Reason</label>
+            <input id="suppress-reason" name="reason" required />
+        </div>
+        <div class="admin-field">
+            <label for="suppress-note">Note</label>
+            <input id="suppress-note" name="note" />
+        </div>
+        <button type="submit" class="admin-button admin-button--secondary">Suppress creator</button>
     </form>
     <form method="post" asp-action="PurgeCreator" class="admin-action-form">
         @Html.AntiForgeryToken()
-        <label>Creator <input name="creator" required /></label>
-        <label>Confirm canonical slug <input name="confirmSlug" required /></label>
-        <p class="admin-error" role="alert">Purge deletes stored creator records. Type the exact canonical slug; artifact folders must be deleted by hand.</p>
-        <button type="submit">Purge creator</button>
+        <div class="admin-field">
+            <label for="purge-creator">Creator</label>
+            <input id="purge-creator" name="creator" required />
+        </div>
+        <div class="admin-field">
+            <label for="purge-confirm-slug">Confirm canonical slug</label>
+            <input id="purge-confirm-slug" name="confirmSlug" required />
+        </div>
+        <p class="admin-banner admin-banner--danger" role="alert">Purge deletes stored creator records. Type the exact canonical slug; artifact folders must be deleted by hand.</p>
+        <button type="submit" class="admin-button admin-button--danger">Purge creator</button>
     </form>
 </section>
 
