@@ -214,6 +214,13 @@ internal sealed class CardCategoryRepository
         IReadOnlyCollection<string> cardNames,
         Action<string, long, int>? timingReporter = null,
         CancellationToken cancellationToken = default)
+        => await GetCategoriesForNamesAsync(cardNames, options: null, timingReporter, cancellationToken).ConfigureAwait(false);
+
+    internal async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(
+        IReadOnlyCollection<string> cardNames,
+        CategoryLookupOptions? options,
+        Action<string, long, int>? timingReporter = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(cardNames);
 
@@ -258,7 +265,13 @@ internal sealed class CardCategoryRepository
 
         var categoriesByNormalized = rows
             .GroupBy(row => row.NormalizedCardName, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.Select(row => row.Category), StringComparer.Ordinal);
+            .ToDictionary(
+                group => group.Key,
+                group => options is null
+                    ? group.OrderBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
+                        .Select(row => row.Category)
+                    : SelectMeaningfulCategories(group, options),
+                StringComparer.Ordinal);
 
         // Re-key by the caller's ORIGINAL spelling (re-normalizing to find its row set), so a spell can be
         // looked up by the same string it was passed in as. Every distinct requested name gets an entry,
@@ -287,7 +300,9 @@ internal sealed class CardCategoryRepository
 
     internal static string BuildCategoryLookupSql(string membershipOperator, string summaryTable)
         => $"""
-            SELECT s.normalized_card_name AS NormalizedCardName, s.category AS Category
+            SELECT s.normalized_card_name AS NormalizedCardName,
+                   s.category AS Category,
+                   s.observation_rows AS ObservationRows
             FROM (
                 SELECT c.normalized_card_name, s.card_id, s.category, s.observation_rows,
                     MAX(s.observation_rows) OVER (PARTITION BY s.card_id) AS top_observation_rows
@@ -299,6 +314,21 @@ internal sealed class CardCategoryRepository
             WHERE CAST(s.observation_rows AS BIGINT) * @shareDenominator >= s.top_observation_rows
             ORDER BY s.normalized_card_name, LOWER(s.category), s.category
             """;
+
+    private static IEnumerable<string> SelectMeaningfulCategories(
+        IEnumerable<CardCategoryNameRow> rows,
+        CategoryLookupOptions options)
+    {
+        var includedRows = rows.Where(row => CategoryFilter.IsIncluded(row.Category)).ToList();
+        var totalObservationRows = includedRows.Sum(row => row.ObservationRows);
+
+        return includedRows
+            .Where(row => row.ObservationRows >= totalObservationRows * options.MinimumObservationShare)
+            .OrderByDescending(row => row.ObservationRows)
+            .ThenBy(row => row.Category, StringComparer.OrdinalIgnoreCase)
+            .Take(options.MaximumCategoriesPerCard)
+            .Select(row => row.Category);
+    }
 
     /// <summary>
     /// Retrieves detail rows for a card, including display name and count.
@@ -1034,6 +1064,7 @@ internal sealed class CardCategoryRepository
     {
         public string NormalizedCardName { get; init; } = string.Empty;
         public string Category { get; init; } = string.Empty;
+        public long ObservationRows { get; init; }
     }
 
     /// <summary>Identifies a card-category observation row deleted for a source, locked in key order on Postgres to avoid deadlocks.</summary>

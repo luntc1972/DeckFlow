@@ -96,6 +96,14 @@ public sealed class CategoryKnowledgeRepository
             timingReporter: timingReporter,
             cancellationToken: cancellationToken);
 
+    /// <summary>Gets categories with caller-supplied noise-reduction limits.</summary>
+    public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(
+        IReadOnlyCollection<string> cardNames,
+        CategoryLookupOptions? options,
+        Action<string, long, int>? timingReporter = null,
+        CancellationToken cancellationToken = default)
+        => _cardCategory.GetCategoriesForNamesAsync(cardNames, options, timingReporter, cancellationToken);
+
     /// <summary>
     /// Retrieves detail rows for a card, including display name and count.
     /// </summary>

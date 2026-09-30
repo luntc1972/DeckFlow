@@ -93,8 +93,53 @@ public sealed class CutLabStructuralFindingsTests
         CutLabFinding finding = Assert.Single(result.Findings);
         Assert.Equal(CutLabFindingKind.StrandedSubtheme, finding.Kind);
         Assert.Equal("Stranded subthemes", finding.Heading);
-        Assert.Equal("'landfall' appears on only 3 cards — likely too few to function as a theme.", finding.Lead);
+        Assert.Equal("3 cards share the 'landfall' synergy but little else in the deck supports it.", finding.Lead);
         Assert.Equal(["Felidar Retreat", "Rampaging Baloths", "Scute Swarm"], finding.Evidence.Select(e => e.CardName));
+    }
+
+    [Fact]
+    public void Compute_StrandedSubtheme_MergesSingularAndPluralCategoryVariants()
+    {
+        IReadOnlyList<CutLabAnalyzedCard> pool =
+        [
+            Card("Zombie One", 3, false, categories: ["Zombie"]),
+            Card("Zombie Two", 3, false, categories: ["Zombies"]),
+            Card("Zombie Three", 3, false, categories: ["Zombies"]),
+        ];
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            pool, Array.Empty<SpellbookAlmostCombo>(), Floors(), comboDataAvailable: true, categoryDataAvailable: true);
+
+        CutLabFinding finding = Assert.Single(result.Findings);
+        Assert.Equal("3 cards share the 'Zombies' synergy but little else in the deck supports it.", finding.Lead);
+    }
+
+    [Fact]
+    public void CanonicalCategoryKey_UtilityLandVariants_MergesWhitespaceCaseAndPlurality()
+    {
+        Assert.Equal(
+            CutLabStructuralFindings.CanonicalCategoryKey("Utility Land"),
+            CutLabStructuralFindings.CanonicalCategoryKey("  utility   Lands "));
+    }
+
+    [Theory]
+    [InlineData("Mana Rocks")]
+    [InlineData("Utility Lands")]
+    [InlineData("Card Draw")]
+    [InlineData("Board Wipes")]
+    public void Compute_StrandedSubtheme_ExcludesFunctionalCategories(string category)
+    {
+        IReadOnlyList<CutLabAnalyzedCard> pool =
+        [
+            Card("Functional One", 2, false, categories: [category]),
+            Card("Functional Two", 2, false, categories: [category]),
+            Card("Functional Three", 2, false, categories: [category]),
+        ];
+
+        CutLabStructuralFindingsResult result = CutLabStructuralFindings.Compute(
+            pool, Array.Empty<SpellbookAlmostCombo>(), Floors(), comboDataAvailable: true, categoryDataAvailable: true);
+
+        Assert.DoesNotContain(result.Findings, finding => finding.Kind == CutLabFindingKind.StrandedSubtheme);
     }
 
     [Fact]

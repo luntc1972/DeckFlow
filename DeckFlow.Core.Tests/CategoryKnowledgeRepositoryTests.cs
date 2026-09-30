@@ -624,6 +624,37 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoriesForNamesAsync_CutLabOptions_DropsLowShareTailCategory()
+    {
+        var repository = CreateRepository();
+        await SeedThresholdObservationsAsync(repository, "Sol Ring", new[] { "Ramp" }, count: 17);
+        await SeedThresholdObservationsAsync(repository, "Sol Ring", new[] { "Artifacts" }, count: 3);
+
+        var batch = await repository.GetCategoriesForNamesAsync(
+            new[] { "Sol Ring" },
+            CategoryLookupOptions.CutLabMeaningful);
+
+        Assert.Equal(new[] { "Ramp" }, batch["Sol Ring"]);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_CutLabOptions_ExcludesTypeTagsBeforeShareAndTake()
+    {
+        var repository = CreateRepository();
+        await SeedThresholdObservationsAsync(repository, "Test Card", new[] { "Creature" }, count: 60);
+        await SeedThresholdObservationsAsync(repository, "Test Card", new[] { "Artifact" }, count: 40);
+        await SeedThresholdObservationsAsync(repository, "Test Card", new[] { "Removal" }, count: 20);
+        await SeedThresholdObservationsAsync(repository, "Test Card", new[] { "Tokens" }, count: 15);
+        await SeedThresholdObservationsAsync(repository, "Test Card", new[] { "Weird Tail" }, count: 5);
+
+        var batch = await repository.GetCategoriesForNamesAsync(
+            new[] { "Test Card" },
+            CategoryLookupOptions.CutLabMeaningful);
+
+        Assert.Equal(new[] { "Removal", "Tokens" }, batch["Test Card"]);
+    }
+
+    [Fact]
     public async Task GetCategoriesForNamesAsync_MatchesThresholdedObservationReference_ForParityCases()
     {
         var repository = CreateRepository();

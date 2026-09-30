@@ -1,6 +1,8 @@
 using System.Text.RegularExpressions;
 
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Manabase;
+using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Services.Manabase;
 
 namespace DeckFlow.Web.Services.CutLab;
@@ -349,8 +351,8 @@ public static class CutLabStructuralFindings
             .SelectMany(
                 card => card.Categories.Select(category => (Category: category, Card: card)))
             .GroupBy(
-                entry => entry.Category,
-                StringComparer.OrdinalIgnoreCase)
+                entry => CanonicalCategoryKey(entry.Category),
+                StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase);
 
         foreach (IGrouping<string, (string Category, CutLabAnalyzedCard Card)> theme in groupedCategories)
@@ -361,9 +363,8 @@ public static class CutLabStructuralFindings
                 continue;
             }
 
-            // Why: the exclusion must consume PlanRoleClassifier's own vocabulary so the two reads
-            // cannot drift silently if the category keywords evolve later.
-            if (PlanRoleClassifier.CategoryMapsToPlanRole(theme.Key))
+            string displayCategory = MostFrequentRawCategory(theme);
+            if (IsFunctionalCategory(displayCategory))
             {
                 continue;
             }
@@ -371,10 +372,41 @@ public static class CutLabStructuralFindings
             yield return new CutLabFinding(
                 CutLabFindingKind.StrandedSubtheme,
                 "Stranded subthemes",
-                $"'{theme.Key}' appears on only {count} cards — likely too few to function as a theme.",
+                $"{count} cards share the '{displayCategory}' synergy but little else in the deck supports it.",
                 theme.Select(entry => new CutLabFindingEvidence(entry.Card.Name, null)).ToArray());
         }
     }
+
+    internal static string CanonicalCategoryKey(string category)
+    {
+        string canonical = CategoryCanonicalizer.CanonicalKey(category);
+        return string.Join(' ', canonical.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(SingularizeWord));
+    }
+
+    private static string SingularizeWord(string word)
+        => word.Length > 2 && word.EndsWith('s') && !word.EndsWith("ss", StringComparison.Ordinal) ? word[..^1] : word;
+
+    private static string MostFrequentRawCategory(IGrouping<string, (string Category, CutLabAnalyzedCard Card)> theme)
+        => theme.GroupBy(entry => entry.Category, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(group => group.Sum(entry => entry.Card.Quantity))
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .First().Key;
+
+    private static bool IsFunctionalCategory(string category)
+    {
+        string key = CanonicalCategoryKey(category);
+
+        // Why: crowd tags describing a deck job create false packages; only synergy themes should be stranded.
+        return ContentTagVocabulary.CardCategories.Contains(category)
+            || PlanRoleClassifier.CategoryMapsToPlanRole(category)
+            || FunctionalCategoryKeys.Contains(key);
+    }
+
+    private static readonly IReadOnlySet<string> FunctionalCategoryKeys = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "ramp", "mana rock", "mana dork", "mana", "fixing", "land", "utility land", "card draw", "draw",
+        "removal", "board wipe", "protection", "tutor", "counterspell", "recursion", "utility"
+    };
 
     private static IEnumerable<CutLabFinding> ComputeRedundantFinishers(
         IReadOnlyList<CutLabAnalyzedCard> pool,

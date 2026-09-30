@@ -100,7 +100,11 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// </summary>
     /// <param name="cardNames">Card names to resolve.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
+        => GetCategoriesForNamesAsync(cardNames, options: null, cancellationToken);
+
+    /// <summary>Gets cached categories with caller-supplied noise-reduction limits.</summary>
+    public async Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CategoryLookupOptions? options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(cardNames);
         Stopwatch stopwatch = Stopwatch.StartNew();
@@ -112,6 +116,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             cardNames.Count);
         return await _repository.GetCategoriesForNamesAsync(
             cardNames,
+            options,
             timingReporter: (step, elapsedMs, nameCount) => _logger?.LogInformation(
                 "Category lookup step {Step} took {ElapsedMs} ms for {NameCount} names",
                 step,

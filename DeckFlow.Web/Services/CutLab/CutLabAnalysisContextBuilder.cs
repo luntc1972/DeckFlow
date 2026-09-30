@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Net;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Web.Models.CutLab;
@@ -754,7 +755,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
         try
         {
             IReadOnlyDictionary<string, IReadOnlyList<string>> categories =
-                await _categoryKnowledge.GetCategoriesForNamesAsync(cardNames, cancellationToken).ConfigureAwait(false);
+                await _categoryKnowledge.GetCategoriesForNamesAsync(cardNames, CategoryLookupOptions.CutLabMeaningful, cancellationToken: cancellationToken).ConfigureAwait(false);
             return new CategoryLookupResult(categories, true);
         }
         catch (OperationCanceledException)
