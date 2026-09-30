@@ -211,9 +211,24 @@ public sealed class CutLabControllerTests
         var accepted = Assert.Single(updatedState.Decisions);
         Assert.Equal(CutLabDecisionKind.Accepted, accepted.Kind);
         Assert.Equal(CutLabCutRoundEngine.Round2Key, accepted.Round);
+        Assert.Null(accepted.CheckedCommanderThemesAvailable);
         Assert.Equal(1, service.CallCount);
         Assert.True(model.HasResult);
         Assert.Equal(3, updatedState.Pool.Count);
+    }
+
+    [Fact]
+    public async Task Decide_PostedThemeAvailability_PersistsOnDecision()
+    {
+        var service = new FakeCutLabPageService { Result = new CutLabProcessResult { State = new CutLabState() } };
+        var controller = CreateController(service);
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
+
+        await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept,
+            CutLabCutRoundEngine.Round1Key, true);
+
+        CutLabState state = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        Assert.True(Assert.Single(state.Decisions).CheckedCommanderThemesAvailable);
     }
 
     [Fact]
@@ -290,6 +305,33 @@ public sealed class CutLabControllerTests
         var updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
         CutLabDecision accepted = Assert.Single(updatedState.Decisions, decision => decision.Kind == CutLabDecisionKind.Accepted);
         Assert.Equal(CutLabCutRoundEngine.Round2Key, accepted.Round);
+    }
+
+    [Fact]
+    public async Task Decide_InfrastructurePostedRoundKey_PreservesInfrastructureRound()
+    {
+        var service = new FakeCutLabPageService
+        {
+            Result = new CutLabProcessResult
+            {
+                State = new CutLabState(),
+                SerializedStateJson = "{\"pool\":[]}",
+                CardCount = 101,
+                HasResult = true,
+            },
+        };
+        var controller = CreateController(service);
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+            PlayExperience = "Focused",
+        };
+
+        await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept, CutLabCutRoundEngine.InfrastructureKey);
+
+        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        CutLabDecision accepted = Assert.Single(updatedState.Decisions, decision => decision.Kind == CutLabDecisionKind.Accepted);
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, accepted.Round);
     }
 
     [Fact]

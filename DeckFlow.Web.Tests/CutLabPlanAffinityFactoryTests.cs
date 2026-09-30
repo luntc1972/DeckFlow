@@ -7,6 +7,27 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabPlanAffinityFactoryTests
 {
     [Fact]
+    public async Task BuildAsync_CheckedThemeFetchSucceeds_ReportsThemesAvailableAndMarksOnlyThemeMembers()
+    {
+        var themeService = new FakeEdhrecCommanderThemeService
+        {
+            ThemesResult = new EdhrecThemeResult([Theme("goblins", "Goblins")], false),
+            CardsBySlug = Lists(("goblins", ["Theme Card"])),
+        };
+
+        var result = await new CutLabPlanAffinityFactory(themeService).BuildAsync(
+            Profile(strategies: ["combo"], themes: [Theme("goblins", "Goblins")]),
+            [Card("Theme Card"), Card("Strategy Only", "combo")],
+            ["Krenko, Mob Boss"]);
+
+        Assert.True(result.CheckedCommanderThemesAvailable);
+        Assert.True(CutLabPlanAffinityResolver.For(result.Affinities!, "Theme Card").IsInCheckedCommanderTheme);
+        CutLabPlanAffinity strategyOnly = CutLabPlanAffinityResolver.For(result.Affinities!, "Strategy Only");
+        Assert.True(strategyOnly.IsOnPlan);
+        Assert.False(strategyOnly.IsInCheckedCommanderTheme);
+    }
+
+    [Fact]
     public async Task BuildAsync_NullProfile_ReturnsNull_AndIssuesNoRequests()
     {
         var themeService = new FakeEdhrecCommanderThemeService();
@@ -14,7 +35,8 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(null, [Card("Card")], ["Krenko, Mob Boss"]);
 
-        Assert.Null(result);
+        Assert.Null(result.Affinities);
+        Assert.False(result.CheckedCommanderThemesAvailable);
         Assert.Empty(themeService.CommanderThemeCalls);
         Assert.Empty(themeService.ThemeCardCalls);
     }
@@ -27,7 +49,8 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(Profile(), [Card("Card")], ["Krenko, Mob Boss"]);
 
-        Assert.Null(result);
+        Assert.Null(result.Affinities);
+        Assert.False(result.CheckedCommanderThemesAvailable);
         Assert.Empty(themeService.CommanderThemeCalls);
         Assert.Empty(themeService.ThemeCardCalls);
     }
@@ -43,7 +66,8 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(Profile(themes: [Theme("unknown", "Unknown")]), [Card("Card")], ["Krenko, Mob Boss"]);
 
-        Assert.NotNull(result);
+        Assert.NotNull(result.Affinities);
+        Assert.False(result.CheckedCommanderThemesAvailable);
         Assert.Empty(themeService.ThemeCardCalls);
     }
 
@@ -56,11 +80,24 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(profile, [Card("Tutor", "tutor"), Card("Unmatched")], ["Krenko, Mob Boss"]);
 
-        Assert.NotNull(result);
-        Assert.True(CutLabPlanAffinityResolver.For(result!, "Tutor").IsOnPlan);
-        Assert.False(CutLabPlanAffinityResolver.For(result!, "Unmatched").IsOnPlan);
+        Assert.NotNull(result.Affinities);
+        Assert.False(result.CheckedCommanderThemesAvailable);
+        Assert.True(CutLabPlanAffinityResolver.For(result.Affinities!, "Tutor").IsOnPlan);
+        Assert.False(CutLabPlanAffinityResolver.For(result.Affinities!, "Unmatched").IsOnPlan);
         Assert.Empty(themeService.CommanderThemeCalls);
         Assert.Empty(themeService.ThemeCardCalls);
+    }
+
+    [Fact]
+    public async Task BuildAsync_NoCommander_ReturnsAffinitiesWithThemesUnavailable()
+    {
+        var result = await new CutLabPlanAffinityFactory(new FakeEdhrecCommanderThemeService()).BuildAsync(
+            Profile(themes: [Theme("goblins", "Goblins")]),
+            [Card("Card")],
+            []);
+
+        Assert.NotNull(result.Affinities);
+        Assert.False(result.CheckedCommanderThemesAvailable);
     }
 
     [Fact]
@@ -78,9 +115,9 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(profile, [Card("On Plan Card"), Card("Off Plan Card")], ["Krenko, Mob Boss"]);
 
-        Assert.NotNull(result);
-        Assert.True(CutLabPlanAffinityResolver.For(result!, "On Plan Card").IsOnPlan);
-        Assert.Contains(CutLabPlanAffinityResolver.For(result!, "Off Plan Card").OffPlanThemes, theme => theme.DisplayName == "Theme B");
+        Assert.NotNull(result.Affinities);
+        Assert.True(CutLabPlanAffinityResolver.For(result.Affinities!, "On Plan Card").IsOnPlan);
+        Assert.Contains(CutLabPlanAffinityResolver.For(result.Affinities!, "Off Plan Card").OffPlanThemes, theme => theme.DisplayName == "Theme B");
         Assert.Equal(["Krenko, Mob Boss"], themeService.CommanderThemeCalls);
         Assert.Equal(2, themeService.ThemeCardCalls.Count);
         Assert.Contains(("Krenko, Mob Boss", "theme-a"), themeService.ThemeCardCalls);
@@ -110,7 +147,7 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(profile, [Card("Card")], ["Krenko, Mob Boss"]);
 
-        Assert.NotNull(result);
+        Assert.NotNull(result.Affinities);
         Assert.Equal(1 + CutLabPlanAffinityFactory.MaxOffPlanProbeFetches, themeService.ThemeCardCalls.Count);
         string[] requestedSlugs = themeService.ThemeCardCalls.Select(call => call.ThemeSlug).ToArray();
         Assert.Equal(requestedSlugs.Length, requestedSlugs.Distinct(StringComparer.OrdinalIgnoreCase).Count());
@@ -133,7 +170,7 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(profile, [Card("Card")], ["Krenko, Mob Boss"]);
 
-        Assert.NotNull(result);
+        Assert.NotNull(result.Affinities);
         Assert.Equal(
             CutLabPlanAffinityFactory.MaxCheckedThemeFetches + CutLabPlanAffinityFactory.MaxOffPlanProbeFetches,
             themeService.ThemeCardCalls.Count);
@@ -151,9 +188,10 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(profile, [Card("Tutor", "tutor"), Card("Unmatched")], ["Krenko, Mob Boss"]);
 
-        Assert.NotNull(result);
-        Assert.True(CutLabPlanAffinityResolver.For(result!, "Tutor").IsOnPlan);
-        Assert.Empty(CutLabPlanAffinityResolver.For(result!, "Unmatched").OffPlanThemes);
+        Assert.NotNull(result.Affinities);
+        Assert.False(result.CheckedCommanderThemesAvailable);
+        Assert.True(CutLabPlanAffinityResolver.For(result.Affinities!, "Tutor").IsOnPlan);
+        Assert.Empty(CutLabPlanAffinityResolver.For(result.Affinities!, "Unmatched").OffPlanThemes);
         Assert.Empty(themeService.ThemeCardCalls);
         Assert.Equal(["Krenko, Mob Boss"], themeService.CommanderThemeCalls);
     }
@@ -174,9 +212,25 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(profile, [Card("Good Card")], ["Krenko, Mob Boss"]);
 
-        Assert.NotNull(result);
-        Assert.True(CutLabPlanAffinityResolver.For(result!, "Good Card").IsOnPlan);
+        Assert.NotNull(result.Affinities);
+        Assert.False(result.CheckedCommanderThemesAvailable);
+        Assert.True(CutLabPlanAffinityResolver.For(result.Affinities!, "Good Card").IsOnPlan);
         Assert.Equal(2, themeService.ThemeCardCalls.Count);
+    }
+
+    [Fact]
+    public async Task BuildAsync_CheckedThemeFetchReturnsFailure_ReportsThemesUnavailable()
+    {
+        var themeService = new FakeEdhrecCommanderThemeService
+        {
+            ThemesResult = new EdhrecThemeResult([Theme("goblins", "Goblins")], false),
+            FailedSlug = "goblins",
+        };
+
+        var result = await new CutLabPlanAffinityFactory(themeService).BuildAsync(
+            Profile(themes: [Theme("goblins", "Goblins")]), [Card("Goblin")], ["Krenko, Mob Boss"]);
+
+        Assert.False(result.CheckedCommanderThemesAvailable);
     }
 
     [Fact]
@@ -209,9 +263,34 @@ public sealed class CutLabPlanAffinityFactoryTests
                 [Card("On Plan Card")],
                 ["Krenko, Mob Boss"]);
 
-            Assert.NotNull(result);
-            Assert.True(CutLabPlanAffinityResolver.For(result!, "On Plan Card").IsOnPlan);
-            Assert.Empty(CutLabPlanAffinityResolver.For(result!, "On Plan Card").OffPlanThemes);
+            Assert.NotNull(result.Affinities);
+            Assert.True(result.CheckedCommanderThemesAvailable);
+            Assert.True(CutLabPlanAffinityResolver.For(result.Affinities!, "On Plan Card").IsOnPlan);
+            Assert.Empty(CutLabPlanAffinityResolver.For(result.Affinities!, "On Plan Card").OffPlanThemes);
+        }
+        finally
+        {
+            CutLabPlanAffinityFactory.TotalThemeFetchBudget = originalBudget;
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_ThemeFetchBudgetExpiresOnCheckedTheme_ReportsThemesUnavailable()
+    {
+        TimeSpan originalBudget = CutLabPlanAffinityFactory.TotalThemeFetchBudget;
+        CutLabPlanAffinityFactory.TotalThemeFetchBudget = TimeSpan.FromMilliseconds(1);
+        try
+        {
+            var themeService = new FakeEdhrecCommanderThemeService
+            {
+                ThemesResult = new EdhrecThemeResult([Theme("goblins", "Goblins")], false),
+                BlockThemeFetch = true,
+            };
+
+            var result = await new CutLabPlanAffinityFactory(themeService).BuildAsync(
+                Profile(themes: [Theme("goblins", "Goblins")]), [Card("Goblin")], ["Krenko, Mob Boss"]);
+
+            Assert.False(result.CheckedCommanderThemesAvailable);
         }
         finally
         {
@@ -228,10 +307,10 @@ public sealed class CutLabPlanAffinityFactoryTests
 
         var result = await factory.BuildAsync(profile, [Card("Tutor", "tutor")], ["Krenko, Mob Boss"]);
 
-        Assert.NotNull(result);
+        Assert.NotNull(result.Affinities);
         // CutLabPlanAffinityResolver.For normalizes the lookup name, proving the factory's returned
         // dictionary is keyed identically to CutLabPlanAffinityResolver.ResolveAll's own output.
-        Assert.True(CutLabPlanAffinityResolver.For(result!, "TUTOR").IsOnPlan);
+        Assert.True(CutLabPlanAffinityResolver.For(result.Affinities!, "TUTOR").IsOnPlan);
     }
 
     private static CutLabAnalyzedCard Card(string name, params string[] categories) => new(name, 1, false, [], categories);
@@ -264,7 +343,11 @@ internal sealed class FakeEdhrecCommanderThemeService : IEdhrecCommanderThemeSer
     /// <summary>When set, <see cref="GetThemeCardNamesAsync"/> throws for this one slug (case-insensitive), simulating a single EDHREC failure.</summary>
     public string? ThrowForSlug { get; set; }
 
+    public string? FailedSlug { get; set; }
+
     public bool BlockAfterFirstThemeFetch { get; set; }
+
+    public bool BlockThemeFetch { get; set; }
 
     public Task<EdhrecThemeResult> GetCommanderThemesAsync(string commanderName, CancellationToken cancellationToken = default)
     {
@@ -272,10 +355,10 @@ internal sealed class FakeEdhrecCommanderThemeService : IEdhrecCommanderThemeSer
         return Task.FromResult(ThemesResult);
     }
 
-    public async Task<IReadOnlyList<string>> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
+    public async Task<EdhrecThemeCardNamesResult> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
     {
         ThemeCardCalls.Add((commanderName, themeSlug));
-        if (BlockAfterFirstThemeFetch && ThemeCardCalls.Count > 1)
+        if (BlockThemeFetch || (BlockAfterFirstThemeFetch && ThemeCardCalls.Count > 1))
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         }
@@ -284,6 +367,7 @@ internal sealed class FakeEdhrecCommanderThemeService : IEdhrecCommanderThemeSer
             throw new InvalidOperationException($"Simulated EDHREC failure for theme '{themeSlug}'.");
         }
 
-        return CardsBySlug.TryGetValue(themeSlug, out IReadOnlyList<string>? names) ? names : (IReadOnlyList<string>)[];
+        IReadOnlyList<string> names = CardsBySlug.TryGetValue(themeSlug, out IReadOnlyList<string>? found) ? found : [];
+        return new(names, !string.Equals(FailedSlug, themeSlug, StringComparison.OrdinalIgnoreCase));
     }
 }

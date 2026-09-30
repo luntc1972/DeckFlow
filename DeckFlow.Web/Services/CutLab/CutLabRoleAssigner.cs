@@ -122,6 +122,11 @@ public static class CutLabRoleAssigner
         string oracle = fact.FrontOracleText;
         bool isLand = CutLabLockRules.IsLand(typeLine) || fact.HasLandFace;
         PlanRole roles = PlanRoleClassifier.Classify(fact, categories, isComboPiece, mode, out bool interactionMeritPreGate);
+        // Use neutral card metadata for land faces so only their oracle text supplies these roles.
+        // In particular, an Instant front face alone must not grant land interaction.
+        PlanRole oracleRoles = isLand
+            ? PlanRoleClassifier.FromHeuristic(fact with { Name = string.Empty, TypeLine = "Land" }, mode)
+            : PlanRole.None;
 
         List<string> assigned = new(RoleKeys.Length);
 
@@ -150,9 +155,14 @@ public static class CutLabRoleAssigner
         // Why: targeted/mass are mutually exclusive -- IsTargetedRemovalCard already opens with
         // !IsBoardWipeCard (DeckStatClassifier.cs:185); the !isMass gate makes that structural
         // rather than emergent, and also covers the category-tag path.
-        bool isMass = DeckStatClassifier.IsBoardWipeCard(oracle) || HasWipeCategoryTag(categories);
+        bool isMass = DeckStatClassifier.IsBoardWipeCard(oracle) || (!isLand && HasWipeCategoryTag(categories));
+        // Why: Casual drops pure counterspells from oracle roles; a crowd interaction tag
+        // restores a land face only when its own oracle text actually counters a spell.
         if (!isMass
-            && (DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle) || interactionMeritPreGate))
+            && (DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle) || (isLand
+                ? oracleRoles.HasFlag(PlanRole.Interaction) || DeckStatClassifier.IsPseudoRemovalCard("Land", oracle)
+                    || (interactionMeritPreGate && PlanRoleClassifier.CountersASpell(oracle))
+                : interactionMeritPreGate)))
         {
             assigned.Add(InteractionTargetedRole);
         }
@@ -178,7 +188,7 @@ public static class CutLabRoleAssigner
             assigned.Add(EnginesRole);
         }
 
-        if (roles.HasFlag(PlanRole.Payoff))
+        if ((isLand ? oracleRoles : roles).HasFlag(PlanRole.Payoff))
         {
             assigned.Add(PayoffsRole);
         }

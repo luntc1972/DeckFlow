@@ -108,7 +108,7 @@ public sealed class CutLabApiController : ControllerBase
                     floor => floor.Role,
                     floor => floor.Floor,
                     StringComparer.OrdinalIgnoreCase);
-            IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = await _planAffinityFactory.BuildAsync(
+            CutLabPlanAffinityFactoryResult planAffinityResult = await _planAffinityFactory.BuildAsync(
                 state.Intent.PlanProfile,
                 beforeContext.AnalyzedCards,
                 commanderNames,
@@ -119,13 +119,14 @@ public sealed class CutLabApiController : ControllerBase
                 floorByRole,
                 state.Decisions,
                 twinsEnabled,
-                planAffinities: planAffinities);
+                planAffinities: planAffinityResult.Affinities,
+                checkedCommanderThemesAvailable: planAffinityResult.CheckedCommanderThemesAvailable);
 
             string roundKey = DetermineRoundKey(state, request, beforeRoundPlan);
             IReadOnlyList<CutLabDecideFloorWarningDto> floorWarnings = request.Decision == CutLabDecideAction.Accept
                 ? CutLabSharedHelpers.BuildFloorWarnings(beforeWorkingList, beforeContext, floorByRole, request.CardName)
                 : [];
-            state = CutLabDecisionApplier.Apply(state, request.CardName, request.Decision, roundKey);
+            state = CutLabDecisionApplier.Apply(state, request.CardName, request.Decision, roundKey, beforeRoundPlan.CheckedCommanderThemesAvailable);
 
             IReadOnlyList<CutLabPoolCard> afterWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
             string afterPoolKey = CutLabResolvedCardCache.ComputePoolKey(afterWorkingList);
@@ -142,7 +143,7 @@ public sealed class CutLabApiController : ControllerBase
                     afterPreResolvedCards,
                     afterPoolKey,
                     cancellationToken).ConfigureAwait(false);
-                planAffinities = await _planAffinityFactory.BuildAsync(
+                planAffinityResult = await _planAffinityFactory.BuildAsync(
                     state.Intent.PlanProfile,
                     afterContext.AnalyzedCards,
                     commanderNames,
@@ -156,7 +157,8 @@ public sealed class CutLabApiController : ControllerBase
                 afterPreResolvedCards,
                 afterPoolKey,
                 floorWarnings,
-                planAffinities,
+                planAffinityResult.Affinities,
+                planAffinityResult.CheckedCommanderThemesAvailable,
                 cancellationToken).ConfigureAwait(false);
             return Ok(BuildDecideApiResponse(patch));
         }

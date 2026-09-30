@@ -1,4 +1,5 @@
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services.CutLab;
 using Xunit;
 
@@ -7,6 +8,76 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Coverage for direct Cut Lab floor-row view-model projection.</summary>
 public sealed class CutLabViewModelTests
 {
+    [Fact]
+    public void From_InfrastructureProposal_RendersInfrastructureRoundCopy()
+    {
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool =
+                [
+                    new CutLabPoolCard { Name = "Sol Ring", Quantity = 1 },
+                ],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
+            Findings = new CutLabStructuralFindingsResult([], true, true),
+            RoundPlan = new CutLabRoundPlan
+            {
+                CardsRemainingToTarget = 1,
+                Queue =
+                [
+                    new CutLabRoundQueueItem(
+                        "Sol Ring",
+                        CutLabCutRoundEngine.InfrastructureKey,
+                        CutLabCutRoundEngine.InfrastructureLabel,
+                        1,
+                        []),
+                ],
+                NextProposal = new CutLabRoundQueueItem(
+                    "Sol Ring",
+                    CutLabCutRoundEngine.InfrastructureKey,
+                    CutLabCutRoundEngine.InfrastructureLabel,
+                    1,
+                    []),
+            },
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(new CutLabRequest(), result);
+
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, model.Proposal.RoundKey);
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureLabel, model.Proposal.RoundLabel);
+        Assert.Equal("Mana base & staples — proposed only after everything else.", model.Proposal.RoundBannerBody);
+    }
+
+    [Fact]
+    public void From_CutsMade_UsesStoredThemeAvailabilityOverCurrentPlan()
+    {
+        var result = new CutLabProcessResult
+        {
+            State = new CutLabState
+            {
+                Decisions =
+                [
+                    new CutLabDecision
+                    {
+                        CardName = "Arcane Signet",
+                        Kind = CutLabDecisionKind.Accepted,
+                        Round = CutLabCutRoundEngine.Round1Key,
+                        CheckedCommanderThemesAvailable = true,
+                        Ordinal = 1,
+                    },
+                ],
+            },
+            RoundPlan = new CutLabRoundPlan { Queue = [], CardsRemainingToTarget = 1, CheckedCommanderThemesAvailable = false },
+        };
+
+        CutLabViewModel model = CutLabViewModel.From(new CutLabRequest(), result);
+
+        Assert.Equal(CutLabCutRoundEngine.Round1Label, Assert.Single(model.CutsMade).RoundLabel);
+    }
+
     [Fact]
     public void BuildFloorRows_OutOfScopeRole_ShowsNotApplicable()
     {

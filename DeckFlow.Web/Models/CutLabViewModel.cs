@@ -120,6 +120,9 @@ public sealed record CutLabViewModel
     /// <summary>True when a resolved state is available to render.</summary>
     public bool HasResult { get; init; }
 
+    /// <summary>Whether checked commander theme data is available for the current round plan.</summary>
+    public bool? CheckedCommanderThemesAvailable { get; init; }
+
     /// <summary>Optional workflow step selected by the server-rendered response.</summary>
     public int? CurrentStepOverride { get; init; }
 
@@ -331,7 +334,7 @@ public sealed record CutLabViewModel
         IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = result.CardTextByCardName;
         IReadOnlyDictionary<string, CutLabComboBadgeView> comboBadgeByCardName = result.ComboBadgeByCardName;
         IReadOnlyDictionary<CutLabFindingKind, string> findingHeadingsByKind = BuildFindingHeadingsByKind(result.Findings.Findings);
-        IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions);
+        IReadOnlyList<CutLabCutMadeRowView> cutsMade = BuildCutsMade(result.State?.Decisions, result.RoundPlan?.CheckedCommanderThemesAvailable ?? false);
         int baselineCount = pool.Sum(card => card.Quantity);
         int currentCount = derivedWorkingList.Sum(card => card.Quantity);
         int lockedCount = pool.Where(card => card.IsLocked).Sum(card => card.Quantity);
@@ -356,6 +359,7 @@ public sealed record CutLabViewModel
         return new CutLabViewModel
         {
             ActiveTab = DeckPageTab.CutLab,
+            CheckedCommanderThemesAvailable = result.RoundPlan?.CheckedCommanderThemesAvailable,
             Request = request,
             ErrorMessage = result.ErrorMessage,
             CardCount = result.CardCount,
@@ -770,7 +774,7 @@ public sealed record CutLabViewModel
             .ToArray();
         IReadOnlyList<string> floorWarnings = BuildFloorWarnings(nextProposal.CardName, state, resolvedFloors, roleAssignmentsByCardName, countsByRole);
         string findingSummary = nextProposal.FindingCount > 0
-            ? $"Flagged by {nextProposal.FindingCount} findings:"
+            ? $"Flagged by {nextProposal.FindingCount} finding kind(s):"
             : "No structural finding flags this card — it's a preference call.";
         if (proposalDeltas is null)
         {
@@ -780,7 +784,7 @@ public sealed record CutLabViewModel
                 CardName = nextProposal.CardName,
                 RoundKey = nextProposal.RoundKey,
                 RoundLabel = nextProposal.RoundLabel,
-                RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey),
+                RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable),
                 FindingCount = nextProposal.FindingCount,
                 FindingSummary = findingSummary,
                 FindingChips = findingChips,
@@ -801,7 +805,7 @@ public sealed record CutLabViewModel
             CardName = nextProposal.CardName,
             RoundKey = nextProposal.RoundKey,
             RoundLabel = nextProposal.RoundLabel,
-            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey),
+            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable),
             FindingCount = nextProposal.FindingCount,
             FindingSummary = findingSummary,
             FindingChips = findingChips,
@@ -889,7 +893,7 @@ public sealed record CutLabViewModel
             .ToArray();
     }
 
-    private static IReadOnlyList<CutLabCutMadeRowView> BuildCutsMade(IReadOnlyList<CutLabDecision>? decisions)
+    private static IReadOnlyList<CutLabCutMadeRowView> BuildCutsMade(IReadOnlyList<CutLabDecision>? decisions, bool checkedCommanderThemesAvailable)
     {
         if (decisions is null)
         {
@@ -903,7 +907,7 @@ public sealed record CutLabViewModel
             {
                 CardName = decision.CardName,
                 RoundKey = decision.Round,
-                RoundLabel = CutLabCutRoundEngine.LabelFor(decision.Round),
+                RoundLabel = CutLabCutRoundEngine.LabelFor(decision, checkedCommanderThemesAvailable),
             })
             .ToArray();
     }

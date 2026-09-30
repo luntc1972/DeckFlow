@@ -32,7 +32,7 @@ internal static class CutLabNextProposalBuilder
             CardName = roundPlan.NextProposal.CardName,
             RoundKey = roundPlan.NextProposal.RoundKey,
             RoundLabel = roundPlan.NextProposal.RoundLabel,
-            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(roundPlan.NextProposal.RoundKey),
+            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(roundPlan.NextProposal.RoundKey, roundPlan.NextProposal.CheckedCommanderThemesAvailable),
             FindingCount = roundPlan.NextProposal.FindingCount,
             FindingChips = chips,
         };

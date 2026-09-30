@@ -18,6 +18,7 @@ public interface ICutLabUiPatchBuilder
     /// <param name="poolKey">Optional precomputed pool key for the derived working list.</param>
     /// <param name="floorWarnings">Optional current-proposal floor warnings that should be preserved as-is.</param>
     /// <param name="planAffinities">Optional plan affinities already computed for the current state.</param>
+    /// <param name="checkedCommanderThemesAvailable">Whether checked commander theme data was available.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The server-authored live UI patch for the provided state, including computed resolved floor rows.</returns>
     Task<CutLabUiPatchDto> BuildAsync(
@@ -29,6 +30,7 @@ public interface ICutLabUiPatchBuilder
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
+        bool checkedCommanderThemesAvailable = false,
         CancellationToken cancellationToken = default);
 }
 
@@ -129,6 +131,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         string? poolKey = null,
         IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
+        bool checkedCommanderThemesAvailable = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -154,7 +157,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         Task<CutLabSimulationResult>? snapshotResultTask = null;
         if (planAffinities is null)
         {
-            Task<IReadOnlyDictionary<string, CutLabPlanAffinity>?> planAffinitiesTask = _planAffinityFactory.BuildAsync(
+            Task<CutLabPlanAffinityFactoryResult> planAffinitiesTask = _planAffinityFactory.BuildAsync(
                 state.Intent.PlanProfile,
                 context.AnalyzedCards,
                 commanderNames,
@@ -167,7 +170,9 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                 poolKey: resolvedPoolKey,
                 goals: state.Goals,
                 cancellationToken: cancellationToken);
-            planAffinities = await planAffinitiesTask.ConfigureAwait(false);
+            CutLabPlanAffinityFactoryResult planAffinityResult = await planAffinitiesTask.ConfigureAwait(false);
+            planAffinities = planAffinityResult.Affinities;
+            checkedCommanderThemesAvailable = planAffinityResult.CheckedCommanderThemesAvailable;
         }
 
         (CutLabStructuralFindingsResult findings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
@@ -176,7 +181,8 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             floorByRole,
             state.Decisions,
             twinsEnabled,
-            planAffinities: planAffinities);
+            planAffinities: planAffinities,
+            checkedCommanderThemesAvailable: checkedCommanderThemesAvailable);
         snapshotResultTask ??= _simulationService.BuildSnapshotResult(
             workingList,
             playExperience,
@@ -217,7 +223,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             ProposalDeltas = proposalDeltas,
             ResolvedFloors = CutLabResolvedFloorDto.Create(resolvedFloors, context.RoleCounts, playExperience),
             FloorWarnings = floorWarnings ?? BuildFloorWarningsForNextProposal(workingList, context, floorByRole, roundPlan),
-            CutsMade = BuildCutsMade(state.Decisions),
+            CutsMade = BuildCutsMade(state.Decisions, roundPlan.CheckedCommanderThemesAvailable),
             StructuralFindings = BuildStructuralFindings(findings),
             LockedOvershootAdvisory = BuildLockedOvershootAdvisory(roundPlan.LockedOvershootAdvisory),
             ComboBadgeByCardName = BuildComboBadgeByCardName(state.Pool, context.Classification.CardComboMembership),
@@ -258,7 +264,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                 : null,
             ProposalDeltas = null,
             FloorWarnings = [],
-            CutsMade = BuildCutsMade(state.Decisions),
+            CutsMade = BuildCutsMade(state.Decisions, false),
             StructuralFindings = [],
             LockedOvershootAdvisory = null,
             ComboBadgeByCardName = new Dictionary<string, CutLabDecideComboBadgeDto>(StringComparer.Ordinal),
@@ -351,7 +357,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                 .ToArray(),
         };
 
-    private static IReadOnlyList<CutLabDecideCutRecordDto> BuildCutsMade(IReadOnlyList<CutLabDecision> decisions)
+    private static IReadOnlyList<CutLabDecideCutRecordDto> BuildCutsMade(IReadOnlyList<CutLabDecision> decisions, bool checkedCommanderThemesAvailable)
         => decisions
             .Where(decision => decision.Kind == CutLabDecisionKind.Accepted)
             .OrderByDescending(decision => decision.Ordinal)
@@ -359,7 +365,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             {
                 CardName = decision.CardName,
                 RoundKey = decision.Round,
-                RoundLabel = CutLabCutRoundEngine.LabelFor(decision.Round),
+                RoundLabel = CutLabCutRoundEngine.LabelFor(decision, checkedCommanderThemesAvailable),
                 Ordinal = decision.Ordinal,
             })
             .ToArray();

@@ -45,6 +45,7 @@
             <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
             <input type="hidden" name="CardName" value="@cardName" />
             <input type="hidden" name="RoundKey" value="@roundKey" />
+            <input type="hidden" name="checkedCommanderThemesAvailable" value="@(Model.CheckedCommanderThemesAvailable is bool available ? available.ToString().ToLowerInvariant() : string.Empty)" />
             <input type="hidden" name="Decision" value="@decisionValue" />
             @if (decisionValue == "restore")
             {

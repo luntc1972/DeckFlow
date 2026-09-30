@@ -123,11 +123,12 @@ public sealed class CutLabController : Controller
     /// <param name="cardName">Card receiving the decision.</param>
     /// <param name="decision">Decision to apply.</param>
     /// <param name="roundKey">Optional posted round key for the current decision button.</param>
+    /// <param name="checkedCommanderThemesAvailable">Theme availability captured when the round was rendered; null for missing or invalid values.</param>
     [HttpPost("/cut-lab/decide")]
     [FeatureFlagGate("tool.cut-lab.enabled")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(2 * 1024 * 1024)]
-    public async Task<IActionResult> Decide(CutLabRequest request, string cardName, CutLabDecideAction decision, string? roundKey = null)
+    public async Task<IActionResult> Decide(CutLabRequest request, string cardName, CutLabDecideAction decision, string? roundKey = null, bool? checkedCommanderThemesAvailable = null)
     {
         request ??= new CutLabRequest();
 
@@ -140,7 +141,7 @@ public sealed class CutLabController : Controller
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             string resolvedRoundKey = DetermineRoundKey(state, cardName, decision, roundKey);
-            state = CutLabDecisionApplier.Apply(state, cardName, decision, resolvedRoundKey);
+            state = CutLabDecisionApplier.Apply(state, cardName, decision, resolvedRoundKey, checkedCommanderThemesAvailable);
             RehydrateIntakeRequestFromState(request, state);
             request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
 

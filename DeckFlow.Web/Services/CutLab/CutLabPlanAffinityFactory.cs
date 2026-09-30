@@ -8,18 +8,25 @@ public interface ICutLabPlanAffinityFactory
 {
     /// <summary>
     /// Builds the plan-affinity map for the current pool, fetching bounded validated EDHREC theme
-    /// memberships as needed. Returns <see langword="null"/> when there is nothing to resolve.
+    /// memberships as needed.
     /// </summary>
     /// <param name="planProfile">The user's checked plan profile, or <see langword="null"/>.</param>
     /// <param name="analyzedCards">The analyzed pool to resolve affinity for.</param>
     /// <param name="commanderNames">Resolved commander names for the current session.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<IReadOnlyDictionary<string, CutLabPlanAffinity>?> BuildAsync(
+    Task<CutLabPlanAffinityFactoryResult> BuildAsync(
         CutLabPlanProfile? planProfile,
         IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
         IReadOnlyList<string> commanderNames,
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>Contains resolved affinities and whether checked commander-theme evidence is complete.</summary>
+/// <param name="Affinities">Resolved affinities, or <see langword="null"/> when no plan profile exists.</param>
+/// <param name="CheckedCommanderThemesAvailable">Whether all validated checked commander-theme fetches succeeded.</param>
+public sealed record CutLabPlanAffinityFactoryResult(
+    IReadOnlyDictionary<string, CutLabPlanAffinity>? Affinities,
+    bool CheckedCommanderThemesAvailable);
 
 /// <summary>
 /// Default plan-affinity factory. Fetches the checked and a bounded set of unchecked EDHREC theme
@@ -61,7 +68,7 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyDictionary<string, CutLabPlanAffinity>?> BuildAsync(
+    public async Task<CutLabPlanAffinityFactoryResult> BuildAsync(
         CutLabPlanProfile? planProfile,
         IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
         IReadOnlyList<string> commanderNames,
@@ -73,20 +80,20 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
 
         if (planProfile is null || (planProfile.GenericStrategies.Count == 0 && planProfile.CommanderThemes.Count == 0))
         {
-            return null;
+            return new(null, false);
         }
 
         if (planProfile.CommanderThemes.Count == 0)
         {
             // Strategies-only profile: no theme evidence needed, so no EDHREC request is issued.
-            return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes);
+            return new(CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes), false);
         }
 
         string? commanderName = commanderNames.Count > 0 ? commanderNames[0] : null;
         if (string.IsNullOrWhiteSpace(commanderName))
         {
             // No commander to query EDHREC against: degrade to the strategy layer alone.
-            return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes);
+            return new(CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes), false);
         }
 
         using CancellationTokenSource themeFetchBudgetCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -99,7 +106,7 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
         catch (OperationCanceledException) when (themeFetchBudgetCancellation.IsCancellationRequested)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes);
+            return new(CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes), false);
         }
 
         if (themeResult.IsUnavailable || themeResult.Themes.Count == 0)
@@ -107,11 +114,12 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
             // Fail-open: the strategy layer still resolves, and there is no known-theme list to
             // validate checked slugs against, so no card is labelled off-plan for a theme the user
             // was never shown.
-            return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes);
+            return new(CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, EmptyThemeCardsBySlug, EmptyThemes), false);
         }
 
         IReadOnlyList<string> boundedSlugs = BuildBoundedSlugs(planProfile.CommanderThemes, themeResult.Themes);
         Dictionary<string, IReadOnlyList<string>> themeCardNamesBySlug = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> successfulThemeFetches = new(StringComparer.OrdinalIgnoreCase);
         foreach (string slug in boundedSlugs)
         {
             if (themeFetchBudgetCancellation.IsCancellationRequested)
@@ -122,7 +130,12 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
 
             try
             {
-                themeCardNamesBySlug[slug] = await FetchThemeCardNamesAsync(commanderName, slug, themeFetchBudgetCancellation.Token).ConfigureAwait(false);
+                (IReadOnlyList<string> names, bool succeeded) = await FetchThemeCardNamesAsync(commanderName, slug, themeFetchBudgetCancellation.Token).ConfigureAwait(false);
+                themeCardNamesBySlug[slug] = names;
+                if (succeeded)
+                {
+                    successfulThemeFetches.Add(slug);
+                }
             }
             catch (OperationCanceledException) when (themeFetchBudgetCancellation.IsCancellationRequested)
             {
@@ -131,7 +144,12 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
             }
         }
 
-        return CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, themeCardNamesBySlug, themeResult.Themes);
+        HashSet<string> validatedCheckedSlugs = new(
+            planProfile.CommanderThemes.Select(theme => theme.Slug)
+                .Where(slug => themeResult.Themes.Any(theme => string.Equals(theme.Slug, slug, StringComparison.OrdinalIgnoreCase))),
+            StringComparer.OrdinalIgnoreCase);
+        bool checkedCommanderThemesAvailable = validatedCheckedSlugs.Count > 0 && validatedCheckedSlugs.All(successfulThemeFetches.Contains);
+        return new(CutLabPlanAffinityResolver.ResolveAll(analyzedCards, planProfile, themeCardNamesBySlug, themeResult.Themes), checkedCommanderThemesAvailable);
     }
 
     // Why: checked slugs are validated first (against the known-theme list) and prioritized so a
@@ -185,11 +203,12 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
     private Task<EdhrecThemeResult> FetchCommanderThemesAsync(string commanderName, CancellationToken cancellationToken)
         => CutLabSharedHelpers.FetchPlanThemeResultAsync(_themeService, _logger!, [commanderName], cancellationToken);
 
-    private async Task<IReadOnlyList<string>> FetchThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken)
+    private async Task<(IReadOnlyList<string> Names, bool Succeeded)> FetchThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken)
     {
         try
         {
-            return await _themeService.GetThemeCardNamesAsync(commanderName, themeSlug, cancellationToken).ConfigureAwait(false);
+            EdhrecThemeCardNamesResult result = await _themeService.GetThemeCardNamesAsync(commanderName, themeSlug, cancellationToken).ConfigureAwait(false);
+            return (result.Names, result.Succeeded);
         }
         catch (OperationCanceledException)
         {
@@ -198,7 +217,7 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
         catch (Exception exception)
         {
             _logger?.LogWarning(exception, "Cut Lab: EDHREC theme card fetch failed for {ThemeSlug}", themeSlug);
-            return [];
+            return ([], false);
         }
     }
 }
@@ -212,10 +231,10 @@ internal sealed class NullCutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
 {
     public static NullCutLabPlanAffinityFactory Instance { get; } = new();
 
-    public Task<IReadOnlyDictionary<string, CutLabPlanAffinity>?> BuildAsync(
+    public Task<CutLabPlanAffinityFactoryResult> BuildAsync(
         CutLabPlanProfile? planProfile,
         IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
         IReadOnlyList<string> commanderNames,
         CancellationToken cancellationToken = default)
-        => Task.FromResult<IReadOnlyDictionary<string, CutLabPlanAffinity>?>(null);
+        => Task.FromResult(new CutLabPlanAffinityFactoryResult(null, false));
 }

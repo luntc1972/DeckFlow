@@ -25,6 +25,162 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
+    public void AssignRoles_BasicLandWithNoisyCrowdCategories_StaysLandsOnly()
+    {
+        CardFact fact = Fact(
+            "Mountain",
+            "Basic Land — Mountain",
+            oracle: "{T}: Add {R}.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            ["Removal", "Board Wipe", "Win Condition"],
+            isComboPiece: false,
+            ManabaseMode.Casual);
+
+        Assert.Equal(["lands"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_LandWithOnlyRemovalCategory_DoesNotGainInteraction()
+    {
+        CardFact fact = Fact("Category-Only Land", "Land", oracle: "{T}: Add {C}.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Removal"], false, ManabaseMode.Casual);
+
+        Assert.Equal(["lands"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_LandFaceWithOracleCounterspellAndNoCategories_RetainsInteraction()
+    {
+        CardFact fact = Fact("Jwari Disruption // Jwari Ruins", "Instant // Land", oracle: "Counter target spell unless its controller pays {1}.") with { HasLandFace = true };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Cedh);
+
+        Assert.Contains("lands", roles);
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_LandFaceWithOracleCounterspellAndLandCategory_RetainsInteraction()
+    {
+        CardFact fact = Fact("Jwari Disruption // Jwari Ruins", "Instant // Land", oracle: "Counter target spell unless its controller pays {1}.") with { HasLandFace = true };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Land"], false, ManabaseMode.Cedh);
+
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_LandWithOracleWinConditionAndNoCategories_RetainsPayoff()
+    {
+        CardFact fact = Fact("Oracle Win Land", "Land", oracle: "You win the game.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.Contains("lands", roles);
+        Assert.Contains("payoffs", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_LandFaceWithOnlyCounterspellCategory_DoesNotGainInteraction()
+    {
+        CardFact fact = Fact("Category-Only Land", "Land", oracle: "{T}: Add {C}.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Counterspell"], false, ManabaseMode.Cedh);
+
+        Assert.Equal(["lands"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_LandFaceWithOracleCounterspellAndCounterspellCategory_RetainsInteraction()
+    {
+        CardFact fact = Fact("Jwari Disruption // Jwari Ruins", "Instant // Land", oracle: "Counter target spell unless its controller pays {1}.") with { HasLandFace = true };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Counterspell"], false, ManabaseMode.Cedh);
+
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_LandFaceWithOracleBounceAndInteractionCategory_RetainsInteraction()
+    {
+        CardFact fact = Fact("Sink into Stupor // Soporific Springs", "Instant // Land", oracle: "Return target spell or nonland permanent an opponent controls to its owner's hand.") with { HasLandFace = true };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Cedh);
+
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_LandFaceWithOnlyInteractionCategory_DoesNotGainInteraction()
+    {
+        CardFact fact = Fact("Category-Only Modal Land", "Instant // Land", oracle: "{T}: Add {C}.") with { HasLandFace = true };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Cedh);
+
+        Assert.DoesNotContain("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_CasualLandFaceWithOracleCounterspellAndInteractionCategory_RetainsInteraction()
+    {
+        CardFact fact = Fact("Jwari Disruption // Jwari Ruins", "Instant // Land", oracle: "Counter target spell unless its controller pays {1}.") with { HasLandFace = true };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Casual);
+
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_CasualLandFaceWithOracleBounceAndInteractionCategory_RetainsInteraction()
+    {
+        CardFact fact = Fact("Sink into Stupor // Soporific Springs", "Instant // Land", oracle: "Return target spell or nonland permanent an opponent controls to its owner's hand.") with { HasLandFace = true };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Casual);
+
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Theory]
+    [InlineData("Interaction")]
+    [InlineData("Counterspell")]
+    public void AssignRoles_CasualLandFaceWithOnlyInteractionCategory_MapsToExactlyLands(string category)
+    {
+        CardFact fact = Fact("Category-Only Modal Land", "Instant // Land", oracle: "{T}: Add {C}.") with { HasLandFace = true };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [category], false, ManabaseMode.Casual);
+
+        Assert.Equal(["lands"], roles);
+    }
+
+    [Theory]
+    [InlineData("You win the game.", true)]
+    [InlineData("{T}: Add {C}.", false)]
+    public void AssignRoles_LandFaceWithWinConditionCategory_UsesOracleForPayoff(string oracle, bool expectsPayoff)
+    {
+        CardFact fact = Fact("Win-Tagged Modal Land", "Sorcery // Land", oracle: oracle) with { HasLandFace = true };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Win Condition"], false, ManabaseMode.Cedh);
+
+        Assert.Equal(expectsPayoff, roles.Contains("payoffs"));
+    }
+
+    [Theory]
+    [InlineData("Boseiju, Who Endures", "Legendary Land", "Channel \u2014 {1}{G}, Discard Boseiju, Who Endures: Destroy target artifact, enchantment, or nonbasic land an opponent controls.", false)]
+    [InlineData("Fell the Profane // Fell Mire", "Sorcery // Land", "Destroy target creature or planeswalker.", true)]
+    public void AssignRoles_LandWithOracleRemoval_RetainsTargetedInteraction(string name, string typeLine, string oracle, bool hasLandFace)
+    {
+        CardFact fact = Fact(name, typeLine, oracle: oracle) with { HasLandFace = hasLandFace };
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.Contains("lands", roles);
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
     public void AssignRoles_Cultivate_MapsToRampOnly()
     {
         CardFact fact = Fact(

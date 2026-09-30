@@ -30,6 +30,35 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public void DetermineRoundKey_InfrastructureQueueItem_ResolvesInfrastructureRound()
+    {
+        MethodInfo? method = typeof(CutLabApiController).GetMethod("DetermineRoundKey", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        CutLabRoundQueueItem infrastructureItem = new("Sol Ring", CutLabCutRoundEngine.InfrastructureKey, CutLabCutRoundEngine.InfrastructureLabel, 0, [], false);
+        CutLabRoundQueueItem otherItem = new("Other Card", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], false);
+        CutLabRoundPlan plan = new()
+        {
+            Queue = [otherItem, infrastructureItem],
+            NextProposal = otherItem,
+            CardsRemainingToTarget = 1,
+        };
+
+        string roundKey = Assert.IsType<string>(method!.Invoke(null,
+        [
+            new CutLabState(),
+            new CutLabDecideApiRequest
+            {
+                CardName = "Sol Ring",
+                Decision = CutLabDecideAction.Accept,
+            },
+            plan,
+        ]));
+
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, roundKey);
+    }
+
+    [Fact]
     public void Constructor_ThrowsArgumentNullException_WhenPatchBuilderIsNull()
     {
         Assert.Throws<ArgumentNullException>(() => new CutLabApiController(
@@ -443,6 +472,29 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(1, payload.CardsRemaining);
         Assert.NotNull(builder.LastPreResolvedCards);
         Assert.Equal(["Commander", "Arcane Signet", "Counterspell"], builder.LastPreResolvedCards.Select(card => card.Name));
+    }
+
+    [Fact]
+    public async Task PostDecideAsync_CheckedThemesAvailable_StoresFlagOnDecision()
+    {
+        CutLabApiController controller = CreateController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()),
+            new FakeSimulationService(),
+            planAffinityFactory: new PerCardPlanAffinityFactory(true));
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
+        CutLabState state = CutLabStateSerializer.Deserialize(payload.Patch.CutLabStateJson);
+        Assert.True(Assert.Single(state.Decisions).CheckedCommanderThemesAvailable);
     }
 
     [Fact]
@@ -1693,29 +1745,31 @@ public sealed class CutLabApiControllerTests
         }
     }
 
-    private sealed class PerCardPlanAffinityFactory : ICutLabPlanAffinityFactory
+    private sealed class PerCardPlanAffinityFactory(bool checkedCommanderThemesAvailable = false) : ICutLabPlanAffinityFactory
     {
         private int _buildCalls;
 
         public IReadOnlyList<string> LastAnalyzedCardNames { get; private set; } = [];
 
-        public Task<IReadOnlyDictionary<string, CutLabPlanAffinity>?> BuildAsync(
+        public Task<CutLabPlanAffinityFactoryResult> BuildAsync(
             CutLabPlanProfile? planProfile,
             IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
             IReadOnlyList<string> commanderNames,
             CancellationToken cancellationToken = default)
         {
             _buildCalls++;
-            if (_buildCalls == 1)
+            if (_buildCalls == 1 && !checkedCommanderThemesAvailable)
             {
-                return Task.FromResult<IReadOnlyDictionary<string, CutLabPlanAffinity>?>(null);
+                return Task.FromResult(new CutLabPlanAffinityFactoryResult(null, checkedCommanderThemesAvailable));
             }
 
             LastAnalyzedCardNames = analyzedCards.Select(card => card.Name).ToArray();
-            return Task.FromResult<IReadOnlyDictionary<string, CutLabPlanAffinity>?>(new Dictionary<string, CutLabPlanAffinity>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Arcane Signet"] = new([], 2),
-            });
+            return Task.FromResult(new CutLabPlanAffinityFactoryResult(
+                new Dictionary<string, CutLabPlanAffinity>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Arcane Signet"] = new([], 2),
+                },
+                checkedCommanderThemesAvailable));
         }
     }
 
@@ -1734,6 +1788,7 @@ public sealed class CutLabApiControllerTests
             string? poolKey = null,
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings = null,
             IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
+            bool checkedCommanderThemesAvailable = false,
             CancellationToken cancellationToken = default)
         {
             LastState = state;
@@ -1777,6 +1832,7 @@ public sealed class CutLabApiControllerTests
             string? poolKey,
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
             IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities,
+            bool checkedCommanderThemesAvailable = false,
             CancellationToken cancellationToken = default)
             => Task.FromResult(Patch);
     }
@@ -1792,6 +1848,7 @@ public sealed class CutLabApiControllerTests
             string? poolKey,
             IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
             IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities,
+            bool checkedCommanderThemesAvailable = false,
             CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("boom");
     }

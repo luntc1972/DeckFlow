@@ -25,6 +25,17 @@ public sealed class CutLabDecisionApplierTests
     }
 
     [Fact]
+    public void Apply_AcceptWithThemeAvailability_PersistsFlagThroughStateJson()
+    {
+        CutLabState state = BuildState();
+
+        CutLabState updated = CutLabDecisionApplier.Apply(state, "Arcane Signet", CutLabDecideAction.Accept, "round-1", checkedCommanderThemesAvailable: true);
+        CutLabState restored = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(updated));
+
+        Assert.True(Assert.Single(restored.Decisions).CheckedCommanderThemesAvailable);
+    }
+
+    [Fact]
     public void Apply_Accept_OvershootingCard_ReturnsStateUnchanged()
     {
         CutLabState state = BuildStateWithQuantities(cardQuantity: 3, remainingCardsToCut: 1);

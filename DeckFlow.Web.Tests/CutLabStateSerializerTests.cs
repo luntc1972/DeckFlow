@@ -382,6 +382,16 @@ public sealed class CutLabStateSerializerTests
     }
 
     [Fact]
+    public void Deserialize_DecisionWithoutThemeAvailability_LeavesNullableFlagUnset()
+    {
+        string json = "{\"decisions\":[{\"cardName\":\"Cut Card\",\"kind\":1,\"round\":\"round-1\",\"ordinal\":1}]}";
+
+        CutLabState state = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Null(Assert.Single(state.Decisions).CheckedCommanderThemesAvailable);
+    }
+
+    [Fact]
     public void Deserialize_DecisionsOverMax_TruncatesToFiveHundredNonBlankEntries()
     {
         string decisionsJson = string.Join(

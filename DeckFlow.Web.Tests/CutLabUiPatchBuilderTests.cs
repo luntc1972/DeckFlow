@@ -105,7 +105,7 @@ public sealed class CutLabUiPatchBuilderTests
             cut =>
             {
                 Assert.Equal("Counterspell", cut.CardName);
-                Assert.Equal(CutLabCutRoundEngine.Round1Label, cut.RoundLabel);
+                Assert.Equal(CutLabCutRoundEngine.Round1FallbackLabel, cut.RoundLabel);
                 Assert.Equal(1, cut.Ordinal);
             });
         Assert.Equal(["Arcane Signet"], patch.WhatifCardOutOptions);
@@ -607,6 +607,37 @@ public sealed class CutLabUiPatchBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_ThemeAvailabilityFromFactory_LabelsRoundOneCutOffTheme()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Cut Card", quantity: 1),
+                Card("Basic Filler", quantity: 100, isLocked: true),
+            ],
+            decisions:
+            [
+                new CutLabDecision
+                {
+                    CardName = "Cut Card",
+                    Kind = CutLabDecisionKind.Accepted,
+                    Round = CutLabCutRoundEngine.Round1Key,
+                    Ordinal = 1,
+                },
+            ]);
+        CutLabUiPatchBuilder builder = new(
+            new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
+            new FakeSimulationService(),
+            CreateFloorResolver(),
+            new AvailableThemesAffinityFactory());
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(state, state.Intent.PlayExperience, ["Commander"], twinsEnabled: false);
+
+        Assert.Equal(CutLabCutRoundEngine.Round1Label, Assert.Single(patch.CutsMade).RoundLabel);
+    }
+
+    [Fact]
     public void BuildAdjustPatch_ReturnsLightAdjustProjectionWithoutAnalysisOrSimulation()
     {
         CutLabState state = CreateState(
@@ -625,6 +656,7 @@ public sealed class CutLabUiPatchBuilderTests
                     Kind = CutLabDecisionKind.Accepted,
                     Round = CutLabCutRoundEngine.Round1Key,
                     Ordinal = 1,
+                    CheckedCommanderThemesAvailable = true,
                 },
             ],
             quantityAdjustments:
@@ -979,6 +1011,16 @@ public sealed class CutLabUiPatchBuilderTests
         };
 
         return CutLabViewModel.From(request, result);
+    }
+
+    private sealed class AvailableThemesAffinityFactory : ICutLabPlanAffinityFactory
+    {
+        public Task<CutLabPlanAffinityFactoryResult> BuildAsync(
+            CutLabPlanProfile? planProfile,
+            IReadOnlyList<CutLabAnalyzedCard> analyzedCards,
+            IReadOnlyList<string> commanderNames,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new CutLabPlanAffinityFactoryResult(null, true));
     }
 
     private static CutLabUiPatchBuilder CreateBuilder(

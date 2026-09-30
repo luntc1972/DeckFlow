@@ -510,7 +510,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<CutLabAnalyzedCard> analyzedCards = analysisContext.AnalyzedCards;
         IReadOnlyList<string> commanderNames = commanderResolution.CommanderNames;
         // Why: EDHREC affinity inputs are stable; let its request overlap the throttled baseline build.
-        Task<IReadOnlyDictionary<string, CutLabPlanAffinity>?> planAffinitiesTask = _planAffinityFactory.BuildAsync(
+        Task<CutLabPlanAffinityFactoryResult> planAffinitiesTask = _planAffinityFactory.BuildAsync(
             planProfile,
             analyzedCards,
             commanderNames,
@@ -546,14 +546,16 @@ internal sealed class CutLabPageService : ICutLabPageService
             }
         }
 
-        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = await planAffinitiesTask.ConfigureAwait(false);
+        CutLabPlanAffinityFactoryResult planAffinityResult = await planAffinitiesTask.ConfigureAwait(false);
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = planAffinityResult.Affinities;
         (CutLabStructuralFindingsResult findings, CutLabRoundPlan roundPlan) = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
             derivedWorkingList,
             analysisContext,
             floorByRole,
             state.Decisions,
             IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey),
-            planAffinities: planAffinities);
+            planAffinities: planAffinities,
+            checkedCommanderThemesAvailable: planAffinityResult.CheckedCommanderThemesAvailable);
 
         CutLabMetricSnapshot? currentSnapshot = null;
         int? currentActualLands = null;

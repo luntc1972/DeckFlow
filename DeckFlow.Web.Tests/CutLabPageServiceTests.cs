@@ -2488,8 +2488,10 @@ public sealed class CutLabPageServiceTests
         Assert.Equal("Atraxa, Praetors' Voice", Assert.Single(result.State!.Pool, card => card.IsCommander).Name);
     }
 
-    [Fact]
-    public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage()
+    [Theory]
+    [InlineData(false, "Cards flagged by exactly one structural finding kind.")]
+    [InlineData(true, "On-theme cards flagged by 1 or more structural finding kinds.")]
+    public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage(bool themesAvailable, string expectedBody)
     {
         var request = new CutLabRequest();
         var result = new CutLabProcessResult
@@ -2512,10 +2514,11 @@ public sealed class CutLabPageServiceTests
             {
                 Queue =
                 [
-                    new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, []),
+                    new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable),
                 ],
-                NextProposal = new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, []),
+                NextProposal = new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable),
                 CardsRemainingToTarget = 1,
+                CheckedCommanderThemesAvailable = themesAvailable,
             },
             InitialProposalDeltas = null,
         };
@@ -2525,7 +2528,7 @@ public sealed class CutLabPageServiceTests
         Assert.True(model.Proposal.HasProposal);
         Assert.Equal("Arcane Signet", model.Proposal.CardName);
         Assert.Equal("Couldn't recalculate this cut — nothing changed. Try again.", model.Proposal.DeltaUnavailableMessage);
-        Assert.Equal("Cards flagged by exactly one structural finding.", model.Proposal.RoundBannerBody);
+        Assert.Equal(expectedBody, model.Proposal.RoundBannerBody);
     }
 
     [Fact]

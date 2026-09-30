@@ -8,7 +8,8 @@ namespace DeckFlow.Web.Services.CutLab;
 /// </summary>
 public sealed record CutLabPlanAffinity(
     IReadOnlyList<CutLabPlanAffinityTheme> OffPlanThemes,
-    int Score)
+    int Score,
+    bool IsInCheckedCommanderTheme = false)
 {
     /// <summary>Gets whether this card matches at least one checked plan signal.</summary>
     public bool IsOnPlan => Score > 0;
@@ -110,7 +111,7 @@ public static class CutLabPlanAffinityResolver
 
         return score == 0 && resolvedOffPlanThemes.Length == 0
             ? CutLabPlanAffinity.Neutral
-            : new CutLabPlanAffinity(resolvedOffPlanThemes, score);
+            : new CutLabPlanAffinity(resolvedOffPlanThemes, score, onPlanThemeCount > 0);
     }
 
     private static bool IsThemeMember(string slug, string normalizedName, IReadOnlyDictionary<string, HashSet<string>> normalizedThemeCards) =>

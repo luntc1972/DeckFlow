@@ -69,6 +69,51 @@ public sealed class CutLabAnalysisContextBuilderTests
     }
 
     [Fact]
+    public async Task BuildAsync_CaseVariantCategories_ReachesAnalyzedCardAndRolesAsOneLabel()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList = [PoolCard("Test Card", "Artifact")];
+        List<ScryfallCard> cards = [Spell("Test Card", "Artifact", oracleText: "{T}: Add {C}.")];
+        var categoryStore = new FakeCategoryKnowledgeStore();
+        categoryStore.CategoriesByName["Test Card"] = ["Combo", "combo"];
+        var resolver = new CountingResolver(cards);
+        var builder = new CutLabAnalysisContextBuilder(
+            resolver,
+            new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
+            categoryKnowledge: categoryStore);
+
+        CutLabAnalysisContext context = await builder.BuildAsync(workingList, "Focused", []);
+
+        CutLabAnalyzedCard card = Assert.Single(context.AnalyzedCards);
+        Assert.Equal(["Combo"], card.Categories);
+        Assert.Contains("ramp", context.RolesByCardName["Test Card"]);
+    }
+
+    [Fact]
+    public async Task BuildAsync_DuplicateNormalizedCategoryNames_UsesLastValueWithoutThrowing()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Circle of Protection: Red", "Enchantment"),
+            PoolCard("Circle of Protection Red", "Enchantment"),
+        ];
+        List<ScryfallCard> cards = [Spell("Circle of Protection: Red", "Enchantment")];
+        var categoryStore = new FakeCategoryKnowledgeStore();
+        categoryStore.CategoriesByName["Circle of Protection: Red"] = ["first"];
+        categoryStore.CategoriesByName["Circle of Protection Red"] = ["second", "SECOND"];
+        var resolver = new CountingResolver(cards);
+        var builder = new CutLabAnalysisContextBuilder(
+            resolver,
+            new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
+            categoryKnowledge: categoryStore);
+
+        CutLabAnalysisContext context = await builder.BuildAsync(workingList, "Focused", []);
+
+        Assert.Equal(["second"], context.Classification.CategoriesByName[CutLabCardNames.Normalize("Circle of Protection: Red")]);
+    }
+
+    [Fact]
     public async Task BuildAsync_CompleteComboCard_ResolvesMembershipWithCompleteCombos()
     {
         IReadOnlyList<CutLabPoolCard> workingList =

@@ -83,16 +83,35 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     {
         var handler = new RecordingHandler();
         var result = await CreateService(handler).GetThemeCardNamesAsync("Atraxa", "../counters");
-        Assert.Empty(result);
+        Assert.Empty(result.Names);
         Assert.Equal(0, handler.CallCount);
     }
 
     [Fact]
-    public async Task GetThemeCardNamesAsync_UnexpectedShape_ReturnsEmpty_DoesNotThrow()
+    public async Task GetThemeCardNamesAsync_UnexpectedShape_ReturnsFailedResult_DoesNotThrow()
     {
         var body = "{\"container\":{\"json_dict\":{\"cardlists\":{}}}}";
         var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.OK, body))).GetThemeCardNamesAsync("Atraxa", "counters");
-        Assert.Empty(result);
+        Assert.Empty(result.Names);
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task GetThemeCardNamesAsync_HttpFailure_ReturnsFailedResult()
+    {
+        var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.InternalServerError, "nope"))).GetThemeCardNamesAsync("Atraxa", "counters");
+
+        Assert.False(result.Succeeded);
+        Assert.Empty(result.Names);
+    }
+
+    [Fact]
+    public async Task GetThemeCardNamesAsync_403AccessDenied_ReturnsSuccessfulEmptyResult()
+    {
+        var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.Forbidden, "<Error><Code>AccessDenied</Code></Error>"))).GetThemeCardNamesAsync("Atraxa", "counters");
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Names);
     }
 
     [Fact]
@@ -100,7 +119,7 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     {
         const string body = """{"container":{"json_dict":{"cardlists":[[{"name":"Sol Ring"},{"name":"Arcane Signet"}],[{"name":"sol ring"},{"name":"Fellwar Stone"}]]}}}""";
         var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.OK, body))).GetThemeCardNamesAsync("Atraxa", "counters");
-        Assert.Equal(["Sol Ring", "Arcane Signet", "Fellwar Stone"], result);
+        Assert.Equal(["Sol Ring", "Arcane Signet", "Fellwar Stone"], result.Names);
     }
 
     [Fact]
@@ -113,7 +132,7 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
         var first = await service.GetThemeCardNamesAsync("Atraxa", "counters");
         var second = await service.GetThemeCardNamesAsync("Atraxa", "counters");
 
-        Assert.Equal(["Sol Ring", "Arcane Signet"], first);
+        Assert.Equal(["Sol Ring", "Arcane Signet"], first.Names);
         Assert.Equal(first, second);
         Assert.Equal(1, handler.CallCount);
     }
@@ -128,8 +147,10 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
         var first = await service.GetThemeCardNamesAsync("Atraxa", "counters");
         var second = await service.GetThemeCardNamesAsync("Atraxa", "counters");
 
-        Assert.Empty(first);
-        Assert.Empty(second);
+        Assert.Empty(first.Names);
+        Assert.Empty(second.Names);
+        Assert.True(first.Succeeded);
+        Assert.True(second.Succeeded);
         Assert.Equal(1, handler.CallCount);
     }
 

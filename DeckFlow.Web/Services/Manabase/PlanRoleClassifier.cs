@@ -239,7 +239,7 @@ public static class PlanRoleClassifier
     // Broader than DeckStatClassifier.IsCounterspellCard (exact "counter target spell" only): also
     // catches narrow-target counters (Negate, Swan Song, Dovin's Veto) so the casual carve-out covers
     // them. Ability-only counters (Stifle) lack "spell" and stay generic interaction.
-    private static bool CountersASpell(string oracle)
+    internal static bool CountersASpell(string oracle)
         => oracle.Contains("counter target", StringComparison.OrdinalIgnoreCase)
             && oracle.Contains("spell", StringComparison.OrdinalIgnoreCase);
 

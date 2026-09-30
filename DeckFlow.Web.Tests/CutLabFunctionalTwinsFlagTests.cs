@@ -140,7 +140,7 @@ public sealed class CutLabFunctionalTwinsFlagTests
 
         CutLabDecision decision = Assert.Single(persisted.Decisions);
         Assert.Equal("Twin A", decision.CardName);
-        Assert.Equal(CutLabCutRoundEngine.Round3Key, decision.Round);
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, decision.Round);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public sealed class CutLabFunctionalTwinsFlagTests
 
         CutLabDecision decision = Assert.Single(persisted.Decisions);
         Assert.Equal("Twin A", decision.CardName);
-        Assert.Equal(CutLabCutRoundEngine.Round3Key, decision.Round);
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, decision.Round);
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public sealed class CutLabFunctionalTwinsFlagTests
     {
         CutLabState persisted = await DecideAsync(new FakeFeatureFlagCache());
 
-        Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(persisted.Decisions).Round);
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, Assert.Single(persisted.Decisions).Round);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public sealed class CutLabFunctionalTwinsFlagTests
 
         CutLabDecideApiResponse payload = await DecideResponseAsync(flagCache);
 
-        Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(CutLabStateSerializer.Deserialize(payload.CutLabStateJson).Decisions).Round);
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, Assert.Single(CutLabStateSerializer.Deserialize(payload.CutLabStateJson).Decisions).Round);
         Assert.Empty(Twins(payload.Patch));
     }
 

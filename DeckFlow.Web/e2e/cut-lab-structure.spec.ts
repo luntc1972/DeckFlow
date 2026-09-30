@@ -367,7 +367,8 @@ test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-ro
   const round1RejectedCard = 'Sol Ring';
   const acceptedCard = 'Exotic Orchard';
   const round2DeferredCard = 'Arcane Signet';
-  await page.evaluate(({ round1RejectedCard, acceptedCard, round2DeferredCard }) => {
+  const infrastructureDeferredCard = 'Fellwar Stone';
+  await page.evaluate(({ round1RejectedCard, acceptedCard, round2DeferredCard, infrastructureDeferredCard }) => {
     const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]'));
     for (const input of inputs) {
       const state = JSON.parse(input.value) as {
@@ -377,10 +378,11 @@ test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-ro
         { cardName: round1RejectedCard, kind: 1, round: 'round-1', ordinal: 1 },
         { cardName: round2DeferredCard, kind: 2, round: 'round-2', ordinal: 2 },
         { cardName: acceptedCard, kind: 0, round: 'round-3', ordinal: 3 },
+        { cardName: infrastructureDeferredCard, kind: 2, round: 'infrastructure', ordinal: 4 },
       ];
       input.value = JSON.stringify(state);
     }
-  }, { round1RejectedCard, acceptedCard, round2DeferredCard });
+  }, { round1RejectedCard, acceptedCard, round2DeferredCard, infrastructureDeferredCard });
 
   page.once('dialog', async dialog => {
     expect(dialog.message()).toContain('Re-run rounds 1 & 2');
@@ -398,6 +400,7 @@ test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-ro
   expect(state.decisions.some(decision => decision.cardName === acceptedCard && decision.kind === 0)).toBe(true);
   expect(state.decisions.some(decision => decision.cardName === round1RejectedCard)).toBe(false);
   expect(state.decisions.some(decision => decision.cardName === round2DeferredCard)).toBe(false);
+  expect(state.decisions.some(decision => decision.cardName === infrastructureDeferredCard)).toBe(true);
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
 
   const resurfaced = new Set<string>();

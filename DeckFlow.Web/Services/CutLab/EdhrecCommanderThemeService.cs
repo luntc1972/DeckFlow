@@ -16,13 +16,20 @@ public sealed record EdhrecThemeResult(
     IReadOnlyList<CutLabCommanderTheme> Themes,
     bool IsUnavailable);
 
+/// <summary>Result of an EDHREC commander-theme card lookup.</summary>
+/// <param name="Names">Deduplicated card names returned by EDHREC.</param>
+/// <param name="Succeeded">Whether EDHREC supplied a usable theme page.</param>
+public sealed record EdhrecThemeCardNamesResult(
+    IReadOnlyList<string> Names,
+    bool Succeeded);
+
 /// <summary>Loads commander themes and their cards from EDHREC's static JSON pages.</summary>
 public interface IEdhrecCommanderThemeService
 {
     /// <summary>Gets ordered commander themes, returning unavailable data on upstream failure.</summary>
     Task<EdhrecThemeResult> GetCommanderThemesAsync(string commanderName, CancellationToken cancellationToken = default);
-    /// <summary>Gets deduplicated card names for one commander theme.</summary>
-    Task<IReadOnlyList<string>> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default);
+    /// <summary>Gets deduplicated card names and fetch availability for one commander theme.</summary>
+    Task<EdhrecThemeCardNamesResult> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Fail-open EDHREC theme source with bounded response parsing and memory caching.</summary>
@@ -87,7 +94,8 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             return cached;
         }
 
-        string? body = await FetchAsync($"commanders/{slug}.json", slug + ".json", cancellationToken).ConfigureAwait(false);
+        FetchResult fetchResult = await FetchAsync($"commanders/{slug}.json", slug + ".json", cancellationToken).ConfigureAwait(false);
+        string? body = fetchResult.Body;
 
         if (body is null)
         {
@@ -142,28 +150,29 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<string>> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
+    public async Task<EdhrecThemeCardNamesResult> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         string commanderSlug = EdhrecCardLookup.Slugify(commanderName);
 
         if (!IsValidSlug(commanderSlug) || !IsValidSlug(themeSlug))
         {
-            return [];
+            return new([], true);
         }
 
         string cacheKey = $"cutlab:edhrec:themecards:{commanderSlug}:{themeSlug}";
 
         if (_memoryCache.TryGetValue<IReadOnlyList<string>>(cacheKey, out IReadOnlyList<string>? cached) && cached is not null)
         {
-            return cached;
+            return new(cached, true);
         }
 
-        string? body = await FetchAsync($"commanders/{commanderSlug}/{themeSlug}.json", commanderSlug + "__" + themeSlug + ".json", cancellationToken).ConfigureAwait(false);
+        FetchResult fetchResult = await FetchAsync($"commanders/{commanderSlug}/{themeSlug}.json", commanderSlug + "__" + themeSlug + ".json", cancellationToken).ConfigureAwait(false);
+        string? body = fetchResult.Body;
 
         if (body is null)
         {
-            return [];
+            return new([], fetchResult.Succeeded);
         }
 
         try
@@ -175,7 +184,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
                 !dictionary.TryGetProperty("cardlists", out JsonElement cardLists) ||
                 cardLists.ValueKind != JsonValueKind.Array)
             {
-                return [];
+                return new([], false);
             }
 
             IReadOnlyList<string> parsed = cardLists
@@ -189,9 +198,9 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
                 .Cast<string>()
                 .ToList();
 
-            // Why: an empty parse can be legitimate or an upstream shape change; avoid request storms while retrying soon.
+            // Why: a parsed empty card list is a legitimate result; cache it briefly to avoid request storms.
             _memoryCache.Set(cacheKey, parsed, parsed.Count > 0 ? CacheDuration : EmptyThemeCardCacheDuration);
-            return parsed;
+            return new(parsed, true);
         }
         catch (OperationCanceledException)
         {
@@ -200,7 +209,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         catch (Exception ex)
         {
             _logger?.LogWarning(ex, "EDHREC theme page had an unexpected JSON shape");
-            return [];
+            return new([], false);
         }
     }
 
@@ -210,7 +219,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         return total <= 0 ? [] : themes.Where(x => (double)x.DeckCount / total >= PreselectMinimumShare).Take(PreselectMaximumThemes).ToList();
     }
 
-    private async Task<string?> FetchAsync(string resource, string fileName, CancellationToken cancellationToken)
+    private async Task<FetchResult> FetchAsync(string resource, string fileName, CancellationToken cancellationToken)
     {
         CacheEntry? cached = null;
         try
@@ -230,23 +239,23 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             {
                 // Why: revalidation confirms this entry remains fresh, so retain its offline fallback.
                 WriteCache(cachePath, cached with { WrittenAtUtc = DateTimeOffset.UtcNow });
-                return cached.Body;
+                return new(cached.Body, true);
             }
 
             if ((int)response.StatusCode == 403 && response.Content?.Contains("AccessDenied", StringComparison.OrdinalIgnoreCase) == true)
             {
                 _logger?.LogDebug("EDHREC page absent: {Resource}", resource);
-                return null;
+                return new(null, true);
             }
 
             if (!response.IsSuccessful)
             {
-                return GetUsableCachedBody(cached);
+                return FromCachedBody(cached);
             }
 
             if (string.IsNullOrWhiteSpace(response.Content) || response.Content.Length > MaxResponseCharacters)
             {
-                return GetUsableCachedBody(cached);
+                return FromCachedBody(cached);
             }
 
             string? eTag = response.Headers?
@@ -254,7 +263,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
                 .Value?
                 .ToString();
             WriteCache(cachePath, new CacheEntry(response.Content, eTag, DateTimeOffset.UtcNow));
-            return response.Content;
+            return new(response.Content, true);
         }
         catch (OperationCanceledException)
         {
@@ -263,12 +272,18 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         catch (Exception ex)
         {
             _logger?.LogWarning(ex, "EDHREC fetch failed for {Resource}", resource);
-            return GetUsableCachedBody(cached);
+            return FromCachedBody(cached);
         }
     }
 
     private static string? GetUsableCachedBody(CacheEntry? cached)
         => cached is not null && DateTimeOffset.UtcNow - cached.WrittenAtUtc <= DiskCacheFallbackMaxAge ? cached.Body : null;
+
+    private static FetchResult FromCachedBody(CacheEntry? cached)
+    {
+        string? body = GetUsableCachedBody(cached);
+        return new(body, body is not null);
+    }
 
     private static bool IsValidSlug(string slug) => SlugPattern().IsMatch(slug);
 
@@ -355,6 +370,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         }
     }
     private sealed record CacheEntry(string Body, string? ETag, DateTimeOffset WrittenAtUtc);
+    private sealed record FetchResult(string? Body, bool Succeeded);
 
     [GeneratedRegex("^[a-z0-9-]+$", RegexOptions.CultureInvariant)]
     private static partial Regex SlugPattern();
@@ -372,6 +388,6 @@ internal sealed class NullEdhrecCommanderThemeService : IEdhrecCommanderThemeSer
     public Task<EdhrecThemeResult> GetCommanderThemesAsync(string commanderName, CancellationToken cancellationToken = default)
         => Task.FromResult(new EdhrecThemeResult([], true));
 
-    public Task<IReadOnlyList<string>> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
-        => Task.FromResult<IReadOnlyList<string>>([]);
+    public Task<EdhrecThemeCardNamesResult> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
+        => Task.FromResult(new EdhrecThemeCardNamesResult([], false));
 }

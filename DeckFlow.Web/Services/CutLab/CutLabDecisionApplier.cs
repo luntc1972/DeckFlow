@@ -11,8 +11,9 @@ public static class CutLabDecisionApplier
     /// <param name="cardName">Card receiving the decision.</param>
     /// <param name="action">Decision action to apply.</param>
     /// <param name="roundKey">Stable round key to persist on appended decisions.</param>
+    /// <param name="checkedCommanderThemesAvailable">Theme availability known for this decision, or null when unknown.</param>
     /// <returns>A new state reflecting the decision.</returns>
-    public static CutLabState Apply(CutLabState state, string cardName, CutLabDecideAction action, string roundKey)
+    public static CutLabState Apply(CutLabState state, string cardName, CutLabDecideAction action, string roundKey, bool? checkedCommanderThemesAvailable = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
@@ -54,6 +55,7 @@ public static class CutLabDecisionApplier
             CardName = cardName,
             Kind = kind,
             Round = roundKey,
+            CheckedCommanderThemesAvailable = checkedCommanderThemesAvailable,
             Ordinal = NextOrdinal(state.Decisions),
         };
 

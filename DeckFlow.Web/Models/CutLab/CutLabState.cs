@@ -92,6 +92,9 @@ public sealed record CutLabDecision
     /// <summary>Stable round key or display name where the decision was recorded.</summary>
     public string Round { get; init; } = string.Empty;
 
+    /// <summary>Whether checked commander themes were available when this decision was recorded; null for legacy state.</summary>
+    public bool? CheckedCommanderThemesAvailable { get; init; }
+
     /// <summary>Monotonic decision order used for restore-any and most-recent evaluation.</summary>
     public int Ordinal { get; init; }
 }

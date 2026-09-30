@@ -650,7 +650,9 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             CutLabCardNames.ToLastWinsDictionary(
                 categories.CategoriesByName,
                 pair => pair.Key,
-                pair => pair.Value),
+                pair => (IReadOnlyList<string>)pair.Value
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray()),
             spellbook.CardComboMembership);
     }
 
