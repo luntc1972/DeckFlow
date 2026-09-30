@@ -109,7 +109,10 @@ const rejectCurrentProposal = async (page: Page): Promise<string> => {
   const heading = proposal.locator('.cutlab-proposal__heading');
   const proposalHeading = await heading.textContent();
   const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
+  const decideResponse = page.waitForResponse(response =>
+    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
   await proposal.locator('.cutlab-decision-btn--reject').click();
+  expect((await decideResponse).ok()).toBeTruthy();
   return cardName;
 };
 
@@ -364,9 +367,9 @@ test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-ro
   await importPool(page);
   await waitForCutRounds(page);
 
-  const round1RejectedCard = 'Sol Ring';
+  const round1RejectedCard = 'Counterspell';
   const acceptedCard = 'Exotic Orchard';
-  const round2DeferredCard = 'Arcane Signet';
+  const round2DeferredCard = 'Demonic Tutor';
   const infrastructureDeferredCard = 'Fellwar Stone';
   await page.evaluate(({ round1RejectedCard, acceptedCard, round2DeferredCard, infrastructureDeferredCard }) => {
     const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]'));
@@ -404,7 +407,7 @@ test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-ro
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
 
   const resurfaced = new Set<string>();
-  for (let guard = 0; guard < 10; guard += 1) {
+  for (let guard = 0; guard < 12; guard += 1) {
     const proposalHeading = await page.locator('.cutlab-proposal__heading').textContent();
     const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
     expect(cardName).not.toBe(acceptedCard);

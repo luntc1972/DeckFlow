@@ -66,7 +66,10 @@ const waitForCutRounds = async (page: Page): Promise<void> => {
 const acceptCurrentProposal = async (page: Page): Promise<string> => {
   const proposalHeading = await page.locator('.cutlab-proposal__heading').textContent();
   const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
+  const decideResponse = page.waitForResponse(response =>
+    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
   await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
+  expect((await decideResponse).ok()).toBeTruthy();
   return cardName;
 };
 
@@ -128,8 +131,11 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   const scenarioName = 'Locked tutor line';
 
   await importPool(page, savedBracket);
-  await page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]').check();
+  const initialProposal = (await page.locator('.cutlab-proposal__heading').textContent())?.replace(/^Proposed cut:\s*/, '').trim();
+  const lockedCard = initialProposal === 'Rhystic Study' ? 'Counterspell' : 'Rhystic Study';
+  await page.locator(`tr[data-cut-lab-card="${lockedCard}"] input[data-cut-lab-lock-card]`).check();
   await waitForCutRounds(page);
+  await expect(page.locator('.cutlab-proposal__heading')).not.toContainText(lockedCard);
   const acceptedCard = await acceptCurrentProposal(page);
   await expandCutLabSection(page, 'cut-lab-section-goals');
   await page.locator('input[data-cut-lab-goal="commander"]').fill('5');
@@ -144,7 +150,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await expect(page.locator('[data-cut-lab-scenario-status]')).toHaveText('Scenario saved.');
   await expect(getScenarioRow(page, scenarioName)).toBeVisible();
   await expect(getMainStateInput(page)).toHaveValue(new RegExp(`"cardName":"${acceptedCard.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
-  await expect(getMainStateInput(page)).toHaveValue(/"name":"Rhystic Study".*"isLocked":true/);
+  await expect(getMainStateInput(page)).toHaveValue(new RegExp(`"name":"${lockedCard}".*"isLocked":true`));
   await expect(getMainStateInput(page)).toHaveValue(/"goals":\{"commanderByTurn":5/);
 
   await page.locator('details.cutlab-intake > summary').click();
@@ -164,7 +170,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
 
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('0 cuts so far');
   await expect(page.locator('.cutlab-cuts-made__row')).toHaveCount(0);
-  await expect(page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]')).not.toBeChecked();
+  await expect(page.locator(`tr[data-cut-lab-card="${lockedCard}"] input[data-cut-lab-lock-card]`)).not.toBeChecked();
   await expect(page.locator('input[data-cut-lab-goal="commander"]')).toHaveValue('3');
   await expect(page.locator(`input[name="Bracket"][value="${freshBracket}"]`)).toBeChecked();
 
@@ -178,7 +184,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await expandMobileCollapsibles(page);
   await expect(page.locator(`input[name="Bracket"][value="${savedBracket}"]`)).toBeChecked();
   await expect(page.locator('input[data-cut-lab-goal="commander"]')).toHaveValue('5');
-  await expect(page.locator('tr[data-cut-lab-card="Rhystic Study"] input[data-cut-lab-lock-card]')).toBeChecked();
+  await expect(page.locator(`tr[data-cut-lab-card="${lockedCard}"] input[data-cut-lab-lock-card]`)).toBeChecked();
   await expect(page.locator('[data-cut-lab-sticky-accepted]')).toContainText('1 cut so far');
   await expect(page.locator('.cutlab-cuts-made__row').filter({ hasText: acceptedCard })).toContainText(acceptedCard);
   expect((await page.locator('select[data-cut-lab-whatif-card-in] option').allTextContents()).map(text => text.trim())).toContain(acceptedCard);

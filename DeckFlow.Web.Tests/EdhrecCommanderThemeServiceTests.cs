@@ -115,9 +115,29 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetThemeCardNamesAsync_RealEdhrecCardviewsShape_ReturnsCardNames()
+    {
+        const string body = """{"container":{"json_dict":{"cardlists":[{"header":"Game Changers","tag":"gamechangers","cardviews":[{"name":"Rhystic Study"},{"name":"Sol Ring"}]},{"header":"Creatures","tag":"creatures","cardviews":[{"name":"sol ring"},{"name":"Zur the Enchanter"}]}]}}}""";
+        var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.OK, body))).GetThemeCardNamesAsync("Zur the Enchanter", "auras");
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(["Rhystic Study", "Sol Ring", "Zur the Enchanter"], result.Names);
+    }
+
+    [Fact]
+    public async Task GetThemeCardNamesAsync_NonEmptyCardlistsWithNoNames_ReportsNotSucceeded()
+    {
+        const string body = """{"container":{"json_dict":{"cardlists":[{"header":"Empty","tag":"empty","cardviews":[{"other":"value"}]}]}}}""";
+        var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.OK, body))).GetThemeCardNamesAsync("Atraxa", "counters");
+
+        Assert.Empty(result.Names);
+        Assert.False(result.Succeeded);
+    }
+
+    [Fact]
     public async Task GetThemeCardNamesAsync_Duplicates_DeduplicatedPreservingFirstSeenOrder()
     {
-        const string body = """{"container":{"json_dict":{"cardlists":[[{"name":"Sol Ring"},{"name":"Arcane Signet"}],[{"name":"sol ring"},{"name":"Fellwar Stone"}]]}}}""";
+        const string body = """{"container":{"json_dict":{"cardlists":[{"header":"First","tag":"first","cardviews":[{"name":"Sol Ring"},{"name":"Arcane Signet"}]},{"header":"Second","tag":"second","cardviews":[{"name":"sol ring"},{"name":"Fellwar Stone"}]}]}}}""";
         var result = await CreateService(new RecordingHandler(Response(HttpStatusCode.OK, body))).GetThemeCardNamesAsync("Atraxa", "counters");
         Assert.Equal(["Sol Ring", "Arcane Signet", "Fellwar Stone"], result.Names);
     }
@@ -125,7 +145,7 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     [Fact]
     public async Task GetThemeCardNamesAsync_SameCommanderAndTheme_UsesMemoryCache()
     {
-        const string body = """{"container":{"json_dict":{"cardlists":[[{"name":"Sol Ring"},{"name":"Arcane Signet"}]]}}}""";
+        const string body = """{"container":{"json_dict":{"cardlists":[{"header":"First","tag":"first","cardviews":[{"name":"Sol Ring"},{"name":"Arcane Signet"}]}]}}}""";
         var handler = new RecordingHandler(Response(HttpStatusCode.OK, body));
         var service = CreateService(handler);
 

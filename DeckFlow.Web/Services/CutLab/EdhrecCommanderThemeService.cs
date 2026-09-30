@@ -189,14 +189,21 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
             IReadOnlyList<string> parsed = cardLists
                 .EnumerateArray()
-                .Where(cardList => cardList.ValueKind == JsonValueKind.Array)
-                .SelectMany(cardList => cardList.EnumerateArray())
+                .Where(cardList => cardList.ValueKind == JsonValueKind.Object &&
+                    cardList.TryGetProperty("cardviews", out JsonElement cardViews) &&
+                    cardViews.ValueKind == JsonValueKind.Array)
+                .SelectMany(cardList => cardList.GetProperty("cardviews").EnumerateArray())
                 .Where(card => card.ValueKind == JsonValueKind.Object && card.TryGetProperty("name", out _))
                 .Select(card => card.GetProperty("name").GetString())
                 .Where(cardName => !string.IsNullOrWhiteSpace(cardName))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Cast<string>()
                 .ToList();
+
+            if (cardLists.GetArrayLength() > 0 && parsed.Count == 0)
+            {
+                return new([], false);
+            }
 
             // Why: a parsed empty card list is a legitimate result; cache it briefly to avoid request storms.
             _memoryCache.Set(cacheKey, parsed, parsed.Count > 0 ? CacheDuration : EmptyThemeCardCacheDuration);

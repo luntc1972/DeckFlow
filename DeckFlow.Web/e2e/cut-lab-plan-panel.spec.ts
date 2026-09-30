@@ -54,10 +54,9 @@ const categoryDbPath = resolve(__dirname, '..', '..', 'artifacts', 'category-kno
 
 const engineEffectSourceId = 999_000_000;
 const engineEffectStrategySlug = 'landfall';
-// Command Tower is a 0-mana-value nonbasic land in the pool below with no plan signal by default;
-// at Bracket 4 / Focused it is empirically the first Round 3 proposal (lowest mana value among the
-// off-plan candidates), which makes it a reliable "moves once it becomes on-plan" test subject.
-const engineEffectCardName = 'Command Tower';
+// Enlightened Tutor is a non-infrastructure card and the baseline proposal when plan boxes are clear;
+// matching the seeded strategy should move it out of the first proposed position.
+const engineEffectCardName = 'Enlightened Tutor';
 // Why: DeckFlow.Core.Reporting.CategoryFilter.IsJunk treats ANY ASCII digit in a category label as
 // crowd-sourced junk and drops it before it ever reaches the strategy matcher (verified empirically
 // against the real read path — a label like "Landfall 1" silently resolves to zero categories). The
@@ -65,7 +64,7 @@ const engineEffectCardName = 'Command Tower';
 // both chromium-desktop and chromium-mobile run this file concurrently against the same SQLite
 // file, so a fixed idempotent fixture row (like the shared `cards` row below) avoids a delete race
 // where one project's cleanup removes the row while the other project's test still needs it.
-const engineEffectCategoryLabel = 'Landfall test fixture';
+const engineEffectCategoryLabel = 'Landfall tutor fixture';
 
 type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
@@ -300,7 +299,7 @@ test('checking a generic strategy the pool matches changes the proposed cut', as
   await clearAllPlanCheckboxes(page);
 
   const baselineCard = await readProposedCardName(page);
-  expect(baselineCard, 'baseline proposed cut should resolve to a real card').not.toBe('');
+  expect(baselineCard, 'baseline proposal should be the seeded non-infrastructure card').toBe(engineEffectCardName);
 
   await expandCutLabSection(page, 'cut-lab-section-plan-panel');
   await expandMobileCollapsibles(page);
