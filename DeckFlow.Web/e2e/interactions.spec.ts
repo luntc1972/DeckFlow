@@ -174,7 +174,10 @@ test.describe('admin content kb flows @admin', () => {
     const startingUrl = page.url();
     const reloadForm = page.locator('form[data-admin-confirm-reload]');
     expect((await reloadForm.getAttribute('action'))!.toLowerCase()).toContain('/admin/contentkb/reloadseed');
-    expect(await page.evaluate(() => typeof window.DeckFlowAdminModal?.showConfirm)).toBe('function');
+    expect(await page.evaluate(() => {
+      const modalWindow = window as Window & { DeckFlowAdminModal?: { showConfirm?: unknown } };
+      return typeof modalWindow.DeckFlowAdminModal?.showConfirm;
+    })).toBe('function');
     const button = page.getByRole('button', { name: 'Reload Index from Seed' });
     await button.click();
     await expect(page.locator('dialog#admin-confirm-modal')).toHaveJSProperty('open', true);
@@ -205,7 +208,7 @@ test.describe('admin content kb flows @admin', () => {
 
     const firstDeleteButton = deleteButtons.first();
     const startingUrl = page.url();
-    const action = await firstDeleteButton.evaluate((button) => (button.form as HTMLFormElement).action);
+    const action = await firstDeleteButton.evaluate((button: HTMLButtonElement) => (button.form as HTMLFormElement).action);
     let posts = 0;
     await page.route((url) => url.href === action, async (route) => {
       if (route.request().method() !== 'POST') {

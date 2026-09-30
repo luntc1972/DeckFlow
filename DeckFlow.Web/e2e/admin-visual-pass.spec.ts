@@ -107,7 +107,7 @@ test('admin tokens resolve on the live admin shell', async ({ page }) => {
   const response = await page.goto('/Admin/Tools');
   expect(response?.ok()).toBeTruthy();
 
-  await page.locator('details.admin-sidebar__disclosure').evaluate((details) => {
+  await page.locator('details.admin-sidebar__disclosure').evaluate((details: HTMLDetailsElement) => {
     details.open = true;
   });
 
@@ -129,7 +129,7 @@ test('admin tokens resolve on the live admin shell', async ({ page }) => {
 
 test('admin shell marks the current page and renders one page header', async ({ page }) => {
   await page.goto('/Admin/Tools');
-  await page.locator('details.admin-sidebar__disclosure').evaluate((details) => { details.open = true; });
+  await page.locator('details.admin-sidebar__disclosure').evaluate((details: HTMLDetailsElement) => { details.open = true; });
   const current = page.locator('a.admin-sidebar__link[aria-current="page"]');
   await expect(page.locator('a.admin-sidebar__link')).toHaveCount(10);
   await expect(current).toHaveCount(1);
