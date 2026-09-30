@@ -99,7 +99,8 @@ export default defineConfig({
     // /api/cut-lab/decide take >15s on the 2-core runner and deterministically
     // times out the cut-lab decide/tuning specs. Local dev keeps the default
     // Debug build (fast enough on dev hardware, no Release build required).
-    command: `${dotnetCommand} run${process.env.CI ? ' -c Release --no-build' : ''} --launch-profile http-no-browser --urls http://localhost:${e2ePort}`,
+    // Why: a local CI=1 must not silently serve stale Release binaries.
+    command: `${dotnetCommand} run${process.env.GITHUB_ACTIONS ? ' -c Release --no-build' : ''} --launch-profile http-no-browser --urls http://localhost:${e2ePort}`,
     url: `http://localhost:${e2ePort}`,
     reuseExistingServer,
     timeout: 120_000,
