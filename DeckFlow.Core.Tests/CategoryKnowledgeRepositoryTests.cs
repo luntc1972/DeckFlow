@@ -646,6 +646,34 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task EnsureSchemaAsync_SecondaryIndexFails_CompletesWithoutThrowing()
+    {
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            command.CommandText = "CREATE TABLE ix_obs_card (id INTEGER);";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var repository = CreateRepository();
+        await repository.EnsureSchemaAsync();
+
+        await using var verifyConnection = new SqliteConnection($"Data Source={_databasePath}");
+        await verifyConnection.OpenAsync();
+        var verifyCommand = verifyConnection.CreateCommand();
+        verifyCommand.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('ux_cards_normalized', 'ux_sources_source', 'ux_deck_queue_deck_id', 'ux_obs_grain', 'ux_totals_grain');";
+        Assert.Equal(5L, Convert.ToInt64(await verifyCommand.ExecuteScalarAsync()));
+
+        verifyCommand.CommandText = "DROP TABLE ix_obs_card;";
+        await verifyCommand.ExecuteNonQueryAsync();
+        await repository.EnsureSchemaAsync();
+
+        verifyCommand.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'ix_obs_card';";
+        Assert.Equal(0L, Convert.ToInt64(await verifyCommand.ExecuteScalarAsync()));
+    }
+
+    [Fact]
     public async Task EnsureSchemaAsync_IndexCreationFails_LeavesTablesButThrows()
     {
         await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))

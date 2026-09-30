@@ -49,7 +49,8 @@ internal sealed class CategoryCacheSchema
         {
             if (!state.IsComplete)
             {
-                await CreateSchemaAsync(cancellationToken);
+                // Why: schema DDL is idempotent (IF NOT EXISTS / IF EXISTS), so a deadlock can safely retry the whole creation.
+                await DeadlockRetry.ExecuteAsync(() => CreateSchemaAsync(cancellationToken), _logger, cancellationToken);
                 state.IsComplete = true;
             }
         }
@@ -177,41 +178,58 @@ internal sealed class CategoryCacheSchema
                 "processed_commander_summary one-time backfill failed; table exists but pre-existing commanders are missing until reprocessed.");
         }
 
-        var indexCommand = connection.CreateCommand();
-        indexCommand.CommandText = """
+        var requiredIndexCommand = connection.CreateCommand();
+        requiredIndexCommand.CommandText = """
             CREATE UNIQUE INDEX IF NOT EXISTS ux_cards_normalized ON cards(normalized_card_name);
             CREATE UNIQUE INDEX IF NOT EXISTS ux_sources_source ON sources(source);
-            CREATE INDEX IF NOT EXISTS ix_sources_deck_queue ON sources(deck_queue_id);
             CREATE UNIQUE INDEX IF NOT EXISTS ux_deck_queue_deck_id ON deck_queue(deck_id);
-            CREATE INDEX IF NOT EXISTS ix_deck_queue_processed ON deck_queue(processed);
-            CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_inserted_deck ON deck_queue(processed, inserted_utc, deck_id);
-            -- Why: this batched DDL runs inside a try/catch that swallows index-creation failures, so create the replacement first; if it fails, the batch aborts before the drops execute and the old indexes survive.
-            CREATE INDEX IF NOT EXISTS ix_deck_queue_commander_lower_processed ON deck_queue(LOWER(commander_name)) WHERE processed = 1;
-            DROP INDEX IF EXISTS ix_deck_queue_processed_commander;
-            DROP INDEX IF EXISTS ix_deck_queue_processed_commander_lower;
             CREATE UNIQUE INDEX IF NOT EXISTS ux_obs_grain ON card_category_observations(source_id, card_id, category, board);
-            CREATE INDEX IF NOT EXISTS ix_obs_card ON card_category_observations(card_id);
-            CREATE INDEX IF NOT EXISTS ix_obs_card_board ON card_category_observations(card_id, board);
-            -- Why: production builds this out-of-band with CREATE INDEX CONCURRENTLY before deploy because 22M rows exceed the 15 s batch timeout.
-            CREATE INDEX IF NOT EXISTS ix_obs_card_category ON card_category_observations(card_id, category);
-            CREATE INDEX IF NOT EXISTS ix_obs_source ON card_category_observations(source_id);
             CREATE UNIQUE INDEX IF NOT EXISTS ux_totals_grain ON card_deck_totals(source_id, card_id, board);
-            CREATE INDEX IF NOT EXISTS ix_totals_card ON card_deck_totals(card_id);
-            CREATE INDEX IF NOT EXISTS ix_totals_card_board ON card_deck_totals(card_id, board);
             """;
-        indexCommand.CommandTimeout = 15;
-        // Why: unique indexes are required by ON CONFLICT writes, so a failed batch must be retried.
-        // Build heavy production indexes out-of-band with CREATE INDEX CONCURRENTLY.
+        requiredIndexCommand.CommandTimeout = 15;
+        // Why: unique indexes are required by ON CONFLICT writes, so a failed required batch must be retried.
         try
         {
-            await indexCommand.ExecuteNonQueryAsync(cancellationToken);
+            await requiredIndexCommand.ExecuteNonQueryAsync(cancellationToken);
         }
         catch (Exception exception) when (exception is DbException or OperationCanceledException or TimeoutException)
         {
             _logger?.LogWarning(
                 exception,
-                "Category knowledge index creation failed during schema startup; retrying on the next ensure.");
+                "Category knowledge required index creation failed during schema startup; retrying on the next ensure.");
             throw;
+        }
+
+        var secondaryIndexCommand = connection.CreateCommand();
+        secondaryIndexCommand.CommandText = """
+            CREATE INDEX IF NOT EXISTS ix_sources_deck_queue ON sources(deck_queue_id);
+            CREATE INDEX IF NOT EXISTS ix_deck_queue_processed ON deck_queue(processed);
+            CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_inserted_deck ON deck_queue(processed, inserted_utc, deck_id);
+            -- Why: a failed statement aborts the rest of the secondary batch, so create the replacement before the drops and keep the old indexes if it fails.
+            CREATE INDEX IF NOT EXISTS ix_deck_queue_commander_lower_processed ON deck_queue(LOWER(commander_name)) WHERE processed = 1;
+            DROP INDEX IF EXISTS ix_deck_queue_processed_commander;
+            DROP INDEX IF EXISTS ix_deck_queue_processed_commander_lower;
+            CREATE INDEX IF NOT EXISTS ix_obs_card ON card_category_observations(card_id);
+            CREATE INDEX IF NOT EXISTS ix_obs_card_board ON card_category_observations(card_id, board);
+            -- Why: production builds this out-of-band with CREATE INDEX CONCURRENTLY before deploy because 22M rows exceed the 15 s batch timeout.
+            CREATE INDEX IF NOT EXISTS ix_obs_card_category ON card_category_observations(card_id, category);
+            CREATE INDEX IF NOT EXISTS ix_obs_source ON card_category_observations(source_id);
+            CREATE INDEX IF NOT EXISTS ix_totals_card ON card_deck_totals(card_id);
+            CREATE INDEX IF NOT EXISTS ix_totals_card_board ON card_deck_totals(card_id, board);
+            """;
+        secondaryIndexCommand.CommandTimeout = 15;
+        // Why: secondary indexes improve read performance, but failure must not block category operations.
+        // Build heavy production indexes out-of-band with CREATE INDEX CONCURRENTLY.
+        try
+        {
+            await secondaryIndexCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is DbException or TimeoutException ||
+            (exception is OperationCanceledException && !cancellationToken.IsCancellationRequested))
+        {
+            _logger?.LogWarning(
+                exception,
+                "Category knowledge secondary index creation failed during schema startup; reads may be slower until indexes are created.");
         }
     }
 
