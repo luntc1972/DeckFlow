@@ -349,6 +349,7 @@ public static class CastabilitySimulator
         var availableColors = new List<(int Mask, int Amount)>(20); // online sources as (mask, mana amount)
         var byTurn3Colors = new List<(int Mask, int Amount)>(20); // mirrored turn-1/2/3 online-source view
         var onlineLandMasks = new List<int>(20); // scratch: lands whose online-turn <= currentTurn (masks only)
+        var gameScratch = new GameScratch();
 
         // Partial sources (FINDING-2 MEDIUM): indices of sub-1 cards needing a per-trial Bernoulli roll.
         // `active[i]` is true when card i is live this trial; full cards are always active, partials are
@@ -416,7 +417,7 @@ public static class CastabilitySimulator
             }
 
             bool success = SimulateGame(
-                library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, byTurn3Colors, onlineLandMasks,
+                library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, byTurn3Colors, onlineLandMasks, gameScratch,
                 gateRampOnCastable, ritualBurst, trackEarlyCast, out bool manaShort, out bool colorShort, out int firstCastableTurn,
                 out int firstEarlyCastableTurn,
                 out bool hadUntappedT1, out bool hadByTurn3Holdable);
@@ -599,6 +600,7 @@ public static class CastabilitySimulator
         int[] shuffled = new int[library.Count];
         var availableColors = new List<(int Mask, int Amount)>(20);
         var onlineLandMasks = new List<int>(20);
+        var gameScratch = new GameScratch();
         int[] partialIndices = Enumerable.Range(0, library.Count).Where(i => library[i].IsPartial).ToArray();
         bool[] active = new bool[library.Count];
         Array.Fill(active, true); // full sources stay active all trials; DealHand re-rolls only partials
@@ -716,7 +718,7 @@ public static class CastabilitySimulator
                 (int Bit, int Count)[] pips = planCard.PlanPips ?? Array.Empty<(int, int)>();
                 bool castable = SimulateGame(
                     library, shuffled, active, handCount, planTurn, planTurn, pips,
-                    availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                    availableColors, null, onlineLandMasks, gameScratch, gateRampOnCastable, ritualBurst,
                     out _, out _, out int firstCastableTurn, out _, out _);
 
                 if (castable && firstCastableTurn <= planTurn)
@@ -743,7 +745,7 @@ public static class CastabilitySimulator
                         CedhMulliganCalibration.TurnCapExplosive,
                         planTurn,
                         pips,
-                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                        availableColors, null, onlineLandMasks, gameScratch, gateRampOnCastable, ritualBurst,
                         out _, out _, out int firstExplosiveTurn, out _, out _);
                     shapeExplosive = castableExplosive && firstExplosiveTurn <= CedhMulliganCalibration.TurnCapExplosive;
                 }
@@ -757,7 +759,7 @@ public static class CastabilitySimulator
                         CedhMulliganCalibration.TurnCapEngine,
                         planTurn,
                         pips,
-                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                        availableColors, null, onlineLandMasks, gameScratch, gateRampOnCastable, ritualBurst,
                         out _, out _, out int firstEngineTurn, out _, out _);
                     shapeEngine = castableEngine && firstEngineTurn <= CedhMulliganCalibration.TurnCapEngine;
                 }
@@ -783,7 +785,7 @@ public static class CastabilitySimulator
                             commanderTargetTurn,
                             Math.Max(1, commander.ManaValue),
                             PipArray(commander, colorlessSnow),
-                            availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                            availableColors, null, onlineLandMasks, gameScratch, gateRampOnCastable, ritualBurst,
                             out _, out _, out int firstCommanderTurn, out _, out _);
                         if (castableCommander && firstCommanderTurn <= commanderTargetTurn)
                         {
@@ -924,6 +926,7 @@ public static class CastabilitySimulator
         int[] shuffled = new int[library.Count];
         var availableColors = new List<(int Mask, int Amount)>(20);
         var onlineLandMasks = new List<int>(20);
+        var gameScratch = new GameScratch();
         int[] partialIndices = Enumerable.Range(0, library.Count).Where(i => library[i].IsPartial).ToArray();
         bool[] active = new bool[library.Count];
         Array.Fill(active, true);
@@ -970,7 +973,7 @@ public static class CastabilitySimulator
                     bool castable = SimulateGame(
                         library, shuffled, active, handCount, turn, spellCard.PlanManaValue,
                         spellCard.PlanPips ?? Array.Empty<(int, int)>(),
-                        availableColors, null, onlineLandMasks, gateRampOnCastable, ritualBurst,
+                        availableColors, null, onlineLandMasks, gameScratch, gateRampOnCastable, ritualBurst,
                         out _, out _, out int firstCastableTurn, out _, out _);
                     if (castable && firstCastableTurn <= turn)
                     {
@@ -1492,6 +1495,19 @@ public static class CastabilitySimulator
     // effective turn OR within the grace window after it. The grace window tracks Snail/Karsten,
     // whose "cast rate" is not strict-on-curve but tolerates a short delay (a player happily casts a
     // 6-drop on turn 7-8). Out-params attribute the LAST turn's failure to mana vs color coverage.
+    private sealed class GameScratch
+    {
+        public List<PlayedLand> LandsOnBoard { get; } = new(16);
+
+        public List<int> Hand { get; } = new(24);
+
+        public List<(int Mask, int Cost, int OnlineTurn, int Amount)> RampOnBoard { get; } = new(8);
+
+        public List<(int Mask, int Amount)> RitualGate { get; } = new(20);
+
+        public List<(int Mask, int Amount)> RitualBursts { get; } = new(8);
+    }
+
     private static bool SimulateGame(
         IReadOnlyList<LibraryCard> library,
         int[] shuffled,
@@ -1503,6 +1519,7 @@ public static class CastabilitySimulator
         List<(int Mask, int Amount)> availableColors,
         List<(int Mask, int Amount)>? byTurn3Colors,
         List<int> onlineLandMasks,
+        GameScratch gameScratch,
         bool gateRampOnCastable,
         bool ritualBurst,
         out bool manaShort,
@@ -1511,7 +1528,7 @@ public static class CastabilitySimulator
         out bool hadUntappedT1,
         out bool hadByTurn3Holdable)
         => SimulateGame(
-            library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, byTurn3Colors, onlineLandMasks,
+            library, shuffled, active, handCount, turn, effectiveCost, pipReq, availableColors, byTurn3Colors, onlineLandMasks, gameScratch,
             gateRampOnCastable, ritualBurst, trackEarlyCast: false, out manaShort, out colorShort, out firstCastableTurn,
             out _, out hadUntappedT1, out hadByTurn3Holdable);
 
@@ -1526,6 +1543,7 @@ public static class CastabilitySimulator
         List<(int Mask, int Amount)> availableColors,
         List<(int Mask, int Amount)>? byTurn3Colors,
         List<int> onlineLandMasks,
+        GameScratch gameScratch,
         bool gateRampOnCastable,
         bool ritualBurst,
         bool trackEarlyCast,
@@ -1560,10 +1578,13 @@ public static class CastabilitySimulator
         // count toward this turn's mana or color access. We model this exactly like ramp's OnlineTurn
         // (FINDING-1 HIGH): tapped lands previously inflated both the mana count and color coverage the
         // turn they entered.
-        var landsOnBoard = new List<PlayedLand>(turn + 2);
+        // Why: reset board and hand storage between trials without allocating new lists.
+        List<PlayedLand> landsOnBoard = gameScratch.LandsOnBoard;
+        landsOnBoard.Clear();
 
         // Working hand as a list of library indices.
-        var hand = new List<int>(handCount + turn);
+        List<int> hand = gameScratch.Hand;
+        hand.Clear();
         for (int i = 0; i < handCount; i++)
         {
             hand.Add(shuffled[i]);
@@ -1572,7 +1593,8 @@ public static class CastabilitySimulator
         // Ramp deployed this turn that comes online NEXT turn (cost > 0); 0-cost is same-turn.
         // We just re-scan the board each turn for simplicity (turn counts are tiny). Amount is the
         // mana it makes once online (MQ-02): 1 unless the mana-quantity flag is on.
-        var rampOnBoard = new List<(int Mask, int Cost, int OnlineTurn, int Amount)>(8);
+        List<(int Mask, int Cost, int OnlineTurn, int Amount)> rampOnBoard = gameScratch.RampOnBoard;
+        rampOnBoard.Clear();
 
         for (int currentTurn = 1; currentTurn <= lastTurn; currentTurn++)
         {
@@ -1722,7 +1744,7 @@ public static class CastabilitySimulator
             // rituals cannot both spend the same single source. Flag-off skips this entirely (byte-identical).
             if (ritualBurst)
             {
-                ApplyRitualBurst(library, hand, availableColors);
+                ApplyRitualBurst(library, hand, availableColors, gameScratch);
             }
 
             if (TotalMana(availableColors) < effectiveCost)
@@ -2146,10 +2168,14 @@ public static class CastabilitySimulator
     private static void ApplyRitualBurst(
         IReadOnlyList<LibraryCard> library,
         List<int> hand,
-        List<(int Mask, int Amount)> availableColors)
+        List<(int Mask, int Amount)> availableColors,
+        GameScratch gameScratch)
     {
-        List<(int Mask, int Amount)>? gate = null;
-        List<(int Mask, int Amount)>? bursts = null;
+        List<(int Mask, int Amount)> gate = gameScratch.RitualGate;
+        List<(int Mask, int Amount)> bursts = gameScratch.RitualBursts;
+        gate.Clear();
+        bursts.Clear();
+        bool gateInitialized = false;
         for (int h = 0; h < hand.Count; h++)
         {
             LibraryCard card = library[hand[h]];
@@ -2158,14 +2184,19 @@ public static class CastabilitySimulator
                 continue;
             }
 
-            gate ??= new List<(int Mask, int Amount)>(availableColors);
+            if (!gateInitialized)
+            {
+                // Why: ritual costs consume a snapshot of the base pool, reused across trials.
+                gate.AddRange(availableColors);
+                gateInitialized = true;
+            }
             if (TryConsumeOwnCost(gate, card.OneShotOwnPips ?? Array.Empty<(int, int)>(), card.OneShotOwnCost))
             {
-                (bursts ??= new List<(int Mask, int Amount)>()).Add((card.ColorMask, card.ManaAmount));
+                bursts.Add((card.ColorMask, card.ManaAmount));
             }
         }
 
-        if (bursts is not null)
+        if (bursts.Count > 0)
         {
             availableColors.AddRange(bursts);
         }
@@ -2266,10 +2297,10 @@ public static class CastabilitySimulator
 
         if (!hasMulti)
         {
-            var masks = new List<int>(sources.Count);
-            foreach ((int Mask, int Amount) s in sources)
+            Span<int> masks = sources.Count <= 64 ? stackalloc int[sources.Count] : new int[sources.Count];
+            for (int index = 0; index < sources.Count; index++)
             {
-                masks.Add(s.Mask);
+                masks[index] = sources[index].Mask;
             }
 
             return ColorsCoverableUnit(masks, pipReq, effectiveCost);
@@ -2286,7 +2317,8 @@ public static class CastabilitySimulator
             totalPips += p.Count;
         }
 
-        var demands = new int[totalPips];
+        // Why: this runs on each castability check, so keep ordinary pip sets off the heap.
+        Span<int> demands = totalPips <= 16 ? stackalloc int[totalPips] : new int[totalPips];
         int di = 0;
         foreach ((int Bit, int Count) p in pipReq)
         {
@@ -2297,10 +2329,11 @@ public static class CastabilitySimulator
         }
 
         // Group identical colors together so the DFS tries lock-reuse before consuming a fresh source.
-        System.Array.Sort(demands);
+        demands.Sort();
 
-        int[] remaining = new int[sources.Count];
-        int[] locked = new int[sources.Count];
+        Span<int> remaining = sources.Count <= 64 ? stackalloc int[sources.Count] : new int[sources.Count];
+        Span<int> locked = sources.Count <= 64 ? stackalloc int[sources.Count] : new int[sources.Count];
+        locked.Clear();
         for (int s = 0; s < sources.Count; s++)
         {
             remaining[s] = sources[s].Amount;
@@ -2311,7 +2344,7 @@ public static class CastabilitySimulator
 
     // Exact backtracking: assign demand[d..] to sources, each source paying up to its remaining capacity
     // in pips of ONE locked color. Returns true iff every demand can be covered simultaneously.
-    private static bool CoverPips(List<(int Mask, int Amount)> sources, int[] demands, int d, int[] remaining, int[] locked)
+    private static bool CoverPips(List<(int Mask, int Amount)> sources, ReadOnlySpan<int> demands, int d, Span<int> remaining, Span<int> locked)
     {
         if (d >= demands.Length)
         {
@@ -2344,7 +2377,7 @@ public static class CastabilitySimulator
 
     // The original (pre-MQ-02) greedy matching, operating on a flat mask list with each source used at
     // most once. Preserved verbatim so the flag-off path stays byte-identical to historic behavior.
-    private static bool ColorsCoverableUnit(List<int> sources, (int Bit, int Count)[] pipReq, int effectiveCost)
+    private static bool ColorsCoverableUnit(ReadOnlySpan<int> sources, (int Bit, int Count)[] pipReq, int effectiveCost)
     {
         // Expand the pip requirement into a flat list of single-color demands, hardest-constrained
         // first (rarest color among the sources). Then greedily assign the most-restrictive source.
@@ -2354,7 +2387,7 @@ public static class CastabilitySimulator
             totalPips += p.Count;
         }
 
-        if (sources.Count < effectiveCost)
+        if (sources.Length < effectiveCost)
         {
             return false;
         }
@@ -2369,7 +2402,8 @@ public static class CastabilitySimulator
             }
         }
 
-        Span<bool> used = sources.Count <= 64 ? stackalloc bool[sources.Count] : new bool[sources.Count];
+        Span<bool> used = sources.Length <= 64 ? stackalloc bool[sources.Length] : new bool[sources.Length];
+        used.Clear();
 
         for (int d = 0; d < totalPips; d++)
         {
@@ -2378,7 +2412,7 @@ public static class CastabilitySimulator
             for (int j = d; j < totalPips; j++)
             {
                 int count = 0;
-                for (int s = 0; s < sources.Count; s++)
+                for (int s = 0; s < sources.Length; s++)
                 {
                     if (!used[s] && (sources[s] & demands[j]) != 0)
                     {
@@ -2402,7 +2436,7 @@ public static class CastabilitySimulator
 
             int pick = -1;
             int pickColors = int.MaxValue;
-            for (int s = 0; s < sources.Count; s++)
+            for (int s = 0; s < sources.Length; s++)
             {
                 if (used[s] || (sources[s] & demands[d]) == 0)
                 {
@@ -2515,22 +2549,8 @@ public static class CastabilitySimulator
         // mulligan, so singleton depth 1 still keeps 7 (bottoms 0) under the same band as a fresh 7;
         // bottoming only begins at depth 2. Non-singleton is standard London (each mulligan bottoms one
         // more). Bottom-count is explicit so later depths never bottom the wrong amount.
-        (int Keep, int Bottom, int Lo, int Hi, bool RampGate)[] schedule = isSingleton
-            ? new[]
-            {
-                (7, 0, 2, hiCap, true),  // depth 0
-                (7, 0, 2, hiCap, true),  // depth 1 — Commander free mulligan
-                (6, 1, 2, hiCap, false), // depth 2 — mull to 6 (normal curve keeps 2-3; high-curve up to 5)
-                (5, 2, 1, 4, false),     // depth 3 — forced keep
-            }
-            : new[]
-            {
-                (7, 0, 2, hiCap, true),  // depth 0
-                (6, 1, 2, hiCap, false), // depth 1 — mull to 6 (normal curve keeps 2-3; high-curve up to 5)
-                (5, 2, 1, 4, false),     // depth 2 — forced keep
-            };
-
-        int last = schedule.Length - 1;
+        // Why: derive the tiny schedule in registers instead of allocating an array for every trial.
+        int last = isSingleton ? 3 : 2;
         for (int depth = 0; depth <= last; depth++)
         {
             // Depth 0's prefix is already shuffled by the caller; each later depth reshuffles to draw
@@ -2541,7 +2561,12 @@ public static class CastabilitySimulator
             }
 
             int lands = CountLands(library, active, shuffled, 7);
-            (int keep, int bottom, int lo, int hi, bool rampGate) = schedule[depth];
+            int paidDepth = isSingleton ? depth - 1 : depth;
+            (int keep, int bottom, int lo, int hi, bool rampGate) = paidDepth <= 0
+                ? (7, 0, 2, hiCap, true)
+                : paidDepth == 1
+                    ? (6, 1, 2, hiCap, false)
+                    : (5, 2, 1, 4, false);
 
             bool forced = depth == last;
 
@@ -2571,7 +2596,7 @@ public static class CastabilitySimulator
             }
         }
 
-        return schedule[last].Keep;
+        return 5;
     }
 
     // Fisher-Yates over the first `count` slots. Enough because we only inspect the opening 7 plus
