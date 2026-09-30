@@ -369,7 +369,11 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
                 await command.ExecuteNonQueryAsync();
             }
 
-            await repository.GetCategoriesAsync(cardName);
+            var freshConnectionString = new Npgsql.NpgsqlConnectionStringBuilder(await _fixture.GetConnectionStringOrSkipAsync())
+            {
+                ApplicationName = $"catsum-backfill-{unique}"
+            }.ConnectionString;
+            await new CategoryKnowledgeRepository(CreateConnection(freshConnectionString)).GetCategoriesAsync(cardName);
 
             await using var verifyConnection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection();
             await verifyConnection.OpenAsync();

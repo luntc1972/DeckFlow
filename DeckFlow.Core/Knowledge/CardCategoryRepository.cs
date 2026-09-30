@@ -406,43 +406,37 @@ internal sealed class CardCategoryRepository
         }
 
         await _schema.EnsureSchemaAsync(cancellationToken);
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-        var sourceId = rows.Count == 0
-            ? await ResolveSourceIdForReadAsync(connection, transaction, source, cancellationToken)
-            : await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
-        if (sourceId is null)
+        await DeadlockRetry.ExecuteAsync(async () =>
         {
+            await using var connection = CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var sourceId = rows.Count == 0
+                ? await ResolveSourceIdForWriteAsync(connection, transaction, source, cancellationToken)
+                : await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
+            if (sourceId is null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return;
+            }
+
+            var cardIds = await ResolveCardIdsAsync(connection, transaction, rows.Select(row => row.CardName), cancellationToken);
+            var deltas = new CategoryWriteOrder();
+            await DeleteCategoryObservationsForSourceAsync(connection, transaction, sourceId.Value, deltas, cancellationToken);
+            var normalizedBoard = NormalizeBoard(board);
+            var lastSeenUtc = DateTime.UtcNow;
+            foreach (var row in CategoryWriteOrder.Observations(rows.Where(value => !string.IsNullOrWhiteSpace(value.CardName)),
+                         value => cardIds[CardNormalizer.Normalize(value.CardName)], value => value.Category, _ => normalizedBoard))
+            {
+                var cardId = cardIds[CardNormalizer.Normalize(row.CardName)];
+                var deckCountValue = row.DeckCount > 0 ? row.DeckCount : deckCount;
+                await UpsertCategoryObservationAsync(connection, transaction, sourceId.Value, cardId, row.CardName,
+                    row.Category, normalizedBoard, row.Count, deckCountValue, lastSeenUtc, deltas, cancellationToken);
+            }
+
+            await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return;
-        }
-
-        await DeleteCategoryObservationsForSourceAsync(connection, transaction, sourceId.Value, cancellationToken);
-
-        var cardIds = new Dictionary<string, long>(StringComparer.Ordinal);
-        var normalizedBoard = NormalizeBoard(board);
-        var lastSeenUtc = DateTime.UtcNow;
-        foreach (var row in rows)
-        {
-            var cardId = await ResolveCardIdAsync(connection, transaction, row.CardName, cardIds, cancellationToken);
-            var deckCountValue = row.DeckCount > 0 ? row.DeckCount : deckCount;
-            await UpsertCategoryObservationAsync(
-                connection,
-                transaction,
-                sourceId.Value,
-                cardId,
-                row.CardName,
-                row.Category,
-                normalizedBoard,
-                row.Count,
-                deckCountValue,
-                lastSeenUtc,
-                cancellationToken);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
+        }, _schema.Logger, cancellationToken);
     }
 
     /// <summary>
@@ -458,26 +452,26 @@ internal sealed class CardCategoryRepository
         }
 
         await _schema.EnsureSchemaAsync(cancellationToken);
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-        var sourceId = await ResolveSourceIdForReadAsync(connection, transaction, source, cancellationToken);
-        if (sourceId is null)
+        await DeadlockRetry.ExecuteAsync(async () =>
         {
+            await using var connection = CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var sourceId = await ResolveSourceIdForWriteAsync(connection, transaction, source, cancellationToken);
+            if (sourceId is null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return;
+            }
+
+            var deltas = new CategoryWriteOrder();
+            await DeleteCategoryObservationsForSourceAsync(connection, transaction, sourceId.Value, deltas, cancellationToken);
+            await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM card_deck_totals WHERE source_id = @sourceId;",
+                new { sourceId = sourceId.Value }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
-            return;
-        }
-
-        await DeleteCategoryObservationsForSourceAsync(connection, transaction, sourceId.Value, cancellationToken);
-
-        await connection.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM card_deck_totals WHERE source_id = @sourceId;",
-            new { sourceId = sourceId.Value },
-            transaction: transaction,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-
-        await transaction.CommitAsync(cancellationToken);
+        }, _schema.Logger, cancellationToken);
     }
 
     /// <summary>
@@ -498,32 +492,26 @@ internal sealed class CardCategoryRepository
         }
 
         await _schema.EnsureSchemaAsync(cancellationToken);
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-        var sourceId = await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
-        var cardIds = new Dictionary<string, long>(StringComparer.Ordinal);
-        var cardId = await ResolveCardIdAsync(connection, transaction, cardName, cardIds, cancellationToken);
-        var normalizedBoard = NormalizeBoard(board);
-        var lastSeenUtc = DateTime.UtcNow;
-        foreach (var category in categories)
+        await DeadlockRetry.ExecuteAsync(async () =>
         {
-            await UpsertCategoryObservationAsync(
-                connection,
-                transaction,
-                sourceId,
-                cardId,
-                cardName,
-                category,
-                normalizedBoard,
-                quantity,
-                deckCountIncrement,
-                lastSeenUtc,
-                cancellationToken);
-        }
+            await using var connection = CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var sourceId = await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
+            var cardIds = await ResolveCardIdsAsync(connection, transaction, new[] { cardName }, cancellationToken);
+            var cardId = cardIds[CardNormalizer.Normalize(cardName)];
+            var normalizedBoard = NormalizeBoard(board);
+            var lastSeenUtc = DateTime.UtcNow;
+            var deltas = new CategoryWriteOrder();
+            foreach (var category in CategoryWriteOrder.Observations(categories, _ => cardId, value => value, _ => normalizedBoard))
+            {
+                await UpsertCategoryObservationAsync(connection, transaction, sourceId, cardId, cardName, category,
+                    normalizedBoard, quantity, deckCountIncrement, lastSeenUtc, deltas, cancellationToken);
+            }
 
-        await transaction.CommitAsync(cancellationToken);
+            await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }, _schema.Logger, cancellationToken);
     }
 
     /// <summary>
@@ -572,56 +560,37 @@ internal sealed class CardCategoryRepository
         }
 
         await _schema.EnsureSchemaAsync(cancellationToken);
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-        var sourceId = await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
-        var cardIds = new Dictionary<string, long>(StringComparer.Ordinal);
-        var lastSeenUtc = DateTime.UtcNow;
-
-        foreach (var observation in observations)
+        await DeadlockRetry.ExecuteAsync(async () =>
         {
-            if (string.IsNullOrWhiteSpace(observation.CardName) || observation.Quantity <= 0)
+            await using var connection = CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var sourceId = await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
+            var validObservations = observations.Where(row => !string.IsNullOrWhiteSpace(row.CardName) && row.Quantity > 0).ToArray();
+            var validTotals = cardBoardTotals.Where(row => !string.IsNullOrWhiteSpace(row.CardName)).ToArray();
+            var cardIds = await ResolveCardIdsAsync(connection, transaction,
+                validObservations.Select(row => row.CardName).Concat(validTotals.Select(row => row.CardName)), cancellationToken);
+            var lastSeenUtc = DateTime.UtcNow;
+            var deltas = new CategoryWriteOrder();
+            foreach (var observation in CategoryWriteOrder.Observations(validObservations,
+                         row => cardIds[CardNormalizer.Normalize(row.CardName)], row => row.Category, row => NormalizeBoard(row.Board)))
             {
-                continue;
+                var cardId = cardIds[CardNormalizer.Normalize(observation.CardName)];
+                await UpsertCategoryObservationAsync(connection, transaction, sourceId, cardId, observation.CardName,
+                    observation.Category, NormalizeBoard(observation.Board), observation.Quantity,
+                    observation.DeckCountIncrement, lastSeenUtc, deltas, cancellationToken);
             }
 
-            var cardId = await ResolveCardIdAsync(connection, transaction, observation.CardName, cardIds, cancellationToken);
-            await UpsertCategoryObservationAsync(
-                connection,
-                transaction,
-                sourceId,
-                cardId,
-                observation.CardName,
-                observation.Category,
-                NormalizeBoard(observation.Board),
-                observation.Quantity,
-                observation.DeckCountIncrement,
-                lastSeenUtc,
-                cancellationToken);
-        }
-
-        foreach (var cardBoardTotal in cardBoardTotals)
-        {
-            if (string.IsNullOrWhiteSpace(cardBoardTotal.CardName))
+            foreach (var total in validTotals.OrderBy(row => cardIds[CardNormalizer.Normalize(row.CardName)])
+                         .ThenBy(row => NormalizeBoard(row.Board), StringComparer.Ordinal))
             {
-                continue;
+                await UpsertCardDeckTotalAsync(connection, transaction, sourceId,
+                    cardIds[CardNormalizer.Normalize(total.CardName)], NormalizeBoard(total.Board), 1, lastSeenUtc, cancellationToken);
             }
 
-            var cardId = await ResolveCardIdAsync(connection, transaction, cardBoardTotal.CardName, cardIds, cancellationToken);
-            await UpsertCardDeckTotalAsync(
-                connection,
-                transaction,
-                sourceId,
-                cardId,
-                NormalizeBoard(cardBoardTotal.Board),
-                1,
-                lastSeenUtc,
-                cancellationToken);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
+            await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }, _schema.Logger, cancellationToken);
     }
 
     /// <summary>
@@ -719,6 +688,28 @@ internal sealed class CardCategoryRepository
         return id;
     }
 
+    private static async Task<Dictionary<string, long>> ResolveCardIdsAsync(
+        DbConnection connection, DbTransaction transaction, IEnumerable<string> names, CancellationToken cancellationToken)
+    {
+        var ids = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var name in CategoryWriteOrder.CardNames(names))
+        {
+            await ResolveCardIdAsync(connection, transaction, name, ids, cancellationToken);
+        }
+
+        return ids;
+    }
+
+    private async Task<long?> ResolveSourceIdForWriteAsync(
+        DbConnection connection, DbTransaction transaction, string source, CancellationToken cancellationToken)
+    {
+        var sql = _connectionInfo.Provider == RelationalDatabaseProvider.Postgres
+            ? "SELECT id FROM sources WHERE source = @source FOR UPDATE;"
+            : "SELECT id FROM sources WHERE source = @source;";
+        return await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
+            sql, new { source }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
     private static async Task<long?> ResolveSourceIdForReadAsync(
         DbConnection connection,
         DbTransaction? transaction,
@@ -787,6 +778,7 @@ internal sealed class CardCategoryRepository
         int quantity,
         int deckCountIncrement,
         DateTime lastSeenUtc,
+        CategoryWriteOrder deltas,
         CancellationToken cancellationToken)
     {
         // Why: SQLite changes() also reports a conflict update, while Postgres xmax is dialect-specific.
@@ -815,16 +807,7 @@ internal sealed class CardCategoryRepository
 
         if (insertedCardId is not null)
         {
-            await connection.ExecuteAsync(new CommandDefinition(
-                """
-                INSERT INTO card_category_summary (card_id, category, observation_rows)
-                VALUES (@cardId, @category, 1)
-                ON CONFLICT(card_id, category)
-                DO UPDATE SET observation_rows = card_category_summary.observation_rows + 1;
-                """,
-                new { cardId, category },
-                transaction: transaction,
-                cancellationToken: cancellationToken)).ConfigureAwait(false);
+            deltas.Add(cardId, category, 1);
             return;
         }
 
@@ -842,24 +825,46 @@ internal sealed class CardCategoryRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
-    private static async Task DeleteCategoryObservationsForSourceAsync(DbConnection connection, DbTransaction transaction, long sourceId, CancellationToken cancellationToken)
+    private async Task DeleteCategoryObservationsForSourceAsync(
+        DbConnection connection, DbTransaction transaction, long sourceId, CategoryWriteOrder deltas, CancellationToken cancellationToken)
     {
-        var deleted = await connection.QueryAsync<CategorySummaryKey>(new CommandDefinition(
-            "DELETE FROM card_category_observations WHERE source_id = @sourceId RETURNING card_id AS CardId, category AS Category;",
-            new { sourceId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        // Why: concurrent source deletes lock shared summary rows in this order to avoid PostgreSQL deadlocks.
-        foreach (var group in deleted.GroupBy(row => new { row.CardId, row.Category })
-                     .OrderBy(group => group.Key.CardId)
-                     .ThenBy(group => group.Key.Category, StringComparer.Ordinal))
+        if (_connectionInfo.Provider == RelationalDatabaseProvider.Postgres)
         {
-            var parameters = new { cardId = group.Key.CardId, category = group.Key.Category, deletedRows = group.Count() };
-            await connection.ExecuteAsync(new CommandDefinition(
-                "UPDATE card_category_summary SET observation_rows = observation_rows - @deletedRows WHERE card_id = @cardId AND category = @category;",
-                parameters, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-            // Why: decrement before deleting ensures concurrent source deletes cannot both miss the row.
-            await connection.ExecuteAsync(new CommandDefinition(
-                "DELETE FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows <= 0;",
-                parameters, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await connection.QueryAsync<CategoryObservationKey>(new CommandDefinition(
+                "SELECT card_id AS CardId, category AS Category, board AS Board FROM card_category_observations WHERE source_id = @sourceId ORDER BY card_id, category, board FOR UPDATE;",
+                new { sourceId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        var deleted = await connection.QueryAsync<CategoryObservationKey>(new CommandDefinition(
+            "DELETE FROM card_category_observations WHERE source_id = @sourceId RETURNING card_id AS CardId, category AS Category, board AS Board;",
+            new { sourceId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        foreach (var row in deleted)
+        {
+            deltas.Add(row.CardId, row.Category, -1);
+        }
+    }
+
+    private static async Task ApplySummaryDeltasAsync(
+        DbConnection connection, DbTransaction transaction, CategoryWriteOrder deltas, CancellationToken cancellationToken)
+    {
+        foreach (var (cardId, category, delta) in deltas.Deltas())
+        {
+            if (delta > 0)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "INSERT INTO card_category_summary (card_id, category, observation_rows) VALUES (@cardId, @category, @delta) " +
+                    "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = card_category_summary.observation_rows + @delta;",
+                    new { cardId, category, delta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+            else
+            {
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "UPDATE card_category_summary SET observation_rows = observation_rows + @delta WHERE card_id = @cardId AND category = @category;",
+                    new { cardId, category, delta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows <= 0;",
+                    new { cardId, category }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
         }
     }
 
@@ -975,9 +980,10 @@ internal sealed class CardCategoryRepository
         public string Category { get; init; } = string.Empty;
     }
 
-    private sealed class CategorySummaryKey
+    private sealed class CategoryObservationKey
     {
         public long CardId { get; init; }
         public string Category { get; init; } = string.Empty;
+        public string Board { get; init; } = string.Empty;
     }
 }

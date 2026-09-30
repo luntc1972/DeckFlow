@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Data.Common;
 using Dapper;
 using Microsoft.Extensions.Logging;
@@ -11,9 +12,12 @@ namespace DeckFlow.Core.Knowledge;
 /// </summary>
 internal sealed class CategoryCacheSchema
 {
+    private static readonly ConcurrentDictionary<(RelationalDatabaseProvider Provider, string ConnectionString), SchemaState> SchemaStates = new();
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly string _directoryPath;
     private readonly ILogger? _logger;
+
+    internal ILogger? Logger => _logger;
 
     /// <summary>
     /// Initializes the schema collaborator.
@@ -33,6 +37,29 @@ internal sealed class CategoryCacheSchema
     /// </summary>
     /// <param name="cancellationToken">Optional cancellation token.</param>
     internal async Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
+    {
+        var state = SchemaStates.GetOrAdd((_connectionInfo.Provider, _connectionInfo.ConnectionString), _ => new SchemaState());
+        if (state.IsComplete)
+        {
+            return;
+        }
+
+        await state.Gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!state.IsComplete)
+            {
+                await CreateSchemaAsync(cancellationToken);
+                state.IsComplete = true;
+            }
+        }
+        finally
+        {
+            state.Gate.Release();
+        }
+    }
+
+    private async Task CreateSchemaAsync(CancellationToken cancellationToken)
     {
         if (_connectionInfo.IsSqlite)
         {
@@ -173,8 +200,8 @@ internal sealed class CategoryCacheSchema
             CREATE INDEX IF NOT EXISTS ix_totals_card_board ON card_deck_totals(card_id, board);
             """;
         indexCommand.CommandTimeout = 15;
-        // Why: indexes are startup optimizations; large production tables should have heavy
-        // indexes built out-of-band with CREATE INDEX CONCURRENTLY instead of crashing deploys.
+        // Why: unique indexes are required by ON CONFLICT writes, so a failed batch must be retried.
+        // Build heavy production indexes out-of-band with CREATE INDEX CONCURRENTLY.
         try
         {
             await indexCommand.ExecuteNonQueryAsync(cancellationToken);
@@ -183,8 +210,15 @@ internal sealed class CategoryCacheSchema
         {
             _logger?.LogWarning(
                 exception,
-                "Category knowledge index creation failed during schema startup; continuing without optional indexes.");
+                "Category knowledge index creation failed during schema startup; retrying on the next ensure.");
+            throw;
         }
+    }
+
+    private sealed class SchemaState
+    {
+        internal readonly SemaphoreSlim Gate = new(1, 1);
+        internal volatile bool IsComplete;
     }
 
     private static bool IsDuplicateColumn(DbException exception)

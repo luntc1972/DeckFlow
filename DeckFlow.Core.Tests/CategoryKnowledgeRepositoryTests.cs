@@ -172,13 +172,48 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
             await command.ExecuteNonQueryAsync();
         }
 
-        await repository.GetCategoriesAsync("Direct Summary Card");
+        var migrationPath = _databasePath + ".migration";
+        File.Copy(_databasePath, migrationPath);
+        await new CategoryKnowledgeRepository(migrationPath).GetCategoriesAsync("Direct Summary Card");
 
-        await using var verifyConnection = new SqliteConnection($"Data Source={_databasePath}");
+        await using var verifyConnection = new SqliteConnection($"Data Source={migrationPath}");
         await verifyConnection.OpenAsync();
         var verifyCommand = verifyConnection.CreateCommand();
         verifyCommand.CommandText = "SELECT observation_rows FROM card_category_summary WHERE category = 'Ramp';";
         Assert.Equal(1L, await verifyCommand.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task EnsureSchemaAsync_FailedIndexCreation_RetriesOnNextCall()
+    {
+        await CreateRepository().AddDeckIdsAsync(new[] { "schema-seed" });
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            command.CommandText = "DROP INDEX ux_cards_normalized; INSERT INTO cards (normalized_card_name, display_name) VALUES ('duplicate', 'First'), ('duplicate', 'Second');";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var retryPath = _databasePath + ".retry";
+        File.Copy(_databasePath, retryPath);
+        var retryRepository = new CategoryKnowledgeRepository(retryPath);
+        await Assert.ThrowsAsync<SqliteException>(() => retryRepository.GetCategoriesAsync("duplicate"));
+
+        await using (var connection = new SqliteConnection($"Data Source={retryPath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM cards WHERE display_name = 'Second';";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await retryRepository.GetCategoriesAsync("duplicate");
+        await using var verifyConnection = new SqliteConnection($"Data Source={retryPath}");
+        await verifyConnection.OpenAsync();
+        var verifyCommand = verifyConnection.CreateCommand();
+        verifyCommand.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'ux_cards_normalized';";
+        Assert.Equal(1L, Convert.ToInt64(await verifyCommand.ExecuteScalarAsync()));
     }
 
     [Fact]
@@ -611,7 +646,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task EnsureSchemaAsync_DoesNotThrow_WhenIndexCreationFails()
+    public async Task EnsureSchemaAsync_IndexCreationFails_LeavesTablesButThrows()
     {
         await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
         {
@@ -628,9 +663,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
 
         var repository = CreateRepository();
 
-        var exception = await Record.ExceptionAsync(() => repository.EnsureSchemaAsync());
-
-        Assert.Null(exception);
+        await Assert.ThrowsAsync<SqliteException>(() => repository.EnsureSchemaAsync());
         var tableNames = await GetTableNamesAsync();
         Assert.Contains("cards", tableNames);
         Assert.Contains("sources", tableNames);

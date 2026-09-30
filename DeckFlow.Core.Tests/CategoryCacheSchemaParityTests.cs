@@ -100,8 +100,11 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
             await ExecuteNonQueryAsync(connection, "DELETE FROM card_category_summary;");
         }
 
-        await repository.EnsureSchemaAsync();
-        await using var verificationConnection = await OpenConnectionAsync();
+        var migrationPath = Path.Combine(_tempDirectory, "category-knowledge-migration.db");
+        File.Copy(_databasePath, migrationPath);
+        await new CategoryKnowledgeRepository(migrationPath).EnsureSchemaAsync();
+        await using var verificationConnection = new SqliteConnection($"Data Source={migrationPath}");
+        await verificationConnection.OpenAsync();
         Assert.Equal(1L, await QuerySingleInt64Async(verificationConnection, "SELECT observation_rows FROM card_category_summary WHERE card_id = 1 AND category = 'Ramp';"));
     }
 
@@ -163,6 +166,23 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
         Assert.Equal(2, results.Count);
         Assert.Contains(results, row => row.Category == "Ramp" && row.CardName == "Sol Ring" && row.Count == 5 && row.DeckCount == 2);
         Assert.Contains(results, row => row.Category == "Draw" && row.CardName == "Sol Ring" && row.Count == 2 && row.DeckCount == 1);
+    }
+
+    [Fact]
+    public async Task ReplaceSourceRowsAsync_BlankCardName_SkipsBlankRow()
+    {
+        var repository = CreateRepository();
+        var rows = new[]
+        {
+            new CategoryKnowledgeRow("Ramp", " ", 1, 1),
+            new CategoryKnowledgeRow("Ramp", "Sol Ring", 1, 1),
+        };
+
+        await repository.ReplaceSourceRowsAsync("blank-card-source", rows);
+
+        Assert.Single(await repository.GetCategoryRowsForCardAsync("Sol Ring"));
+        await using var connection = await OpenConnectionAsync();
+        Assert.Equal(1L, Convert.ToInt64(await new SqliteCommand("SELECT COUNT(*) FROM card_category_observations;", connection).ExecuteScalarAsync()));
     }
 
     [Fact]
