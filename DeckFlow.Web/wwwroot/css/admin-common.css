@@ -576,7 +576,7 @@ a:hover { text-decoration: underline; }
   max-width: none;
 }
 
-.admin-shell #kb-entries-table .admin-kb-source {
+.admin-shell #kb-entries-table .admin-kb-title, .admin-shell #kb-entries-table .admin-kb-source {
   overflow-wrap: break-word;
 }
 
@@ -620,8 +620,8 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-banner--danger { background: var(--status-danger-bg); border-color: var(--status-danger); }
 .admin-shell .admin-banner--info { background: var(--status-info-bg); border-color: var(--status-info); }
 .admin-shell .admin-badge { display: inline-flex; gap: var(--space-xs); border: 1px solid currentColor; border-radius: 999px; padding: 0 var(--space-sm); white-space: nowrap; align-items: center; font-size: var(--text-label); }
-/* Tags are user-controlled text, so let long values wrap within their cell. */
-.admin-shell .admin-table td[data-label="Tags"] .admin-badge { white-space: normal; overflow-wrap: anywhere; max-width: 100%; }
+/* Tags are user-controlled text: wrap long values at word and hyphen breaks (break-word keeps the column from squeezing to one character), with 4px corners so a wrapped badge is not a tall oval. */
+.admin-shell .admin-table td[data-label="Tags"] .admin-badge { white-space: normal; overflow-wrap: break-word; max-width: 100%; border-radius: var(--radius-sm); }
 .admin-shell .admin-badge--success { color: var(--status-success); background: var(--status-success-bg); }
 .admin-shell .admin-badge--warning { color: var(--status-warning); background: var(--status-warning-bg); }
 .admin-shell .admin-badge--danger { color: var(--status-danger); background: var(--status-danger-bg); }
@@ -630,6 +630,7 @@ a:hover { text-decoration: underline; }
 /* Why: glyph gives warnings a non-color cue. */
 .admin-shell .admin-badge--alert::before { content: "⚠ "; }
 .admin-shell .admin-meta { color: var(--muted); font-size: var(--text-small); }
+/* Why anywhere, not break-word: tables without a scroll wrapper (Feedback emails) would push the page sideways at narrow desktop widths; the KB title and source opt into break-word inside their wrapper. */
 .admin-shell .admin-table td { overflow-wrap: anywhere; }
 .admin-shell .admin-button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; touch-action: manipulation; font-size: var(--text-label); }
 .admin-shell .admin-button--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
