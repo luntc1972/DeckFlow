@@ -46,6 +46,24 @@ public sealed class CutLabSimulationServiceTests
     }
 
     [Fact]
+    public async Task BuildSnapshot_CurveChangesByOneWhenOneCardLeavesLargestBucket()
+    {
+        TestPool pool = BuildContinuousCurvePool();
+        var service = CreateService(new FakeResolver(pool.Cards));
+
+        CutLabMetricSnapshot before = await service.BuildSnapshot(pool.WorkingList, "cEDH");
+
+        IReadOnlyList<CutLabPoolCard> afterWorkingList = RemoveCandidate(pool.WorkingList, "MV Three 01");
+        CutLabMetricSnapshot after = await service.BuildSnapshot(afterWorkingList, "cEDH");
+
+        double beforeCurve = Assert.Single(before.Metrics, metric => metric.Kind == CutLabMetricKind.Curve).Value;
+        double afterCurve = Assert.Single(after.Metrics, metric => metric.Kind == CutLabMetricKind.Curve).Value;
+        Assert.Equal(22, beforeCurve);
+        Assert.Equal(21, afterCurve);
+        Assert.Equal(1, Math.Abs(beforeCurve - afterCurve));
+    }
+
+    [Fact]
     public async Task BuildSnapshot_CasualModeMarksEarlyInteractionNotApplicable()
     {
         TestPool pool = BuildCasualPool();
@@ -535,6 +553,31 @@ public sealed class CutLabSimulationServiceTests
         ];
 
         cards.AddRange(Enumerable.Range(1, 62).Select(index => Spell($"Filler {index:00}", "Artifact", manaCost: "{2}", oracleText: "A test artifact.", cmc: 2)));
+
+        return new TestPool(workingList, cards);
+    }
+
+    private static TestPool BuildContinuousCurvePool()
+    {
+        List<CutLabPoolCard> workingList =
+        [
+            PoolCard("Curve Commander", "Legendary Creature — Human Wizard", isCommander: true),
+            PoolCard("Island", "Basic Land — Island", quantity: 30),
+        ];
+        workingList.AddRange(Enumerable.Range(1, 22).Select(index => PoolCard($"MV Three {index:00}", "Creature — Wizard")));
+        workingList.AddRange(Enumerable.Range(1, 17).Select(index => PoolCard($"MV One {index:00}", "Artifact")));
+        workingList.AddRange(Enumerable.Range(1, 17).Select(index => PoolCard($"MV Two {index:00}", "Artifact")));
+        workingList.AddRange(Enumerable.Range(1, 16).Select(index => PoolCard($"MV Four {index:00}", "Artifact")));
+
+        List<ScryfallCard> cards =
+        [
+            Spell("Curve Commander", "Legendary Creature — Human Wizard", manaCost: "{U}", cmc: 1),
+            Spell("Island", "Basic Land — Island", oracleText: "{T}: Add {U}.", producedMana: ["U"]),
+        ];
+        cards.AddRange(Enumerable.Range(1, 22).Select(index => Spell($"MV Three {index:00}", "Creature — Wizard", manaCost: "{2}{U}", cmc: 3)));
+        cards.AddRange(Enumerable.Range(1, 17).Select(index => Spell($"MV One {index:00}", "Artifact", manaCost: "{U}", cmc: 1)));
+        cards.AddRange(Enumerable.Range(1, 17).Select(index => Spell($"MV Two {index:00}", "Artifact", manaCost: "{1}{U}", cmc: 2)));
+        cards.AddRange(Enumerable.Range(1, 16).Select(index => Spell($"MV Four {index:00}", "Artifact", manaCost: "{3}{U}", cmc: 4)));
 
         return new TestPool(workingList, cards);
     }

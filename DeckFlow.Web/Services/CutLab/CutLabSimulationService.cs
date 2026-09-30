@@ -390,7 +390,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             Metric(CutLabMetricKind.RepresentativeLineByTurn, CutLabMetricFamily.CategoryByTurn, $"Representative line by turn {goals.RepresentativeLineByTurn}", MaxPercentByTurn(lineRows, goals.RepresentativeLineByTurn), CutLabMetricUnit.Percent),
             Metric(CutLabMetricKind.Flood, CutLabMetricFamily.FloodScrewCurveRisk, "Flood", Math.Max(0, report.LandDelta), CutLabMetricUnit.Cards),
             Metric(CutLabMetricKind.Screw, CutLabMetricFamily.FloodScrewCurveRisk, "Screw", report.MulliganEvaluation?.MulliganTo5Percent ?? 0, CutLabMetricUnit.Percent),
-            Metric(CutLabMetricKind.Curve, CutLabMetricFamily.FloodScrewCurveRisk, "Curve", CurveCongestionValue(facts, mode), CutLabMetricUnit.Cards),
+            Metric(CutLabMetricKind.Curve, CutLabMetricFamily.FloodScrewCurveRisk, "Curve", CurveCongestionValue(facts), CutLabMetricUnit.Cards),
         ];
 
         return metrics.Where(metric => double.IsFinite(metric.Value)).ToArray();
@@ -507,30 +507,15 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         return row.EarlyCastPercents[index];
     }
 
-    private static double CurveCongestionValue(IReadOnlyList<CardFact> facts, ManabaseMode mode)
+    /// <summary>Returns the quantity-weighted size of the largest nonland mana-value bucket.</summary>
+    private static double CurveCongestionValue(IReadOnlyList<CardFact> facts)
     {
-        CutLabAnalyzedCard[] analyzedCards = facts
-            .Select(fact => new CutLabAnalyzedCard(
-                fact.Name,
-                fact.ManaValue,
-                CutLabLockRules.IsLand(fact.TypeLine),
-                CutLabRoleAssigner.AssignRoles(fact, [], false, mode),
-                [])
-            {
-                Quantity = fact.Quantity,
-            })
-            .ToArray();
-
-        CutLabStructuralFindingsResult findings = CutLabStructuralFindings.Compute(
-            analyzedCards,
-            [],
-            EmptyFloors,
-            comboDataAvailable: false,
-            categoryDataAvailable: false);
-
-        return findings.Findings
-            .Where(finding => finding.Kind == CutLabFindingKind.CurveCongestion)
-            .Select(finding => (double)finding.Evidence.Count)
+        // Why: Curve is a continuous quantity metric; thresholded findings would make one cut
+        // crossing the congestion boundary change the value by the whole bucket.
+        return facts
+            .Where(fact => !CutLabLockRules.IsLand(fact.TypeLine))
+            .GroupBy(fact => CutLabStructuralFindings.ManaValueBucket(fact.ManaValue))
+            .Select(bucket => bucket.Sum(fact => fact.Quantity))
             .DefaultIfEmpty(0)
             .Max();
     }

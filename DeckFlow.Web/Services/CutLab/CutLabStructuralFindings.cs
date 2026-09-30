@@ -718,7 +718,7 @@ public static class CutLabStructuralFindings
     private static int FloorFor(IReadOnlyDictionary<string, int> floors, string roleKey)
         => floors.TryGetValue(roleKey, out int floor) ? floor : 0;
 
-    private static string ManaValueBucket(double manaValue)
+    internal static string ManaValueBucket(double manaValue)
     {
         if (manaValue <= 1)
         {
