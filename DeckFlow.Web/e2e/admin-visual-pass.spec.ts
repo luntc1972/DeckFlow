@@ -57,6 +57,52 @@ test.afterEach(async () => {
   heldLock = null;
 });
 
+async function measureSyntheticBadge(page: Page, text: string, label: string, constrain = false) {
+  return page.evaluate(({ text, label, constrain }) => {
+    const shell = document.querySelector<HTMLElement>('.admin-shell')!;
+    const table = document.createElement('table');
+    table.className = 'admin-table admin-table--card';
+    if (constrain) {
+      table.style.width = '10rem';
+      table.style.tableLayout = 'fixed';
+    }
+    table.innerHTML = `<tbody><tr><td data-label="${label}"><span class="admin-badge admin-badge--neutral"></span></td></tr></tbody>`;
+    const cell = table.querySelector<HTMLElement>('td')!;
+    const badge = cell.querySelector<HTMLElement>('.admin-badge')!;
+    badge.textContent = text;
+    shell.append(table);
+    try {
+      const box = badge.getBoundingClientRect();
+      const cellBox = cell.getBoundingClientRect();
+      const style = getComputedStyle(badge);
+      return { height: box.height, lineHeight: Number.parseFloat(style.lineHeight), badgeRight: box.right, cellRight: cellBox.right, scrollWidth: badge.scrollWidth, clientWidth: badge.clientWidth };
+    } finally { table.remove(); }
+  }, { text, label, constrain });
+}
+
+async function measureHarvestBadge(page: Page, maxWidth?: string) {
+  return page.locator('#health-queued-decks').evaluate((queued, maxWidth) => {
+    const tile = queued.closest<HTMLElement>('.admin-stat-tile')!;
+    if (maxWidth) tile.style.maxWidth = maxWidth;
+    const badge = document.createElement('span');
+    badge.className = 'admin-badge admin-badge--warning admin-badge--alert';
+    badge.textContent = 'Backlog exceeds floor and growing';
+    tile.append(badge);
+    try {
+      const style = getComputedStyle(badge);
+      const tileStyle = getComputedStyle(tile);
+      const box = badge.getBoundingClientRect();
+      const tileBox = tile.getBoundingClientRect();
+      const left = tileBox.left + Number.parseFloat(tileStyle.borderLeftWidth) + Number.parseFloat(tileStyle.paddingLeft);
+      const right = tileBox.right - Number.parseFloat(tileStyle.borderRightWidth) - Number.parseFloat(tileStyle.paddingRight);
+      return { height: box.height, lineHeight: Number.parseFloat(style.lineHeight), left, right, badgeLeft: box.left, badgeRight: box.right, scrollWidth: badge.scrollWidth, clientWidth: badge.clientWidth, documentWidth: document.documentElement.scrollWidth, innerWidth, topLeft: style.borderTopLeftRadius, bottomRight: style.borderBottomRightRadius };
+    } finally {
+      badge.remove();
+      tile.style.maxWidth = '';
+    }
+  }, maxWidth);
+}
+
 test('admin tokens resolve on the live admin shell', async ({ page }) => {
   const response = await page.goto('/Admin/Tools');
   expect(response?.ok()).toBeTruthy();
@@ -322,22 +368,27 @@ test('content kb status and publish badges stay on one line', async ({ page }) =
   expect(result.scrollWidth, 'content kb table does not scroll horizontally').toBeLessThanOrEqual(result.clientWidth + 1);
 });
 
+test('synthetic fixed-vocabulary badge stays on one line without KB fixtures', async ({ page }) => {
+  const response = await page.goto('/Admin/ContentKb');
+  expect(response?.ok()).toBeTruthy();
+  const result = await measureSyntheticBadge(page, 'Published', 'Status');
+  expect(result.lineHeight).toBeGreaterThan(0);
+  expect(Number.isFinite(result.lineHeight)).toBeTruthy();
+  expect(result.height / result.lineHeight).toBeLessThan(1.6);
+});
+
+test('synthetic Content KB tag badge wraps inside its cell', async ({ page }) => {
+  const response = await page.goto('/Admin/ContentKb');
+  expect(response?.ok()).toBeTruthy();
+  const result = await measureSyntheticBadge(page, 'tag-with-an-extremely-long-unbroken-value-that-must-wrap', 'Tags', true);
+  expect(result.badgeRight, 'tag badge stays inside its cell').toBeLessThanOrEqual(result.cellRight + .5);
+  expect(result.scrollWidth, 'tag badge does not overflow its own box').toBeLessThanOrEqual(result.clientWidth + 1);
+});
+
 test('harvest backlog badge stays inside its stat tile', async ({ page }) => {
   const response = await page.goto('/Admin/Harvest');
   expect(response?.ok()).toBeTruthy();
-  const result = await page.locator('#health-queued-decks').evaluate((queued) => {
-    const tile = queued.closest<HTMLElement>('.admin-stat-tile')!;
-    const badge = document.createElement('span');
-    badge.className = 'admin-badge admin-badge--warning admin-badge--alert';
-    badge.textContent = 'Backlog exceeds floor and growing';
-    tile.append(badge);
-    try {
-      const style = getComputedStyle(tile); const rect = tile.getBoundingClientRect(); const box = badge.getBoundingClientRect();
-      const left = rect.left + Number.parseFloat(style.borderLeftWidth) + Number.parseFloat(style.paddingLeft);
-      const right = rect.right - Number.parseFloat(style.borderRightWidth) - Number.parseFloat(style.paddingRight);
-      return { left, right, badgeLeft: box.left, badgeRight: box.right, scrollWidth: badge.scrollWidth, clientWidth: badge.clientWidth, documentWidth: document.documentElement.scrollWidth, innerWidth };
-    } finally { badge.remove(); }
-  });
+  const result = await measureHarvestBadge(page);
   expect(result.badgeLeft, 'backlog badge fits its stat tile').toBeGreaterThanOrEqual(result.left - .5);
   expect(result.badgeRight, 'backlog badge fits its stat tile').toBeLessThanOrEqual(result.right + .5);
   expect(result.scrollWidth, 'backlog badge fits its stat tile').toBeLessThanOrEqual(result.clientWidth + 1);
@@ -347,12 +398,7 @@ test('harvest backlog badge stays inside its stat tile', async ({ page }) => {
 test('wrapped harvest backlog badge uses 4px corners', async ({ page }) => {
   const response = await page.goto('/Admin/Harvest');
   expect(response?.ok()).toBeTruthy();
-  const result = await page.locator('#health-queued-decks').evaluate((queued) => {
-    const tile = queued.closest<HTMLElement>('.admin-stat-tile')!; const badge = document.createElement('span');
-    badge.className = 'admin-badge admin-badge--warning admin-badge--alert'; badge.textContent = 'Backlog exceeds floor and growing'; tile.append(badge);
-    try { const style = getComputedStyle(badge); return { height: badge.getBoundingClientRect().height, lineHeight: Number.parseFloat(style.lineHeight), topLeft: style.borderTopLeftRadius, bottomRight: style.borderBottomRightRadius }; }
-    finally { badge.remove(); }
-  });
+  const result = await measureHarvestBadge(page, '12rem');
   expect(result.lineHeight).toBeGreaterThan(0);
   expect(Number.isFinite(result.lineHeight)).toBeTruthy();
   expect(result.height / result.lineHeight, 'backlog badge wraps in its stat tile').toBeGreaterThanOrEqual(1.6);

@@ -125,6 +125,15 @@ public sealed class AdminCssComponentTests
     }
 
     [Fact]
+    public void ContentKbTagBadge_AllowsLongTagsToWrap()
+    {
+        const string selector = ".admin-shell .admin-table td[data-label=\"Tags\"] .admin-badge";
+        AssertDeclares(selector, "white-space", "normal");
+        AssertDeclares(selector, "overflow-wrap", "anywhere");
+        AssertDeclares(selector, "max-width", "100%");
+    }
+
+    [Fact]
     public void Badge_UsesLabelTextSize()
     {
         AssertDeclares(".admin-shell .admin-badge", "font-size", "var(--text-label)");
@@ -133,6 +142,6 @@ public sealed class AdminCssComponentTests
     [Fact]
     public void StatTileBadge_UsesFourPixelRadius()
     {
-        AssertDeclares(".admin-shell .admin-stat-tile .admin-badge", "border-radius", "4px");
+        AssertDeclares(".admin-shell .admin-stat-tile .admin-badge", "border-radius", "var(--radius-sm)");
     }
 }
