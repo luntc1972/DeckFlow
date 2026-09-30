@@ -88,6 +88,12 @@
     padding: var(--space-sm) var(--space-md);
   }
 
+  /* Why: display: block on card rows outranks the UA [hidden] rule, so rows the
+     Content KB filter hides would stay visible at 768px and below. */
+  .admin-shell .admin-table--card tr[hidden] {
+    display: none;
+  }
+
   /* Long unbroken user data must wrap at 320px: emails, page URLs,
      user agents, hashes, flag keys, and feedback messages. */
   .admin-shell .admin-table--card td {
