@@ -23,6 +23,7 @@ public sealed class AdminCssTokenTests
     [InlineData("--space-xl", "32px")]
     [InlineData("--space-2xl", "48px")]
     [InlineData("--space-3xl", "64px")]
+    [InlineData("--radius-sm", "4px")]
     [InlineData("--text-small", "12px")]
     [InlineData("--text-label", "13px")]
     [InlineData("--text-body", "15px")]
