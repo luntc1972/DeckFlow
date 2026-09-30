@@ -1490,11 +1490,7 @@ public static class CastabilitySimulator
 
     // ---- one game -------------------------------------------------------------------------
 
-    // Plays out turns 1..(turn+grace), drawing every turn (Commander is multiplayer, so the starting
-    // player draws on turn 1 too). Returns true if the spell becomes castable on the
-    // effective turn OR within the grace window after it. The grace window tracks Snail/Karsten,
-    // whose "cast rate" is not strict-on-curve but tolerates a short delay (a player happily casts a
-    // 6-drop on turn 7-8). Out-params attribute the LAST turn's failure to mana vs color coverage.
+    // Why: per-call scratch buffers are reused across trials, never shared across requests or threads.
     private sealed class GameScratch
     {
         public List<PlayedLand> LandsOnBoard { get; } = new(16);
@@ -1508,6 +1504,11 @@ public static class CastabilitySimulator
         public List<(int Mask, int Amount)> RitualBursts { get; } = new(8);
     }
 
+    // Plays out turns 1..(turn+grace), drawing every turn (Commander is multiplayer, so the starting
+    // player draws on turn 1 too). Returns true if the spell becomes castable on the
+    // effective turn OR within the grace window after it. The grace window tracks Snail/Karsten,
+    // whose "cast rate" is not strict-on-curve but tolerates a short delay (a player happily casts a
+    // 6-drop on turn 7-8). Out-params attribute the LAST turn's failure to mana vs color coverage.
     private static bool SimulateGame(
         IReadOnlyList<LibraryCard> library,
         int[] shuffled,
