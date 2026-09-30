@@ -581,6 +581,50 @@ test('content kb filter hides non-matching rows at 390px', async ({ page }) => {
   expect(await rows.evaluateAll(items => items.filter(row => !(row as HTMLElement).checkVisibility()).length), 'clearing the content kb filter shows every row again').toBe(0);
 });
 
+test('long content kb title and source stay inside the table wrapper at 320px', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  const response = await page.goto('/Admin/ContentKb?visibilityFilter=all');
+  expect(response?.ok()).toBeTruthy();
+  const rows = page.locator('#kb-entries-table tbody tr:not(#kb-filter-empty):visible');
+  test.skip(await rows.count() === 0, 'no KB rows seeded');
+  const overflow = await page.evaluate(() => {
+    const row = document.querySelector<HTMLTableRowElement>('#kb-entries-table tbody tr:not(#kb-filter-empty):not([hidden])');
+    if (!row) {
+      throw new Error('No visible KB row found');
+    }
+    const title = row.querySelector<HTMLTableCellElement>('td.admin-kb-title');
+    const source = row.querySelector<HTMLTableCellElement>('.admin-kb-source');
+    if (!title) {
+      throw new Error('KB title cell not found');
+    }
+    const originalTitle = title.textContent;
+    const originalSource = source?.textContent;
+    try {
+      title.textContent = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLmagicthegatheringcommander';
+      if (source) {
+        source.textContent = 'https://example.com/this-is-a-long-unbroken-content-kb-source-value-for-mobile';
+      }
+      const wrapper = document.querySelector<HTMLElement>('.admin-table-scroll:has(#kb-entries-table)');
+      if (!wrapper) {
+        throw new Error('KB table wrapper not found');
+      }
+      return {
+        wrapperScrollWidth: wrapper.scrollWidth,
+        wrapperClientWidth: wrapper.clientWidth,
+        documentScrollWidth: document.documentElement.scrollWidth,
+        documentInnerWidth: window.innerWidth,
+      };
+    } finally {
+      title.textContent = originalTitle;
+      if (source) {
+        source.textContent = originalSource ?? '';
+      }
+    }
+  });
+  expect(overflow.wrapperScrollWidth, 'long content kb title stays inside the table wrapper at 320px').toBeLessThanOrEqual(overflow.wrapperClientWidth + 1);
+  expect(overflow.documentScrollWidth, 'content kb page does not scroll horizontally at 320px').toBeLessThanOrEqual(overflow.documentInnerWidth + 1);
+});
+
 test('admin page screenshots', async ({ page }, testInfo) => {
   test.skip(!process.env.ADMIN_SCREENSHOT_DIR, 'ADMIN_SCREENSHOT_DIR is not set.');
   test.setTimeout(180000);

@@ -154,6 +154,15 @@ public sealed class AdminCssComponentTests
     }
 
     [Fact]
+    public void ContentKbTitleAndSource_WrapAnywhereOnMobileCards()
+    {
+        const string selector = ".admin-shell #kb-entries-table .admin-kb-title, .admin-shell #kb-entries-table .admin-kb-source";
+        var declarations = SingleRule(selector, "admin-mobile.css");
+        declarations.TryGetValue("overflow-wrap", out var overflowWrap);
+        Assert.True(overflowWrap == "anywhere", selector + " must declare overflow-wrap: anywhere; actual: " + (overflowWrap ?? "missing"));
+    }
+
+    [Fact]
     public void CardTableHiddenRow_StaysHidden()
     {
         var declarations = SingleRule(".admin-shell .admin-table--card tr[hidden]", "admin-mobile.css");
