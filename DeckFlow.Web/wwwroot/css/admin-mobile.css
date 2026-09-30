@@ -107,6 +107,12 @@
     overflow-wrap: anywhere;
   }
 
+  /* Why: the desktop break-word rule for KB title/source carries ID specificity and would otherwise beat the card-cell anywhere rule, so a long URL title would push the card table sideways at 320px. */
+  .admin-shell #kb-entries-table .admin-kb-title,
+  .admin-shell #kb-entries-table .admin-kb-source {
+    overflow-wrap: anywhere;
+  }
+
   /* Visual-only label for sighted users; real column context comes from <th>. */
   .admin-shell .admin-table--card td::before {
     content: attr(data-label);
