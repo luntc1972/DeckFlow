@@ -260,12 +260,22 @@ public static class PlanRoleClassifier
     // Bloodchief), which wrongly earned PlanRole.Interaction in cEDH. The singular token is now
     // word-bounded, while the closed compounds counterspell/countermagic stay explicit; and
     // "counterspell" already prefixes "counterspells", so the plural needs no separate needle.
+    // Why: the F5 census found counter-mechanic tags such as doubler, synergy, payoff, +1/+1,
+    // and charge earning Interaction, so a qualifier excludes those tags.
+    private static readonly string[] CounterMechanicQualifiers =
+    [
+        "+1/+1", "-1/-1", "charge", "doubler", "multiplier", "synergy", "payoff", "manipulation",
+        "generat", "enhancer", "support", "increase", "booster", "remove counter"
+    ];
+
     private static bool IsCounterCategory(string category)
         => Has(category, "counterspell", "countermagic")
-            || HasWord(category, "counter");
+            || (HasWord(category, "counter") && !Has(category, CounterMechanicQualifiers));
 
+    // Why: "mana advantage" is ramp, not card flow, mirroring the draw/ramp exclusion.
     private static bool IsEngineCategory(string category)
-        => Has(category, "engine", "advantage", "card draw", "value")
+        => Has(category, "engine", "card draw", "value")
+            || (Has(category, "advantage") && !Has(category, "mana"))
             || (Has(category, "draw") && !Has(category, "ramp", "mana"));
 
     private static bool Has(string haystack, params string[] needles)

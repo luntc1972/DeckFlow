@@ -74,6 +74,80 @@ public sealed class PlanRoleClassifierTests
     }
 
     [Theory]
+    [InlineData("counter doubler")]
+    [InlineData("counter synergy")]
+    [InlineData("+1/+1 counter")]
+    [InlineData("charge counter")]
+    [InlineData("counter manipulation")]
+    [InlineData("counter multiplier")]
+    [InlineData("remove counter")]
+    [InlineData("counter generation")]
+    [InlineData("+1/+1 counter support")]
+    [InlineData("-1/-1 counter")]
+    [InlineData("counter enhancer")]
+    [InlineData("counter increase")]
+    [InlineData("counter booster")]
+    public void CounterMechanicCategory_DoesNotEarnInteraction(string category)
+    {
+        PlanRole roles = PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Cedh);
+
+        Assert.Equal(PlanRole.None, roles & PlanRole.Interaction);
+        Assert.Equal(roles != PlanRole.None, PlanRoleClassifier.CategoryMapsToPlanRole(category));
+    }
+
+    [Theory]
+    [InlineData("counter")]
+    [InlineData("counter spell")]
+    [InlineData("counter spells")]
+    [InlineData("counter magic")]
+    [InlineData("counter(spell)")]
+    [InlineData("counterspell")]
+    [InlineData("counterspells")]
+    public void CounterspellCategory_StillEarnsInteraction(string category)
+    {
+        PlanRole roles = PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.Interaction));
+        Assert.True(PlanRoleClassifier.CategoryMapsToPlanRole(category));
+    }
+
+    [Fact]
+    public void CounterPayoffCategory_EarnsPayoffWithoutInteraction()
+    {
+        const string category = "counter payoff";
+        PlanRole roles = PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Cedh);
+
+        Assert.Equal(PlanRole.Payoff, roles);
+        Assert.True(PlanRoleClassifier.CategoryMapsToPlanRole(category));
+    }
+
+    [Theory]
+    [InlineData("mana advantage")]
+    [InlineData("ramp/mana advantage")]
+    public void ManaAdvantageCategory_DoesNotEarnEngine(string category)
+    {
+        PlanRole roles = PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Cedh);
+
+        Assert.Equal(PlanRole.None, roles & PlanRole.Engine);
+        Assert.Equal(roles != PlanRole.None, PlanRoleClassifier.CategoryMapsToPlanRole(category));
+    }
+
+    [Theory]
+    [InlineData("card advantage")]
+    [InlineData("advantage")]
+    [InlineData("card_advantage")]
+    [InlineData("cardadvantage")]
+    [InlineData("card-advantage")]
+    [InlineData("card advantage/selection")]
+    public void CardAdvantageCategory_StillEarnsEngine(string category)
+    {
+        PlanRole roles = PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.Engine));
+        Assert.True(PlanRoleClassifier.CategoryMapsToPlanRole(category));
+    }
+
+    [Theory]
     [InlineData("Counters")]
     [InlineData("Counters Matter")]
     [InlineData("+1/+1 Counters")]
