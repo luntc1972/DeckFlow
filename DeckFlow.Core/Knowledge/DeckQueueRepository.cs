@@ -13,6 +13,16 @@ namespace DeckFlow.Core.Knowledge;
 internal sealed class DeckQueueRepository
 {
     private static readonly TimeSpan DeckRefreshCooldown = TimeSpan.FromDays(5);
+    // Why: the Postgres pending-index test EXPLAINs these exact texts to verify they use ix_deck_queue_pending.
+    internal const string NextUnprocessedDeckIdsSql = """
+            SELECT deck_id
+            FROM deck_queue
+            WHERE processed = 0 AND skipped = 0
+            -- Why: inserted_utc is shared by every row in a queued batch, so id preserves FIFO order for ties.
+            ORDER BY inserted_utc, id
+            LIMIT @count;
+            """;
+    internal const string UnprocessedCountSql = "SELECT COUNT(1) FROM deck_queue WHERE processed = 0 AND skipped = 0;";
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
 
@@ -195,14 +205,7 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
 
         var deckIds = await connection.QueryAsync<string>(new CommandDefinition(
-            """
-            SELECT deck_id
-            FROM deck_queue
-            WHERE processed = 0 AND skipped = 0
-            -- Why: inserted_utc is shared by every row in a queued batch, so id preserves FIFO order for ties.
-            ORDER BY inserted_utc, id
-            LIMIT @count;
-            """,
+            NextUnprocessedDeckIdsSql,
             new { count },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
 
@@ -220,7 +223,7 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
 
         var result = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-            "SELECT COUNT(1) FROM deck_queue WHERE processed = 0 AND skipped = 0;",
+            UnprocessedCountSql,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return checked((int)result);
     }

@@ -216,6 +216,8 @@ internal sealed class CategoryCacheSchema
             CREATE INDEX IF NOT EXISTS ix_obs_source ON card_category_observations(source_id);
             CREATE INDEX IF NOT EXISTS ix_totals_card ON card_deck_totals(card_id);
             CREATE INDEX IF NOT EXISTS ix_totals_card_board ON card_deck_totals(card_id, board);
+            -- Why: pending rows are a tiny slice behind ~670k skipped rows, so dequeue and count need an index excluding skipped rows; production builds it out-of-band with CREATE INDEX CONCURRENTLY before deploy.
+            CREATE INDEX IF NOT EXISTS ix_deck_queue_pending ON deck_queue(inserted_utc, id) WHERE processed = 0 AND skipped = 0;
             """;
         secondaryIndexCommand.CommandTimeout = 15;
         // Why: secondary indexes improve read performance, but failure must not block category operations.

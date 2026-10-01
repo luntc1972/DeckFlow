@@ -68,7 +68,7 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
     }
 
     [Fact]
-    public async Task EnsureSchema_OnFreshSqlite_CreatesLoweredCommanderIndex()
+    public async Task EnsureSchema_OnFreshSqlite_CreatesQueueIndexes()
     {
         var repository = CreateRepository();
 
@@ -85,6 +85,32 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
             """);
 
         Assert.Equal(1, indexCount);
+        Assert.Equal(1L, await QuerySingleInt64Async(
+            connection,
+            "SELECT COUNT(1) FROM sqlite_master WHERE type = 'index' AND name = 'ix_deck_queue_pending';"));
+    }
+
+    [Fact]
+    public async Task GetNextUnprocessedDeckIdsAsync_MixedQueue_ReturnsPendingInInsertedOrder()
+    {
+        var repository = CreateRepository();
+        await repository.EnsureSchemaAsync();
+        await using (var connection = await OpenConnectionAsync())
+        {
+            await ExecuteNonQueryAsync(
+                connection,
+                """
+                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped) VALUES
+                    ('skipped', '2026-01-01', 0, 1),
+                    ('processed', '2026-01-02', 1, 0),
+                    ('later', '2026-01-04', 0, 0),
+                    ('first-tie', '2026-01-03', 0, 0),
+                    ('second-tie', '2026-01-03', 0, 0);
+                """);
+        }
+
+        Assert.Equal(new[] { "first-tie", "second-tie", "later" }, await repository.GetNextUnprocessedDeckIdsAsync(10));
+        Assert.Equal(3, await repository.GetUnprocessedCountAsync());
     }
 
     [Fact]
