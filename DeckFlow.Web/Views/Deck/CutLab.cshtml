@@ -1185,6 +1185,25 @@
                 </div>
                 <div class="cut-lab-plan-panel" data-cut-lab-plan-panel>
                     <p class="cut-lab-plan-panel__zero-notice @(Model.PlanPanel.ZeroSelectionNotice ? "" : "hidden")" role="status" data-cut-lab-plan-zero-notice>With nothing checked, the cut engine behaves exactly as it does today.</p>
+                    <fieldset class="cut-lab-plan-panel__archetypes" data-cut-lab-plan-archetypes>
+                        <legend>Deck archetype</legend>
+                        <p>What kind of deck is this? The archetype adds its strategies below and sets default goal turns. Your own choice always wins over the suggestion.</p>
+                        @foreach (CutLabPlanArchetypeRowView row in Model.PlanPanel.ArchetypeRows)
+                        {
+                            <label class="cut-lab-plan-panel__row">
+                                <input type="radio" name="PlanArchetype" value="@row.Slug" checked="@(row.IsChecked ? "checked" : null)" data-cut-lab-plan-archetype />
+                                <span class="cut-lab-plan-panel__row-body">
+                                    <span class="cut-lab-plan-panel__row-name">@row.DisplayName</span>
+                                    @if (row.IsSuggested) { <span data-cut-lab-archetype-badge="suggested">Suggested@(row.IsLowConfidence ? " · low confidence" : "")</span> }
+                                    @if (row.IsChecked && row.Slug.Length > 0) { <span data-cut-lab-archetype-badge="choice">Your choice</span> }
+                                    <span class="cut-lab-plan-panel__row-definition">@row.Definition</span>
+                                    @if (row.Detail.Length > 0) { <span>@row.Detail</span> }
+                                    @if (row.SuggestionReason is not null) { <span>Why suggested: @row.SuggestionReason</span> }
+                                </span>
+                            </label>
+                        }
+                        <p class="cut-lab-plan-panel__archetype-notice hidden" role="status" data-cut-lab-archetype-notice></p>
+                    </fieldset>
                     <fieldset class="cut-lab-plan-panel__strategies">
                         <legend>Generic strategies</legend>
                         @foreach (var row in Model.PlanPanel.StrategyRows)

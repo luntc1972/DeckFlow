@@ -26,6 +26,8 @@ public interface ICutLabPageService
 /// <summary>Result of Cut Lab page processing.</summary>
 public sealed record CutLabProcessResult
 {
+    /// <summary>Suggested deck archetype derived from final analysis context.</summary>
+    public CutLabArchetypeSuggestion? ArchetypeSuggestion { get; init; }
     /// <summary>The resolved working-session state for the page.</summary>
     public CutLabState? State { get; init; }
 
@@ -635,6 +637,16 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyDictionary<string, CutLabComboBadgeView> comboBadgeByCardName = BuildComboBadgeByCardName(
             analysisContext.Classification.CardComboMembership);
 
+        CutLabArchetypeSuggestion? archetypeSuggestion = null;
+        try
+        {
+            archetypeSuggestion = CutLabArchetypeSuggester.Suggest(analysisContext.AnalyzedCards, analysisContext.Classification, planThemeResult.Themes);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Could not suggest Cut Lab deck archetype");
+        }
+
         return new CutLabProcessResult
         {
             State = state,
@@ -665,6 +677,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             HasResult = true,
             AvailableCommanderThemes = planThemeResult.Themes,
             CommanderThemesUnavailable = planThemeResult.IsUnavailable,
+            ArchetypeSuggestion = archetypeSuggestion,
         };
     }
 

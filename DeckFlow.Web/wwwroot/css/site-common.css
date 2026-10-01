@@ -5632,7 +5632,8 @@ input[data-cut-lab-floor] {
 }
 
 .cut-lab-plan-panel__strategies,
-.cut-lab-plan-panel__themes {
+.cut-lab-plan-panel__themes,
+.cut-lab-plan-panel__archetypes {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
@@ -5644,7 +5645,9 @@ input[data-cut-lab-floor] {
 }
 
 .cut-lab-plan-panel__strategies legend,
-.cut-lab-plan-panel__themes legend {
+.cut-lab-plan-panel__themes legend,
+.cut-lab-plan-panel__archetypes legend,
+.cut-lab-plan-panel__archetypes > p {
   grid-column: 1 / -1;
   padding: 0 0.25rem;
   font-size: var(--fs-sm);
@@ -5667,7 +5670,8 @@ input[data-cut-lab-floor] {
   background: color-mix(in srgb, var(--accent) 12%, var(--panel));
 }
 
-.cut-lab-plan-panel__row input[type="checkbox"] {
+.cut-lab-plan-panel__row input[type="checkbox"],
+.cut-lab-plan-panel__row input[type="radio"] {
   margin-top: 0.2rem;
   min-width: 1.1rem;
   min-height: 1.1rem;
@@ -6329,7 +6333,8 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
   }
 
   .cut-lab-plan-panel__strategies,
-  .cut-lab-plan-panel__themes {
+  .cut-lab-plan-panel__themes,
+  .cut-lab-plan-panel__archetypes {
     grid-template-columns: 1fr;
   }
 

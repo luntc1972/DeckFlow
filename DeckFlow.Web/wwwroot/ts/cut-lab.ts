@@ -20,6 +20,7 @@ interface CutLabPlanProfileThemeSnapshot {
 }
 
 interface CutLabPlanProfileSnapshot {
+  archetype?: string | null;
   genericStrategies: string[];
   commanderThemes: CutLabPlanProfileThemeSnapshot[];
   commanderThemesUnavailable?: boolean;
@@ -216,6 +217,9 @@ interface CutLabPatchResponse {
   appliedStrategies?: string[];
   appliedThemes?: string[];
   commanderThemesUnavailable?: boolean;
+  appliedArchetype?: string | null;
+  appliedGoals?: { commanderByTurn?: number; engineByTurn?: number; representativeLineByTurn?: number } | null;
+  goalOutcome?: 'Unchanged' | 'Replaced' | 'Kept' | null;
 }
 
 interface CutLabFloorRow {
@@ -3785,6 +3789,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     themeCheckboxes: HTMLInputElement[] = getPlanPanelCheckboxes('PlanThemes'),
     strategyCheckboxes: HTMLInputElement[] = getPlanPanelCheckboxes('PlanStrategies'),
   ): CutLabPlanProfileSnapshot => ({
+    archetype: document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked')?.value || null,
     genericStrategies: strategyCheckboxes
       .filter(checkbox => checkbox.checked)
       .map(checkbox => checkbox.value),
@@ -3794,7 +3799,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     commanderThemesUnavailable: themeCheckboxes.length === 0 ? persistedProfile?.commanderThemesUnavailable : undefined,
   });
 
-  const syncPlanPanel = (appliedStrategies: string[], appliedThemes: string[]): void => {
+  const syncPlanPanel = (appliedStrategies: string[], appliedThemes: string[], appliedArchetype: string | null = null): void => {
     const strategySlugs = new Set(appliedStrategies.map(slug => slug.toLowerCase()));
     const themeSlugs = new Set(appliedThemes.map(slug => slug.toLowerCase()));
     const strategyCheckboxes = getPlanPanelCheckboxes('PlanStrategies');
@@ -3805,11 +3810,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     themeCheckboxes.forEach(checkbox => {
       checkbox.checked = themeSlugs.has(checkbox.value.toLowerCase());
     });
+    const archetype = document.querySelector<HTMLInputElement>(`input[name="PlanArchetype"][value="${appliedArchetype ?? ''}"]`);
+    if (archetype) {
+      archetype.checked = true;
+    }
     const notice = document.querySelector<HTMLElement>('[data-cut-lab-plan-zero-notice]');
     if (notice) {
       const anyChecked = [...strategyCheckboxes, ...themeCheckboxes]
         .some(checkbox => checkbox.checked);
-      notice.classList.toggle('hidden', anyChecked);
+      notice.classList.toggle('hidden', anyChecked || appliedArchetype !== null);
     }
   };
 
@@ -3863,6 +3872,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const persistedPlanProfile = persistedState.intent?.planProfile;
     const persistedStrategySlugs = persistedPlanProfile?.genericStrategies ?? [];
     const persistedThemeSlugs = (persistedPlanProfile?.commanderThemes ?? []).map(theme => theme.slug);
+    const persistedArchetype = persistedPlanProfile?.archetype ?? null;
     const nextState: Partial<CutLabStateSnapshot> = {
       ...persistedState,
       intent: {
@@ -3890,32 +3900,32 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const response = await fetch(cutLabPlanApplyApiEndpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ cutLabStateJson: JSON.stringify(nextState) }),
+        body: JSON.stringify({ cutLabStateJson: JSON.stringify(nextState), priorArchetype: persistedArchetype }),
         signal: controller.signal,
       });
 
       if (!response.ok) {
         renderPlanPanelError(root, await readErrorMessage(response));
-        syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs);
+        if (!planApplyPendingChange) syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
         return;
       }
 
       const data = await response.json() as CutLabPatchResponse;
       if (!data.patch?.cutLabStateJson) {
         renderPlanPanelError(root, cutLabDecisionErrorCopy);
-        syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs);
+        if (!planApplyPendingChange) syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
         return;
       }
 
       applyServerPatch(data.patch, antiForgeryToken);
       if (!planApplyPendingChange) {
-        syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? []);
+        syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? [], data.appliedArchetype ?? null);
       }
     } catch (error) {
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
         : cutLabDecisionErrorCopy);
-      syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs);
+      if (!planApplyPendingChange) syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
     } finally {
       window.clearTimeout(timeoutId);
       planApplySubmitInFlight = false;
@@ -4674,7 +4684,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
-      if (target.name !== 'PlanStrategies' && target.name !== 'PlanThemes') {
+      if (target.name !== 'PlanStrategies' && target.name !== 'PlanThemes' && target.name !== 'PlanArchetype') {
         return;
       }
 

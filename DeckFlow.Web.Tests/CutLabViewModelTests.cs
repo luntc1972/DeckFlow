@@ -311,6 +311,43 @@ public sealed class CutLabViewModelTests
             countsByRole ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
             "Focused");
 
+    [Fact]
+    public void BuildPlanPanel_Archetype_RowsIncludeNoneFirstThenSevenInCatalogOrder()
+    {
+        CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(null, [], false);
+        Assert.Equal(string.Empty, panel.ArchetypeRows[0].Slug);
+        Assert.Equal(CutLabArchetypeCatalog.Entries.Select(entry => entry.Slug), panel.ArchetypeRows.Skip(1).Select(row => row.Slug));
+    }
+
+    [Fact]
+    public void BuildPlanPanel_Archetype_SuggestedRowFlaggedWithReason_ChosenRowChecked()
+    {
+        CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax" }, [], false, new("turbo-combo", CutLabArchetypeConfidence.High, "Fast mana."));
+        Assert.True(panel.ArchetypeRows.Single(row => row.Slug == "stax").IsChecked);
+        Assert.True(panel.ArchetypeRows.Single(row => row.Slug == "turbo-combo").IsSuggested);
+    }
+
+    [Fact]
+    public void BuildPlanPanel_Archetype_PresetStrategyRowImpliedNotChecked()
+    {
+        CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax" }, [], false);
+        Assert.False(panel.StrategyRows.Single(row => row.Slug == "stax").IsChecked);
+    }
+
+    [Fact]
+    public void BuildPlanPanel_Archetype_NullSuggestion_NoBadgeNoReason()
+    {
+        CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(null, [], false);
+        Assert.All(panel.ArchetypeRows, row => Assert.False(row.IsSuggested));
+    }
+
+    [Fact]
+    public void BuildPlanPanel_Archetype_ArchetypeOnly_HidesZeroSelectionNotice()
+    {
+        CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax" }, [], false);
+        Assert.False(panel.ZeroSelectionNotice);
+    }
+
     private static CutLabResolvedFloor CreateResolvedFloor(
         string role,
         int bracketValue,

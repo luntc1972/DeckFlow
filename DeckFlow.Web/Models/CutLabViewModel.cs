@@ -328,7 +328,7 @@ public sealed record CutLabViewModel
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
         CutLabFloorFeasibilityResult? floorFeasibility = CutLabFloorFeasibility.Evaluate(result.ResolvedFloors);
-        CutLabPlanPanelView planPanel = BuildPlanPanel(result.State?.Intent.PlanProfile, result.AvailableCommanderThemes, result.CommanderThemesUnavailable);
+        CutLabPlanPanelView planPanel = BuildPlanPanel(result.State?.Intent.PlanProfile, result.AvailableCommanderThemes, result.CommanderThemesUnavailable, result.ArchetypeSuggestion);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, string> roleKeysByCardName = BuildRoleKeysByCardName(pool, result.RoleAssignmentsByCardName);
         IReadOnlyDictionary<string, CutLabCardTextView> cardTextByCardName = result.CardTextByCardName;
@@ -569,7 +569,8 @@ public sealed record CutLabViewModel
     internal static CutLabPlanPanelView BuildPlanPanel(
         CutLabPlanProfile? planProfile,
         IReadOnlyList<CutLabCommanderTheme> availableThemes,
-        bool commanderThemesUnavailable)
+        bool commanderThemesUnavailable,
+        CutLabArchetypeSuggestion? archetypeSuggestion = null)
     {
         HashSet<string> checkedStrategySlugs = new(
             planProfile?.GenericStrategies ?? [],
@@ -601,12 +602,30 @@ public sealed record CutLabViewModel
             })
             .ToArray();
 
-        bool zeroSelectionNotice = strategyRows.All(row => !row.IsChecked) && themeRows.All(row => !row.IsChecked);
+        string? chosenArchetype = CutLabArchetypeCatalog.NormalizeSlug(planProfile?.Archetype);
+        IReadOnlyList<CutLabPlanArchetypeRowView> archetypeRows =
+        [
+            new() { Slug = string.Empty, DisplayName = "None", Definition = "Choose strategies and goals yourself.", IsChecked = chosenArchetype is null },
+            .. CutLabArchetypeCatalog.Entries.Select(entry => new CutLabPlanArchetypeRowView
+            {
+                Slug = entry.Slug,
+                DisplayName = entry.DisplayName,
+                Definition = entry.Definition,
+                Detail = $"Adds: {string.Join(" / ", entry.PresetStrategies)} · Goals T{entry.DefaultGoals.CommanderByTurn} / T{entry.DefaultGoals.EngineByTurn} / T{entry.DefaultGoals.RepresentativeLineByTurn}",
+                IsChecked = string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
+                IsSuggested = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase) && !string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
+                IsLowConfidence = archetypeSuggestion?.Confidence == CutLabArchetypeConfidence.Low,
+                SuggestionReason = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase) ? archetypeSuggestion.Reason : null,
+            })
+        ];
+        bool zeroSelectionNotice = chosenArchetype is null && strategyRows.All(row => !row.IsChecked) && themeRows.All(row => !row.IsChecked);
 
         return new CutLabPlanPanelView
         {
             StrategyRows = strategyRows,
             ThemeRows = themeRows,
+            ArchetypeRows = archetypeRows,
+            ChosenArchetypeName = archetypeRows.FirstOrDefault(row => row.IsChecked && row.Slug.Length > 0)?.DisplayName,
             CommanderThemesUnavailable = commanderThemesUnavailable,
             ZeroSelectionNotice = zeroSelectionNotice,
         };
@@ -1267,6 +1286,8 @@ public sealed record CutLabFloorRowView
 /// <summary>Plan-panel view: the twelve generic strategy checkboxes, the commander theme checkboxes, and derived display flags.</summary>
 public sealed record CutLabPlanPanelView
 {
+    public IReadOnlyList<CutLabPlanArchetypeRowView> ArchetypeRows { get; init; } = [];
+    public string? ChosenArchetypeName { get; init; }
     /// <summary>One row per fixed generic strategy, in catalog declaration order.</summary>
     public IReadOnlyList<CutLabPlanStrategyRowView> StrategyRows { get; init; } = [];
 
