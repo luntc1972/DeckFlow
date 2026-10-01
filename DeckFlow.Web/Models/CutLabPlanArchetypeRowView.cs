@@ -4,6 +4,7 @@ namespace DeckFlow.Web.Models;
 public sealed record CutLabPlanArchetypeRowView
 {
     public string Slug { get; init; } = string.Empty;
+    public IReadOnlyList<string> PresetStrategies { get; init; } = [];
     public string DisplayName { get; init; } = string.Empty;
     public string Definition { get; init; } = string.Empty;
     public string Detail { get; init; } = string.Empty;

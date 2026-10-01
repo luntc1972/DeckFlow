@@ -124,6 +124,16 @@ public sealed class CutLabViewRenderTests
     }
 
     [Fact]
+    public async Task Render_Archetype_RadioCarriesPresetStrategySlugs()
+    {
+        CutLabViewModel model = BuildTwinBadgeModel() with { PlanPanel = CutLabViewModel.BuildPlanPanel(null, [], false) };
+        string html = await RenderAsync(model);
+
+        Assert.Contains("value=\"stax\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-cut-lab-archetype-presets=\"stax\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ResultView_RendersLockPoolStickySummaryWithDistinctTargets()
     {
         var model = new CutLabViewModel

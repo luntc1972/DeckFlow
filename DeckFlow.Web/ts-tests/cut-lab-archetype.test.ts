@@ -20,12 +20,29 @@ const response = (archetype: string | null, outcome: 'Replaced' | 'Kept' | 'Unch
 const flush = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); await new Promise(resolve => window.setTimeout(resolve, 0)); };
 
 const buildFixture = (): HTMLInputElement => {
-  document.body.innerHTML = `<form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /><button data-cut-lab-plan-apply-submit>Apply plan</button></form><div data-cut-lab-plan-panel><label><input type="radio" name="PlanArchetype" value="stax" checked data-cut-lab-plan-archetype /><span class="cut-lab-plan-panel__row-name">Stax</span></label><label><input type="radio" name="PlanArchetype" value="turbo-combo" data-cut-lab-plan-archetype /><span class="cut-lab-plan-panel__row-name">Turbo</span></label><p data-cut-lab-plan-zero-notice></p><p class="hidden" data-cut-lab-archetype-notice></p></div><form data-cut-lab-goals-form><input data-cut-lab-goal="commanderByTurn" value="4" /><input data-cut-lab-goal="engineByTurn" value="5" /><input data-cut-lab-goal="representativeLineByTurn" value="6" /></form><div class="cutlab-proposal"></div>`;
+  document.body.innerHTML = `<form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /><button data-cut-lab-plan-apply-submit>Apply plan</button></form><div data-cut-lab-plan-panel><label><input type="radio" name="PlanArchetype" value="" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="" /><span class="cut-lab-plan-panel__row-name">None</span></label><label><input type="radio" name="PlanArchetype" value="stax" checked data-cut-lab-plan-archetype data-cut-lab-archetype-presets="stax" /><span class="cut-lab-plan-panel__row-name">Stax</span></label><label><input type="radio" name="PlanArchetype" value="turbo-combo" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="combo" /><span class="cut-lab-plan-panel__row-name">Turbo</span></label><label class="cut-lab-plan-panel__row"><input type="checkbox" name="PlanStrategies" value="stax" /><span class="cut-lab-plan-panel__row-name">Stax strategy</span></label><p data-cut-lab-plan-zero-notice></p><p class="hidden" data-cut-lab-archetype-notice></p></div><form data-cut-lab-goals-form><input data-cut-lab-goal="commanderByTurn" value="4" /><input data-cut-lab-goal="engineByTurn" value="5" /><input data-cut-lab-goal="representativeLineByTurn" value="6" /></form><div class="cutlab-proposal"></div>`;
   document.dispatchEvent(new Event('DOMContentLoaded'));
   return document.querySelector<HTMLInputElement>('input[value="turbo-combo"]')!;
 };
 
 describe('cut-lab archetype picker', () => {
+  it('Archetype pick sets implied chip on preset strategy rows and None clears it', async () => {
+    buildFixture();
+    const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
+    const none = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"][value=""]')!;
+    const strategy = document.querySelector<HTMLInputElement>('input[name="PlanStrategies"][value="stax"]')!;
+    fetchMock.mockResolvedValueOnce(response('stax')).mockResolvedValueOnce(response(null));
+
+    stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(strategy.closest('label')!.classList.contains('cut-lab-plan-panel__row--implied')).toBe(true);
+    expect(strategy.closest('label')!.querySelector('.cut-lab-plan-panel__badge--implied')!.textContent).toBe('Included by Stax');
+    expect(strategy.checked).toBe(false);
+
+    none.checked = true; none.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(strategy.closest('label')!.classList.contains('cut-lab-plan-panel__row--implied')).toBe(false);
+    expect(strategy.closest('label')!.querySelector('.cut-lab-plan-panel__badge--implied')).toBeNull();
+  });
+
   it('posts planProfile.archetype and priorArchetype for a radio pick', async () => {
     const radio = buildFixture(); fetchMock.mockResolvedValueOnce(response('turbo-combo'));
     radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); await flush();

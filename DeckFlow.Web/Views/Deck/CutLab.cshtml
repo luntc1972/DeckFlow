@@ -1191,7 +1191,7 @@
                         @foreach (CutLabPlanArchetypeRowView row in Model.PlanPanel.ArchetypeRows)
                         {
                             <label class="cut-lab-plan-panel__row">
-                                <input type="radio" name="PlanArchetype" value="@row.Slug" checked="@(row.IsChecked ? "checked" : null)" data-cut-lab-plan-archetype />
+                                <input type="radio" name="PlanArchetype" value="@row.Slug" checked="@(row.IsChecked ? "checked" : null)" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="@string.Join(" ", row.PresetStrategies)" />
                                 <span class="cut-lab-plan-panel__row-body">
                                     <span class="cut-lab-plan-panel__row-name">@row.DisplayName</span>
                                     @if (row.IsSuggested) { <span class="cut-lab-plan-panel__badge @(row.IsLowConfidence ? "cut-lab-plan-panel__badge--low" : "")" data-cut-lab-archetype-badge="suggested">Suggested@(row.IsLowConfidence ? " · low confidence" : "")</span> }

@@ -3816,6 +3816,20 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-badge="choice"]').forEach(badge => badge.classList.add('hidden'));
       archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="choice"]')?.classList.remove('hidden');
     }
+    const presetStrategies = new Set((archetype?.dataset.cutLabArchetypePresets ?? '').split(' ').filter(Boolean).map(slug => slug.toLowerCase()));
+    const archetypeName = archetype?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.textContent?.trim() ?? '';
+    strategyCheckboxes.forEach(checkbox => {
+      const row = checkbox.closest<HTMLElement>('label');
+      const isImplied = presetStrategies.has(checkbox.value.toLowerCase());
+      row?.classList.toggle('cut-lab-plan-panel__row--implied', isImplied);
+      row?.querySelector('.cut-lab-plan-panel__badge--implied')?.remove();
+      if (isImplied) {
+        const badge = document.createElement('span');
+        badge.className = 'cut-lab-plan-panel__badge cut-lab-plan-panel__badge--implied';
+        badge.textContent = `Included by ${archetypeName}`;
+        row?.querySelector('.cut-lab-plan-panel__row-name')?.after(badge);
+      }
+    });
     const notice = document.querySelector<HTMLElement>('[data-cut-lab-plan-zero-notice]');
     if (notice) {
       const anyChecked = [...strategyCheckboxes, ...themeCheckboxes]
