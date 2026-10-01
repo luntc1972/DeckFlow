@@ -243,8 +243,11 @@ public static class PlanRoleClassifier
         => oracle.Contains("counter target", StringComparison.OrdinalIgnoreCase)
             && oracle.Contains("spell", StringComparison.OrdinalIgnoreCase);
 
+    // Why: substring "win" matched brewing, drawing, swing, twin, and window in prod crowd tags.
+    // The other needles' substring-only hits were plurals or compounds, so they stay on Has.
     private static bool IsPayoffCategory(string category)
-        => Has(category, "win", "finisher", "payoff", "wincon", "win con", "win-con", "closer", "beater");
+        => Has(category, "finisher", "payoff", "closer", "beater")
+            || HasWord(category, "win", "wins", "wincon", "wincons", "win con", "win-con", "winner", "winners", "winning");
 
     private static bool IsTutorComboCategory(string category)
         => Has(category, "tutor", "combo");
@@ -278,26 +281,29 @@ public static class PlanRoleClassifier
         return false;
     }
 
-    private static bool HasWord(string haystack, string needle)
+    private static bool HasWord(string haystack, params string[] needles)
     {
-        int startIndex = 0;
-        while (startIndex <= haystack.Length - needle.Length)
+        foreach (string needle in needles)
         {
-            int index = haystack.IndexOf(needle, startIndex, StringComparison.Ordinal);
-            if (index < 0)
+            int startIndex = 0;
+            while (startIndex <= haystack.Length - needle.Length)
             {
-                return false;
-            }
+                int index = haystack.IndexOf(needle, startIndex, StringComparison.Ordinal);
+                if (index < 0)
+                {
+                    break;
+                }
 
-            bool startBounded = index == 0 || !char.IsAsciiLetterOrDigit(haystack[index - 1]);
-            int endIndex = index + needle.Length;
-            bool endBounded = endIndex == haystack.Length || !char.IsAsciiLetterOrDigit(haystack[endIndex]);
-            if (startBounded && endBounded)
-            {
-                return true;
-            }
+                bool startBounded = index == 0 || !char.IsAsciiLetterOrDigit(haystack[index - 1]);
+                int endIndex = index + needle.Length;
+                bool endBounded = endIndex == haystack.Length || !char.IsAsciiLetterOrDigit(haystack[endIndex]);
+                if (startBounded && endBounded)
+                {
+                    return true;
+                }
 
-            startIndex = index + 1;
+                startIndex = index + 1;
+            }
         }
 
         return false;

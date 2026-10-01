@@ -449,6 +449,45 @@ public sealed class PlanRoleClassifierTests
     }
 
     [Theory]
+    [InlineData("brewing")]
+    [InlineData("drawing cards")]
+    [InlineData("big swing")]
+    [InlineData("window")]
+    [InlineData("twin")]
+    [InlineData("twins")]
+    [InlineData("twincon")]
+    [InlineData("winota")]
+    [InlineData("winnow")]
+    [InlineData("crewing")]
+    public void FromCategories_EmbeddedWinTag_DoesNotEarnPayoff(string category)
+    {
+        PlanRole roles = PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Cedh);
+
+        Assert.Equal(PlanRole.None, roles & PlanRole.Payoff);
+        Assert.Equal(roles != PlanRole.None, PlanRoleClassifier.CategoryMapsToPlanRole(category));
+    }
+
+    [Theory]
+    [InlineData("win condition")]
+    [InlineData("alt win")]
+    [InlineData("win-con")]
+    [InlineData("win con")]
+    [InlineData("wincon")]
+    [InlineData("wincons")]
+    [InlineData("alt wincon")]
+    [InlineData("combo/wincon")]
+    [InlineData("wins")]
+    [InlineData("game winners")]
+    [InlineData("winning")]
+    public void FromCategories_WinTag_EarnsPayoff(string category)
+    {
+        PlanRole roles = PlanRoleClassifier.FromCategories(new[] { category }, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.Payoff));
+        Assert.True(PlanRoleClassifier.CategoryMapsToPlanRole(category));
+    }
+
+    [Theory]
     [InlineData("Win Condition")]
     [InlineData("Card Draw")]
     [InlineData("Removal")]
