@@ -464,10 +464,15 @@ public sealed class CutLabApiController : ControllerBase
             CutLabPlanProfile rebuiltProfile = CutLabPageService.BuildPlanProfile(
                 postedProfile?.GenericStrategies ?? [],
                 postedProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [],
+                postedProfile?.Archetype,
                 priorProfile: postedProfile,
                 planThemeResult: planThemeResult);
 
-            state = state with { Intent = state.Intent with { PlanProfile = rebuiltProfile } };
+            (CutLabGoalSettings goals, CutLabArchetypeGoalOutcome goalOutcome) = CutLabArchetypeGoalRules.Apply(
+                state.Goals,
+                request.PriorArchetype,
+                rebuiltProfile.Archetype);
+            state = state with { Goals = goals, Intent = state.Intent with { PlanProfile = rebuiltProfile } };
 
             CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
                 state,
@@ -481,6 +486,9 @@ public sealed class CutLabApiController : ControllerBase
                 AppliedStrategies = rebuiltProfile.GenericStrategies,
                 AppliedThemes = rebuiltProfile.CommanderThemes.Select(theme => theme.Slug).ToArray(),
                 CommanderThemesUnavailable = rebuiltProfile.CommanderThemesUnavailable,
+                AppliedArchetype = rebuiltProfile.Archetype,
+                AppliedGoals = goals,
+                GoalOutcome = goalOutcome,
             });
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)

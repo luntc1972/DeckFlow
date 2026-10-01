@@ -27,6 +27,9 @@ public sealed class CutLabRequest
     /// <summary>Checked EDHREC commander-theme slugs, form-bound from the plan panel.</summary>
     public IReadOnlyList<string> PlanThemes { get; set; } = [];
 
+    /// <summary>Optional selected deck archetype slug, form-bound from the plan panel.</summary>
+    public string? PlanArchetype { get; set; }
+
     /// <summary>Optional target Commander bracket for the finished deck.</summary>
     public int? Bracket { get; set; }
 

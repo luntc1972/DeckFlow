@@ -13,4 +13,7 @@ public sealed record CutLabPlanApplyApiRequest
     /// <summary>Serialized Cut Lab working-session state envelope carrying the checked plan profile.</summary>
     [Required]
     public string CutLabStateJson { get; init; } = string.Empty;
+
+    /// <summary>Archetype selected before this plan-panel edit.</summary>
+    public string? PriorArchetype { get; init; }
 }

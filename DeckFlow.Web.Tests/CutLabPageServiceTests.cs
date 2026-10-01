@@ -1516,6 +1516,35 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_Archetype_Changed_ReplacesDefaultsAndPreservesFloors()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(BuildResolvedCards(entries)), new FakeBanListService([]));
+        CutLabState priorState = new() { RoleFloors = [new CutLabRoleFloor { Role = "ramp", Floor = 10, IsUserSet = true }] };
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool", PlanArchetype = "stax", CutLabStateJson = CutLabStateSerializer.Serialize(priorState) };
+
+        CutLabProcessResult result = await service.ProcessAsync(request);
+
+        Assert.Equal("stax", result.State!.Intent.PlanProfile!.Archetype);
+        Assert.True(CutLabArchetypeCatalog.TryGetBySlug("stax", out CutLabArchetypeEntry? archetype));
+        Assert.Equal(archetype!.DefaultGoals, result.State.Goals);
+        Assert.Equal(10, Assert.Single(result.State.RoleFloors).Floor);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_Archetype_Absent_BehavesAsToday()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(BuildResolvedCards(entries)), new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        CutLabProcessResult result = await service.ProcessAsync(request);
+
+        Assert.Null(result.State!.Intent.PlanProfile!.Archetype);
+        Assert.Equal(new CutLabGoalSettings(), result.State.Goals);
+    }
+
+    [Fact]
     public async Task ProcessAsync_AmbiguousCommanderInference_ReturnsSelectionRequired()
     {
         var entries = new List<DeckEntry>

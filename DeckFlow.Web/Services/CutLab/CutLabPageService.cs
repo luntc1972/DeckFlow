@@ -947,6 +947,12 @@ internal sealed class CutLabPageService : ICutLabPageService
             })
             .ToArray();
 
+        CutLabPlanProfile planProfile = BuildPlanProfile(request, priorState.Intent.PlanProfile, planThemeResult);
+        (CutLabGoalSettings goals, _) = CutLabArchetypeGoalRules.Apply(
+            priorState.Goals,
+            priorState.Intent.PlanProfile?.Archetype,
+            planProfile.Archetype);
+
         return new CutLabState
         {
             Commander = commanderNames.Count == 0 ? string.Empty : commanderNames[0],
@@ -955,7 +961,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             Decisions = priorState.Decisions,
             QuantityAdjustments = priorState.QuantityAdjustments,
             OriginalEntries = priorState.OriginalEntries,
-            Goals = priorState.Goals,
+            Goals = goals,
             BaselineSnapshot = priorState.BaselineSnapshot,
             BaselineActualLands = priorState.BaselineActualLands,
             BaselineTargetLands = priorState.BaselineTargetLands,
@@ -967,7 +973,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             {
                 PrimaryPlan = request.PrimaryPlan,
                 SecondaryPlan = string.IsNullOrWhiteSpace(request.SecondaryPlan) ? null : request.SecondaryPlan,
-                PlanProfile = BuildPlanProfile(request, priorState.Intent.PlanProfile, planThemeResult),
+                PlanProfile = planProfile,
                 Bracket = request.Bracket,
                 PlayExperience = request.PlayExperience,
                 IncludeSideboard = request.IncludeSideboard,
@@ -984,7 +990,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         CutLabRequest request,
         CutLabPlanProfile? priorProfile,
         EdhrecThemeResult planThemeResult)
-        => BuildPlanProfile(request.PlanStrategies ?? [], request.PlanThemes ?? [], priorProfile, planThemeResult);
+        => BuildPlanProfile(request.PlanStrategies ?? [], request.PlanThemes ?? [], request.PlanArchetype, priorProfile, planThemeResult);
 
     /// <summary>
     /// Filters posted strategy and theme slugs into a validated <see cref="CutLabPlanProfile"/> — shared by
@@ -998,6 +1004,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     internal static CutLabPlanProfile BuildPlanProfile(
         IReadOnlyList<string> requestedStrategySlugs,
         IReadOnlyList<string> requestedThemeSlugs,
+        string? requestedArchetype,
         CutLabPlanProfile? priorProfile,
         EdhrecThemeResult planThemeResult)
     {
@@ -1050,6 +1057,7 @@ internal sealed class CutLabPageService : ICutLabPageService
 
         return new CutLabPlanProfile
         {
+            Archetype = CutLabArchetypeCatalog.NormalizeSlug(requestedArchetype),
             GenericStrategies = resolvedStrategies,
             CommanderThemes = checkedThemes,
             CommanderThemesUnavailable = planThemeResult.IsUnavailable,

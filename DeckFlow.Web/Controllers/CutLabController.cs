@@ -98,7 +98,8 @@ public sealed class CutLabController : Controller
         try
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-            RehydrateIntakeRequestFromState(request, state, preservePostedPlanProfile: true);
+            bool formHasNoPlanArchetype = Request.HasFormContentType && !Request.Form.ContainsKey("PlanArchetype");
+            RehydrateIntakeRequestFromState(request, state, preservePostedPlanProfile: true, formHasNoPlanArchetype);
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
             return View("CutLab", CutLabViewModel.From(request, result, currentStepOverride: 3));
@@ -461,7 +462,8 @@ public sealed class CutLabController : Controller
     private static void RehydrateIntakeRequestFromState(
         CutLabRequest request,
         CutLabState state,
-        bool preservePostedPlanProfile = false)
+        bool preservePostedPlanProfile = false,
+        bool formHasNoPlanArchetype = false)
     {
         if (!NeedsDeckInputRehydration(request, state))
         {
@@ -477,6 +479,11 @@ public sealed class CutLabController : Controller
         {
             request.PlanStrategies = state.Intent.PlanProfile?.GenericStrategies ?? [];
             request.PlanThemes = state.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
+        }
+
+        if (formHasNoPlanArchetype)
+        {
+            request.PlanArchetype = state.Intent.PlanProfile?.Archetype;
         }
         request.Bracket = state.Intent.Bracket;
         request.PlayExperience = state.Intent.PlayExperience;

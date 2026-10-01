@@ -1292,6 +1292,85 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostPlanApplyAsync_Archetype_SurvivesBuildPlanProfileRebuild()
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), patchBuilder);
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with { Intent = baseState.Intent with { PlanProfile = new CutLabPlanProfile { Archetype = "stax" } } };
+
+        await controller.PostPlanApplyAsync(new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) }, CancellationToken.None);
+
+        Assert.Equal("stax", patchBuilder.LastState!.Intent.PlanProfile!.Archetype);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_Archetype_Changed_ReplacesDefaultGoals_ReportsReplaced()
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), patchBuilder);
+        CutLabState state = CreateState();
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(new CutLabPlanApplyApiRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state with { Intent = state.Intent with { PlanProfile = new CutLabPlanProfile { Archetype = "stax" } } }),
+        }, CancellationToken.None);
+
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Equal("stax", body.AppliedArchetype);
+        Assert.Equal(CutLabArchetypeGoalOutcome.Replaced, body.GoalOutcome);
+        Assert.Equal(patchBuilder.LastState!.Goals, body.AppliedGoals);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_Archetype_Changed_CustomGoalsKept_ReportsKept()
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), patchBuilder);
+        CutLabState state = CreateState() with { Goals = new CutLabGoalSettings { CommanderByTurn = 9 } };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(new CutLabPlanApplyApiRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state with { Intent = state.Intent with { PlanProfile = new CutLabPlanProfile { Archetype = "stax" } } }),
+        }, CancellationToken.None);
+
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Equal(CutLabArchetypeGoalOutcome.Kept, body.GoalOutcome);
+        Assert.Equal(9, body.AppliedGoals.CommanderByTurn);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_Archetype_Unchanged_GoalsUntouched_ReportsUnchanged()
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), patchBuilder);
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with { Goals = new CutLabGoalSettings { CommanderByTurn = 9 }, Intent = baseState.Intent with { PlanProfile = new CutLabPlanProfile { Archetype = "stax" } } };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(new CutLabPlanApplyApiRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state), PriorArchetype = "stax" }, CancellationToken.None);
+
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Equal(CutLabArchetypeGoalOutcome.Unchanged, body.GoalOutcome);
+        Assert.Equal(9, body.AppliedGoals.CommanderByTurn);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_Archetype_InvalidSlug_AppliedArchetypeNull()
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), patchBuilder);
+        CutLabState baseState = CreateState();
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(new CutLabPlanApplyApiRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(baseState with { Intent = baseState.Intent with { PlanProfile = new CutLabPlanProfile { Archetype = "invalid" } } }),
+        }, CancellationToken.None);
+
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Null(body.AppliedArchetype);
+    }
+
+    [Fact]
     public async Task PostPlanApplyAsync_ThemeServiceUnavailable_PreservesSlugsAndStripsThemeMetadata()
     {
         FakeEdhrecCommanderThemeService themeService = new()
@@ -1449,6 +1528,7 @@ public sealed class CutLabApiControllerTests
         CutLabPlanProfile rebuilt = CutLabPageService.BuildPlanProfile(
             [],
             [],
+            null,
             priorProfile,
             new EdhrecThemeResult([voltron, stax], false));
 
