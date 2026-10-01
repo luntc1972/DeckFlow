@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using DeckFlow.Web.Models.CutLab;
 
 namespace DeckFlow.Web.Services.CutLab;
@@ -57,6 +58,16 @@ public static class CutLabStateSerializer
 
         try
         {
+            if (JsonNode.Parse(json) is JsonObject root &&
+                root["intent"] is JsonObject intent &&
+                intent["planProfile"] is JsonObject jsonPlanProfile &&
+                jsonPlanProfile["archetype"] is JsonNode archetype &&
+                (archetype is not JsonValue value || !value.TryGetValue<string>(out _)))
+            {
+                jsonPlanProfile.Remove("archetype");
+                json = root.ToJsonString();
+            }
+
             var state = JsonSerializer.Deserialize<CutLabState>(json, Options) ?? new CutLabState();
             state = state with
             {
@@ -92,6 +103,7 @@ public static class CutLabStateSerializer
                     PlanProfile = state.Intent?.PlanProfile is { } planProfile
                         ? planProfile with
                         {
+                            Archetype = CutLabArchetypeCatalog.NormalizeSlug(planProfile.Archetype),
                             GenericStrategies = (planProfile.GenericStrategies ?? [])
                                 .Where(strategy => !string.IsNullOrWhiteSpace(strategy))
                                 .Distinct(StringComparer.OrdinalIgnoreCase)

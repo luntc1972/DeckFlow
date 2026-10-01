@@ -112,4 +112,54 @@ public sealed class CutLabPlanProfileTests
         Assert.NotNull(withEmptyProfile.PlanProfile);
         Assert.Null(withNullProfile.PlanProfile);
     }
+
+    [Fact]
+    public void SerializeDeserialize_Archetype_RoundTrips()
+    {
+        var state = new CutLabState { Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { Archetype = "stax" } } };
+
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(state));
+
+        Assert.Equal("stax", roundTripped.Intent.PlanProfile!.Archetype);
+    }
+
+    [Fact]
+    public void Deserialize_LegacyStateWithoutArchetype_IsNull()
+    {
+        var state = new CutLabState { Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile() } };
+        string json = CutLabStateSerializer.Serialize(state).Replace("\"archetype\":null,", string.Empty, StringComparison.Ordinal);
+
+        CutLabState deserialized = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Null(deserialized.Intent.PlanProfile!.Archetype);
+    }
+
+    [Fact]
+    public void Deserialize_UnknownArchetypeSlug_DropsToNull()
+    {
+        var state = new CutLabState { Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { Archetype = "unknown" } } };
+
+        CutLabState deserialized = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(state));
+
+        Assert.Null(deserialized.Intent.PlanProfile!.Archetype);
+    }
+
+    [Fact]
+    public void Deserialize_NumericArchetype_DropsToNullWithoutThrowing()
+    {
+        var state = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Sol Ring" }],
+            Goals = new CutLabGoalSettings { CommanderByTurn = 4 },
+            Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { Archetype = "stax", GenericStrategies = ["combo"] } },
+        };
+        string json = CutLabStateSerializer.Serialize(state).Replace("\"archetype\":\"stax\"", "\"archetype\":7", StringComparison.Ordinal);
+
+        CutLabState deserialized = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Single(deserialized.Pool);
+        Assert.Equal(4, deserialized.Goals.CommanderByTurn);
+        Assert.Equal(["combo"], deserialized.Intent.PlanProfile!.GenericStrategies);
+        Assert.Null(deserialized.Intent.PlanProfile.Archetype);
+    }
 }

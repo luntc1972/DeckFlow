@@ -244,6 +244,9 @@ public sealed record CutLabIntent
 /// </summary>
 public sealed record CutLabPlanProfile
 {
+    /// <summary>Optional stable slug for the selected deck archetype.</summary>
+    public string? Archetype { get; init; }
+
     /// <summary>
     /// Checked generic strategy slugs, resolved against <c>DeckPlanStrategyCatalog</c>. Defaults to
     /// an empty list, which behaves as a no-op.
