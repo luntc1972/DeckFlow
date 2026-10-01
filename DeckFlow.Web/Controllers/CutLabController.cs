@@ -477,6 +477,7 @@ public sealed class CutLabController : Controller
         request.SecondaryPlan = state.Intent.SecondaryPlan ?? string.Empty;
         if (!preservePostedPlanProfile)
         {
+            request.PlanArchetype = state.Intent.PlanProfile?.Archetype;
             request.PlanStrategies = state.Intent.PlanProfile?.GenericStrategies ?? [];
             request.PlanThemes = state.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
         }
