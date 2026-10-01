@@ -40,14 +40,14 @@ public static class CutLabPlanAffinityResolver
         ArgumentNullException.ThrowIfNull(themeCardNamesBySlug);
         ArgumentNullException.ThrowIfNull(allKnownThemes);
 
-        if (planProfile is null || (planProfile.GenericStrategies.Count == 0 && planProfile.CommanderThemes.Count == 0))
+        if (planProfile is null || (CutLabArchetypeCatalog.EffectiveStrategies(planProfile).Count == 0 && planProfile.CommanderThemes.Count == 0))
         {
             return CutLabCardNames.ToLastWinsDictionary(pool, card => card.Name, _ => CutLabPlanAffinity.Neutral);
         }
 
         Dictionary<string, HashSet<string>> normalizedThemeCards = BuildThemeCardIndex(themeCardNamesBySlug);
         HashSet<string> checkedThemeSlugs = new(planProfile.CommanderThemes.Select(theme => theme.Slug), StringComparer.OrdinalIgnoreCase);
-        HashSet<string> checkedStrategySlugs = new(planProfile.GenericStrategies, StringComparer.OrdinalIgnoreCase);
+        HashSet<string> checkedStrategySlugs = new(CutLabArchetypeCatalog.EffectiveStrategies(planProfile), StringComparer.OrdinalIgnoreCase);
         Dictionary<string, CutLabCommanderTheme> knownThemesBySlug = allKnownThemes
             .GroupBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);

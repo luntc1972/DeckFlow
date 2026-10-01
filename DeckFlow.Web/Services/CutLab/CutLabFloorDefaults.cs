@@ -160,7 +160,7 @@ public static class CutLabFloorDefaults
             return resolved;
         }
 
-        foreach (string slug in planProfile.GenericStrategies)
+        foreach (string slug in CutLabArchetypeCatalog.EffectiveStrategies(planProfile))
         {
             if (!DeckPlanStrategyCatalog.TryGetBySlug(slug, out DeckPlanStrategyEntry strategy)
                 || !PlanFloorDeltas.TryGetValue(strategy.Slug, out IReadOnlyDictionary<string, int>? deltas))

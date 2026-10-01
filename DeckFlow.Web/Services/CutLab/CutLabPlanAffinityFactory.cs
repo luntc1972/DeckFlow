@@ -78,7 +78,7 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
         ArgumentNullException.ThrowIfNull(commanderNames);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (planProfile is null || (planProfile.GenericStrategies.Count == 0 && planProfile.CommanderThemes.Count == 0))
+        if (planProfile is null || (CutLabArchetypeCatalog.EffectiveStrategies(planProfile).Count == 0 && planProfile.CommanderThemes.Count == 0))
         {
             return new(null, false);
         }
