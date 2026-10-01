@@ -62,6 +62,12 @@ var manabaseSwapPromptOption = new Option<bool>("--swap-prompt") { Description =
 var edhrecAveragesCommand = new Command("edhrec-averages", "Convert an EDHREC averages.csv dump into the bundled manabase-baseline data file.");
 var edhrecAveragesCsvOption = new Option<string>("--csv") { Description = "Path to the extracted averages.csv dump.", IsRequired = true };
 var edhrecAveragesDataFileOption = new Option<string>("--data-file", () => Path.Combine("DeckFlow.Web", "Data", "manabase-baseline", "latest.json")) { Description = "Path to the bundled manabase-baseline snapshot JSON." };
+var edhrecStaplesCommand = new Command("edhrec-staples", "Convert EDHREC data.csv and averages.csv dumps into the bundled commander staples data file.");
+var edhrecStaplesDataCsvOption = new Option<string>("--data-csv") { Description = "Path to the extracted EDHREC data.csv dump.", IsRequired = true };
+var edhrecStaplesAveragesCsvOption = new Option<string>("--averages-csv") { Description = "Path to the extracted EDHREC averages.csv dump.", IsRequired = true };
+var edhrecStaplesDataFileOption = new Option<string>("--data-file", () => Path.Combine("DeckFlow.Web", "Data", "commander-staples", "latest.json")) { Description = "Path to the bundled commander staples snapshot JSON." };
+var edhrecStaplesMinDecksOption = new Option<int>("--min-decks", () => 100) { Description = "Minimum commander deck count." };
+var edhrecStaplesMinInclusionOption = new Option<double>("--min-inclusion", () => 0.5) { Description = "Minimum card inclusion ratio." };
 var edhrecDownloadCommand = new Command("edhrec-download", "Download EDHREC's published averages.tgz and/or data.tgz dumps.");
 var edhrecDownloadDatasetOption = new Option<string>("--dataset", () => "all") { Description = "Dataset to download: all | averages | data." };
 var edhrecDownloadOutOption = new Option<string>("--out", () => Path.Combine("artifacts", "edhrec")) { Description = "Output directory for downloaded archives and extracted CSVs." };
@@ -192,6 +198,11 @@ manabaseCommand.AddOption(manabaseModeOption);
 manabaseCommand.AddOption(manabaseSwapPromptOption);
 edhrecAveragesCommand.AddOption(edhrecAveragesCsvOption);
 edhrecAveragesCommand.AddOption(edhrecAveragesDataFileOption);
+edhrecStaplesCommand.AddOption(edhrecStaplesDataCsvOption);
+edhrecStaplesCommand.AddOption(edhrecStaplesAveragesCsvOption);
+edhrecStaplesCommand.AddOption(edhrecStaplesDataFileOption);
+edhrecStaplesCommand.AddOption(edhrecStaplesMinDecksOption);
+edhrecStaplesCommand.AddOption(edhrecStaplesMinInclusionOption);
 edhrecDownloadCommand.AddOption(edhrecDownloadDatasetOption);
 edhrecDownloadCommand.AddOption(edhrecDownloadOutOption);
 edhrecDownloadCommand.AddOption(edhrecDownloadExtractOption);
@@ -311,6 +322,7 @@ foreach (var command in new Command[]
     cardLookupCommand,
     manabaseCommand,
     edhrecAveragesCommand,
+    edhrecStaplesCommand,
     edhrecDownloadCommand,
     cedhLandCalibrateCommand,
     cedhLandBaselineCommand,
@@ -386,6 +398,11 @@ edhrecAveragesCommand.SetHandler((string csvPath, string dataFilePath) =>
 {
     Environment.ExitCode = EdhrecAveragesCommandRunner.RunEdhrecAveragesAsync(csvPath, dataFilePath).GetAwaiter().GetResult();
 }, edhrecAveragesCsvOption, edhrecAveragesDataFileOption);
+
+edhrecStaplesCommand.SetHandler((string dataCsvPath, string averagesCsvPath, string dataFilePath, int minDecks, double minInclusion) =>
+{
+    Environment.ExitCode = EdhrecStaplesCommandRunner.RunEdhrecStaplesAsync(dataCsvPath, averagesCsvPath, dataFilePath, minDecks, minInclusion).GetAwaiter().GetResult();
+}, edhrecStaplesDataCsvOption, edhrecStaplesAveragesCsvOption, edhrecStaplesDataFileOption, edhrecStaplesMinDecksOption, edhrecStaplesMinInclusionOption);
 
 edhrecDownloadCommand.SetHandler((string dataset, string outputDirectory, bool extract, bool overwrite) =>
 {

@@ -273,6 +273,7 @@ public partial class Program
         builder.Services.AddSingleton<ICedhLandBaselineProvider, CedhLandBaselineProvider>();
         builder.Services.AddSingleton<IRoleFloorBaselineProvider, RoleFloorBaselineProvider>();
         builder.Services.AddSingleton<IManabaseBaselineProvider, ManabaseBaselineProvider>();
+        builder.Services.AddSingleton<ICommanderStapleProvider, CommanderStapleProvider>();
         builder.Services.AddSingleton<IVersionService, VersionService>();
         builder.Services.AddSingleton<IFeedbackStore, FeedbackStore>();
         // Why: foundation-only store registration for Phase 1; no consumer until Phase 3/4.

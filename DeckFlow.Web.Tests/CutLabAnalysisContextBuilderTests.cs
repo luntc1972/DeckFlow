@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Net;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Knowledge;
@@ -1090,6 +1091,39 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Null(analyzed.SemanticProfile);
     }
 
+    [Fact]
+    public async Task BuildAsync_SoloCommanderWithProvider_PopulatesStapleCardNames()
+    {
+        var resolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()), commanderStapleProvider: new FixedCommanderStapleProvider(new HashSet<string>(["Esper Sentinel"], StringComparer.Ordinal)));
+
+        CutLabAnalysisContext context = await builder.BuildAsync([PoolCard("Commander", "Creature")], "Focused", ["Commander"], preResolvedCards: [CardData("Commander", "Creature")]);
+
+        Assert.Contains("Esper Sentinel", context.Classification.StapleCardNames);
+    }
+
+    [Fact]
+    public async Task BuildAsync_NoProvider_UsesEmptyStapleCardNames()
+    {
+        var resolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+
+        CutLabAnalysisContext context = await builder.BuildAsync([PoolCard("Commander", "Creature")], "Focused", ["Commander"], preResolvedCards: [CardData("Commander", "Creature")]);
+
+        Assert.Empty(context.Classification.StapleCardNames);
+    }
+
+    [Fact]
+    public async Task BuildAsync_TwoCommanders_UsesEmptyStapleCardNames()
+    {
+        var resolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(), new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()), commanderStapleProvider: new FixedCommanderStapleProvider(new HashSet<string>(["Esper Sentinel"], StringComparer.Ordinal)));
+
+        CutLabAnalysisContext context = await builder.BuildAsync([PoolCard("Commander", "Creature")], "Focused", ["Commander", "Partner"], preResolvedCards: [CardData("Commander", "Creature")]);
+
+        Assert.Empty(context.Classification.StapleCardNames);
+    }
+
     private static CutLabPoolCard PoolCard(string name, string typeLine, int quantity = 1, bool isCommander = false, bool isLocked = false)
         => new()
         {
@@ -1175,6 +1209,12 @@ public sealed class CutLabAnalysisContextBuilderTests
             [allNames[0]]);
 
         Assert.Equal(2, sharedCardResolver.ExecuteCollectionCalls);
+    }
+
+    private sealed class FixedCommanderStapleProvider(IReadOnlySet<string> staples) : ICommanderStapleProvider
+    {
+        public IReadOnlySet<string> GetStapleCardNames(IReadOnlyList<string> commanderNames)
+            => commanderNames.Count == 1 ? staples : FrozenSet<string>.Empty;
     }
 
     private sealed class CountingResolver(IReadOnlyList<ScryfallCard> cards) : IScryfallCardResolver

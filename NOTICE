@@ -19,3 +19,6 @@ use, modify, or self-host this software, you may not:
 
 Anyone redistributing this software, in source or binary form, must reproduce
 this NOTICE file in their distribution.
+
+EDHREC-derived commander staples data in DeckFlow.Web/Data/commander-staples is
+excluded from the Apache-2.0 grant and is licensed for noncommercial use only.

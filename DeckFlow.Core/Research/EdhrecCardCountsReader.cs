@@ -1,5 +1,5 @@
 using System.Globalization;
-using System.Text;
+using DeckFlow.Core.Edhrec;
 
 namespace DeckFlow.Core.Research;
 
@@ -421,7 +421,7 @@ public static class EdhrecCardCountsReader
             throw new FormatException("EDHREC CSV header row is missing.");
         }
 
-        IReadOnlyList<string> header = ParseCsvLine(headerLine);
+        IReadOnlyList<string> header = EdhrecCsvParser.ParseCsvLine(headerLine);
         return new HeaderIndexes(
             GetRequiredColumnIndex(header, "commander"),
             GetRequiredColumnIndex(header, "card"),
@@ -436,7 +436,7 @@ public static class EdhrecCardCountsReader
             throw new FormatException("Averages CSV header row is missing.");
         }
 
-        IReadOnlyList<string> header = ParseCsvLine(headerLine);
+        IReadOnlyList<string> header = EdhrecCsvParser.ParseCsvLine(headerLine);
         return new HeaderIndexes(
             GetRequiredColumnIndex(header, "commander"),
             GetRequiredColumnIndex(header, "commander2"),
@@ -451,7 +451,7 @@ public static class EdhrecCardCountsReader
         out int count,
         out int lineFieldCount)
     {
-        IReadOnlyList<string> fields = ParseCsvLine(line);
+        IReadOnlyList<string> fields = EdhrecCsvParser.ParseCsvLine(line);
         lineFieldCount = fields.Count;
 
         commander = string.Empty;
@@ -478,7 +478,7 @@ public static class EdhrecCardCountsReader
         out string? partnerName,
         out long denominator)
     {
-        IReadOnlyList<string> fields = ParseCsvLine(line);
+        IReadOnlyList<string> fields = EdhrecCsvParser.ParseCsvLine(line);
         commander = string.Empty;
         partnerName = null;
         denominator = 0;
@@ -539,44 +539,6 @@ public static class EdhrecCardCountsReader
 
     private static string? NullIfWhiteSpace(string value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    private static List<string> ParseCsvLine(string line)
-    {
-        // Why: EdhrecAveragesConverter documents the same EDHREC-dump assumption: quoted fields do
-        // not contain embedded newlines, so this parser intentionally does not span multiple records.
-        var fields = new List<string>();
-        var current = new StringBuilder();
-        bool inQuotes = false;
-
-        for (int index = 0; index < line.Length; index++)
-        {
-            char ch = line[index];
-            if (ch == '"')
-            {
-                if (inQuotes && index + 1 < line.Length && line[index + 1] == '"')
-                {
-                    current.Append('"');
-                    index++;
-                    continue;
-                }
-
-                inQuotes = !inQuotes;
-                continue;
-            }
-
-            if (ch == ',' && !inQuotes)
-            {
-                fields.Add(current.ToString());
-                current.Clear();
-                continue;
-            }
-
-            current.Append(ch);
-        }
-
-        fields.Add(current.ToString());
-        return fields;
-    }
 
     private static void RecordMalformedRow(
         ICollection<EdhrecMalformedRow> malformedRowDetails,

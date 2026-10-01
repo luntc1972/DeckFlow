@@ -1,4 +1,5 @@
 using System.Globalization;
+using DeckFlow.Core.Edhrec;
 
 namespace DeckFlow.Core.Manabase;
 
@@ -12,17 +13,11 @@ public static class EdhrecAveragesConverter
         ArgumentOutOfRangeException.ThrowIfNegative(minDeckCount);
 
         using var reader = new StringReader(csvText);
-        string? headerLine = reader.ReadLine();
-        if (string.IsNullOrWhiteSpace(headerLine))
-        {
-            throw new FormatException("CSV header row is missing.");
-        }
-
-        List<string> header = ParseCsvLine(headerLine);
-        int commanderIndex = GetRequiredColumnIndex(header, "commander");
-        int commander2Index = GetRequiredColumnIndex(header, "commander2");
-        int avgLandIndex = GetRequiredColumnIndex(header, "avg_land");
-        int deckCountIndex = GetRequiredColumnIndex(header, "number_decks");
+        List<string> header = EdhrecCsvParser.ReadHeader(reader);
+        int commanderIndex = EdhrecCsvParser.GetRequiredColumnIndex(header, "commander");
+        int commander2Index = EdhrecCsvParser.GetRequiredColumnIndex(header, "commander2");
+        int avgLandIndex = EdhrecCsvParser.GetRequiredColumnIndex(header, "avg_land");
+        int deckCountIndex = EdhrecCsvParser.GetRequiredColumnIndex(header, "number_decks");
         int requiredFieldCount = Math.Max(Math.Max(commanderIndex, commander2Index), Math.Max(avgLandIndex, deckCountIndex)) + 1;
 
         var deduped = new Dictionary<string, ManabaseCommanderBaseline>(StringComparer.Ordinal);
@@ -37,7 +32,7 @@ public static class EdhrecAveragesConverter
                 continue;
             }
 
-            List<string> fields = ParseCsvLine(line);
+            List<string> fields = EdhrecCsvParser.ParseCsvLine(line);
             if (fields.Count < requiredFieldCount)
             {
                 skippedMalformed++;
@@ -91,59 +86,9 @@ public static class EdhrecAveragesConverter
         return new EdhrecAveragesResult(commanders, skippedMalformed, duplicateCollisions);
     }
 
-    private static int GetRequiredColumnIndex(IReadOnlyList<string> header, string name)
-    {
-        for (int index = 0; index < header.Count; index++)
-        {
-            if (string.Equals(header[index], name, StringComparison.OrdinalIgnoreCase))
-            {
-                return index;
-            }
-        }
-
-        throw new FormatException($"CSV header is missing required column '{name}'.");
-    }
-
     private static string? NullIfWhiteSpace(string value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static List<string> ParseCsvLine(string line)
-    {
-        // The EDHREC dump does not contain embedded newlines inside quoted fields, so line-by-line
-        // parsing is sufficient here; this parser only needs commas, quotes, and doubled quotes.
-        var fields = new List<string>();
-        var current = new System.Text.StringBuilder();
-        bool inQuotes = false;
-
-        for (int index = 0; index < line.Length; index++)
-        {
-            char ch = line[index];
-            if (ch == '"')
-            {
-                if (inQuotes && index + 1 < line.Length && line[index + 1] == '"')
-                {
-                    current.Append('"');
-                    index++;
-                    continue;
-                }
-
-                inQuotes = !inQuotes;
-                continue;
-            }
-
-            if (ch == ',' && !inQuotes)
-            {
-                fields.Add(current.ToString());
-                current.Clear();
-                continue;
-            }
-
-            current.Append(ch);
-        }
-
-        fields.Add(current.ToString());
-        return fields;
-    }
 }
 
 /// <summary>Result of converting an EDHREC averages dump into bundled commander baseline rows.</summary>

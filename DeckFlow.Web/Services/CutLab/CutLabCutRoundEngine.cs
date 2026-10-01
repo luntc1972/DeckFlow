@@ -232,6 +232,7 @@ public static class CutLabCutRoundEngine
     /// <param name="roleCounts">Optional in-pool role counts used to rank the locked-overshoot advisory by headroom.</param>
     /// <param name="planAffinities">Optional plan affinity keyed by normalized card name.</param>
     /// <param name="checkedCommanderThemesAvailable">Whether checked commander theme data was available.</param>
+    /// <param name="stapleCardNames">Optional normalized staple card names for infrastructure routing.</param>
     /// <returns>The ordered queue, top proposal, and cards still remaining to target.</returns>
     public static CutLabRoundPlan BuildQueue(
         IReadOnlyList<CutLabRoundInputCard> workingList,
@@ -242,7 +243,8 @@ public static class CutLabCutRoundEngine
         IReadOnlyDictionary<string, int>? floorByRole = null,
         IReadOnlyDictionary<string, int>? roleCounts = null,
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
-        bool checkedCommanderThemesAvailable = false)
+        bool checkedCommanderThemesAvailable = false,
+        IReadOnlySet<string>? stapleCardNames = null)
     {
         ArgumentNullException.ThrowIfNull(workingList);
         ArgumentNullException.ThrowIfNull(findings);
@@ -314,7 +316,7 @@ public static class CutLabCutRoundEngine
             .ToArray();
 
         IReadOnlyList<FirstPassCard> classifiedCards = firstPassCards
-            .Select(entry => ClassifyFirstPassCard(entry.Card, entry.Tally, planAffinities, checkedCommanderThemesAvailable))
+            .Select(entry => ClassifyFirstPassCard(entry.Card, entry.Tally, planAffinities, checkedCommanderThemesAvailable, stapleCardNames))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> round1 = OrderQueue(classifiedCards, Round1Key, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable);
@@ -453,7 +455,8 @@ public static class CutLabCutRoundEngine
             floorByRole,
             context.RoleCounts,
             planAffinities,
-            checkedCommanderThemesAvailable);
+            checkedCommanderThemesAvailable,
+            context.Classification.StapleCardNames);
         return (findings, roundPlan);
     }
 
@@ -528,11 +531,13 @@ public static class CutLabCutRoundEngine
         CutLabRoundInputCard card,
         CardFindingTally tally,
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities,
-        bool checkedCommanderThemesAvailable)
+        bool checkedCommanderThemesAvailable,
+        IReadOnlySet<string>? stapleCardNames)
     {
         bool isInfrastructure = card.IsLand
             || card.TypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
-            || card.Roles.Contains("ramp", StringComparer.OrdinalIgnoreCase);
+            || card.Roles.Contains("ramp", StringComparer.OrdinalIgnoreCase)
+            || stapleCardNames?.Contains(CutLabCardNames.Normalize(card.Name)) == true;
         CutLabPlanAffinity? affinity = isInfrastructure || planAffinities is null
             ? null
             : CutLabPlanAffinityResolver.For(planAffinities, card.Name);

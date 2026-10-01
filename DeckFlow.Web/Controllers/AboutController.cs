@@ -24,7 +24,7 @@ public sealed class AboutController : Controller
         new CreditEntry("Wizards of the Coast", "https://magic.wizards.com/en/rules", "mechanic rules text"),
         new CreditEntry("Archidekt", "https://archidekt.com", "category data and deck integration"),
         new CreditEntry("Moxfield", "https://moxfield.com", "deck integration"),
-        new CreditEntry("EDHREC", "https://edhrec.com", "average deck data behind the manabase community baselines"),
+        new CreditEntry("EDHREC", "https://edhrec.com", "average deck data behind the manabase community baselines and Cut Lab staples"),
         new CreditEntry("Scryfall Tagger", "https://tagger.scryfall.com", "community card tags powering category suggestions"),
     };
 

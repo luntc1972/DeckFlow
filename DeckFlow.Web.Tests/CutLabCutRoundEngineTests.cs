@@ -822,6 +822,42 @@ public sealed class CutLabCutRoundEngineTests
             Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, item.RoundKey));
     }
 
+    [Fact]
+    public void BuildQueue_NonRampNonLandStaple_UsesInfrastructureRound()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList =
+        [
+            Card("Esper Sentinel", 1),
+            Card("Off Theme Card", 4),
+        ];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.CurveCongestion, "Esper Sentinel")),
+            [],
+            cardsToCutTarget: 2,
+            stapleCardNames: new HashSet<string>(["esper sentinel"], StringComparer.Ordinal));
+
+        CutLabRoundQueueItem staple = Assert.Single(plan.Queue, item => item.CardName == "Esper Sentinel");
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, staple.RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_EmptyStapleSet_PreservesExistingRound()
+    {
+        IReadOnlyList<CutLabRoundInputCard> workingList = [Card("Esper Sentinel", 1)];
+
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            workingList,
+            Findings(Finding(CutLabFindingKind.CurveCongestion, "Esper Sentinel")),
+            [],
+            cardsToCutTarget: 1,
+            stapleCardNames: new HashSet<string>(StringComparer.Ordinal));
+
+        CutLabRoundQueueItem card = Assert.Single(plan.Queue);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, card.RoundKey);
+    }
+
     // Why: pins the July 2026 report where Agatha's Soul Cauldron led round 2 on a single
     // curve-congestion finding while sitting in two complete combos. Combo membership must
     // break the tie so a combo piece is proposed after an equally-flagged non-combo card.

@@ -1,0 +1,14 @@
+LICENSE
+
+EDHREC and Space Cow Media encourage community developers to use this data in their own projects.
+
+The data here is provided without warranty, expressed or implied.
+Commercial use is not permitted.
+
+When your project is up and running, we would love to see it! Email us at edhrec@edhrec.com.
+There's always opportunity for collaboration.
+
+Each row of edhrec.csv includes a:
+- Commander
+- Card
+- Count of how many decks for that commander include that card

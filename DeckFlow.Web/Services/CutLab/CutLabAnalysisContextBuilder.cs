@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Net;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
@@ -100,6 +101,8 @@ public sealed record CutLabClassificationContext(
     IReadOnlyDictionary<string, IReadOnlyList<string>> CategoriesByName,
     IReadOnlyDictionary<string, CutLabCardComboMembership> CardComboMembership)
 {
+    /// <summary>Normalized solo-commander staple names for infrastructure routing.</summary>
+    public IReadOnlySet<string> StapleCardNames { get; init; } = FrozenSet<string>.Empty;
     /// <summary>Compatibility overload for callers that still provide name-only combo membership.</summary>
     /// <param name="almostIncludedCombos">Near-combo findings from Commander Spellbook.</param>
     /// <param name="comboDataAvailable">Whether combo lookup completed successfully.</param>
@@ -147,6 +150,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
     private readonly ICommanderSpellbookService? _spellbook;
     private readonly ICategoryKnowledgeStore? _categoryKnowledge;
     private readonly ILogger<CutLabAnalysisContextBuilder> _logger;
+    private readonly ICommanderStapleProvider _commanderStapleProvider;
 
     // Why (B-1, round-1 review): names a swallowed transient failure left unattempted for a given
     // pool key, tracked only for the lifetime of this instance. Safe as instance state because
@@ -163,13 +167,15 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
     /// <param name="spellbook">Optional Commander Spellbook lookup dependency.</param>
     /// <param name="categoryKnowledge">Optional category lookup dependency.</param>
     /// <param name="logger">Structured logger.</param>
+    /// <param name="commanderStapleProvider">Optional bundled commander-staple lookup for infrastructure routing.</param>
     public CutLabAnalysisContextBuilder(
         IScryfallCardResolver cardResolver,
         CutLabResolvedCardCache resolvedCardCache,
         ScryfallReferenceResolver scryfallReferenceResolver,
         ICommanderSpellbookService? spellbook = null,
         ICategoryKnowledgeStore? categoryKnowledge = null,
-        ILogger<CutLabAnalysisContextBuilder>? logger = null)
+        ILogger<CutLabAnalysisContextBuilder>? logger = null,
+        ICommanderStapleProvider? commanderStapleProvider = null)
     {
         _cardResolver = cardResolver ?? throw new ArgumentNullException(nameof(cardResolver));
         _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
@@ -177,6 +183,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
         _spellbook = spellbook;
         _categoryKnowledge = categoryKnowledge;
         _logger = logger ?? NullLogger<CutLabAnalysisContextBuilder>.Instance;
+        _commanderStapleProvider = commanderStapleProvider ?? NullCommanderStapleProvider.Instance;
     }
 
     /// <inheritdoc />
@@ -653,7 +660,10 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 pair => (IReadOnlyList<string>)pair.Value
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToArray()),
-            spellbook.CardComboMembership);
+            spellbook.CardComboMembership)
+        {
+            StapleCardNames = _commanderStapleProvider.GetStapleCardNames(commanderNames),
+        };
     }
 
     private async Task<SpellbookLookupResult> LoadSpellbookFailOpenAsync(
