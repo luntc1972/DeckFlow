@@ -1545,6 +1545,18 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_Archetype_SuggestionUsesRecoveredAnalysis()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(BuildResolvedCards(entries)), new FakeBanListService([]));
+        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+
+        CutLabProcessResult result = await service.ProcessAsync(request);
+
+        Assert.NotNull(result.ArchetypeSuggestion);
+    }
+
+    [Fact]
     public async Task ProcessAsync_AmbiguousCommanderInference_ReturnsSelectionRequired()
     {
         var entries = new List<DeckEntry>

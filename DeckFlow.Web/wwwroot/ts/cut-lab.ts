@@ -3813,12 +3813,40 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const archetype = document.querySelector<HTMLInputElement>(`input[name="PlanArchetype"][value="${appliedArchetype ?? ''}"]`);
     if (archetype) {
       archetype.checked = true;
+      document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-badge="choice"]').forEach(badge => badge.classList.add('hidden'));
+      archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="choice"]')?.classList.remove('hidden');
     }
     const notice = document.querySelector<HTMLElement>('[data-cut-lab-plan-zero-notice]');
     if (notice) {
       const anyChecked = [...strategyCheckboxes, ...themeCheckboxes]
         .some(checkbox => checkbox.checked);
       notice.classList.toggle('hidden', anyChecked || appliedArchetype !== null);
+    }
+  };
+
+  const syncArchetypePanel = (
+    appliedArchetype: string | null,
+    appliedGoals: CutLabPatchResponse['appliedGoals'],
+    goalOutcome: CutLabPatchResponse['goalOutcome'],
+    displayName: string,
+  ): void => {
+    const notice = document.querySelector<HTMLElement>('[data-cut-lab-archetype-notice]');
+    if (!notice) return;
+
+    notice.classList.remove('hidden', 'cut-lab-plan-panel__archetype-notice--ok', 'cut-lab-plan-panel__archetype-notice--kept');
+    if (goalOutcome === 'Replaced' && appliedGoals) {
+      getGoalInput('commanderByTurn')!.value = String(appliedGoals.commanderByTurn ?? '');
+      getGoalInput('engineByTurn')!.value = String(appliedGoals.engineByTurn ?? '');
+      getGoalInput('representativeLineByTurn')!.value = String(appliedGoals.representativeLineByTurn ?? '');
+      notice.classList.add('cut-lab-plan-panel__archetype-notice--ok');
+      notice.textContent = `Goals set to ${displayName} defaults: commander by T${appliedGoals.commanderByTurn}, engine by T${appliedGoals.engineByTurn}, line by T${appliedGoals.representativeLineByTurn}. Change them in Step 4.`;
+    } else if (goalOutcome === 'Kept' && appliedGoals) {
+      notice.classList.add('cut-lab-plan-panel__archetype-notice--kept');
+      notice.textContent = `Your custom goals were kept. ${displayName} defaults would be T${appliedGoals.commanderByTurn} / T${appliedGoals.engineByTurn} / T${appliedGoals.representativeLineByTurn} — change them in Step 4.`;
+    } else if (appliedArchetype === null) {
+      notice.textContent = 'Archetype cleared. Manual strategies and goals are unchanged.';
+    } else {
+      notice.classList.add('hidden');
     }
   };
 
@@ -3917,9 +3945,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
+      const selectedArchetypeName = document.querySelector<HTMLInputElement>(`input[name="PlanArchetype"][value="${data.appliedArchetype ?? ''}"]`)
+        ?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.textContent?.trim() ?? 'this archetype';
       applyServerPatch(data.patch, antiForgeryToken);
+      const appliedState = tryReadSerializedState();
+      if (appliedState?.intent?.planProfile) {
+        appliedState.intent.planProfile.archetype = data.appliedArchetype ?? null;
+        writeDecisionStateToHiddenInputs(JSON.stringify(appliedState));
+      }
       if (!planApplyPendingChange) {
         syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? [], data.appliedArchetype ?? null);
+        syncArchetypePanel(data.appliedArchetype ?? null, data.appliedGoals, data.goalOutcome, selectedArchetypeName);
       }
     } catch (error) {
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
@@ -4680,7 +4716,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
-      if (!(target instanceof HTMLInputElement) || target.type !== 'checkbox') {
+      if (!(target instanceof HTMLInputElement) || (target.type !== 'checkbox' && target.type !== 'radio')) {
         return;
       }
 

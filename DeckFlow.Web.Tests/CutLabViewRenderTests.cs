@@ -112,6 +112,18 @@ public sealed class CutLabViewRenderTests
     }
 
     [Fact]
+    public async Task Render_Archetype_RadioGroupPostsPlanArchetypeInsidePlanForm()
+    {
+        CutLabViewModel model = BuildTwinBadgeModel() with { PlanPanel = CutLabViewModel.BuildPlanPanel(null, [], false) };
+        string html = await RenderAsync(model);
+        int formStart = html.IndexOf("action=\"/cut-lab/plan-apply\"", StringComparison.Ordinal);
+        int archetypeStart = html.IndexOf("name=\"PlanArchetype\"", StringComparison.Ordinal);
+
+        Assert.True(formStart >= 0 && formStart < archetypeStart, "The archetype radios should be enclosed by the plan apply form.");
+        Assert.Equal(8, html.Split("name=\"PlanArchetype\"", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
     public async Task ResultView_RendersLockPoolStickySummaryWithDistinctTargets()
     {
         var model = new CutLabViewModel

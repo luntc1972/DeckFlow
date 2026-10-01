@@ -48,6 +48,7 @@ const buildFixture = (): HTMLInputElement => {
       <label><input type="checkbox" name="PlanStrategies" value="dropped" checked />Dropped</label>
       <label><input type="checkbox" name="PlanThemes" value="theme-a" />Theme A</label>
       <label><input type="checkbox" name="PlanThemes" value="theme-b" checked />Theme B</label>
+      <label><input type="radio" name="PlanArchetype" value="stax" data-cut-lab-plan-archetype />Stax</label>
       <p data-cut-lab-plan-zero-notice>With nothing checked</p>
     </div>
     <div class="cutlab-proposal"></div>
@@ -57,6 +58,26 @@ const buildFixture = (): HTMLInputElement => {
 };
 
 describe('cut-lab plan panel', () => {
+  it('hides the zero-selection notice after an archetype-only apply', async () => {
+    buildFixture();
+    const radio = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]')!;
+    document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(input => { input.checked = false; });
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ patch, appliedStrategies: [], appliedThemes: [], appliedArchetype: 'stax' }) });
+    radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(document.querySelector('[data-cut-lab-plan-zero-notice]')!.classList.contains('hidden')).toBe(true);
+  });
+
+  it('applies a queued strategy toggle after the first request fails', async () => {
+    const checkbox = buildFixture();
+    fetchMock.mockResolvedValueOnce({ ok: false, text: async () => 'failed' }).mockResolvedValueOnce(response(['kept'], []));
+    checkbox.checked = false; checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    document.querySelector<HTMLInputElement>('input[value="kept"]')!.checked = true;
+    document.querySelector<HTMLInputElement>('input[value="kept"]')!.dispatchEvent(new Event('change', { bubbles: true }));
+    await flush(); await flush();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(document.querySelector<HTMLInputElement>('input[value="kept"]')!.checked).toBe(true);
+  });
+
   it('hides the zero-selection notice when checked and restores it when the last checkbox is unchecked', async () => {
     const checkbox = buildFixture();
     const notice = document.querySelector<HTMLElement>('[data-cut-lab-plan-zero-notice]')!;

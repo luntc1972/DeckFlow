@@ -331,7 +331,9 @@ public sealed class CutLabViewModelTests
     public void BuildPlanPanel_Archetype_PresetStrategyRowImpliedNotChecked()
     {
         CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax" }, [], false);
-        Assert.False(panel.StrategyRows.Single(row => row.Slug == "stax").IsChecked);
+        CutLabPlanStrategyRowView row = panel.StrategyRows.Single(row => row.Slug == "stax");
+        Assert.False(row.IsChecked);
+        Assert.True(row.IsImpliedByArchetype);
     }
 
     [Fact]

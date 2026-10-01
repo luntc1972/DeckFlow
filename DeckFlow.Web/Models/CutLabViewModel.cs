@@ -578,6 +578,8 @@ public sealed record CutLabViewModel
         HashSet<string> checkedThemeSlugs = new(
             (planProfile?.CommanderThemes ?? []).Select(theme => theme.Slug),
             StringComparer.OrdinalIgnoreCase);
+        CutLabArchetypeCatalog.TryGetBySlug(CutLabArchetypeCatalog.NormalizeSlug(planProfile?.Archetype), out CutLabArchetypeEntry? chosenArchetypeEntry);
+        HashSet<string> impliedStrategySlugs = new(chosenArchetypeEntry?.PresetStrategies ?? [], StringComparer.OrdinalIgnoreCase);
 
         IReadOnlyList<CutLabPlanStrategyRowView> strategyRows = DeckPlanStrategyCatalog.Entries
             .Select(entry => new CutLabPlanStrategyRowView
@@ -587,6 +589,7 @@ public sealed record CutLabViewModel
                 Definition = entry.Definition,
                 Consequence = entry.Consequence,
                 IsChecked = checkedStrategySlugs.Contains(entry.Slug),
+                IsImpliedByArchetype = !checkedStrategySlugs.Contains(entry.Slug) && impliedStrategySlugs.Contains(entry.Slug),
             })
             .ToArray();
 
@@ -1318,6 +1321,9 @@ public sealed record CutLabPlanStrategyRowView
 
     /// <summary>True when this strategy is currently checked.</summary>
     public bool IsChecked { get; init; }
+
+    /// <summary>True when the selected archetype supplies this strategy without a manual check.</summary>
+    public bool IsImpliedByArchetype { get; init; }
 }
 
 /// <summary>One commander-theme checkbox row.</summary>
