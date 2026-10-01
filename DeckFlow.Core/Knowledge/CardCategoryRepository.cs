@@ -24,6 +24,10 @@ internal sealed class CardCategoryRepository
     // Why: free-text tags seen on fewer than five decks are noise; see the plan's Dropped-tag check.
     internal int MinObservationRows { get; set; } = 5;
 
+    // Why: tags under 1/2000 of the card's top tag are crowd noise on staples (Sol Ring "finisher" 6 of 148,549);
+    // legit wincon tags measured at >= 0.3% of top; see the plan's "F3 step 2".
+    internal int ObservationShareDenominator { get; set; } = 2000;
+
     /// <summary>
     /// Initializes the card-category collaborator.
     /// </summary>
@@ -194,8 +198,10 @@ internal sealed class CardCategoryRepository
 
     /// <summary>
     /// Resolves categories for many cards in one round-trip from the summary, including only pairs
-    /// with at least <see cref="MinObservationRows"/> observation rows. Unlike the unthresholded
-    /// single-card <see cref="GetCategoriesAsync"/>, this excludes rare tags. Returns a dictionary
+    /// with at least <see cref="MinObservationRows"/> observation rows. A tag must also have at least
+    /// 1/<see cref="ObservationShareDenominator"/> of the observation rows of the same card's top tag.
+    /// Unlike the unthresholded single-card <see cref="GetCategoriesAsync"/>, this excludes rare tags.
+    /// Returns a dictionary
     /// keyed by the ORIGINAL requested name (case-insensitive) so the caller can look each spell up by
     /// the same string it passed in. Every distinct input name gets an entry — including cards with no
     /// qualifying summary rows, which receive <see cref="CategoryFilter.IncludedOrFallback"/>'s fallback.
@@ -240,7 +246,7 @@ internal sealed class CardCategoryRepository
         stopwatch.Restart();
         var rows = await connection.QueryAsync<CardCategoryNameRow>(new CommandDefinition(
             BuildCategoryLookupSql(membershipOperator),
-            new { normalized = normalizedKeys.ToList(), minObservationRows = MinObservationRows },
+            new { normalized = normalizedKeys.ToList(), minObservationRows = MinObservationRows, shareDenominator = ObservationShareDenominator },
             commandTimeout: CategoriesBatchCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         timingReporter?.Invoke("QueryAsync", stopwatch.ElapsedMilliseconds, normalizedKeys.Count);
@@ -269,14 +275,21 @@ internal sealed class CardCategoryRepository
     }
 
     // Why: the Postgres plan test EXPLAINs this exact text to verify the indexed batch query plan.
+    // The min-rows filter runs before the window: windowing unfiltered rows spilled to disk in prod
+    // (4.3 s vs 33 ms), and filtering first leaves each card's MAX unchanged.
     internal static string BuildCategoryLookupSql(string membershipOperator)
         => $"""
-            SELECT c.normalized_card_name AS NormalizedCardName, s.category AS Category
-            FROM card_category_summary s
-            JOIN cards c ON c.id = s.card_id
-            WHERE c.normalized_card_name {membershipOperator}
-              AND s.observation_rows >= @minObservationRows
-            ORDER BY c.normalized_card_name, LOWER(s.category), s.category
+            SELECT s.normalized_card_name AS NormalizedCardName, s.category AS Category
+            FROM (
+                SELECT c.normalized_card_name, s.card_id, s.category, s.observation_rows,
+                    MAX(s.observation_rows) OVER (PARTITION BY s.card_id) AS top_observation_rows
+                FROM card_category_summary s
+                JOIN cards c ON c.id = s.card_id
+                WHERE c.normalized_card_name {membershipOperator}
+                  AND s.observation_rows >= @minObservationRows
+            ) s
+            WHERE CAST(s.observation_rows AS BIGINT) * @shareDenominator >= s.top_observation_rows
+            ORDER BY s.normalized_card_name, LOWER(s.category), s.category
             """;
 
     /// <summary>

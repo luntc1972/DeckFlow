@@ -29,7 +29,9 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
         var noObservations = $"pg-summary-empty-{suffix}";
         var absent = $"pg-summary-absent-{suffix}";
         var minObservationRows = GetCardCategoryRepository(repository).MinObservationRows;
+        var shareDenominator = GetCardCategoryRepository(repository).ObservationShareDenominator;
         Assert.Equal(5, minObservationRows);
+        Assert.Equal(2000, shareDenominator);
         var sources = await SeedThresholdObservationsAsync(repository, first, new[] { "Ramp", "ramp", "Card Draw" }, suffix);
 
         await repository.PersistObservedCategoriesAsync($"summary-rare-{suffix}", first, new[] { "Tutor" });
@@ -41,10 +43,11 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(
-            "SELECT c.normalized_card_name, o.category FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE c.normalized_card_name = ANY(@n) GROUP BY c.normalized_card_name, o.category HAVING COUNT(*) >= @minObservationRows ORDER BY c.normalized_card_name, LOWER(o.category), o.category",
+            "SELECT normalized_card_name, category FROM (SELECT counts.normalized_card_name, counts.category, counts.observation_rows, MAX(counts.observation_rows) OVER (PARTITION BY counts.card_id) AS top_rows FROM (SELECT o.card_id, c.normalized_card_name, o.category, COUNT(*) AS observation_rows FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE c.normalized_card_name = ANY(@n) GROUP BY o.card_id, c.normalized_card_name, o.category) counts) ranked WHERE observation_rows >= @minObservationRows AND CAST(observation_rows AS BIGINT) * @shareDenominator >= top_rows ORDER BY normalized_card_name, LOWER(category), category",
             connection);
         command.Parameters.AddWithValue("n", names.Select(CardNormalizer.Normalize).ToArray());
         command.Parameters.AddWithValue("minObservationRows", GetCardCategoryRepository(repository).MinObservationRows);
+        command.Parameters.AddWithValue("shareDenominator", shareDenominator);
         var reference = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -117,6 +120,7 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
             "normalized",
             new[] { CardNormalizer.Normalize(cardName) });
         planCommand.Parameters.AddWithValue("minObservationRows", GetCardCategoryRepository(repository).MinObservationRows);
+        planCommand.Parameters.AddWithValue("shareDenominator", GetCardCategoryRepository(repository).ObservationShareDenominator);
         await using var reader = await planCommand.ExecuteReaderAsync();
         var plan = new List<string>();
         while (await reader.ReadAsync())

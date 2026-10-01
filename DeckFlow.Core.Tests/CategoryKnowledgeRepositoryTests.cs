@@ -502,6 +502,86 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoriesForNamesAsync_TagBelowShareFloor_ExcludesTag()
+    {
+        var repository = CreateRepository();
+        await SeedSummaryRowsAsync(repository, "Share Floor", ("Top", 10001), ("Noise", 5));
+
+        var categories = await repository.GetCategoriesForNamesAsync(new[] { "Share Floor" });
+
+        Assert.Equal(new[] { "Top" }, categories["Share Floor"]);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_TagAtShareFloor_IncludesTag()
+    {
+        var repository = CreateRepository();
+        await SeedSummaryRowsAsync(repository, "Share Boundary", ("Top", 10000), ("Boundary", 5));
+
+        var categories = await repository.GetCategoriesForNamesAsync(new[] { "Share Boundary" });
+
+        Assert.Equal(new[] { "Boundary", "Top" }, categories["Share Boundary"]);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_ManySubMinimumTags_PreservesQualifyingTags()
+    {
+        var sql = CardCategoryRepository.BuildCategoryLookupSql("IN @normalized");
+        var minFilter = sql.IndexOf("s.observation_rows >= @minObservationRows", StringComparison.Ordinal);
+        var subqueryEnd = sql.IndexOf(") s\n", StringComparison.Ordinal);
+        Assert.InRange(minFilter, 0, subqueryEnd - 1);
+
+        var repository = CreateRepository();
+        await SeedSummaryRowsAsync(repository, "Sparse Noise", ("Top", 10000), ("Boundary", 5));
+        var before = await repository.GetCategoriesForNamesAsync(new[] { "Sparse Noise" });
+
+        var noise = Enumerable.Range(1, 20)
+            .Select(index => ($"Noise {index:D2}", index % 4 + 1))
+            .ToArray();
+        await SeedSummaryRowsAsync(repository, "Sparse Noise", noise);
+        var after = await repository.GetCategoriesForNamesAsync(new[] { "Sparse Noise" });
+
+        Assert.Equal(new[] { "Boundary", "Top" }, before["Sparse Noise"]);
+        Assert.Equal(before["Sparse Noise"], after["Sparse Noise"]);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_TopBelowTenThousand_KeepsMinimumRowTag()
+    {
+        var repository = CreateRepository();
+        await SeedSummaryRowsAsync(repository, "Small Top", ("Top", 9999), ("Minimum", 5));
+
+        var categories = await repository.GetCategoriesForNamesAsync(new[] { "Small Top" });
+
+        Assert.Equal(new[] { "Minimum", "Top" }, categories["Small Top"]);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_TwoCards_UsesEachCardsTop()
+    {
+        var repository = CreateRepository();
+        await SeedSummaryRowsAsync(repository, "Huge Card", ("Top", 200000), ("Noise", 5));
+        await SeedSummaryRowsAsync(repository, "Small Card", ("Top", 20), ("Useful", 5));
+
+        var categories = await repository.GetCategoriesForNamesAsync(new[] { "Huge Card", "Small Card" });
+
+        Assert.Equal(new[] { "Top" }, categories["Huge Card"]);
+        Assert.Equal(new[] { "Top", "Useful" }, categories["Small Card"]);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_ManyQualifyingTags_UsesMaxInsteadOfSum()
+    {
+        var repository = CreateRepository();
+        await SeedSummaryRowsAsync(repository, "Many Tags", ("Top", 10000), ("Alpha", 5),
+            ("Bravo", 5), ("Charlie", 5), ("Delta", 5));
+
+        var categories = await repository.GetCategoriesForNamesAsync(new[] { "Many Tags" });
+
+        Assert.Equal(new[] { "Alpha", "Bravo", "Charlie", "Delta", "Top" }, categories["Many Tags"]);
+    }
+
+    [Fact]
     public void GetCategoriesForNamesAsync_DefaultCommandTimeout_IsThreeSeconds()
     {
         var repository = CreateRepository();
@@ -772,21 +852,53 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         }
     }
 
+    private async Task SeedSummaryRowsAsync(
+        CategoryKnowledgeRepository repository,
+        string cardName,
+        params (string Category, int Rows)[] rows)
+    {
+        await repository.PersistObservedCategoriesAsync($"summary-seed-{cardName}", cardName, new[] { rows[0].Category });
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        foreach (var (category, observationRows) in rows)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT INTO card_category_summary (card_id, category, observation_rows)
+                SELECT id, @category, @observationRows FROM cards WHERE normalized_card_name = @normalized
+                ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = excluded.observation_rows;
+                """;
+            command.Parameters.AddWithValue("@category", category);
+            command.Parameters.AddWithValue("@observationRows", observationRows);
+            command.Parameters.AddWithValue("@normalized", CardNormalizer.Normalize(cardName));
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
     private async Task<IReadOnlyList<string>> GetThresholdedObservationCategoriesAsync(CategoryKnowledgeRepository repository, string cardName)
     {
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
         await connection.OpenAsync();
         var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT o.category FROM card_category_observations o
-            JOIN cards c ON c.id = o.card_id
-            WHERE c.normalized_card_name = @normalized
-            GROUP BY c.normalized_card_name, o.category
-            HAVING COUNT(*) >= @minObservationRows
-            ORDER BY c.normalized_card_name, LOWER(o.category), o.category
+            SELECT category FROM (
+                SELECT counts.category, counts.observation_rows,
+                    MAX(counts.observation_rows) OVER (PARTITION BY counts.card_id) AS top_rows
+                FROM (
+                    SELECT o.card_id, o.category, COUNT(*) AS observation_rows
+                    FROM card_category_observations o
+                    JOIN cards c ON c.id = o.card_id
+                    WHERE c.normalized_card_name = @normalized
+                    GROUP BY o.card_id, o.category
+                ) counts
+            ) ranked
+            WHERE observation_rows >= @minObservationRows
+              AND CAST(observation_rows AS BIGINT) * @shareDenominator >= top_rows
+            ORDER BY LOWER(category), category
             """;
         command.Parameters.AddWithValue("@normalized", CardNormalizer.Normalize(cardName));
         command.Parameters.AddWithValue("@minObservationRows", GetCardCategoryRepository(repository).MinObservationRows);
+        command.Parameters.AddWithValue("@shareDenominator", GetCardCategoryRepository(repository).ObservationShareDenominator);
         var categories = new List<string>();
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
