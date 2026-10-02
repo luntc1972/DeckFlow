@@ -359,6 +359,17 @@ internal static class PacketByteIdentityFixtures
         return flags;
     }
 
+    /// <summary>Returns deterministic harvested commander-category norms for golden capture tests.</summary>
+    public static CommanderCategoryNormsResult FixedCommanderCategoryNorms()
+        => new(
+            "Kraum, Ludevic's Opus",
+            412,
+            [
+                new CommanderCategorySummary("Ramp", 0, 338, 338 / 412.0),
+                new CommanderCategorySummary("Card Draw", 0, 293, 293 / 412.0),
+                new CommanderCategorySummary("Counterspell", 0, 210, 210 / 412.0),
+            ]);
+
     // ---------------------------------------------------------------------------------------
     // Analysis fixture decks.
     // ---------------------------------------------------------------------------------------
