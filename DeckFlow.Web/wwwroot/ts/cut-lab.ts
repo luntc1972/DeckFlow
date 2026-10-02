@@ -925,6 +925,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let whatifSubmitInFlight = false;
   let planApplySubmitInFlight = false;
   let planApplyPendingChange = false;
+  let planApplyChainStartArchetype: string | null = null;
+  let planApplyChainStartGoals: CutLabPatchResponse['appliedGoals'] = null;
   let copyHandlersAttached = false;
   let cardModalHandlersAttached = false;
   let cardTextByCardNameCache: Record<string, CutLabCardTextEntry> | null = null;
@@ -3819,6 +3821,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="choice"]')?.classList.remove('hidden');
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]').forEach(badge => badge.classList.remove('hidden'));
       archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]')?.classList.add('hidden');
+      document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-reason]').forEach(reason => reason.classList.add('hidden'));
     }
     const presetStrategies = new Set((archetype?.dataset.cutLabArchetypePresets ?? '').split(' ').filter(Boolean).map(slug => slug.toLowerCase()));
     const archetypeName = archetype?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.textContent?.trim() ?? '';
@@ -3854,13 +3857,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (!notice) return;
 
     notice.classList.remove('hidden', 'cut-lab-plan-panel__archetype-notice--ok', 'cut-lab-plan-panel__archetype-notice--kept');
-    if (goalOutcome === 'Replaced' && appliedGoals) {
+    if (appliedGoals) {
       const commanderInput = getGoalInput('commander');
       const engineInput = getGoalInput('engine');
       const representativeLineInput = getGoalInput('representative-line');
       if (commanderInput) commanderInput.value = String(appliedGoals.commanderByTurn ?? '');
       if (engineInput) engineInput.value = String(appliedGoals.engineByTurn ?? '');
       if (representativeLineInput) representativeLineInput.value = String(appliedGoals.representativeLineByTurn ?? '');
+    }
+    if (goalOutcome === 'Replaced' && appliedGoals) {
       notice.classList.add('cut-lab-plan-panel__archetype-notice--ok');
       notice.textContent = `Goals set to ${displayName} defaults: commander by T${appliedGoals.commanderByTurn}, engine by T${appliedGoals.engineByTurn}, line by T${appliedGoals.representativeLineByTurn}. Change them in Step 4.`;
     } else if (goalOutcome === 'Kept') {
@@ -3884,19 +3889,29 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     root.prepend(error);
   };
 
-  const setPlanPanelBusyState = (root: HTMLElement): (() => void) => {
+  const setPlanPanelBusyState = (root: HTMLElement, archetype: HTMLInputElement | null): (() => void) => {
     root.setAttribute('aria-busy', 'true');
     const checkboxes = [...getPlanPanelCheckboxes('PlanStrategies'), ...getPlanPanelCheckboxes('PlanThemes')];
     const originallyDisabled = checkboxes.map(checkbox => checkbox.disabled);
     checkboxes.forEach(checkbox => {
       checkbox.disabled = true;
     });
+    const archetypeWasDisabled = archetype?.disabled ?? false;
+    const applying = archetype ? document.createElement('span') : null;
+    if (archetype && applying) {
+      archetype.disabled = true;
+      applying.className = 'cut-lab-plan-panel__applying';
+      applying.textContent = 'Applying…';
+      archetype.closest('label')?.querySelector('.cut-lab-plan-panel__row-name')?.after(applying);
+    }
 
     return () => {
       root.removeAttribute('aria-busy');
       checkboxes.forEach((checkbox, index) => {
         checkbox.disabled = originallyDisabled[index];
       });
+      if (archetype) archetype.disabled = archetypeWasDisabled;
+      applying?.remove();
     };
   };
 
@@ -3927,7 +3942,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const persistedThemeSlugs = (persistedPlanProfile?.commanderThemes ?? []).map(theme => theme.slug);
     const persistedArchetype = persistedPlanProfile?.archetype ?? null;
     const requestedArchetype = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked')?.value || null;
+    const requestedArchetypeInput = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked');
     const isArchetypeChange = requestedArchetype !== persistedArchetype;
+    if (planApplyChainStartGoals === null) {
+      planApplyChainStartArchetype = persistedArchetype;
+      planApplyChainStartGoals = persistedState.goals ?? null;
+    }
     const nextState: Partial<CutLabStateSnapshot> = {
       ...persistedState,
       intent: {
@@ -3940,7 +3960,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     clearDecisionError();
 
     const antiForgeryToken = getAntiForgeryToken(form);
-    const restoreBusyState = setPlanPanelBusyState(root);
+    const restoreBusyState = setPlanPanelBusyState(root, isArchetypeChange ? requestedArchetypeInput : null);
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
 
@@ -3955,7 +3975,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const response = await fetch(cutLabPlanApplyApiEndpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ cutLabStateJson: JSON.stringify(nextState), priorArchetype: persistedArchetype }),
+        body: JSON.stringify({ cutLabStateJson: JSON.stringify(nextState), priorArchetype: persistedArchetype, chainStartArchetype: planApplyChainStartArchetype, chainStartGoals: planApplyChainStartGoals }),
         signal: controller.signal,
       });
 
@@ -3980,14 +4000,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         appliedState.intent.planProfile.archetype = data.appliedArchetype ?? null;
         writeDecisionStateToHiddenInputs(JSON.stringify(appliedState));
       }
-      if (!planApplyPendingChange) {
-        syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? [], data.appliedArchetype ?? null);
-        syncArchetypePanel(data.appliedArchetype ?? null, persistedArchetype, data.appliedGoals, data.archetypeDefaultGoals, data.goalOutcome, selectedArchetypeName);
-      }
+      syncArchetypePanel(data.appliedArchetype ?? null, persistedArchetype, data.appliedGoals, data.archetypeDefaultGoals, data.goalOutcome, selectedArchetypeName);
+      if (!planApplyPendingChange) syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? [], data.appliedArchetype ?? null);
     } catch (error) {
-      renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
-        ? cutLabDecisionTimeoutCopy
-        : (isArchetypeChange ? cutLabArchetypeApplyErrorCopy : cutLabDecisionErrorCopy));
+      renderPlanPanelError(root, isArchetypeChange
+        ? cutLabArchetypeApplyErrorCopy
+        : (error instanceof DOMException && error.name === 'AbortError' ? cutLabDecisionTimeoutCopy : cutLabDecisionErrorCopy));
       if (!planApplyPendingChange) syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
     } finally {
       window.clearTimeout(timeoutId);
@@ -3996,6 +4014,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       if (planApplyPendingChange) {
         planApplyPendingChange = false;
         void handlePlanPanelChange();
+      } else {
+        planApplyChainStartArchetype = null;
+        planApplyChainStartGoals = null;
       }
     }
   };

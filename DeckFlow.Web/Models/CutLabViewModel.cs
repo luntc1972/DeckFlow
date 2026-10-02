@@ -608,7 +608,7 @@ public sealed record CutLabViewModel
         string? chosenArchetype = CutLabArchetypeCatalog.NormalizeSlug(planProfile?.Archetype);
         IReadOnlyList<CutLabPlanArchetypeRowView> archetypeRows =
         [
-            new() { Slug = string.Empty, PresetStrategies = [], DisplayName = "No archetype", Definition = "Cut Lab behaves exactly as it does today.", IsChecked = chosenArchetype is null },
+            new() { Slug = string.Empty, PresetStrategies = [], DisplayName = "No archetype", Definition = "Cut Lab behaves exactly as it does today.", Detail = "No strategies added, goals unchanged.", IsChecked = chosenArchetype is null },
             .. CutLabArchetypeCatalog.Entries.Select(entry => new CutLabPlanArchetypeRowView
             {
                 Slug = entry.Slug,

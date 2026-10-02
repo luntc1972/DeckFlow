@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 
+using DeckFlow.Web.Models.CutLab;
+
 namespace DeckFlow.Web.Models.Api;
 
 /// <summary>
@@ -16,4 +18,10 @@ public sealed record CutLabPlanApplyApiRequest
 
     /// <summary>Archetype selected before this plan-panel edit.</summary>
     public string? PriorArchetype { get; init; }
+
+    /// <summary>Archetype selected before a coalesced series of plan-panel edits.</summary>
+    public string? ChainStartArchetype { get; init; }
+
+    /// <summary>Goals stored before a coalesced series of plan-panel edits.</summary>
+    public CutLabGoalSettings? ChainStartGoals { get; init; }
 }

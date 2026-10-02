@@ -318,6 +318,7 @@ public sealed class CutLabViewModelTests
         Assert.Equal(string.Empty, panel.ArchetypeRows[0].Slug);
         Assert.Equal("No archetype", panel.ArchetypeRows[0].DisplayName);
         Assert.Equal("Cut Lab behaves exactly as it does today.", panel.ArchetypeRows[0].Definition);
+        Assert.Equal("No strategies added, goals unchanged.", panel.ArchetypeRows[0].Detail);
         Assert.Equal("Adds: no strategies · Goals T3 / T3 / T6", panel.ArchetypeRows.Single(row => row.Slug == "value-engine").Detail);
         Assert.Equal(CutLabArchetypeCatalog.Entries.Select(entry => entry.Slug), panel.ArchetypeRows.Skip(1).Select(row => row.Slug));
     }
@@ -328,6 +329,21 @@ public sealed class CutLabViewModelTests
         CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax" }, [], false, new("turbo-combo", CutLabArchetypeConfidence.High, "Fast mana."));
         Assert.True(panel.ArchetypeRows.Single(row => row.Slug == "stax").IsChecked);
         Assert.True(panel.ArchetypeRows.Single(row => row.Slug == "turbo-combo").IsSuggested);
+    }
+
+    [Fact]
+    public void BuildPlanPanel_Archetype_SuggestedBadgeHiddenWhenDifferentArchetypeChecked()
+    {
+        CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax" }, [], false, new("turbo-combo", CutLabArchetypeConfidence.High, "Fast mana."));
+
+        CutLabPlanArchetypeRowView suggested = panel.ArchetypeRows.Single(row => row.Slug == "turbo-combo");
+        Assert.True(suggested.IsSuggested);
+        Assert.False(suggested.IsChecked);
+
+        CutLabPlanPanelView chosenPanel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "turbo-combo" }, [], false, new("turbo-combo", CutLabArchetypeConfidence.High, "Fast mana."));
+        CutLabPlanArchetypeRowView chosenSuggested = chosenPanel.ArchetypeRows.Single(row => row.Slug == "turbo-combo");
+        Assert.True(chosenSuggested.IsSuggested);
+        Assert.True(chosenSuggested.IsChecked);
     }
 
     [Fact]

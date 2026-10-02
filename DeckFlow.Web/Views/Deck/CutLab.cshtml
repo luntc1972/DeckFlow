@@ -1198,7 +1198,7 @@
                                     @if (row.Slug.Length > 0) { <span class="cut-lab-plan-panel__badge @(row.IsChecked ? "" : "hidden")" data-cut-lab-archetype-badge="choice">Your choice</span> }
                                     <span class="cut-lab-plan-panel__row-definition">@row.Definition</span>
                                     @if (row.Detail.Length > 0) { <span>@row.Detail</span> }
-                                    @if (row.SuggestionReason is not null) { <span>Why suggested: @row.SuggestionReason</span> }
+                                    @if (row.SuggestionReason is not null) { <span class="@(row.IsChecked ? "" : "hidden")" data-cut-lab-archetype-reason>Why suggested: @row.SuggestionReason</span> }
                                 </span>
                             </label>
                         }

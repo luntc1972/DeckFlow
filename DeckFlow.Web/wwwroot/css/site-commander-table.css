@@ -8,6 +8,7 @@
   --fs-xs:   0.85rem;
   --accent: #2d7a4f;          /* playmat green */
   --accent-strong: #1f5c39;
+  --on-accent: #fff;
 
   /* semantic color tokens (UI-VS-02) — added Phase 84 (THEME-01/D4): this fork has
      no @import site.css, so it was missing all four tokens; without them, the

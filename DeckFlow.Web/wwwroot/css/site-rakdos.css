@@ -9,6 +9,7 @@
   --line: #683848;
   --accent: #d13b47;
   --accent-strong: #a92434;
+  --on-accent: #fff;
 
   /* UI-VS-02: override --link so error-on-red is visually distinct from body link */
   --link: #ff9ea4;

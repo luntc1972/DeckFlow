@@ -9,6 +9,7 @@
   --line: #374870;
   --accent: #3d81ea;
   --accent-strong: #265dba;
+  --on-accent: #fff;
   --accent-contrast: #0b1020; /* white-on-accent measures 3.80:1, fails 4.5:1; dark navy clears 4.98:1 */
 
   --panel-soft-bg: #151d33;

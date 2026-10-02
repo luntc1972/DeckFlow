@@ -61,6 +61,18 @@ public sealed class CutLabArchetypeGoalRulesTests
     }
 
     [Fact]
+    public void ApplyArchetype_ChainReturnsToStart_RestoresChainStartGoals()
+    {
+        var chainStartGoals = new CutLabGoalSettings { CommanderByTurn = 4, EngineByTurn = 5, RepresentativeLineByTurn = 6 };
+        var intermediateGoals = CutLabArchetypeCatalog.Entries.Single(entry => entry.Slug == "stax").DefaultGoals;
+
+        var result = CutLabArchetypeGoalRules.Apply(intermediateGoals, "stax", null, null, chainStartGoals);
+
+        Assert.Equal(chainStartGoals, result.Goals);
+        Assert.Equal(CutLabArchetypeGoalOutcome.Unchanged, result.Outcome);
+    }
+
+    [Fact]
     public void ApplyArchetype_PriorUnknownSlug_TreatedAsNull()
     {
         var result = CutLabArchetypeGoalRules.Apply(new CutLabGoalSettings(), "not-real", "control");

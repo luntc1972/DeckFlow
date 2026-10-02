@@ -5690,7 +5690,7 @@ input[data-cut-lab-floor] {
 .cut-lab-plan-panel__badge--low { border-color: var(--muted, var(--line)); border-style: dashed; }
 .cut-lab-plan-panel__archetype-notice { margin: 0; padding: 0.75rem 1rem; border: 1px solid var(--line); border-radius: 10px; }
 .cut-lab-plan-panel__archetype-notice--ok { background: var(--panel-summary-bg, var(--panel)); border-color: var(--panel-summary-border, var(--line)); }
-.cut-lab-plan-panel__archetype-notice--kept { background: color-mix(in srgb, var(--warning) 18%, var(--panel)); border-color: var(--warning); }
+.cut-lab-plan-panel__archetype-notice--kept { background: var(--warning); border-color: var(--gold-warning); }
 .cut-lab-plan-panel__row input[type="radio"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .cut-lab-plan-panel__row input[type="checkbox"],

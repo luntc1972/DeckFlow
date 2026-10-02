@@ -471,7 +471,9 @@ public sealed class CutLabApiController : ControllerBase
             (CutLabGoalSettings goals, CutLabArchetypeGoalOutcome goalOutcome) = CutLabArchetypeGoalRules.Apply(
                 state.Goals,
                 request.PriorArchetype,
-                rebuiltProfile.Archetype);
+                rebuiltProfile.Archetype,
+                request.ChainStartArchetype,
+                request.ChainStartGoals);
             CutLabGoalSettings? archetypeDefaultGoals = CutLabArchetypeCatalog.TryGetBySlug(rebuiltProfile.Archetype, out CutLabArchetypeEntry? archetype)
                 ? archetype.DefaultGoals
                 : null;

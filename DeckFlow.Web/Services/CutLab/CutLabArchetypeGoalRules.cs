@@ -9,14 +9,24 @@ public static class CutLabArchetypeGoalRules
     /// <param name="current">Current goals.</param>
     /// <param name="priorArchetype">Previously selected archetype slug.</param>
     /// <param name="newArchetype">Newly selected archetype slug.</param>
+    /// <param name="chainStartArchetype">Archetype selected before a coalesced sequence of edits.</param>
+    /// <param name="chainStartGoals">Goals stored before a coalesced sequence of edits.</param>
     /// <returns>The goals to store and the resulting outcome.</returns>
     public static (CutLabGoalSettings Goals, CutLabArchetypeGoalOutcome Outcome) Apply(
         CutLabGoalSettings current,
         string? priorArchetype,
-        string? newArchetype)
+        string? newArchetype,
+        string? chainStartArchetype = null,
+        CutLabGoalSettings? chainStartGoals = null)
     {
         var priorSlug = CutLabArchetypeCatalog.NormalizeSlug(priorArchetype);
         var newSlug = CutLabArchetypeCatalog.NormalizeSlug(newArchetype);
+        var chainStartSlug = CutLabArchetypeCatalog.NormalizeSlug(chainStartArchetype);
+
+        if (chainStartGoals is not null && chainStartSlug == newSlug)
+        {
+            return (chainStartGoals, CutLabArchetypeGoalOutcome.Unchanged);
+        }
 
         if (priorSlug == newSlug || newSlug is null ||
             !CutLabArchetypeCatalog.TryGetBySlug(newSlug, out var entry))

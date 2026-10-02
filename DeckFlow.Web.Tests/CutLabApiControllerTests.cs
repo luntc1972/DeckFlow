@@ -1342,6 +1342,32 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostPlanApplyAsync_Archetype_ChainReturnsToStart_RestoresChainStartGoals()
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), patchBuilder);
+        CutLabGoalSettings initialGoals = new() { CommanderByTurn = 4, EngineByTurn = 5, RepresentativeLineByTurn = 6 };
+        CutLabState state = CreateState() with
+        {
+            Goals = CutLabArchetypeCatalog.Entries.Single(entry => entry.Slug == "stax").DefaultGoals,
+            Intent = CreateState().Intent with { PlanProfile = new CutLabPlanProfile { Archetype = null } },
+        };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(new CutLabPlanApplyApiRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+            PriorArchetype = "stax",
+            ChainStartArchetype = null,
+            ChainStartGoals = initialGoals,
+        }, CancellationToken.None);
+
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Equal(CutLabArchetypeGoalOutcome.Unchanged, body.GoalOutcome);
+        Assert.Equal(initialGoals, body.AppliedGoals);
+        Assert.Equal(initialGoals, patchBuilder.LastState!.Goals);
+    }
+
+    [Fact]
     public async Task PostPlanApplyAsync_Archetype_Unchanged_GoalsUntouched_ReportsUnchanged()
     {
         TrackingPatchBuilder patchBuilder = new();
