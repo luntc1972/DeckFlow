@@ -7,12 +7,14 @@ using System.Globalization;
 using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using Microsoft.Extensions.Logging.Abstractions;
 using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
+using DeckFlow.Web.Services.CommanderCategoryNorms;
 using DeckFlow.Web.Services.Http;
 using DeckFlow.Web.Services.Packets;
 using Polly;
@@ -94,6 +96,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     private readonly PacketSessionCache _packetCache;
     private readonly IFeatureFlagCache? _flagCache;
     private readonly TimeProvider _timeProvider;
+    private readonly ICommanderCategoryNormsProvider? _normsProvider;
 
     /// <summary>
     /// Feature-flag key controlling reference Oracle text. Enabled (the default-on / absent / store-error
@@ -151,6 +154,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// </summary>
     internal const string WinConMapFlag = "analysis.wincon-map";
 
+    /// <summary>Feature-flag key folding harvested commander-category norms into all prompt artifacts; default-off, byte-identical when off, gated only on the explicit snapshot, and keyed by the harvest rule independently of command-zone awareness.</summary>
+    internal const string CommanderCategoryNormsFlag = "analysis.commander-category-norms";
+
     /// <summary>
     /// Registry of every feature-flag key that mutates <see cref="DeckAnalysisPacketResult.AnalysisPromptText"/>
     /// (or any other cached artifact field). The <see cref="PacketSessionCache"/> key intentionally
@@ -167,6 +173,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         InteractionAuditFlag,
         WinConMapFlag,
         ReferenceDeckStatsFlag,
+        CommanderCategoryNormsFlag,
         // Precautionary: the manabase paste artifact and swap prompt are rebuilt per request
         // (ManabaseController.Download / ManabaseAnalysisService.AnalyzeAsync) and do not currently
         // touch PacketSessionCache, so this is inert today. Register it now so any future cache-routing
@@ -198,7 +205,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         IFeatureFlagCache? flagCache = null,
         ILogger<DeckAnalysisPacketService>? logger = null,
         IScryfallCollectionProtocol? collectionProtocol = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ICommanderCategoryNormsProvider? normsProvider = null)
     {
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         ArgumentNullException.ThrowIfNull(scryfallReferenceResolver);
@@ -226,6 +234,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         _flagCache = flagCache;
         _logger = logger ?? NullLogger<DeckAnalysisPacketService>.Instance;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _normsProvider = normsProvider;
     }
 
     /// <summary>
@@ -609,6 +618,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // gate below and the cache-write decision at the end of this method observe the SAME value.
         // Explicit-snapshot read (never IsEnabled()) so the flag-OFF path stays byte-identical.
         var deckStatsEnabled = IsAnalysisFlagOn(ReferenceDeckStatsFlag);
+        // Latched once so enrichment and cache-write decisions see the same explicit snapshot value.
+        var commanderCategoryNormsEnabled = IsAnalysisFlagOn(CommanderCategoryNormsFlag);
 
         if (string.Equals(request.Format, "Commander", StringComparison.OrdinalIgnoreCase) && inferredCommanderFromMoxfieldOrdering)
         {
@@ -885,6 +896,12 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     winConMapText = BuildWinConMapText(winConMap);
                 }
 
+                string? commanderCategoryNormsText = null;
+                if (commanderCategoryNormsEnabled && _normsProvider is not null)
+                {
+                    commanderCategoryNormsText = await BuildCommanderCategoryNormsTextAsync(deckEntries, cardReferenceBundle.OracleNameMap, cancellationToken);
+                }
+
                 // Resolve commander name to oracle name if the deck used a renamed printing.
                 if (commanderName is not null && cardReferenceBundle.OracleNameMap.TryGetValue(commanderName, out var oracleCommanderName))
                 {
@@ -926,7 +943,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // Keep the prompt-side combo-reference gate intact: only emit combo text when a combo
                 // question was selected, so widening the fetch for the score never changes prompt output.
                 var promptComboResult = requiresComboLookup ? comboResult : null;
-                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, promptComboResult, includeCardVersions, companionName, scoreBlockText, interactionAuditText, winConMapText);
+                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, promptComboResult, includeCardVersions, companionName, scoreBlockText, interactionAuditText, winConMapText, commanderCategoryNormsText);
                 if (wantsSetUpgradePacket)
                 {
                     var oracleResolvedDecklistText = PacketTextAssembler.BuildSectionedDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
@@ -980,13 +997,13 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // without an explicit commander section (the case Codex pass-3 flagged).
         // Codex 73 HIGH-1 (Phase 80 code-review fix, finding #1; follow-up hardening widened to all
         // prompt-mutating flags) — gate on the BUILD-TIME LATCHED locals (commandZoneAwareness,
-        // scoreEnabled, interactionAuditEnabled, winConMapEnabled, deckStatsEnabled), NOT a fresh
+        // scoreEnabled, interactionAuditEnabled, winConMapEnabled, deckStatsEnabled, commanderCategoryNormsEnabled), NOT a fresh
         // ShouldBypassPacketCache() re-read. A fresh re-read here could disagree with the value actually
         // used to enrich this packet if any flag flipped mid-request, letting an enriched packet get
         // cached under a flag-OFF key (or vice versa) and later replayed once the flag state changes
         // again. This also closes the open gap where score/interaction-audit/deck-stats packets were
         // being cached and could be replayed after the flag flipped OFF.
-        var bypassCacheWrite = commandZoneAwareness || scoreEnabled || interactionAuditEnabled || winConMapEnabled || deckStatsEnabled;
+        var bypassCacheWrite = commandZoneAwareness || scoreEnabled || interactionAuditEnabled || winConMapEnabled || deckStatsEnabled || commanderCategoryNormsEnabled;
         if (!bypassCacheWrite)
         {
             var cacheInputs = BuildDeckAnalysisCacheInputs(request, preScryfallEntries, preScryfallCommanderName);
@@ -1346,9 +1363,31 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     /// </summary>
     // Phase 15-02: converted from internal static to instance method; dispatches via injected AnalysisPromptVariantRegistry.
-    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null, string? scoreBlockText = null, string? interactionAuditText = null, string? winConMapText = null)
+    /// <summary>Builds norms text using the harvest key (D-08), independently of command-zone output (D-09), and fails open (D-12).</summary>
+    private async Task<string?> BuildCommanderCategoryNormsTextAsync(IEnumerable<DeckEntry> entries, IReadOnlyDictionary<string, string> oracleNameMap, CancellationToken cancellationToken)
     {
-        var enrichments = new AnalysisPromptEnrichments(companionName, scoreBlockText, interactionAuditText, winConMapText);
+        var commanders = entries
+            .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => oracleNameMap.TryGetValue(entry.Name, out var oracleName) ? entry with { Name = oracleName } : entry)
+            .ToList();
+        var key = DeckCommanderResolver.ResolveCommanderName(commanders);
+        if (string.IsNullOrWhiteSpace(key)) return null;
+        var multiCommanderDeck = commanders.Select(entry => entry.Name).Distinct(StringComparer.OrdinalIgnoreCase).Skip(1).Any();
+        try
+        {
+            var norms = await _normsProvider!.GetNormsAsync(key, cancellationToken);
+            return norms is null ? null : CommanderCategoryNormsBlock.Build(norms, multiCommanderDeck);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(ex, "Commander category norms lookup failed for {HarvestKey}; analysis prompt built without the norms block", key);
+            return null;
+        }
+    }
+
+    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null, string? scoreBlockText = null, string? interactionAuditText = null, string? winConMapText = null, string? commanderCategoryNormsText = null)
+    {
+        var enrichments = new AnalysisPromptEnrichments(companionName, scoreBlockText, interactionAuditText, winConMapText, commanderCategoryNormsText);
         return _analysisPromptRegistry.Build(
             AiPlatform.Normalize(request.TargetAiPlatform),
             request, decklistText, referenceText, deckProfileSchemaJson,
