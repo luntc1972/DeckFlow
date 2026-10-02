@@ -3849,9 +3849,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     notice.classList.remove('hidden', 'cut-lab-plan-panel__archetype-notice--ok', 'cut-lab-plan-panel__archetype-notice--kept');
     if (goalOutcome === 'Replaced' && appliedGoals) {
-      getGoalInput('commanderByTurn')!.value = String(appliedGoals.commanderByTurn ?? '');
-      getGoalInput('engineByTurn')!.value = String(appliedGoals.engineByTurn ?? '');
-      getGoalInput('representativeLineByTurn')!.value = String(appliedGoals.representativeLineByTurn ?? '');
+      const commanderInput = getGoalInput('commander');
+      const engineInput = getGoalInput('engine');
+      const representativeLineInput = getGoalInput('representative-line');
+      if (commanderInput) commanderInput.value = String(appliedGoals.commanderByTurn ?? '');
+      if (engineInput) engineInput.value = String(appliedGoals.engineByTurn ?? '');
+      if (representativeLineInput) representativeLineInput.value = String(appliedGoals.representativeLineByTurn ?? '');
       notice.classList.add('cut-lab-plan-panel__archetype-notice--ok');
       notice.textContent = `Goals set to ${displayName} defaults: commander by T${appliedGoals.commanderByTurn}, engine by T${appliedGoals.engineByTurn}, line by T${appliedGoals.representativeLineByTurn}. Change them in Step 4.`;
     } else if (goalOutcome === 'Kept' && appliedGoals) {
