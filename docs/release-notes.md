@@ -10,6 +10,7 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 - Content KB artifacts now resolve from a private root for Studio (`DECKFLOW_KB_ROOT`, with `ContentKb:PrivateRoot` fallback); Web local development can use `ContentKb__ContentBase` pointed at the private artifacts directory.
 - The public Content KB flag remains OFF. Before a deploy removes the image copy, operators must bulk-backfill `/data/content-kb/` and use Studio's read-only Data Coverage audit to confirm zero missing and zero mismatched visible, approved rows.
+- Cut Lab now includes a Step 3 deck archetype picker that suggests an archetype, applies its strategies and default goal turns, and re-runs the round queue; selecting None keeps the previous behavior.
 
 ### 2026.09.10 — Creator Content Compliance (2026-09-24)
 
