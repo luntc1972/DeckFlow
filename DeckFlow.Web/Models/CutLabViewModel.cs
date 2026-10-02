@@ -619,7 +619,7 @@ public sealed record CutLabViewModel
                 IsChecked = string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
                 IsSuggested = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase) && !string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
                 IsLowConfidence = archetypeSuggestion?.Confidence == CutLabArchetypeConfidence.Low,
-                SuggestionReason = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase) ? archetypeSuggestion.Reason : null,
+                SuggestionReason = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase) ? archetypeSuggestion?.Reason : null,
             })
         ];
         bool zeroSelectionNotice = chosenArchetype is null && strategyRows.All(row => !row.IsChecked) && themeRows.All(row => !row.IsChecked);
@@ -1290,7 +1290,9 @@ public sealed record CutLabFloorRowView
 /// <summary>Plan-panel view: the twelve generic strategy checkboxes, the commander theme checkboxes, and derived display flags.</summary>
 public sealed record CutLabPlanPanelView
 {
+    /// <summary>Archetype rows shown in the Step 3 picker.</summary>
     public IReadOnlyList<CutLabPlanArchetypeRowView> ArchetypeRows { get; init; } = [];
+    /// <summary>Display name of the selected Step 3 archetype, when one is selected.</summary>
     public string? ChosenArchetypeName { get; init; }
     /// <summary>One row per fixed generic strategy, in catalog declaration order.</summary>
     public IReadOnlyList<CutLabPlanStrategyRowView> StrategyRows { get; init; } = [];
