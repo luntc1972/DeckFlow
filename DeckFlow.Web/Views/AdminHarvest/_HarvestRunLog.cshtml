@@ -45,7 +45,8 @@ else
                 {
                     var errorDisclosure = GetErrorDisclosure(run.ErrorMessage);
                     <tr>
-                        <td>@(run.StartedUtc?.ToString("u") ?? run.RequestedUtc.ToString("u"))</td>
+                        @{ var startedUtc = run.StartedUtc ?? run.RequestedUtc; }
+                        <td title="@startedUtc.ToString("u")">@MountainTimeFormatter.Format(startedUtc)</td>
                         <td>@run.Kind</td>
                         <td><span class="@GetRunStateBadgeClass(run.State)">@run.State</span></td>
                         <td>@run.DecksProcessed</td>

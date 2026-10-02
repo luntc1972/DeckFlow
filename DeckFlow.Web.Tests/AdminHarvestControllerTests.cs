@@ -158,6 +158,23 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
+    public async Task HarvestRunLog_Started_RendersMountainTimeWithUtcTitle()
+    {
+        var startedUtc = DateTimeOffset.Parse("2026-10-01T18:21:54Z");
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun(startedUtc: startedUtc) });
+
+        Assert.Contains("title=\"2026-10-01 18:21:54Z\">2026-10-01 12:21:54 MDT", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_NotStarted_RendersRequestedTimeInMountainTime()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun() });
+
+        Assert.Contains("title=\"2026-01-01 00:00:00Z\">2025-12-31 17:00:00 MST", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task HarvestRunLog_Runs_RendersOneTableWithSixColumnHeadings()
     {
         var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun() });
@@ -240,8 +257,8 @@ public sealed class AdminHarvestControllerTests
         Assert.Contains("id=\"url\" type=\"url\" name=\"url\"", importPanel, StringComparison.Ordinal);
     }
 
-    private static HarvestRunRow CreateHarvestRun(string? errorMessage = null)
-        => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Failed, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), null, null, 900, 2, 0, null, null, errorMessage, null);
+    private static HarvestRunRow CreateHarvestRun(string? errorMessage = null, DateTimeOffset? startedUtc = null)
+        => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Failed, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), startedUtc, null, 900, 2, 0, null, null, errorMessage, null);
 
     private static AdminHarvestViewModel CreateHarvestViewModel(IReadOnlyList<HarvestRunRow> runs, bool includesStats)
         => new()
