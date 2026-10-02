@@ -472,6 +472,9 @@ public sealed class CutLabApiController : ControllerBase
                 state.Goals,
                 request.PriorArchetype,
                 rebuiltProfile.Archetype);
+            CutLabGoalSettings? archetypeDefaultGoals = CutLabArchetypeCatalog.TryGetBySlug(rebuiltProfile.Archetype, out CutLabArchetypeEntry? archetype)
+                ? archetype.DefaultGoals
+                : null;
             state = state with { Goals = goals, Intent = state.Intent with { PlanProfile = rebuiltProfile } };
 
             CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
@@ -488,6 +491,7 @@ public sealed class CutLabApiController : ControllerBase
                 CommanderThemesUnavailable = rebuiltProfile.CommanderThemesUnavailable,
                 AppliedArchetype = rebuiltProfile.Archetype,
                 AppliedGoals = goals,
+                ArchetypeDefaultGoals = archetypeDefaultGoals,
                 GoalOutcome = goalOutcome,
             });
         }

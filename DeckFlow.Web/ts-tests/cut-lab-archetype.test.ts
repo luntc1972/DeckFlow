@@ -16,7 +16,7 @@ afterEach(() => {
 
 const stateJson = JSON.stringify({ intent: { planProfile: { archetype: 'stax', genericStrategies: [], commanderThemes: [] } } });
 const patch = { cutLabStateJson: stateJson, currentCount: 100, cardsRemaining: 0, canBuildExport: true, nextProposal: null, cutsMade: [], structuralFindings: [], whatifCardOutOptions: [], whatifCardInOptions: [], quantityTuners: [], addableBasics: [] };
-const response = (archetype: string | null, outcome: 'Replaced' | 'Kept' | 'Unchanged' = 'Unchanged', goals: any = null) => ({ ok: true, json: async () => ({ patch, appliedStrategies: [], appliedThemes: [], appliedArchetype: archetype, appliedGoals: goals, goalOutcome: outcome }) });
+const response = (archetype: string | null, outcome: 'Replaced' | 'Kept' | 'Unchanged' = 'Unchanged', goals: any = null, archetypeDefaultGoals: any = null) => ({ ok: true, json: async () => ({ patch, appliedStrategies: [], appliedThemes: [], appliedArchetype: archetype, appliedGoals: goals, archetypeDefaultGoals, goalOutcome: outcome }) });
 const flush = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); await new Promise(resolve => window.setTimeout(resolve, 0)); };
 
 const buildFixture = (): HTMLInputElement => {
@@ -58,11 +58,19 @@ describe('cut-lab archetype picker', () => {
     expect(document.querySelector('[data-cut-lab-archetype-notice]')!.textContent).toBe('Goals set to Turbo defaults: commander by T2, engine by T3, line by T6. Change them in Step 4.');
   });
 
-  it('keeps custom goals and shows the kept notice', async () => {
-    const radio = buildFixture(); fetchMock.mockResolvedValueOnce(response('turbo-combo', 'Kept', { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: 6 }));
+  it('keeps custom goals and shows archetype defaults in the kept notice', async () => {
+    const radio = buildFixture(); fetchMock.mockResolvedValueOnce(response('turbo-combo', 'Kept', { commanderByTurn: 9, engineByTurn: 9, representativeLineByTurn: 9 }, { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: 6 }));
     radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); await flush();
     expect(document.querySelector<HTMLInputElement>('[data-cut-lab-goal="commander"]')!.value).toBe('4');
     expect(document.querySelector('[data-cut-lab-archetype-notice]')!.textContent).toBe('Your custom goals were kept. Turbo defaults would be T2 / T3 / T6 — change them in Step 4.');
+  });
+
+  it('archetype Kept without archetype defaults shows the no-numbers notice', async () => {
+    const radio = buildFixture(); fetchMock.mockResolvedValueOnce(response('turbo-combo', 'Kept', { commanderByTurn: 9, engineByTurn: 9, representativeLineByTurn: 9 }));
+
+    radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+
+    expect(document.querySelector('[data-cut-lab-archetype-notice]')!.textContent).toBe('Your custom goals were kept. Change them in Step 4.');
   });
 
   it('archetype Replaced with a missing goal input still checks the radio and renders the notice', async () => {

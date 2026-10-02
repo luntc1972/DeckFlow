@@ -219,6 +219,7 @@ interface CutLabPatchResponse {
   commanderThemesUnavailable?: boolean;
   appliedArchetype?: string | null;
   appliedGoals?: { commanderByTurn?: number; engineByTurn?: number; representativeLineByTurn?: number } | null;
+  archetypeDefaultGoals?: { commanderByTurn?: number; engineByTurn?: number; representativeLineByTurn?: number } | null;
   goalOutcome?: 'Unchanged' | 'Replaced' | 'Kept' | null;
 }
 
@@ -3841,6 +3842,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const syncArchetypePanel = (
     appliedArchetype: string | null,
     appliedGoals: CutLabPatchResponse['appliedGoals'],
+    archetypeDefaultGoals: CutLabPatchResponse['archetypeDefaultGoals'],
     goalOutcome: CutLabPatchResponse['goalOutcome'],
     displayName: string,
   ): void => {
@@ -3857,9 +3859,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       if (representativeLineInput) representativeLineInput.value = String(appliedGoals.representativeLineByTurn ?? '');
       notice.classList.add('cut-lab-plan-panel__archetype-notice--ok');
       notice.textContent = `Goals set to ${displayName} defaults: commander by T${appliedGoals.commanderByTurn}, engine by T${appliedGoals.engineByTurn}, line by T${appliedGoals.representativeLineByTurn}. Change them in Step 4.`;
-    } else if (goalOutcome === 'Kept' && appliedGoals) {
+    } else if (goalOutcome === 'Kept') {
       notice.classList.add('cut-lab-plan-panel__archetype-notice--kept');
-      notice.textContent = `Your custom goals were kept. ${displayName} defaults would be T${appliedGoals.commanderByTurn} / T${appliedGoals.engineByTurn} / T${appliedGoals.representativeLineByTurn} — change them in Step 4.`;
+      notice.textContent = archetypeDefaultGoals
+        ? `Your custom goals were kept. ${displayName} defaults would be T${archetypeDefaultGoals.commanderByTurn} / T${archetypeDefaultGoals.engineByTurn} / T${archetypeDefaultGoals.representativeLineByTurn} — change them in Step 4.`
+        : 'Your custom goals were kept. Change them in Step 4.';
     } else if (appliedArchetype === null) {
       notice.textContent = 'Archetype cleared. Manual strategies and goals are unchanged.';
     } else {
@@ -3972,7 +3976,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
       if (!planApplyPendingChange) {
         syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? [], data.appliedArchetype ?? null);
-        syncArchetypePanel(data.appliedArchetype ?? null, data.appliedGoals, data.goalOutcome, selectedArchetypeName);
+        syncArchetypePanel(data.appliedArchetype ?? null, data.appliedGoals, data.archetypeDefaultGoals, data.goalOutcome, selectedArchetypeName);
       }
     } catch (error) {
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'

@@ -1337,6 +1337,8 @@ public sealed class CutLabApiControllerTests
         CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
         Assert.Equal(CutLabArchetypeGoalOutcome.Kept, body.GoalOutcome);
         Assert.Equal(9, body.AppliedGoals.CommanderByTurn);
+        CutLabArchetypeEntry archetype = Assert.IsType<CutLabArchetypeEntry>(CutLabArchetypeCatalog.Entries.Single(entry => entry.Slug == "stax"));
+        Assert.Equal(archetype.DefaultGoals, body.ArchetypeDefaultGoals);
     }
 
     [Fact]
@@ -1368,6 +1370,25 @@ public sealed class CutLabApiControllerTests
 
         CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
         Assert.Null(body.AppliedArchetype);
+        Assert.Null(body.ArchetypeDefaultGoals);
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_Archetype_Cleared_ArchetypeDefaultGoalsNull()
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), patchBuilder);
+        CutLabState baseState = CreateState();
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(new CutLabPlanApplyApiRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(baseState with { Intent = baseState.Intent with { PlanProfile = new CutLabPlanProfile { Archetype = null } } }),
+            PriorArchetype = "stax",
+        }, CancellationToken.None);
+
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Null(body.AppliedArchetype);
+        Assert.Null(body.ArchetypeDefaultGoals);
     }
 
     [Fact]

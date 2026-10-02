@@ -24,6 +24,9 @@ public sealed record CutLabPlanApplyApiResponse
     /// <summary>Goals applied after evaluating the archetype change.</summary>
     public CutLabGoalSettings AppliedGoals { get; init; } = new();
 
+    /// <summary>Default goals for the applied archetype, when one is selected.</summary>
+    public CutLabGoalSettings? ArchetypeDefaultGoals { get; init; }
+
     /// <summary>Outcome of applying archetype defaults to the goals.</summary>
     public CutLabArchetypeGoalOutcome GoalOutcome { get; init; }
 }
