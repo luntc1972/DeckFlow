@@ -19,8 +19,8 @@ const patch = { cutLabStateJson: stateJson, currentCount: 100, cardsRemaining: 0
 const response = (archetype: string | null, outcome: 'Replaced' | 'Kept' | 'Unchanged' = 'Unchanged', goals: any = null, archetypeDefaultGoals: any = null) => ({ ok: true, json: async () => ({ patch, appliedStrategies: [], appliedThemes: [], appliedArchetype: archetype, appliedGoals: goals, archetypeDefaultGoals, goalOutcome: outcome }) });
 const flush = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); await new Promise(resolve => window.setTimeout(resolve, 0)); };
 
-const buildFixture = (): HTMLInputElement => {
-  document.body.innerHTML = `<form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /><button data-cut-lab-plan-apply-submit>Apply plan</button></form><div data-cut-lab-plan-panel><label><input type="radio" name="PlanArchetype" value="" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="" /><span class="cut-lab-plan-panel__row-name">None</span><span class="hidden" data-cut-lab-archetype-badge="choice">Your choice</span></label><label><input type="radio" name="PlanArchetype" value="stax" checked data-cut-lab-plan-archetype data-cut-lab-archetype-presets="stax" /><span class="cut-lab-plan-panel__row-name">Stax</span><span class="hidden" data-cut-lab-archetype-badge="choice">Your choice</span></label><label><input type="radio" name="PlanArchetype" value="turbo-combo" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="combo" /><span class="cut-lab-plan-panel__row-name">Turbo</span><span data-cut-lab-archetype-badge="suggested">Suggested</span><span class="hidden" data-cut-lab-archetype-badge="choice">Your choice</span><span data-cut-lab-archetype-reason>Why suggested: Fast mana.</span></label><label class="cut-lab-plan-panel__row"><input type="checkbox" name="PlanStrategies" value="stax" /><span class="cut-lab-plan-panel__row-name">Stax strategy</span></label><p data-cut-lab-plan-zero-notice></p><p class="hidden" data-cut-lab-archetype-notice></p></div><form data-cut-lab-goals-form><input data-cut-lab-goal="commander" value="4" /><input data-cut-lab-goal="engine" value="5" /><input data-cut-lab-goal="representative-line" value="6" /></form><div class="cutlab-proposal"></div>`;
+const buildFixture = (reasonHidden = false): HTMLInputElement => {
+  document.body.innerHTML = `<form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /><button data-cut-lab-plan-apply-submit>Apply plan</button></form><div data-cut-lab-plan-panel><label><input type="radio" name="PlanArchetype" value="" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="" /><span class="cut-lab-plan-panel__row-name">None</span><span class="hidden" data-cut-lab-archetype-badge="choice">Your choice</span></label><label><input type="radio" name="PlanArchetype" value="stax" checked data-cut-lab-plan-archetype data-cut-lab-archetype-presets="stax" /><span class="cut-lab-plan-panel__row-name">Stax</span><span class="hidden" data-cut-lab-archetype-badge="choice">Your choice</span></label><label><input type="radio" name="PlanArchetype" value="turbo-combo" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="combo" /><span class="cut-lab-plan-panel__row-name">Turbo</span><span data-cut-lab-archetype-badge="suggested">Suggested</span><span class="hidden" data-cut-lab-archetype-badge="choice">Your choice</span><span${reasonHidden ? ' class="hidden"' : ''} data-cut-lab-archetype-reason>Why suggested: Fast mana.</span></label><label class="cut-lab-plan-panel__row"><input type="checkbox" name="PlanStrategies" value="stax" /><span class="cut-lab-plan-panel__row-name">Stax strategy</span></label><p data-cut-lab-plan-zero-notice></p><p class="hidden" data-cut-lab-archetype-notice></p></div><form data-cut-lab-goals-form><input data-cut-lab-goal="commander" value="4" /><input data-cut-lab-goal="engine" value="5" /><input data-cut-lab-goal="representative-line" value="6" /></form><div class="cutlab-proposal"></div>`;
   document.dispatchEvent(new Event('DOMContentLoaded'));
   return document.querySelector<HTMLInputElement>('input[value="turbo-combo"]')!;
 };
@@ -112,6 +112,17 @@ describe('cut-lab archetype picker', () => {
     expect(reason.classList.contains('hidden')).toBe(false);
     strategy.checked = true; strategy.dispatchEvent(new Event('change', { bubbles: true })); await flush();
     expect(reason.classList.contains('hidden')).toBe(false);
+  });
+
+  it('keeps a server-hidden Why suggested hidden after a strategy response', async () => {
+    buildFixture(true);
+    const strategy = document.querySelector<HTMLInputElement>('input[name="PlanStrategies"]')!;
+    const reason = document.querySelector<HTMLElement>('[data-cut-lab-archetype-reason]')!;
+    fetchMock.mockResolvedValueOnce(response('stax'));
+
+    expect(reason.classList.contains('hidden')).toBe(true);
+    strategy.checked = true; strategy.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(reason.classList.contains('hidden')).toBe(true);
   });
 
   it('keeps Why suggested hidden after picks away and back', async () => {

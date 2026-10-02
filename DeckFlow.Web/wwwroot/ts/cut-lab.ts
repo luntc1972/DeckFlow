@@ -3823,7 +3823,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]').forEach(badge => badge.classList.remove('hidden'));
       archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]')?.classList.add('hidden');
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-reason]').forEach(reason => {
-        reason.classList.toggle('hidden', hasPickedArchetype);
+        if (hasPickedArchetype) reason.classList.add('hidden');
       });
     }
     const presetStrategies = new Set((archetype?.dataset.cutLabArchetypePresets ?? '').split(' ').filter(Boolean).map(slug => slug.toLowerCase()));
