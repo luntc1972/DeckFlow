@@ -10,6 +10,7 @@ using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Bracket;
 using DeckFlow.Web.Services.FeatureFlags;
+using DeckFlow.Web.Services.CommanderCategoryNorms;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Primer;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
@@ -285,7 +286,8 @@ internal static class PacketByteIdentityFixtures
     public static DeckAnalysisPacketService CreateAnalysisService(
         IMoxfieldDeckImporter? moxfieldDeckImporter = null,
         IFeatureFlagCache? flagCache = null,
-        ICommanderSpellbookService? spellbookService = null)
+        ICommanderSpellbookService? spellbookService = null,
+        ICommanderCategoryNormsProvider? normsProvider = null)
     {
         var cardResolver = new ScryfallCardResolver(
             new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
@@ -320,7 +322,8 @@ internal static class PacketByteIdentityFixtures
             }),
             new PacketSessionCache(),
             flagCache,
-            NullLogger<DeckAnalysisPacketService>.Instance);
+            NullLogger<DeckAnalysisPacketService>.Instance,
+            normsProvider: normsProvider);
     }
 
     /// <summary>All 6 flag keys that can mutate an Analysis artifact (4 PromptMutatingAnalysisFlags
@@ -331,6 +334,7 @@ internal static class PacketByteIdentityFixtures
         [DeckAnalysisPacketService.MultiAxisScoreFlag] = false,
         [DeckAnalysisPacketService.InteractionAuditFlag] = false,
         [DeckAnalysisPacketService.WinConMapFlag] = false,
+        [DeckAnalysisPacketService.CommanderCategoryNormsFlag] = false,
         [DeckAnalysisPacketService.ReferenceFullOracleFlag] = true, // enabled = legacy full-oracle-text (OFF gate state)
         [DeckAnalysisPacketService.ReferenceDeckStatsFlag] = false,
     });

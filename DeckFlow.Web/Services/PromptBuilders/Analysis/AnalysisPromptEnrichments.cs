@@ -22,8 +22,10 @@ namespace DeckFlow.Web.Services.PromptBuilders.Analysis;
 /// Pre-built win-condition/combo-map text block; null/empty when the wincon-map flag (Phase 80) is
 /// off.
 /// </param>
+/// <param name="CommanderCategoryNormsText">Pre-built harvested commander-category norms block; null or empty when the commander-category-norms flag (Phase 5) is off, no provider is wired, the provider returned nothing, or the commander is below the 10-deck floor.</param>
 internal sealed record AnalysisPromptEnrichments(
     string? CompanionName = null,
     string? ScoreBlockText = null,
     string? InteractionAuditText = null,
-    string? WinConMapText = null);
+    string? WinConMapText = null,
+    string? CommanderCategoryNormsText = null);
