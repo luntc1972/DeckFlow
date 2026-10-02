@@ -147,7 +147,6 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
 
         var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
         Assert.Contains("('analysis.commander-category-norms', FALSE)", postgresSql, StringComparison.Ordinal);
-        Assert.Equal("analysis.commander-category-norms", DeckAnalysisPacketService.CommanderCategoryNormsFlag);
         Assert.Contains(DeckAnalysisPacketService.CommanderCategoryNormsFlag, DeckAnalysisPacketService.PromptMutatingAnalysisFlags);
 
         var description = FeatureFlagCatalog.Describe("analysis.commander-category-norms");

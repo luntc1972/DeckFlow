@@ -370,6 +370,13 @@ internal static class PacketByteIdentityFixtures
                 new CommanderCategorySummary("Counterspell", 0, 210, 210 / 412.0),
             ]);
 
+    public static CommanderCategoryNormsResult MaxCommanderCategoryNorms() => new(
+        new string('K', CommanderCategoryNormsBlock.MaxHarvestKeyLength),
+        412,
+        Enumerable.Range(0, CommanderCategoryNormsBlock.MaxCategories)
+            .Select(index => new CommanderCategorySummary(new string((char)('A' + index), CommanderCategoryNormsBlock.MaxCategoryLabelLength), 300, 412, 0.75))
+            .ToArray());
+
     // ---------------------------------------------------------------------------------------
     // Analysis fixture decks.
     // ---------------------------------------------------------------------------------------
@@ -384,6 +391,17 @@ internal static class PacketByteIdentityFixtures
         CreateDeckEntry("Sol Ring", 1, "mainboard", "c16", "272"),
         CreateDeckEntry("Ponder", 1, "mainboard", "c21", "118"),
     ];
+
+    public static DeckAnalysisRequest BaselineAnalysisRequest() => new()
+    {
+        DeckInputSource = DeckInputSource.PublicUrl,
+        WorkflowStep = 2,
+        DeckSource = "https://www.moxfield.com/decks/byte-identity-baseline",
+        Format = "Commander",
+        TargetCommanderBracket = "Upgraded",
+        TargetAiPlatform = "ChatGPT",
+        SelectedAnalysisQuestions = ["strengths-weaknesses"],
+    };
 
     /// <summary>Companion fixture (Kraum + Background) used for the ALL-4-mutating-flags-ON case (M1)
     /// so shared combo-fetch/enrichment ordering under interacting flags is exercised.</summary>
@@ -459,6 +477,15 @@ internal static class PacketByteIdentityFixtures
     // Minimal fixture doubles (Analysis-only dependencies not otherwise covered by shared
     // TestDoubles). Kept internal/private to this file so no existing test double is touched.
     // ---------------------------------------------------------------------------------------
+
+    internal sealed class StaticMoxfieldDeckImporter(List<DeckEntry> entries) : IMoxfieldDeckImporter
+    {
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => Task.FromResult(entries.Select(CloneEntry).ToList());
+
+        public Task<MoxfieldImportResult> ImportWithSourceAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new MoxfieldImportResult(ImportAsync(urlOrDeckId, cancellationToken).GetAwaiter().GetResult(), MoxfieldImportSource.Direct, null));
+    }
 
     private sealed class FixtureMoxfieldDeckImporter : IMoxfieldDeckImporter
     {

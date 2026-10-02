@@ -15,14 +15,7 @@ public sealed partial class DeckAnalysisPacketServiceTests
     [Fact]
     public async Task CommanderCategoryNormsCacheBypass_FlagOn_ReadSideKeyNull_BuildRendersBlock_NoReplayAfterFlipOff()
     {
-        var packetCache = new PacketSessionCache();
-        var flagCache = new FakeFeatureFlagCache(new Dictionary<string, bool>
-        {
-            [DeckAnalysisPacketService.CommanderCategoryNormsFlag] = true,
-        });
-        var provider = new FakeCommanderCategoryNormsProvider(PacketByteIdentityFixtures.FixedCommanderCategoryNorms());
-        var service = CreateServiceWithSharedCache(packetCache, flagCache, new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)), provider);
-        var request = CreateWinConMapCacheRequest();
+        var (packetCache, flagCache, service, request) = ArrangeNormsCache();
 
         Assert.Null(await service.TryComputeCacheKeyAsync(request, CancellationToken.None));
 
@@ -32,8 +25,7 @@ public sealed partial class DeckAnalysisPacketServiceTests
         flagCache.Flags[DeckAnalysisPacketService.CommanderCategoryNormsFlag] = false;
         var offKey = await service.TryComputeCacheKeyAsync(request, CancellationToken.None);
         Assert.False(string.IsNullOrEmpty(offKey));
-        Assert.False(packetCache.TryGet<DeckAnalysisPacketResult>(offKey!, out var staleCached));
-        Assert.Null(staleCached);
+        AssertNotCached(packetCache, offKey!);
 
         var offResult = await service.BuildAsync(request, CancellationToken.None);
         Assert.DoesNotContain(CommanderCategoryNormsHeaderSentinel, offResult.AnalysisPromptText ?? string.Empty, StringComparison.Ordinal);
@@ -44,22 +36,14 @@ public sealed partial class DeckAnalysisPacketServiceTests
     [Fact]
     public async Task CommanderCategoryNormsCacheBypass_FlagOn_WriteSide_NothingCached()
     {
-        var packetCache = new PacketSessionCache();
-        var flagCache = new FakeFeatureFlagCache(new Dictionary<string, bool>
-        {
-            [DeckAnalysisPacketService.CommanderCategoryNormsFlag] = true,
-        });
-        var provider = new FakeCommanderCategoryNormsProvider(PacketByteIdentityFixtures.FixedCommanderCategoryNorms());
-        var service = CreateServiceWithSharedCache(packetCache, flagCache, new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)), provider);
-        var request = CreateWinConMapCacheRequest();
+        var (packetCache, flagCache, service, request) = ArrangeNormsCache();
 
         await service.BuildAsync(request, CancellationToken.None);
 
         flagCache.Flags[DeckAnalysisPacketService.CommanderCategoryNormsFlag] = false;
         var probeKey = await service.TryComputeCacheKeyAsync(request, CancellationToken.None);
         Assert.False(string.IsNullOrEmpty(probeKey));
-        Assert.False(packetCache.TryGet<DeckAnalysisPacketResult>(probeKey!, out var cached));
-        Assert.Null(cached);
+        AssertNotCached(packetCache, probeKey!);
     }
 
     [Fact]
@@ -77,8 +61,7 @@ public sealed partial class DeckAnalysisPacketServiceTests
         var probeService = CreateServiceWithSharedCache(packetCache, new FakeFeatureFlagCache(), new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)));
         var probeKey = await probeService.TryComputeCacheKeyAsync(request, CancellationToken.None);
         Assert.False(string.IsNullOrEmpty(probeKey));
-        Assert.False(packetCache.TryGet<DeckAnalysisPacketResult>(probeKey!, out var cached));
-        Assert.Null(cached);
+        AssertNotCached(packetCache, probeKey!);
     }
 
     [Fact]
@@ -98,5 +81,23 @@ public sealed partial class DeckAnalysisPacketServiceTests
         Assert.True(packetCache.TryGet<DeckAnalysisPacketResult>(key!, out var cached));
         Assert.NotNull(cached);
         Assert.Empty(provider.RequestedKeys);
+    }
+
+    private static (PacketSessionCache PacketCache, FakeFeatureFlagCache FlagCache, DeckAnalysisPacketService Service, DeckAnalysisRequest Request) ArrangeNormsCache()
+    {
+        var packetCache = new PacketSessionCache();
+        var flagCache = new FakeFeatureFlagCache(new Dictionary<string, bool>
+        {
+            [DeckAnalysisPacketService.CommanderCategoryNormsFlag] = true,
+        });
+        var provider = new FakeCommanderCategoryNormsProvider(PacketByteIdentityFixtures.FixedCommanderCategoryNorms());
+        var service = CreateServiceWithSharedCache(packetCache, flagCache, new FakeMoxfieldDeckImporter(entries: CreateCompanionFixtureEntries(includeBackgroundCommander: false)), provider);
+        return (packetCache, flagCache, service, CreateWinConMapCacheRequest());
+    }
+
+    private static void AssertNotCached(PacketSessionCache packetCache, string key)
+    {
+        Assert.False(packetCache.TryGet<DeckAnalysisPacketResult>(key, out var cached));
+        Assert.Null(cached);
     }
 }

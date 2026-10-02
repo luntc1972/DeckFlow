@@ -31,11 +31,11 @@ public sealed class CommanderCategoryNormsProviderTests
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var provider = new CommanderCategoryNormsProvider(new CommanderCategoryService(store), store, cache, NullLogger<CommanderCategoryNormsProvider>.Instance);
         var service = PacketByteIdentityFixtures.CreateAnalysisService(
-            new StaticMoxfieldDeckImporter(PacketByteIdentityFixtures.BaselineEntries()),
+            new PacketByteIdentityFixtures.StaticMoxfieldDeckImporter(PacketByteIdentityFixtures.BaselineEntries()),
             PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag),
             normsProvider: provider);
 
-        var prompt = (await service.BuildAsync(Request())).AnalysisPromptText;
+        var prompt = (await service.BuildAsync(PacketByteIdentityFixtures.BaselineAnalysisRequest())).AnalysisPromptText;
 
         Assert.Contains("HARVESTED COMMANDER CATEGORY NORMS - 12 decks (LOW confidence)", prompt);
         Assert.Contains("- Ramp - in 83% of 12 decks", prompt);
@@ -196,12 +196,7 @@ public sealed class CommanderCategoryNormsProviderTests
     public async Task SingleFlight_ConcurrentSameKey_OneLookup()
     {
         var store = new FakeCategoryKnowledgeStore { CommanderDeckCount = 12 };
-        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var service = new RecordingCommanderCategoryService(async (key, token, includeCount) =>
-        {
-            await gate.Task.WaitAsync(token);
-            return Result(key);
-        });
+        var (service, gate) = GatedService();
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var first = CreateProvider(service, store, cache).GetNormsAsync("Single Flight");
         var second = CreateProvider(service, store, cache).GetNormsAsync("Single Flight");
@@ -234,12 +229,7 @@ public sealed class CommanderCategoryNormsProviderTests
         var firstKey = "Stripe A";
         var secondKey = FindSameStripeKey(firstKey);
         var store = new FakeCategoryKnowledgeStore { CommanderDeckCount = 12 };
-        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var service = new RecordingCommanderCategoryService(async (key, token, includeCount) =>
-        {
-            await gate.Task.WaitAsync(token);
-            return Result(key);
-        });
+        var (service, gate) = GatedService();
         var logger = new FakeLogger<CommanderCategoryNormsProvider>();
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var provider = CreateProvider(service, store, cache, logger, TimeSpan.FromSeconds(1));
@@ -278,12 +268,7 @@ public sealed class CommanderCategoryNormsProviderTests
         var firstKey = "Waiting A";
         var secondKey = FindSameStripeKey(firstKey);
         var store = new FakeCategoryKnowledgeStore { CommanderDeckCount = 12 };
-        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var service = new RecordingCommanderCategoryService(async (key, token, includeCount) =>
-        {
-            await gate.Task.WaitAsync(token);
-            return Result(key);
-        });
+        var (service, gate) = GatedService();
         var logger = new FakeLogger<CommanderCategoryNormsProvider>();
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var provider = CreateProvider(service, store, cache, logger, TimeSpan.FromSeconds(1));
@@ -406,11 +391,13 @@ public sealed class CommanderCategoryNormsProviderTests
 
     private static CommanderCategoryNormsProvider CreateProvider(
         ICommanderCategoryService service,
-        FakeCategoryKnowledgeStore store,
-        IMemoryCache cache,
+        FakeCategoryKnowledgeStore? store = null,
+        IMemoryCache? cache = null,
         ILogger<CommanderCategoryNormsProvider>? logger = null,
         TimeSpan? timeout = null)
     {
+        store ??= new FakeCategoryKnowledgeStore { CommanderDeckCount = 12 };
+        cache ??= new MemoryCache(new MemoryCacheOptions());
         logger ??= NullLogger<CommanderCategoryNormsProvider>.Instance;
         return timeout.HasValue
             ? new CommanderCategoryNormsProvider(service, store, cache, logger, timeout.Value)
@@ -439,6 +426,16 @@ public sealed class CommanderCategoryNormsProviderTests
         }
 
         throw new InvalidOperationException("Unable to find a colliding stripe key.");
+    }
+
+    private static (RecordingCommanderCategoryService Service, TaskCompletionSource Gate) GatedService()
+    {
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        return (new RecordingCommanderCategoryService(async (key, token, includeCount) =>
+        {
+            await gate.Task.WaitAsync(token);
+            return Result(key);
+        }), gate);
     }
 
     private static string[] CategoryLabels() =>
@@ -481,11 +478,6 @@ public sealed class CommanderCategoryNormsProviderTests
         }
     }
 
-    private sealed class TimeProviderSystemClock(TimeProvider timeProvider) : ISystemClock
-    {
-        public DateTimeOffset UtcNow => timeProvider.GetUtcNow();
-    }
-
     private static FakeCategoryKnowledgeStore CreateStore()
     {
         var store = new FakeCategoryKnowledgeStore
@@ -502,23 +494,4 @@ public sealed class CommanderCategoryNormsProviderTests
         return store;
     }
 
-    private static DeckAnalysisRequest Request() => new()
-    {
-        DeckInputSource = DeckInputSource.PublicUrl,
-        WorkflowStep = 2,
-        DeckSource = "https://www.moxfield.com/decks/byte-identity-baseline",
-        Format = "Commander",
-        TargetCommanderBracket = "Upgraded",
-        TargetAiPlatform = "ChatGPT",
-        SelectedAnalysisQuestions = ["strengths-weaknesses"],
-    };
-
-    private sealed class StaticMoxfieldDeckImporter(List<DeckEntry> entries) : IMoxfieldDeckImporter
-    {
-        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default) => Task.FromResult(entries.Select(Clone).ToList());
-
-        public Task<MoxfieldImportResult> ImportWithSourceAsync(string urlOrDeckId, CancellationToken cancellationToken = default) => Task.FromResult(new MoxfieldImportResult(ImportAsync(urlOrDeckId, cancellationToken).GetAwaiter().GetResult(), MoxfieldImportSource.Direct, null));
-
-        private static DeckEntry Clone(DeckEntry entry) => PacketByteIdentityFixtures.CreateDeckEntry(entry.Name, entry.Quantity, entry.Board, entry.SetCode, entry.CollectorNumber, entry.Category);
-    }
 }

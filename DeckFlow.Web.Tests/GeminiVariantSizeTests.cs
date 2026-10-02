@@ -75,11 +75,8 @@ public sealed class GeminiVariantSizeTests
     [Fact]
     public void GeminiAnalysis_RepresentativeDeckWithMaxNormsBlock_MeasuresPromptSize()
     {
-        var categories = Enumerable.Range(0, CommanderCategoryNormsBlock.MaxCategories)
-            .Select(index => new CommanderCategorySummary(new string((char)('A' + index), CommanderCategoryNormsBlock.MaxCategoryLabelLength), 300, 412, 0.75))
-            .ToArray();
         var normsBlock = CommanderCategoryNormsBlock.Build(
-            new CommanderCategoryNormsResult(new string('K', CommanderCategoryNormsBlock.MaxHarvestKeyLength), 412, categories),
+            PacketByteIdentityFixtures.MaxCommanderCategoryNorms(),
             multiCommanderDeck: true);
         var variant = new GeminiAnalysisPromptVariant();
 
