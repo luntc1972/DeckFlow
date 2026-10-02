@@ -90,6 +90,11 @@ public static class FeatureFlagCatalog
                 "Show the deck-analysis win-condition & combo map block - ranked combos, one-card-away " +
                 "near-combos, an assembly-path count, a coarse assembly band, and closing cards - in the " +
                 "Step-3 readout and all three prompt artifacts. Off = byte-identical to pre-Phase-80.",
+            ["analysis.commander-category-norms"] =
+                "Add a harvested commander-category norms block - up to 15 categories with the share of harvested " +
+                "decks for the deck's commander that run each, plus the deck count and a LOW/MEDIUM/HIGH confidence " +
+                "tier - to all three deck-analysis prompt artifacts. Omitted below 10 harvested decks or when the " +
+                "lookup fails. Off = byte-identical to pre-Phase-5.",
             ["tool.primer.stale-flag"] =
                 "Surface a 'deck changed since this primer was generated' stale banner on the Deck Primer " +
                 "page, shown only on resume-without-rebuild when the current deck differs from the generated " +
