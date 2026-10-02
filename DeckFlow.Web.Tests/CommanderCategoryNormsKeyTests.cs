@@ -46,8 +46,86 @@ public sealed class CommanderCategoryNormsKeyTests
         Assert.Equal(AnalysisGoldens.BaselineAnalysisPrompt("ChatGPT"), PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.AnalysisPromptText), StringComparer.Ordinal);
     }
 
-    private static DeckAnalysisPacketService Create(FakeFeatureFlagCache flags, ICommanderCategoryNormsProvider provider)
-        => PacketByteIdentityFixtures.CreateAnalysisService(new StaticMoxfieldDeckImporter(PacketByteIdentityFixtures.BaselineEntries()), flags, normsProvider: provider);
+    [Fact]
+    public async Task PartnerDeck_ReversedOrder_KeyedByAlphabeticallyFirst()
+    {
+        var entries = PacketByteIdentityFixtures.CompanionEntries();
+        (entries[0], entries[1]) = (entries[1], entries[0]);
+        var provider = new FakeCommanderCategoryNormsProvider(PacketByteIdentityFixtures.FixedCommanderCategoryNorms());
+
+        var result = await Create(PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag), provider, entries).BuildAsync(Request());
+
+        Assert.Equal(["Kraum, Ludevic's Opus"], provider.RequestedKeys);
+        Assert.Contains("keyed under Kraum, Ludevic's Opus, the alphabetically first commander in this deck", result.AnalysisPromptText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CommandZoneFlagAlsoOn_KeyIsHarvestKey()
+    {
+        var provider = new FakeCommanderCategoryNormsProvider(PacketByteIdentityFixtures.FixedCommanderCategoryNorms());
+        var flags = PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag);
+        flags.Flags[DeckAnalysisPacketService.CommandZoneAwarenessFlag] = true;
+
+        await Create(flags, provider, PacketByteIdentityFixtures.CompanionEntries()).BuildAsync(Request());
+
+        Assert.Equal(["Kraum, Ludevic's Opus"], provider.RequestedKeys);
+        Assert.DoesNotContain(provider.RequestedKeys, key => key.Contains(" & ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task DfcCommander_SingleSlash_KeyedByOracleName()
+    {
+        var entries = PacketByteIdentityFixtures.VersionedDecklistWithSingleSlashMissEntries()
+            .Where(entry => entry.Name != "Kraum, Ludevic's Opus")
+            .Select(entry => entry.Name == "Blex, Vexing Pest / Search for Blex" ? entry with { Board = "commander" } : entry)
+            .ToList();
+        var provider = new FakeCommanderCategoryNormsProvider(PacketByteIdentityFixtures.FixedCommanderCategoryNorms());
+        var request = new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/byte-identity-versioned",
+            Format = "Commander",
+            TargetCommanderBracket = "Upgraded",
+            TargetAiPlatform = "ChatGPT",
+            IncludeCardVersions = true,
+            IncludeCandidateReferencesInAnalysis = true,
+            SelectedAnalysisQuestions = ["bracket-2-version"],
+        };
+
+        await Create(PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag), provider, entries).BuildAsync(request);
+
+        Assert.Equal(["Blex, Vexing Pest // Search for Blex"], provider.RequestedKeys);
+    }
+
+    [Fact]
+    public async Task NullProvider_FlagOn_NoBlock()
+    {
+        var result = await Create(PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag), null).BuildAsync(Request());
+
+        Assert.DoesNotContain("HARVESTED COMMANDER CATEGORY NORMS", result.AnalysisPromptText);
+        Assert.Equal(AnalysisGoldens.BaselineAnalysisPrompt("ChatGPT"), PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.AnalysisPromptText), StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public async Task ProviderCancelsCaller_BuildAsyncThrows()
+    {
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var service = Create(PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag), new CallerCancellingCommanderCategoryNormsProvider(cancellationTokenSource));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.BuildAsync(Request(), cancellationTokenSource.Token));
+    }
+
+    [Fact]
+    public async Task ProviderThrowsCanceledWithoutCaller_PromptBuildsWithoutBlock()
+    {
+        var result = await Create(PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag), new NonCallerCancellingCommanderCategoryNormsProvider()).BuildAsync(Request());
+
+        Assert.DoesNotContain("HARVESTED COMMANDER CATEGORY NORMS", result.AnalysisPromptText);
+    }
+
+    private static DeckAnalysisPacketService Create(FakeFeatureFlagCache flags, ICommanderCategoryNormsProvider? provider, List<DeckEntry>? entries = null)
+        => PacketByteIdentityFixtures.CreateAnalysisService(new StaticMoxfieldDeckImporter(entries ?? PacketByteIdentityFixtures.BaselineEntries()), flags, normsProvider: provider);
 
     private static DeckAnalysisRequest Request() => new()
     {
@@ -70,5 +148,20 @@ public sealed class CommanderCategoryNormsKeyTests
     private sealed class ThrowingCommanderCategoryNormsProvider : ICommanderCategoryNormsProvider
     {
         public Task<CommanderCategoryNormsResult?> GetNormsAsync(string harvestKey, CancellationToken cancellationToken = default) => throw new InvalidOperationException();
+    }
+
+    private sealed class CallerCancellingCommanderCategoryNormsProvider(CancellationTokenSource cancellationTokenSource) : ICommanderCategoryNormsProvider
+    {
+        public Task<CommanderCategoryNormsResult?> GetNormsAsync(string harvestKey, CancellationToken cancellationToken = default)
+        {
+            cancellationTokenSource.Cancel();
+            throw new OperationCanceledException(cancellationToken);
+        }
+    }
+
+    private sealed class NonCallerCancellingCommanderCategoryNormsProvider : ICommanderCategoryNormsProvider
+    {
+        public Task<CommanderCategoryNormsResult?> GetNormsAsync(string harvestKey, CancellationToken cancellationToken = default)
+            => throw new OperationCanceledException(new CancellationToken(canceled: true));
     }
 }
