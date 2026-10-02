@@ -52,6 +52,7 @@ public sealed class FeatureFlagCatalogTests
     [InlineData("analysis.command-zone-awareness")]
     [InlineData("tool.bracket.enabled")]
     [InlineData("analysis.multi-axis-score")]
+    [InlineData("analysis.commander-category-norms")]
     [InlineData("analysis.manabase.mulligan-eval")]
     [InlineData("analysis.manabase.plan-presence")]
     [InlineData("analysis.manabase.keep-shapes")]

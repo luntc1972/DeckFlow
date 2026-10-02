@@ -38,6 +38,7 @@ public sealed class FeatureFlagStoreSeedTests : IDisposable
     [InlineData("analysis.command-zone-awareness", false)]
     [InlineData("tool.bracket.enabled", true)] // BRACKET-05: dark launch over, seeded ON
     [InlineData("analysis.multi-axis-score", false)] // SCORE-01: seeded OFF
+    [InlineData("analysis.commander-category-norms", false)] // Phase 5 D-10: seeded OFF
     [InlineData("tool.primer.stale-flag", false)] // PRIMER: seeded OFF
     [InlineData("tool.deck-history.enabled", true)] // dark launch over, seeded ON
     [InlineData("tool.cut-lab.enabled", false)] // seeded OFF
