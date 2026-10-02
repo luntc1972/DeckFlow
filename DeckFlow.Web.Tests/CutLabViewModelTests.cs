@@ -332,6 +332,20 @@ public sealed class CutLabViewModelTests
     }
 
     [Fact]
+    public void BuildPlanPanel_Archetype_SuggestionReasonVisibleUntilDifferentArchetypeChosen()
+    {
+        CutLabArchetypeSuggestion suggestion = new("turbo-combo", CutLabArchetypeConfidence.High, "Fast mana.");
+
+        CutLabPlanArchetypeRowView noChoice = CutLabViewModel.BuildPlanPanel(null, [], false, suggestion).ArchetypeRows.Single(row => row.Slug == "turbo-combo");
+        CutLabPlanArchetypeRowView suggestedChoice = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "turbo-combo" }, [], false, suggestion).ArchetypeRows.Single(row => row.Slug == "turbo-combo");
+        CutLabPlanArchetypeRowView differentChoice = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax" }, [], false, suggestion).ArchetypeRows.Single(row => row.Slug == "turbo-combo");
+
+        Assert.True(noChoice.ShowSuggestionReason);
+        Assert.True(suggestedChoice.ShowSuggestionReason);
+        Assert.False(differentChoice.ShowSuggestionReason);
+    }
+
+    [Fact]
     public void BuildPlanPanel_Archetype_SuggestedBadgeHiddenWhenDifferentArchetypeChecked()
     {
         CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax" }, [], false, new("turbo-combo", CutLabArchetypeConfidence.High, "Fast mana."));

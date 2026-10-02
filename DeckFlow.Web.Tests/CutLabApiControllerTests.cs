@@ -1383,6 +1383,32 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostPlanApplyAsync_Archetype_ChainStartGoalsOutOfRange_ClampsPersistedGoals()
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), patchBuilder);
+        CutLabState state = CreateState() with
+        {
+            Goals = CutLabArchetypeCatalog.Entries.Single(entry => entry.Slug == "stax").DefaultGoals,
+            Intent = CreateState().Intent with { PlanProfile = new CutLabPlanProfile { Archetype = null } },
+        };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(new CutLabPlanApplyApiRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+            PriorArchetype = "stax",
+            ChainStartArchetype = null,
+            ChainStartGoals = new CutLabGoalSettings { CommanderByTurn = 99, EngineByTurn = -1, RepresentativeLineByTurn = 0 },
+        }, CancellationToken.None);
+
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Equal(15, body.AppliedGoals.CommanderByTurn);
+        Assert.Equal(1, body.AppliedGoals.EngineByTurn);
+        Assert.Equal(1, body.AppliedGoals.RepresentativeLineByTurn);
+        Assert.Equal(body.AppliedGoals, patchBuilder.LastState!.Goals);
+    }
+
+    [Fact]
     public async Task PostPlanApplyAsync_Archetype_InvalidSlug_AppliedArchetypeNull()
     {
         TrackingPatchBuilder patchBuilder = new();

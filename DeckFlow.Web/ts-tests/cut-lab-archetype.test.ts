@@ -42,7 +42,8 @@ describe('cut-lab archetype picker', () => {
 
     stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true }));
     await Promise.resolve();
-    const wasBusy = stax.disabled && stax.closest('label')!.textContent!.includes('Applying…');
+    const wasBusy = stax.disabled
+      && stax.closest('label')!.querySelector('.cut-lab-plan-panel__row-name')!.textContent!.includes(' · Applying…');
     none.checked = true; none.dispatchEvent(new Event('change', { bubbles: true }));
     resolveFirst!({ ok: true, json: async () => ({ patch: staxPatch, appliedStrategies: [], appliedThemes: [], appliedArchetype: 'stax', appliedGoals: staxGoals, goalOutcome: 'Replaced' }) });
     await flush(); await flush();
@@ -97,9 +98,20 @@ describe('cut-lab archetype picker', () => {
     fetchMock.mockResolvedValueOnce(response('turbo-combo')).mockResolvedValueOnce(response('stax'));
     turbo.checked = true; turbo.dispatchEvent(new Event('change', { bubbles: true })); await flush();
     expect(suggested.classList.contains('hidden')).toBe(true); expect(choice.classList.contains('hidden')).toBe(false);
-    expect(turbo.closest('label')!.querySelector('[data-cut-lab-archetype-reason]')!.classList.contains('hidden')).toBe(true);
+    expect(turbo.closest('label')!.querySelector('[data-cut-lab-archetype-reason]')!.classList.contains('hidden')).toBe(false);
     stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); await flush();
     expect(suggested.classList.contains('hidden')).toBe(false);
+  });
+
+  it('keeps Why suggested visible until this page session picks away', async () => {
+    const turbo = buildFixture();
+    const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
+    const reason = turbo.closest('label')!.querySelector<HTMLElement>('[data-cut-lab-archetype-reason]')!;
+    fetchMock.mockResolvedValueOnce(response('stax'));
+
+    expect(reason.classList.contains('hidden')).toBe(false);
+    stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(reason.classList.contains('hidden')).toBe(true);
   });
 
   it('keeps the archetype notice hidden for a strategy apply with no archetype before or after', async () => {

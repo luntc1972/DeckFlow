@@ -3821,10 +3821,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="choice"]')?.classList.remove('hidden');
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]').forEach(badge => badge.classList.remove('hidden'));
       archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]')?.classList.add('hidden');
-      document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-reason]').forEach(reason => reason.classList.add('hidden'));
+      document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-reason]').forEach(reason => {
+        reason.classList.toggle('hidden', reason.closest('label')?.querySelector<HTMLInputElement>('[data-cut-lab-plan-archetype]')?.value !== (appliedArchetype ?? ''));
+      });
     }
     const presetStrategies = new Set((archetype?.dataset.cutLabArchetypePresets ?? '').split(' ').filter(Boolean).map(slug => slug.toLowerCase()));
-    const archetypeName = archetype?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.textContent?.trim() ?? '';
+    const archetypeName = archetype?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.childNodes[0]?.textContent?.trim() ?? '';
     strategyCheckboxes.forEach(checkbox => {
       const row = checkbox.closest<HTMLElement>('label');
       const isImplied = !checkbox.checked && presetStrategies.has(checkbox.value.toLowerCase());
@@ -3902,7 +3904,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       archetype.disabled = true;
       applying.className = 'cut-lab-plan-panel__applying';
       applying.textContent = 'Applying…';
-      archetype.closest('label')?.querySelector('.cut-lab-plan-panel__row-name')?.after(applying);
+      const rowName = archetype.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name');
+      if (rowName) {
+        rowName.append(' · ', applying);
+      }
     }
 
     return () => {
@@ -3911,6 +3916,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         checkbox.disabled = originallyDisabled[index];
       });
       if (archetype) archetype.disabled = archetypeWasDisabled;
+      applying?.previousSibling?.remove();
       applying?.remove();
     };
   };
@@ -3993,7 +3999,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       const selectedArchetypeName = document.querySelector<HTMLInputElement>(`input[name="PlanArchetype"][value="${data.appliedArchetype ?? ''}"]`)
-        ?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.textContent?.trim() ?? 'this archetype';
+        ?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.childNodes[0]?.textContent?.trim() ?? 'this archetype';
       applyServerPatch(data.patch, antiForgeryToken);
       const appliedState = tryReadSerializedState();
       if (appliedState?.intent?.planProfile) {

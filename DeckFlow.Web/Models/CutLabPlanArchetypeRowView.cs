@@ -21,4 +21,6 @@ public sealed record CutLabPlanArchetypeRowView
     public bool IsLowConfidence { get; init; }
     /// <summary>Why this Step 3 archetype is suggested, when available.</summary>
     public string? SuggestionReason { get; init; }
+    /// <summary>True when the suggested reason remains visible for the current server selection.</summary>
+    public bool ShowSuggestionReason { get; init; }
 }

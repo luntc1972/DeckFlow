@@ -8,6 +8,7 @@
   --accent: #8b6cc1;          /* enchantment purple */
   --accent-strong: #a88cd8;
   --accent-contrast: #0a0910; /* white-on-accent measures 4.19:1, fails 4.5:1; dark purple-black clears 4.73:1 */
+  --cut-lab-archetype-choice-color: var(--accent-contrast); /* 6.99:1 on --accent-strong */
   --nyx-gold: #d4af6e;        /* constellation gold */
   --nyx-gold-bg: #231e14;
   --nyx-surface: #241f38;     /* slightly lighter than panel */

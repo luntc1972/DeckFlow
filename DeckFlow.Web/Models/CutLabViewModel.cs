@@ -620,6 +620,7 @@ public sealed record CutLabViewModel
                 IsSuggested = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase),
                 IsLowConfidence = archetypeSuggestion?.Confidence == CutLabArchetypeConfidence.Low,
                 SuggestionReason = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase) ? archetypeSuggestion?.Reason : null,
+                ShowSuggestionReason = chosenArchetype is null || string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
             })
         ];
         bool zeroSelectionNotice = chosenArchetype is null && strategyRows.All(row => !row.IsChecked) && themeRows.All(row => !row.IsChecked);

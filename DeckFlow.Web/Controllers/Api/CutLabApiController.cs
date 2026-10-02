@@ -468,12 +468,15 @@ public sealed class CutLabApiController : ControllerBase
                 priorProfile: postedProfile,
                 planThemeResult: planThemeResult);
 
+            CutLabGoalSettings? chainStartGoals = request.ChainStartGoals is null
+                ? null
+                : CutLabGoalRules.ClampGoals(state with { Goals = request.ChainStartGoals }).Goals;
             (CutLabGoalSettings goals, CutLabArchetypeGoalOutcome goalOutcome) = CutLabArchetypeGoalRules.Apply(
                 state.Goals,
                 request.PriorArchetype,
                 rebuiltProfile.Archetype,
                 request.ChainStartArchetype,
-                request.ChainStartGoals);
+                chainStartGoals);
             CutLabGoalSettings? archetypeDefaultGoals = CutLabArchetypeCatalog.TryGetBySlug(rebuiltProfile.Archetype, out CutLabArchetypeEntry? archetype)
                 ? archetype.DefaultGoals
                 : null;

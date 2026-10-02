@@ -8,6 +8,7 @@
   --line: #564e68;
   --accent: #b44a52;          /* Grixis red / cruel command */
   --accent-strong: #d16670;
+  --cut-lab-archetype-choice-color: var(--bg); /* 4.90:1 on --accent-strong */
   --warning: #3f3125;
   --error: #b6484f;
   --info: #20283c;

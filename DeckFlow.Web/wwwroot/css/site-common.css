@@ -5670,6 +5670,8 @@ input[data-cut-lab-floor] {
   background: color-mix(in srgb, var(--accent) 12%, var(--panel));
 }
 
+.cut-lab-plan-panel__row:has(.cut-lab-plan-panel__applying) { opacity: 0.6; }
+
 .cut-lab-plan-panel__row--implied {
   border-style: dashed;
   background: var(--panel-soft-bg, var(--panel));
@@ -5685,7 +5687,7 @@ input[data-cut-lab-floor] {
 }
 
 [data-cut-lab-archetype-badge="suggested"] { border-color: var(--accent-strong, var(--accent)); }
-[data-cut-lab-archetype-badge="choice"] { background: var(--accent-strong, var(--accent)); color: var(--on-accent); }
+[data-cut-lab-archetype-badge="choice"] { background: var(--accent-strong, var(--accent)); color: var(--cut-lab-archetype-choice-color, var(--on-accent)); }
 .cut-lab-plan-panel__badge--implied { border-style: dashed; }
 .cut-lab-plan-panel__badge--low { border-color: var(--muted, var(--line)); border-style: dashed; }
 .cut-lab-plan-panel__archetype-notice { margin: 0; padding: 0.75rem 1rem; border: 1px solid var(--line); border-radius: 10px; }
@@ -5708,6 +5710,8 @@ input[data-cut-lab-floor] {
 .cut-lab-plan-panel__row-name {
   font-weight: 600;
 }
+
+.cut-lab-plan-panel__applying { color: var(--muted); font-size: 13px; font-weight: 400; }
 
 .cut-lab-plan-panel__row-definition,
 .cut-lab-plan-panel__row-consequence {

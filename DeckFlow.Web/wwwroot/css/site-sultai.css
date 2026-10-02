@@ -7,6 +7,7 @@
   --line: #456660;
   --accent: #2f7c7c;          /* Sultai teal / necromantic tide */
   --accent-strong: #4f9b93;
+  --cut-lab-archetype-choice-color: var(--bg); /* 5.26:1 on --accent-strong */
   --warning: #3a3320;
   --error: #b44a57;
   --info: #1a3034;

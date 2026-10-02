@@ -9,6 +9,7 @@
   --accent: #4d8fcc;          /* mana blue */
   --accent-strong: #6aaae0;
   --accent-contrast: #1a1e2e; /* white-on-accent measures 3.43:1, fails 4.5:1; own bg tone clears 4.82:1 */
+  --cut-lab-archetype-choice-color: var(--accent-contrast); /* 6.65:1 on --accent-strong */
   --warning: #3d3520;
   --error: #cc3d3d;
   --info: #1e2d44;
