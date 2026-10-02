@@ -12,6 +12,7 @@ namespace DeckFlow.Core.Knowledge;
 /// </summary>
 internal sealed class CategoryCacheSchema
 {
+    internal const int DefaultMinObservationRows = 5;
     private static readonly ConcurrentDictionary<(RelationalDatabaseProvider Provider, string ConnectionString), SchemaState> SchemaStates = new();
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly string _directoryPath;
@@ -131,11 +132,13 @@ internal sealed class CategoryCacheSchema
 
         await CreateCardCategoryObservationsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
         await CreateCardCategorySummaryTableAsync(connection, cancellationToken);
+        await CreateCardCategoryQualifiedTableAsync(connection, cancellationToken);
         await CreateCardDeckTotalsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
         if (_connectionInfo.IsSqlite)
         {
             await BackfillCardCategorySummaryAsync(connection, cancellationToken);
         }
+        await BackfillCardCategoryQualifiedAsync(connection, cancellationToken);
 
         // Why: this table backs the harvested-commanders admin grid and is maintained
         // incrementally by DeckQueueRepository on every processed=1 write, so it must exist
@@ -322,6 +325,20 @@ internal sealed class CategoryCacheSchema
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private static async Task CreateCardCategoryQualifiedTableAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE IF NOT EXISTS card_category_qualified (
+                card_id INTEGER NOT NULL,
+                category TEXT NOT NULL,
+                observation_rows INTEGER NOT NULL,
+                PRIMARY KEY (card_id, category)
+            );
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private static async Task BackfillCardCategorySummaryAsync(DbConnection connection, CancellationToken cancellationToken)
     {
         var command = connection.CreateCommand();
@@ -340,6 +357,62 @@ internal sealed class CategoryCacheSchema
               AND NOT EXISTS (SELECT 1 FROM card_category_summary)
             GROUP BY card_id, category;
             """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task BackfillCardCategoryQualifiedAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT EXISTS(SELECT 1 FROM card_category_qualified);";
+        if (Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
+        {
+            return;
+        }
+
+        if (connection is NpgsqlConnection)
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            command.Transaction = transaction;
+            // Why: locks block writers for the backfill snapshot; summary-then-qualified matches ApplySummaryDeltasAsync, preventing deadlocks.
+            command.CommandText = "LOCK TABLE card_category_summary IN SHARE ROW EXCLUSIVE MODE; LOCK TABLE card_category_qualified IN SHARE ROW EXCLUSIVE MODE;";
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+
+            command.CommandText = "SELECT EXISTS(SELECT 1 FROM card_category_qualified);";
+            if (Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
+            {
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            command.CommandText = """
+                INSERT INTO card_category_qualified (card_id, category, observation_rows)
+                SELECT card_id, category, observation_rows
+                FROM card_category_summary
+                WHERE observation_rows >= @minObservationRows
+                  AND NOT EXISTS (SELECT 1 FROM card_category_qualified)
+                ON CONFLICT (card_id, category) DO NOTHING;
+                """;
+            var postgresParameter = command.CreateParameter();
+            postgresParameter.ParameterName = "@minObservationRows";
+            postgresParameter.Value = DefaultMinObservationRows;
+            command.Parameters.Add(postgresParameter);
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        command.CommandText = """
+            INSERT INTO card_category_qualified (card_id, category, observation_rows)
+            SELECT card_id, category, observation_rows
+            FROM card_category_summary
+            WHERE observation_rows >= @minObservationRows
+              AND NOT EXISTS (SELECT 1 FROM card_category_qualified)
+            ON CONFLICT (card_id, category) DO NOTHING;
+            """;
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@minObservationRows";
+        parameter.Value = DefaultMinObservationRows;
+        command.Parameters.Add(parameter);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 

@@ -159,6 +159,31 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task DeleteSourceDataAsync_QualifiedRowCrossesThresholdAndIsRemoved()
+    {
+        var repository = CreateRepository();
+        var sources = Enumerable.Range(0, CategoryCacheSchema.DefaultMinObservationRows)
+            .Select(index => $"qualified-source-{index}")
+            .ToArray();
+
+        foreach (var source in sources)
+        {
+            await repository.PersistObservedCategoriesAsync(source, "Sol Ring", new[] { "Ramp" });
+        }
+
+        await AssertCategorySummaryMatchesObservationsAsync();
+        await repository.DeleteSourceDataAsync(sources[0]);
+        await AssertCategorySummaryMatchesObservationsAsync();
+
+        foreach (var source in sources.Skip(1))
+        {
+            await repository.DeleteSourceDataAsync(source);
+        }
+
+        await AssertCategorySummaryMatchesObservationsAsync();
+    }
+
+    [Fact]
     public async Task EnsureSchemaAsync_SqliteBackfillsDirectObservationWhenSummaryIsEmpty()
     {
         var repository = CreateRepository();
@@ -181,6 +206,49 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         var verifyCommand = verifyConnection.CreateCommand();
         verifyCommand.CommandText = "SELECT observation_rows FROM card_category_summary WHERE category = 'Ramp';";
         Assert.Equal(1L, await verifyCommand.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task EnsureSchemaAsync_SqliteBackfillsQualifiedRowsOnlyOnce()
+    {
+        await CreateRepository().AddDeckIdsAsync(new[] { "qualified-backfill-seed" });
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO cards (normalized_card_name, display_name) VALUES ('qualified first', 'Qualified First'), ('qualified second', 'Qualified Second'); INSERT INTO card_category_summary (card_id, category, observation_rows) VALUES (1, 'Ramp', 5), (1, 'Tutor', 4), (2, 'Draw', 6);";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var backfillPath = _databasePath + ".qualified-backfill";
+        File.Copy(_databasePath, backfillPath);
+        await new CategoryKnowledgeRepository(backfillPath).EnsureSchemaAsync();
+
+        await using (var connection = new SqliteConnection($"Data Source={backfillPath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            // Why: a missing qualifying row is what a re-run backfill would restore, so its absence proves the no-op.
+            command.CommandText = "DELETE FROM card_category_qualified WHERE category = 'Draw';";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var noOpPath = backfillPath + ".no-op";
+        File.Copy(backfillPath, noOpPath);
+        await new CategoryKnowledgeRepository(noOpPath).EnsureSchemaAsync();
+
+        await using var verifyConnection = new SqliteConnection($"Data Source={noOpPath}");
+        await verifyConnection.OpenAsync();
+        var verifyCommand = verifyConnection.CreateCommand();
+        verifyCommand.CommandText = "SELECT card_id, category, observation_rows FROM card_category_qualified ORDER BY card_id, category;";
+        await using var reader = await verifyCommand.ExecuteReaderAsync();
+        var rows = new List<(long CardId, string Category, long ObservationRows)>();
+        while (await reader.ReadAsync())
+        {
+            rows.Add((reader.GetInt64(0), reader.GetString(1), reader.GetInt64(2)));
+        }
+
+        Assert.Equal(new[] { (1L, "Ramp", 5L) }, rows);
     }
 
     [Fact]
@@ -521,6 +589,53 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         var categories = await repository.GetCategoriesForNamesAsync(new[] { "Share Boundary" });
 
         Assert.Equal(new[] { "Boundary", "Top" }, categories["Share Boundary"]);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_QualifiedTableMatchesSummaryLookup()
+    {
+        var repository = CreateRepository();
+        var names = new[] { "Equivalence First", "Equivalence Second" };
+        for (var index = 0; index < 5; index++)
+        {
+            await repository.PersistObservedCategoriesAsync($"equivalence-first-ramp-{index}", names[0], new[] { "Ramp" });
+            await repository.PersistObservedCategoriesAsync($"equivalence-second-draw-{index}", names[1], new[] { "Draw" });
+            if (index < 4)
+            {
+                await repository.PersistObservedCategoriesAsync($"equivalence-first-low-{index}", names[0], new[] { "Low" });
+                await repository.PersistObservedCategoriesAsync($"equivalence-second-low-{index}", names[1], new[] { "Low" });
+            }
+        }
+
+        var actual = await repository.GetCategoriesForNamesAsync(names);
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = CardCategoryRepository.BuildCategoryLookupSql(
+            "IN ($first, $second)",
+            "card_category_summary");
+        command.Parameters.AddWithValue("$first", CardNormalizer.Normalize(names[0]));
+        command.Parameters.AddWithValue("$second", CardNormalizer.Normalize(names[1]));
+        command.Parameters.AddWithValue("@minObservationRows", CategoryCacheSchema.DefaultMinObservationRows);
+        command.Parameters.AddWithValue("@shareDenominator", 2000);
+        await using var reader = await command.ExecuteReaderAsync();
+        var expected = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        while (await reader.ReadAsync())
+        {
+            var normalizedCardName = reader.GetString(0);
+            if (!expected.TryGetValue(normalizedCardName, out var categories))
+            {
+                categories = new List<string>();
+                expected.Add(normalizedCardName, categories);
+            }
+
+            categories.Add(reader.GetString(1));
+        }
+
+        foreach (var name in names)
+        {
+            Assert.Equal(expected[CardNormalizer.Normalize(name)], actual[name]);
+        }
     }
 
     [Fact]
@@ -867,10 +982,17 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
                 INSERT INTO card_category_summary (card_id, category, observation_rows)
                 SELECT id, @category, @observationRows FROM cards WHERE normalized_card_name = @normalized
                 ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = excluded.observation_rows;
+                DELETE FROM card_category_qualified
+                WHERE card_id = (SELECT id FROM cards WHERE normalized_card_name = @normalized) AND category = @category;
+                INSERT INTO card_category_qualified (card_id, category, observation_rows)
+                SELECT id, @category, @observationRows FROM cards
+                WHERE normalized_card_name = @normalized AND @observationRows >= @minObservationRows;
                 """;
             command.Parameters.AddWithValue("@category", category);
             command.Parameters.AddWithValue("@observationRows", observationRows);
             command.Parameters.AddWithValue("@normalized", CardNormalizer.Normalize(cardName));
+            // Why: direct summary seeding bypasses ApplySummaryDeltasAsync, so mirror its side-table invariant here.
+            command.Parameters.AddWithValue("@minObservationRows", CategoryCacheSchema.DefaultMinObservationRows);
             await command.ExecuteNonQueryAsync();
         }
     }
@@ -927,8 +1049,30 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
             EXCEPT
             SELECT card_id, category, COUNT(*) FROM card_category_observations GROUP BY card_id, category;
             """;
-        await using var reverseReader = await command.ExecuteReaderAsync();
-        Assert.False(await reverseReader.ReadAsync());
+        await using (var reverseReader = await command.ExecuteReaderAsync())
+        {
+            Assert.False(await reverseReader.ReadAsync());
+        }
+
+        command.CommandText = """
+            SELECT card_id, category, observation_rows FROM card_category_summary
+            WHERE observation_rows >= @minObservationRows
+            EXCEPT
+            SELECT card_id, category, observation_rows FROM card_category_qualified;
+            """;
+        command.Parameters.AddWithValue("@minObservationRows", CategoryCacheSchema.DefaultMinObservationRows);
+        await using (var qualifiedReader = await command.ExecuteReaderAsync())
+        {
+            Assert.False(await qualifiedReader.ReadAsync());
+        }
+        command.CommandText = """
+            SELECT card_id, category, observation_rows FROM card_category_qualified
+            EXCEPT
+            SELECT card_id, category, observation_rows FROM card_category_summary
+            WHERE observation_rows >= @minObservationRows;
+            """;
+        await using var qualifiedReverseReader = await command.ExecuteReaderAsync();
+        Assert.False(await qualifiedReverseReader.ReadAsync());
     }
 
     private async Task AssertSummaryObservationRowsAsync(string category, long expected)
@@ -1103,6 +1247,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
                 'sources',
                 'card_category_observations',
                 'card_category_summary',
+                'card_category_qualified',
                 'card_deck_totals')
             ORDER BY name;
             """;

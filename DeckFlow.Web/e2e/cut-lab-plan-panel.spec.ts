@@ -279,6 +279,8 @@ test('checking a generic strategy the pool matches changes the proposed cut', as
     // 5 matches CardCategoryRepository.MinObservationRows's default, so batch lookup returns this category.
     sqlite(
       `INSERT OR REPLACE INTO card_category_summary (card_id, category, observation_rows)
+       VALUES (${cardId}, ${q(engineEffectCategoryLabel)}, 5);
+       INSERT OR REPLACE INTO card_category_qualified (card_id, category, observation_rows)
        VALUES (${cardId}, ${q(engineEffectCategoryLabel)}, 5);`,
     );
     observationSeeded = true;

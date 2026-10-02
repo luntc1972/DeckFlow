@@ -37,7 +37,7 @@ public sealed class CategoryLookupTimeoutPostgresTests : IClassFixture<PostgresC
                 (_, _, _) =>
                 {
                     using var lockCommand = new NpgsqlCommand(
-                        "LOCK TABLE cards, card_category_summary IN ACCESS EXCLUSIVE MODE",
+                        "LOCK TABLE cards, card_category_qualified IN ACCESS EXCLUSIVE MODE",
                         connection,
                         transaction);
                     lockCommand.ExecuteNonQuery();

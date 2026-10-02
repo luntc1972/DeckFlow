@@ -22,7 +22,7 @@ internal sealed class CardCategoryRepository
     internal int CategoriesBatchCommandTimeoutSeconds { get; set; } = 3;
 
     // Why: free-text tags seen on fewer than five decks are noise; see the plan's Dropped-tag check.
-    internal int MinObservationRows { get; set; } = 5;
+    internal int MinObservationRows { get; set; } = CategoryCacheSchema.DefaultMinObservationRows;
 
     // Why: tags under 1/2000 of the card's top tag are crowd noise on staples (Sol Ring "finisher" 6 of 148,549);
     // legit wincon tags measured at >= 0.3% of top; see the plan's "F3 step 2".
@@ -245,7 +245,11 @@ internal sealed class CardCategoryRepository
         var membershipOperator = _connectionInfo.IsPostgres ? "= ANY(@normalized)" : "IN @normalized";
         stopwatch.Restart();
         var rows = await connection.QueryAsync<CardCategoryNameRow>(new CommandDefinition(
-            BuildCategoryLookupSql(membershipOperator),
+            BuildCategoryLookupSql(
+                membershipOperator,
+                MinObservationRows < CategoryCacheSchema.DefaultMinObservationRows
+                    ? "card_category_summary"
+                    : "card_category_qualified"),
             new { normalized = normalizedKeys.ToList(), minObservationRows = MinObservationRows, shareDenominator = ObservationShareDenominator },
             commandTimeout: CategoriesBatchCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
@@ -278,12 +282,15 @@ internal sealed class CardCategoryRepository
     // The min-rows filter runs before the window: windowing unfiltered rows spilled to disk in prod
     // (4.3 s vs 33 ms), and filtering first leaves each card's MAX unchanged.
     internal static string BuildCategoryLookupSql(string membershipOperator)
+        => BuildCategoryLookupSql(membershipOperator, "card_category_qualified");
+
+    internal static string BuildCategoryLookupSql(string membershipOperator, string summaryTable)
         => $"""
             SELECT s.normalized_card_name AS NormalizedCardName, s.category AS Category
             FROM (
                 SELECT c.normalized_card_name, s.card_id, s.category, s.observation_rows,
                     MAX(s.observation_rows) OVER (PARTITION BY s.card_id) AS top_observation_rows
-                FROM card_category_summary s
+                FROM {summaryTable} s
                 JOIN cards c ON c.id = s.card_id
                 WHERE c.normalized_card_name {membershipOperator}
                   AND s.observation_rows >= @minObservationRows
@@ -864,21 +871,46 @@ internal sealed class CardCategoryRepository
         {
             if (delta > 0)
             {
-                await connection.ExecuteAsync(new CommandDefinition(
+                var observationRows = await connection.QuerySingleAsync<int>(new CommandDefinition(
                     "INSERT INTO card_category_summary (card_id, category, observation_rows) VALUES (@cardId, @category, @delta) " +
-                    "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = card_category_summary.observation_rows + @delta;",
+                    "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = card_category_summary.observation_rows + @delta " +
+                    "RETURNING observation_rows;",
                     new { cardId, category, delta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                await ApplyQualifiedSummaryRowAsync(connection, transaction, cardId, category, observationRows, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                await connection.ExecuteAsync(new CommandDefinition(
-                    "UPDATE card_category_summary SET observation_rows = observation_rows + @delta WHERE card_id = @cardId AND category = @category;",
+                var observationRows = await connection.QuerySingleOrDefaultAsync<int?>(new CommandDefinition(
+                    "UPDATE card_category_summary SET observation_rows = observation_rows + @delta WHERE card_id = @cardId AND category = @category RETURNING observation_rows;",
                     new { cardId, category, delta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 await connection.ExecuteAsync(new CommandDefinition(
                     "DELETE FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows <= 0;",
                     new { cardId, category }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                await ApplyQualifiedSummaryRowAsync(connection, transaction, cardId, category, observationRows, cancellationToken).ConfigureAwait(false);
             }
         }
+    }
+
+    private static async Task ApplyQualifiedSummaryRowAsync(
+        DbConnection connection,
+        DbTransaction transaction,
+        long cardId,
+        string category,
+        int? observationRows,
+        CancellationToken cancellationToken)
+    {
+        if (observationRows >= CategoryCacheSchema.DefaultMinObservationRows)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO card_category_qualified (card_id, category, observation_rows) VALUES (@cardId, @category, @observationRows) " +
+                "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = excluded.observation_rows;",
+                new { cardId, category, observationRows }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            return;
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM card_category_qualified WHERE card_id = @cardId AND category = @category;",
+            new { cardId, category }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     private static async Task UpsertCardDeckTotalAsync(

@@ -65,6 +65,10 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
             connection,
             "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = 'card_category_summary';");
         Assert.Equal(1L, summaryTableCount);
+        var qualifiedTableCount = await QuerySingleInt64Async(
+            connection,
+            "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = 'card_category_qualified';");
+        Assert.Equal(1L, qualifiedTableCount);
     }
 
     [Fact]

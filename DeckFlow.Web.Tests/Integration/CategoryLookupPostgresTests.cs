@@ -97,7 +97,7 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
     }
 
     [PostgresFact]
-    public async Task BatchCategoryLookup_Postgres_UsesSummaryPrimaryKeyIndex()
+    public async Task BatchCategoryLookup_Postgres_UsesQualifiedPrimaryKeyIndex()
     {
         var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
         var repository = new CategoryKnowledgeRepository(
@@ -128,7 +128,63 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
             plan.Add(reader.GetString(0));
         }
 
-        Assert.Contains(plan, line => line.Contains("card_category_summary_pkey", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(plan, line => line.Contains("card_category_qualified_pkey", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(plan, line => line.Contains("card_category_summary", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(plan, line => line.Contains("card_category_observations", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [PostgresFact]
+    public async Task EnsureSchemaAsync_BackfillWaitsForSummaryWriterAndUsesCommittedValue()
+    {
+        var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
+        var suffix = Guid.NewGuid().ToString("N");
+        var cardName = $"pg-qualified-backfill-{suffix}";
+        var seedTarget = new NpgsqlConnectionStringBuilder(connectionString)
+        {
+            ApplicationName = $"qualified-backfill-seed-{suffix}"
+        }.ConnectionString;
+        var repository = new CategoryKnowledgeRepository(
+            new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, seedTarget));
+        await SeedThresholdObservationsAsync(repository, cardName, new[] { "Ramp" }, suffix);
+
+        await using var writer = new NpgsqlConnection(connectionString);
+        await writer.OpenAsync();
+        await using (var clearQualified = new NpgsqlCommand(
+            // Why: the backfill only runs on an empty side table, and this class shares one database across tests.
+            "DELETE FROM card_category_qualified;",
+            writer))
+        {
+            await clearQualified.ExecuteNonQueryAsync();
+        }
+
+        await using var transaction = await writer.BeginTransactionAsync();
+        await using (var updateSummary = new NpgsqlCommand(
+            "UPDATE card_category_summary SET observation_rows = observation_rows + 1 WHERE card_id = (SELECT id FROM cards WHERE normalized_card_name = @cardName) AND category = 'Ramp';",
+            writer,
+            transaction))
+        {
+            updateSummary.Parameters.AddWithValue("cardName", CardNormalizer.Normalize(cardName));
+            Assert.Equal(1, await updateSummary.ExecuteNonQueryAsync());
+        }
+
+        var backfillTarget = new NpgsqlConnectionStringBuilder(connectionString)
+        {
+            ApplicationName = $"qualified-backfill-{suffix}"
+        }.ConnectionString;
+        var ensureTask = new CategoryKnowledgeRepository(
+            new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, backfillTarget)).EnsureSchemaAsync();
+        var completedTask = await Task.WhenAny(ensureTask, Task.Delay(TimeSpan.FromMilliseconds(250)));
+        Assert.NotSame(ensureTask, completedTask);
+
+        await transaction.CommitAsync();
+        await ensureTask;
+
+        await using var verifyConnection = new NpgsqlConnection(connectionString);
+        await verifyConnection.OpenAsync();
+        await using var verifyCommand = new NpgsqlCommand(
+            "SELECT observation_rows FROM card_category_qualified WHERE card_id = (SELECT id FROM cards WHERE normalized_card_name = @cardName) AND category = 'Ramp';",
+            verifyConnection);
+        verifyCommand.Parameters.AddWithValue("cardName", CardNormalizer.Normalize(cardName));
+        Assert.Equal(6, Convert.ToInt32(await verifyCommand.ExecuteScalarAsync()));
     }
 }

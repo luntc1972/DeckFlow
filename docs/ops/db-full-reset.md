@@ -56,6 +56,7 @@ TRUNCATE TABLE
   sources,
   card_category_observations,
   card_category_summary,
+  card_category_qualified,
   card_deck_totals,
   deck_queue,
   crawl_state,
