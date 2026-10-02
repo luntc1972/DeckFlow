@@ -19,6 +19,7 @@ DeckFlow feature highlights.
   Guidance uses a stateful next-action line, a closed walkthrough, a visible summary plus action-specific blocked reasons, and a pre-import blank slate.
 - `Deck Version Tracker` (Deck History) lets you version a deck into a JSON file you own, append labeled snapshots with notes, diff any two saved versions, and generate an AI prompt about how the list evolved; its evolution prompt now embeds Scryfall oracle text for every card seen in that history so AI models recognize newer cards.
 - The category suggestion UI now shows one merged, ranked, paste-ready card category list across sources, while commander category results show `% of decks` and cap the first 25 visible rows with an expander for the remainder.
+- **Harvested commander-category norms (`analysis.commander-category-norms`, off by default):** analysis prompts can carry harvested commander-category norms with deck share, deck count, and confidence tier.
 - `DeckFlow.CLI` exposes deck comparison, category harvesting, cache querying, and the local Content KB pipeline (source management, transcript harvest, LLM distillation, site-index export) in a console tool.
 
 ### Bracket classifier and balancer

@@ -6,6 +6,12 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Commander-category norms in analysis prompts (2026-10-01)
+
+- `analysis.commander-category-norms` optionally adds harvested commander-category norms to all three analysis prompts, with category deck share, deck count, and confidence tier.
+- The block is omitted below 10 harvested decks and on timeout or failure; LOW covers 10-49 decks, MEDIUM 50-249, and HIGH 250 and up. The 2.5-second timeout is cooperative.
+- The flag is off by default; off output is byte-identical.
+
 ### Unreleased — Private Content KB corpus transition (2026-09-25)
 
 - Content KB artifacts now resolve from a private root for Studio (`DECKFLOW_KB_ROOT`, with `ContentKb:PrivateRoot` fallback); Web local development can use `ContentKb__ContentBase` pointed at the private artifacts directory.

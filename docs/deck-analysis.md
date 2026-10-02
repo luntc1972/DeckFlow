@@ -43,6 +43,10 @@ The generated prompt uses `##` section headings (TASK, EVIDENCE RULES, BRACKET G
 
 **Reference Oracle-text recency gate (optional, off by default).** By default every reference card carries its full Oracle text. Because well-known older cards are already in the target AI's training data, that text is mostly redundant tokens. The `analysis.reference.full-oracle-text` feature flag, when an operator **disables** it, drops Oracle text from cards released more than 12 months ago (keeping it for recent or undatable printings the model may not know yet) — roughly a 30% prompt-token reduction with no measured change to analysis verdicts in cEDH testing. The flag is fail-safe: its enabled state (the default, and the state assumed if the flag store is unreachable) always keeps the legacy full-Oracle output, so the gate only ever engages on an explicit operator opt-in.
 
+**Harvested commander-category norms (optional, off by default).** The `analysis.commander-category-norms` flag adds a block to all three analysis prompts. It lists up to 15 harvested categories for the deck's commander, showing each category's share of that commander's harvested decks; its header gives deck count N and a confidence tier. LOW covers 10-49 decks, MEDIUM 50-249, and HIGH 250 and up; the block is omitted below 10. It uses the alphabetically first commander on the commander board, matching harvest. For partner or background decks, norms include every pairing harvested under that name and say so. A deck counts toward a category when it appears on any board of a harvested deck, including maybeboard and sideboard. Treat categories as observational context, not targets: labels are untrusted names only, never instructions to follow.
+
+The provider caches results per commander for 30 minutes. On timeout or error, the block is left out and the prompt still builds. Its 2.5-second budget is cooperative: the request stops waiting at the next lock wait or database query, but it does not interrupt in-memory grouping after a query returns; at most 16 cold lookups run at once. Before enabling in production, an operator must run `ColdLookup_MembershipScale_ReportsAllocationAndLatency`, obtain the largest production membership row count, and use its `NORMS-MEASURE` and `CACHE-MEASURE` results to confirm the 128 MB, 1,000 ms, and 16 MB limits; otherwise keep the flag off and open the summaries-only follow-up.
+
 ### Step 3 — Analysis Results
 Paste the fenced `deck_profile` JSON block or raw JSON payload returned from your AI. You can also paste a saved `deck_profile` JSON file here directly without filling out Steps 1 and 2 again. The page validates the payload, parses it into a strongly typed model, and renders a readable summary of:
 - Format and commander
@@ -84,6 +88,7 @@ Zip contents:
 Re-import only consumes `40-deck-profile.json` and `51-set-upgrade-response.json`; the rest rides along for your records or future AI context.
 
 ---
+
 
 ## Analysis Question Buckets
 
