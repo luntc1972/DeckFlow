@@ -3,6 +3,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.FeatureFlags;
+using DeckFlow.Web.Services.CommanderCategoryNorms;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -45,6 +46,41 @@ public sealed class DeckAnalysisByteIdentityTests
         Assert.Equal(AnalysisGoldens.BaselineReferenceText(platform), PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.ReferenceText), StringComparer.Ordinal);
         Assert.Equal(AnalysisGoldens.BaselineRequestContextText(platform), PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.RequestContextText), StringComparer.Ordinal);
         Assert.Equal(AnalysisGoldens.BaselineDecklistText, PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.DecklistText), StringComparer.Ordinal);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // 2. Commander-category norms: captured across all AI prompt variants.
+    // ---------------------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(PacketByteIdentityFixtures.ChatGpt)]
+    [InlineData(PacketByteIdentityFixtures.Claude)]
+    [InlineData(PacketByteIdentityFixtures.Gemini)]
+    public async Task CommanderCategoryNormsOn_MatchesGolden(string platform)
+    {
+        var result = await BuildBaselineAsync(
+            platform,
+            PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag),
+            new FakeCommanderCategoryNormsProvider(PacketByteIdentityFixtures.FixedCommanderCategoryNorms()));
+
+        Assert.Equal(AnalysisGoldens.CommanderCategoryNormsOnAnalysisPrompt(platform), PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.AnalysisPromptText), StringComparer.Ordinal);
+        Assert.Equal(AnalysisGoldens.BaselineReferenceText(platform), PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.ReferenceText), StringComparer.Ordinal);
+        Assert.Equal(AnalysisGoldens.BaselineRequestContextText(platform), PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.RequestContextText), StringComparer.Ordinal);
+        Assert.Equal(AnalysisGoldens.BaselineDecklistText, PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.DecklistText), StringComparer.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(PacketByteIdentityFixtures.ChatGpt)]
+    [InlineData(PacketByteIdentityFixtures.Claude)]
+    [InlineData(PacketByteIdentityFixtures.Gemini)]
+    public async Task CommanderCategoryNormsOn_ProviderReturnsNull_MatchesBaseline(string platform)
+    {
+        var result = await BuildBaselineAsync(
+            platform,
+            PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag),
+            new FakeCommanderCategoryNormsProvider(null));
+
+        Assert.Equal(AnalysisGoldens.BaselineAnalysisPrompt(platform), PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.AnalysisPromptText), StringComparer.Ordinal);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -152,11 +188,15 @@ public sealed class DeckAnalysisByteIdentityTests
         Assert.Equal(AnalysisGoldens.WhitespaceRequestContextText, PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.RequestContextText), StringComparer.Ordinal);
     }
 
-    private static async Task<DeckAnalysisPacketResult> BuildBaselineAsync(string platform, IFeatureFlagCache flagCache)
+    private static async Task<DeckAnalysisPacketResult> BuildBaselineAsync(
+        string platform,
+        IFeatureFlagCache flagCache,
+        ICommanderCategoryNormsProvider? normsProvider = null)
     {
         var service = PacketByteIdentityFixtures.CreateAnalysisService(
             moxfieldDeckImporter: new StaticMoxfieldDeckImporter(PacketByteIdentityFixtures.BaselineEntries()),
-            flagCache: flagCache);
+            flagCache: flagCache,
+            normsProvider: normsProvider);
 
         return await service.BuildAsync(new DeckAnalysisRequest
         {
