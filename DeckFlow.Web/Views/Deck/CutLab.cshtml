@@ -1194,7 +1194,7 @@
                                 <input type="radio" name="PlanArchetype" value="@row.Slug" checked="@(row.IsChecked ? "checked" : null)" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="@string.Join(" ", row.PresetStrategies)" />
                                 <span class="cut-lab-plan-panel__row-body">
                                     <span class="cut-lab-plan-panel__row-name">@row.DisplayName</span>
-                                    @if (row.IsSuggested) { <span class="cut-lab-plan-panel__badge @(row.IsLowConfidence ? "cut-lab-plan-panel__badge--low" : "")" data-cut-lab-archetype-badge="suggested">Suggested@(row.IsLowConfidence ? " · low confidence" : "")</span> }
+                                    @if (row.IsSuggested) { <span class="cut-lab-plan-panel__badge @(row.IsLowConfidence ? "cut-lab-plan-panel__badge--low" : "") @(row.IsChecked ? "hidden" : "")" data-cut-lab-archetype-badge="suggested">Suggested@(row.IsLowConfidence ? " · low confidence" : "")</span> }
                                     @if (row.Slug.Length > 0) { <span class="cut-lab-plan-panel__badge @(row.IsChecked ? "" : "hidden")" data-cut-lab-archetype-badge="choice">Your choice</span> }
                                     <span class="cut-lab-plan-panel__row-definition">@row.Definition</span>
                                     @if (row.Detail.Length > 0) { <span>@row.Detail</span> }

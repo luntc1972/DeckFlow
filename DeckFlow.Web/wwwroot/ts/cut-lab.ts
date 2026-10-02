@@ -301,6 +301,7 @@ const cutLabPlanApplyApiEndpoint = '/api/cut-lab/plan-apply';
 const cutLabDecisionTimeoutMs = 20000;
 const cutLabDecisionBusyCopy = 'Recalculating…';
 const cutLabDecisionErrorCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
+const cutLabArchetypeApplyErrorCopy = "Couldn't apply the archetype. Your previous choice is restored — try again.";
 const cutLabDecisionTimeoutCopy = 'This is taking longer than expected. Try again in a moment.';
 const cutLabWhatifPreviewErrorCopy = "Couldn't preview this swap — nothing changed. Try again.";
 const cutLabWhatifKeepErrorCopy = "Couldn't keep this swap — nothing changed. Try again.";
@@ -3816,12 +3817,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       archetype.checked = true;
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-badge="choice"]').forEach(badge => badge.classList.add('hidden'));
       archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="choice"]')?.classList.remove('hidden');
+      document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]').forEach(badge => badge.classList.remove('hidden'));
+      archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]')?.classList.add('hidden');
     }
     const presetStrategies = new Set((archetype?.dataset.cutLabArchetypePresets ?? '').split(' ').filter(Boolean).map(slug => slug.toLowerCase()));
     const archetypeName = archetype?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.textContent?.trim() ?? '';
     strategyCheckboxes.forEach(checkbox => {
       const row = checkbox.closest<HTMLElement>('label');
-      const isImplied = presetStrategies.has(checkbox.value.toLowerCase());
+      const isImplied = !checkbox.checked && presetStrategies.has(checkbox.value.toLowerCase());
       row?.classList.toggle('cut-lab-plan-panel__row--implied', isImplied);
       row?.querySelector('.cut-lab-plan-panel__badge--implied')?.remove();
       if (isImplied) {
@@ -3841,6 +3844,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const syncArchetypePanel = (
     appliedArchetype: string | null,
+    priorArchetype: string | null,
     appliedGoals: CutLabPatchResponse['appliedGoals'],
     archetypeDefaultGoals: CutLabPatchResponse['archetypeDefaultGoals'],
     goalOutcome: CutLabPatchResponse['goalOutcome'],
@@ -3864,7 +3868,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       notice.textContent = archetypeDefaultGoals
         ? `Your custom goals were kept. ${displayName} defaults would be T${archetypeDefaultGoals.commanderByTurn} / T${archetypeDefaultGoals.engineByTurn} / T${archetypeDefaultGoals.representativeLineByTurn} — change them in Step 4.`
         : 'Your custom goals were kept. Change them in Step 4.';
-    } else if (appliedArchetype === null) {
+    } else if (priorArchetype !== null && appliedArchetype === null) {
       notice.textContent = 'Archetype cleared. Manual strategies and goals are unchanged.';
     } else {
       notice.classList.add('hidden');
@@ -3922,6 +3926,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const persistedStrategySlugs = persistedPlanProfile?.genericStrategies ?? [];
     const persistedThemeSlugs = (persistedPlanProfile?.commanderThemes ?? []).map(theme => theme.slug);
     const persistedArchetype = persistedPlanProfile?.archetype ?? null;
+    const requestedArchetype = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked')?.value || null;
+    const isArchetypeChange = requestedArchetype !== persistedArchetype;
     const nextState: Partial<CutLabStateSnapshot> = {
       ...persistedState,
       intent: {
@@ -3954,7 +3960,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       });
 
       if (!response.ok) {
-        renderPlanPanelError(root, await readErrorMessage(response));
+        renderPlanPanelError(root, isArchetypeChange ? cutLabArchetypeApplyErrorCopy : await readErrorMessage(response));
         if (!planApplyPendingChange) syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
         return;
       }
@@ -3976,12 +3982,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
       if (!planApplyPendingChange) {
         syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? [], data.appliedArchetype ?? null);
-        syncArchetypePanel(data.appliedArchetype ?? null, data.appliedGoals, data.archetypeDefaultGoals, data.goalOutcome, selectedArchetypeName);
+        syncArchetypePanel(data.appliedArchetype ?? null, persistedArchetype, data.appliedGoals, data.archetypeDefaultGoals, data.goalOutcome, selectedArchetypeName);
       }
     } catch (error) {
       renderPlanPanelError(root, error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
-        : cutLabDecisionErrorCopy);
+        : (isArchetypeChange ? cutLabArchetypeApplyErrorCopy : cutLabDecisionErrorCopy));
       if (!planApplyPendingChange) syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
     } finally {
       window.clearTimeout(timeoutId);

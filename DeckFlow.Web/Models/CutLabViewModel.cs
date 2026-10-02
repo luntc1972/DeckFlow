@@ -608,16 +608,16 @@ public sealed record CutLabViewModel
         string? chosenArchetype = CutLabArchetypeCatalog.NormalizeSlug(planProfile?.Archetype);
         IReadOnlyList<CutLabPlanArchetypeRowView> archetypeRows =
         [
-            new() { Slug = string.Empty, PresetStrategies = [], DisplayName = "None", Definition = "Choose strategies and goals yourself.", IsChecked = chosenArchetype is null },
+            new() { Slug = string.Empty, PresetStrategies = [], DisplayName = "No archetype", Definition = "Cut Lab behaves exactly as it does today.", IsChecked = chosenArchetype is null },
             .. CutLabArchetypeCatalog.Entries.Select(entry => new CutLabPlanArchetypeRowView
             {
                 Slug = entry.Slug,
                 PresetStrategies = entry.PresetStrategies,
                 DisplayName = entry.DisplayName,
                 Definition = entry.Definition,
-                Detail = $"Adds: {string.Join(" / ", entry.PresetStrategies)} · Goals T{entry.DefaultGoals.CommanderByTurn} / T{entry.DefaultGoals.EngineByTurn} / T{entry.DefaultGoals.RepresentativeLineByTurn}",
+                Detail = $"Adds: {(entry.PresetStrategies.Count > 0 ? string.Join(", ", entry.PresetStrategies) : "no strategies")} · Goals T{entry.DefaultGoals.CommanderByTurn} / T{entry.DefaultGoals.EngineByTurn} / T{entry.DefaultGoals.RepresentativeLineByTurn}",
                 IsChecked = string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
-                IsSuggested = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase) && !string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
+                IsSuggested = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase),
                 IsLowConfidence = archetypeSuggestion?.Confidence == CutLabArchetypeConfidence.Low,
                 SuggestionReason = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase) ? archetypeSuggestion?.Reason : null,
             })

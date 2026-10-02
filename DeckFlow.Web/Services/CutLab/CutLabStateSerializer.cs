@@ -59,12 +59,13 @@ public static class CutLabStateSerializer
         try
         {
             if (JsonNode.Parse(json) is JsonObject root &&
-                root["intent"] is JsonObject intent &&
-                intent["planProfile"] is JsonObject jsonPlanProfile &&
-                jsonPlanProfile["archetype"] is JsonNode archetype &&
+                root.FirstOrDefault(property => string.Equals(property.Key, "intent", StringComparison.OrdinalIgnoreCase)).Value is JsonObject intent &&
+                intent.FirstOrDefault(property => string.Equals(property.Key, "planProfile", StringComparison.OrdinalIgnoreCase)).Value is JsonObject jsonPlanProfile &&
+                jsonPlanProfile.FirstOrDefault(property => string.Equals(property.Key, "archetype", StringComparison.OrdinalIgnoreCase)) is var archetypeProperty &&
+                archetypeProperty.Value is JsonNode archetype &&
                 (archetype is not JsonValue value || !value.TryGetValue<string>(out _)))
             {
-                jsonPlanProfile.Remove("archetype");
+                jsonPlanProfile.Remove(archetypeProperty.Key);
                 json = root.ToJsonString();
             }
 

@@ -316,6 +316,9 @@ public sealed class CutLabViewModelTests
     {
         CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(null, [], false);
         Assert.Equal(string.Empty, panel.ArchetypeRows[0].Slug);
+        Assert.Equal("No archetype", panel.ArchetypeRows[0].DisplayName);
+        Assert.Equal("Cut Lab behaves exactly as it does today.", panel.ArchetypeRows[0].Definition);
+        Assert.Equal("Adds: no strategies · Goals T3 / T3 / T6", panel.ArchetypeRows.Single(row => row.Slug == "value-engine").Detail);
         Assert.Equal(CutLabArchetypeCatalog.Entries.Select(entry => entry.Slug), panel.ArchetypeRows.Skip(1).Select(row => row.Slug));
     }
 
@@ -334,6 +337,15 @@ public sealed class CutLabViewModelTests
         CutLabPlanStrategyRowView row = panel.StrategyRows.Single(row => row.Slug == "stax");
         Assert.False(row.IsChecked);
         Assert.True(row.IsImpliedByArchetype);
+    }
+
+    [Fact]
+    public void BuildPlanPanel_Archetype_PresetStrategyRowCheckedIsNotImplied()
+    {
+        CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax", GenericStrategies = ["stax"] }, [], false);
+        CutLabPlanStrategyRowView row = panel.StrategyRows.Single(row => row.Slug == "stax");
+        Assert.True(row.IsChecked);
+        Assert.False(row.IsImpliedByArchetype);
     }
 
     [Fact]

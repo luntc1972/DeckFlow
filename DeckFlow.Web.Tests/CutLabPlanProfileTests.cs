@@ -126,12 +126,17 @@ public sealed class CutLabPlanProfileTests
     [Fact]
     public void Deserialize_LegacyStateWithoutArchetype_IsNull()
     {
-        var state = new CutLabState { Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile() } };
-        string json = CutLabStateSerializer.Serialize(state).Replace("\"archetype\":null,", string.Empty, StringComparison.Ordinal);
+        var state = new CutLabState { Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { GenericStrategies = ["combo"] } } };
+        string serialized = CutLabStateSerializer.Serialize(state);
+        Assert.Contains("\"archetype\":null,", serialized, StringComparison.Ordinal);
+        string json = serialized.Replace("\"archetype\":null,", string.Empty, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"archetype\"", json, StringComparison.Ordinal);
 
         CutLabState deserialized = CutLabStateSerializer.Deserialize(json);
 
         Assert.Null(deserialized.Intent.PlanProfile!.Archetype);
+        Assert.Equal(state.Goals, deserialized.Goals);
+        Assert.Equal(deserialized.Intent.PlanProfile.GenericStrategies, CutLabArchetypeCatalog.EffectiveStrategies(deserialized.Intent.PlanProfile));
     }
 
     [Fact]
@@ -154,6 +159,27 @@ public sealed class CutLabPlanProfileTests
             Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { Archetype = "stax", GenericStrategies = ["combo"] } },
         };
         string json = CutLabStateSerializer.Serialize(state).Replace("\"archetype\":\"stax\"", "\"archetype\":7", StringComparison.Ordinal);
+
+        CutLabState deserialized = CutLabStateSerializer.Deserialize(json);
+
+        Assert.Single(deserialized.Pool);
+        Assert.Equal(4, deserialized.Goals.CommanderByTurn);
+        Assert.Equal(["combo"], deserialized.Intent.PlanProfile!.GenericStrategies);
+        Assert.Null(deserialized.Intent.PlanProfile.Archetype);
+    }
+
+    [Theory]
+    [InlineData("Archetype")]
+    [InlineData("aRcHeTyPe")]
+    public void Deserialize_ArchetypeWithMixedCaseNumericValue_DropsToNullWithoutWipingState(string propertyName)
+    {
+        var state = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Sol Ring" }],
+            Goals = new CutLabGoalSettings { CommanderByTurn = 4 },
+            Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { Archetype = "stax", GenericStrategies = ["combo"] } },
+        };
+        string json = CutLabStateSerializer.Serialize(state).Replace("\"archetype\":\"stax\"", $"\"{propertyName}\":7", StringComparison.Ordinal);
 
         CutLabState deserialized = CutLabStateSerializer.Deserialize(json);
 

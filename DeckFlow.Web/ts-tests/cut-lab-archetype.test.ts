@@ -20,7 +20,7 @@ const response = (archetype: string | null, outcome: 'Replaced' | 'Kept' | 'Unch
 const flush = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); await new Promise(resolve => window.setTimeout(resolve, 0)); };
 
 const buildFixture = (): HTMLInputElement => {
-  document.body.innerHTML = `<form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /><button data-cut-lab-plan-apply-submit>Apply plan</button></form><div data-cut-lab-plan-panel><label><input type="radio" name="PlanArchetype" value="" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="" /><span class="cut-lab-plan-panel__row-name">None</span></label><label><input type="radio" name="PlanArchetype" value="stax" checked data-cut-lab-plan-archetype data-cut-lab-archetype-presets="stax" /><span class="cut-lab-plan-panel__row-name">Stax</span></label><label><input type="radio" name="PlanArchetype" value="turbo-combo" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="combo" /><span class="cut-lab-plan-panel__row-name">Turbo</span></label><label class="cut-lab-plan-panel__row"><input type="checkbox" name="PlanStrategies" value="stax" /><span class="cut-lab-plan-panel__row-name">Stax strategy</span></label><p data-cut-lab-plan-zero-notice></p><p class="hidden" data-cut-lab-archetype-notice></p></div><form data-cut-lab-goals-form><input data-cut-lab-goal="commander" value="4" /><input data-cut-lab-goal="engine" value="5" /><input data-cut-lab-goal="representative-line" value="6" /></form><div class="cutlab-proposal"></div>`;
+  document.body.innerHTML = `<form data-cache-key="cut-lab"><input name="CutLabStateJson" value='${stateJson}' /><input name="__RequestVerificationToken" value="token" /><button data-cut-lab-plan-apply-submit>Apply plan</button></form><div data-cut-lab-plan-panel><label><input type="radio" name="PlanArchetype" value="" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="" /><span class="cut-lab-plan-panel__row-name">None</span><span class="hidden" data-cut-lab-archetype-badge="choice">Your choice</span></label><label><input type="radio" name="PlanArchetype" value="stax" checked data-cut-lab-plan-archetype data-cut-lab-archetype-presets="stax" /><span class="cut-lab-plan-panel__row-name">Stax</span><span class="hidden" data-cut-lab-archetype-badge="choice">Your choice</span></label><label><input type="radio" name="PlanArchetype" value="turbo-combo" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="combo" /><span class="cut-lab-plan-panel__row-name">Turbo</span><span data-cut-lab-archetype-badge="suggested">Suggested</span><span class="hidden" data-cut-lab-archetype-badge="choice">Your choice</span></label><label class="cut-lab-plan-panel__row"><input type="checkbox" name="PlanStrategies" value="stax" /><span class="cut-lab-plan-panel__row-name">Stax strategy</span></label><p data-cut-lab-plan-zero-notice></p><p class="hidden" data-cut-lab-archetype-notice></p></div><form data-cut-lab-goals-form><input data-cut-lab-goal="commander" value="4" /><input data-cut-lab-goal="engine" value="5" /><input data-cut-lab-goal="representative-line" value="6" /></form><div class="cutlab-proposal"></div>`;
   document.dispatchEvent(new Event('DOMContentLoaded'));
   return document.querySelector<HTMLInputElement>('input[value="turbo-combo"]')!;
 };
@@ -41,6 +41,41 @@ describe('cut-lab archetype picker', () => {
     none.checked = true; none.dispatchEvent(new Event('change', { bubbles: true })); await flush();
     expect(strategy.closest('label')!.classList.contains('cut-lab-plan-panel__row--implied')).toBe(false);
     expect(strategy.closest('label')!.querySelector('.cut-lab-plan-panel__badge--implied')).toBeNull();
+  });
+
+  it('does not mark a manually checked preset strategy as implied', async () => {
+    buildFixture();
+    const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
+    const strategy = document.querySelector<HTMLInputElement>('input[name="PlanStrategies"][value="stax"]')!;
+    strategy.checked = true;
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ ...await response('stax', 'Unchanged').json(), appliedStrategies: ['stax'] }) });
+    stax.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(strategy.closest('label')!.classList.contains('cut-lab-plan-panel__row--implied')).toBe(false);
+  });
+
+  it('hides Suggested for the selected suggestion and restores it after another pick', async () => {
+    const turbo = buildFixture();
+    const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
+    const suggested = turbo.closest('label')!.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]')!;
+    const choice = turbo.closest('label')!.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="choice"]')!;
+    fetchMock.mockResolvedValueOnce(response('turbo-combo')).mockResolvedValueOnce(response('stax'));
+    turbo.checked = true; turbo.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(suggested.classList.contains('hidden')).toBe(true); expect(choice.classList.contains('hidden')).toBe(false);
+    stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(suggested.classList.contains('hidden')).toBe(false);
+  });
+
+  it('keeps the archetype notice hidden for a strategy apply with no archetype before or after', async () => {
+    buildFixture();
+    const stateInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!;
+    stateInput.value = JSON.stringify({ intent: { planProfile: { archetype: null, genericStrategies: [], commanderThemes: [] } } });
+    const none = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"][value=""]')!;
+    const strategy = document.querySelector<HTMLInputElement>('input[name="PlanStrategies"]')!;
+    none.checked = true; strategy.checked = true;
+    fetchMock.mockResolvedValueOnce(response(null));
+    strategy.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    const notice = document.querySelector<HTMLElement>('[data-cut-lab-archetype-notice]')!;
+    expect(notice.classList.contains('hidden')).toBe(true); expect(notice.textContent).not.toContain('Archetype cleared');
   });
 
   it('posts planProfile.archetype and priorArchetype for a radio pick', async () => {
@@ -88,14 +123,17 @@ describe('cut-lab archetype picker', () => {
     const radio = buildFixture(); fetchMock.mockResolvedValueOnce({ ok: false, text: async () => 'Profile failed' });
     radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); await flush();
     expect(document.querySelector<HTMLInputElement>('input[value="stax"]')!.checked).toBe(true);
-    expect(document.querySelector('[data-cut-lab-decision-error]')!.textContent).toBe("Couldn't recalculate this cut — nothing changed. Try again.");
+    expect(document.querySelector('[data-cut-lab-decision-error]')!.textContent).toBe("Couldn't apply the archetype. Your previous choice is restored — try again.");
   });
 
   it('applies the second of two quick picks', async () => {
     const radio = buildFixture(); let resolveFirst: ((value: unknown) => void) | undefined;
-    fetchMock.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; })).mockResolvedValueOnce(response('stax'));
-    radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector<HTMLInputElement>('input[value="stax"]')!.checked = true; document.querySelector<HTMLInputElement>('input[value="stax"]')!.dispatchEvent(new Event('change', { bubbles: true })); resolveFirst!(response('turbo-combo')); await flush(); await flush();
-    expect(document.querySelector<HTMLInputElement>('input[value="stax"]')!.checked).toBe(true);
+    const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
+    fetchMock.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; })).mockResolvedValueOnce(response('turbo-combo', 'Replaced', { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: 6 }));
+    stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); resolveFirst!(response('stax')); await flush(); await flush();
+    expect(radio.checked).toBe(true); expect(radio.value).not.toBe('stax'); expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).cutLabStateJson).toContain('"archetype":"turbo-combo"');
+    expect(document.querySelector('[data-cut-lab-archetype-notice]')!.textContent).toBe('Goals set to Turbo defaults: commander by T2, engine by T3, line by T6. Change them in Step 4.');
   });
 
   it('posts and applies a queued second pick when the first fails', async () => {
