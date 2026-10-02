@@ -23,6 +23,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int GetProcessedDeckCountCalls { get; private set; }
 
+    public int GetCommanderDeckCountCalls { get; private set; }
+
     public int RunCacheSweepCalls { get; private set; }
 
     public ArchidektCacheRunResult RunCacheSweepResult { get; set; } = new(0, 0, 0, 0, 0, TimeSpan.Zero);
@@ -220,5 +222,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         => Task.FromResult<IReadOnlyList<CategoryDeckMembership>>(Memberships);
 
     public Task<int> GetCommanderDeckCountAsync(string commanderName, CancellationToken cancellationToken = default)
-        => Task.FromResult(CommanderDeckCount);
+    {
+        GetCommanderDeckCountCalls++;
+        return Task.FromResult(CommanderDeckCount);
+    }
 }

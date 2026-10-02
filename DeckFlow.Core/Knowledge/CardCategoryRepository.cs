@@ -993,7 +993,7 @@ internal sealed class CardCategoryRepository
     private static IReadOnlyList<CategoryKnowledgeRow> FilterGenericCategoryRowsWithFallback(IReadOnlyList<CategoryKnowledgeRow> rows)
         => FilterGenericByCardWithFallback(rows, row => row.CardName, row => row.Category);
 
-    private static IReadOnlyList<CategoryDeckMembership> FilterGenericMembershipWithFallback(IReadOnlyList<CategoryDeckMembership> memberships)
+    internal static IReadOnlyList<CategoryDeckMembership> FilterGenericMembershipWithFallback(IReadOnlyList<CategoryDeckMembership> memberships)
         => FilterGenericByCardWithFallback(memberships, membership => membership.CardName, membership => membership.Category);
 
     // Drops each card's generic categories when a more specific one is present, keeping
