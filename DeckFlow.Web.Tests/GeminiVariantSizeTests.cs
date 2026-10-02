@@ -2,6 +2,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.CommanderCategoryNorms;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
@@ -68,6 +69,38 @@ public sealed class GeminiVariantSizeTests
             enrichments: new AnalysisPromptEnrichments());
 
         EmitMeasurement("analysis", prompt.Length);
+        Assert.False(string.IsNullOrWhiteSpace(prompt));
+    }
+
+    [Fact]
+    public void GeminiAnalysis_RepresentativeDeckWithMaxNormsBlock_MeasuresPromptSize()
+    {
+        var categories = Enumerable.Range(0, CommanderCategoryNormsBlock.MaxCategories)
+            .Select(index => new CommanderCategorySummary(new string((char)('A' + index), CommanderCategoryNormsBlock.MaxCategoryLabelLength), 300, 412, 0.75))
+            .ToArray();
+        var normsBlock = CommanderCategoryNormsBlock.Build(
+            new CommanderCategoryNormsResult(new string('K', CommanderCategoryNormsBlock.MaxHarvestKeyLength), 412, categories),
+            multiCommanderDeck: true);
+        var variant = new GeminiAnalysisPromptVariant();
+
+        var prompt = variant.Build(
+            new DeckAnalysisRequest
+            {
+                Format = "Commander",
+                DeckName = "Kraum / Tymna cEDH Primer",
+                TargetCommanderBracket = "cEDH"
+            },
+            RepresentativeDecklistText(),
+            RepresentativeReferenceText(),
+            RepresentativeSchemaJson(),
+            "Kraum, Ludevic's Opus",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            RepresentativeComboResult(),
+            includeCardVersions: false,
+            enrichments: new AnalysisPromptEnrichments(CommanderCategoryNormsText: normsBlock));
+
+        EmitMeasurement("analysis-max-norms", prompt.Length);
         Assert.False(string.IsNullOrWhiteSpace(prompt));
     }
 
