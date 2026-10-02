@@ -11,6 +11,12 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 - **Deck archetypes:** Cut Lab now includes a Step 3 deck archetype picker that suggests an archetype with a reason, applies its preset strategies and default goal turns, and re-runs the round queue; the user's choice wins, while selecting None keeps the previous behavior.
 - **Commander staples:** Commander-specific staples from bundled EDHREC data now join lands and ramp in the Mana base & staples infrastructure round, so they are proposed only after the other first-pass rounds. Commander staple data is provided by EDHREC.
 
+### Unreleased — Commander-category norms in analysis prompts (2026-10-01)
+
+- `analysis.commander-category-norms` optionally adds harvested commander-category norms to all three analysis prompts, with category deck share, deck count, and confidence tier.
+- The block is omitted below 10 harvested decks and on timeout or failure; LOW covers 10-49 decks, MEDIUM 50-249, and HIGH 250 and up. The 2.5-second timeout is cooperative.
+- The flag is off by default; off output is byte-identical.
+
 ### Unreleased — Private Content KB corpus transition (2026-09-25)
 
 - Content KB artifacts now resolve from a private root for Studio (`DECKFLOW_KB_ROOT`, with `ContentKb:PrivateRoot` fallback); Web local development can use `ContentKb__ContentBase` pointed at the private artifacts directory.
