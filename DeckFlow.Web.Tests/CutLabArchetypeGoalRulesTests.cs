@@ -63,13 +63,37 @@ public sealed class CutLabArchetypeGoalRulesTests
     [Fact]
     public void ApplyArchetype_ChainReturnsToStart_RestoresChainStartGoals()
     {
-        var chainStartGoals = new CutLabGoalSettings { CommanderByTurn = 4, EngineByTurn = 5, RepresentativeLineByTurn = 6 };
+        var chainStartGoals = new CutLabGoalSettings();
         var intermediateGoals = CutLabArchetypeCatalog.Entries.Single(entry => entry.Slug == "stax").DefaultGoals;
 
         var result = CutLabArchetypeGoalRules.Apply(intermediateGoals, "stax", null, null, chainStartGoals);
 
         Assert.Equal(chainStartGoals, result.Goals);
         Assert.Equal(CutLabArchetypeGoalOutcome.Unchanged, result.Outcome);
+    }
+
+    [Fact]
+    public void ApplyArchetype_CoalescedReturnToIntermediateArchetype_ReportsNetReplacement()
+    {
+        var chainStartGoals = new CutLabGoalSettings();
+        var staxGoals = CutLabArchetypeCatalog.Entries.Single(entry => entry.Slug == "stax").DefaultGoals;
+
+        var result = CutLabArchetypeGoalRules.Apply(staxGoals, "stax", "stax", null, chainStartGoals);
+
+        Assert.Equal(staxGoals, result.Goals);
+        Assert.Equal(CutLabArchetypeGoalOutcome.Replaced, result.Outcome);
+    }
+
+    [Fact]
+    public void ApplyArchetype_CoalescedReturnToIntermediateArchetypeWithCustomChainStartGoals_KeepsGoals()
+    {
+        var chainStartGoals = new CutLabGoalSettings { CommanderByTurn = 9 };
+        var staxGoals = CutLabArchetypeCatalog.Entries.Single(entry => entry.Slug == "stax").DefaultGoals;
+
+        var result = CutLabArchetypeGoalRules.Apply(staxGoals, "stax", "stax", null, chainStartGoals);
+
+        Assert.Equal(chainStartGoals, result.Goals);
+        Assert.Equal(CutLabArchetypeGoalOutcome.Kept, result.Outcome);
     }
 
     [Fact]

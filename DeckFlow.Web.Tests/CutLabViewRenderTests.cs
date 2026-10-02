@@ -124,6 +124,28 @@ public sealed class CutLabViewRenderTests
     }
 
     [Fact]
+    public async Task Render_ArchetypeSuggestion_ReflectsCheckedRowInBadgeAndReasonVisibility()
+    {
+        CutLabArchetypeSuggestion suggestion = new("turbo-combo", CutLabArchetypeConfidence.High, "Fast mana.");
+        CutLabViewModel noChoiceModel = BuildTwinBadgeModel() with { PlanPanel = CutLabViewModel.BuildPlanPanel(null, [], false, suggestion) };
+        CutLabViewModel suggestedChoiceModel = BuildTwinBadgeModel() with { PlanPanel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "turbo-combo" }, [], false, suggestion) };
+        CutLabViewModel differentChoiceModel = BuildTwinBadgeModel() with { PlanPanel = CutLabViewModel.BuildPlanPanel(new CutLabPlanProfile { Archetype = "stax" }, [], false, suggestion) };
+
+        string noChoiceHtml = await RenderAsync(noChoiceModel);
+        string suggestedChoiceHtml = await RenderAsync(suggestedChoiceModel);
+        string differentChoiceHtml = await RenderAsync(differentChoiceModel);
+
+        Assert.Matches(new Regex("class=\"cut-lab-plan-panel__badge[^\"]*\" data-cut-lab-archetype-badge=\"suggested\">Suggested", RegexOptions.CultureInvariant), noChoiceHtml);
+        Assert.Matches(new Regex("class=\"cut-lab-plan-panel__badge[^\"]* hidden\" data-cut-lab-archetype-badge=\"suggested\">Suggested", RegexOptions.CultureInvariant), suggestedChoiceHtml);
+        Assert.Matches(new Regex("class=\"cut-lab-plan-panel__badge[^\"]*\" data-cut-lab-archetype-badge=\"suggested\">Suggested", RegexOptions.CultureInvariant), differentChoiceHtml);
+        Assert.DoesNotMatch(new Regex("class=\"cut-lab-plan-panel__badge[^\"]* hidden\" data-cut-lab-archetype-badge=\"suggested\">Suggested", RegexOptions.CultureInvariant), noChoiceHtml);
+        Assert.DoesNotMatch(new Regex("class=\"cut-lab-plan-panel__badge[^\"]* hidden\" data-cut-lab-archetype-badge=\"suggested\">Suggested", RegexOptions.CultureInvariant), differentChoiceHtml);
+        Assert.Matches(new Regex("<span class=\"\" data-cut-lab-archetype-reason>Why suggested: Fast mana\\.</span>", RegexOptions.CultureInvariant), noChoiceHtml);
+        Assert.Matches(new Regex("<span class=\"\" data-cut-lab-archetype-reason>Why suggested: Fast mana\\.</span>", RegexOptions.CultureInvariant), suggestedChoiceHtml);
+        Assert.Matches(new Regex("<span class=\"hidden\" data-cut-lab-archetype-reason>Why suggested: Fast mana\\.</span>", RegexOptions.CultureInvariant), differentChoiceHtml);
+    }
+
+    [Fact]
     public async Task Render_Archetype_RadioCarriesPresetStrategySlugs()
     {
         CutLabViewModel model = BuildTwinBadgeModel() with { PlanPanel = CutLabViewModel.BuildPlanPanel(null, [], false) };

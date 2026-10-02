@@ -28,6 +28,12 @@ public static class CutLabArchetypeGoalRules
             return (chainStartGoals, CutLabArchetypeGoalOutcome.Unchanged);
         }
 
+        if (chainStartGoals is not null && priorSlug == newSlug)
+        {
+            (CutLabGoalSettings chainStartResult, CutLabArchetypeGoalOutcome chainStartOutcome) = Apply(chainStartGoals, chainStartSlug, newSlug);
+            return (chainStartResult, chainStartOutcome);
+        }
+
         if (priorSlug == newSlug || newSlug is null ||
             !CutLabArchetypeCatalog.TryGetBySlug(newSlug, out var entry))
         {

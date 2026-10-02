@@ -928,6 +928,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let hasPickedArchetype = false;
   let planApplyChainStartArchetype: string | null = null;
   let planApplyChainStartGoals: CutLabPatchResponse['appliedGoals'] = null;
+  let deferredArchetypeNotice: {
+    appliedArchetype: string | null;
+    priorArchetype: string | null;
+    appliedGoals: CutLabPatchResponse['appliedGoals'];
+    archetypeDefaultGoals: CutLabPatchResponse['archetypeDefaultGoals'];
+    goalOutcome: CutLabPatchResponse['goalOutcome'];
+    displayName: string;
+  } | null = null;
   let copyHandlersAttached = false;
   let cardModalHandlersAttached = false;
   let cardTextByCardNameCache: Record<string, CutLabCardTextEntry> | null = null;
@@ -3932,6 +3940,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const handlePlanPanelChange = async (isArchetypePick = false): Promise<void> => {
     if (isArchetypePick) {
       hasPickedArchetype = true;
+      document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-reason]').forEach(reason => reason.classList.add('hidden'));
     }
     if (planApplySubmitInFlight) {
       planApplyPendingChange = true;
@@ -3955,11 +3964,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const persistedArchetype = persistedPlanProfile?.archetype ?? null;
     const requestedArchetype = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked')?.value || null;
     const requestedArchetypeInput = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked');
-    const isArchetypeChange = requestedArchetype !== persistedArchetype;
     if (planApplyChainStartGoals === null) {
       planApplyChainStartArchetype = persistedArchetype;
       planApplyChainStartGoals = persistedState.goals ?? null;
+      deferredArchetypeNotice = null;
     }
+    const isArchetypeChange = requestedArchetype !== persistedArchetype ||
+      (planApplyChainStartGoals !== null && requestedArchetype !== planApplyChainStartArchetype);
     const nextState: Partial<CutLabStateSnapshot> = {
       ...persistedState,
       intent: {
@@ -3993,7 +4004,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       if (!response.ok) {
         renderPlanPanelError(root, isArchetypeChange ? cutLabArchetypeApplyErrorCopy : await readErrorMessage(response));
-        if (!planApplyPendingChange) syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
+        if (!planApplyPendingChange) {
+          if (deferredArchetypeNotice) {
+            syncArchetypePanel(deferredArchetypeNotice.appliedArchetype, deferredArchetypeNotice.priorArchetype, deferredArchetypeNotice.appliedGoals, deferredArchetypeNotice.archetypeDefaultGoals, deferredArchetypeNotice.goalOutcome, deferredArchetypeNotice.displayName);
+            deferredArchetypeNotice = null;
+          }
+          syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
+        }
         return;
       }
 
@@ -4013,12 +4030,28 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         writeDecisionStateToHiddenInputs(JSON.stringify(appliedState));
       }
       syncArchetypePanel(data.appliedArchetype ?? null, persistedArchetype, data.appliedGoals, data.archetypeDefaultGoals, data.goalOutcome, selectedArchetypeName, planApplyPendingChange);
+      if (planApplyPendingChange) {
+        deferredArchetypeNotice = {
+          appliedArchetype: data.appliedArchetype ?? null,
+          priorArchetype: persistedArchetype,
+          appliedGoals: data.appliedGoals,
+          archetypeDefaultGoals: data.archetypeDefaultGoals,
+          goalOutcome: data.goalOutcome,
+          displayName: selectedArchetypeName,
+        };
+      }
       if (!planApplyPendingChange) syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? [], data.appliedArchetype ?? null);
     } catch (error) {
       renderPlanPanelError(root, isArchetypeChange
         ? cutLabArchetypeApplyErrorCopy
         : (error instanceof DOMException && error.name === 'AbortError' ? cutLabDecisionTimeoutCopy : cutLabDecisionErrorCopy));
-      if (!planApplyPendingChange) syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
+      if (!planApplyPendingChange) {
+        if (deferredArchetypeNotice) {
+          syncArchetypePanel(deferredArchetypeNotice.appliedArchetype, deferredArchetypeNotice.priorArchetype, deferredArchetypeNotice.appliedGoals, deferredArchetypeNotice.archetypeDefaultGoals, deferredArchetypeNotice.goalOutcome, deferredArchetypeNotice.displayName);
+          deferredArchetypeNotice = null;
+        }
+        syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
+      }
     } finally {
       window.clearTimeout(timeoutId);
       planApplySubmitInFlight = false;
@@ -4029,6 +4062,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       } else {
         planApplyChainStartArchetype = null;
         planApplyChainStartGoals = null;
+        deferredArchetypeNotice = null;
       }
     }
   };
