@@ -203,18 +203,16 @@ internal sealed class CategoryCacheSchema
         var secondaryIndexCommand = connection.CreateCommand();
         secondaryIndexCommand.CommandText = """
             CREATE INDEX IF NOT EXISTS ix_sources_deck_queue ON sources(deck_queue_id);
-            CREATE INDEX IF NOT EXISTS ix_deck_queue_processed ON deck_queue(processed);
+            -- Why: ix_obs_card, ix_totals_card, and ix_deck_queue_processed were removed as left-prefix duplicates of wider indexes; production drops them out-of-band with DROP INDEX CONCURRENTLY.
             CREATE INDEX IF NOT EXISTS ix_deck_queue_processed_inserted_deck ON deck_queue(processed, inserted_utc, deck_id);
             -- Why: a failed statement aborts the rest of the secondary batch, so create the replacement before the drops and keep the old indexes if it fails.
             CREATE INDEX IF NOT EXISTS ix_deck_queue_commander_lower_processed ON deck_queue(LOWER(commander_name)) WHERE processed = 1;
             DROP INDEX IF EXISTS ix_deck_queue_processed_commander;
             DROP INDEX IF EXISTS ix_deck_queue_processed_commander_lower;
-            CREATE INDEX IF NOT EXISTS ix_obs_card ON card_category_observations(card_id);
             CREATE INDEX IF NOT EXISTS ix_obs_card_board ON card_category_observations(card_id, board);
             -- Why: production builds this out-of-band with CREATE INDEX CONCURRENTLY before deploy because 22M rows exceed the 15 s batch timeout.
             CREATE INDEX IF NOT EXISTS ix_obs_card_category ON card_category_observations(card_id, category);
             CREATE INDEX IF NOT EXISTS ix_obs_source ON card_category_observations(source_id);
-            CREATE INDEX IF NOT EXISTS ix_totals_card ON card_deck_totals(card_id);
             CREATE INDEX IF NOT EXISTS ix_totals_card_board ON card_deck_totals(card_id, board);
             -- Why: pending rows are a tiny slice behind ~670k skipped rows, so dequeue and count need an index excluding skipped rows; production builds it out-of-band with CREATE INDEX CONCURRENTLY before deploy.
             CREATE INDEX IF NOT EXISTS ix_deck_queue_pending ON deck_queue(inserted_utc, id) WHERE processed = 0 AND skipped = 0;

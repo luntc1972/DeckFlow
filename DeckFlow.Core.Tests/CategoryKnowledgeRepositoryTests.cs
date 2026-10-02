@@ -702,7 +702,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         await repository.EnsureSchemaAsync();
 
         var indexNames = await GetDeckQueueIndexNamesAsync();
-        Assert.Contains("ix_deck_queue_processed", indexNames);
+        Assert.DoesNotContain("ix_deck_queue_processed", indexNames);
         Assert.Contains("ix_deck_queue_processed_inserted_deck", indexNames);
         Assert.DoesNotContain("ix_deck_queue_processed_commander", indexNames);
         Assert.DoesNotContain("ix_deck_queue_processed_commander_lower", indexNames);
@@ -718,10 +718,10 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
 
         var indexNames = await GetCardLookupIndexNamesAsync();
         Assert.Contains("ux_cards_normalized", indexNames);
-        Assert.Contains("ix_obs_card", indexNames);
+        Assert.DoesNotContain("ix_obs_card", indexNames);
         Assert.Contains("ix_obs_card_board", indexNames);
         Assert.Contains("ix_obs_card_category", indexNames);
-        Assert.Contains("ix_totals_card", indexNames);
+        Assert.DoesNotContain("ix_totals_card", indexNames);
         Assert.Contains("ix_totals_card_board", indexNames);
     }
 
@@ -732,7 +732,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         {
             await connection.OpenAsync();
             var command = connection.CreateCommand();
-            command.CommandText = "CREATE TABLE ix_obs_card (id INTEGER);";
+            command.CommandText = "CREATE TABLE ix_obs_card_board (id INTEGER);";
             await command.ExecuteNonQueryAsync();
         }
 
@@ -745,11 +745,11 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         verifyCommand.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name IN ('ux_cards_normalized', 'ux_sources_source', 'ux_deck_queue_deck_id', 'ux_obs_grain', 'ux_totals_grain');";
         Assert.Equal(5L, Convert.ToInt64(await verifyCommand.ExecuteScalarAsync()));
 
-        verifyCommand.CommandText = "DROP TABLE ix_obs_card;";
+        verifyCommand.CommandText = "DROP TABLE ix_obs_card_board;";
         await verifyCommand.ExecuteNonQueryAsync();
         await repository.EnsureSchemaAsync();
 
-        verifyCommand.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'ix_obs_card';";
+        verifyCommand.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'ix_obs_card_board';";
         Assert.Equal(0L, Convert.ToInt64(await verifyCommand.ExecuteScalarAsync()));
     }
 
