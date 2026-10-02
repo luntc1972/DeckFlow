@@ -1363,6 +1363,16 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     /// </summary>
     // Phase 15-02: converted from internal static to instance method; dispatches via injected AnalysisPromptVariantRegistry.
+    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null, string? scoreBlockText = null, string? interactionAuditText = null, string? winConMapText = null, string? commanderCategoryNormsText = null)
+    {
+        var enrichments = new AnalysisPromptEnrichments(companionName, scoreBlockText, interactionAuditText, winConMapText, commanderCategoryNormsText);
+        return _analysisPromptRegistry.Build(
+            AiPlatform.Normalize(request.TargetAiPlatform),
+            request, decklistText, referenceText, deckProfileSchemaJson,
+            commanderName, selectedQuestionIds, bannedCards,
+            comboResult, includeCardVersions, enrichments);
+    }
+
     /// <summary>Builds norms text using the harvest key (D-08), independently of command-zone output (D-09), and fails open (D-12).</summary>
     private async Task<string?> BuildCommanderCategoryNormsTextAsync(IEnumerable<DeckEntry> entries, IReadOnlyDictionary<string, string> oracleNameMap, CancellationToken cancellationToken)
     {
@@ -1383,16 +1393,6 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             _logger.LogWarning(ex, "Commander category norms lookup failed for {HarvestKey}; analysis prompt built without the norms block", key);
             return null;
         }
-    }
-
-    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null, string? scoreBlockText = null, string? interactionAuditText = null, string? winConMapText = null, string? commanderCategoryNormsText = null)
-    {
-        var enrichments = new AnalysisPromptEnrichments(companionName, scoreBlockText, interactionAuditText, winConMapText, commanderCategoryNormsText);
-        return _analysisPromptRegistry.Build(
-            AiPlatform.Normalize(request.TargetAiPlatform),
-            request, decklistText, referenceText, deckProfileSchemaJson,
-            commanderName, selectedQuestionIds, bannedCards,
-            comboResult, includeCardVersions, enrichments);
     }
 
     /// <summary>

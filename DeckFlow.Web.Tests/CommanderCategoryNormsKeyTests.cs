@@ -16,6 +16,7 @@ public sealed class CommanderCategoryNormsKeyTests
         [new CommanderCategorySummary("Ramp", 0, 0, 338 / 412.0), new CommanderCategorySummary("Card Draw", 0, 0, 293 / 412.0), new CommanderCategorySummary("Counterspell", 0, 0, 210 / 412.0)]));
         var service = Create(PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.CommanderCategoryNormsFlag), provider);
         var prompt = (await service.BuildAsync(Request())).AnalysisPromptText;
+        Assert.NotNull(prompt);
         Assert.Equal(["Kraum, Ludevic's Opus"], provider.RequestedKeys);
         Assert.Contains("HARVESTED COMMANDER CATEGORY NORMS - 412 decks (HIGH confidence)", prompt);
         Assert.Contains("- Ramp - in 82% of 412 decks", prompt);
