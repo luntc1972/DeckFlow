@@ -3,6 +3,7 @@ using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.CommanderCategoryNorms;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
@@ -26,7 +27,8 @@ public sealed partial class DeckAnalysisPacketServiceTests
     private static DeckAnalysisPacketService CreateServiceWithSharedCache(
         PacketSessionCache packetCache,
         IFeatureFlagCache flagCache,
-        IMoxfieldDeckImporter moxfieldDeckImporter)
+        IMoxfieldDeckImporter moxfieldDeckImporter,
+        ICommanderCategoryNormsProvider? normsProvider = null)
     {
         var cardResolver = new ScryfallCardResolver(
             new FakeScryfallRestClientFactory(new HttpClient { BaseAddress = new Uri("https://api.scryfall.com/") }),
@@ -61,7 +63,8 @@ public sealed partial class DeckAnalysisPacketServiceTests
             }),
             packetCache,
             flagCache,
-            NullLogger<DeckAnalysisPacketService>.Instance);
+            NullLogger<DeckAnalysisPacketService>.Instance,
+            normsProvider: normsProvider);
     }
 
     private static DeckAnalysisRequest CreateWinConMapCacheRequest() => new()
