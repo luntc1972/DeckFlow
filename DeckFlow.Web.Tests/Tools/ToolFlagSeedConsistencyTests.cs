@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.FeatureFlags;
 using DeckFlow.Web.Services.Tools;
 using Microsoft.Data.Sqlite;
@@ -122,6 +123,36 @@ public sealed class ToolFlagSeedConsistencyTests : IDisposable
 
         var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
         Assert.Contains("('analysis.wincon-map', FALSE)", postgresSql, StringComparison.Ordinal);
+    }
+
+    // Phase 5 D-10: keep the seed, packet registry, and admin description aligned.
+    [Fact]
+    public async Task AnalysisCommanderCategoryNormsFlag_SeededOff_InBothDialects()
+    {
+        var sqliteAnalysisKeys = GetSeedKeysWithPrefix("SqliteSeedSql", "analysis.");
+        var postgresAnalysisKeys = GetSeedKeysWithPrefix("PostgresSeedSql", "analysis.");
+
+        Assert.Contains("analysis.commander-category-norms", sqliteAnalysisKeys);
+        Assert.Contains("analysis.commander-category-norms", postgresAnalysisKeys);
+
+        var store = new FeatureFlagStore(_databasePath);
+        await store.EnsureSchemaAsync();
+
+        var seeded = await store.GetAllAsync();
+        Assert.True(seeded.TryGetValue("analysis.commander-category-norms", out var enabled), "Missing seeded key 'analysis.commander-category-norms'.");
+        Assert.False(enabled);
+
+        var field = typeof(FeatureFlagStore).GetField("PostgresSeedSql", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(field);
+
+        var postgresSql = Assert.IsType<string>(field!.GetRawConstantValue());
+        Assert.Contains("('analysis.commander-category-norms', FALSE)", postgresSql, StringComparison.Ordinal);
+        Assert.Equal("analysis.commander-category-norms", DeckAnalysisPacketService.CommanderCategoryNormsFlag);
+        Assert.Contains(DeckAnalysisPacketService.CommanderCategoryNormsFlag, DeckAnalysisPacketService.PromptMutatingAnalysisFlags);
+
+        var description = FeatureFlagCatalog.Describe("analysis.commander-category-norms");
+        Assert.False(string.IsNullOrWhiteSpace(description));
+        Assert.All(description, character => Assert.InRange(character, '\0', '\x7f'));
     }
 
     private static HashSet<string> GetSeedKeys(string fieldName)
