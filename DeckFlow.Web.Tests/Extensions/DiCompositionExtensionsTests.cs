@@ -3,6 +3,7 @@ using DeckFlow.Core.Models;
 using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Extensions;
 using DeckFlow.Web.Services;
+using DeckFlow.Web.Services.CommanderCategoryNorms;
 using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using DeckFlow.Web.Services.PromptBuilders.Bracket;
@@ -72,6 +73,7 @@ public sealed class DiCompositionExtensionsTests
         services.AddScoped<IDeckEntryLoader, StubDeckEntryLoader>();
         services.AddDeckFlowManabaseServices();
         services.AddSingleton<ICategoryKnowledgeStore, FakeCategoryKnowledgeStore>();
+        services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
         services.AddSingleton<DeckFlow.Web.Services.Bracket.IGameChangerCatalogService,
             DeckFlow.Web.Services.Bracket.GameChangerCatalogService>();
 
@@ -89,6 +91,7 @@ public sealed class DiCompositionExtensionsTests
         var sp = scope.ServiceProvider;
 
         Assert.NotNull(sp.GetRequiredService<IDeckAnalysisPacketService>());
+        Assert.NotNull(sp.GetRequiredService<ICommanderCategoryNormsProvider>());
         Assert.NotNull(sp.GetRequiredService<IDeckComparisonService>());
         Assert.NotNull(sp.GetRequiredService<IMetaGapService>());
         Assert.NotNull(sp.GetRequiredService<IDeckPrimerPacketService>());
@@ -138,6 +141,7 @@ public sealed class DiCompositionExtensionsTests
         services.Configure<AiPlatformOptions>(_ => { });
         services.AddScoped<IDeckEntryLoader, StubDeckEntryLoader>();
         services.AddSingleton<ICategoryKnowledgeStore, FakeCategoryKnowledgeStore>();
+        services.AddScoped<ICommanderCategoryService, CommanderCategoryService>();
         services.AddSingleton<DeckFlow.Web.Services.Bracket.IGameChangerCatalogService,
             DeckFlow.Web.Services.Bracket.GameChangerCatalogService>();
         services.AddDeckFlowFeatureFlags();
