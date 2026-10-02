@@ -175,14 +175,16 @@ describe('cut-lab archetype picker', () => {
     expect(document.querySelector('[data-cut-lab-decision-error]')!.textContent).toBe("Couldn't apply the archetype. Your previous choice is restored — try again.");
   });
 
-  it('applies the second of two quick picks', async () => {
+  it('restores the last persisted archetype and goals when its queued pick fails', async () => {
     const radio = buildFixture(); let resolveFirst: ((value: unknown) => void) | undefined;
     const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
-    fetchMock.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; })).mockResolvedValueOnce(response('turbo-combo', 'Replaced', { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: 6 }));
-    stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); resolveFirst!(response('stax')); await flush(); await flush();
-    expect(radio.checked).toBe(true); expect(radio.value).not.toBe('stax'); expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body).cutLabStateJson).toContain('"archetype":"turbo-combo"');
-    expect(document.querySelector('[data-cut-lab-archetype-notice]')!.textContent).toBe('Goals set to Turbo defaults: commander by T2, engine by T3, line by T6. Change them in Step 4.');
+    fetchMock.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; })).mockResolvedValueOnce({ ok: false, text: async () => 'Profile failed' });
+    stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); resolveFirst!(response('stax', 'Replaced', { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: 6 })); await flush(); await flush();
+    expect(stax.checked).toBe(true); expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(document.querySelector('[data-cut-lab-decision-error]')!.textContent).toBe("Couldn't apply the archetype. Your previous choice is restored — try again.");
+    expect(document.querySelector<HTMLInputElement>('[data-cut-lab-goal="commander"]')!.value).toBe('2');
+    expect(document.querySelector<HTMLInputElement>('[data-cut-lab-goal="engine"]')!.value).toBe('3');
+    expect(document.querySelector<HTMLInputElement>('[data-cut-lab-goal="representative-line"]')!.value).toBe('6');
   });
 
   it('posts and applies a queued second pick when the first fails', async () => {
@@ -190,4 +192,25 @@ describe('cut-lab archetype picker', () => {
     radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); document.querySelector<HTMLInputElement>('input[value="stax"]')!.checked = true; document.querySelector<HTMLInputElement>('input[value="stax"]')!.dispatchEvent(new Event('change', { bubbles: true })); await flush(); await flush();
     expect(fetchMock).toHaveBeenCalledTimes(2); expect(document.querySelector<HTMLInputElement>('input[value="stax"]')!.checked).toBe(true);
   });
+
+  it('keeps the prior notice while an intermediate queued archetype response succeeds', async () => {
+    const turbo = buildFixture();
+    const none = document.querySelector<HTMLInputElement>('input[value=""]')!;
+    const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
+    let resolveStax: ((value: any) => void) | undefined;
+    let resolveNone: ((value: any) => void) | undefined;
+    fetchMock.mockResolvedValueOnce(response(null)).mockImplementationOnce(() => new Promise(resolve => { resolveStax = resolve; })).mockImplementationOnce(() => new Promise(resolve => { resolveNone = resolve; }));
+
+    none.checked = true; none.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true }));
+    none.checked = true; none.dispatchEvent(new Event('change', { bubbles: true }));
+    resolveStax!(response('stax', 'Replaced', { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: 6 })); await flush();
+
+    expect(none.checked).toBe(true);
+    expect(document.querySelector('[data-cut-lab-archetype-notice]')!.textContent).not.toBe('Goals set to Stax defaults: commander by T2, engine by T3, line by T6. Change them in Step 4.');
+    expect(document.querySelector<HTMLInputElement>('[data-cut-lab-goal="commander"]')!.value).toBe('2');
+    resolveNone!(response(null)); await flush();
+    expect(document.querySelector('[data-cut-lab-archetype-notice]')!.textContent).toBe('Archetype cleared. Manual strategies and goals are unchanged.');
+  });
+
 });

@@ -3854,11 +3854,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     archetypeDefaultGoals: CutLabPatchResponse['archetypeDefaultGoals'],
     goalOutcome: CutLabPatchResponse['goalOutcome'],
     displayName: string,
+    suppressNotice = false,
   ): void => {
     const notice = document.querySelector<HTMLElement>('[data-cut-lab-archetype-notice]');
-    if (!notice) return;
-
-    notice.classList.remove('hidden', 'cut-lab-plan-panel__archetype-notice--ok', 'cut-lab-plan-panel__archetype-notice--kept');
     if (appliedGoals) {
       const commanderInput = getGoalInput('commander');
       const engineInput = getGoalInput('engine');
@@ -3867,6 +3865,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       if (engineInput) engineInput.value = String(appliedGoals.engineByTurn ?? '');
       if (representativeLineInput) representativeLineInput.value = String(appliedGoals.representativeLineByTurn ?? '');
     }
+    if (suppressNotice) return;
+    if (!notice) return;
+
+    notice.classList.remove('hidden', 'cut-lab-plan-panel__archetype-notice--ok', 'cut-lab-plan-panel__archetype-notice--kept');
     if (goalOutcome === 'Replaced' && appliedGoals) {
       notice.classList.add('cut-lab-plan-panel__archetype-notice--ok');
       notice.textContent = `Goals set to ${displayName} defaults: commander by T${appliedGoals.commanderByTurn}, engine by T${appliedGoals.engineByTurn}, line by T${appliedGoals.representativeLineByTurn}. Change them in Step 4.`;
@@ -4006,7 +4008,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         appliedState.intent.planProfile.archetype = data.appliedArchetype ?? null;
         writeDecisionStateToHiddenInputs(JSON.stringify(appliedState));
       }
-      syncArchetypePanel(data.appliedArchetype ?? null, persistedArchetype, data.appliedGoals, data.archetypeDefaultGoals, data.goalOutcome, selectedArchetypeName);
+      syncArchetypePanel(data.appliedArchetype ?? null, persistedArchetype, data.appliedGoals, data.archetypeDefaultGoals, data.goalOutcome, selectedArchetypeName, planApplyPendingChange);
       if (!planApplyPendingChange) syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? [], data.appliedArchetype ?? null);
     } catch (error) {
       renderPlanPanelError(root, isArchetypeChange
