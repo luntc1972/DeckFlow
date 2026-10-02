@@ -77,9 +77,9 @@ public sealed class CommanderCategoryNormsProvider : ICommanderCategoryNormsProv
         }
 
         var cacheKey = CacheKeyFor(trimmed);
-        if (_memoryCache.TryGetValue<CachedNorms>(cacheKey, out var cached))
+        if (_memoryCache.TryGetValue<CommanderCategoryNormsResult?>(cacheKey, out var cached))
         {
-            return cached!.Norms;
+            return cached;
         }
 
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -98,9 +98,9 @@ public sealed class CommanderCategoryNormsProvider : ICommanderCategoryNormsProv
         var startedAt = Stopwatch.GetTimestamp();
         try
         {
-            if (_memoryCache.TryGetValue<CachedNorms>(cacheKey, out cached))
+            if (_memoryCache.TryGetValue<CommanderCategoryNormsResult?>(cacheKey, out cached))
             {
-                return cached!.Norms;
+                return cached;
             }
 
             var deckCount = await _knowledgeStore.GetCommanderDeckCountAsync(trimmed, timeoutSource.Token);
@@ -157,8 +157,6 @@ public sealed class CommanderCategoryNormsProvider : ICommanderCategoryNormsProv
             AbsoluteExpirationRelativeToNow = duration,
             Size = 1,
         };
-        _memoryCache.Set(cacheKey, new CachedNorms(norms), options);
+        _memoryCache.Set(cacheKey, norms, options);
     }
-
-    private sealed record CachedNorms(CommanderCategoryNormsResult? Norms);
 }

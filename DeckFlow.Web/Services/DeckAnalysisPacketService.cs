@@ -896,11 +896,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                     winConMapText = BuildWinConMapText(winConMap);
                 }
 
-                string? commanderCategoryNormsText = null;
-                if (commanderCategoryNormsEnabled && _normsProvider is not null)
-                {
-                    commanderCategoryNormsText = await BuildCommanderCategoryNormsTextAsync(deckEntries, cardReferenceBundle.OracleNameMap, cancellationToken);
-                }
+                var commanderCategoryNormsText = commanderCategoryNormsEnabled
+                    ? await BuildCommanderCategoryNormsTextAsync(deckEntries, cardReferenceBundle.OracleNameMap, cancellationToken)
+                    : null;
 
                 // Resolve commander name to oracle name if the deck used a renamed printing.
                 if (commanderName is not null && cardReferenceBundle.OracleNameMap.TryGetValue(commanderName, out var oracleCommanderName))
@@ -1376,6 +1374,8 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// <summary>Builds norms text using the harvest key (D-08), independently of command-zone output (D-09), and fails open (D-12).</summary>
     private async Task<string?> BuildCommanderCategoryNormsTextAsync(IEnumerable<DeckEntry> entries, IReadOnlyDictionary<string, string> oracleNameMap, CancellationToken cancellationToken)
     {
+        if (_normsProvider is null) return null;
+
         var commanders = entries
             .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .Select(entry => oracleNameMap.TryGetValue(entry.Name, out var oracleName) ? entry with { Name = oracleName } : entry)
@@ -1385,7 +1385,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         var multiCommanderDeck = commanders.Select(entry => entry.Name).Distinct(StringComparer.OrdinalIgnoreCase).Skip(1).Any();
         try
         {
-            var norms = await _normsProvider!.GetNormsAsync(key, cancellationToken);
+            var norms = await _normsProvider.GetNormsAsync(key, cancellationToken);
             return norms is null ? null : CommanderCategoryNormsBlock.Build(norms, multiCommanderDeck);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)

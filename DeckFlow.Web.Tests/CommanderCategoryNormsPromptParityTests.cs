@@ -37,36 +37,41 @@ public sealed class CommanderCategoryNormsPromptParityTests
 
     [Theory]
     [InlineData("ChatGPT")]
+    [InlineData("Claude")]
     [InlineData("Gemini")]
     public void Norms_NullPath_ByteIdenticalToExcisedBlockPath(string platformName)
     {
         var withBlock = Build(platformName, NormsBlock);
-        var excised = withBlock.Replace(Environment.NewLine + Environment.NewLine + NormsBlock + Environment.NewLine, Environment.NewLine, StringComparison.Ordinal);
-        foreach (var rule in Rules) excised = excised.Replace(rule + Environment.NewLine, string.Empty, StringComparison.Ordinal);
+        var excised = withBlock.Replace(Environment.NewLine + Environment.NewLine + Wrap(platformName, NormsBlock) + Environment.NewLine, Environment.NewLine, StringComparison.Ordinal);
+        foreach (var rule in RulesFor(platformName)) excised = excised.Replace(rule + Environment.NewLine, string.Empty, StringComparison.Ordinal);
         if (platformName == "ChatGPT") excised = excised.Replace(PacketByteIdentityFixtures.ChatGptHeuristicValidationBlock, string.Empty, StringComparison.Ordinal);
         Assert.Equal(Build(platformName, null), excised);
     }
 
     [Theory]
     [InlineData("ChatGPT")]
+    [InlineData("Claude")]
     [InlineData("Gemini")]
     public void Norms_BlockAndRules_AppearExactlyOnce(string platformName)
     {
         var result = Build(platformName, NormsBlock);
-        Assert.Equal(1, CountOccurrences(result, NormsBlock));
-        foreach (var rule in Rules) Assert.Equal(1, CountOccurrences(result, rule));
+        Assert.Equal(1, CountOccurrences(result, Wrap(platformName, NormsBlock)));
+        foreach (var rule in RulesFor(platformName)) Assert.Equal(1, CountOccurrences(result, rule));
     }
 
     [Theory]
     [InlineData("ChatGPT", null)]
     [InlineData("ChatGPT", "")]
+    [InlineData("Claude", null)]
+    [InlineData("Claude", "")]
     [InlineData("Gemini", null)]
     [InlineData("Gemini", "")]
     public void Norms_AbsentOrEmpty_HasNoNormsContentAndMatchesNullPath(string platformName, string? normsText)
     {
         var result = Build(platformName, normsText);
+        if (platformName == "Claude") Assert.DoesNotContain(OpenTag, result, StringComparison.Ordinal);
         Assert.DoesNotContain("HARVESTED COMMANDER CATEGORY NORMS", result, StringComparison.Ordinal);
-        foreach (var rule in Rules) Assert.DoesNotContain(rule, result, StringComparison.Ordinal);
+        foreach (var rule in RulesFor(platformName)) Assert.DoesNotContain(rule, result, StringComparison.Ordinal);
         Assert.Equal(Build(platformName, null), result);
     }
 
@@ -89,39 +94,9 @@ public sealed class CommanderCategoryNormsPromptParityTests
     [Fact]
     public void Gemini_MaxBlock_GrowthBelow3000()
     {
-        var categories = Enumerable.Range(0, 15).Select(index => new CommanderCategorySummary(new string((char)('A' + index), 60), 300, 412, 0.75)).ToArray();
-        var maximumBlock = CommanderCategoryNormsBlock.Build(new CommanderCategoryNormsResult(new string('K', 200), 412, categories), multiCommanderDeck: true);
+        var maximumBlock = CommanderCategoryNormsBlock.Build(PacketByteIdentityFixtures.MaxCommanderCategoryNorms(), multiCommanderDeck: true);
         Assert.NotNull(maximumBlock);
         Assert.True(Build("Gemini", maximumBlock).Length - Build("Gemini", null).Length < 3000);
-    }
-
-    [Fact]
-    public void Norms_ClaudeNullPath_ByteIdenticalToExcisedBlockPath()
-    {
-        var withBlock = Build("Claude", NormsBlock);
-        var excised = withBlock.Replace(Environment.NewLine + Environment.NewLine + OpenTag + Environment.NewLine + NormsBlock + Environment.NewLine + CloseTag + Environment.NewLine, Environment.NewLine, StringComparison.Ordinal);
-        foreach (var rule in ClaudeRules) excised = excised.Replace(rule + Environment.NewLine, string.Empty, StringComparison.Ordinal);
-        Assert.Equal(Build("Claude", null), excised);
-    }
-
-    [Fact]
-    public void Norms_ClaudeBlockAndRules_AppearExactlyOnce()
-    {
-        var result = Build("Claude", NormsBlock);
-        Assert.Equal(1, CountOccurrences(result, OpenTag + Environment.NewLine + NormsBlock + Environment.NewLine + CloseTag));
-        foreach (var rule in ClaudeRules) Assert.Equal(1, CountOccurrences(result, rule));
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void Norms_ClaudeAbsentOrEmpty_HasNoNormsContentAndMatchesNullPath(string? normsText)
-    {
-        var result = Build("Claude", normsText);
-        Assert.DoesNotContain(OpenTag, result, StringComparison.Ordinal);
-        Assert.DoesNotContain("HARVESTED COMMANDER CATEGORY NORMS", result, StringComparison.Ordinal);
-        foreach (var rule in ClaudeRules) Assert.DoesNotContain(rule, result, StringComparison.Ordinal);
-        Assert.Equal(Build("Claude", null), result);
     }
 
     [Fact]
@@ -153,4 +128,10 @@ public sealed class CommanderCategoryNormsPromptParityTests
         }
         return count;
     }
+
+    private static IReadOnlyList<string> RulesFor(string platformName)
+        => platformName == "Claude" ? ClaudeRules : Rules;
+
+    private static string Wrap(string platformName, string normsText)
+        => platformName == "Claude" ? OpenTag + Environment.NewLine + normsText + Environment.NewLine + CloseTag : normsText;
 }
