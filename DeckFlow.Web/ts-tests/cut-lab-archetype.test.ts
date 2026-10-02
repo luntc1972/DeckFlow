@@ -98,19 +98,42 @@ describe('cut-lab archetype picker', () => {
     fetchMock.mockResolvedValueOnce(response('turbo-combo')).mockResolvedValueOnce(response('stax'));
     turbo.checked = true; turbo.dispatchEvent(new Event('change', { bubbles: true })); await flush();
     expect(suggested.classList.contains('hidden')).toBe(true); expect(choice.classList.contains('hidden')).toBe(false);
-    expect(turbo.closest('label')!.querySelector('[data-cut-lab-archetype-reason]')!.classList.contains('hidden')).toBe(false);
+    expect(turbo.closest('label')!.querySelector('[data-cut-lab-archetype-reason]')!.classList.contains('hidden')).toBe(true);
     stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); await flush();
     expect(suggested.classList.contains('hidden')).toBe(false);
   });
 
-  it('keeps Why suggested visible until this page session picks away', async () => {
-    const turbo = buildFixture();
-    const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
-    const reason = turbo.closest('label')!.querySelector<HTMLElement>('[data-cut-lab-archetype-reason]')!;
+  it('keeps Why suggested visible after a strategy response before an archetype pick', async () => {
+    buildFixture();
+    const strategy = document.querySelector<HTMLInputElement>('input[name="PlanStrategies"]')!;
+    const reason = document.querySelector<HTMLElement>('[data-cut-lab-archetype-reason]')!;
     fetchMock.mockResolvedValueOnce(response('stax'));
 
     expect(reason.classList.contains('hidden')).toBe(false);
+    strategy.checked = true; strategy.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(reason.classList.contains('hidden')).toBe(false);
+  });
+
+  it('keeps Why suggested hidden after picks away and back', async () => {
+    const turbo = buildFixture();
+    const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
+    const reason = turbo.closest('label')!.querySelector<HTMLElement>('[data-cut-lab-archetype-reason]')!;
+    fetchMock.mockResolvedValueOnce(response('stax')).mockResolvedValueOnce(response('turbo-combo'));
+
+    expect(reason.classList.contains('hidden')).toBe(false);
     stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(reason.classList.contains('hidden')).toBe(true);
+    turbo.checked = true; turbo.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+    expect(reason.classList.contains('hidden')).toBe(true);
+  });
+
+  it('hides Why suggested after picking the suggested archetype first', async () => {
+    const turbo = buildFixture();
+    const reason = turbo.closest('label')!.querySelector<HTMLElement>('[data-cut-lab-archetype-reason]')!;
+    fetchMock.mockResolvedValueOnce(response('turbo-combo'));
+
+    expect(reason.classList.contains('hidden')).toBe(false);
+    turbo.checked = true; turbo.dispatchEvent(new Event('change', { bubbles: true })); await flush();
     expect(reason.classList.contains('hidden')).toBe(true);
   });
 

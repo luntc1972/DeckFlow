@@ -925,6 +925,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let whatifSubmitInFlight = false;
   let planApplySubmitInFlight = false;
   let planApplyPendingChange = false;
+  let hasPickedArchetype = false;
   let planApplyChainStartArchetype: string | null = null;
   let planApplyChainStartGoals: CutLabPatchResponse['appliedGoals'] = null;
   let copyHandlersAttached = false;
@@ -3822,7 +3823,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]').forEach(badge => badge.classList.remove('hidden'));
       archetype.closest('label')?.querySelector<HTMLElement>('[data-cut-lab-archetype-badge="suggested"]')?.classList.add('hidden');
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-reason]').forEach(reason => {
-        reason.classList.toggle('hidden', reason.closest('label')?.querySelector<HTMLInputElement>('[data-cut-lab-plan-archetype]')?.value !== (appliedArchetype ?? ''));
+        reason.classList.toggle('hidden', hasPickedArchetype);
       });
     }
     const presetStrategies = new Set((archetype?.dataset.cutLabArchetypePresets ?? '').split(' ').filter(Boolean).map(slug => slug.toLowerCase()));
@@ -3928,7 +3929,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   // than waiting for a form submission the panel isn't part of. This reuses the decide/restart
   // transport shape: JSON POST, RequestVerificationToken, same-origin endpoint, busy/error
   // handling and applyServerPatch (T-08-07-03).
-  const handlePlanPanelChange = async (): Promise<void> => {
+  const handlePlanPanelChange = async (isArchetypePick = false): Promise<void> => {
+    if (isArchetypePick) {
+      hasPickedArchetype = true;
+    }
     if (planApplySubmitInFlight) {
       planApplyPendingChange = true;
       return;
@@ -4780,7 +4784,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
-      void handlePlanPanelChange();
+      void handlePlanPanelChange(target.name === 'PlanArchetype');
     });
   };
 
@@ -5039,6 +5043,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    hasPickedArchetype = false;
     const planApplySubmitButton = getPlanApplySubmitButton();
     if (planApplySubmitButton) {
       planApplySubmitButton.hidden = true;
