@@ -251,7 +251,8 @@ public sealed record CutLabPlanProfile
 
     /// <summary>
     /// Checked generic strategy slugs, resolved against <c>DeckPlanStrategyCatalog</c>. Defaults to
-    /// an empty list, which behaves as a no-op.
+    /// an empty list, which behaves as a no-op. Manual selections only: analysis must use
+    /// <c>CutLabArchetypeCatalog.EffectiveStrategies</c> to include archetype preset strategies.
     /// </summary>
     public IReadOnlyList<string> GenericStrategies { get; init; } = [];
 

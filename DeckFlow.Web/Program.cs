@@ -144,6 +144,7 @@ public partial class Program
             app.Services.GetRequiredService<IRoleFloorBaselineProvider>().EnsureLoaded();
 
             app.Services.GetRequiredService<IManabaseBaselineProvider>().EnsureLoaded();
+            app.Services.GetRequiredService<ICommanderStapleProvider>().EnsureLoaded();
 
             // Resolve the IP-hash salt once at startup so the analytics middleware does not
             // perform DB I/O on the hot path. Uses CreateHarvestStateConnection for explicit

@@ -1213,6 +1213,8 @@ public sealed class CutLabAnalysisContextBuilderTests
 
     private sealed class FixedCommanderStapleProvider(IReadOnlySet<string> staples) : ICommanderStapleProvider
     {
+        public void EnsureLoaded() { }
+
         public IReadOnlySet<string> GetStapleCardNames(IReadOnlyList<string> commanderNames)
             => commanderNames.Count == 1 ? staples : FrozenSet<string>.Empty;
     }
@@ -1353,6 +1355,9 @@ public sealed class CutLabAnalysisContextBuilderTests
 
         public Task<IReadOnlyDictionary<string, int>> GetCategoryDeckCountsAsync(string cardName, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
+
+        public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CategoryLookupOptions options, CancellationToken cancellationToken = default)
+            => GetCategoriesForNamesAsync(cardNames, cancellationToken);
 
         public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
             => Task.FromException<IReadOnlyDictionary<string, IReadOnlyList<string>>>(exception);

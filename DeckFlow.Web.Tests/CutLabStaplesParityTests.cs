@@ -157,6 +157,8 @@ public sealed class CutLabStaplesParityTests
 
     private sealed class FakeCommanderStapleProvider(IReadOnlySet<string> staples) : ICommanderStapleProvider
     {
+        public void EnsureLoaded() { }
+
         public IReadOnlySet<string> GetStapleCardNames(IReadOnlyList<string> commanderNames)
             => commanderNames.Count == 1 && commanderNames[0] == "Staple Commander" ? staples : new HashSet<string>(StringComparer.Ordinal);
     }

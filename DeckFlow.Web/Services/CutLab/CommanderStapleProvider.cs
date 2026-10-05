@@ -11,6 +11,9 @@ namespace DeckFlow.Web.Services.CutLab;
 /// <summary>Supplies locally bundled EDHREC staple cards for a solo commander.</summary>
 public interface ICommanderStapleProvider
 {
+    /// <summary>Loads the staple snapshot during application startup.</summary>
+    void EnsureLoaded();
+
     /// <summary>Gets normalized staple card names when exactly one commander resolves.</summary>
     /// <param name="commanderNames">Resolved commander names.</param>
     /// <returns>Normalized staple names, or an empty set when unavailable or not applicable.</returns>
@@ -49,6 +52,9 @@ public sealed class CommanderStapleProvider : ICommanderStapleProvider
         _logger = logger ?? NullLogger.Instance;
         _lookup = new Lazy<IReadOnlyDictionary<string, IReadOnlySet<string>>>(LoadLookup);
     }
+
+    /// <inheritdoc />
+    public void EnsureLoaded() => _ = _lookup.Value;
 
     /// <inheritdoc />
     public IReadOnlySet<string> GetStapleCardNames(IReadOnlyList<string> commanderNames)
@@ -110,6 +116,8 @@ internal sealed class NullCommanderStapleProvider : ICommanderStapleProvider
     private NullCommanderStapleProvider()
     {
     }
+
+    public void EnsureLoaded() { }
 
     public IReadOnlySet<string> GetStapleCardNames(IReadOnlyList<string> commanderNames) => FrozenSet<string>.Empty;
 }

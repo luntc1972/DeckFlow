@@ -61,8 +61,7 @@ public interface ICategoryKnowledgeStore
     Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default);
 
     /// <summary>Returns category names narrowed by caller-supplied noise-reduction limits.</summary>
-    Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CategoryLookupOptions options, CancellationToken cancellationToken = default)
-        => GetCategoriesForNamesAsync(cardNames, cancellationToken);
+    Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CategoryLookupOptions options, CancellationToken cancellationToken = default);
     /// <summary>
     /// Stores category observations discovered during lookup or harvest work.
     /// </summary>

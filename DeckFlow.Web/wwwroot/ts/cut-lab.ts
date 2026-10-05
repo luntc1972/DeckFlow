@@ -4561,7 +4561,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
 
     if (checkbox.checked) {
-      // Why: locking changes only local state, so there is no server patch to replace this proposal.
+      // Why: locking changes only local state, so there is no server patch to replace this proposal. This text mirrors CutLabDecisionApplier.GetLockedDecisionMessage on the server and must stay in sync (e2e cut-lab-scenarios.spec.ts asserts it).
       renderDecisionError(decisionForms[0], `${row.dataset.cutLabCard ?? 'This card'} is locked. Unlock it before deciding.`);
     } else {
       proposal.querySelector<HTMLElement>('[data-cut-lab-decision-error]')?.remove();

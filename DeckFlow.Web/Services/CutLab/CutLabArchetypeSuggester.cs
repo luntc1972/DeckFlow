@@ -21,6 +21,7 @@ public static class CutLabArchetypeSuggester
         ArgumentNullException.ThrowIfNull(availableThemes);
 
         IReadOnlyList<CutLabAnalyzedCard> nonCommanderCards = cards.Where(card => !card.IsCommander).ToArray();
+        // Why: fast mana here deliberately means non-land ramp with mana value <= 1 (Sol Ring, mana dorks, rituals), not DeckStatClassifier.IsFastManaCard (zero-MV mana artifacts only), because the turbo-combo fastMana >= 8 threshold depends on this broader definition.
         int fastMana = Count(nonCommanderCards, card => !card.IsLand && HasRole(card, "ramp") && card.ManaValue <= 1);
         int tutors = classification.CategoryDataAvailable ? Count(nonCommanderCards, card => HasCategory(card, "tutor")) : 0;
         int staxPieces = classification.CategoryDataAvailable ? CountStax(nonCommanderCards) : 0;

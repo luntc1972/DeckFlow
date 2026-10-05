@@ -104,6 +104,25 @@ public sealed class CommanderStapleProviderTests : IDisposable
         Assert.True(((ICollection<string>)NullCommanderStapleProvider.Instance.GetStapleCardNames(["Atraxa"])).IsReadOnly);
     }
 
+    [Fact]
+    public void EnsureLoaded_LoadsFileOnce_SubsequentLookupUsesCachedData()
+    {
+        int readCount = 0;
+        CommanderStapleProvider provider = new(
+            _ =>
+            {
+                readCount++;
+                return "{ \"commanders\": [{ \"name\": \"Atraxa\", \"staples\": [\"Sol Ring\"] }] }";
+            },
+            _path);
+
+        provider.EnsureLoaded();
+        Assert.Equal(1, readCount);
+
+        provider.GetStapleCardNames(["Atraxa"]);
+        Assert.Equal(1, readCount);
+    }
+
     private sealed class CountingLogger : ILogger
     {
         public int WarningCount { get; private set; }
