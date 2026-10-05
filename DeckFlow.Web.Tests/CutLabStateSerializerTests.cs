@@ -33,6 +33,29 @@ public sealed class CutLabStateSerializerTests
         Assert.Empty(state.Intent.PlanProfile.GenericStrategies);
     }
 
+    [Theory]
+    [InlineData("42")]
+    [InlineData("true")]
+    [InlineData("{\"slug\":\"stax\"}")]
+    [InlineData("[\"stax\"]")]
+    public void Deserialize_NonStringArchetype_DropsArchetypeAndKeepsRestOfState(string archetypeJson)
+    {
+        var state = CutLabStateSerializer.Deserialize(
+            $"{{\"intent\":{{\"planProfile\":{{\"archetype\":{archetypeJson},\"genericStrategies\":[\"ramp\"]}}}}}}");
+
+        Assert.NotNull(state.Intent.PlanProfile);
+        Assert.Null(state.Intent.PlanProfile.Archetype);
+        Assert.Equal(["ramp"], state.Intent.PlanProfile.GenericStrategies);
+    }
+
+    [Fact]
+    public void Deserialize_StringArchetype_IsKept()
+    {
+        var state = CutLabStateSerializer.Deserialize("{\"intent\":{\"planProfile\":{\"archetype\":\"stax\"}}}");
+
+        Assert.Equal("stax", state.Intent.PlanProfile?.Archetype);
+    }
+
     private static System.Collections.IEnumerable GetCollection(CutLabState state, string propertyName) =>
         propertyName switch
         {

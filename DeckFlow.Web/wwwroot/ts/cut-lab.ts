@@ -928,14 +928,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let hasPickedArchetype = false;
   let planApplyChainStartArchetype: string | null = null;
   let planApplyChainStartGoals: CutLabPatchResponse['appliedGoals'] = null;
-  let deferredArchetypeNotice: {
+  type CutLabArchetypeNotice = {
     appliedArchetype: string | null;
     priorArchetype: string | null;
     appliedGoals: CutLabPatchResponse['appliedGoals'];
     archetypeDefaultGoals: CutLabPatchResponse['archetypeDefaultGoals'];
     goalOutcome: CutLabPatchResponse['goalOutcome'];
     displayName: string;
-  } | null = null;
+  };
+  let deferredArchetypeNotice: CutLabArchetypeNotice | null = null;
   let copyHandlersAttached = false;
   let cardModalHandlersAttached = false;
   let cardTextByCardNameCache: Record<string, CutLabCardTextEntry> | null = null;
@@ -3812,6 +3813,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     commanderThemesUnavailable: themeCheckboxes.length === 0 ? persistedProfile?.commanderThemesUnavailable : undefined,
   });
 
+  const findArchetypeInput = (slug: string | null): HTMLInputElement | null =>
+    document.querySelector<HTMLInputElement>(`input[name="PlanArchetype"][value="${cssEscape(slug ?? '')}"]`);
+
+  const getArchetypeDisplayName = (archetype: HTMLInputElement | null, fallback: string): string =>
+    archetype?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.childNodes[0]?.textContent?.trim() ?? fallback;
+
   const syncPlanPanel = (appliedStrategies: string[], appliedThemes: string[], appliedArchetype: string | null = null): void => {
     const strategySlugs = new Set(appliedStrategies.map(slug => slug.toLowerCase()));
     const themeSlugs = new Set(appliedThemes.map(slug => slug.toLowerCase()));
@@ -3823,7 +3830,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     themeCheckboxes.forEach(checkbox => {
       checkbox.checked = themeSlugs.has(checkbox.value.toLowerCase());
     });
-    const archetype = document.querySelector<HTMLInputElement>(`input[name="PlanArchetype"][value="${appliedArchetype ?? ''}"]`);
+    const archetype = findArchetypeInput(appliedArchetype);
     if (archetype) {
       archetype.checked = true;
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-badge="choice"]').forEach(badge => badge.classList.add('hidden'));
@@ -3835,7 +3842,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       });
     }
     const presetStrategies = new Set((archetype?.dataset.cutLabArchetypePresets ?? '').split(' ').filter(Boolean).map(slug => slug.toLowerCase()));
-    const archetypeName = archetype?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.childNodes[0]?.textContent?.trim() ?? '';
+    const archetypeName = getArchetypeDisplayName(archetype, '');
     strategyCheckboxes.forEach(checkbox => {
       const row = checkbox.closest<HTMLElement>('label');
       const isImplied = !checkbox.checked && presetStrategies.has(checkbox.value.toLowerCase());
@@ -3857,12 +3864,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const syncArchetypePanel = (
-    appliedArchetype: string | null,
-    priorArchetype: string | null,
-    appliedGoals: CutLabPatchResponse['appliedGoals'],
-    archetypeDefaultGoals: CutLabPatchResponse['archetypeDefaultGoals'],
-    goalOutcome: CutLabPatchResponse['goalOutcome'],
-    displayName: string,
+    { appliedArchetype, priorArchetype, appliedGoals, archetypeDefaultGoals, goalOutcome, displayName }: CutLabArchetypeNotice,
     suppressNotice = false,
   ): void => {
     const notice = document.querySelector<HTMLElement>('[data-cut-lab-archetype-notice]');
@@ -3962,8 +3964,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const persistedStrategySlugs = persistedPlanProfile?.genericStrategies ?? [];
     const persistedThemeSlugs = (persistedPlanProfile?.commanderThemes ?? []).map(theme => theme.slug);
     const persistedArchetype = persistedPlanProfile?.archetype ?? null;
-    const requestedArchetype = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked')?.value || null;
     const requestedArchetypeInput = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked');
+    const requestedArchetype = requestedArchetypeInput?.value || null;
     if (planApplyChainStartGoals === null) {
       planApplyChainStartArchetype = persistedArchetype;
       planApplyChainStartGoals = persistedState.goals ?? null;
@@ -3971,6 +3973,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
     const isArchetypeChange = requestedArchetype !== persistedArchetype ||
       (planApplyChainStartGoals !== null && requestedArchetype !== planApplyChainStartArchetype);
+    // Why: a failed request must still announce the net change from an earlier, superseded success in the same chain.
+    const restorePersistedPlanPanel = (): void => {
+      if (planApplyPendingChange) return;
+      if (deferredArchetypeNotice) {
+        syncArchetypePanel(deferredArchetypeNotice);
+        deferredArchetypeNotice = null;
+      }
+      syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
+    };
     const nextState: Partial<CutLabStateSnapshot> = {
       ...persistedState,
       intent: {
@@ -4004,13 +4015,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       if (!response.ok) {
         renderPlanPanelError(root, isArchetypeChange ? cutLabArchetypeApplyErrorCopy : await readErrorMessage(response));
-        if (!planApplyPendingChange) {
-          if (deferredArchetypeNotice) {
-            syncArchetypePanel(deferredArchetypeNotice.appliedArchetype, deferredArchetypeNotice.priorArchetype, deferredArchetypeNotice.appliedGoals, deferredArchetypeNotice.archetypeDefaultGoals, deferredArchetypeNotice.goalOutcome, deferredArchetypeNotice.displayName);
-            deferredArchetypeNotice = null;
-          }
-          syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
-        }
+        restorePersistedPlanPanel();
         return;
       }
 
@@ -4021,37 +4026,26 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
-      const selectedArchetypeName = document.querySelector<HTMLInputElement>(`input[name="PlanArchetype"][value="${data.appliedArchetype ?? ''}"]`)
-        ?.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name')?.childNodes[0]?.textContent?.trim() ?? 'this archetype';
+      const archetypeNotice: CutLabArchetypeNotice = {
+        appliedArchetype: data.appliedArchetype ?? null,
+        priorArchetype: persistedArchetype,
+        appliedGoals: data.appliedGoals,
+        archetypeDefaultGoals: data.archetypeDefaultGoals,
+        goalOutcome: data.goalOutcome,
+        displayName: getArchetypeDisplayName(findArchetypeInput(data.appliedArchetype ?? null), 'this archetype'),
+      };
+      // Why: the patch's state JSON already carries the applied archetype (the server rebuilds the profile before serializing).
       applyServerPatch(data.patch, antiForgeryToken);
-      const appliedState = tryReadSerializedState();
-      if (appliedState?.intent?.planProfile) {
-        appliedState.intent.planProfile.archetype = data.appliedArchetype ?? null;
-        writeDecisionStateToHiddenInputs(JSON.stringify(appliedState));
-      }
-      syncArchetypePanel(data.appliedArchetype ?? null, persistedArchetype, data.appliedGoals, data.archetypeDefaultGoals, data.goalOutcome, selectedArchetypeName, planApplyPendingChange);
+      syncArchetypePanel(archetypeNotice, planApplyPendingChange);
       if (planApplyPendingChange) {
-        deferredArchetypeNotice = {
-          appliedArchetype: data.appliedArchetype ?? null,
-          priorArchetype: persistedArchetype,
-          appliedGoals: data.appliedGoals,
-          archetypeDefaultGoals: data.archetypeDefaultGoals,
-          goalOutcome: data.goalOutcome,
-          displayName: selectedArchetypeName,
-        };
+        deferredArchetypeNotice = archetypeNotice;
       }
       if (!planApplyPendingChange) syncPlanPanel(data.appliedStrategies ?? [], data.appliedThemes ?? [], data.appliedArchetype ?? null);
     } catch (error) {
       renderPlanPanelError(root, isArchetypeChange
         ? cutLabArchetypeApplyErrorCopy
         : (error instanceof DOMException && error.name === 'AbortError' ? cutLabDecisionTimeoutCopy : cutLabDecisionErrorCopy));
-      if (!planApplyPendingChange) {
-        if (deferredArchetypeNotice) {
-          syncArchetypePanel(deferredArchetypeNotice.appliedArchetype, deferredArchetypeNotice.priorArchetype, deferredArchetypeNotice.appliedGoals, deferredArchetypeNotice.archetypeDefaultGoals, deferredArchetypeNotice.goalOutcome, deferredArchetypeNotice.displayName);
-          deferredArchetypeNotice = null;
-        }
-        syncPlanPanel(persistedStrategySlugs, persistedThemeSlugs, persistedArchetype);
-      }
+      restorePersistedPlanPanel();
     } finally {
       window.clearTimeout(timeoutId);
       planApplySubmitInFlight = false;

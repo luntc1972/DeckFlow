@@ -1,7 +1,7 @@
 namespace DeckFlow.Core.Knowledge;
 
 /// <summary>Optional constraints for a batch category lookup.</summary>
-/// <param name="MinimumObservationShare">Minimum share of all category observations for a card.</param>
+/// <param name="MinimumObservationShare">Minimum share of the card's observations after card-type tags are removed.</param>
 /// <param name="MaximumCategoriesPerCard">Maximum retained categories for each card.</param>
 public sealed record CategoryLookupOptions(double MinimumObservationShare, int MaximumCategoriesPerCard)
 {

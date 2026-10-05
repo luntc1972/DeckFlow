@@ -423,9 +423,9 @@ public static class EdhrecCardCountsReader
 
         IReadOnlyList<string> header = EdhrecCsvParser.ParseCsvLine(headerLine);
         return new HeaderIndexes(
-            GetRequiredColumnIndex(header, "commander"),
-            GetRequiredColumnIndex(header, "card"),
-            GetRequiredColumnIndex(header, "count"));
+            EdhrecCsvParser.GetRequiredColumnIndex(header, "commander"),
+            EdhrecCsvParser.GetRequiredColumnIndex(header, "card"),
+            EdhrecCsvParser.GetRequiredColumnIndex(header, "count"));
     }
 
     private static HeaderIndexes ReadAveragesHeader(StreamReader reader)
@@ -438,9 +438,9 @@ public static class EdhrecCardCountsReader
 
         IReadOnlyList<string> header = EdhrecCsvParser.ParseCsvLine(headerLine);
         return new HeaderIndexes(
-            GetRequiredColumnIndex(header, "commander"),
-            GetRequiredColumnIndex(header, "commander2"),
-            GetRequiredColumnIndex(header, "number_decks"));
+            EdhrecCsvParser.GetRequiredColumnIndex(header, "commander"),
+            EdhrecCsvParser.GetRequiredColumnIndex(header, "commander2"),
+            EdhrecCsvParser.GetRequiredColumnIndex(header, "number_decks"));
     }
 
     private static bool TryParseEdhrecRow(
@@ -522,19 +522,6 @@ public static class EdhrecCardCountsReader
 
         accumulators.Add(commander, created);
         return created;
-    }
-
-    private static int GetRequiredColumnIndex(IReadOnlyList<string> header, string name)
-    {
-        for (int index = 0; index < header.Count; index++)
-        {
-            if (string.Equals(header[index], name, StringComparison.OrdinalIgnoreCase))
-            {
-                return index;
-            }
-        }
-
-        throw new FormatException($"CSV header is missing required column '{name}'.");
     }
 
     private static string? NullIfWhiteSpace(string value)

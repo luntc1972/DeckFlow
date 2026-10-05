@@ -105,8 +105,6 @@ public sealed record CutLabSimulationResult
 /// <summary>Cut Lab simulation service that projects existing engine output into the shared metric contract.</summary>
 public sealed class CutLabSimulationService : ICutLabSimulationService
 {
-    private static readonly IReadOnlyDictionary<string, int> EmptyFloors = new Dictionary<string, int>();
-
     private readonly CutLabResolvedCardCache _resolvedCardCache;
     private readonly CutLabDeltaCache _deltaCache;
     private readonly IScryfallCardResolver _resolver;

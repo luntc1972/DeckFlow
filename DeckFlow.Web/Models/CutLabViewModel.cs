@@ -578,7 +578,7 @@ public sealed record CutLabViewModel
         HashSet<string> checkedThemeSlugs = new(
             (planProfile?.CommanderThemes ?? []).Select(theme => theme.Slug),
             StringComparer.OrdinalIgnoreCase);
-        CutLabArchetypeCatalog.TryGetBySlug(CutLabArchetypeCatalog.NormalizeSlug(planProfile?.Archetype), out CutLabArchetypeEntry? chosenArchetypeEntry);
+        CutLabArchetypeCatalog.TryGetBySlug(planProfile?.Archetype, out CutLabArchetypeEntry? chosenArchetypeEntry);
         HashSet<string> impliedStrategySlugs = new(chosenArchetypeEntry?.PresetStrategies ?? [], StringComparer.OrdinalIgnoreCase);
 
         IReadOnlyList<CutLabPlanStrategyRowView> strategyRows = DeckPlanStrategyCatalog.Entries
@@ -605,22 +605,26 @@ public sealed record CutLabViewModel
             })
             .ToArray();
 
-        string? chosenArchetype = CutLabArchetypeCatalog.NormalizeSlug(planProfile?.Archetype);
+        string? chosenArchetype = chosenArchetypeEntry?.Slug;
         IReadOnlyList<CutLabPlanArchetypeRowView> archetypeRows =
         [
             new() { Slug = string.Empty, PresetStrategies = [], DisplayName = "No archetype", Definition = "Cut Lab behaves exactly as it does today.", Detail = "No strategies added, goals unchanged.", IsChecked = chosenArchetype is null },
-            .. CutLabArchetypeCatalog.Entries.Select(entry => new CutLabPlanArchetypeRowView
+            .. CutLabArchetypeCatalog.Entries.Select(entry =>
             {
-                Slug = entry.Slug,
-                PresetStrategies = entry.PresetStrategies,
-                DisplayName = entry.DisplayName,
-                Definition = entry.Definition,
-                Detail = $"Adds: {(entry.PresetStrategies.Count > 0 ? string.Join(", ", entry.PresetStrategies) : "no strategies")} · Goals T{entry.DefaultGoals.CommanderByTurn} / T{entry.DefaultGoals.EngineByTurn} / T{entry.DefaultGoals.RepresentativeLineByTurn}",
-                IsChecked = string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
-                IsSuggested = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase),
-                IsLowConfidence = archetypeSuggestion?.Confidence == CutLabArchetypeConfidence.Low,
-                SuggestionReason = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase) ? archetypeSuggestion?.Reason : null,
-                ShowSuggestionReason = chosenArchetype is null || string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
+                bool isSuggested = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase);
+                return new CutLabPlanArchetypeRowView
+                {
+                    Slug = entry.Slug,
+                    PresetStrategies = entry.PresetStrategies,
+                    DisplayName = entry.DisplayName,
+                    Definition = entry.Definition,
+                    Detail = $"Adds: {(entry.PresetStrategies.Count > 0 ? string.Join(", ", entry.PresetStrategies) : "no strategies")} · Goals T{entry.DefaultGoals.CommanderByTurn} / T{entry.DefaultGoals.EngineByTurn} / T{entry.DefaultGoals.RepresentativeLineByTurn}",
+                    IsChecked = string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
+                    IsSuggested = isSuggested,
+                    IsLowConfidence = archetypeSuggestion?.Confidence == CutLabArchetypeConfidence.Low,
+                    SuggestionReason = isSuggested ? archetypeSuggestion?.Reason : null,
+                    ShowSuggestionReason = chosenArchetype is null || string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
+                };
             })
         ];
         bool zeroSelectionNotice = chosenArchetype is null && strategyRows.All(row => !row.IsChecked) && themeRows.All(row => !row.IsChecked);

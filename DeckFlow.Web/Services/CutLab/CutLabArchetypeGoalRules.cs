@@ -30,12 +30,10 @@ public static class CutLabArchetypeGoalRules
 
         if (chainStartGoals is not null && priorSlug == newSlug)
         {
-            (CutLabGoalSettings chainStartResult, CutLabArchetypeGoalOutcome chainStartOutcome) = Apply(chainStartGoals, chainStartSlug, newSlug);
-            return (chainStartResult, chainStartOutcome);
+            return Apply(chainStartGoals, chainStartSlug, newSlug);
         }
 
-        if (priorSlug == newSlug || newSlug is null ||
-            !CutLabArchetypeCatalog.TryGetBySlug(newSlug, out var entry))
+        if (priorSlug == newSlug || !CutLabArchetypeCatalog.TryGetBySlug(newSlug, out var entry))
         {
             return (current, CutLabArchetypeGoalOutcome.Unchanged);
         }

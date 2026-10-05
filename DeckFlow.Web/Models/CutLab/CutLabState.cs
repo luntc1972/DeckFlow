@@ -245,6 +245,8 @@ public sealed record CutLabIntent
 public sealed record CutLabPlanProfile
 {
     /// <summary>Optional stable slug for the selected deck archetype.</summary>
+    // Why: a hand-edited or stale state upload may carry a non-string archetype; drop it instead of rejecting the whole state.
+    [JsonConverter(typeof(JsonLenientStringConverter))]
     public string? Archetype { get; init; }
 
     /// <summary>

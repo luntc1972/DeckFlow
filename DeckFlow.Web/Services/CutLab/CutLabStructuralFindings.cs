@@ -364,7 +364,7 @@ public static class CutLabStructuralFindings
             }
 
             string displayCategory = MostFrequentRawCategory(theme);
-            if (IsFunctionalCategory(displayCategory))
+            if (IsFunctionalCategory(displayCategory, theme.Key))
             {
                 continue;
             }
@@ -392,14 +392,12 @@ public static class CutLabStructuralFindings
             .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
             .First().Key;
 
-    private static bool IsFunctionalCategory(string category)
+    private static bool IsFunctionalCategory(string category, string canonicalKey)
     {
-        string key = CanonicalCategoryKey(category);
-
         // Why: crowd tags describing a deck job create false packages; only synergy themes should be stranded.
         return ContentTagVocabulary.CardCategories.Contains(category)
             || PlanRoleClassifier.CategoryMapsToPlanRole(category)
-            || FunctionalCategoryKeys.Contains(key);
+            || FunctionalCategoryKeys.Contains(canonicalKey);
     }
 
     private static readonly IReadOnlySet<string> FunctionalCategoryKeys = new HashSet<string>(StringComparer.Ordinal)
