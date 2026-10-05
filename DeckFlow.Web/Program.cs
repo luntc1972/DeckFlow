@@ -10,6 +10,7 @@ using Microsoft.OpenApi;
 using Polly.Registry;
 using Serilog;
 using DeckFlow.Core.Integration;
+using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Configuration;
@@ -117,6 +118,21 @@ public partial class Program
             app.Logger.LogInformation("Ensuring analytics store schema during startup.");
             await app.Services.GetRequiredService<IRequestMetricsStore>().EnsureSchemaAsync();
             app.Logger.LogInformation("Analytics store schema ensured during startup.");
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    app.Logger.LogInformation("Starting card category qualified backfill in background.");
+                    await app.Services.GetRequiredService<CategoryKnowledgeRepository>()
+                        .EnsureCardCategoryQualifiedBackfilledAsync(app.Lifetime.ApplicationStopping);
+                    app.Logger.LogInformation("Card category qualified backfill completed in background.");
+                }
+                catch (Exception exception)
+                {
+                    app.Logger.LogWarning(exception, "Card category qualified backfill failed in background; summary lookup fallback remains active.");
+                }
+            });
 
             app.Logger.LogInformation("Warming Game Changer catalog into memory cache during startup.");
             app.Services.GetRequiredService<IGameChangerCatalogService>().GetCatalog();

@@ -172,7 +172,7 @@ public sealed class CategoryLookupPostgresTests : IClassFixture<PostgresContaine
             ApplicationName = $"qualified-backfill-{suffix}"
         }.ConnectionString;
         var ensureTask = new CategoryKnowledgeRepository(
-            new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, backfillTarget)).EnsureSchemaAsync();
+            new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, backfillTarget)).EnsureCardCategoryQualifiedBackfilledAsync();
         var completedTask = await Task.WhenAny(ensureTask, Task.Delay(TimeSpan.FromMilliseconds(250)));
         Assert.NotSame(ensureTask, completedTask);
 

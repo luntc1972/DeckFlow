@@ -59,6 +59,12 @@ public sealed class CategoryKnowledgeRepository
         => _schema.EnsureSchemaAsync(cancellationToken);
 
     /// <summary>
+    /// Backfills the qualified category side table outside read-request execution.
+    /// </summary>
+    public Task EnsureCardCategoryQualifiedBackfilledAsync(CancellationToken cancellationToken = default)
+        => _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
+
+    /// <summary>
     /// Retrieves previously observed categories for the specified card.
     /// </summary>
     /// <param name="cardName">Card name to look up.</param>

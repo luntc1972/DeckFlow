@@ -244,12 +244,13 @@ internal sealed class CardCategoryRepository
         // Why: Dapper binds lists as arrays on Npgsql, so PostgreSQL requires ANY instead of IN.
         var membershipOperator = _connectionInfo.IsPostgres ? "= ANY(@normalized)" : "IN @normalized";
         stopwatch.Restart();
+        var qualifiedBackfilled = MinObservationRows >= CategoryCacheSchema.DefaultMinObservationRows
+            && await _schema.IsCardCategoryQualifiedBackfilledAsync(
+                cancellationToken,
+                CategoriesBatchCommandTimeoutSeconds).ConfigureAwait(false);
         var rows = await connection.QueryAsync<CardCategoryNameRow>(new CommandDefinition(
             BuildCategoryLookupSql(
-                membershipOperator,
-                MinObservationRows < CategoryCacheSchema.DefaultMinObservationRows
-                    ? "card_category_summary"
-                    : "card_category_qualified"),
+                membershipOperator, qualifiedBackfilled ? "card_category_qualified" : "card_category_summary"),
             new { normalized = normalizedKeys.ToList(), minObservationRows = MinObservationRows, shareDenominator = ObservationShareDenominator },
             commandTimeout: CategoriesBatchCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
@@ -426,6 +427,7 @@ internal sealed class CardCategoryRepository
         }
 
         await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
         await DeadlockRetry.ExecuteAsync(async () =>
         {
             await using var connection = CreateConnection();
@@ -472,6 +474,7 @@ internal sealed class CardCategoryRepository
         }
 
         await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
         await DeadlockRetry.ExecuteAsync(async () =>
         {
             await using var connection = CreateConnection();
@@ -512,6 +515,7 @@ internal sealed class CardCategoryRepository
         }
 
         await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
         await DeadlockRetry.ExecuteAsync(async () =>
         {
             await using var connection = CreateConnection();
@@ -545,6 +549,7 @@ internal sealed class CardCategoryRepository
         }
 
         await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
@@ -580,6 +585,7 @@ internal sealed class CardCategoryRepository
         }
 
         await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
         await DeadlockRetry.ExecuteAsync(async () =>
         {
             await using var connection = CreateConnection();

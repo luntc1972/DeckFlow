@@ -138,7 +138,6 @@ internal sealed class CategoryCacheSchema
         {
             await BackfillCardCategorySummaryAsync(connection, cancellationToken);
         }
-        await BackfillCardCategoryQualifiedAsync(connection, cancellationToken);
 
         // Why: this table backs the harvested-commanders admin grid and is maintained
         // incrementally by DeckQueueRepository on every processed=1 write, so it must exist
@@ -240,6 +239,62 @@ internal sealed class CategoryCacheSchema
     {
         internal readonly SemaphoreSlim Gate = new(1, 1);
         internal volatile bool IsComplete;
+        internal volatile bool IsQualifiedBackfilled;
+    }
+
+    internal async Task EnsureCardCategoryQualifiedBackfilledAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var state = SchemaStates.GetOrAdd((_connectionInfo.Provider, _connectionInfo.ConnectionString), _ => new SchemaState());
+        if (state.IsQualifiedBackfilled)
+        {
+            return;
+        }
+
+        await state.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!state.IsQualifiedBackfilled)
+            {
+                // Why: this scan can cover millions of summary rows, so readers only probe and fall back; writers and startup invoke it explicitly.
+                await using var connection = _connectionInfo.CreateConnection();
+                await connection.OpenAsync(CancellationToken.None).ConfigureAwait(false);
+                await BackfillCardCategoryQualifiedAsync(connection, CancellationToken.None).ConfigureAwait(false);
+                state.IsQualifiedBackfilled = true;
+            }
+        }
+        finally
+        {
+            state.Gate.Release();
+        }
+    }
+
+    internal async Task<bool> IsCardCategoryQualifiedBackfilledAsync(
+        CancellationToken cancellationToken = default,
+        int? commandTimeoutSeconds = null)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var state = SchemaStates.GetOrAdd((_connectionInfo.Provider, _connectionInfo.ConnectionString), _ => new SchemaState());
+        if (state.IsQualifiedBackfilled)
+        {
+            return true;
+        }
+
+        await using var connection = _connectionInfo.CreateConnection();
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT EXISTS(SELECT 1 FROM card_category_qualified);";
+        if (commandTimeoutSeconds is int timeoutSeconds)
+        {
+            command.CommandTimeout = timeoutSeconds;
+        }
+        if (!Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
+        {
+            return false;
+        }
+
+        state.IsQualifiedBackfilled = true;
+        return true;
     }
 
     private static bool IsDuplicateColumn(DbException exception)
@@ -363,6 +418,7 @@ internal sealed class CategoryCacheSchema
     private static async Task BackfillCardCategoryQualifiedAsync(DbConnection connection, CancellationToken cancellationToken)
     {
         var command = connection.CreateCommand();
+        command.CommandTimeout = 300;
         command.CommandText = "SELECT EXISTS(SELECT 1 FROM card_category_qualified);";
         if (Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)))
         {
@@ -373,7 +429,7 @@ internal sealed class CategoryCacheSchema
         {
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
             command.Transaction = transaction;
-            // Why: locks block writers for the backfill snapshot; summary-then-qualified matches ApplySummaryDeltasAsync, preventing deadlocks.
+            // Why: writers invoke this before their first summary write; summary-then-qualified locking preserves a complete snapshot and prevents deadlocks.
             command.CommandText = "LOCK TABLE card_category_summary IN SHARE ROW EXCLUSIVE MODE; LOCK TABLE card_category_qualified IN SHARE ROW EXCLUSIVE MODE;";
             await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 

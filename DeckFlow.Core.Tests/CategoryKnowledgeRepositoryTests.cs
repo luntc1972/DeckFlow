@@ -209,7 +209,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task EnsureSchemaAsync_SqliteBackfillsQualifiedRowsOnlyOnce()
+    public async Task EnsureCardCategoryQualifiedBackfilledAsync_SqliteBackfillsQualifiedRowsOnlyOnce()
     {
         await CreateRepository().AddDeckIdsAsync(new[] { "qualified-backfill-seed" });
         await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
@@ -222,7 +222,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
 
         var backfillPath = _databasePath + ".qualified-backfill";
         File.Copy(_databasePath, backfillPath);
-        await new CategoryKnowledgeRepository(backfillPath).EnsureSchemaAsync();
+        await new CategoryKnowledgeRepository(backfillPath).EnsureCardCategoryQualifiedBackfilledAsync();
 
         await using (var connection = new SqliteConnection($"Data Source={backfillPath}"))
         {
@@ -235,7 +235,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
 
         var noOpPath = backfillPath + ".no-op";
         File.Copy(backfillPath, noOpPath);
-        await new CategoryKnowledgeRepository(noOpPath).EnsureSchemaAsync();
+        await new CategoryKnowledgeRepository(noOpPath).EnsureCardCategoryQualifiedBackfilledAsync();
 
         await using var verifyConnection = new SqliteConnection($"Data Source={noOpPath}");
         await verifyConnection.OpenAsync();
@@ -249,6 +249,86 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         }
 
         Assert.Equal(new[] { (1L, "Ramp", 5L) }, rows);
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_EmptyQualifiedTable_UsesSummaryWithoutBackfilling()
+    {
+        await CreateRepository().AddDeckIdsAsync(new[] { "lookup-summary-seed" });
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO cards (normalized_card_name, display_name) VALUES ('lookup qualified', 'Lookup Qualified'); INSERT INTO card_category_summary (card_id, category, observation_rows) VALUES (1, 'Ramp', 5), (1, 'Draw', 4);";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var lookupPath = _databasePath + ".summary-lookup";
+        File.Copy(_databasePath, lookupPath);
+        var results = await new CategoryKnowledgeRepository(lookupPath).GetCategoriesForNamesAsync(new[] { "Lookup Qualified" });
+        Assert.Equal(new[] { "Ramp" }, results["Lookup Qualified"]);
+
+        await using var verifyConnection = new SqliteConnection($"Data Source={lookupPath}");
+        await verifyConnection.OpenAsync();
+        var verifyCommand = verifyConnection.CreateCommand();
+        verifyCommand.CommandText = "SELECT COUNT(*) FROM card_category_qualified;";
+        Assert.Equal(0L, Convert.ToInt64(await verifyCommand.ExecuteScalarAsync()));
+    }
+
+    [Fact]
+    public async Task GetCategoriesForNamesAsync_QualifiedTableBackfilled_ReadsQualifiedRows()
+    {
+        var repository = CreateRepository();
+        var sources = Enumerable.Range(0, CategoryCacheSchema.DefaultMinObservationRows)
+            .Select(index => $"qualified-lookup-source-{index}")
+            .ToArray();
+
+        foreach (var source in sources)
+        {
+            await repository.PersistObservedCategoriesAsync(source, "Lookup Qualified", new[] { "Ramp" });
+        }
+
+        await repository.EnsureCardCategoryQualifiedBackfilledAsync();
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            command.CommandText = "DELETE FROM card_category_summary WHERE category = 'Ramp';";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var results = await repository.GetCategoriesForNamesAsync(new[] { "Lookup Qualified" });
+
+        Assert.Equal(new[] { "Ramp" }, results["Lookup Qualified"]);
+    }
+
+    [Fact]
+    public async Task PersistObservedCategoriesAsync_EmptyQualifiedTable_BackfillsBeforeSummaryWrite()
+    {
+        await CreateRepository().AddDeckIdsAsync(new[] { "writer-summary-seed" });
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+            var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO cards (normalized_card_name, display_name) VALUES ('writer qualified', 'Writer Qualified'); INSERT INTO card_category_summary (card_id, category, observation_rows) VALUES (1, 'Ramp', 5), (1, 'Draw', 4);";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var writerPath = _databasePath + ".summary-writer";
+        File.Copy(_databasePath, writerPath);
+        await new CategoryKnowledgeRepository(writerPath).PersistObservedCategoriesAsync("writer-source", "New Card", new[] { "Ramp" });
+
+        await using var verifyConnection = new SqliteConnection($"Data Source={writerPath}");
+        await verifyConnection.OpenAsync();
+        var verifyCommand = verifyConnection.CreateCommand();
+        verifyCommand.CommandText = "SELECT card_id, category, observation_rows FROM card_category_summary WHERE observation_rows >= 5 EXCEPT SELECT card_id, category, observation_rows FROM card_category_qualified;";
+        await using (var missingRows = await verifyCommand.ExecuteReaderAsync())
+        {
+            Assert.False(await missingRows.ReadAsync());
+        }
+        verifyCommand.CommandText = "SELECT card_id, category, observation_rows FROM card_category_qualified EXCEPT SELECT card_id, category, observation_rows FROM card_category_summary WHERE observation_rows >= 5;";
+        await using var extraRows = await verifyCommand.ExecuteReaderAsync();
+        Assert.False(await extraRows.ReadAsync());
     }
 
     [Fact]
