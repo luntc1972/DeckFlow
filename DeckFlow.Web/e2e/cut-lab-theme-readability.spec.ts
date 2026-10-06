@@ -425,7 +425,8 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     const lockAllPill = page.locator('[data-cut-lab-lock-role="lands"]');
     const roleChip = landsGroup.locator('button.cutlab-role-chip').first();
     const selectTrigger = page.locator('.df-select__trigger').first();
-    const planStrategyRow = page.locator('.cut-lab-plan-panel__row').first();
+    // Archetype radio rows share the row class and render first, so target the first strategy (checkbox) row.
+    const planStrategyRow = page.locator('.cut-lab-plan-panel__row:has(input[type="checkbox"])').first();
     const planStrategyCheckbox = planStrategyRow.locator('input[type="checkbox"]');
     const planStrategyDefinition = planStrategyRow.locator('.cut-lab-plan-panel__row-definition');
     const decisionButton = page.locator('.cutlab-decision-btn--accept').first();
