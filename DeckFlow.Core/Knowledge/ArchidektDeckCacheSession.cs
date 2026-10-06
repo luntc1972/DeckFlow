@@ -7,11 +7,16 @@ using Microsoft.Extensions.Logging;
 namespace DeckFlow.Core.Knowledge;
 
 /// <summary>
-/// Orchestrates a paginated Archidekt harvest run, persisting card-category knowledge to the repository.
+/// Orchestrates bulk and refresh-only Archidekt harvest runs, persisting card-category knowledge to the repository.
 /// </summary>
 public sealed class ArchidektDeckCacheSession
 {
     private static readonly TimeSpan IdlePollDelay = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Maximum number of newest-first listing pages polled during one refresh-only update run.
+    /// </summary>
+    public const int UpdateListingPageCap = 10;
 
     private readonly CategoryKnowledgeRepository _repository;
     private readonly IArchidektDeckImporter _deckImporter;
@@ -59,12 +64,8 @@ public sealed class ArchidektDeckCacheSession
 
         await _repository.EnsureSchemaAsync(cancellationToken);
         var stopwatch = Stopwatch.StartNew();
-        var added = 0;
-        var updated = 0;
-        var unchanged = 0;
-        var skipped = 0;
+        var tally = new DeckDrainTally();
         var decksEnqueued = 0;
-        var consecutiveUnexpectedFailures = 0;
 
         while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
         {
@@ -132,56 +133,7 @@ public sealed class ArchidektDeckCacheSession
 
             foreach (var deckId in deckIds)
             {
-                try
-                {
-                    var (cacheResult, commanderName, metadata) = await PersistDeckAsync(deckId, cancellationToken);
-                    if (cacheResult == DeckCacheWriteResult.Added)
-                    {
-                        added++;
-                    }
-                    else if (cacheResult == DeckCacheWriteResult.Unchanged)
-                    {
-                        unchanged++;
-                    }
-                    else
-                    {
-                        updated++;
-                    }
-
-                    _logger?.LogInformation("Cached categories from deck {DeckId} ({Result}) commander={Commander}.", deckId, cacheResult, commanderName ?? "(none)");
-                    // D-17: write commander_name in the same UPDATE that flips processed=1.
-                    await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: false, metadata: metadata, cancellationToken: cancellationToken);
-                    progress?.Report(added + updated);
-                    consecutiveUnexpectedFailures = 0;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                // Why: ArchidektRateLimitedException derives from HttpRequestException (06-02), so the filters below would retry it until the window ends or mark the deck skipped. Ending the run lets the job record it, and leaves the deck pending for the next run (D-12).
-                catch (ArchidektRateLimitedException exception)
-                {
-                    _logger?.LogWarning(exception, "Archidekt rate limiter tripped while importing deck {DeckId}; ending the harvest session and leaving the deck queued.", deckId);
-                    throw;
-                }
-                catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or NotSupportedException)
-                {
-                    skipped++;
-                    _logger?.LogWarning(exception, "Skipping deck {DeckId} while caching categories.", deckId);
-                    await SkipDeckAsync(deckId, added, updated, progress, cancellationToken);
-                }
-                catch (Exception exception) when (exception is not System.Data.Common.DbException)
-                {
-                    consecutiveUnexpectedFailures++;
-                    _logger?.LogWarning(exception, "Skipping deck {DeckId} after an unexpected cache failure.", deckId);
-                    if (consecutiveUnexpectedFailures >= 3)
-                    {
-                        throw;
-                    }
-
-                    skipped++;
-                    await SkipDeckAsync(deckId, added, updated, progress, cancellationToken);
-                }
+                await DrainDeckAsync(deckId, tally, progress, cancellationToken);
 
                 if (stopwatch.Elapsed >= duration || cancellationToken.IsCancellationRequested)
                 {
@@ -191,7 +143,112 @@ public sealed class ArchidektDeckCacheSession
         }
 
         stopwatch.Stop();
-        return new ArchidektCacheRunResult(added, updated, unchanged, skipped, decksEnqueued, stopwatch.Elapsed);
+        return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, stopwatch.Elapsed);
+    }
+
+    /// <summary>
+    /// Polls newest Archidekt listing pages and refreshes only known decks marked as modified.
+    /// </summary>
+    /// <param name="duration">Maximum duration for listing polls and refresh imports.</param>
+    /// <param name="fetchBatchSize">Maximum refresh deck IDs fetched per queue batch.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="progress">Optional progress reporter for cumulative decks added or updated.</param>
+    /// <returns>Refresh-only listing and drain counters.</returns>
+    public async Task<ArchidektUpdateRunResult> RunUpdateAsync(TimeSpan duration, int fetchBatchSize = 10, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+    {
+        duration = duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
+        fetchBatchSize = Math.Max(1, fetchBatchSize);
+
+        await _repository.EnsureSchemaAsync(cancellationToken);
+        var stopwatch = Stopwatch.StartNew();
+        var tally = new DeckDrainTally();
+        var pagesPolled = 0;
+        var refreshesRequeued = 0;
+        var newIdsSeen = 0;
+
+        for (var page = 1; page <= UpdateListingPageCap && stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested; page++)
+        {
+            var listingRows = await _recentImporter.ImportRecentListingPageAsync(page, cancellationToken);
+            var upsertResult = await _repository.AddListingRowsAsync(listingRows, cancellationToken);
+            pagesPolled++;
+            refreshesRequeued += upsertResult.RefreshesRequeued;
+            newIdsSeen += upsertResult.NewIds;
+        }
+
+        while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
+        {
+            var deckIds = await _repository.GetNextRefreshDeckIdsAsync(fetchBatchSize, cancellationToken);
+            if (deckIds.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var deckId in deckIds)
+            {
+                await DrainDeckAsync(deckId, tally, progress, cancellationToken);
+                if (stopwatch.Elapsed >= duration || cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+            }
+        }
+
+        stopwatch.Stop();
+        return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed);
+    }
+
+    private async Task DrainDeckAsync(string deckId, DeckDrainTally tally, IProgress<int>? progress, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var (cacheResult, commanderName, metadata) = await PersistDeckAsync(deckId, cancellationToken);
+            if (cacheResult == DeckCacheWriteResult.Added)
+            {
+                tally.Added++;
+            }
+            else if (cacheResult == DeckCacheWriteResult.Unchanged)
+            {
+                tally.Unchanged++;
+            }
+            else
+            {
+                tally.Updated++;
+            }
+
+            _logger?.LogInformation("Cached categories from deck {DeckId} ({Result}) commander={Commander}.", deckId, cacheResult, commanderName ?? "(none)");
+            // D-17: write commander_name in the same UPDATE that flips processed=1.
+            await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: false, metadata: metadata, cancellationToken: cancellationToken);
+            progress?.Report(tally.Added + tally.Updated);
+            tally.ConsecutiveUnexpectedFailures = 0;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        // Why: ArchidektRateLimitedException derives from HttpRequestException (06-02), so the filters below would retry it until the window ends or mark the deck skipped. Ending the run lets the job record it, and leaves the deck pending for the next run (D-12).
+        catch (ArchidektRateLimitedException exception)
+        {
+            _logger?.LogWarning(exception, "Archidekt rate limiter tripped while importing deck {DeckId}; ending the harvest session and leaving the deck queued.", deckId);
+            throw;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or NotSupportedException)
+        {
+            tally.Skipped++;
+            _logger?.LogWarning(exception, "Skipping deck {DeckId} while caching categories.", deckId);
+            await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not System.Data.Common.DbException)
+        {
+            tally.ConsecutiveUnexpectedFailures++;
+            _logger?.LogWarning(exception, "Skipping deck {DeckId} after an unexpected cache failure.", deckId);
+            if (tally.ConsecutiveUnexpectedFailures >= 3)
+            {
+                throw;
+            }
+
+            tally.Skipped++;
+            await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, cancellationToken);
+        }
     }
 
     private async Task SkipDeckAsync(string deckId, int added, int updated, IProgress<int>? progress, CancellationToken cancellationToken)
@@ -249,6 +306,19 @@ public sealed class ArchidektDeckCacheSession
         await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(_repository, source, entries, cancellationToken);
         await _repository.SetContentHashAsync(deckId, newHash, cancellationToken);
         return (alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added, commanderName, import.Metadata);
+    }
+
+    private sealed class DeckDrainTally
+    {
+        public int Added { get; set; }
+
+        public int Updated { get; set; }
+
+        public int Unchanged { get; set; }
+
+        public int Skipped { get; set; }
+
+        public int ConsecutiveUnexpectedFailures { get; set; }
     }
 }
 
