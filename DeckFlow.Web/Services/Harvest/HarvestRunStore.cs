@@ -107,6 +107,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         int durationSeconds,
         string? url,
         DateTimeOffset now,
+        HarvestTriggerSource? triggerSource,
         CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -115,8 +116,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO harvest_runs (id, kind, state, requested_utc, duration_seconds, url)
-            VALUES (@id, @kind, 'Queued', @now, @duration, @url);
+            INSERT INTO harvest_runs (id, kind, state, requested_utc, duration_seconds, url, trigger_source)
+            VALUES (@id, @kind, 'Queued', @now, @duration, @url, @triggerSource);
             """,
             new
             {
@@ -124,7 +125,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
                 kind = ToStoredKind(kind),
                 now,
                 duration = durationSeconds,
-                url
+                url,
+                triggerSource = ToStoredTrigger(triggerSource)
             },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
 
@@ -206,6 +208,18 @@ public sealed class HarvestRunStore : IHarvestRunStore
     }
 
     /// <inheritdoc />
+    public async Task SetUpdateCountsAsync(Guid id, int pagesPolled, int refreshesRequeued, int refreshesDrained, int newIdsSeen, CancellationToken cancellationToken = default)
+    {
+        // D-05: update runs never touch sweep counts, keeping zero-discovery bulk-only.
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE harvest_runs SET pages_polled = @pagesPolled, refreshes_requeued = @refreshesRequeued, refreshes_drained = @refreshesDrained, new_ids_seen = @newIdsSeen WHERE id = @id;",
+            new { id, pagesPolled, refreshesRequeued, refreshesDrained, newIdsSeen }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        InvalidateStats();
+    }
+
+    /// <inheritdoc />
     public async Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -214,7 +228,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         var row = await connection.QuerySingleOrDefaultAsync<HarvestRunRowData>(new CommandDefinition(
             """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url
+                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url, trigger_source, pages_polled, refreshes_requeued, refreshes_drained, new_ids_seen
               FROM harvest_runs
              WHERE state IN ('Queued','Running','Stopping')
              ORDER BY requested_utc DESC
@@ -233,7 +247,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         var row = await connection.QuerySingleOrDefaultAsync<HarvestRunRowData>(new CommandDefinition(
             """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                    duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url
+                    duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url, trigger_source, pages_polled, refreshes_requeued, refreshes_drained, new_ids_seen
               FROM harvest_runs
              WHERE id = @id
              LIMIT 1;
@@ -253,7 +267,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         var rows = await connection.QueryAsync<HarvestRunRowData>(new CommandDefinition(
             """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url
+                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url, trigger_source, pages_polled, refreshes_requeued, refreshes_drained, new_ids_seen
               FROM harvest_runs
              ORDER BY started_utc DESC NULLS LAST
              LIMIT @n;
@@ -273,7 +287,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
         var rows = await connection.QueryAsync<HarvestRunRowData>(new CommandDefinition(
             """
             SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url
+                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url, trigger_source, pages_polled, refreshes_requeued, refreshes_drained, new_ids_seen
               FROM harvest_runs
              WHERE kind = 'bulk' AND state = 'Succeeded'
                AND decks_enqueued IS NOT NULL AND decks_drained IS NOT NULL
@@ -321,6 +335,18 @@ public sealed class HarvestRunStore : IHarvestRunStore
     }
 
     /// <inheritdoc />
+    public async Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
+    {
+        // Manual runs must not move a schedule; legacy NULL counts as scheduled on deploy.
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var completedUtc = await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
+            "SELECT MAX(completed_utc) FROM harvest_runs WHERE kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL);",
+            new { kind = ToStoredKind(kind) }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return ConvertCompletedUtc(completedUtc);
+    }
+
+    /// <inheritdoc />
     public async Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -343,6 +369,25 @@ public sealed class HarvestRunStore : IHarvestRunStore
             checked((int)row.ConsecutiveFailures),
             ConvertCompletedUtc(row.LastFailureUtc),
             ConvertCompletedUtc(row.LastSuccessUtc));
+    }
+
+    /// <inheritdoc />
+    public async Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
+    {
+        // Manual runs must not move a schedule; legacy NULL counts as scheduled on deploy.
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var row = await connection.QuerySingleAsync<FailureStreakRow>(new CommandDefinition(
+            """
+            SELECT COUNT(1) AS ConsecutiveFailures, MAX(completed_utc) AS LastFailureUtc,
+                   (SELECT MAX(completed_utc) FROM harvest_runs WHERE kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL)) AS LastSuccessUtc
+              FROM harvest_runs
+             WHERE kind = @kind AND state = 'Failed' AND completed_utc IS NOT NULL
+               AND (trigger_source = 'scheduled' OR trigger_source IS NULL)
+               AND (NOT EXISTS (SELECT 1 FROM harvest_runs WHERE kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL))
+                    OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL)));
+            """, new { kind = ToStoredKind(kind) }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return new HarvestFailureStreak(checked((int)row.ConsecutiveFailures), ConvertCompletedUtc(row.LastFailureUtc), ConvertCompletedUtc(row.LastSuccessUtc));
     }
 
     /// <inheritdoc />
@@ -404,7 +449,12 @@ public sealed class HarvestRunStore : IHarvestRunStore
             row.DecksEnqueued,
             row.DecksDrained,
             row.ErrorMessage,
-            row.Url);
+            row.Url,
+            ParseHarvestTriggerSource(row.TriggerSource),
+            row.PagesPolled,
+            row.RefreshesRequeued,
+            row.RefreshesDrained,
+            row.NewIdsSeen);
 
     private static HarvestRunKind ParseHarvestKind(string raw) => raw switch
     {
@@ -421,6 +471,22 @@ public sealed class HarvestRunStore : IHarvestRunStore
         HarvestRunKind.Update => "update",
         // An unmapped member must fail loudly; the old ternary would write it as URL.
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown harvest run kind.")
+    };
+
+    private static string? ToStoredTrigger(HarvestTriggerSource? triggerSource) => triggerSource switch
+    {
+        null => null,
+        HarvestTriggerSource.Manual => "manual",
+        HarvestTriggerSource.Scheduled => "scheduled",
+        _ => throw new ArgumentOutOfRangeException(nameof(triggerSource), triggerSource, "Unknown harvest trigger source.")
+    };
+
+    private static HarvestTriggerSource? ParseHarvestTriggerSource(string? raw) => raw switch
+    {
+        null => null,
+        "manual" => HarvestTriggerSource.Manual,
+        "scheduled" => HarvestTriggerSource.Scheduled,
+        _ => throw new InvalidOperationException($"Unknown harvest_runs.trigger_source value '{raw}'.")
     };
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
@@ -763,6 +829,11 @@ public sealed class HarvestRunStore : IHarvestRunStore
         public int? DecksDrained { get; init; }
         public string? ErrorMessage { get; init; }
         public string? Url { get; init; }
+        public string? TriggerSource { get; init; }
+        public int? PagesPolled { get; init; }
+        public int? RefreshesRequeued { get; init; }
+        public int? RefreshesDrained { get; init; }
+        public int? NewIdsSeen { get; init; }
     }
 
     /// <summary>Supplies run timestamps and count for the admin harvest history revision token.</summary>

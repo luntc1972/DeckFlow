@@ -453,7 +453,7 @@ public sealed class AdminHarvestControllerTests
     }
 
     private static HarvestRunRow CreateHarvestRun(string? errorMessage = null, DateTimeOffset? startedUtc = null)
-        => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Failed, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), startedUtc, null, 900, 2, 0, null, null, errorMessage, null);
+        => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Failed, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), startedUtc, null, 900, 2, 0, null, null, errorMessage, null, null, null, null, null, null);
 
     private static AdminHarvestViewModel CreateHarvestViewModel(IReadOnlyList<HarvestRunRow> runs, bool includesStats)
         => new()
@@ -708,6 +708,16 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
+    public async Task SubmitUrl_RecordsUrlRunWithManualTrigger()
+    {
+        var runStore = new StubHarvestRunStore();
+        var controller = Build(NewStore(distinctProcessedCommanderCount: 0), runStore: runStore);
+        await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
+        Assert.Single(runStore.Inserted);
+        Assert.Equal((HarvestRunKind.Url, HarvestTriggerSource.Manual), runStore.Inserted[0]);
+    }
+
+    [Fact]
     public async Task SubmitUrl_MetadataBearingImport_PassesMetadataToStore()
     {
         var store = NewStore(distinctProcessedCommanderCount: 0);
@@ -744,7 +754,7 @@ public sealed class AdminHarvestControllerTests
     private static async Task<FileContentResult> ExportFileAsync(ICategoryKnowledgeStore store)
         => Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
 
-    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null)
+    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -753,7 +763,7 @@ public sealed class AdminHarvestControllerTests
 
         return new AdminHarvestController(
             new StubArchidektCacheJobService(),
-            new StubHarvestRunStore(),
+            runStore ?? new StubHarvestRunStore(),
             new StubHarvestScheduleStore(),
             new StubHarvestScheduleCache(),
             new StubHarvestStatsAggregator(),
@@ -926,11 +936,16 @@ public sealed class AdminHarvestControllerTests
 
     private sealed class StubHarvestRunStore : IHarvestRunStore
     {
+        public List<(HarvestRunKind Kind, HarvestTriggerSource? TriggerSource)> Inserted { get; } = [];
+
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task<Guid> InsertQueuedAsync(HarvestRunKind kind, int durationSeconds, string? url, DateTimeOffset now, CancellationToken cancellationToken = default)
-            => Task.FromResult(Guid.NewGuid());
+        public Task<Guid> InsertQueuedAsync(HarvestRunKind kind, int durationSeconds, string? url, DateTimeOffset now, HarvestTriggerSource? triggerSource, CancellationToken cancellationToken = default)
+        {
+            Inserted.Add((kind, triggerSource));
+            return Task.FromResult(Guid.NewGuid());
+        }
 
         public Task UpdateStateAsync(Guid id, HarvestRunState state, DateTimeOffset? startedUtc, DateTimeOffset? completedUtc, int? decksProcessed, int? additionalDecksFound, string? errorMessage, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
@@ -939,6 +954,9 @@ public sealed class AdminHarvestControllerTests
             => throw new NotImplementedException();
 
         public Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task SetUpdateCountsAsync(Guid id, int pagesPolled, int refreshesRequeued, int refreshesDrained, int newIdsSeen, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
         public Task<HarvestRunRow?> GetActiveAsync(CancellationToken cancellationToken = default)
@@ -961,6 +979,12 @@ public sealed class AdminHarvestControllerTests
 
         public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(new HarvestFailureStreak(0, null, null));
+
+        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
+            => Task.FromResult(new HarvestFailureStreak(0, null, null));
+
+        public Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
+            => Task.FromResult<DateTimeOffset?>(null);
 
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0L);

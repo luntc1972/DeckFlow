@@ -295,6 +295,7 @@ public sealed class ArchidektCacheJobServiceTests
             int durationSeconds,
             string? url,
             DateTimeOffset now,
+            HarvestTriggerSource? triggerSource,
             CancellationToken cancellationToken = default)
         {
             var id = Guid.NewGuid();
@@ -311,7 +312,12 @@ public sealed class ArchidektCacheJobServiceTests
                 DecksEnqueued: null,
                 DecksDrained: null,
                 ErrorMessage: null,
-                Url: url);
+                Url: url,
+                TriggerSource: triggerSource,
+                PagesPolled: null,
+                RefreshesRequeued: null,
+                RefreshesDrained: null,
+                NewIdsSeen: null);
             return Task.FromResult(id);
         }
 
@@ -422,5 +428,9 @@ public sealed class ArchidektCacheJobServiceTests
 
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult((long)_rows.Values.Count(r => r.State == HarvestRunState.Succeeded));
+
+        public Task SetUpdateCountsAsync(Guid id, int pagesPolled, int refreshesRequeued, int refreshesDrained, int newIdsSeen, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult<DateTimeOffset?>(null);
+        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult(new HarvestFailureStreak(0, null, null));
     }
 }

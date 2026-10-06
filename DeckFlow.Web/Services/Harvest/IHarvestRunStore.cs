@@ -16,6 +16,9 @@ public interface IHarvestRunStore
     /// <param name="cancellationToken">Token used to cancel the read.</param>
     Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the scheduled-or-legacy failed-only streak for a kind.</summary>
+    Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Idempotent. On first call: creates the <c>harvest_runs</c> table and indexes,
     /// then runs the D-02 startup reaper (UPDATE non-terminal rows to
@@ -33,10 +36,11 @@ public interface IHarvestRunStore
     /// <see cref="HarvestRunKind.Url"/> (D-10). Implementations MUST call
     /// <c>_stats?.Invalidate()</c> after the write succeeds (D-13), which marks the stats payload stale for background refresh.
     /// </summary>
-    /// <param name="kind">Bulk vs URL discriminator.</param>
+    /// <param name="kind">Bulk, URL or update discriminator.</param>
     /// <param name="durationSeconds">Operator-selected cap (bulk) or 0 (URL).</param>
     /// <param name="url">Source URL for URL-kind runs; null for bulk runs.</param>
     /// <param name="now">Wall-clock time stamped into <c>requested_utc</c>.</param>
+    /// <param name="triggerSource">Manual or Scheduled; null records unknown origin, which per-kind queries treat as scheduled.</param>
     /// <param name="cancellationToken">Token used to cancel the write.</param>
     /// <returns>Server-generated UUID primary key for the new row.</returns>
     Task<Guid> InsertQueuedAsync(
@@ -44,6 +48,7 @@ public interface IHarvestRunStore
         int durationSeconds,
         string? url,
         DateTimeOffset now,
+        HarvestTriggerSource? triggerSource,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -93,6 +98,9 @@ public interface IHarvestRunStore
     /// Growth is novel enqueues minus drained IDs; requeue resets are deliberately excluded from enqueues.
     /// </summary>
     Task SetSweepCountsAsync(Guid id, int decksEnqueued, int decksDrained, CancellationToken cancellationToken = default);
+
+    /// <summary>Records counters produced by an update run.</summary>
+    Task SetUpdateCountsAsync(Guid id, int pagesPolled, int refreshesRequeued, int refreshesDrained, int newIdsSeen, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns the most recent non-terminal row (<c>state IN (Queued, Running, Stopping)</c>)
@@ -146,6 +154,9 @@ public interface IHarvestRunStore
     /// </summary>
     /// <param name="cancellationToken">Token used to cancel the read.</param>
     Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Returns the last scheduled-or-legacy successful run for a kind.</summary>
+    Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns <c>COUNT(1) FROM harvest_runs WHERE state='Succeeded'</c> — the

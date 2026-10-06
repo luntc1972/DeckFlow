@@ -17,11 +17,11 @@ public sealed class HarvestBackpressurePostgresTests : IClassFixture<PostgresCon
         var store = new HarvestRunStore(new RelationalDatabaseConnection(
             RelationalDatabaseProvider.Postgres, await _fixture.GetConnectionStringOrSkipAsync()));
         await store.EnsureSchemaAsync();
-        var before = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.Parse("2026-06-12T10:00:00Z"));
+        var before = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.Parse("2026-06-12T10:00:00Z"), triggerSource: null);
         await store.UpdateStateAsync(before, HarvestRunState.Failed, null, DateTimeOffset.Parse("2026-06-12T10:30:00Z"), null, null, null);
-        var success = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.Parse("2026-06-12T11:00:00Z"));
+        var success = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.Parse("2026-06-12T11:00:00Z"), triggerSource: null);
         await store.UpdateStateAsync(success, HarvestRunState.Succeeded, null, DateTimeOffset.Parse("2026-06-12T11:30:00Z"), null, null, null);
-        var failure = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.Parse("2026-06-12T12:00:00Z"));
+        var failure = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.Parse("2026-06-12T12:00:00Z"), triggerSource: null);
         await store.UpdateStateAsync(failure, HarvestRunState.Failed, null, DateTimeOffset.Parse("2026-06-12T12:30:00Z"), null, null, null);
 
         var streak = await store.GetFailureStreakSinceLastSuccessAsync();

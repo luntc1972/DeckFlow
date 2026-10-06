@@ -26,7 +26,7 @@ public sealed class HarvestScheduleServiceTests
         for (var i = 0; i < failures; i++)
         {
             var completed = now.AddMinutes(-minutesAgo);
-            var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, completed);
+            var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, completed, triggerSource: null);
             await store.UpdateStateAsync(id, HarvestRunState.Failed, null, completed, null, null, null);
         }
 
@@ -49,7 +49,7 @@ public sealed class HarvestScheduleServiceTests
         var store = new HarvestRunStore(path);
         await store.EnsureSchemaAsync();
         var now = new DateTimeOffset(2026, 6, 12, 12, 0, 0, TimeSpan.Zero);
-        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, now.AddMinutes(-10));
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, now.AddMinutes(-10), triggerSource: null);
         await store.UpdateStateAsync(id, HarvestRunState.Succeeded, null, now.AddMinutes(-10), null, null, null);
 
         var job = new RecordingJob();

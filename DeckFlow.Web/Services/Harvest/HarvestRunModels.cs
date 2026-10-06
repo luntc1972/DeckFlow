@@ -73,6 +73,11 @@ public enum HarvestRunState
 /// <param name="DecksDrained">IDs removed from the unprocessed pool; null means unknown, never zero.</param>
 /// <param name="ErrorMessage">Failure / cancel / reaper reason; null on success.</param>
 /// <param name="Url">Source URL; null when <see cref="Kind"/> is <see cref="HarvestRunKind.Bulk"/>.</param>
+/// <param name="TriggerSource">Initiator of the run; null for legacy or unknown origin.</param>
+/// <param name="PagesPolled">Update listing pages polled; null outside update runs.</param>
+/// <param name="RefreshesRequeued">Update refreshes requeued; null outside update runs.</param>
+/// <param name="RefreshesDrained">Update refreshes drained; null outside update runs.</param>
+/// <param name="NewIdsSeen">New listing IDs seen; null outside update runs.</param>
 public sealed record HarvestRunRow(
     Guid Id,
     HarvestRunKind Kind,
@@ -86,7 +91,12 @@ public sealed record HarvestRunRow(
     int? DecksEnqueued,
     int? DecksDrained,
     string? ErrorMessage,
-    string? Url);
+    string? Url,
+    HarvestTriggerSource? TriggerSource,
+    int? PagesPolled,
+    int? RefreshesRequeued,
+    int? RefreshesDrained,
+    int? NewIdsSeen);
 
 /// <summary>
 /// Snapshot of the single-row <c>harvest_schedule</c> table (D-06). The seed row

@@ -38,7 +38,7 @@ public sealed class HarvestRunStoreTests : IDisposable
     {
         await SeedSqliteDatabaseWithPhase5HarvestRunsSchemaAsync();
         var store = new HarvestRunStore(_dbPath);
-        var id = await store.InsertQueuedAsync(HarvestRunKind.Update, 600, null, DateTimeOffset.Parse("2026-06-12T12:00:00Z", CultureInfo.InvariantCulture));
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Update, 600, null, DateTimeOffset.Parse("2026-06-12T12:00:00Z", CultureInfo.InvariantCulture), triggerSource: null);
         Assert.Equal("update", await ReadScalarAsync<string>(_dbPath, "SELECT kind FROM harvest_runs WHERE id = $id", id));
         Assert.Equal(HarvestRunKind.Update, (await store.GetByIdAsync(id))!.Kind);
         var active = await store.GetActiveAsync();
@@ -55,7 +55,7 @@ public sealed class HarvestRunStoreTests : IDisposable
         Assert.True(kinds.Length >= 3);
         foreach (var kind in kinds)
         {
-            var id = await store.InsertQueuedAsync(kind, 600, kind == HarvestRunKind.Url ? "https://archidekt.com/decks/123" : null, DateTimeOffset.UtcNow);
+            var id = await store.InsertQueuedAsync(kind, 600, kind == HarvestRunKind.Url ? "https://archidekt.com/decks/123" : null, DateTimeOffset.UtcNow, triggerSource: null);
             Assert.Equal(kind, (await store.GetByIdAsync(id))!.Kind);
         }
     }
@@ -64,7 +64,7 @@ public sealed class HarvestRunStoreTests : IDisposable
     public async Task InsertQueuedAsync_UnmappedKind_ThrowsArgumentOutOfRangeAndInsertsNothing()
     {
         var store = new HarvestRunStore(_dbPath);
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.InsertQueuedAsync((HarvestRunKind)int.MaxValue, 600, null, DateTimeOffset.UtcNow));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.InsertQueuedAsync((HarvestRunKind)int.MaxValue, 600, null, DateTimeOffset.UtcNow, triggerSource: null));
         Assert.Equal(0L, await ReadScalarAsync<long>(_dbPath, "SELECT COUNT(*) FROM harvest_runs"));
     }
 
@@ -117,7 +117,8 @@ public sealed class HarvestRunStoreTests : IDisposable
             HarvestRunKind.Bulk,
             durationSeconds: 900,
             url: null,
-            requestedUtc);
+            requestedUtc,
+            triggerSource: null);
 
         await store.UpdateStateAsync(
             id,
@@ -145,7 +146,7 @@ public sealed class HarvestRunStoreTests : IDisposable
     public async Task SetSweepCountsAsync_RoundTripsCounts()
     {
         var store = new HarvestRunStore(_dbPath);
-        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow, triggerSource: null);
 
         await store.SetSweepCountsAsync(id, 7, 11);
 
@@ -316,7 +317,7 @@ public sealed class HarvestRunStoreTests : IDisposable
     public async Task UpdateStateAsync_NullCountersPreservesProgressAndAdditionalDecksFound()
     {
         var store = new HarvestRunStore(_dbPath);
-        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow, triggerSource: null);
         await store.UpdateProgressAsync(id, 4);
         await store.UpdateStateAsync(id, HarvestRunState.Running, null, null, null, 9, null);
         await store.UpdateProgressAsync(id, 6);
@@ -338,7 +339,7 @@ public sealed class HarvestRunStoreTests : IDisposable
     public async Task UpdateStateAsync_NonSucceededSweepLeavesCountsUnknown(HarvestRunState state)
     {
         var store = new HarvestRunStore(_dbPath);
-        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow, triggerSource: null);
 
         await store.UpdateStateAsync(id, state, null, DateTimeOffset.UtcNow, null, null, "stopped");
 
@@ -433,6 +434,109 @@ public sealed class HarvestRunStoreTests : IDisposable
         Assert.Equal(2, Convert.ToInt32(await columnsCommand.ExecuteScalarAsync(), CultureInfo.InvariantCulture));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(HarvestTriggerSource.Manual)]
+    [InlineData(HarvestTriggerSource.Scheduled)]
+    public async Task InsertQueuedAsync_TriggerSource_RoundTrips(HarvestTriggerSource? triggerSource)
+    {
+        var store = new HarvestRunStore(_dbPath);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.Parse("2026-06-12T10:00:00Z", CultureInfo.InvariantCulture), triggerSource);
+        var row = (await store.GetByIdAsync(id))!;
+        var rawTrigger = await ReadScalarAsync<string>(_dbPath, "SELECT COALESCE(trigger_source, 'NULL') FROM harvest_runs WHERE id = $id", id);
+        Assert.Equal(triggerSource?.ToString().ToLowerInvariant() ?? "NULL", rawTrigger);
+        Assert.Equal(triggerSource, row.TriggerSource);
+        Assert.Null(row.PagesPolled);
+        Assert.Null(row.RefreshesRequeued);
+        Assert.Null(row.RefreshesDrained);
+        Assert.Null(row.NewIdsSeen);
+    }
+
+    [Fact]
+    public async Task InsertQueuedAsync_UnmappedTrigger_ThrowsArgumentOutOfRangeAndInsertsNothing()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow, (HarvestTriggerSource)99));
+        Assert.Equal(0L, await ReadScalarAsync<long>(_dbPath, "SELECT COUNT(*) FROM harvest_runs"));
+    }
+
+    [Fact]
+    public async Task SetUpdateCountsAsync_RoundTripsCountersAndLeavesSweepCountsNull()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Update, 60, null, DateTimeOffset.UtcNow, HarvestTriggerSource.Scheduled);
+        await store.SetUpdateCountsAsync(id, 3, 5, 4, 2);
+        var row = (await store.GetByIdAsync(id))!;
+        Assert.Equal(3, row.PagesPolled); Assert.Equal(5, row.RefreshesRequeued); Assert.Equal(4, row.RefreshesDrained); Assert.Equal(2, row.NewIdsSeen);
+        Assert.Null(row.DecksEnqueued); Assert.Null(row.DecksDrained);
+    }
+
+    [Fact]
+    public async Task GetLastScheduledSuccessUtcAsync_PerKind_IgnoresManualAndCountsLegacyNull()
+    {
+        var store = new HarvestRunStore(_dbPath); await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", null, null, null);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T11:00:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T12:00:00.0000000Z", null, null, "manual");
+        await SeedHealthRunAsync("update", "Succeeded", "2026-06-12T13:00:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("update", "Succeeded", "2026-06-12T14:00:00.0000000Z", null, null, "manual");
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T11:00:00Z", CultureInfo.InvariantCulture), await store.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Bulk));
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T13:00:00Z", CultureInfo.InvariantCulture), await store.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Update));
+        Assert.Null(await store.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Url));
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_PerKind_CountsFailedOnly_NotInterruptedOrCancelled()
+    {
+        var store = new HarvestRunStore(_dbPath); await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T11:00:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("bulk", "Interrupted", "2026-06-12T12:00:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("bulk", "Cancelled", "2026-06-12T12:30:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T13:00:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("bulk", "Interrupted", "2026-06-12T14:00:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("update", "Interrupted", "2026-06-12T15:00:00.0000000Z", null, null, "scheduled");
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Bulk);
+        Assert.Equal(2, streak.ConsecutiveFailures); Assert.Equal(DateTimeOffset.Parse("2026-06-12T13:00:00Z", CultureInfo.InvariantCulture), streak.LastFailureUtc); Assert.Equal(DateTimeOffset.Parse("2026-06-12T10:00:00Z", CultureInfo.InvariantCulture), streak.LastSuccessUtc);
+        var updateStreak = await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Update);
+        Assert.Equal(0, updateStreak.ConsecutiveFailures); Assert.Null(updateStreak.LastFailureUtc); Assert.Null(updateStreak.LastSuccessUtc);
+    }
+
+    [Fact]
+    public async Task GetLastScheduledSuccessUtcAsync_OnlyLegacyNullSuccess_StillAnchors()
+    {
+        var store = new HarvestRunStore(_dbPath); await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", null, null, null);
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T12:00:00.0000000Z", null, null, "manual");
+        Assert.Equal(DateTimeOffset.Parse("2026-06-12T10:00:00Z", CultureInfo.InvariantCulture), await store.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Bulk));
+    }
+
+    [Fact]
+    public async Task GetFailureStreakSinceLastSuccessAsync_PerKind_IgnoresManualRunsAndOtherKinds()
+    {
+        var store = new HarvestRunStore(_dbPath); await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T11:00:00.0000000Z", null, null, "scheduled");
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T12:00:00.0000000Z", null, null, "manual");
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T13:00:00.0000000Z", null, null, "manual");
+        await SeedHealthRunAsync("bulk", "Failed", "2026-06-12T14:00:00.0000000Z", null, null, null);
+        await SeedHealthRunAsync("update", "Failed", "2026-06-12T15:00:00.0000000Z", null, null, "scheduled");
+        var bulk = await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Bulk);
+        var update = await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Update);
+        Assert.Equal(2, bulk.ConsecutiveFailures); Assert.Equal(DateTimeOffset.Parse("2026-06-12T14:00:00Z", CultureInfo.InvariantCulture), bulk.LastFailureUtc); Assert.Equal(DateTimeOffset.Parse("2026-06-12T10:00:00Z", CultureInfo.InvariantCulture), bulk.LastSuccessUtc);
+        Assert.Equal(1, update.ConsecutiveFailures); Assert.Equal(DateTimeOffset.Parse("2026-06-12T15:00:00Z", CultureInfo.InvariantCulture), update.LastFailureUtc); Assert.Null(update.LastSuccessUtc);
+    }
+
+    [Fact]
+    public async Task GetRecentHealthSignalRunsAsync_ExcludesUpdateRuns()
+    {
+        var store = new HarvestRunStore(_dbPath); await store.EnsureSchemaAsync();
+        await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", 3, 1, null);
+        await SeedHealthRunAsync("update", "Succeeded", "2026-06-12T11:00:00.0000000Z", 0, 0, "scheduled");
+        var rows = await store.GetRecentHealthSignalRunsAsync(10);
+        Assert.Single(rows); Assert.Equal(HarvestRunKind.Bulk, rows[0].Kind);
+    }
+
     private async Task SeedSqliteDatabaseWithOldHarvestRunsSchemaAsync()
     {
         await using var connection = new SqliteConnection($"Data Source={_dbPath}");
@@ -471,6 +575,22 @@ public sealed class HarvestRunStoreTests : IDisposable
                 NULL,
                 NULL);
             """;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task SeedHealthRunAsync(string kind, string state, string completedUtc, int? decksEnqueued, int? decksDrained, string? triggerSource = null)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "INSERT INTO harvest_runs (id, kind, state, requested_utc, completed_utc, duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, trigger_source) VALUES ($id, $kind, $state, $completedUtc, $completedUtc, 60, 0, 0, $decksEnqueued, $decksDrained, $triggerSource);";
+        command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
+        command.Parameters.AddWithValue("$kind", kind);
+        command.Parameters.AddWithValue("$state", state);
+        command.Parameters.AddWithValue("$completedUtc", completedUtc);
+        command.Parameters.AddWithValue("$decksEnqueued", (object?)decksEnqueued ?? DBNull.Value);
+        command.Parameters.AddWithValue("$decksDrained", (object?)decksDrained ?? DBNull.Value);
+        command.Parameters.AddWithValue("$triggerSource", (object?)triggerSource ?? DBNull.Value);
         await command.ExecuteNonQueryAsync();
     }
 

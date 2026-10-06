@@ -244,7 +244,7 @@ public sealed class HarvestStatsAggregatorTests
     }
 
     private static HarvestRunRow HealthRun(int enqueued, int drained)
-        => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Succeeded, DateTimeOffset.UtcNow, null, DateTimeOffset.UtcNow, 0, 0, 0, enqueued, drained, null, null);
+        => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Succeeded, DateTimeOffset.UtcNow, null, DateTimeOffset.UtcNow, 0, 0, 0, enqueued, drained, null, null, null, null, null, null, null);
 
     private static HarvestStatsAggregator CreateAggregator(
         IHarvestRunStore runStore,
@@ -501,7 +501,7 @@ public sealed class HarvestStatsAggregatorTests
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task<Guid> InsertQueuedAsync(HarvestRunKind kind, int durationSeconds, string? url, DateTimeOffset now, CancellationToken cancellationToken = default)
+        public Task<Guid> InsertQueuedAsync(HarvestRunKind kind, int durationSeconds, string? url, DateTimeOffset now, HarvestTriggerSource? triggerSource, CancellationToken cancellationToken = default)
             => Task.FromResult(Guid.NewGuid());
 
         public Task UpdateStateAsync(Guid id, HarvestRunState state, DateTimeOffset? startedUtc, DateTimeOffset? completedUtc, int? decksProcessed, int? additionalDecksFound, string? errorMessage, CancellationToken cancellationToken = default)
@@ -537,6 +537,10 @@ public sealed class HarvestStatsAggregatorTests
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0L);
 
+        public Task SetUpdateCountsAsync(Guid id, int pagesPolled, int refreshesRequeued, int refreshesDrained, int newIdsSeen, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult<DateTimeOffset?>(null);
+        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult(new HarvestFailureStreak(0, null, null));
+
         private async Task<T> BlockAsync<T>(T value)
         {
             Interlocked.Increment(ref _startedCalls);
@@ -554,7 +558,7 @@ public sealed class HarvestStatsAggregatorTests
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
-        public Task<Guid> InsertQueuedAsync(HarvestRunKind kind, int durationSeconds, string? url, DateTimeOffset now, CancellationToken cancellationToken = default)
+        public Task<Guid> InsertQueuedAsync(HarvestRunKind kind, int durationSeconds, string? url, DateTimeOffset now, HarvestTriggerSource? triggerSource, CancellationToken cancellationToken = default)
             => Task.FromResult(Guid.NewGuid());
 
         public Task UpdateStateAsync(Guid id, HarvestRunState state, DateTimeOffset? startedUtc, DateTimeOffset? completedUtc, int? decksProcessed, int? additionalDecksFound, string? errorMessage, CancellationToken cancellationToken = default)
@@ -589,6 +593,10 @@ public sealed class HarvestStatsAggregatorTests
 
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0L);
+
+        public Task SetUpdateCountsAsync(Guid id, int pagesPolled, int refreshesRequeued, int refreshesDrained, int newIdsSeen, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult<DateTimeOffset?>(null);
+        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult(new HarvestFailureStreak(0, null, null));
     }
 
     private sealed class FakeHarvestScheduleCache : IHarvestScheduleCache

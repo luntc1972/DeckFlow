@@ -186,11 +186,13 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
         var requestedUtc = DateTimeOffset.UtcNow;
 
         // D-03: insert Queued row, get the UUID.
+        // Unknown origin counts as scheduled; EnqueueAsync supplies the real trigger in 06-08.
         var jobId = await _runStore.InsertQueuedAsync(
             HarvestRunKind.Bulk,
             durationSeconds,
             url: null,
             requestedUtc,
+            triggerSource: null,
             cancellationToken).ConfigureAwait(false);
 
         var writeAccepted = _queue.Writer.TryWrite(new QueuedJobSignal(jobId, durationSeconds));

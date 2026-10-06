@@ -321,6 +321,7 @@ public sealed class AdminHarvestController : Controller
             durationSeconds: 0,
             url,
             requestedUtc,
+            triggerSource: HarvestTriggerSource.Manual,
             cancellationToken).ConfigureAwait(false);
 
         await _runStore.UpdateStateAsync(
