@@ -4,6 +4,7 @@ using RestSharp;
 
 namespace DeckFlow.Core.Tests;
 
+[Collection(ArchidektThrottleCollection.Name)]
 public sealed class ArchidektRecentDecksImporterTests : IDisposable
 {
     private readonly RecordingClock _clock = new();

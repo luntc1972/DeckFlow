@@ -1,7 +1,4 @@
-using System.Net;
 using System.Text.Json;
-using Polly;
-using Polly.Retry;
 using RestSharp;
 using Microsoft.Extensions.Logging;
 using DeckFlow.Core.Models;
@@ -10,19 +7,12 @@ using DeckFlow.Core.Normalization;
 namespace DeckFlow.Core.Integration;
 
 /// <summary>
-/// Fetches and parses an Archidekt deck from the Archidekt REST API with exponential-backoff retry.
+/// Fetches and parses an Archidekt deck from the Archidekt REST API paced through ArchidektThrottle.
 /// </summary>
 public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
 {
     private readonly RestClient _restClient;
     private readonly ILogger? _logger;
-    private static readonly AsyncRetryPolicy<RestResponse> RetryPolicy = Policy<RestResponse>
-        .HandleResult(response => response.StatusCode == HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500)
-        .WaitAndRetryAsync(
-            retryCount: 6,
-            sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)) + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 250)),
-            onRetry: (outcome, timespan, retryAttempt, context) => { });
-
     /// <summary>
     /// Initializes the Archidekt importer with optional dependencies.
     /// </summary>
@@ -34,6 +24,8 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
         {
             BaseUrl = new Uri("https://archidekt.com"),
             ThrowOnAnyError = false,
+            // Per-request identity prevents RestSharp from merging client and request User-Agent values.
+            UserAgent = null,
         });
         _logger = logger;
     }
@@ -62,7 +54,7 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
             throw new InvalidOperationException($"Unable to determine Archidekt deck id from: {urlOrDeckId}");
         }
 
-        var response = await RetryPolicy.ExecuteAsync(ct => _restClient.ExecuteAsync(CreateDeckRequest(deckId), ct), cancellationToken);
+        var response = await ArchidektThrottle.ExecuteAsync(_restClient, () => CreateDeckRequest(deckId), cancellationToken);
         var body = response.Content ?? string.Empty;
         if (!response.IsSuccessStatusCode)
         {
@@ -226,9 +218,8 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
     private static RestRequest CreateDeckRequest(string deckId)
     {
         var request = new RestRequest($"api/decks/{deckId}/", Method.Get);
-        request.AddHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
+        request.AddHeader("User-Agent", ArchidektUserAgent.Value);
         request.AddHeader("Accept", "application/json, text/plain, */*");
-        request.AddHeader("Referer", $"https://archidekt.com/decks/{deckId}");
         request.AddHeader("Accept-Language", "en-US,en;q=0.9");
         return request;
     }

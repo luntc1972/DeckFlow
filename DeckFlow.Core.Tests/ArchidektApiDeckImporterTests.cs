@@ -7,8 +7,21 @@ namespace DeckFlow.Core.Tests;
 /// <summary>
 /// Regression locks for <see cref="ArchidektApiDeckImporter"/> using captured API fixtures.
 /// </summary>
-public sealed class ArchidektApiDeckImporterTests
+[Collection(ArchidektThrottleCollection.Name)]
+public sealed class ArchidektApiDeckImporterTests : IDisposable
 {
+    private readonly RecordingClock _clock = new();
+
+    public ArchidektApiDeckImporterTests()
+    {
+        ArchidektThrottle.ResetForTests();
+        ArchidektThrottle.ConfigureForTests(_clock.UtcNow, _clock.DelayAsync);
+    }
+
+    public void Dispose()
+    {
+        ArchidektThrottle.ResetForTests();
+    }
     [Fact]
     public async Task ImportAsync_BackgroundFixture_RoutesBackgroundCardToCommanderBoard()
     {
@@ -319,6 +332,91 @@ public sealed class ArchidektApiDeckImporterTests
         Assert.Empty(result.Entries);
     }
 
+    [Fact]
+    public async Task ImportWithMetadataAsync_SendsHonestUserAgentWithoutReferer()
+    {
+        var handler = new QueuedResponseHandler([(HttpStatusCode.OK, null, ReadFixture("archidekt-background-companion.json"))]);
+
+        await CreateImporter(handler).ImportWithMetadataAsync("3674983");
+
+        Assert.Equal(1, handler.RequestCount);
+        Assert.Equal(ArchidektUserAgent.Value, Assert.Single(handler.UserAgents));
+        Assert.False(Assert.Single(handler.HasReferers));
+        Assert.DoesNotContain("Mozilla", handler.UserAgents[0]);
+        Assert.DoesNotContain("Chrome", handler.UserAgents[0]);
+    }
+
+    [Fact]
+    public async Task ImportWithMetadataAsync_ThreeConsecutive429s_ThrowsArchidektRateLimitedException()
+    {
+        var handler = new QueuedResponseHandler([(HttpStatusCode.TooManyRequests, null, string.Empty), (HttpStatusCode.TooManyRequests, null, string.Empty), (HttpStatusCode.TooManyRequests, null, string.Empty)]);
+
+        var exception = await Assert.ThrowsAsync<ArchidektRateLimitedException>(() => CreateImporter(handler).ImportWithMetadataAsync("3674983"));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, exception.StatusCode);
+        Assert.Equal(3, handler.RequestCount);
+        Assert.Equal([TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10)], _clock.Waits);
+    }
+
+    [Fact]
+    public async Task ImportWithMetadataAsync_ServerErrorThenOk_RetriesThroughTheGate()
+    {
+        var handler = new QueuedResponseHandler([(HttpStatusCode.ServiceUnavailable, null, string.Empty), (HttpStatusCode.OK, null, ReadFixture("archidekt-background-companion.json"))]);
+
+        await CreateImporter(handler).ImportWithMetadataAsync("3674983");
+
+        Assert.Equal(2, handler.RequestCount);
+        Assert.Equal([TimeSpan.FromSeconds(3)], _clock.Waits);
+        Assert.Equal(0, ArchidektThrottle.ConsecutiveRateLimitedResponses);
+    }
+
+    [Fact]
+    public async Task ImportWithMetadataAsync_PersistentServerError_ThrowsInvalidOperationAfterThreeAttempts()
+    {
+        var handler = new QueuedResponseHandler([(HttpStatusCode.ServiceUnavailable, null, string.Empty), (HttpStatusCode.ServiceUnavailable, null, string.Empty), (HttpStatusCode.ServiceUnavailable, null, string.Empty)]);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateImporter(handler).ImportWithMetadataAsync("3674983"));
+
+        Assert.Contains("503", exception.Message);
+        Assert.Equal(3, handler.RequestCount);
+        Assert.Equal([TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3)], _clock.Waits);
+    }
+
+    [Fact]
+    public void DeckImporter_DefaultClient_HasNoClientLevelUserAgent()
+    {
+        var importer = new ArchidektApiDeckImporter();
+        var restClient = (RestClient?)typeof(ArchidektApiDeckImporter)
+            .GetField("_restClient", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            ?.GetValue(importer);
+
+        Assert.NotNull(restClient);
+        Assert.Null(restClient!.Options.UserAgent);
+    }
+
+    [Fact]
+    public async Task ImportWithMetadataAsync_AfterARecentPageCall_WaitsTheSharedInterval()
+    {
+        var recentHandler = new QueuedResponseHandler([(HttpStatusCode.OK, null, "{\"results\":[]}")]);
+        await new ArchidektRecentDecksImporter(CreateRestClient(recentHandler)).ImportRecentDeckIdsPageAsync(1);
+        var deckHandler = new QueuedResponseHandler([(HttpStatusCode.OK, null, ReadFixture("archidekt-background-companion.json"))]);
+
+        await CreateImporter(deckHandler).ImportWithMetadataAsync("3674983");
+
+        Assert.Equal([TimeSpan.FromSeconds(3)], _clock.Waits);
+    }
+
+    private static ArchidektApiDeckImporter CreateImporter(QueuedResponseHandler handler)
+        => new(CreateRestClient(handler));
+
+    private static RestClient CreateRestClient(HttpMessageHandler handler)
+        => new(new RestClientOptions
+        {
+            BaseUrl = new Uri("https://archidekt.com"),
+            ConfigureMessageHandler = _ => handler,
+            UserAgent = null,
+        });
+
     private static (ArchidektApiDeckImporter Importer, FixtureMessageHandler Handler) CreateImporterAndHandlerReturningJson(string json)
     {
         var handler = new FixtureMessageHandler(json);
@@ -397,6 +495,69 @@ public sealed class ArchidektApiDeckImporterTests
         }
 
         throw new InvalidOperationException("Unable to locate repository root.");
+    }
+
+    private sealed class RecordingClock
+    {
+        private readonly object _sync = new();
+
+        public DateTimeOffset Now { get; private set; } = new(2026, 10, 5, 12, 0, 0, TimeSpan.Zero);
+
+        public List<TimeSpan> Waits { get; } = [];
+
+        public DateTimeOffset UtcNow()
+        {
+            lock (_sync)
+            {
+                return Now;
+            }
+        }
+
+        public Task DelayAsync(TimeSpan delay, CancellationToken cancellationToken)
+        {
+            lock (_sync)
+            {
+                Waits.Add(delay);
+                Now += delay;
+            }
+
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class QueuedResponseHandler(IEnumerable<(HttpStatusCode Status, string? RetryAfter, string Body)> responses) : HttpMessageHandler
+    {
+        private readonly Queue<(HttpStatusCode Status, string? RetryAfter, string Body)> _responses = new(responses);
+
+        public int RequestCount { get; private set; }
+
+        public List<string> UserAgents { get; } = [];
+
+        public List<bool> HasReferers { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (_responses.Count == 0)
+            {
+                throw new InvalidOperationException("unexpected extra Archidekt request");
+            }
+
+            RequestCount++;
+            request.Headers.NonValidated.TryGetValues("User-Agent", out var userAgents);
+            UserAgents.Add(string.Join("|", userAgents));
+            HasReferers.Add(request.Headers.Referrer is not null);
+            var response = _responses.Dequeue();
+            var message = new HttpResponseMessage(response.Status)
+            {
+                Content = new StringContent(response.Body)
+            };
+            if (response.RetryAfter is not null)
+            {
+                message.Headers.TryAddWithoutValidation("Retry-After", response.RetryAfter);
+            }
+
+            return Task.FromResult(message);
+        }
     }
 
     private sealed class FixtureMessageHandler(string content) : HttpMessageHandler
