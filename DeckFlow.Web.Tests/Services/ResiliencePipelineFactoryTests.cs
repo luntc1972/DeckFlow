@@ -103,7 +103,7 @@ public sealed class ResiliencePipelineFactoryTests
                 attempts++;
                 if (attempts == 1)
                 {
-                    await Task.Delay(250, cancellationToken);
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
                 }
 
                 return new RestResponse { StatusCode = HttpStatusCode.OK };
