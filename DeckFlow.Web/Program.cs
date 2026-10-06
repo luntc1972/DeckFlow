@@ -113,6 +113,7 @@ public partial class Program
             app.Logger.LogInformation("Ensuring harvest store schemas during startup.");
             await app.Services.GetRequiredService<IHarvestRunStore>().EnsureSchemaAsync();
             await app.Services.GetRequiredService<IHarvestScheduleStore>().EnsureSchemaAsync();
+            await app.Services.GetRequiredService<IHarvestUpdateScheduleStore>().EnsureSchemaAsync();
             app.Logger.LogInformation("Harvest store schemas ensured during startup.");
 
             app.Logger.LogInformation("Ensuring analytics store schema during startup.");

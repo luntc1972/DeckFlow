@@ -8,10 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace DeckFlow.Web.Services.Harvest;
 
 /// <summary>
-/// Recurring harvest scheduler (Phase 7, D-06 / HARV-04 / HARV-05). Wakes every 60 seconds,
-/// reads the cached <c>harvest_schedule</c> snapshot, and fires a 60-minute bulk harvest
-/// when <c>now &gt;= last_success_utc + interval_hours</c> AND the schedule is not paused
-/// AND <c>interval_hours</c> is set. The whole loop is gated by
+/// Recurring harvest scheduler. Wakes every 60 seconds, evaluates bulk then update snapshots,
+/// and anchors each kind on its own last scheduled success. The whole loop is gated by
 /// <see cref="IFeatureFlagCache.IsEnabled"/> on <c>service.harvest-cron.enabled</c>
 /// (Phase 6 FLAG-04 carry-forward kill switch). Per-tick try/catch keeps the loop alive
 /// across transient PG / job-service errors (T-07-14).
@@ -24,6 +22,7 @@ public sealed class HarvestScheduleService : BackgroundService
 
     private readonly IFeatureFlagCache _flagCache;
     private readonly IHarvestScheduleCache _scheduleCache;
+    private readonly IHarvestUpdateScheduleCache _updateScheduleCache;
     private readonly IHarvestRunStore _runStore;
     private readonly IArchidektCacheJobService _jobService;
     private readonly ILogger<HarvestScheduleService> _logger;
@@ -34,6 +33,7 @@ public sealed class HarvestScheduleService : BackgroundService
     /// </summary>
     /// <param name="flagCache">Feature flag cache used to honor the <c>service.harvest-cron.enabled</c> kill switch.</param>
     /// <param name="scheduleCache">Cached <c>harvest_schedule</c> snapshot (no per-tick PG roundtrip).</param>
+    /// <param name="updateScheduleCache">Cached update schedule snapshot.</param>
     /// <param name="runStore">Run-history store used to read <c>last_success_utc</c>.</param>
     /// <param name="jobService">Bulk-harvest job service called when a tick is due to fire.</param>
     /// <param name="logger">Structured logger for tick / fire / failure events.</param>
@@ -41,6 +41,7 @@ public sealed class HarvestScheduleService : BackgroundService
     public HarvestScheduleService(
         IFeatureFlagCache flagCache,
         IHarvestScheduleCache scheduleCache,
+        IHarvestUpdateScheduleCache updateScheduleCache,
         IHarvestRunStore runStore,
         IArchidektCacheJobService jobService,
         ILogger<HarvestScheduleService> logger,
@@ -48,11 +49,13 @@ public sealed class HarvestScheduleService : BackgroundService
     {
         ArgumentNullException.ThrowIfNull(flagCache);
         ArgumentNullException.ThrowIfNull(scheduleCache);
+        ArgumentNullException.ThrowIfNull(updateScheduleCache);
         ArgumentNullException.ThrowIfNull(runStore);
         ArgumentNullException.ThrowIfNull(jobService);
         ArgumentNullException.ThrowIfNull(logger);
         _flagCache = flagCache;
         _scheduleCache = scheduleCache;
+        _updateScheduleCache = updateScheduleCache;
         _runStore = runStore;
         _jobService = jobService;
         _logger = logger;
@@ -103,53 +106,31 @@ public sealed class HarvestScheduleService : BackgroundService
             return;
         }
 
-        var snapshot = _scheduleCache.Snapshot();
-
-        // Off (interval_hours IS NULL) or operator-paused short-circuits before any PG read.
-        if (snapshot.Paused || snapshot.IntervalHours is null)
-        {
-            return;
-        }
-
-        // Single PG read per tick at 60s cadence (T-07-11 mitigation accepted).
-        var failureStreak = await _runStore.GetFailureStreakSinceLastSuccessAsync(cancellationToken).ConfigureAwait(false);
-
-        // No prior successful run yet — fire immediately so enabling cron doesn't have to
-        // wait an entire interval for the first sweep.
-        DateTimeOffset? nextDue = failureStreak.LastSuccessUtc.HasValue
-            ? failureStreak.LastSuccessUtc.Value + TimeSpan.FromHours(snapshot.IntervalHours.Value)
-            : null;
-
-        var failureBackoff = GetFailureBackoff(failureStreak.ConsecutiveFailures, snapshot.IntervalHours.Value);
-        var failureDue = failureStreak.LastFailureUtc + failureBackoff;
-        nextDue = Max(nextDue, failureDue);
-        var now = _timeProvider.GetUtcNow();
-        if (nextDue.HasValue && now < nextDue.Value)
-        {
-            if (failureDue.HasValue && nextDue == failureDue)
-            {
-                _logger.LogDebug("Harvest.Schedule.Tick.SuppressedByFailureBackoff consecutiveFailures={ConsecutiveFailures} nextDue={NextDue}", failureStreak.ConsecutiveFailures, nextDue);
-            }
-            return;
-        }
-
-        _logger.LogInformation(
-            "Harvest.Schedule.Tick.Fired intervalHours={IntervalHours} lastSuccess={LastSuccess} nextDue={NextDue}",
-            snapshot.IntervalHours, failureStreak.LastSuccessUtc, nextDue);
-
-        await _jobService.EnqueueAsync(HarvestRunKind.Bulk, FireDuration, HarvestTriggerSource.Scheduled, cancellationToken).ConfigureAwait(false);
+        var bulk = _scheduleCache.Snapshot();
+        if (await TickKindAsync(HarvestRunKind.Bulk, bulk.IntervalHours is null ? null : TimeSpan.FromHours(bulk.IntervalHours.Value), bulk.Paused, FireDuration, cancellationToken).ConfigureAwait(false)) return;
+        var update = _updateScheduleCache.Snapshot();
+        await TickKindAsync(HarvestRunKind.Update, update.IntervalMinutes is null ? null : TimeSpan.FromMinutes(update.IntervalMinutes.Value), update.Paused, ArchidektCacheJobService.UpdateRunDuration, cancellationToken).ConfigureAwait(false);
     }
 
-    private static TimeSpan GetFailureBackoff(int consecutiveFailures, int intervalHours)
+    private async Task<bool> TickKindAsync(HarvestRunKind kind, TimeSpan? interval, bool paused, TimeSpan fireDuration, CancellationToken cancellationToken)
     {
-        if (consecutiveFailures <= 0)
-        {
-            return TimeSpan.Zero;
-        }
+        if (paused || interval is null) return false;
+        var lastSuccess = await _runStore.GetLastScheduledSuccessUtcAsync(kind, cancellationToken).ConfigureAwait(false);
+        var failureStreak = await _runStore.GetFailureStreakSinceLastSuccessAsync(kind, cancellationToken).ConfigureAwait(false);
+        DateTimeOffset? nextDue = lastSuccess + interval;
+        var failureDue = failureStreak.LastFailureUtc + GetFailureBackoff(failureStreak.ConsecutiveFailures, interval.Value);
+        nextDue = Max(nextDue, failureDue);
+        if (nextDue.HasValue && _timeProvider.GetUtcNow() < nextDue.Value) return false;
+        _logger.LogInformation("Harvest.Schedule.Tick.Fired kind={Kind} interval={Interval} lastScheduledSuccess={LastScheduledSuccess} nextDue={NextDue}", kind, interval, lastSuccess, nextDue);
+        await _jobService.EnqueueAsync(kind, fireDuration, HarvestTriggerSource.Scheduled, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
 
-        var exponent = Math.Min(consecutiveFailures - 1, 20);
-        var minutes = 15L << exponent;
-        return TimeSpan.FromMinutes(Math.Min(minutes, TimeSpan.FromHours(intervalHours).TotalMinutes));
+    private static TimeSpan GetFailureBackoff(int consecutiveFailures, TimeSpan interval)
+    {
+        if (consecutiveFailures <= 0) return TimeSpan.Zero;
+        var minutes = 15L << Math.Min(consecutiveFailures - 1, 20);
+        return TimeSpan.FromMinutes(Math.Min(minutes, interval.TotalMinutes));
     }
 
     private static DateTimeOffset? Max(DateTimeOffset? first, DateTimeOffset? second)

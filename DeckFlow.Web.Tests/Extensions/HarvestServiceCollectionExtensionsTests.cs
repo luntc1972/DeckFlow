@@ -41,10 +41,15 @@ public sealed class HarvestServiceCollectionExtensionsTests
         Assert.IsType<HarvestRunStore>(provider.GetRequiredService<IHarvestRunStore>());
         Assert.IsType<HarvestStatsAggregator>(provider.GetRequiredService<IHarvestStatsAggregator>());
         Assert.IsType<HarvestScheduleCache>(provider.GetRequiredService<IHarvestScheduleCache>());
+        Assert.IsType<HarvestUpdateScheduleStore>(provider.GetRequiredService<IHarvestUpdateScheduleStore>());
+        var updateCache = provider.GetRequiredService<HarvestUpdateScheduleCache>();
+        Assert.Same(updateCache, provider.GetRequiredService<IHarvestUpdateScheduleCache>());
 
         var hostedServices = provider.GetServices<IHostedService>().ToArray();
         Assert.Contains(hostedServices, service => service is HarvestScheduleCache);
         Assert.Contains(hostedServices, service => service is HarvestScheduleService);
+        Assert.Contains(hostedServices, service => service is HarvestUpdateScheduleCache);
+        Assert.True(Array.FindIndex(hostedServices, service => service is HarvestUpdateScheduleCache) < Array.FindIndex(hostedServices, service => service is HarvestScheduleService));
     }
 
     private sealed class FakeArchidektCacheJobService : IArchidektCacheJobService
