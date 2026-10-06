@@ -8,8 +8,9 @@ namespace DeckFlow.Web.Services;
 /// Background-job contract for Archidekt cache harvests. State persists in
 /// Postgres <c>harvest_runs</c> via <see cref="IHarvestRunStore"/> (D-01); the
 /// in-memory dictionary that previously tracked job state was removed in
-/// Phase 7 Plan 02. Existing public-API consumers
-/// (<c>ArchidektCacheJobsController</c>) keep the same wire contract — the
+/// Phase 7 Plan 02. Manual job control is Admin-only through
+/// <c>AdminHarvestController</c>, behind Basic Auth, while scheduled starts come from
+/// <c>HarvestScheduleService</c>; the public job API was removed in Phase 6 (D-14). The
 /// <see cref="ArchidektCacheJobStatus"/> shape is preserved and built from a
 /// <see cref="HarvestRunRow"/> on read.
 /// </summary>
@@ -53,9 +54,9 @@ public interface IArchidektCacheJobService
 }
 
 /// <summary>
-/// Public-API state values surfaced by <c>ArchidektCacheJobsController</c>.
-/// Mirrors <see cref="HarvestRunState"/> 1:1 since the controller serializes
-/// <see cref="ArchidektCacheJobStatus.State"/> via <c>ToString()</c>.
+/// State values exposed on <see cref="ArchidektCacheJobStatus.State"/>. They mirror
+/// <see cref="HarvestRunState"/> 1:1, and <c>MapToStatus</c> maps each value explicitly
+/// in a switch.
 /// </summary>
 public enum ArchidektCacheJobState
 {
@@ -82,8 +83,8 @@ public enum ArchidektCacheJobState
 }
 
 /// <summary>
-/// Public wire-shape for a single <c>harvest_runs</c> row of <c>kind='bulk'</c>
-/// surfaced through <c>ArchidektCacheJobsController</c>. Constructed from
+/// Status shape for a single <c>harvest_runs</c> row of any kind, returned by
+/// <c>GetJob</c> and <c>GetActiveJob</c>. Constructed from
 /// <see cref="HarvestRunRow"/> on read.
 /// </summary>
 /// <param name="JobId">Server-generated UUID primary key.</param>
@@ -397,13 +398,13 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
 
     /// <summary>
     /// Maps a <see cref="HarvestRunRow"/> from <see cref="IHarvestRunStore"/> to the
-    /// public-API <see cref="ArchidektCacheJobStatus"/> shape consumed by
-    /// <c>ArchidektCacheJobsController</c>. Both enums share names — direct
+    /// <see cref="ArchidektCacheJobStatus"/> shape returned by <c>GetJob</c> and
+    /// <c>GetActiveJob</c>. Both enums share names — direct
     /// <see cref="Enum.Parse{TEnum}(string)"/> roundtrips through the string form
     /// so future renames stay catchable.
     /// </summary>
     /// <param name="row">Raw run row from the store.</param>
-    /// <returns>Public-shape status the controller serializes.</returns>
+    /// <returns>Status shape returned to service callers.</returns>
     private static ArchidektCacheJobStatus MapToStatus(HarvestRunRow row)
     {
         var state = row.State switch

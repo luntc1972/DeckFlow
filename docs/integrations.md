@@ -120,25 +120,15 @@ Content-Type: application/json
 ```
 
 ### Archidekt cache background jobs
-Start a background harvest:
-```
-POST /api/archidekt-cache-jobs
-Content-Type: application/json
+Harvest jobs have no public API. Manual starts, cancellation, and monitoring happen only from the admin Harvest page at `/Admin/Harvest`, behind HTTP Basic Auth; its POST actions require an antiforgery token. Scheduled starts are separate: the in-process `HarvestScheduleService` enqueues them on its own timer through `IArchidektCacheJobService.EnqueueAsync`, with no HTTP request.
 
-{
-  "durationSeconds": 300
-}
-```
+The admin page actions are:
 
-Poll a specific job:
-```
-GET /api/archidekt-cache-jobs/{jobId}
-```
+- `POST /Admin/Harvest/run` starts a job.
+- `POST /Admin/Harvest/cancel/{jobId}` cancels a job.
+- `GET /Admin/Harvest/status` provides status polling used by the page.
 
-Get the currently active job, if any:
-```
-GET /api/archidekt-cache-jobs/active
-```
+These are admin page actions, not an API for scripts. The former unauthenticated `/api/archidekt-cache-jobs` endpoints (start, poll by id, active job) were removed in Phase 6 (HARV-12, D-14); requests to them now return 404.
 
 ### cURL examples
 ```bash
