@@ -714,6 +714,7 @@ internal sealed class DeckQueueRepository
             SET processed = 1,
                 skipped = 0,
                 last_checked_utc = excluded.last_checked_utc,
+                refresh_requested_utc = NULL,
                 commander_name = COALESCE(excluded.commander_name, deck_queue.commander_name),
                 archidekt_edh_bracket = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_edh_bracket ELSE excluded.archidekt_edh_bracket END,
                 archidekt_deck_format = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_deck_format ELSE excluded.archidekt_deck_format END,
@@ -764,7 +765,8 @@ internal sealed class DeckQueueRepository
                 UPDATE deck_queue
                 SET processed = 1,
                     skipped = @skipped,
-                    last_checked_utc = @now
+                    last_checked_utc = @now,
+                    refresh_requested_utc = NULL
                 WHERE deck_id = @deckId;
                 """,
                 new

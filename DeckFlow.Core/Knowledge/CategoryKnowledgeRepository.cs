@@ -247,6 +247,25 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.GetNextUnprocessedDeckIdsAsync(count, cancellationToken);
 
     /// <summary>
+    /// Inserts listing rows and requeues a known deck only when its listing updatedAt is newer, to the second,
+    /// than its stored or last-seen value. Pending rows are untouched.
+    /// </summary>
+    /// <param name="rows">Listing rows to insert or evaluate for refresh.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The counts of new IDs and refreshes requeued.</returns>
+    public Task<ListingUpsertResult> AddListingRowsAsync(IReadOnlyList<ArchidektListingDeck> rows, CancellationToken cancellationToken = default)
+        => _deckQueue.AddListingRowsAsync(rows, cancellationToken);
+
+    /// <summary>
+    /// Returns refresh-requeued rows only, in FIFO order.
+    /// </summary>
+    /// <param name="limit">Maximum number of deck IDs to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Refresh-requeued deck IDs in FIFO order.</returns>
+    public Task<IReadOnlyList<string>> GetNextRefreshDeckIdsAsync(int limit, CancellationToken cancellationToken = default)
+        => _deckQueue.GetNextRefreshDeckIdsAsync(limit, cancellationToken);
+
+    /// <summary>
     /// Retrieves the total number of unprocessed deck IDs.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
