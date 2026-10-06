@@ -23,6 +23,10 @@ Before you start cutting, declare what the deck is trying to do. You can capture
 
 That context matters because Cut Lab measures tradeoffs against the deck's actual goal. A cut that is acceptable in a slower value shell may be wrong for a deck trying to hit a specific payoff window, so the workflow starts by making that intent explicit.
 
+### Choose a deck archetype
+
+In Step 3, Cut Lab suggests a deck archetype and explains why it fits. You can accept that suggestion or choose a different archetype; your choice always wins. Each archetype adds preset strategies and supplies default turns for casting the commander, establishing the engine, and presenting a representative line. Choose **None** to keep the prior behavior without archetype presets or archetype goal defaults.
+
 ## Protect what cannot move
 
 Some parts of the pool are non-negotiable. The commander is always locked. Beyond that, you can lock individual cards, protect named packages that must survive together, and lock whole role groups out of the cut pool when those cards are already settled.
@@ -50,6 +54,10 @@ Anywhere a card appears in the workspace — a role pill, a structural findings 
 Cut Lab then walks you through iterative cut rounds. As you make decisions, the simulation and metrics engine recalculates the deck's consistency numbers so the workspace stays current instead of showing stale advice from the opening snapshot.
 
 The important part is the stance: the tool does not tell you that a card is bad. It shows the measurable tradeoff of removing that card. You see what each proposed cut changes in the deck's numbers, which makes Cut Lab a decision-support workspace rather than a judgment engine.
+
+### Commander staples
+
+For a deck with one commander, Cut Lab recognizes commander-specific staples from bundled EDHREC data. It routes those cards into the **Mana base & staples** infrastructure round alongside lands and ramp, so they are proposed only after the other first-pass rounds rather than being treated as ordinary early cut candidates. Commander staple data is provided by EDHREC.
 
 ## How it works
 

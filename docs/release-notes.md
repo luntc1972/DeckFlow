@@ -6,11 +6,15 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.10.1 — Cut Lab deck archetypes and commander staples (2026-10-06)
+
+- **Deck archetypes:** Cut Lab now includes a Step 3 deck archetype picker that suggests an archetype with a reason, applies its preset strategies and default goal turns, and re-runs the round queue; the user's choice wins, while selecting None keeps the previous behavior.
+- **Commander staples:** Commander-specific staples from bundled EDHREC data now join lands and ramp in the Mana base & staples infrastructure round, so they are proposed only after the other first-pass rounds. Commander staple data is provided by EDHREC.
+
 ### Unreleased — Private Content KB corpus transition (2026-09-25)
 
 - Content KB artifacts now resolve from a private root for Studio (`DECKFLOW_KB_ROOT`, with `ContentKb:PrivateRoot` fallback); Web local development can use `ContentKb__ContentBase` pointed at the private artifacts directory.
 - The public Content KB flag remains OFF. Before a deploy removes the image copy, operators must bulk-backfill `/data/content-kb/` and use Studio's read-only Data Coverage audit to confirm zero missing and zero mismatched visible, approved rows.
-- Cut Lab now includes a Step 3 deck archetype picker that suggests an archetype, applies its strategies and default goal turns, and re-runs the round queue; selecting None keeps the previous behavior.
 
 ### 2026.09.10 — Creator Content Compliance (2026-09-24)
 
