@@ -445,9 +445,11 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
             catch (ArchidektRateLimitedException exception)
             {
                 _logger.LogWarning(exception, "Harvest.Run.RateLimited jobId={JobId} kind={Kind} retryAfterSeconds={RetryAfterSeconds}", signal.JobId, signal.Kind, exception.RetryAfter?.TotalSeconds);
+                var marked = false;
                 try
                 {
                     await _throttleStore.MarkRateLimitedAsync(DateTimeOffset.UtcNow, CancellationToken.None).ConfigureAwait(false);
+                    marked = true;
                 }
                 catch (Exception markException)
                 {
@@ -455,6 +457,12 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                 }
                 await _scheduleCache.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
                 await _updateScheduleCache.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
+                if (marked)
+                {
+                    // Why: ReloadAsync swallows failures, so only an explicit in-memory pause guarantees the scheduler sees the committed pause.
+                    _scheduleCache.ForcePausedSnapshot();
+                    _updateScheduleCache.ForcePausedSnapshot();
+                }
                 await _runStore.UpdateStateAsync(signal.JobId, HarvestRunState.Failed, startedUtc: null, completedUtc: DateTimeOffset.UtcNow, decksProcessed: null, additionalDecksFound: null, errorMessage: RateLimitedErrorMessage, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception exception)

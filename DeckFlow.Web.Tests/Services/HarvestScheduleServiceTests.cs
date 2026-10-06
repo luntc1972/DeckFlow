@@ -262,6 +262,51 @@ public sealed class HarvestScheduleServiceTests
         Assert.Equal([(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Scheduled)], job.Enqueued);
     }
 
+    [Fact]
+    public async Task HarvestScheduleCache_ReloadStartedBeforeForcePausedSnapshot_CannotUnpause()
+    {
+        var store = new GatedReadScheduleStore(new HarvestScheduleSnapshot(2, false, Now));
+        var cache = new HarvestScheduleCache(store);
+        await cache.ReloadAsync();
+        store.HoldNextRead = true;
+        var inFlight = cache.ReloadAsync();
+        await store.ReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cache.ForcePausedSnapshot();
+        store.Release.TrySetResult();
+        await inFlight;
+        Assert.True(cache.Snapshot().Paused); Assert.Equal(2, cache.Snapshot().IntervalHours);
+        store.Current = store.Current with { Paused = false };
+        await cache.ReloadAsync();
+        Assert.False(cache.Snapshot().Paused);
+    }
+
+    [Fact]
+    public async Task HarvestUpdateScheduleCache_ReloadStartedBeforeForcePausedSnapshot_CannotUnpause()
+    {
+        var store = new GatedReadUpdateScheduleStore(new HarvestUpdateScheduleSnapshot(15, false, Now));
+        var cache = new HarvestUpdateScheduleCache(store);
+        await cache.ReloadAsync();
+        store.HoldNextRead = true;
+        var inFlight = cache.ReloadAsync();
+        await store.ReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cache.ForcePausedSnapshot();
+        store.Release.TrySetResult();
+        await inFlight;
+        Assert.True(cache.Snapshot().Paused); Assert.Equal(15, cache.Snapshot().IntervalMinutes);
+        store.Current = store.Current with { Paused = false };
+        await cache.ReloadAsync();
+        Assert.False(cache.Snapshot().Paused);
+    }
+
+    [Fact]
+    public async Task TickAsync_AfterRateLimitTripWithFailedCacheReloads_EnqueuesNothing()
+    {
+        var store = await CreateStoreAsync();
+        var job = new RecordingJob();
+        await InvokeTickAsync(CreateService(store, job, new FixedSchedule(2, paused: true), new FixedUpdateSchedule(15, paused: true), Now));
+        Assert.Empty(job.Enqueued);
+    }
+
     private static DateTimeOffset Now => new(2026, 6, 12, 12, 0, 0, TimeSpan.Zero);
 
     private static async Task<HarvestRunStore> CreateStoreAsync()
@@ -300,12 +345,46 @@ public sealed class HarvestScheduleServiceTests
     {
         public HarvestScheduleSnapshot Snapshot() => new(hours, paused, DateTimeOffset.UtcNow);
         public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void ForcePausedSnapshot() { /* Why: these tests never drive a rate-limit trip. */ }
+    }
+
+    private sealed class GatedReadScheduleStore(HarvestScheduleSnapshot snapshot) : IHarvestScheduleStore
+    {
+        public HarvestScheduleSnapshot Current { get; set; } = snapshot;
+        public bool HoldNextRead { get; set; }
+        public TaskCompletionSource ReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public async Task<HarvestScheduleSnapshot> GetAsync(CancellationToken cancellationToken = default)
+        {
+            var read = Current;
+            if (HoldNextRead) { HoldNextRead = false; ReadStarted.TrySetResult(); await Release.Task.WaitAsync(cancellationToken); }
+            return read;
+        }
+        public Task SaveAsync(int? intervalHours, bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    private sealed class GatedReadUpdateScheduleStore(HarvestUpdateScheduleSnapshot snapshot) : IHarvestUpdateScheduleStore
+    {
+        public HarvestUpdateScheduleSnapshot Current { get; set; } = snapshot;
+        public bool HoldNextRead { get; set; }
+        public TaskCompletionSource ReadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public async Task<HarvestUpdateScheduleSnapshot> GetAsync(CancellationToken cancellationToken = default)
+        {
+            var read = Current;
+            if (HoldNextRead) { HoldNextRead = false; ReadStarted.TrySetResult(); await Release.Task.WaitAsync(cancellationToken); }
+            return read;
+        }
+        public Task SaveAsync(int? intervalMinutes, bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FixedUpdateSchedule(int? minutes, bool paused = false) : IHarvestUpdateScheduleCache
     {
         public HarvestUpdateScheduleSnapshot Snapshot() => new(minutes, paused, DateTimeOffset.UtcNow);
         public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void ForcePausedSnapshot() { /* Why: these tests never drive a rate-limit trip. */ }
     }
 
     private sealed class RecordingJob : IArchidektCacheJobService

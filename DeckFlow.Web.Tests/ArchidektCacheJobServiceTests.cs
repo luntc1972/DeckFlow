@@ -607,6 +607,42 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RateLimitedTrip_MarkSucceeds_ForcesBothCachesPaused()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepException = new ArchidektRateLimitedException("limited", TimeSpan.FromSeconds(120)) };
+        var throttleStore = new FakeHarvestThrottleStore(); var scheduleCache = new FakeHarvestScheduleCache(); var updateCache = new FakeHarvestUpdateScheduleCache();
+        var runStore = await CreateSqliteRunStoreAsync(); var service = CreateService(knowledgeStore, runStore, throttleStore, scheduleCache, updateCache);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual);
+            var job = await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            Assert.Equal(ArchidektCacheJobState.Failed, job.State); Assert.Equal(ArchidektCacheJobService.RateLimitedErrorMessage, job.ErrorMessage);
+            Assert.Equal(1, scheduleCache.ReloadCalls); Assert.Equal(1, updateCache.ReloadCalls);
+            Assert.Equal(1, scheduleCache.ForcePausedCalls); Assert.Equal(1, updateCache.ForcePausedCalls);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task RateLimitedTrip_MarkThrows_DoesNotForceCachesPaused()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepException = new ArchidektRateLimitedException("limited", TimeSpan.FromSeconds(120)) };
+        var throttleStore = new FakeHarvestThrottleStore { MarkException = new InvalidOperationException("mark failed") }; var scheduleCache = new FakeHarvestScheduleCache(); var updateCache = new FakeHarvestUpdateScheduleCache();
+        var runStore = await CreateSqliteRunStoreAsync(); var service = CreateService(knowledgeStore, runStore, throttleStore, scheduleCache, updateCache);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual);
+            var job = await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            Assert.Equal(ArchidektCacheJobState.Failed, job.State); Assert.Equal(ArchidektCacheJobService.RateLimitedErrorMessage, job.ErrorMessage);
+            Assert.Equal(1, scheduleCache.ReloadCalls); Assert.Equal(1, updateCache.ReloadCalls);
+            Assert.Equal(0, scheduleCache.ForcePausedCalls); Assert.Equal(0, updateCache.ForcePausedCalls);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
     public async Task RateLimitedTrip_MarkThrows_StillEndsFailedReloadsCachesAndWorkerContinues()
     {
         var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepException = new ArchidektRateLimitedException("limited", TimeSpan.FromSeconds(120)) };
@@ -680,15 +716,19 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
     private sealed class FakeHarvestScheduleCache : IHarvestScheduleCache
     {
         public int ReloadCalls { get; private set; }
+        public int ForcePausedCalls { get; private set; }
         public HarvestScheduleSnapshot Snapshot() => new(null, false, DateTimeOffset.MinValue);
         public Task ReloadAsync(CancellationToken cancellationToken = default) { ReloadCalls++; return Task.CompletedTask; }
+        public void ForcePausedSnapshot() => ForcePausedCalls++;
     }
 
     private sealed class FakeHarvestUpdateScheduleCache : IHarvestUpdateScheduleCache
     {
         public int ReloadCalls { get; private set; }
+        public int ForcePausedCalls { get; private set; }
         public HarvestUpdateScheduleSnapshot Snapshot() => new(null, false, DateTimeOffset.MinValue);
         public Task ReloadAsync(CancellationToken cancellationToken = default) { ReloadCalls++; return Task.CompletedTask; }
+        public void ForcePausedSnapshot() => ForcePausedCalls++;
     }
 
     private async Task<HarvestRunStore> CreateSqliteRunStoreAsync()

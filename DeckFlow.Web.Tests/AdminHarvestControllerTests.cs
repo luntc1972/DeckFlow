@@ -1344,6 +1344,7 @@ public sealed class AdminHarvestControllerTests
             ReloadCount++;
             return Task.CompletedTask;
         }
+        public void ForcePausedSnapshot() { /* Why: these tests never drive a rate-limit trip. */ }
     }
 
     private sealed class StubHarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
@@ -1369,6 +1370,7 @@ public sealed class AdminHarvestControllerTests
             ReloadCount++;
             return Task.CompletedTask;
         }
+        public void ForcePausedSnapshot() { /* Why: these tests never drive a rate-limit trip. */ }
     }
 
     private sealed class StubHarvestStatsAggregator : IHarvestStatsAggregator

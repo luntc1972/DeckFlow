@@ -12,6 +12,8 @@ public sealed class HarvestUpdateScheduleCache : BackgroundService, IHarvestUpda
     private readonly IHarvestUpdateScheduleStore _store;
     private readonly ILogger<HarvestUpdateScheduleCache> _logger;
     private volatile HarvestUpdateScheduleSnapshot _snapshot = DefaultSnapshot;
+    private readonly object _publishGate = new();
+    private long _generation;
 
     /// <summary>Creates the hosted cache.</summary>
     public HarvestUpdateScheduleCache(IHarvestUpdateScheduleStore store, ILogger<HarvestUpdateScheduleCache> logger)
@@ -23,10 +25,30 @@ public sealed class HarvestUpdateScheduleCache : BackgroundService, IHarvestUpda
     internal HarvestUpdateScheduleCache(IHarvestUpdateScheduleStore store) : this(store, NullLogger<HarvestUpdateScheduleCache>.Instance) { }
     /// <inheritdoc />
     public HarvestUpdateScheduleSnapshot Snapshot() => _snapshot;
+
+    /// <inheritdoc />
+    public void ForcePausedSnapshot()
+    {
+        lock (_publishGate)
+        {
+            _generation++;
+            _snapshot = _snapshot with { Paused = true };
+        }
+    }
     /// <inheritdoc />
     public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
-        try { _snapshot = await _store.GetAsync(cancellationToken).ConfigureAwait(false); }
+        try
+        {
+            long generation;
+            lock (_publishGate) { generation = _generation; }
+            var fresh = await _store.GetAsync(cancellationToken).ConfigureAwait(false);
+            lock (_publishGate)
+            {
+                // Why: a read that began before a forced pause may predate the committed pause.
+                if (generation == _generation) _snapshot = fresh;
+            }
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception exception)
         {

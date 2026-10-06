@@ -20,6 +20,9 @@ public interface IHarvestScheduleCache
     /// <returns>The current in-memory schedule snapshot.</returns>
     HarvestScheduleSnapshot Snapshot();
 
+    /// <summary>Forces the current in-memory snapshot to Paused after a committed auto-pause.</summary>
+    void ForcePausedSnapshot();
+
     /// <summary>
     /// Forces a synchronous re-read of the <c>harvest_schedule</c> row (D-07). Called by
     /// <c>AdminHarvestController</c> after every schedule write so the new value is visible

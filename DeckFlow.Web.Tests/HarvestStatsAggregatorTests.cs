@@ -836,6 +836,7 @@ public sealed class HarvestStatsAggregatorTests
 
         public Task ReloadAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+        public void ForcePausedSnapshot() { /* Why: these tests never drive a rate-limit trip. */ }
     }
 
     private sealed class FakeHarvestUpdateScheduleCache : IHarvestUpdateScheduleCache
@@ -850,5 +851,6 @@ public sealed class HarvestStatsAggregatorTests
 
         public Task ReloadAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+        public void ForcePausedSnapshot() { /* Why: these tests never drive a rate-limit trip. */ }
     }
 }

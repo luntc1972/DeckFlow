@@ -27,6 +27,8 @@ public sealed class HarvestScheduleCache : BackgroundService, IHarvestScheduleCa
 
     /// <summary>Atomically replaced by ReloadAsync; reads are lock-free.</summary>
     private volatile HarvestScheduleSnapshot _snapshot = DefaultSnapshot;
+    private readonly object _publishGate = new();
+    private long _generation;
 
     /// <summary>
     /// DI constructor. Registered as a singleton and as an IHostedService (see Plan 07
@@ -52,12 +54,28 @@ public sealed class HarvestScheduleCache : BackgroundService, IHarvestScheduleCa
     public HarvestScheduleSnapshot Snapshot() => _snapshot;
 
     /// <inheritdoc />
+    public void ForcePausedSnapshot()
+    {
+        lock (_publishGate)
+        {
+            _generation++;
+            _snapshot = _snapshot with { Paused = true };
+        }
+    }
+
+    /// <inheritdoc />
     public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
         try
         {
+            long generation;
+            lock (_publishGate) { generation = _generation; }
             var fresh = await _store.GetAsync(cancellationToken).ConfigureAwait(false);
-            _snapshot = fresh;
+            lock (_publishGate)
+            {
+                // Why: a read that began before a forced pause may predate the committed pause.
+                if (generation == _generation) _snapshot = fresh;
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
