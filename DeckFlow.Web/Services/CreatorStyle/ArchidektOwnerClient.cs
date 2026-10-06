@@ -70,7 +70,12 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
         ILogger<ArchidektOwnerClient>? logger = null)
         : this(
             pipelineProvider,
-            new RestClient(CreateNamedClient(httpClientFactory)),
+            // Why: RestSharp 114's default per-request agent overrides the named client's honest agent (D-13).
+            new RestClient(CreateNamedClient(httpClientFactory), new RestClientOptions
+            {
+                BaseUrl = new Uri("https://archidekt.com/"),
+                UserAgent = null,
+            }),
             logger)
     {
     }

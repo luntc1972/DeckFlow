@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Knowledge.CardGrounding;
@@ -31,7 +32,8 @@ public static class CreatorStyleServiceCollectionExtensions
         {
             client.BaseAddress = new Uri("https://archidekt.com/");
             client.MaxResponseContentBufferSize = ArchidektOwnerClient.MaxResponseBytes;
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+            // Why: TryAddWithoutValidation keeps an unexpected version string from throwing FormatException; D-13 replaces the legacy agent.
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", ArchidektUserAgent.Value);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         });
 

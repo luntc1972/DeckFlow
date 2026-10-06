@@ -21,6 +21,8 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using System.Net;
+using System.Net.Http;
 using Xunit;
 
 namespace DeckFlow.Web.Tests.Services.CreatorStyle;
@@ -96,6 +98,37 @@ public sealed class CreatorStyleDiRegistrationTests
         var ownerClient = scope.ServiceProvider.GetRequiredService<IArchidektOwnerClient>();
         Assert.IsType<ArchidektOwnerClient>(ownerClient);
         Assert.IsType<CreatorProfileDeckCrawler>(scope.ServiceProvider.GetRequiredService<CreatorProfileDeckCrawler>());
+    }
+
+    [Fact]
+    public async Task ArchidektOwnerNamedClient_ArchidektHonestAgent_SendsUserAgentAndNoReferer()
+    {
+        using var testRoot = CreatorStyleTestRoot.Create();
+        using var providerScope = EnvScope.Clear("DECKFLOW_DATABASE_PROVIDER", "DECKFLOW_DATABASE_CONNECTION_STRING");
+        using var dataDirScope = EnvScope.Set("MTG_DATA_DIR", Path.Combine(testRoot.Environment.ContentRootPath, "..", "artifacts"));
+        var handler = new HeaderCapturingHandler();
+        var services = CreateCreatorStyleServiceCollection(testRoot.Environment);
+        services.AddDeckFlowResiliencePipelines();
+        services.AddDeckFlowCreatorStyle(testRoot.Environment);
+        services.AddHttpClient("archidekt-owner").ConfigurePrimaryHttpMessageHandler(() => handler);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ArchidektThrottle.ResetForTests();
+        try
+        {
+            using IServiceScope scope = provider.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<IArchidektOwnerClient>().ResolveUsernameAsync("snail");
+        }
+        finally
+        {
+            ArchidektThrottle.ResetForTests();
+        }
+
+        // Why: RestSharp may set its own agent per request, so the wire value must be asserted.
+        Assert.Single(handler.Requests);
+        Assert.Equal("https://archidekt.com/api/users/?username=snail", handler.Requests[0].RequestUri?.ToString());
+        Assert.Equal(ArchidektUserAgent.Value, handler.Requests[0].UserAgent);
+        Assert.False(handler.Requests[0].HasReferer);
     }
 
     [Fact]
@@ -250,6 +283,21 @@ public sealed class CreatorStyleDiRegistrationTests
 
         public void ValidateCommanderDeckSize(string systemName, IReadOnlyList<DeckEntry> entries, int requiredDeckSize = 100)
         {
+        }
+    }
+
+    private sealed class HeaderCapturingHandler : HttpMessageHandler
+    {
+        public List<(Uri? RequestUri, string UserAgent, bool HasReferer)> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            request.Headers.TryGetValues("User-Agent", out var values);
+            Requests.Add((request.RequestUri, string.Join(" ", values ?? []), request.Headers.Referrer is not null));
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{ "results": [] }""", System.Text.Encoding.UTF8, "application/json"),
+            });
         }
     }
 
