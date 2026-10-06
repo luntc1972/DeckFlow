@@ -84,8 +84,15 @@ public sealed class HarvestRunStore : IHarvestRunStore
             }
 
             await EnsureHarvestRunsConstraintsAsync(connection, cancellationToken).ConfigureAwait(false);
-            // Add after SQLite rebuild as a backstop for tables that need no rebuild.
-            await EnsureAdditiveColumnsAsync(connection, cancellationToken).ConfigureAwait(false);
+            if (_connectionInfo.IsPostgres)
+            {
+                await EnsurePostgresHarvestRunsShapeAsync(connection, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                // Add after SQLite rebuild as a backstop for tables that need no rebuild.
+                await EnsureAdditiveColumnsAsync(connection, cancellationToken).ConfigureAwait(false);
+            }
 
             await using (var reaper = connection.CreateCommand())
             {
@@ -541,6 +548,65 @@ public sealed class HarvestRunStore : IHarvestRunStore
         return new HashSet<string>(columns, StringComparer.OrdinalIgnoreCase);
     }
 
+    private async Task EnsurePostgresHarvestRunsShapeAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        var columns = await GetHarvestRunColumnsAsync(connection, cancellationToken).ConfigureAwait(false);
+        var missingColumns = AdditiveColumns.Where(column => !columns.Contains(column.Name)).ToArray();
+        var kindChecks = await GetPostgresHarvestRunKindChecksAsync(connection, cancellationToken).ConfigureAwait(false);
+        var hasTriggerConstraint = await PostgresHarvestRunConstraintExistsAsync(connection, HarvestRunTriggerSourceConstraintName, cancellationToken).ConfigureAwait(false);
+        if (missingColumns.Length == 0 && kindChecks.Count == 1 && kindChecks[0].Name == PostgresHarvestRunKindConstraintName && kindChecks[0].Definition.Contains("'update'", StringComparison.Ordinal) && hasTriggerConstraint)
+        {
+            return;
+        }
+
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        var statements = new List<string> { "SET LOCAL lock_timeout = '5s'" };
+        statements.AddRange(missingColumns.Select(column => $"ALTER TABLE harvest_runs ADD COLUMN IF NOT EXISTS {column.Name} {column.PostgresType} NULL"));
+        // Postgres generates the inline constraint name, so only its definition identifies it.
+        statements.AddRange(kindChecks.Select(check => $"ALTER TABLE harvest_runs DROP CONSTRAINT IF EXISTS {QuotePostgresIdentifier(check.Name)}"));
+        // DROP IF EXISTS before ADD makes a retry idempotent.
+        statements.Add($"ALTER TABLE harvest_runs DROP CONSTRAINT IF EXISTS {QuotePostgresIdentifier(PostgresHarvestRunKindConstraintName)}");
+        statements.Add("ALTER TABLE harvest_runs ADD CONSTRAINT ck_harvest_runs_kind CHECK (kind IN ('bulk','url','update'))");
+        statements.Add($"ALTER TABLE harvest_runs DROP CONSTRAINT IF EXISTS {QuotePostgresIdentifier(HarvestRunTriggerSourceConstraintName)}");
+        statements.Add("ALTER TABLE harvest_runs ADD CONSTRAINT ck_harvest_runs_trigger_source CHECK (trigger_source IN ('manual','scheduled'))");
+        // lock_timeout bounds the ACCESS EXCLUSIVE wait during a rolling deploy; failure keeps the old instance.
+        command.CommandText = string.Join(";", statements) + ";";
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<List<PostgresConstraint>> GetPostgresHarvestRunKindChecksAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT con.conname, pg_get_constraintdef(con.oid)
+              FROM pg_constraint con INNER JOIN pg_class rel ON rel.oid = con.conrelid
+              INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+             WHERE rel.relname = 'harvest_runs' AND nsp.nspname = current_schema() AND con.contype = 'c'
+               AND pg_get_constraintdef(con.oid) LIKE '%kind%' AND pg_get_constraintdef(con.oid) LIKE '%''bulk''%';
+            """;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        var checks = new List<PostgresConstraint>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) checks.Add(new(reader.GetString(0), reader.GetString(1)));
+        return checks;
+    }
+
+    private static async Task<bool> PostgresHarvestRunConstraintExistsAsync(DbConnection connection, string constraintName, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT EXISTS (SELECT 1 FROM pg_constraint con INNER JOIN pg_class rel ON rel.oid = con.conrelid
+            INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace WHERE rel.relname = 'harvest_runs'
+            AND nsp.nspname = current_schema() AND con.conname = @constraintName);
+            """;
+        RelationalDatabaseConnection.AddParameter(command, "@constraintName", constraintName);
+        return Convert.ToBoolean(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
+    }
+
+    private static string QuotePostgresIdentifier(string identifier) => $"\"{identifier.Replace("\"", "\"\"")}\"";
+
     private static async Task EnsureSqliteHarvestRunsConstraintsCurrentAsync(
         DbConnection connection,
         CancellationToken cancellationToken)
@@ -714,7 +780,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
     private const string PostgresCreateTableSql = """
         CREATE TABLE IF NOT EXISTS harvest_runs (
           id                       UUID PRIMARY KEY,
-          kind                     TEXT NOT NULL CHECK (kind IN ('bulk','url')),
+          kind                     TEXT NOT NULL,
           state                    TEXT NOT NULL,
           requested_utc            TIMESTAMPTZ NOT NULL DEFAULT now(),
           started_utc              TIMESTAMPTZ NULL,
@@ -726,6 +792,13 @@ public sealed class HarvestRunStore : IHarvestRunStore
           decks_drained            INT NULL,
           error_message            TEXT NULL,
           url                      TEXT NULL,
+          trigger_source           TEXT NULL,
+          pages_polled             INT NULL,
+          refreshes_requeued       INT NULL,
+          refreshes_drained        INT NULL,
+          new_ids_seen             INT NULL,
+          CONSTRAINT ck_harvest_runs_kind CHECK (kind IN ('bulk','url','update')),
+          CONSTRAINT ck_harvest_runs_trigger_source CHECK (trigger_source IN ('manual','scheduled')),
           CONSTRAINT ck_harvest_runs_state CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled'))
         );
         CREATE INDEX IF NOT EXISTS ix_harvest_runs_state         ON harvest_runs(state);
@@ -790,6 +863,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
     private static readonly string[] HarvestRunColumns = ["id", "kind", "state", "requested_utc", "started_utc", "completed_utc", "duration_seconds", "decks_processed", "additional_decks_found", "decks_enqueued", "decks_drained", "error_message", "url", "trigger_source", "pages_polled", "refreshes_requeued", "refreshes_drained", "new_ids_seen"];
     private static readonly AdditiveColumn[] AdditiveColumns = [new("decks_enqueued", "INTEGER", "INT"), new("decks_drained", "INTEGER", "INT"), new("trigger_source", "TEXT", "TEXT"), new("pages_polled", "INTEGER", "INT"), new("refreshes_requeued", "INTEGER", "INT"), new("refreshes_drained", "INTEGER", "INT"), new("new_ids_seen", "INTEGER", "INT")];
     private sealed record AdditiveColumn(string Name, string SqliteType, string PostgresType);
+    private sealed record PostgresConstraint(string Name, string Definition);
 
     private const string PostgresHarvestRunKindConstraintName = "ck_harvest_runs_kind";
     private const string HarvestRunTriggerSourceConstraintName = "ck_harvest_runs_trigger_source";
