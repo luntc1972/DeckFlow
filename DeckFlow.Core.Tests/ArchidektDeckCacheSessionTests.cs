@@ -188,6 +188,111 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_RefreshOnlyListingPage_DrainsRefreshesWithoutCountingThemAsEnqueued()
+    {
+        var t0 = new DateTimeOffset(2026, 1, 3, 0, 0, 0, TimeSpan.Zero);
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var importer = new FakeDeckImporter { Metadata = CreateMetadata(t0) };
+        var recentImporter = new FakeListingRecentDecksImporter
+        {
+            PageOneRows = new[] { new ArchidektListingDeck("K1", t0), new ArchidektListingDeck("K2", t0) }
+        };
+        var session = new ArchidektDeckCacheSession(repository, importer, recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        await session.RunAsync(TimeSpan.FromSeconds(1));
+        recentImporter.RequestedPages.Clear();
+        recentImporter.PageOneRows = new[] { new ArchidektListingDeck("K1", t0.AddHours(1)), new ArchidektListingDeck("K2", t0.AddHours(1)) };
+
+        // Why: D-05 and A7 require refreshes to drain without inflating the new-id counter.
+        var result = await session.RunAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(0, result.DecksEnqueued);
+        Assert.Equal(2, result.DecksDrained);
+        Assert.Equal(2, result.DecksUnchanged);
+        Assert.Equal(new[] { "K1", "K2", "K1", "K2" }, importer.ImportedDeckIds);
+    }
+
+    [Fact]
+    public async Task RunAsync_NewIdWithNullUpdatedAt_IsInsertedAndCounted()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var importer = new FakeDeckImporter { Metadata = CreateMetadata(new DateTimeOffset(2026, 1, 3, 0, 0, 0, TimeSpan.Zero)) };
+        var recentImporter = new FakeListingRecentDecksImporter { PageOneRows = new[] { new ArchidektListingDeck("N", null) } };
+
+        // Why: HARV-10's empty timestamp edge still discovers and counts novel deck IDs.
+        var result = await new ArchidektDeckCacheSession(repository, importer, recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1)).RunAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(1, result.DecksEnqueued);
+        Assert.Equal(1, result.DecksAdded);
+        Assert.Equal(new[] { "N" }, importer.ImportedDeckIds);
+    }
+
+    [Fact]
+    public async Task RunAsync_KnownDeckWithNullListingUpdatedAt_IsNotRefetched()
+    {
+        var t0 = new DateTimeOffset(2026, 1, 3, 0, 0, 0, TimeSpan.Zero);
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var importer = new FakeDeckImporter { Metadata = CreateMetadata(t0) };
+        var recentImporter = new FakeListingRecentDecksImporter { PageOneRows = new[] { new ArchidektListingDeck("K", t0) } };
+        var session = new ArchidektDeckCacheSession(repository, importer, recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        await session.RunAsync(TimeSpan.FromSeconds(1));
+        recentImporter.RequestedPages.Clear();
+        recentImporter.PageOneRows = new[] { new ArchidektListingDeck("K", null) };
+
+        // Why: a null HARV-10 listing timestamp cannot prove modification and must not requeue K.
+        var result = await session.RunAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(new[] { "K" }, importer.ImportedDeckIds);
+        Assert.Equal(0, result.DecksEnqueued);
+        Assert.Equal(0, result.DecksDrained);
+        Assert.True(recentImporter.RequestedPages.Count(page => page == 1) >= 2);
+    }
+
+    [Fact]
+    public async Task RunAsync_LegacyRowWithNullStoredUpdatedAt_IsRefetchedExactlyOnce()
+    {
+        var t0 = new DateTimeOffset(2026, 1, 3, 0, 0, 0, TimeSpan.Zero);
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(new[] { "L" });
+        await repository.MarkDeckProcessedAsync("L", commanderName: null);
+        var importer = new FakeDeckImporter { Metadata = null };
+        var recentImporter = new FakeListingRecentDecksImporter { PageOneRows = new[] { new ArchidektListingDeck("L", t0.AddHours(1)) } };
+
+        // Why: D-03's seen baseline stops a legacy NULL/NULL row from requeueing forever.
+        var result = await new ArchidektDeckCacheSession(repository, importer, recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1)).RunAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(new[] { "L" }, importer.ImportedDeckIds);
+        Assert.Equal(0, result.DecksEnqueued);
+        Assert.True(recentImporter.RequestedPages.Count(page => page == 1) >= 2);
+        Assert.Null((await ReadDeckQueueRowAsync("L")).UpdatedUtc);
+    }
+
+    [Fact]
+    public async Task RunAsync_ModifiedKnownDeckOnDeepPage_IsRefetchedAndCursorAdvances()
+    {
+        var t0 = new DateTimeOffset(2026, 1, 3, 0, 0, 0, TimeSpan.Zero);
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var importer = new FakeDeckImporter { Metadata = CreateMetadata(t0) };
+        var recentImporter = new FakeListingRecentDecksImporter { PageOneRows = new[] { new ArchidektListingDeck("K", t0) } };
+        var session = new ArchidektDeckCacheSession(repository, importer, recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        await session.RunAsync(TimeSpan.FromSeconds(1));
+        await repository.SetRecentDeckCrawlPageAsync(7);
+        recentImporter.RequestedPages.Clear();
+        recentImporter.PageOneRows = Array.Empty<ArchidektListingDeck>();
+        recentImporter.DeepPageRows = new[] { new ArchidektListingDeck("K", t0.AddHours(1)) };
+
+        // Why: A7 requires deep-page refreshes to drain, while rows advance the deep cursor.
+        var result = await session.RunAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(new[] { "K", "K" }, importer.ImportedDeckIds);
+        Assert.Equal(0, result.DecksEnqueued);
+        Assert.Contains(7, recentImporter.RequestedPages);
+        Assert.True(await repository.GetRecentDeckCrawlPageAsync() > 7);
+    }
+
+    [Fact]
     public async Task RunAsync_MetadataBearingImport_PersistsMetadata()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -341,6 +446,9 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
 
     private sealed record DeckQueueRow(string? ContentHash, int? EdhBracket, int? DeckFormat, bool? Theorycrafted, DateTimeOffset? CreatedUtc, DateTimeOffset? UpdatedUtc, DateTimeOffset? CapturedUtc);
 
+    private static ArchidektDeckMetadata CreateMetadata(DateTimeOffset updatedUtc)
+        => new(null, null, null, null, updatedUtc, updatedUtc);
+
     /// <summary>
     /// Invokes the handler synchronously on the calling thread (unlike <see cref="Progress{T}"/>,
     /// which posts asynchronously), so the test can react to each progress tick in-order and stop the
@@ -359,11 +467,14 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     {
         public int ImportCalls { get; private set; }
 
+        public List<string> ImportedDeckIds { get; } = new();
+
         public ArchidektDeckMetadata? Metadata { get; set; }
 
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
         {
             ImportCalls++;
+            ImportedDeckIds.Add(urlOrDeckId);
             return Task.FromResult(new List<DeckEntry>
             {
                 new()
@@ -394,6 +505,33 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
 
         public Task<IReadOnlyList<ArchidektListingDeck>> ImportRecentListingPageAsync(int page, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ArchidektListingDeck>>(Array.Empty<ArchidektListingDeck>());
+    }
+
+    /// <summary>
+    /// Returns sticky listing rows while recording each bulk listing-page request.
+    /// </summary>
+    private sealed class FakeListingRecentDecksImporter : IArchidektRecentDecksImporter
+    {
+        public IReadOnlyList<ArchidektListingDeck> PageOneRows { get; set; } = Array.Empty<ArchidektListingDeck>();
+
+        public IReadOnlyList<ArchidektListingDeck> DeepPageRows { get; set; } = Array.Empty<ArchidektListingDeck>();
+
+        public List<int> RequestedPages { get; } = new();
+
+        public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
+
+        public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
+
+        public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
+
+        public Task<IReadOnlyList<ArchidektListingDeck>> ImportRecentListingPageAsync(int page, CancellationToken cancellationToken = default)
+        {
+            RequestedPages.Add(page);
+            return Task.FromResult(page == 1 ? PageOneRows : DeepPageRows);
+        }
     }
 
     private sealed class ThrowingRateLimitedDeckImporter : IArchidektDeckImporter
