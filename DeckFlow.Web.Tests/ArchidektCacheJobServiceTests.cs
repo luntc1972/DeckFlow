@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Net;
 using DeckFlow.Core.Integration;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
@@ -588,6 +589,65 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
         finally { await service.StopAsync(CancellationToken.None); }
     }
 
+    [Fact]
+    public async Task BulkRun_RateLimitedTrip_EndsFailedWithFixedReasonMarksAndReloadsBothCaches()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunCacheSweepException = new ArchidektRateLimitedException("limited", TimeSpan.FromSeconds(120)) };
+        var throttleStore = new FakeHarvestThrottleStore(); var scheduleCache = new FakeHarvestScheduleCache(); var updateCache = new FakeHarvestUpdateScheduleCache();
+        var runStore = await CreateSqliteRunStoreAsync(); var service = CreateService(knowledgeStore, runStore, throttleStore, scheduleCache, updateCache);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromMinutes(1), HarvestTriggerSource.Manual);
+            var job = await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            Assert.Equal(ArchidektCacheJobState.Failed, job.State); Assert.Equal(ArchidektCacheJobService.RateLimitedErrorMessage, job.ErrorMessage);
+            Assert.Equal(1, throttleStore.MarkCalls); Assert.Equal(1, scheduleCache.ReloadCalls); Assert.Equal(1, updateCache.ReloadCalls);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task RateLimitedTrip_MarkThrows_StillEndsFailedReloadsCachesAndWorkerContinues()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepException = new ArchidektRateLimitedException("limited", TimeSpan.FromSeconds(120)) };
+        var throttleStore = new FakeHarvestThrottleStore { MarkException = new InvalidOperationException("mark failed") }; var scheduleCache = new FakeHarvestScheduleCache(); var updateCache = new FakeHarvestUpdateScheduleCache();
+        var runStore = await CreateSqliteRunStoreAsync(); var service = CreateService(knowledgeStore, runStore, throttleStore, scheduleCache, updateCache);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var first = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual);
+            var failed = await WaitForTerminalJobAsync(service, runStore, first.Job.JobId);
+            Assert.Equal(ArchidektCacheJobState.Failed, failed.State); Assert.Equal(ArchidektCacheJobService.RateLimitedErrorMessage, failed.ErrorMessage);
+            Assert.Equal(1, scheduleCache.ReloadCalls); Assert.Equal(1, updateCache.ReloadCalls); Assert.Null(await runStore.GetActiveAsync());
+            throttleStore.MarkException = null; knowledgeStore.RunUpdateSweepException = null;
+            var second = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromMinutes(1), HarvestTriggerSource.Manual);
+            Assert.Equal(ArchidektCacheJobState.Succeeded, (await WaitForTerminalJobAsync(service, runStore, second.Job.JobId)).State);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task GenericFailure_DoesNotMarkOrReloadCaches()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepException = new InvalidOperationException("update sweep failed") };
+        var throttleStore = new FakeHarvestThrottleStore(); var scheduleCache = new FakeHarvestScheduleCache(); var updateCache = new FakeHarvestUpdateScheduleCache();
+        var runStore = await CreateSqliteRunStoreAsync(); var service = CreateService(knowledgeStore, runStore, throttleStore, scheduleCache, updateCache);
+        await service.StartAsync(CancellationToken.None);
+        try { var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual); var job = await WaitForTerminalJobAsync(service, runStore, result.Job.JobId); Assert.Equal(ArchidektCacheJobState.Failed, job.State); Assert.Equal("update sweep failed", job.ErrorMessage); Assert.Equal(0, throttleStore.MarkCalls); Assert.Equal(0, scheduleCache.ReloadCalls); Assert.Equal(0, updateCache.ReloadCalls); }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task NonRateLimitedHttpFailure_DoesNotMarkOrReloadCaches()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepException = new HttpRequestException("upstream unavailable", null, HttpStatusCode.ServiceUnavailable) };
+        var throttleStore = new FakeHarvestThrottleStore(); var scheduleCache = new FakeHarvestScheduleCache(); var updateCache = new FakeHarvestUpdateScheduleCache();
+        var runStore = await CreateSqliteRunStoreAsync(); var service = CreateService(knowledgeStore, runStore, throttleStore, scheduleCache, updateCache);
+        await service.StartAsync(CancellationToken.None);
+        try { var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual); var job = await WaitForTerminalJobAsync(service, runStore, result.Job.JobId); Assert.Equal(ArchidektCacheJobState.Failed, job.State); Assert.Equal("upstream unavailable", job.ErrorMessage); Assert.Equal(0, throttleStore.MarkCalls); Assert.Equal(0, scheduleCache.ReloadCalls); Assert.Equal(0, updateCache.ReloadCalls); }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
     private static ArchidektCacheJobService CreateService(
         ICategoryKnowledgeStore? store = null,
         IHarvestRunStore? runStore = null,
@@ -604,23 +664,31 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
 
     private sealed class FakeHarvestThrottleStore : IHarvestThrottleStore
     {
+        public int MarkCalls { get; private set; }
+        public Exception? MarkException { get; set; }
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<HarvestThrottleSnapshot> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(new HarvestThrottleSnapshot(20, null, DateTimeOffset.UtcNow));
         public Task SaveRateAsync(int ratePerMinute, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task MarkRateLimitedAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task MarkRateLimitedAsync(DateTimeOffset now, CancellationToken cancellationToken = default)
+        {
+            MarkCalls++;
+            return MarkException is null ? Task.CompletedTask : Task.FromException(MarkException);
+        }
         public Task<bool> ResumeAfterRateLimitAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult(false);
     }
 
     private sealed class FakeHarvestScheduleCache : IHarvestScheduleCache
     {
+        public int ReloadCalls { get; private set; }
         public HarvestScheduleSnapshot Snapshot() => new(null, false, DateTimeOffset.MinValue);
-        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ReloadAsync(CancellationToken cancellationToken = default) { ReloadCalls++; return Task.CompletedTask; }
     }
 
     private sealed class FakeHarvestUpdateScheduleCache : IHarvestUpdateScheduleCache
     {
+        public int ReloadCalls { get; private set; }
         public HarvestUpdateScheduleSnapshot Snapshot() => new(null, false, DateTimeOffset.MinValue);
-        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ReloadAsync(CancellationToken cancellationToken = default) { ReloadCalls++; return Task.CompletedTask; }
     }
 
     private async Task<HarvestRunStore> CreateSqliteRunStoreAsync()

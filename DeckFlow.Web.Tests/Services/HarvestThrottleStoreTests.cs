@@ -125,6 +125,33 @@ public sealed class HarvestThrottleStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task BulkScheduleSeam_Committed_PersistsPausedAndKeepsInterval()
+    {
+        var (bulk, _, connection, _) = await CreateStoresAsync(); var now = DateTimeOffset.Parse("2026-06-20T12:34:56Z");
+        await using var db = await connection.OpenConnectionAsync(); await using var transaction = await db.BeginTransactionAsync();
+        await HarvestScheduleStore.SetPausedInTransactionAsync(db, transaction, true, now, CancellationToken.None); await transaction.CommitAsync();
+        var snapshot = await bulk.GetAsync(); Assert.Equal(2, snapshot.IntervalHours); Assert.True(snapshot.Paused); Assert.Equal(now, snapshot.UpdatedUtc);
+    }
+
+    [Fact]
+    public async Task BulkScheduleSeam_RolledBack_LeavesRowUnchanged()
+    {
+        var (bulk, _, connection, _) = await CreateStoresAsync();
+        await using var db = await connection.OpenConnectionAsync(); await using var transaction = await db.BeginTransactionAsync();
+        await HarvestScheduleStore.SetPausedInTransactionAsync(db, transaction, true, DateTimeOffset.Parse("2026-06-20T12:34:56Z"), CancellationToken.None); await transaction.RollbackAsync();
+        var snapshot = await bulk.GetAsync(); Assert.Equal(2, snapshot.IntervalHours); Assert.False(snapshot.Paused);
+    }
+
+    [Fact]
+    public async Task BulkScheduleSeam_MissingRow_Throws()
+    {
+        var (_, _, connection, _) = await CreateStoresAsync();
+        await using var db = await connection.OpenConnectionAsync(); await using var transaction = await db.BeginTransactionAsync();
+        await using (var command = db.CreateCommand()) { command.Transaction = transaction; command.CommandText = "DELETE FROM harvest_schedule WHERE id = 1;"; await command.ExecuteNonQueryAsync(); }
+        await Assert.ThrowsAsync<InvalidOperationException>(() => HarvestScheduleStore.SetPausedInTransactionAsync(db, transaction, true, DateTimeOffset.UtcNow, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ResumeAfterRateLimitAsync_ScheduleRowMissing_RollsBackEverything()
     {
         var (bulk, _, connection, throttle) = await CreateStoresAsync(); await throttle.MarkRateLimitedAsync(DateTimeOffset.UtcNow); await ExecuteAsync(connection, "DELETE FROM harvest_update_schedule WHERE id = 1;");
