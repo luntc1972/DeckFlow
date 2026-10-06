@@ -244,20 +244,59 @@ public sealed class AdminHarvestController : Controller
     /// <summary>
     /// Queues a bounded Archidekt cache harvest run from the admin controls.
     /// </summary>
+    /// <param name="kind">Server-allow-listed posted kind token.</param>
     /// <param name="durationSeconds">Allowed run duration in seconds.</param>
     /// <param name="cancellationToken">Cancellation token for the enqueue request.</param>
     [HttpPost("run")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RunNow(int durationSeconds, CancellationToken cancellationToken)
+    public async Task<IActionResult> RunNow(string? kind, int durationSeconds, CancellationToken cancellationToken)
     {
-        if (!AdminHarvestViewModel.AllowedDurationSeconds.Contains(durationSeconds))
+        var selectedKind = default(HarvestRunKind);
+        var foundKind = false;
+        // default(HarvestRunKind) is Bulk, so validity cannot be encoded by the selected value.
+        foreach (var allowedKind in AdminHarvestViewModel.AllowedRunKinds)
         {
-            SetBanner("Invalid duration.", isError: true);
+            if (string.Equals(AdminHarvestViewModel.RunKindToken(allowedKind), kind, StringComparison.Ordinal))
+            {
+                selectedKind = allowedKind;
+                foundKind = true;
+                break;
+            }
+        }
+
+        if (!foundKind)
+        {
+            SetBanner("Invalid run kind.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
-        await _jobService.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(durationSeconds), HarvestTriggerSource.Manual, cancellationToken).ConfigureAwait(false);
-        SetBanner($"Run queued (cap {durationSeconds / 60} min).");
+        TimeSpan duration;
+        if (selectedKind == HarvestRunKind.Bulk)
+        {
+            if (!AdminHarvestViewModel.AllowedDurationSeconds.Contains(durationSeconds))
+            {
+                SetBanner("Invalid duration.", isError: true);
+                return RedirectToAction(nameof(Index));
+            }
+
+            duration = TimeSpan.FromSeconds(durationSeconds);
+        }
+        else
+        {
+            duration = ArchidektCacheJobService.UpdateRunDuration;
+        }
+
+        var result = await _jobService.EnqueueAsync(selectedKind, duration, HarvestTriggerSource.Manual, cancellationToken).ConfigureAwait(false);
+        if (!result.StartedNewJob)
+        {
+            SetBanner("A harvest run is already active. No new run was queued.", isError: true);
+            return RedirectToAction(nameof(Index));
+        }
+
+        var banner = selectedKind == HarvestRunKind.Update
+            ? $"Update run queued (cap {AdminHarvestViewModel.UpdateRunCapMinutes} min)."
+            : $"Run queued (cap {durationSeconds / 60} min).";
+        SetBanner(banner);
         return RedirectToAction(nameof(Index));
     }
 

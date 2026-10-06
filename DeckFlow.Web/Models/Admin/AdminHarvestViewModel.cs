@@ -1,3 +1,4 @@
+using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 
 namespace DeckFlow.Web.Models.Admin;
@@ -15,6 +16,18 @@ public sealed record AdminHarvestViewModel
     public static readonly int[] AllowedDurationSeconds = { 900, 1800, 3600 };
     /// <summary>Allowed automatic harvest intervals in hours.</summary>
     public static readonly int[] AllowedIntervalHours = { 2, 4, 8, 24 };
+
+    /// <summary>Server-owned valid run kinds; this allow-list is the only source of valid kinds.</summary>
+    public static readonly IReadOnlyList<HarvestRunKind> AllowedRunKinds = [HarvestRunKind.Bulk, HarvestRunKind.Update];
+
+    /// <summary>Returns the one posted format for a valid run kind token.</summary>
+    public static string RunKindToken(HarvestRunKind kind) => kind.ToString().ToLowerInvariant();
+
+    /// <summary>Run kinds offered by the form from the server's only valid-kind allow-list.</summary>
+    public IReadOnlyList<HarvestRunKind> RunKindOptions { get; init; } = AllowedRunKinds;
+
+    /// <summary>Server-owned update cap, derived from the server duration rather than a posted value.</summary>
+    public static int UpdateRunCapMinutes => (int)ArchidektCacheJobService.UpdateRunDuration.TotalMinutes;
 
     /// <summary>Current persisted harvest schedule settings.</summary>
     public required HarvestScheduleSnapshot Schedule { get; init; }

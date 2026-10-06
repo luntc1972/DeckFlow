@@ -34,6 +34,15 @@ else
     <form method="post" asp-action="RunNow" class="admin-action-form">
         @Html.AntiForgeryToken()
         <div class="admin-field">
+            <label for="runKind">Kind</label>
+            <select id="runKind" name="kind">
+                @foreach (var kind in Model.RunKindOptions)
+                {
+                    <option value="@DeckFlow.Web.Models.Admin.AdminHarvestViewModel.RunKindToken(kind)">@kind</option>
+                }
+            </select>
+        </div>
+        <div class="admin-field">
         <label for="durationSeconds">Duration</label>
         <select id="durationSeconds" name="durationSeconds">
             @foreach (var durationSeconds in Model.DurationOptions)
@@ -43,6 +52,7 @@ else
             }
         </select>
         </div>
+        <p class="admin-meta">Duration applies to bulk runs only. Update runs stop after @DeckFlow.Web.Models.Admin.AdminHarvestViewModel.UpdateRunCapMinutes minutes.</p>
         <button class="admin-button admin-button--primary" type="submit">Run Now</button>
     </form>
 

@@ -18,6 +18,14 @@
         => errorMessage is { Length: > ErrorMessageTruncationLength }
             ? (errorMessage[..ErrorMessageTruncationLength] + "…", errorMessage)
             : null;
+
+    static string? GetUpdateCounters(HarvestRunRow run)
+        => run.PagesPolled is int pagesPolled
+            && run.RefreshesRequeued is int refreshesRequeued
+            && run.RefreshesDrained is int refreshesDrained
+            && run.NewIdsSeen is int newIdsSeen
+            ? $"Pages {pagesPolled}, requeued {refreshesRequeued}, drained {refreshesDrained}, new IDs {newIdsSeen}"
+            : null;
 }
 
 <h3 id="harvest-run-log-heading">Run Log</h3>
@@ -29,13 +37,15 @@ else
 {
     <div id="harvest-run-log" class="admin-table-scroll" role="region" aria-label="Harvest run log - scroll horizontally to see all columns" tabindex="0">
         <table class="admin-table">
-            <caption class="sr-only">Harvest run log with timing, state, deck counts, and any error message</caption>
+            <caption class="sr-only">Harvest run log with timing, kind, trigger, state, deck counts, update counters, and any error message</caption>
             <thead>
                 <tr>
                     <th scope="col">Started</th>
                     <th scope="col">Kind</th>
+                    <th scope="col">Trigger</th>
                     <th scope="col">State</th>
                     <th scope="col">Decks</th>
+                    <th scope="col">Update counters</th>
                     <th scope="col">Duration</th>
                     <th scope="col">Error</th>
                 </tr>
@@ -48,8 +58,10 @@ else
                         @{ var startedUtc = run.StartedUtc ?? run.RequestedUtc; }
                         <td title="@startedUtc.ToString("u")">@MountainTimeFormatter.Format(startedUtc)</td>
                         <td>@run.Kind</td>
+                        <td>@(run.TriggerSource?.ToString() ?? "—")</td>
                         <td><span class="@GetRunStateBadgeClass(run.State)">@run.State</span></td>
                         <td>@run.DecksProcessed</td>
+                        <td>@(GetUpdateCounters(run) ?? "—")</td>
                         <td>@run.DurationSeconds</td>
                         <td>
                             @if (errorDisclosure is not null)

@@ -278,12 +278,15 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public async Task HarvestRunLog_Runs_RendersOneTableWithSixColumnHeadings()
+    public async Task HarvestRunLog_Runs_RendersOneTableWithEightColumnHeadings()
     {
         var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun() });
 
         Assert.Equal(1, html.Split("<table", StringSplitOptions.None).Length - 1);
-        Assert.Equal(6, html.Split("<th scope=\"col\">", StringSplitOptions.None).Length - 1);
+        Assert.Equal(8, html.Split("<th scope=\"col\">", StringSplitOptions.None).Length - 1);
+        Assert.Equal(
+            ["Started", "Kind", "Trigger", "State", "Decks", "Update counters", "Duration", "Error"],
+            Regex.Matches(html, "<th scope=\"col\">([^<]+)</th>").Select(match => match.Groups[1].Value));
     }
 
     [Fact]
@@ -308,7 +311,7 @@ public sealed class AdminHarvestControllerTests
 
         var html = await RenderPartialViewAsync("Index", model);
 
-        Assert.Equal(6, html.Split("<th scope=\"col\">", StringSplitOptions.None).Length - 1);
+        Assert.Equal(8, html.Split("<th scope=\"col\">", StringSplitOptions.None).Length - 1);
     }
 
     [Fact]
@@ -367,7 +370,7 @@ public sealed class AdminHarvestControllerTests
     {
         var jobService = new StubArchidektCacheJobService();
         var controller = Build(NewStore(0), jobService: jobService);
-        await controller.RunNow(1, CancellationToken.None);
+        await controller.RunNow("bulk", 1, CancellationToken.None);
         Assert.Equal("Invalid duration.", controller.TempData["AdminHarvestBanner"]);
         Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
         Assert.Empty(jobService.Requests);
@@ -379,10 +382,131 @@ public sealed class AdminHarvestControllerTests
         var jobService = new StubArchidektCacheJobService();
         var controller = Build(NewStore(0), jobService: jobService);
 
-        await controller.RunNow(900, CancellationToken.None);
+        await controller.RunNow("bulk", 900, CancellationToken.None);
 
         Assert.Equal([(HarvestRunKind.Bulk, TimeSpan.FromSeconds(900), HarvestTriggerSource.Manual)], jobService.Requests);
         Assert.Equal("Run queued (cap 15 min).", controller.TempData["AdminHarvestBanner"]);
+    }
+
+    [Fact]
+    public async Task RunNow_UpdateOptionFromRenderedForm_EnqueuesManualUpdateRunEndToEnd()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), includesStats: false));
+        var formStart = html.IndexOf("<form", StringComparison.Ordinal);
+        var formEnd = html.IndexOf("</form>", formStart, StringComparison.Ordinal) + "</form>".Length;
+        var form = html[formStart..formEnd];
+        var updateOption = Regex.Match(form, "<option[^>]*value=\"([^\"]+)\"[^>]*>Update</option>");
+        var jobService = new StubArchidektCacheJobService();
+        var controller = Build(NewStore(0), jobService: jobService);
+
+        Assert.True(updateOption.Success);
+        Assert.Equal((int)ArchidektCacheJobService.UpdateRunDuration.TotalMinutes, AdminHarvestViewModel.UpdateRunCapMinutes);
+        await controller.RunNow(updateOption.Groups[1].Value, 0, CancellationToken.None);
+
+        Assert.Equal([(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual)], jobService.Requests);
+        Assert.Equal($"Update run queued (cap {AdminHarvestViewModel.UpdateRunCapMinutes} min).", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("success", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(900)]
+    [InlineData(3600)]
+    [InlineData(7200)]
+    [InlineData(-5)]
+    public async Task RunNow_UpdateKind_IgnoresPostedDuration(int durationSeconds)
+    {
+        var jobService = new StubArchidektCacheJobService();
+        await Build(NewStore(0), jobService: jobService).RunNow("update", durationSeconds, CancellationToken.None);
+        Assert.Equal([(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual)], jobService.Requests);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("url")]
+    [InlineData("Bulk")]
+    [InlineData("UPDATE")]
+    [InlineData("1")]
+    [InlineData(" bulk")]
+    [InlineData("update ")]
+    public async Task RunNow_InvalidKind_RejectsWithoutEnqueue(string? kind)
+    {
+        var jobService = new StubArchidektCacheJobService();
+        var controller = Build(NewStore(0), jobService: jobService);
+        await controller.RunNow(kind, 900, CancellationToken.None);
+        Assert.Empty(jobService.Requests);
+        Assert.Equal("Invalid run kind.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Fact]
+    public async Task RunNow_InvalidKindAndInvalidDuration_ReportsKindFirst()
+    {
+        var jobService = new StubArchidektCacheJobService();
+        var controller = Build(NewStore(0), jobService: jobService);
+        await controller.RunNow("url", 1, CancellationToken.None);
+        Assert.Empty(jobService.Requests);
+        Assert.Equal("Invalid run kind.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Theory]
+    [InlineData("bulk")]
+    [InlineData("update")]
+    public async Task RunNow_ActiveRun_ReportsNothingQueued(string kind)
+    {
+        var jobService = new StubArchidektCacheJobService { StartedNewJob = false };
+        var controller = Build(NewStore(0), jobService: jobService);
+        await controller.RunNow(kind, 900, CancellationToken.None);
+        Assert.Single(jobService.Requests);
+        Assert.Equal("A harvest run is already active. No new run was queued.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_RunNowForm_PostsKindSelectorWithAllowedKinds()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), includesStats: false));
+        var formStart = html.IndexOf("<form", StringComparison.Ordinal);
+        var formEnd = html.IndexOf("</form>", formStart, StringComparison.Ordinal) + "</form>".Length;
+        var form = html[formStart..formEnd];
+        Assert.Contains("id=\"runKind\" name=\"kind\"", form, StringComparison.Ordinal);
+        var kindSelect = Regex.Match(form, "<select id=\"runKind\"[^>]*>(.*?)</select>", RegexOptions.Singleline);
+        Assert.Equal(2, Regex.Matches(kindSelect.Groups[1].Value, "<option").Count);
+        Assert.Contains("value=\"bulk\"", form, StringComparison.Ordinal);
+        Assert.Contains("value=\"update\"", form, StringComparison.Ordinal);
+        Assert.DoesNotContain("value=\"url\"", form, StringComparison.Ordinal);
+        Assert.Contains("name=\"durationSeconds\"", form, StringComparison.Ordinal);
+        Assert.Contains($"Update runs stop after {AdminHarvestViewModel.UpdateRunCapMinutes} minutes.", form, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_UpdateRun_RendersTriggerAndCounters()
+    {
+        var run = CreateHarvestRun() with { Kind = HarvestRunKind.Update, TriggerSource = HarvestTriggerSource.Manual, PagesPolled = 3, RefreshesRequeued = 2, RefreshesDrained = 1, NewIdsSeen = 4 };
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { run });
+        Assert.Contains("<td>Manual</td>", html, StringComparison.Ordinal);
+        Assert.Contains("Pages 3, requeued 2, drained 1, new IDs 4", html, StringComparison.Ordinal);
+        Assert.Equal(1, html.Split("&#x2014;", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_LegacyRun_RendersDashForTriggerAndCounters()
+    {
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { CreateHarvestRun() });
+        Assert.Equal(3, html.Split("&#x2014;", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public async Task HarvestRunLog_PartialCounters_RendersDash()
+    {
+        var run = CreateHarvestRun() with { TriggerSource = HarvestTriggerSource.Scheduled, PagesPolled = 3 };
+        var html = await RenderPartialViewAsync("_HarvestRunLog", new[] { run });
+        Assert.DoesNotContain("Pages 3", html, StringComparison.Ordinal);
+        Assert.Contains("<td>Scheduled</td>", html, StringComparison.Ordinal);
+        Assert.Equal(2, html.Split("&#x2014;", StringSplitOptions.None).Length - 1);
     }
 
     [Fact]
@@ -939,11 +1063,13 @@ public sealed class AdminHarvestControllerTests
     {
         public List<(HarvestRunKind Kind, TimeSpan Duration, HarvestTriggerSource Trigger)> Requests { get; } = [];
 
+        public bool StartedNewJob { get; set; } = true;
+
         public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(HarvestRunKind kind, TimeSpan duration, HarvestTriggerSource trigger, CancellationToken cancellationToken = default)
         {
             Requests.Add((kind, duration, trigger));
             var job = new ArchidektCacheJobStatus(Guid.NewGuid(), ArchidektCacheJobState.Queued, (int)duration.TotalSeconds, DateTimeOffset.UtcNow, null, null, 0, 0, null);
-            return Task.FromResult(new ArchidektCacheJobEnqueueResult(job, StartedNewJob: true));
+            return Task.FromResult(new ArchidektCacheJobEnqueueResult(job, StartedNewJob));
         }
 
         public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
