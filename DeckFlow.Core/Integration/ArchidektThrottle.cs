@@ -133,7 +133,7 @@ internal static class ArchidektThrottle
             {
                 var now = _utcNow();
                 var intervalStart = _lastStartUtc?.Add(CurrentInterval);
-                var nextStart = intervalStart > _resumeAtUtc ? intervalStart : _resumeAtUtc;
+                var nextStart = intervalStart is null ? _resumeAtUtc : _resumeAtUtc is null ? intervalStart : intervalStart > _resumeAtUtc ? intervalStart : _resumeAtUtc;
                 wait = nextStart is null ? TimeSpan.Zero : nextStart.Value - now;
                 // A wall-clock jump must never stall callers.
                 wait = wait < TimeSpan.Zero ? TimeSpan.Zero : wait;
