@@ -1177,6 +1177,99 @@ public sealed class AdminHarvestControllerTests
         Assert.Equal(["5", "10", "20"], card.QuerySelectorAll("option").Select(option => option.GetAttribute("value")!).ToArray()); Assert.Equal("20", card.QuerySelector("option[selected]")?.GetAttribute("value")); Assert.EndsWith("Admin/Harvest/SaveRate", card.QuerySelector("form")?.GetAttribute("action")); Assert.NotNull(card.QuerySelector("input[name=__RequestVerificationToken]")); Assert.Contains("admin-button", card.QuerySelector("button")?.ClassName); Assert.Contains("Code ceiling: 20 requests per minute.", card.TextContent);
     }
 
+    [Fact]
+    public async Task ResumeSchedules_Marked_ClearsMarkerUnpausesBothAndReloadsCaches()
+    {
+        ArchidektThrottle.ResetForTests(); var path = Path.Combine(Path.GetTempPath(), "DeckFlow.Tests", Guid.NewGuid() + ".db"); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        try
+        {
+            var scheduleStore = new HarvestScheduleStore(path); var updateStore = new HarvestUpdateScheduleStore(path); var throttleStore = new HarvestThrottleStore(path);
+            await scheduleStore.EnsureSchemaAsync(); await updateStore.EnsureSchemaAsync(); await throttleStore.EnsureSchemaAsync();
+            await scheduleStore.SaveAsync(4, false, DateTimeOffset.UtcNow); await updateStore.SaveAsync(30, false, DateTimeOffset.UtcNow); await throttleStore.MarkRateLimitedAsync(DateTimeOffset.UtcNow);
+            var scheduleCache = new HarvestScheduleCache(scheduleStore); var updateCache = new HarvestUpdateScheduleCache(updateStore); await scheduleCache.ReloadAsync(); await updateCache.ReloadAsync();
+            var controller = Build(NewStore(0), scheduleStore: scheduleStore, scheduleCache: scheduleCache, updateScheduleStore: updateStore, updateScheduleCache: updateCache, throttleStore: throttleStore);
+            Assert.IsType<RedirectToActionResult>(await controller.ResumeSchedules(CancellationToken.None)); Assert.Equal("Rate-limit pause cleared. Both schedules resumed.", controller.TempData["AdminHarvestBanner"]); Assert.Equal("success", controller.TempData["AdminHarvestBannerTone"]);
+            Assert.Null((await throttleStore.GetAsync()).RateLimitedUtc); Assert.Equal(new HarvestScheduleSnapshot(4, false, scheduleCache.Snapshot().UpdatedUtc), scheduleCache.Snapshot()); Assert.Equal(new HarvestUpdateScheduleSnapshot(30, false, updateCache.Snapshot().UpdatedUtc), updateCache.Snapshot());
+        }
+        finally { ArchidektThrottle.ResetForTests(); DeleteThrottleDatabase(path); }
+    }
+
+    [Fact]
+    public async Task ResumeSchedules_Repeated_SecondCallKeepsManualPause()
+    {
+        ArchidektThrottle.ResetForTests(); var path = Path.Combine(Path.GetTempPath(), "DeckFlow.Tests", Guid.NewGuid() + ".db"); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        try
+        {
+            var scheduleStore = new HarvestScheduleStore(path); var updateStore = new HarvestUpdateScheduleStore(path); var throttleStore = new HarvestThrottleStore(path);
+            await scheduleStore.EnsureSchemaAsync(); await updateStore.EnsureSchemaAsync(); await throttleStore.EnsureSchemaAsync(); await scheduleStore.SaveAsync(4, false, DateTimeOffset.UtcNow); await updateStore.SaveAsync(30, false, DateTimeOffset.UtcNow); await throttleStore.MarkRateLimitedAsync(DateTimeOffset.UtcNow);
+            var scheduleCache = new HarvestScheduleCache(scheduleStore); var updateCache = new HarvestUpdateScheduleCache(updateStore); await scheduleCache.ReloadAsync(); await updateCache.ReloadAsync();
+            var controller = Build(NewStore(0), scheduleStore: scheduleStore, scheduleCache: scheduleCache, updateScheduleStore: updateStore, updateScheduleCache: updateCache, throttleStore: throttleStore);
+            await controller.ResumeSchedules(CancellationToken.None); await controller.PauseSchedule(true, CancellationToken.None); await controller.ResumeSchedules(CancellationToken.None);
+            Assert.Equal("Schedules are not rate-limited; nothing to resume.", controller.TempData["AdminHarvestBanner"]); Assert.True(scheduleCache.Snapshot().Paused); Assert.Null((await throttleStore.GetAsync()).RateLimitedUtc);
+        }
+        finally { ArchidektThrottle.ResetForTests(); DeleteThrottleDatabase(path); }
+    }
+
+    [Fact]
+    public async Task ResumeSchedules_StubResumed_ReloadsBothCachesAfterStore()
+    {
+        var throttle = new StubHarvestThrottleStore { ResumeResult = true }; var bulk = new StubHarvestScheduleCache(); var update = new StubHarvestUpdateScheduleCache(); int[]? counts = null; throttle.OnResume = () => counts = [bulk.ReloadCount, update.ReloadCount];
+        await Build(NewStore(0), scheduleCache: bulk, updateScheduleCache: update, throttleStore: throttle).ResumeSchedules(CancellationToken.None);
+        Assert.Equal([0, 0], counts!); Assert.Equal(1, throttle.ResumeCalls); Assert.Equal(1, bulk.ReloadCount); Assert.Equal(1, update.ReloadCount);
+    }
+
+    [Fact]
+    public async Task ResumeSchedules_StubNotMarked_StillReloadsAndReportsNothingToResume()
+    {
+        var throttle = new StubHarvestThrottleStore(); var bulk = new StubHarvestScheduleCache(); var update = new StubHarvestUpdateScheduleCache(); var controller = Build(NewStore(0), scheduleCache: bulk, updateScheduleCache: update, throttleStore: throttle);
+        await controller.ResumeSchedules(CancellationToken.None);
+        Assert.Equal("Schedules are not rate-limited; nothing to resume.", controller.TempData["AdminHarvestBanner"]); Assert.Equal(1, bulk.ReloadCount); Assert.Equal(1, update.ReloadCount);
+    }
+
+    [Fact]
+    public async Task ResumeSchedules_CrossOrigin_Returns403WithoutWrite()
+    {
+        var throttle = new StubHarvestThrottleStore(); var bulk = new StubHarvestScheduleCache(); var update = new StubHarvestUpdateScheduleCache(); var result = await Build(NewStore(0), crossOrigin: true, scheduleCache: bulk, updateScheduleCache: update, throttleStore: throttle).ResumeSchedules(CancellationToken.None);
+        Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(result).StatusCode); Assert.Equal(0, throttle.ResumeCalls); Assert.Equal(0, bulk.ReloadCount); Assert.Equal(0, update.ReloadCount);
+    }
+
+    [Fact]
+    public void ResumeSchedules_HasPostRouteAndAntiforgery()
+    {
+        var method = typeof(AdminHarvestController).GetMethod(nameof(AdminHarvestController.ResumeSchedules))!;
+        Assert.Equal("resume-schedules", Assert.IsType<HttpPostAttribute>(method.GetCustomAttributes(typeof(HttpPostAttribute), false).Single()).Template); Assert.Single(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), false));
+    }
+
+    [Fact]
+    public async Task PauseActions_NeverMarkRateLimited()
+    {
+        var throttle = new StubHarvestThrottleStore(); var controller = Build(NewStore(0), throttleStore: throttle);
+        await controller.PauseSchedule(true, CancellationToken.None); await controller.PauseSchedule(false, CancellationToken.None); await controller.PauseUpdateSchedule(true, CancellationToken.None); await controller.PauseUpdateSchedule(false, CancellationToken.None);
+        Assert.Equal(0, throttle.MarkCalls); Assert.Equal(0, throttle.ResumeCalls);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_RateLimited_RendersPersistentBannerWithResumeForm()
+    {
+        var marker = new DateTimeOffset(2026, 10, 5, 21, 7, 0, TimeSpan.FromHours(2)); var model = CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { RateLimitedUtc = marker };
+        var document = await new HtmlParser().ParseDocumentAsync(await RenderPartialViewAsync("Index", model)); var banner = document.QuerySelector("#harvest-rate-limited-banner")!; var form = banner.QuerySelector("form")!;
+        Assert.Contains("admin-banner", banner.ClassName); Assert.Contains("admin-banner--warning", banner.ClassName); Assert.Equal("alert", banner.GetAttribute("role")); Assert.Null(banner.GetAttribute("data-admin-toast")); Assert.Contains("2026-10-05 19:07 UTC", banner.TextContent); Assert.Contains("both schedules were paused", banner.TextContent); Assert.EndsWith("Admin/Harvest/ResumeSchedules", form.GetAttribute("action")); Assert.NotNull(form.QuerySelector("input[name=__RequestVerificationToken]")); Assert.Contains("admin-button", banner.QuerySelector("button")?.ClassName); Assert.Contains("admin-button--secondary", banner.QuerySelector("button")?.ClassName); Assert.Equal("Resume schedules", banner.QuerySelector("button")?.TextContent.Trim()); Assert.Null(banner.ParentElement?.Closest("[role=tabpanel]"));
+    }
+
+    [Fact]
+    public async Task HarvestIndex_NotRateLimited_OmitsPersistentBanner()
+    {
+        var document = await new HtmlParser().ParseDocumentAsync(await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false)));
+        Assert.Null(document.QuerySelector("#harvest-rate-limited-banner"));
+    }
+
+    [Fact]
+    public async Task HarvestIndex_RateLimitedWithOneShotBanner_RendersBothPersistentFirst()
+    {
+        var model = CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { RateLimitedUtc = DateTimeOffset.UtcNow, LastBanner = "Schedule updated." };
+        var html = await RenderPartialViewAsync("Index", model); Assert.True(html.IndexOf("harvest-rate-limited-banner", StringComparison.Ordinal) < html.IndexOf("Schedule updated.", StringComparison.Ordinal));
+    }
+
     private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null, IArchidektCacheJobService? jobService = null, IHarvestScheduleStore? scheduleStore = null, IHarvestScheduleCache? scheduleCache = null, IHarvestUpdateScheduleStore? updateScheduleStore = null, IHarvestUpdateScheduleCache? updateScheduleCache = null, IHarvestThrottleStore? throttleStore = null)
     {
         var httpContext = new DefaultHttpContext();

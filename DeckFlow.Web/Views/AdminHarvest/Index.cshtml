@@ -11,6 +11,17 @@
     <meta http-equiv="refresh" content="5" />
 </noscript>
 
+@if (Model.RateLimitedUtc.HasValue)
+{
+    <div id="harvest-rate-limited-banner" class="admin-banner admin-banner--warning" role="alert">
+        <p>Archidekt rate-limited the harvest at @Model.RateLimitedUtc.Value.ToUniversalTime().ToString("yyyy-MM-dd HH:mm UTC"), and both schedules were paused. Resume schedules clears this notice and unpauses both schedules, including one you paused by hand.</p>
+        <form method="post" asp-action="ResumeSchedules" class="admin-action-form">
+            @Html.AntiForgeryToken()
+            <button class="admin-button admin-button--secondary" type="submit">Resume schedules</button>
+        </form>
+    </div>
+}
+
 @if (!string.IsNullOrEmpty(Model.LastBanner))
 {
     <div class="admin-banner @(Model.LastBannerIsError ? "admin-banner--danger" : "admin-banner--success")" role="@(Model.LastBannerIsError ? "alert" : "status")">@Model.LastBanner</div>

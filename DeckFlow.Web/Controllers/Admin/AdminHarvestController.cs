@@ -507,6 +507,27 @@ public sealed class AdminHarvestController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    /// <summary>Clears a rate-limit pause and reloads both scheduler caches.</summary>
+    /// <param name="cancellationToken">Cancellation token for the throttle write and cache reloads.</param>
+    [HttpPost("resume-schedules")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResumeSchedules(CancellationToken cancellationToken)
+    {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null)
+        {
+            return sameOriginFailure;
+        }
+
+        var resumed = await _throttleStore.ResumeAfterRateLimitAsync(DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+        // Why: the store does not reload caches; a reload after a no-op is harmless.
+        await _scheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
+        await _updateScheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Harvest.Throttle.Resumed resumed={Resumed}", resumed);
+        SetBanner(resumed ? "Rate-limit pause cleared. Both schedules resumed." : "Schedules are not rate-limited; nothing to resume.");
+        return RedirectToAction(nameof(Index));
+    }
+
     /// <summary>
     /// Saves the update schedule using antiforgery protection only (A5) because BasicAuth gates this route.
     /// </summary>
