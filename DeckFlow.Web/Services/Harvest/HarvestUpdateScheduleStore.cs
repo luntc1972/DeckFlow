@@ -22,6 +22,7 @@ public sealed class HarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
             paused INTEGER NOT NULL DEFAULT 0,
             updated_utc TEXT NOT NULL DEFAULT (datetime('now')));
         """;
+    private const string SetPausedSql = "UPDATE harvest_update_schedule SET paused = @paused, updated_utc = @now WHERE id = 1;";
     private const string SeedSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, NULL, FALSE, now()) ON CONFLICT (id) DO NOTHING;";
     private const string SqliteSeedSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, NULL, 0, datetime('now')) ON CONFLICT (id) DO NOTHING;";
     private const string PostgresUpsertSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, @interval, @paused, @now) ON CONFLICT (id) DO UPDATE SET interval_minutes = EXCLUDED.interval_minutes, paused = EXCLUDED.paused, updated_utc = EXCLUDED.updated_utc;";
@@ -73,6 +74,15 @@ public sealed class HarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await connection.ExecuteAsync(new CommandDefinition(_connectionInfo.IsPostgres ? PostgresUpsertSql : SqliteUpsertSql, new { interval = intervalMinutes, paused, now = now.ToUniversalTime() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+    /// <summary>
+    /// Sets pause state using the caller's open transaction; 06-11 uses this seam to pause both schedules atomically.
+    /// The caller must have ensured the seed row exists before calling this method.
+    /// </summary>
+    internal static async Task SetPausedInTransactionAsync(DbConnection connection, DbTransaction transaction, bool paused, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var changed = await connection.ExecuteAsync(new CommandDefinition(SetPausedSql, new { paused, now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (changed != 1) throw new InvalidOperationException("harvest_update_schedule seed row is missing.");
     }
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken) => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
     private sealed class Row { public int? IntervalMinutes { get; init; } public bool Paused { get; init; } public DateTimeOffset UpdatedUtc { get; init; } }

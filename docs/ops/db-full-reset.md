@@ -62,6 +62,7 @@ TRUNCATE TABLE
   crawl_state,
   harvest_runs,
   harvest_schedule,
+  harvest_update_schedule,
   request_metrics,
   request_metric_ip_seen,
   admin_brute_force_buckets,
