@@ -15,6 +15,7 @@ internal sealed class CategoryCacheSchema
     internal const int DefaultMinObservationRows = 5;
     private static readonly ConcurrentDictionary<(RelationalDatabaseProvider Provider, string ConnectionString), SchemaState> SchemaStates = new();
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> SearchKeyBackfills = new(StringComparer.Ordinal);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> RefreshIndexAttempts = new(StringComparer.Ordinal);
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly string _directoryPath;
     private readonly ILogger? _logger;
@@ -90,7 +91,9 @@ internal sealed class CategoryCacheSchema
                 archidekt_theorycrafted INTEGER NULL,
                 archidekt_created_utc TEXT NULL,
                 archidekt_updated_utc TEXT NULL,
-                archidekt_metadata_captured_utc TEXT NULL
+                archidekt_metadata_captured_utc TEXT NULL,
+                refresh_requested_utc TEXT NULL,
+                listing_updated_seen_utc TEXT NULL
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -104,6 +107,8 @@ internal sealed class CategoryCacheSchema
                      ("archidekt_created_utc", "TEXT NULL"),
                      ("archidekt_updated_utc", "TEXT NULL"),
                      ("archidekt_metadata_captured_utc", "TEXT NULL"),
+                     ("refresh_requested_utc", "TEXT NULL"),
+                     ("listing_updated_seen_utc", "TEXT NULL"),
                  }, cancellationToken);
 
         var crawlStateCommand = connection.CreateCommand();
@@ -254,6 +259,25 @@ internal sealed class CategoryCacheSchema
             _logger?.LogWarning(
                 exception,
                 "Category knowledge secondary index creation failed during schema startup; reads may be slower until indexes are created.");
+        }
+
+        var refreshIndexKey = $"{_connectionInfo.Provider}:{_connectionInfo.ConnectionString}";
+        if (!RefreshIndexAttempts.TryAdd(refreshIndexKey, 0))
+        {
+            return;
+        }
+
+        // Why: the drain remains correct without this index; retrying a locking non-concurrent build can stall harvest writes, so production builds it out-of-band.
+        var refreshIndexCommand = connection.CreateCommand();
+        refreshIndexCommand.CommandText = "CREATE INDEX IF NOT EXISTS ix_deck_queue_refresh_pending ON deck_queue(inserted_utc, deck_id) WHERE processed = 0 AND skipped = 0 AND refresh_requested_utc IS NOT NULL;";
+        refreshIndexCommand.CommandTimeout = 15;
+        try
+        {
+            await refreshIndexCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is DbException or OperationCanceledException or TimeoutException)
+        {
+            _logger?.LogWarning(exception, "deck_queue refresh index creation failed; refresh drain continues without it.");
         }
     }
 

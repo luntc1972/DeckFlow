@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Globalization;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using DeckFlow.Core.Integration;
@@ -247,6 +248,140 @@ internal sealed class DeckQueueRepository
     }
 
     /// <summary>
+    /// Adds unseen listing decks and requeues changed terminal decks as marked refreshes.
+    /// </summary>
+    /// <param name="rows">Listing rows to add or compare.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The inserted and requeued row counts.</returns>
+    internal async Task<ListingUpsertResult> AddListingRowsAsync(IReadOnlyList<ArchidektListingDeck> rows, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        var unique = new List<ArchidektListingDeck>();
+        var indexes = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var row in rows)
+        {
+            if (row is null || string.IsNullOrWhiteSpace(row.DeckId))
+            {
+                continue;
+            }
+
+            if (!indexes.TryGetValue(row.DeckId, out var index))
+            {
+                indexes.Add(row.DeckId, unique.Count);
+                unique.Add(row);
+                continue;
+            }
+
+            var existing = unique[index];
+            if (!existing.UpdatedUtc.HasValue || row.UpdatedUtc.HasValue && row.UpdatedUtc > existing.UpdatedUtc)
+            {
+                unique[index] = row;
+            }
+        }
+
+        if (unique.Count == 0)
+        {
+            return new ListingUpsertResult(0, 0);
+        }
+
+        var insertedUtc = DateTime.UtcNow;
+        var refreshRequestedUtc = FormatUtc(new DateTimeOffset(insertedUtc, TimeSpan.Zero));
+        var newIds = 0;
+        var refreshesRequeued = 0;
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        foreach (var row in unique)
+        {
+            var listingSeenUtc = row.UpdatedUtc.HasValue ? FormatUtc(FloorToSecond(row.UpdatedUtc.Value)) : null;
+            var inserted = await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, listing_updated_seen_utc)
+                VALUES (@deckId, @insertedUtc, 0, 0, NULL, @listingSeenUtc)
+                ON CONFLICT(deck_id) DO NOTHING;
+                """,
+                new { deckId = row.DeckId, insertedUtc, listingSeenUtc },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (inserted == 1)
+            {
+                newIds++;
+                continue;
+            }
+
+            if (!row.UpdatedUtc.HasValue)
+            {
+                continue;
+            }
+
+            var baseline = await connection.QuerySingleOrDefaultAsync<ListingBaselineRow>(new CommandDefinition(
+                """
+                SELECT archidekt_updated_utc, listing_updated_seen_utc
+                FROM deck_queue
+                WHERE deck_id = @deckId AND NOT (processed = 0 AND skipped = 0);
+                """,
+                new { deckId = row.DeckId },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+            // Why: comparison stays in C# because F-51-PG-01 prohibits comparing TEXT timestamps with timestamptz on Postgres.
+            if (baseline is null || !IsNewer(row.UpdatedUtc.Value, ParseStoredUtc(baseline.ArchidektUpdatedUtc), ParseStoredUtc(baseline.ListingUpdatedSeenUtc)))
+            {
+                continue;
+            }
+
+            // Why: pending rows are excluded so their FIFO place never moves.
+            var requeued = await connection.ExecuteAsync(new CommandDefinition(
+                """
+                UPDATE deck_queue
+                SET processed = 0,
+                    skipped = 0,
+                    inserted_utc = @insertedUtc,
+                    refresh_requested_utc = @refreshRequestedUtc,
+                    listing_updated_seen_utc = @listingSeenUtc
+                WHERE deck_id = @deckId AND NOT (processed = 0 AND skipped = 0);
+                """,
+                new { deckId = row.DeckId, insertedUtc, refreshRequestedUtc, listingSeenUtc },
+                transaction: transaction,
+                cancellationToken: cancellationToken)).ConfigureAwait(false);
+            refreshesRequeued += requeued;
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return new ListingUpsertResult(newIds, refreshesRequeued);
+    }
+
+    /// <summary>
+    /// Gets marked refresh deck IDs in queue order.
+    /// </summary>
+    /// <param name="limit">Maximum number of deck IDs to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Marked refresh deck IDs.</returns>
+    internal async Task<IReadOnlyList<string>> GetNextRefreshDeckIdsAsync(int limit, CancellationToken cancellationToken = default)
+    {
+        if (limit <= 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var deckIds = await connection.QueryAsync<string>(new CommandDefinition(
+            """
+            SELECT deck_id
+            FROM deck_queue
+            WHERE processed = 0 AND skipped = 0 AND refresh_requested_utc IS NOT NULL
+            ORDER BY inserted_utc, deck_id
+            LIMIT @limit;
+            """,
+            new { limit },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return deckIds.ToList();
+    }
+
+    /// <summary>
     /// Gets the next batch of deck IDs that have not been processed or skipped.
     /// </summary>
     /// <param name="count">Maximum number of deck IDs to return.</param>
@@ -410,6 +545,7 @@ internal sealed class DeckQueueRepository
                SET processed = 1,
                    skipped = @skipped,
                    last_checked_utc = @now,
+                   refresh_requested_utc = NULL,
                    commander_name = COALESCE(@commanderName, deck_queue.commander_name)
              WHERE deck_id = @deckId;
             """
@@ -418,6 +554,7 @@ internal sealed class DeckQueueRepository
                SET processed = 1,
                    skipped = @skipped,
                    last_checked_utc = @now,
+                   refresh_requested_utc = NULL,
                    commander_name = @commanderName,
                    archidekt_edh_bracket = @EdhBracket,
                    archidekt_deck_format = @DeckFormat,
@@ -735,6 +872,64 @@ internal sealed class DeckQueueRepository
                 transaction: transaction,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Determines whether a listing timestamp is later than the stored refresh baseline.
+    /// </summary>
+    /// <param name="listing">Listing timestamp.</param>
+    /// <param name="stored">Stored Archidekt update timestamp.</param>
+    /// <param name="seen">Last listing timestamp already seen.</param>
+    /// <returns><see langword="true"/> when the listing is newer.</returns>
+    internal static bool IsNewer(DateTimeOffset listing, DateTime? stored, DateTime? seen)
+    {
+        var baseline = stored.HasValue && (!seen.HasValue || stored.Value > seen.Value) ? stored : seen;
+        return !baseline.HasValue || FloorToSecond(listing.UtcDateTime) > FloorToSecond(baseline.Value);
+    }
+
+    /// <summary>
+    /// Parses a stored UTC timestamp from either supported provider text form.
+    /// </summary>
+    /// <param name="value">Stored timestamp text.</param>
+    /// <returns>A UTC timestamp, or <see langword="null"/> when parsing fails.</returns>
+    internal static DateTime? ParseStoredUtc(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
+        {
+            return null;
+        }
+
+        return DateTime.SpecifyKind(parsed, DateTimeKind.Utc);
+    }
+
+    /// <summary>
+    /// Floors a UTC time to the whole second.
+    /// </summary>
+    /// <param name="value">UTC time to floor.</param>
+    /// <returns>The floored UTC time.</returns>
+    private static DateTime FloorToSecond(DateTime value)
+        => new(value.Ticks - value.Ticks % TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+
+    /// <summary>
+    /// Floors an offset time to the whole UTC second.
+    /// </summary>
+    /// <param name="value">Time to floor.</param>
+    /// <returns>The floored UTC time.</returns>
+    private static DateTimeOffset FloorToSecond(DateTimeOffset value)
+        => new(FloorToSecond(value.UtcDateTime), TimeSpan.Zero);
+
+    /// <summary>
+    /// Formats a timestamp using the queue's UTC text representation.
+    /// </summary>
+    /// <param name="value">Time to format.</param>
+    /// <returns>Invariant UTC timestamp text.</returns>
+    private static string FormatUtc(DateTimeOffset value)
+        => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+
+    private sealed class ListingBaselineRow
+    {
+        public string? ArchidektUpdatedUtc { get; init; }
+        public string? ListingUpdatedSeenUtc { get; init; }
     }
 
     /// <summary>Maps processed-deck aggregates used to refresh each commander's queue summary.</summary>
