@@ -14,7 +14,7 @@ internal static class ArchidektThrottle
     /// <summary>Gets the maximum requests permitted per minute.</summary>
     internal const int MaxRatePerMinute = 20;
     /// <summary>Gets the largest Retry-After value accepted without tripping.</summary>
-    internal static readonly TimeSpan RetryAfterCap = TimeSpan.FromMinutes(5);
+    internal static readonly TimeSpan RetryAfterCap = TimeSpan.FromSeconds(60);
     /// <summary>Gets the fallback delay used when Archidekt omits Retry-After.</summary>
     internal static readonly TimeSpan FallbackRetryDelay = TimeSpan.FromSeconds(5);
     /// <summary>Gets the number of consecutive 429 responses that trips the limiter.</summary>
@@ -26,6 +26,7 @@ internal static class ArchidektThrottle
     private static readonly object StateLock = new();
     private static readonly ResiliencePropertyKey<RestClient> RestClientKey = new("ArchidektRestClient");
     private static readonly ResiliencePropertyKey<Func<RestRequest>> RequestFactoryKey = new("ArchidektRequestFactory");
+    private static readonly ResiliencePropertyKey<int> RateLimitCountKey = new("ArchidektRateLimitCount");
     private static readonly ResiliencePropertyKey<int> ServerErrorCountKey = new("ArchidektServerErrorCount");
     // Built once: RestSharp calls run through direct Polly v8, and the gate owns backoff.
     private static readonly ResiliencePipeline<RestResponse> Pipeline = new ResiliencePipelineBuilder<RestResponse>()
@@ -77,6 +78,7 @@ internal static class ArchidektThrottle
         var context = ResilienceContextPool.Shared.Get(cancellationToken);
         context.Properties.Set(RestClientKey, restClient);
         context.Properties.Set(RequestFactoryKey, requestFactory);
+        context.Properties.Set(RateLimitCountKey, 0);
         context.Properties.Set(ServerErrorCountKey, 0);
         try
         {
@@ -119,10 +121,21 @@ internal static class ArchidektThrottle
         var requestFactory = context.Properties.GetValue(RequestFactoryKey, null!);
         var response = await client.ExecuteAsync(requestFactory(), context.CancellationToken);
         Observe(response.StatusCode, ReadRetryAfter(response));
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            var count = context.Properties.GetValue(RateLimitCountKey, 0) + 1;
+            context.Properties.Set(RateLimitCountKey, count);
+            if (count >= TripStreak)
+            {
+                var retryAfter = ParseRetryAfter(ReadRetryAfter(response));
+                var fallback = TimeSpan.FromTicks(FallbackRetryDelay.Ticks * (1L << (count - 1)));
+                throw new ArchidektRateLimitedException("Archidekt rate limit did not clear after repeated responses.", retryAfter ?? fallback);
+            }
+        }
         return response;
     }
 
-    private static async Task AcquireAsync(CancellationToken cancellationToken)
+    internal static async Task AcquireAsync(CancellationToken cancellationToken)
     {
         await Gate.WaitAsync(cancellationToken);
         try
@@ -156,7 +169,7 @@ internal static class ArchidektThrottle
         }
     }
 
-    private static TimeSpan? Observe(HttpStatusCode statusCode, string? retryAfterHeader)
+    internal static TimeSpan? Observe(HttpStatusCode statusCode, string? retryAfterHeader)
     {
         lock (StateLock)
         {
