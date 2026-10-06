@@ -85,10 +85,19 @@ Current behavior:
 
 ## Archidekt category cache
 - Run `dotnet run --project DeckFlow.CLI -- archidekt-cache --minutes 5` to keep the local cache fed with the latest public decks.
-- The CLI runs a dedicated cache session that respects rate limits via Polly, records skips for noisy decks, and persists card/category observations to `artifacts/category-knowledge.db`.
+- The CLI runs a dedicated cache session, records skips for noisy decks, and persists card/category observations to `artifacts/category-knowledge.db`.
 - The background hosted service reuses the same session logic to keep the cache fresh (the user-triggered harvest button was removed in v1.4).
-- The cache session now stays alive for the requested harvest window even when the queue runs dry, and it retries transient recent-page fetch failures instead of ending the whole job early.
+- The cache session now stays alive for the requested harvest window even when the queue runs dry, and it retries transient recent-page fetch failures instead of ending the whole job early. A tripped rate limiter is the exception and ends the session at once.
 - Basic card type categories (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are filtered out of cache suggestions.
+
+**Request pacing (HARV-12)**
+
+- Every Archidekt request the web app sends goes through one process-wide limiter: harvest runs, admin deck URL submissions, creator-style owner lookups, and user-facing deck imports such as deck sync. Retry attempts are paced too. Interactive requests get no exemption and can wait behind harvest traffic.
+- The limit is 20 requests per minute, so request starts are at least 3 seconds apart.
+- A `Retry-After` of up to 60 seconds on HTTP 429 is honoured before the next request. A longer `Retry-After`, or three consecutive HTTP 429 responses, trips the limiter.
+- A trip ends the harvest run at once and records it as failed. The deck being imported stays queued rather than being marked skipped, and the rest of the batch is not attempted, so the next run picks them up.
+- On an interactive page, a trip shows the usual upstream error message, `Archidekt returned HTTP 429. Try again shortly.`, not a server error.
+- Requests identify DeckFlow with `User-Agent: DeckFlow/<version> (+https://www.deckflow.gg)` and send no `Referer`. CLI cache requests own limiter; owner lookups and deck sync use the shared limiter.
 
 ---
 
