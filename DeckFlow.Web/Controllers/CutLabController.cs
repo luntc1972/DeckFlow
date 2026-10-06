@@ -465,6 +465,11 @@ public sealed class CutLabController : Controller
         bool preservePostedPlanProfile = false,
         bool formHasNoPlanArchetype = false)
     {
+        if (formHasNoPlanArchetype)
+        {
+            request.PlanArchetype = state.Intent.PlanProfile?.Archetype;
+        }
+
         if (!NeedsDeckInputRehydration(request, state))
         {
             return;
@@ -482,10 +487,6 @@ public sealed class CutLabController : Controller
             request.PlanThemes = state.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
         }
 
-        if (formHasNoPlanArchetype)
-        {
-            request.PlanArchetype = state.Intent.PlanProfile?.Archetype;
-        }
         request.Bracket = state.Intent.Bracket;
         request.PlayExperience = state.Intent.PlayExperience;
         request.IncludeSideboard = state.Intent.IncludeSideboard;

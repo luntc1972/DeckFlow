@@ -571,6 +571,25 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task PlanApply_Archetype_KeyAbsentWithDeckInput_KeepsSavedArchetype()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        controller.ControllerContext.HttpContext.Request.ContentType = "application/x-www-form-urlencoded";
+        controller.ControllerContext.HttpContext.Request.Form = new FormCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>());
+        CutLabState baseState = CreateState();
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(baseState with { Intent = baseState.Intent with { PlanProfile = new CutLabPlanProfile { Archetype = "stax" } } }),
+            DeckText = "1 Arcane Signet",
+        };
+
+        await controller.PlanApply(request);
+
+        Assert.Equal("stax", service.LastRequest!.PlanArchetype);
+    }
+
+    [Fact]
     public async Task PlanApply_Success_ReturnsPlanStepOverride()
     {
         var service = new StateAwareCutLabPageService();

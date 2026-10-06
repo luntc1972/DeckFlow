@@ -14,7 +14,7 @@ afterEach(() => {
   fetchMock.mockReset();
 });
 
-const stateJson = JSON.stringify({ intent: { planProfile: { archetype: 'stax', genericStrategies: [], commanderThemes: [] } } });
+const stateJson = JSON.stringify({ intent: { planProfile: { archetype: 'stax', genericStrategies: [], commanderThemes: [] } }, goals: { commanderByTurn: 4, engineByTurn: 5, representativeLineByTurn: 6 } });
 const patch = { cutLabStateJson: stateJson, currentCount: 100, cardsRemaining: 0, canBuildExport: true, nextProposal: null, cutsMade: [], structuralFindings: [], whatifCardOutOptions: [], whatifCardInOptions: [], quantityTuners: [], addableBasics: [] };
 const response = (archetype: string | null, outcome: 'Replaced' | 'Kept' | 'Unchanged' = 'Unchanged', goals: any = null, archetypeDefaultGoals: any = null) => ({ ok: true, json: async () => ({ patch, appliedStrategies: [], appliedThemes: [], appliedArchetype: archetype, appliedGoals: goals, archetypeDefaultGoals, goalOutcome: outcome }) });
 const flush = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); await new Promise(resolve => window.setTimeout(resolve, 0)); };
@@ -262,6 +262,21 @@ describe('cut-lab archetype picker', () => {
     expect(document.querySelector<HTMLInputElement>('[data-cut-lab-goal="engine"]')!.value).toBe('3');
     expect(document.querySelector<HTMLInputElement>('[data-cut-lab-goal="representative-line"]')!.value).toBe('6');
     expect(document.querySelector('[data-cut-lab-archetype-notice]')!.textContent).toBe('Goals set to Stax defaults: commander by T2, engine by T3, line by T6. Change them in Step 4.');
+  });
+
+  it('keeps an unsubmitted goal edit when a queued chain leaves persisted goals unchanged', async () => {
+    const radio = buildFixture();
+    const none = document.querySelector<HTMLInputElement>('input[value=""]')!;
+    const commander = document.querySelector<HTMLInputElement>('[data-cut-lab-goal="commander"]')!;
+    commander.value = '9';
+    fetchMock.mockResolvedValueOnce(response(null, 'Kept', { commanderByTurn: 4, engineByTurn: 5, representativeLineByTurn: 6 }))
+      .mockResolvedValueOnce(response('stax', 'Kept', { commanderByTurn: 4, engineByTurn: 5, representativeLineByTurn: 6 }));
+
+    none.checked = true; none.dispatchEvent(new Event('change', { bubbles: true }));
+    radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); await flush(); await flush();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(commander.value).toBe('9');
   });
 
   it('keeps the final queued pick busy and announces its net replacement', async () => {

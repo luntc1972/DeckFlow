@@ -1556,7 +1556,14 @@ public sealed class CutLabPageServiceTests
         Assert.Equal(Array.Empty<CutLabRoleFloor>(), result.State.RoleFloors);
         Assert.Equal(baseline.State!.RoleFloors, result.State.RoleFloors);
         Assert.Equal(baseline.State.Goals, result.State.Goals);
-        Assert.Equal(baseline.State.Intent.PlanProfile, result.State.Intent.PlanProfile);
+        Assert.Equal(
+            System.Text.Json.JsonSerializer.Serialize(baseline.State.Intent.PlanProfile),
+            System.Text.Json.JsonSerializer.Serialize(result.State.Intent.PlanProfile));
+        Assert.Equal(baseline.ResolvedFloors, result.ResolvedFloors);
+        Assert.Equal(
+            System.Text.Json.JsonSerializer.Serialize(baseline.RoundPlan),
+            System.Text.Json.JsonSerializer.Serialize(result.RoundPlan));
+        Assert.Equal(baseline.SerializedStateJson, result.SerializedStateJson);
     }
 
     [Fact]
