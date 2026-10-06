@@ -70,6 +70,40 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_RateLimitTripDuringListing_ThrowsAfterOneListingCall()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        var recentImporter = new ThrowingRecentDecksImporter(() => new ArchidektRateLimitedException("Simulated Archidekt rate limit.", TimeSpan.FromSeconds(120)));
+        var session = new ArchidektDeckCacheSession(repository, new FakeDeckImporter(), recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        // Why: the exception derives from HttpRequestException, so without a dedicated catch the session's filters swallow it.
+        await Assert.ThrowsAsync<ArchidektRateLimitedException>(() => session.RunAsync(TimeSpan.FromSeconds(2), fetchBatchSize: 1));
+
+        Assert.Equal(1, recentImporter.Calls);
+    }
+
+    [Fact]
+    public async Task RunAsync_RateLimitTripDuringDeckImport_ThrowsAndLeavesTrippedDeckPending()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        await repository.AddDeckIdsAsync(new[] { "deck-1-ok", "deck-2-rate-limited", "deck-3-ok" });
+        var importer = new ThrowingRateLimitedDeckImporter();
+        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        // Why: the exception derives from HttpRequestException, so without a dedicated catch the session's filters swallow it.
+        await Assert.ThrowsAsync<ArchidektRateLimitedException>(() => session.RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 3));
+
+        Assert.Equal(new[] { "deck-1-ok", "deck-2-rate-limited" }, importer.AttemptedDeckIds);
+        Assert.True(await IsDeckProcessedAsync("deck-1-ok"));
+        Assert.False(await IsDeckProcessedAsync("deck-2-rate-limited"));
+        Assert.False(await IsDeckSkippedAsync("deck-2-rate-limited"));
+        Assert.False(await IsDeckProcessedAsync("deck-3-ok"));
+        Assert.False(await IsDeckSkippedAsync("deck-3-ok"));
+    }
+
+    [Fact]
     public async Task RunAsync_UsesFetchBatchSizeForDeckProcessing()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -307,6 +341,16 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         return Convert.ToBoolean(await command.ExecuteScalarAsync());
     }
 
+    private async Task<bool> IsDeckProcessedAsync(string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT processed FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        return Convert.ToBoolean(await command.ExecuteScalarAsync());
+    }
+
     private sealed record DeckQueueRow(string? ContentHash, int? EdhBracket, int? DeckFormat, bool? Theorycrafted, DateTimeOffset? CreatedUtc, DateTimeOffset? UpdatedUtc, DateTimeOffset? CapturedUtc);
 
     /// <summary>
@@ -361,6 +405,37 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
     }
 
+    private sealed class ThrowingRateLimitedDeckImporter : IArchidektDeckImporter
+    {
+        private readonly List<string> _attemptedDeckIds = new();
+
+        public IReadOnlyList<string> AttemptedDeckIds => _attemptedDeckIds;
+
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+        {
+            _attemptedDeckIds.Add(urlOrDeckId);
+            if (urlOrDeckId.Contains("rate-limited", StringComparison.Ordinal))
+            {
+                throw new ArchidektRateLimitedException("Simulated Archidekt rate limit.", TimeSpan.FromSeconds(120));
+            }
+
+            return Task.FromResult(new List<DeckEntry>
+            {
+                new()
+                {
+                    Name = $"Card {urlOrDeckId}",
+                    NormalizedName = CardNormalizer.Normalize($"Card {urlOrDeckId}"),
+                    Quantity = 1,
+                    Board = "mainboard",
+                    Category = "Ramp"
+                }
+            });
+        }
+
+        public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => new(await ImportAsync(urlOrDeckId, cancellationToken), null);
+    }
+
     private sealed class RecordingRecentDecksImporter : IArchidektRecentDecksImporter
     {
         public List<int> RequestedPages { get; } = new();
@@ -412,14 +487,31 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     /// </summary>
     private sealed class ThrowingRecentDecksImporter : IArchidektRecentDecksImporter
     {
+        private readonly Func<Exception> _exceptionFactory;
+        private int _calls;
+
+        // Why: keeping one fake keeps the implementer census that 06-05 relies on.
+        public ThrowingRecentDecksImporter(Func<Exception>? exceptionFactory = null)
+        {
+            _exceptionFactory = exceptionFactory ?? (() => new HttpRequestException("Simulated Archidekt recent deck failure."));
+        }
+
+        public int Calls => _calls;
+
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
-            => throw new HttpRequestException("Simulated Archidekt recent deck failure.");
+            => Throw();
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default)
-            => throw new HttpRequestException("Simulated Archidekt recent deck failure.");
+            => Throw();
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
-            => throw new HttpRequestException("Simulated Archidekt recent deck failure.");
+            => Throw();
+
+        private Task<IReadOnlyList<string>> Throw()
+        {
+            Interlocked.Increment(ref _calls);
+            throw _exceptionFactory();
+        }
     }
 
     public void Dispose()

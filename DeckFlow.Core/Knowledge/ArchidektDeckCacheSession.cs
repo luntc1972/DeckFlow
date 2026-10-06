@@ -99,6 +99,12 @@ public sealed class ArchidektDeckCacheSession
             {
                 throw;
             }
+            // Why: ArchidektRateLimitedException derives from HttpRequestException (06-02), so the filters below would retry it until the window ends or mark the deck skipped. Ending the run lets the job record it, and leaves the deck pending for the next run (D-12).
+            catch (ArchidektRateLimitedException exception)
+            {
+                _logger?.LogWarning(exception, "Archidekt rate limiter tripped during the recent-deck listing; ending the harvest session.");
+                throw;
+            }
             catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
             {
                 _logger?.LogWarning(exception, "Recent Archidekt deck fetch failed during cache sweep; retrying until the harvest window ends.");
@@ -139,6 +145,12 @@ public sealed class ArchidektDeckCacheSession
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
+                    throw;
+                }
+                // Why: ArchidektRateLimitedException derives from HttpRequestException (06-02), so the filters below would retry it until the window ends or mark the deck skipped. Ending the run lets the job record it, and leaves the deck pending for the next run (D-12).
+                catch (ArchidektRateLimitedException exception)
+                {
+                    _logger?.LogWarning(exception, "Archidekt rate limiter tripped while importing deck {DeckId}; ending the harvest session and leaving the deck queued.", deckId);
                     throw;
                 }
                 catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or NotSupportedException)
