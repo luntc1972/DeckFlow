@@ -7,12 +7,13 @@ namespace DeckFlow.Web.Tests;
 
 /// <summary>
 /// Integration tests for <see cref="HarvestRunStore"/> covering state persistence
-/// and SQLite schema migration of the harvest_runs state CHECK constraint.
+/// and SQLite schema migration, including the harvest_runs kind CHECK widening.
 /// </summary>
 public sealed class HarvestRunStoreTests : IDisposable
 {
     private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"harvest-run-store-{Guid.NewGuid():N}.db");
+    private readonly string _freshDbPath = Path.Combine(Path.GetTempPath(), $"harvest-run-store-{Guid.NewGuid():N}.db");
 
     public void Dispose()
     {
@@ -23,6 +24,85 @@ public sealed class HarvestRunStoreTests : IDisposable
             GC.WaitForPendingFinalizers();
             File.Delete(_dbPath);
         }
+        if (File.Exists(_freshDbPath))
+        {
+            ClearPool(_freshDbPath);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            File.Delete(_freshDbPath);
+        }
+    }
+
+    [Fact]
+    public async Task InsertQueuedAsync_UpdateKind_RoundTripsAfterPhase5Migration()
+    {
+        await SeedSqliteDatabaseWithPhase5HarvestRunsSchemaAsync();
+        var store = new HarvestRunStore(_dbPath);
+        var id = await store.InsertQueuedAsync(HarvestRunKind.Update, 600, null, DateTimeOffset.Parse("2026-06-12T12:00:00Z", CultureInfo.InvariantCulture));
+        Assert.Equal("update", await ReadScalarAsync<string>(_dbPath, "SELECT kind FROM harvest_runs WHERE id = $id", id));
+        Assert.Equal(HarvestRunKind.Update, (await store.GetByIdAsync(id))!.Kind);
+        var active = await store.GetActiveAsync();
+        Assert.NotNull(active);
+        Assert.Equal(id, active!.Id);
+        Assert.Equal(HarvestRunKind.Update, active.Kind);
+    }
+
+    [Fact]
+    public async Task HarvestRunKind_EveryMember_RoundTripsThroughStore()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        var kinds = Enum.GetValues<HarvestRunKind>();
+        Assert.True(kinds.Length >= 3);
+        foreach (var kind in kinds)
+        {
+            var id = await store.InsertQueuedAsync(kind, 600, kind == HarvestRunKind.Url ? "https://archidekt.com/decks/123" : null, DateTimeOffset.UtcNow);
+            Assert.Equal(kind, (await store.GetByIdAsync(id))!.Kind);
+        }
+    }
+
+    [Fact]
+    public async Task InsertQueuedAsync_UnmappedKind_ThrowsArgumentOutOfRangeAndInsertsNothing()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.InsertQueuedAsync((HarvestRunKind)int.MaxValue, 600, null, DateTimeOffset.UtcNow));
+        Assert.Equal(0L, await ReadScalarAsync<long>(_dbPath, "SELECT COUNT(*) FROM harvest_runs"));
+    }
+
+    [Fact]
+    public async Task EnsureSchemaAsync_Phase5Table_WidensKindAndAddsRunColumns_PreservingRowsIdempotently()
+    {
+        await SeedSqliteDatabaseWithPhase5HarvestRunsSchemaAsync();
+        var first = new HarvestRunStore(_dbPath);
+        await first.EnsureSchemaAsync();
+        var updateId = Guid.Parse("a5b0eb2b-1af3-4a7b-982d-7a2370ae7397");
+        await using (var connection = new SqliteConnection($"Data Source={_dbPath}"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO harvest_runs (id,kind,state,requested_utc,completed_utc,duration_seconds,trigger_source,pages_polled,refreshes_requeued,refreshes_drained,new_ids_seen) VALUES ($id,'update','Succeeded','2026-06-12T12:00:00Z','2026-06-12T12:01:00Z',600,'scheduled',3,5,4,2);";
+            command.Parameters.AddWithValue("$id", updateId.ToString());
+            await command.ExecuteNonQueryAsync();
+        }
+        var second = new HarvestRunStore(_dbPath);
+        await second.EnsureSchemaAsync();
+        Assert.Equal(HarvestRunKind.Update, (await second.GetByIdAsync(updateId))!.Kind);
+        Assert.Equal("scheduled", await ReadScalarAsync<string>(_dbPath, "SELECT trigger_source FROM harvest_runs WHERE id = $id", updateId));
+        Assert.Equal(3L, await ReadScalarAsync<long>(_dbPath, "SELECT pages_polled FROM harvest_runs WHERE id = $id", updateId));
+        Assert.Equal(5L, await ReadScalarAsync<long>(_dbPath, "SELECT refreshes_requeued FROM harvest_runs WHERE id = $id", updateId));
+        Assert.Equal(4L, await ReadScalarAsync<long>(_dbPath, "SELECT refreshes_drained FROM harvest_runs WHERE id = $id", updateId));
+        Assert.Equal(2L, await ReadScalarAsync<long>(_dbPath, "SELECT new_ids_seen FROM harvest_runs WHERE id = $id", updateId));
+    }
+
+    [Fact]
+    public async Task EnsureSchemaAsync_MigratedSqliteTable_MatchesFreshTableShape()
+    {
+        await SeedSqliteDatabaseWithPhase5HarvestRunsSchemaAsync();
+        await new HarvestRunStore(_dbPath).EnsureSchemaAsync();
+        await new HarvestRunStore(_freshDbPath).EnsureSchemaAsync();
+        var migrated = await ReadScalarAsync<string>(_dbPath, "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'harvest_runs'");
+        var fresh = await ReadScalarAsync<string>(_freshDbPath, "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'harvest_runs'");
+        Assert.Contains("ck_harvest_runs_kind", migrated, StringComparison.Ordinal);
+        Assert.Contains("ck_harvest_runs_trigger_source", fresh, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -390,6 +470,38 @@ public sealed class HarvestRunStoreTests : IDisposable
                 2,
                 NULL,
                 NULL);
+            """;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task<T> ReadScalarAsync<T>(string path, string sql, Guid? id = null)
+    {
+        await using var connection = new SqliteConnection($"Data Source={path}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        if (id.HasValue) command.Parameters.AddWithValue("$id", id.Value.ToString());
+        return (T)Convert.ChangeType((await command.ExecuteScalarAsync())!, typeof(T), CultureInfo.InvariantCulture);
+    }
+
+    private async Task SeedSqliteDatabaseWithPhase5HarvestRunsSchemaAsync()
+    {
+        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            CREATE TABLE harvest_runs (
+              id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK (kind IN ('bulk','url')), state TEXT NOT NULL,
+              requested_utc TEXT NOT NULL, started_utc TEXT NULL, completed_utc TEXT NULL, duration_seconds INTEGER NOT NULL,
+              decks_processed INTEGER NOT NULL DEFAULT 0, additional_decks_found INTEGER NOT NULL DEFAULT 0,
+              decks_enqueued INTEGER NULL, decks_drained INTEGER NULL, error_message TEXT NULL, url TEXT NULL,
+              CONSTRAINT ck_harvest_runs_state CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled')));
+            CREATE INDEX ix_harvest_runs_state ON harvest_runs(state);
+            CREATE INDEX ix_harvest_runs_started_utc ON harvest_runs(started_utc DESC);
+            INSERT INTO harvest_runs (id,kind,state,requested_utc,completed_utc,duration_seconds,decks_enqueued,decks_drained) VALUES
+              ('f5b0eb2b-1af3-4a7b-982d-7a2370ae7397','bulk','Succeeded','2026-06-12T09:00:00Z','2026-06-12T09:01:00Z',600,7,11),
+              ('b5b0eb2b-1af3-4a7b-982d-7a2370ae7397','url','Succeeded','2026-06-12T09:00:00Z','2026-06-12T09:01:00Z',600,NULL,NULL),
+              ('c5b0eb2b-1af3-4a7b-982d-7a2370ae7397','bulk','Failed','2026-06-12T09:00:00Z','2026-06-12T09:01:00Z',600,NULL,NULL);
             """;
         await command.ExecuteNonQueryAsync();
     }

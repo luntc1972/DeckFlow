@@ -4,7 +4,8 @@ namespace DeckFlow.Web.Services.Harvest;
 /// Discriminator for harvest_runs.kind. <c>Bulk</c> rows are produced by the
 /// Run-Now duration-capped sweep (HARV-01); <c>Url</c> rows are produced by the
 /// single-Archidekt-URL sync import (HARV-02, D-09/D-10). Bound to the lowercase
-/// strings <c>"bulk"</c> and <c>"url"</c> at the SQL CHECK-constraint boundary.
+/// strings <c>"bulk"</c>, <c>"url"</c>, and <c>"update"</c> at the
+/// <c>ck_harvest_runs_kind</c> SQL CHECK-constraint boundary.
 /// </summary>
 public enum HarvestRunKind
 {
@@ -12,7 +13,10 @@ public enum HarvestRunKind
     Bulk,
 
     /// <summary>Single-Archidekt-URL on-demand import (sync, latency 1-3s).</summary>
-    Url
+    Url,
+
+    /// <summary>Scheduled or Run-Now refresh run stored as <c>"update"</c> (D-04).</summary>
+    Update
 }
 
 /// <summary>

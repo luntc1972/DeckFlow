@@ -83,9 +83,9 @@ public sealed class HarvestRunStore : IHarvestRunStore
                 await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            await EnsureStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false);
-            // Add after SQLite rebuild: its legacy copy contains only the original eleven columns.
-            await EnsureSweepCountColumnsAsync(connection, cancellationToken).ConfigureAwait(false);
+            await EnsureHarvestRunsConstraintsAsync(connection, cancellationToken).ConfigureAwait(false);
+            // Add after SQLite rebuild as a backstop for tables that need no rebuild.
+            await EnsureAdditiveColumnsAsync(connection, cancellationToken).ConfigureAwait(false);
 
             await using (var reaper = connection.CreateCommand())
             {
@@ -121,7 +121,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
             new
             {
                 id,
-                kind = kind == HarvestRunKind.Bulk ? "bulk" : "url",
+                kind = ToStoredKind(kind),
                 now,
                 duration = durationSeconds,
                 url
@@ -410,7 +410,17 @@ public sealed class HarvestRunStore : IHarvestRunStore
     {
         "bulk" => HarvestRunKind.Bulk,
         "url" => HarvestRunKind.Url,
+        "update" => HarvestRunKind.Update,
         _ => throw new InvalidOperationException($"Unknown harvest_runs.kind value '{raw}'.")
+    };
+
+    private static string ToStoredKind(HarvestRunKind kind) => kind switch
+    {
+        HarvestRunKind.Bulk => "bulk",
+        HarvestRunKind.Url => "url",
+        HarvestRunKind.Update => "update",
+        // An unmapped member must fail loudly; the old ternary would write it as URL.
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown harvest run kind.")
     };
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
@@ -420,26 +430,25 @@ public sealed class HarvestRunStore : IHarvestRunStore
         return connection;
     }
 
-    private async Task EnsureStateConstraintAllowsInterruptedAsync(
+    private async Task EnsureHarvestRunsConstraintsAsync(
         DbConnection connection,
         CancellationToken cancellationToken)
     {
         if (_connectionInfo.IsSqlite)
         {
-            await EnsureSqliteStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false);
+            await EnsureSqliteHarvestRunsConstraintsCurrentAsync(connection, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         await EnsurePostgresStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task EnsureSweepCountColumnsAsync(DbConnection connection, CancellationToken cancellationToken)
+    private async Task EnsureAdditiveColumnsAsync(DbConnection connection, CancellationToken cancellationToken)
     {
         var columns = await GetHarvestRunColumnsAsync(connection, cancellationToken).ConfigureAwait(false);
-        var type = _connectionInfo.IsPostgres ? "INT" : "INTEGER";
-        foreach (var column in new[] { "decks_enqueued", "decks_drained" })
+        foreach (var column in AdditiveColumns)
         {
-            if (columns.Contains(column))
+            if (columns.Contains(column.Name))
             {
                 continue;
             }
@@ -447,7 +456,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
             try
             {
                 await connection.ExecuteAsync(new CommandDefinition(
-                    $"ALTER TABLE harvest_runs ADD COLUMN {(_connectionInfo.IsPostgres ? "IF NOT EXISTS " : string.Empty)}{column} {type} NULL;",
+                    $"ALTER TABLE harvest_runs ADD COLUMN {(_connectionInfo.IsPostgres ? "IF NOT EXISTS " : string.Empty)}{column.Name} {(_connectionInfo.IsPostgres ? column.PostgresType : column.SqliteType)} NULL;",
                     cancellationToken: cancellationToken)).ConfigureAwait(false);
             }
             catch (DbException exception) when (exception.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
@@ -466,16 +475,21 @@ public sealed class HarvestRunStore : IHarvestRunStore
         return new HashSet<string>(columns, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static async Task EnsureSqliteStateConstraintAllowsInterruptedAsync(
+    private static async Task EnsureSqliteHarvestRunsConstraintsCurrentAsync(
         DbConnection connection,
         CancellationToken cancellationToken)
     {
-        if (await SqliteStateConstraintAllowsInterruptedAsync(connection, cancellationToken).ConfigureAwait(false))
+        if (await SqliteHarvestRunsConstraintsCurrentAsync(connection, cancellationToken).ConfigureAwait(false))
         {
             return;
         }
 
+        var oldColumnNames = await connection.QueryAsync<string>(new CommandDefinition(
+            "SELECT name FROM pragma_table_info('harvest_runs');",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var oldColumns = new HashSet<string>(oldColumnNames, StringComparer.OrdinalIgnoreCase);
         var existingIndexSql = await GetSqliteHarvestRunIndexSqlAsync(connection, cancellationToken).ConfigureAwait(false);
+        var copyColumns = string.Join(", ", HarvestRunColumns.Where(oldColumns.Contains));
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
 
         await using (var create = connection.CreateCommand())
@@ -488,15 +502,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await using (var copy = connection.CreateCommand())
         {
             copy.Transaction = transaction;
-            copy.CommandText = """
-                INSERT INTO harvest_runs_new (
-                    id, kind, state, requested_utc, started_utc, completed_utc,
-                    duration_seconds, decks_processed, additional_decks_found, error_message, url)
-                SELECT
-                    id, kind, state, requested_utc, started_utc, completed_utc,
-                    duration_seconds, decks_processed, additional_decks_found, error_message, url
-                  FROM harvest_runs;
-                """;
+            // Names originate only from this constant; the intersection preserves old columns.
+            copy.CommandText = $"INSERT INTO harvest_runs_new ({copyColumns}) SELECT {copyColumns} FROM harvest_runs;";
             await copy.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
@@ -559,7 +566,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
             ? string.Empty
             : $"ALTER TABLE harvest_runs DROP CONSTRAINT IF EXISTS \"{constraintName}\";";
 
-    private static async Task<bool> SqliteStateConstraintAllowsInterruptedAsync(
+    private static async Task<bool> SqliteHarvestRunsConstraintsCurrentAsync(
         DbConnection connection,
         CancellationToken cancellationToken)
     {
@@ -571,7 +578,9 @@ public sealed class HarvestRunStore : IHarvestRunStore
                AND name = 'harvest_runs';
             """;
         var sql = Convert.ToString(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false), CultureInfo.InvariantCulture);
-        return sql?.Contains("'Interrupted'", StringComparison.Ordinal) == true;
+        return sql?.Contains("'Interrupted'", StringComparison.Ordinal) == true &&
+            sql.Contains("'update'", StringComparison.Ordinal) &&
+            sql.Contains("'scheduled'", StringComparison.Ordinal);
     }
 
     private static async Task<List<string>> GetSqliteHarvestRunIndexSqlAsync(
@@ -661,7 +670,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
     private const string SqliteCreateTableSql = """
         CREATE TABLE IF NOT EXISTS harvest_runs (
           id                       TEXT PRIMARY KEY,
-          kind                     TEXT NOT NULL CHECK (kind IN ('bulk','url')),
+          kind                     TEXT NOT NULL,
           state                    TEXT NOT NULL,
           requested_utc            TEXT NOT NULL DEFAULT (datetime('now')),
           started_utc              TEXT NULL,
@@ -673,6 +682,13 @@ public sealed class HarvestRunStore : IHarvestRunStore
           decks_drained            INTEGER NULL,
           error_message            TEXT NULL,
           url                      TEXT NULL,
+          trigger_source           TEXT NULL,
+          pages_polled             INTEGER NULL,
+          refreshes_requeued       INTEGER NULL,
+          refreshes_drained        INTEGER NULL,
+          new_ids_seen             INTEGER NULL,
+          CONSTRAINT ck_harvest_runs_kind CHECK (kind IN ('bulk','url','update')),
+          CONSTRAINT ck_harvest_runs_trigger_source CHECK (trigger_source IN ('manual','scheduled')),
           CONSTRAINT ck_harvest_runs_state CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled'))
         );
         CREATE INDEX IF NOT EXISTS ix_harvest_runs_state         ON harvest_runs(state);
@@ -682,7 +698,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
     private const string SqliteCreateMigratedHarvestRunsTableSql = """
         CREATE TABLE harvest_runs_new (
           id                       TEXT PRIMARY KEY,
-          kind                     TEXT NOT NULL CHECK (kind IN ('bulk','url')),
+          kind                     TEXT NOT NULL,
           state                    TEXT NOT NULL,
           requested_utc            TEXT NOT NULL DEFAULT (datetime('now')),
           started_utc              TEXT NULL,
@@ -690,12 +706,27 @@ public sealed class HarvestRunStore : IHarvestRunStore
           duration_seconds         INTEGER NOT NULL,
           decks_processed          INTEGER NOT NULL DEFAULT 0,
           additional_decks_found   INTEGER NOT NULL DEFAULT 0,
+          decks_enqueued           INTEGER NULL,
+          decks_drained            INTEGER NULL,
           error_message            TEXT NULL,
           url                      TEXT NULL,
+          trigger_source           TEXT NULL,
+          pages_polled             INTEGER NULL,
+          refreshes_requeued       INTEGER NULL,
+          refreshes_drained        INTEGER NULL,
+          new_ids_seen             INTEGER NULL,
+          CONSTRAINT ck_harvest_runs_kind CHECK (kind IN ('bulk','url','update')),
+          CONSTRAINT ck_harvest_runs_trigger_source CHECK (trigger_source IN ('manual','scheduled')),
           CONSTRAINT ck_harvest_runs_state CHECK (state IN ('Queued','Running','Stopping','Succeeded','Interrupted','Failed','Cancelled'))
         );
         """;
 
+    private static readonly string[] HarvestRunColumns = ["id", "kind", "state", "requested_utc", "started_utc", "completed_utc", "duration_seconds", "decks_processed", "additional_decks_found", "decks_enqueued", "decks_drained", "error_message", "url", "trigger_source", "pages_polled", "refreshes_requeued", "refreshes_drained", "new_ids_seen"];
+    private static readonly AdditiveColumn[] AdditiveColumns = [new("decks_enqueued", "INTEGER", "INT"), new("decks_drained", "INTEGER", "INT"), new("trigger_source", "TEXT", "TEXT"), new("pages_polled", "INTEGER", "INT"), new("refreshes_requeued", "INTEGER", "INT"), new("refreshes_drained", "INTEGER", "INT"), new("new_ids_seen", "INTEGER", "INT")];
+    private sealed record AdditiveColumn(string Name, string SqliteType, string PostgresType);
+
+    private const string PostgresHarvestRunKindConstraintName = "ck_harvest_runs_kind";
+    private const string HarvestRunTriggerSourceConstraintName = "ck_harvest_runs_trigger_source";
     private const string PostgresHarvestRunStateConstraintName = "ck_harvest_runs_state";
 
     // D-02: any non-terminal row at startup is by definition orphaned (single-instance
