@@ -401,6 +401,151 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
         Assert.False(result);
     }
 
+    [Fact]
+    public async Task UpdateRun_HostShutdownDuringSweep_EndsInterruptedWithNoCounters()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepBlocksUntilCancelled = true };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(knowledgeStore, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Scheduled);
+            await WaitForAsync(() => knowledgeStore.RunUpdateSweepCalls == 1);
+            await service.StopAsync(CancellationToken.None);
+
+            var row = await runStore.GetByIdAsync(result.Job.JobId);
+            Assert.NotNull(row);
+            Assert.Equal(HarvestRunState.Interrupted, row!.State);
+            Assert.Equal("interrupted by host shutdown", row.ErrorMessage);
+            Assert.NotNull(row.CompletedUtc);
+            Assert.Equal(HarvestRunKind.Update, row.Kind);
+            Assert.Equal(HarvestTriggerSource.Scheduled, row.TriggerSource);
+            Assert.Null(row.PagesPolled);
+            Assert.Null(row.RefreshesRequeued);
+            Assert.Null(row.RefreshesDrained);
+            Assert.Null(row.NewIdsSeen);
+            Assert.Null(row.DecksEnqueued);
+            Assert.Null(row.DecksDrained);
+            Assert.Null(await runStore.GetActiveAsync());
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateRun_OrphanedByHardKill_ReapedAtBootAndReleasesActiveSlot()
+    {
+        var storeA = await CreateSqliteRunStoreAsync();
+        var id = await storeA.InsertQueuedAsync(HarvestRunKind.Update, 600, null, DateTimeOffset.UtcNow, HarvestTriggerSource.Scheduled);
+        await storeA.UpdateStateAsync(id, HarvestRunState.Running, DateTimeOffset.UtcNow, null, null, null, null);
+        var storeB = new HarvestRunStore(_dbPath);
+        await storeB.EnsureSchemaAsync();
+
+        var row = await storeB.GetByIdAsync(id);
+        Assert.NotNull(row);
+        Assert.Equal(HarvestRunState.Failed, row!.State);
+        Assert.Equal("interrupted by redeploy", row.ErrorMessage);
+        Assert.Null(row.PagesPolled);
+        Assert.Null(row.RefreshesRequeued);
+        Assert.Null(row.RefreshesDrained);
+        Assert.Null(row.NewIdsSeen);
+        Assert.Null(row.DecksEnqueued);
+        Assert.Null(row.DecksDrained);
+        Assert.Null(await storeB.GetActiveAsync());
+
+        var service = CreateService(runStore: storeB);
+        var next = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual);
+        Assert.True(next.StartedNewJob);
+        Assert.NotEqual(id, next.Job.JobId);
+    }
+
+    [Fact]
+    public async Task UpdateRun_OperatorCancel_EndsCancelledWithNoCounters()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepBlocksUntilCancelled = true };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(knowledgeStore, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual);
+            await WaitForAsync(() => knowledgeStore.RunUpdateSweepCalls == 1);
+            Assert.True(await service.CancelActiveAsync());
+            await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+
+            var row = await runStore.GetByIdAsync(result.Job.JobId);
+            Assert.NotNull(row);
+            Assert.Equal(HarvestRunState.Cancelled, row!.State);
+            Assert.Null(row.PagesPolled);
+            Assert.Null(row.RefreshesRequeued);
+            Assert.Null(row.RefreshesDrained);
+            Assert.Null(row.NewIdsSeen);
+            Assert.Null(row.DecksEnqueued);
+            Assert.Null(row.DecksDrained);
+            Assert.Null(await runStore.GetActiveAsync());
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateRun_SweepThrows_EndsFailedWithMessageAndNoCounters()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepException = new InvalidOperationException("update sweep failed") };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(knowledgeStore, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual);
+            await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            var row = await runStore.GetByIdAsync(result.Job.JobId);
+            Assert.NotNull(row);
+            Assert.Equal(HarvestRunState.Failed, row!.State);
+            Assert.Equal("update sweep failed", row.ErrorMessage);
+            Assert.Null(row.PagesPolled);
+            Assert.Null(row.RefreshesRequeued);
+            Assert.Null(row.RefreshesDrained);
+            Assert.Null(row.NewIdsSeen);
+            Assert.Null(row.DecksEnqueued);
+            Assert.Null(row.DecksDrained);
+            Assert.Null(await runStore.GetActiveAsync());
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task UpdateRun_RateLimitedTrip_EndsFailedWithNoCounters()
+    {
+        var knowledgeStore = new FakeCategoryKnowledgeStore { RunUpdateSweepException = new DeckFlow.Core.Integration.ArchidektRateLimitedException("limited", TimeSpan.FromSeconds(120)) };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(knowledgeStore, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual);
+            await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            var row = await runStore.GetByIdAsync(result.Job.JobId);
+            Assert.NotNull(row);
+            Assert.Equal(HarvestRunState.Failed, row!.State);
+            Assert.NotNull(row.CompletedUtc);
+            Assert.False(string.IsNullOrEmpty(row.ErrorMessage));
+            Assert.Null(row.PagesPolled);
+            Assert.Null(row.RefreshesRequeued);
+            Assert.Null(row.RefreshesDrained);
+            Assert.Null(row.NewIdsSeen);
+            Assert.Null(row.DecksEnqueued);
+            Assert.Null(row.DecksDrained);
+            Assert.Null(await runStore.GetActiveAsync());
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
     private static ArchidektCacheJobService CreateService(
         ICategoryKnowledgeStore? store = null,
         IHarvestRunStore? runStore = null)
@@ -452,6 +597,15 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
                     rowFromStore.ErrorMessage);
             }
 
+            await Task.Delay(25, cts.Token);
+        }
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (!condition())
+        {
             await Task.Delay(25, cts.Token);
         }
     }

@@ -3,6 +3,7 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -141,6 +142,82 @@ public sealed class HarvestStatsAggregatorTests
         Assert.Equal(expectedCapped, payload.Health.ZeroDiscoveryStreakCapped);
     }
 
+    /// <summary>Ensures successful update runs cannot affect the discovery-health signal.</summary>
+    [Fact]
+    public async Task GetAsync_SucceededUpdateRuns_NeverMoveZeroDiscoveryStreak()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"harvest-guard-{Guid.NewGuid():N}.db");
+        var runStore = new HarvestRunStore(path);
+        var knowledgeStore = new FakeCategoryKnowledgeStore
+        {
+            RunUpdateSweepResult = new(10, 2, 2, 3, 0, TimeSpan.Zero)
+        };
+        var service = new ArchidektCacheJobService(knowledgeStore, runStore, NullLogger<ArchidektCacheJobService>.Instance);
+        try
+        {
+            await runStore.EnsureSchemaAsync();
+            for (var hour = 10; hour <= 13; hour++)
+            {
+                var completedUtc = new DateTimeOffset(2020, 1, 1, hour, 0, 0, TimeSpan.Zero);
+                var id = await runStore.InsertQueuedAsync(HarvestRunKind.Bulk, 600, null, completedUtc, HarvestTriggerSource.Scheduled);
+                await runStore.UpdateStateAsync(id, HarvestRunState.Succeeded, completedUtc, completedUtc, 0, 0, null);
+                await runStore.SetSweepCountsAsync(id, hour == 10 ? 5 : 0, hour == 10 ? 5 : 4);
+            }
+
+            using (var cache = new MemoryCache(new MemoryCacheOptions()))
+            {
+                var baseline = await CreateAggregator(runStore, knowledgeStore, cache).GetAsync();
+                Assert.Equal(3, baseline.Health.ZeroDiscoveryStreak);
+                Assert.False(baseline.Health.ZeroDiscoveryStreakCapped);
+            }
+
+            await service.StartAsync(CancellationToken.None);
+            for (var index = 0; index < 4; index++)
+            {
+                var trigger = index % 2 == 0 ? HarvestTriggerSource.Manual : HarvestTriggerSource.Scheduled;
+                var id = await EnqueueSucceededUpdateRunAsync(service, runStore, trigger);
+                var row = await runStore.GetByIdAsync(id);
+                Assert.NotNull(row);
+                Assert.Null(row!.DecksEnqueued);
+                Assert.Null(row.DecksDrained);
+                Assert.Equal(3, row.NewIdsSeen);
+            }
+
+            // Why: update counters must never make a healthy harvest appear stalled or hide a real stall.
+            using (var cache = new MemoryCache(new MemoryCacheOptions()))
+            {
+                var payload = await CreateAggregator(runStore, knowledgeStore, cache).GetAsync();
+                Assert.Equal(3, payload.Health.ZeroDiscoveryStreak);
+                Assert.False(payload.Health.ZeroDiscoveryStreakCapped);
+            }
+            Assert.Equal(4, (await runStore.GetRecentHealthSignalRunsAsync(10)).Count);
+
+            await using var connection = new SqliteConnection($"Data Source={Path.GetFullPath(path)}");
+            await connection.OpenAsync();
+            foreach (var value in new[] { 0, 7 })
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = "UPDATE harvest_runs SET decks_enqueued = $value, decks_drained = 0 WHERE kind = 'update'";
+                command.Parameters.AddWithValue("$value", value);
+                Assert.Equal(4, await command.ExecuteNonQueryAsync());
+                using var cache = new MemoryCache(new MemoryCacheOptions());
+                var payload = await CreateAggregator(runStore, knowledgeStore, cache).GetAsync();
+                Assert.Equal(3, payload.Health.ZeroDiscoveryStreak);
+            }
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+            SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
     [Fact]
     public async Task GetAsync_FreshCachedPayload_ReturnsWithoutRebuilding()
     {
@@ -245,6 +322,25 @@ public sealed class HarvestStatsAggregatorTests
 
     private static HarvestRunRow HealthRun(int enqueued, int drained)
         => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Succeeded, DateTimeOffset.UtcNow, null, DateTimeOffset.UtcNow, 0, 0, 0, enqueued, drained, null, null, null, null, null, null, null);
+
+    private static async Task<Guid> EnqueueSucceededUpdateRunAsync(
+        ArchidektCacheJobService service,
+        IHarvestRunStore runStore,
+        HarvestTriggerSource trigger)
+    {
+        var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, trigger);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (true)
+        {
+            var row = await runStore.GetByIdAsync(result.Job.JobId, cts.Token);
+            if (row?.State == HarvestRunState.Succeeded)
+            {
+                return row.Id;
+            }
+
+            await Task.Delay(25, cts.Token);
+        }
+    }
 
     private static HarvestStatsAggregator CreateAggregator(
         IHarvestRunStore runStore,
