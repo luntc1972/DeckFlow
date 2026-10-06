@@ -49,6 +49,122 @@ public sealed class ArchidektRecentDecksImporterTests : IDisposable
     }
 
     [Fact]
+    public async Task ImportRecentListingPageAsync_JsonResponse_ParsesIdAndUpdatedAtPerRow()
+    {
+        var handler = new FixtureMessageHandler("{\"results\":[{\"id\":123,\"updatedAt\":\"2026-01-01T00:00:00.123456Z\"},{\"id\":456,\"updatedAt\":\"2026-01-01T00:00:01Z\"}]}");
+
+        var result = await CreateImporter(handler).ImportRecentListingPageAsync(4);
+
+        Assert.Collection(
+            result,
+            row =>
+            {
+                Assert.Equal("123", row.DeckId);
+                Assert.Equal(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddTicks(1234560), row.UpdatedUtc);
+                Assert.Equal(TimeSpan.Zero, row.UpdatedUtc?.Offset);
+            },
+            row =>
+            {
+                Assert.Equal("456", row.DeckId);
+                Assert.Equal(new DateTimeOffset(2026, 1, 1, 0, 0, 1, TimeSpan.Zero), row.UpdatedUtc);
+                Assert.Equal(TimeSpan.Zero, row.UpdatedUtc?.Offset);
+            });
+        Assert.Equal(1, handler.RequestCount);
+        Assert.Equal("/api/decks/v3/?orderBy=-updatedAt&page=4", handler.RequestUri?.PathAndQuery);
+    }
+
+    [Fact]
+    public async Task ImportRecentListingPageAsync_OffsetTimestamp_NormalizesToUtc()
+    {
+        var handler = new FixtureMessageHandler("{\"results\":[{\"id\":7,\"updatedAt\":\"2026-01-01T02:00:00+02:00\"}]}");
+
+        var result = await CreateImporter(handler).ImportRecentListingPageAsync(1);
+
+        var row = Assert.Single(result);
+        Assert.Equal(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), row.UpdatedUtc);
+        Assert.Equal(TimeSpan.Zero, row.UpdatedUtc?.Offset);
+    }
+
+    [Theory]
+    [InlineData("{\"id\":7,\"updatedAt\":null}")]
+    [InlineData("{\"id\":7}")]
+    [InlineData("{\"id\":7,\"updatedAt\":\"\"}")]
+    [InlineData("{\"id\":7,\"updatedAt\":\"not-a-date\"}")]
+    [InlineData("{\"id\":7,\"updatedAt\":12345}")]
+    [InlineData("{\"id\":7,\"updatedAt\":true}")]
+    [InlineData("{\"id\":7,\"updatedAt\":{}}")]
+    public async Task ImportRecentListingPageAsync_UnusableUpdatedAt_YieldsNullWithoutThrowing(string rowJson)
+    {
+        // Why: listing metadata is optional and malformed values must not discard the deck row.
+        var handler = new FixtureMessageHandler($"{{\"results\":[{rowJson}]}}");
+
+        var row = Assert.Single(await CreateImporter(handler).ImportRecentListingPageAsync(1));
+
+        Assert.Equal("7", row.DeckId);
+        Assert.Null(row.UpdatedUtc);
+    }
+
+    [Theory]
+    [InlineData("{\"results\":[]}")]
+    [InlineData("{\"results\":null}")]
+    [InlineData("{}")]
+    [InlineData("{\"count\":0,\"next\":null,\"previous\":null,\"results\":[]}")]
+    public async Task ImportRecentListingPageAsync_EmptyOrNullResults_ReturnsEmptyList(string responseBody)
+    {
+        // Why: an empty discovery page must not enqueue stale work (HARV-10).
+        var listingHandler = new FixtureMessageHandler(responseBody);
+        var idsHandler = new FixtureMessageHandler(responseBody);
+
+        var listing = await CreateImporter(listingHandler).ImportRecentListingPageAsync(1);
+        var ids = await CreateImporter(idsHandler).ImportRecentDeckIdsPageAsync(1);
+
+        Assert.Empty(listing);
+        Assert.Empty(ids);
+    }
+
+    [Fact]
+    public async Task ImportRecentListingPageAsync_DuplicateIds_KeepsFirstRowInListingOrder()
+    {
+        var handler = new FixtureMessageHandler("{\"results\":[{\"id\":9,\"updatedAt\":\"2026-01-01T00:00:02Z\"},{\"id\":8,\"updatedAt\":\"2026-01-01T00:00:01Z\"},{\"id\":9,\"updatedAt\":\"2026-01-01T00:00:00Z\"}]}");
+
+        var result = await CreateImporter(handler).ImportRecentListingPageAsync(1);
+
+        Assert.Equal(
+            [
+                new ArchidektListingDeck("9", new DateTimeOffset(2026, 1, 1, 0, 0, 2, TimeSpan.Zero)),
+                new ArchidektListingDeck("8", new DateTimeOffset(2026, 1, 1, 0, 0, 1, TimeSpan.Zero))
+            ],
+            result);
+    }
+
+    [Fact]
+    public async Task ImportRecentDeckIdsPageAsync_SameFixture_MatchesListingIdsAndRequest()
+    {
+        var responseBody = "{\"results\":[{\"id\":9,\"updatedAt\":\"2026-01-01T00:00:02Z\"},{\"id\":8,\"updatedAt\":\"2026-01-01T00:00:01Z\"},{\"id\":9,\"updatedAt\":\"2026-01-01T00:00:00Z\"},{\"id\":7,\"updatedAt\":true}]}";
+        var listingHandler = new FixtureMessageHandler(responseBody);
+        var idsHandler = new FixtureMessageHandler(responseBody);
+
+        var listing = await CreateImporter(listingHandler).ImportRecentListingPageAsync(5);
+        var ids = await CreateImporter(idsHandler).ImportRecentDeckIdsPageAsync(5);
+
+        Assert.Equal(listing.Select(row => row.DeckId), ids);
+        Assert.Equal(listingHandler.RequestUri?.PathAndQuery, idsHandler.RequestUri?.PathAndQuery);
+        Assert.Equal(1, listingHandler.RequestCount);
+        Assert.Equal(1, idsHandler.RequestCount);
+    }
+
+    [Fact]
+    public async Task ImportRecentListingPageAsync_NonSuccessStatus_ThrowsSameExceptionTypeAsIdOnlyPage()
+    {
+        var listingException = await Assert.ThrowsAsync<HttpRequestException>(async () =>
+            await CreateImporter(new FixtureMessageHandler(string.Empty, HttpStatusCode.NotFound)).ImportRecentListingPageAsync(1));
+        var idsException = await Assert.ThrowsAsync<HttpRequestException>(async () =>
+            await CreateImporter(new FixtureMessageHandler(string.Empty, HttpStatusCode.NotFound)).ImportRecentDeckIdsPageAsync(1));
+
+        Assert.Equal(idsException.GetType(), listingException.GetType());
+    }
+
+    [Fact]
     public async Task ImportRecentDeckIdsPageAsync_RateLimitedThenOk_HonoursRetryAfterThroughTheGate()
     {
         var handler = new QueuedResponseHandler([
@@ -124,14 +240,17 @@ public sealed class ArchidektRecentDecksImporterTests : IDisposable
         return new ArchidektRecentDecksImporter(client);
     }
 
-    private sealed class FixtureMessageHandler(string content) : HttpMessageHandler
+    private sealed class FixtureMessageHandler(string content, HttpStatusCode statusCode = HttpStatusCode.OK) : HttpMessageHandler
     {
         public Uri? RequestUri { get; private set; }
+
+        public int RequestCount { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             RequestUri = request.RequestUri;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            RequestCount++;
+            return Task.FromResult(new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent(content)
             });
