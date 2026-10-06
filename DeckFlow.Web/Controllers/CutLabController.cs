@@ -491,7 +491,11 @@ public sealed class CutLabController : Controller
         request.PlayExperience = state.Intent.PlayExperience;
         request.IncludeSideboard = state.Intent.IncludeSideboard;
         request.IncludeMaybeboard = state.Intent.IncludeMaybeboard;
-        request.SelectedCommander = state.Commander;
+        // Why: preserve an explicit single-commander selection while allowing flagged partner commanders to resolve together.
+        if (state.Pool.Count(card => card.IsCommander) <= 1)
+        {
+            request.SelectedCommander = state.Commander;
+        }
     }
 
     /// <summary>
