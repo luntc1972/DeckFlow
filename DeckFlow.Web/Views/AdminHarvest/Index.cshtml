@@ -144,6 +144,24 @@ else
     <p class="admin-meta">Cadence is a research estimate; update harvesting samples recent changes.</p>
 </section>
 
+<section class="admin-card" id="harvest-rate-card">
+    <h2 class="admin-card__title">Archidekt rate</h2>
+    <form method="post" asp-action="SaveRate" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <div class="admin-field">
+            <label for="ratePerMinute">Requests per minute</label>
+            <select id="ratePerMinute" name="ratePerMinute">
+                @foreach (var ratePerMinute in Model.RateOptions)
+                {
+                    <option value="@ratePerMinute" selected="@(ratePerMinute == Model.RatePerMinute ? "selected" : null)">@ratePerMinute per minute</option>
+                }
+            </select>
+        </div>
+        <button class="admin-button admin-button--primary" type="submit">Save rate</button>
+    </form>
+    <p class="admin-meta">Code ceiling: @Model.RateCeilingPerMinute requests per minute. Interactive Archidekt imports share this limit.</p>
+</section>
+
 <section class="admin-card">
     <h2 class="admin-card__title">Stats</h2>
     @if (Model.Stats is not null)

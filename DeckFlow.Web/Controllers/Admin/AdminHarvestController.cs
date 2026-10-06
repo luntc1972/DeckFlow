@@ -30,6 +30,7 @@ public sealed class AdminHarvestController : Controller
     private readonly IHarvestScheduleCache _scheduleCache;
     private readonly IHarvestUpdateScheduleStore _updateScheduleStore;
     private readonly IHarvestUpdateScheduleCache _updateScheduleCache;
+    private readonly IHarvestThrottleStore _throttleStore;
     private readonly IHarvestStatsAggregator _statsAggregator;
     private readonly IArchidektDeckImporter _deckImporter;
     private readonly ICategoryKnowledgeStore _categoryStore;
@@ -47,6 +48,7 @@ public sealed class AdminHarvestController : Controller
         IHarvestScheduleCache scheduleCache,
         IHarvestUpdateScheduleStore updateScheduleStore,
         IHarvestUpdateScheduleCache updateScheduleCache,
+        IHarvestThrottleStore throttleStore,
         IHarvestStatsAggregator statsAggregator,
         IArchidektDeckImporter deckImporter,
         ICategoryKnowledgeStore categoryStore,
@@ -60,6 +62,7 @@ public sealed class AdminHarvestController : Controller
         ArgumentNullException.ThrowIfNull(scheduleCache);
         ArgumentNullException.ThrowIfNull(updateScheduleStore);
         ArgumentNullException.ThrowIfNull(updateScheduleCache);
+        ArgumentNullException.ThrowIfNull(throttleStore);
         ArgumentNullException.ThrowIfNull(statsAggregator);
         ArgumentNullException.ThrowIfNull(deckImporter);
         ArgumentNullException.ThrowIfNull(categoryStore);
@@ -73,6 +76,7 @@ public sealed class AdminHarvestController : Controller
         _scheduleCache = scheduleCache;
         _updateScheduleStore = updateScheduleStore;
         _updateScheduleCache = updateScheduleCache;
+        _throttleStore = throttleStore;
         _statsAggregator = statsAggregator;
         _deckImporter = deckImporter;
         _categoryStore = categoryStore;
@@ -90,6 +94,7 @@ public sealed class AdminHarvestController : Controller
     {
         var activeRun = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
         var recentRuns = await _runStore.GetRecentAsync(10, cancellationToken).ConfigureAwait(false);
+        var throttle = await _throttleStore.GetAsync(cancellationToken).ConfigureAwait(false);
         HarvestStatsPayload? stats = null;
 
         try
@@ -111,6 +116,8 @@ public sealed class AdminHarvestController : Controller
             RecentRuns = recentRuns,
             Schedule = _scheduleCache.Snapshot(),
             UpdateSchedule = _updateScheduleCache.Snapshot(),
+            RatePerMinute = throttle.MaxRequestsPerMinute,
+            RateLimitedUtc = throttle.RateLimitedUtc,
             LastBanner = TempData[BannerKey] as string,
             LastBannerIsError = string.Equals(TempData[BannerToneKey] as string, "danger", StringComparison.Ordinal),
             Stats = stats,
@@ -469,6 +476,34 @@ public sealed class AdminHarvestController : Controller
         await _scheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         SetBanner(paused ? "Schedule paused." : "Schedule resumed.");
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>Saves the operator-selected Archidekt request rate.</summary>
+    /// <param name="ratePerMinute">Requested Archidekt requests per minute.</param>
+    /// <param name="cancellationToken">Cancellation token for the throttle write.</param>
+    [HttpPost("rate")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveRate(int ratePerMinute, CancellationToken cancellationToken)
+    {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null)
+        {
+            return sameOriginFailure;
+        }
+
+        if (!AdminHarvestViewModel.AllowedRatesPerMinute.Contains(ratePerMinute))
+        {
+            _logger.LogWarning("Harvest.Throttle.RateRejected ratePerMinute={RatePerMinute}", ratePerMinute);
+            SetBanner("Invalid rate.", isError: true);
+            return RedirectToAction(nameof(Index));
+        }
+
+        // Why: the code ceiling anchors D-11; a guard fact pins the allow-list within it.
+        var rate = Math.Min(ratePerMinute, ArchidektThrottle.MaxRatePerMinute);
+        await _throttleStore.SaveRateAsync(rate, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Harvest.Throttle.RateSaved ratePerMinute={RatePerMinute}", rate);
+        SetBanner($"Archidekt rate set to {rate} requests per minute.");
         return RedirectToAction(nameof(Index));
     }
 

@@ -7,6 +7,7 @@ using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Admin;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
+using AngleSharp.Html.Parser;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,7 @@ using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
@@ -33,6 +35,7 @@ namespace DeckFlow.Web.Tests;
 /// <summary>
 /// Tests for <see cref="AdminHarvestController"/> covering harvested-commander paging, same-origin guards, and render paths.
 /// </summary>
+[Collection("ArchidektThrottleSerial")]
 public sealed class AdminHarvestControllerTests
 {
     [Fact]
@@ -1070,7 +1073,111 @@ public sealed class AdminHarvestControllerTests
         Assert.Equal(snapshot, Assert.IsType<AdminHarvestViewModel>(result.Model).UpdateSchedule);
     }
 
-    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null, IArchidektCacheJobService? jobService = null, StubHarvestScheduleStore? scheduleStore = null, StubHarvestScheduleCache? scheduleCache = null, StubHarvestUpdateScheduleStore? updateScheduleStore = null, StubHarvestUpdateScheduleCache? updateScheduleCache = null)
+    [Fact]
+    public async Task SaveRate_AllowedRate_PersistsAppliesLimiterAndRendersSelected()
+    {
+        ArchidektThrottle.ResetForTests();
+        var path = Path.Combine(Path.GetTempPath(), "DeckFlow.Tests", Guid.NewGuid() + ".db");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        try
+        {
+            var throttle = new HarvestThrottleStore(path);
+            var controller = Build(NewStore(0), throttleStore: throttle);
+            Assert.IsType<RedirectToActionResult>(await controller.SaveRate(10, CancellationToken.None));
+            Assert.Equal(10, (await throttle.GetAsync()).MaxRequestsPerMinute);
+            Assert.Equal(10, ArchidektThrottle.CurrentRatePerMinute);
+            var model = Assert.IsType<AdminHarvestViewModel>(Assert.IsType<ViewResult>(await controller.Index()).Model);
+            Assert.Equal(10, model.RatePerMinute); Assert.Null(model.RateLimitedUtc);
+            Assert.Equal("Archidekt rate set to 10 requests per minute.", model.LastBanner);
+            var document = await new HtmlParser().ParseDocumentAsync(await RenderPartialViewAsync("Index", model));
+            Assert.Equal("10", document.QuerySelector("#harvest-rate-card #ratePerMinute option[selected]")?.GetAttribute("value"));
+            Assert.Null(document.QuerySelector("#harvest-rate-limited-banner"));
+        }
+        finally { ArchidektThrottle.ResetForTests(); DeleteThrottleDatabase(path); }
+    }
+
+    [Theory]
+    [InlineData(-5)]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(4)]
+    [InlineData(7)]
+    [InlineData(15)]
+    [InlineData(21)]
+    [InlineData(100)]
+    public async Task SaveRate_RateOutsideAllowList_RejectedWithoutWrite(int rate)
+    {
+        ArchidektThrottle.ResetForTests();
+        try
+        {
+            var throttle = new StubHarvestThrottleStore();
+            var controller = Build(NewStore(0), throttleStore: throttle);
+            Assert.IsType<RedirectToActionResult>(await controller.SaveRate(rate, CancellationToken.None));
+            Assert.Equal("Invalid rate.", controller.TempData["AdminHarvestBanner"]);
+            Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+            Assert.Empty(throttle.SavedRates);
+            Assert.Equal(ArchidektThrottle.MaxRatePerMinute, ArchidektThrottle.CurrentRatePerMinute);
+        }
+        finally { ArchidektThrottle.ResetForTests(); }
+    }
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(10)]
+    [InlineData(20)]
+    public async Task SaveRate_AllowListedRate_SavesThatRate(int rate)
+    {
+        var throttle = new StubHarvestThrottleStore();
+        var controller = Build(NewStore(0), throttleStore: throttle);
+        await controller.SaveRate(rate, CancellationToken.None);
+        Assert.Equal([rate], throttle.SavedRates); Assert.Equal($"Archidekt rate set to {rate} requests per minute.", controller.TempData["AdminHarvestBanner"]);
+    }
+
+    [Fact]
+    public void AllowedRatesPerMinute_IsFiveTenTwentyWithinCodeCeiling()
+    {
+        Assert.Equal([5, 10, 20], AdminHarvestViewModel.AllowedRatesPerMinute); Assert.All(AdminHarvestViewModel.AllowedRatesPerMinute, rate => Assert.InRange(rate, 1, ArchidektThrottle.MaxRatePerMinute));
+    }
+
+    [Fact]
+    public async Task SaveRate_SameRateTwice_IsIdempotent()
+    {
+        ArchidektThrottle.ResetForTests(); var path = Path.Combine(Path.GetTempPath(), "DeckFlow.Tests", Guid.NewGuid() + ".db"); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        try { var throttle = new HarvestThrottleStore(path); var controller = Build(NewStore(0), throttleStore: throttle); await controller.SaveRate(10, CancellationToken.None); await controller.SaveRate(10, CancellationToken.None); Assert.Equal(10, (await throttle.GetAsync()).MaxRequestsPerMinute); Assert.Equal(10, ArchidektThrottle.CurrentRatePerMinute); }
+        finally { ArchidektThrottle.ResetForTests(); DeleteThrottleDatabase(path); }
+    }
+
+    [Fact]
+    public async Task SaveRate_CrossOrigin_Returns403WithoutWrite()
+    {
+        ArchidektThrottle.ResetForTests();
+        try { var throttle = new StubHarvestThrottleStore(); var controller = Build(NewStore(0), crossOrigin: true, throttleStore: throttle); AssertForbidden(await controller.SaveRate(0, CancellationToken.None)); Assert.Null(controller.TempData["AdminHarvestBanner"]); Assert.Empty(throttle.SavedRates); Assert.Equal(ArchidektThrottle.MaxRatePerMinute, ArchidektThrottle.CurrentRatePerMinute); }
+        finally { ArchidektThrottle.ResetForTests(); }
+    }
+
+    [Fact]
+    public void SaveRate_HasPostRouteAndAntiforgery()
+    {
+        var method = typeof(AdminHarvestController).GetMethod(nameof(AdminHarvestController.SaveRate))!;
+        Assert.Equal("rate", Assert.IsType<HttpPostAttribute>(method.GetCustomAttributes(typeof(HttpPostAttribute), false).Single()).Template); Assert.Single(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), false));
+    }
+
+    [Fact]
+    public async Task Index_MapsThrottleSnapshotIntoViewModel()
+    {
+        var marker = DateTimeOffset.UtcNow; var controller = Build(NewStore(0), throttleStore: new StubHarvestThrottleStore { Snapshot = new HarvestThrottleSnapshot(5, marker, marker) });
+        var model = Assert.IsType<AdminHarvestViewModel>(Assert.IsType<ViewResult>(await controller.Index()).Model);
+        Assert.Equal(5, model.RatePerMinute); Assert.Equal(marker, model.RateLimitedUtc);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_RateCard_RendersAllowListFormWithToken()
+    {
+        var document = await new HtmlParser().ParseDocumentAsync(await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { RatePerMinute = 20 })); var card = document.QuerySelector("#harvest-rate-card")!;
+        Assert.Equal(["5", "10", "20"], card.QuerySelectorAll("option").Select(option => option.GetAttribute("value")!).ToArray()); Assert.Equal("20", card.QuerySelector("option[selected]")?.GetAttribute("value")); Assert.EndsWith("Admin/Harvest/SaveRate", card.QuerySelector("form")?.GetAttribute("action")); Assert.NotNull(card.QuerySelector("input[name=__RequestVerificationToken]")); Assert.Contains("admin-button", card.QuerySelector("button")?.ClassName); Assert.Contains("Code ceiling: 20 requests per minute.", card.TextContent);
+    }
+
+    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null, IArchidektCacheJobService? jobService = null, IHarvestScheduleStore? scheduleStore = null, IHarvestScheduleCache? scheduleCache = null, IHarvestUpdateScheduleStore? updateScheduleStore = null, IHarvestUpdateScheduleCache? updateScheduleCache = null, IHarvestThrottleStore? throttleStore = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -1084,6 +1191,7 @@ public sealed class AdminHarvestControllerTests
             scheduleCache ?? new StubHarvestScheduleCache(),
             updateScheduleStore ?? new StubHarvestUpdateScheduleStore(),
             updateScheduleCache ?? new StubHarvestUpdateScheduleCache(),
+            throttleStore ?? new StubHarvestThrottleStore(),
             new StubHarvestStatsAggregator(),
             importer ?? new StubArchidektDeckImporter(),
             store,
@@ -1094,6 +1202,28 @@ public sealed class AdminHarvestControllerTests
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             TempData = new TempDataDictionary(httpContext, new StubTempDataProvider()),
         };
+    }
+
+    private sealed class StubHarvestThrottleStore : IHarvestThrottleStore
+    {
+        public HarvestThrottleSnapshot Snapshot { get; set; } = new(20, null, DateTimeOffset.MinValue);
+        public List<int> SavedRates { get; } = [];
+        public bool ResumeResult { get; set; }
+        public int ResumeCalls { get; private set; }
+        public int MarkCalls { get; private set; }
+        public Action? OnResume { get; set; }
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<HarvestThrottleSnapshot> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(Snapshot);
+        public Task SaveRateAsync(int ratePerMinute, DateTimeOffset now, CancellationToken cancellationToken = default) { SavedRates.Add(ratePerMinute); Snapshot = Snapshot with { MaxRequestsPerMinute = ratePerMinute, UpdatedUtc = now }; return Task.CompletedTask; }
+        public Task MarkRateLimitedAsync(DateTimeOffset now, CancellationToken cancellationToken = default) { MarkCalls++; return Task.CompletedTask; }
+        public Task<bool> ResumeAfterRateLimitAsync(DateTimeOffset now, CancellationToken cancellationToken = default) { ResumeCalls++; OnResume?.Invoke(); return Task.FromResult(ResumeResult); }
+    }
+
+    private static void DeleteThrottleDatabase(string path)
+    {
+        if (!File.Exists(path)) return;
+        SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
+        GC.Collect(); GC.WaitForPendingFinalizers(); File.Delete(path);
     }
 
     [Fact]

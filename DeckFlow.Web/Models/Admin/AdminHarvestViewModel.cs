@@ -1,3 +1,4 @@
+using DeckFlow.Core.Integration;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 
@@ -16,6 +17,9 @@ public sealed record AdminHarvestViewModel
     public static readonly int[] AllowedDurationSeconds = { 900, 1800, 3600 };
     /// <summary>Allowed automatic harvest intervals in hours.</summary>
     public static readonly int[] AllowedIntervalHours = { 2, 4, 8, 24 };
+
+    /// <summary>Allowed operator-selected Archidekt request rates per minute.</summary>
+    public static readonly int[] AllowedRatesPerMinute = { 5, 10, 20 };
 
     /// <summary>Server-owned valid update intervals; 06-09's CHECK is the storage-side copy.</summary>
     public static readonly IReadOnlyList<int> AllowedUpdateIntervalMinutes = [15, 30, 60, 120];
@@ -70,6 +74,18 @@ public sealed record AdminHarvestViewModel
 
     /// <summary>Selectable harvest interval options in hours.</summary>
     public IReadOnlyList<int> IntervalOptions { get; init; } = AllowedIntervalHours;
+
+    /// <summary>Selectable Archidekt request rates per minute.</summary>
+    public IReadOnlyList<int> RateOptions { get; init; } = AllowedRatesPerMinute;
+
+    /// <summary>Current Archidekt request rate per minute.</summary>
+    public int RatePerMinute { get; init; } = ArchidektThrottle.MaxRatePerMinute;
+
+    /// <summary>Maximum Archidekt request rate per minute allowed by code.</summary>
+    public int RateCeilingPerMinute => ArchidektThrottle.MaxRatePerMinute;
+
+    /// <summary>Most recent UTC instant when Archidekt rate limiting paused schedules.</summary>
+    public DateTimeOffset? RateLimitedUtc { get; init; }
 
     /// <summary>Selectable manual job duration options in seconds.</summary>
     public IReadOnlyList<int> DurationOptions { get; init; } = AllowedDurationSeconds;
