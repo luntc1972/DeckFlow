@@ -15,6 +15,7 @@ public sealed class CutLabArchetypeSuggesterTests
 
         Assert.Equal("turbo-combo", result.Slug);
         Assert.Equal(CutLabArchetypeConfidence.High, result.Confidence);
+        Assert.StartsWith("combo present,", result.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -66,12 +67,23 @@ public sealed class CutLabArchetypeSuggesterTests
         Assert.Equal("control", result.Slug);
     }
 
+    [Theory]
+    [InlineData(1, "20 interaction cards and 1 creature.")]
+    [InlineData(2, "20 interaction cards and 2 creatures.")]
+    public void Suggest_Archetype_ControlReason_UsesCorrectCreaturePlural(int creatures, string expectedReason)
+    {
+        var result = Suggest([.. Cards(20, roles: ["interaction-targeted"]), .. Cards(creatures, typeLine: "Creature")]);
+
+        Assert.Equal(expectedReason, result.Reason);
+    }
+
     [Fact]
     public void Suggest_Archetype_MidrangeCombo_WhenThresholdMet()
     {
         var result = Suggest([Card("Combo")], Classification(comboNames: ["Combo"]));
 
         Assert.Equal("midrange-combo", result.Slug);
+        Assert.Equal("combo present.", result.Reason);
     }
 
     [Fact]
@@ -81,6 +93,7 @@ public sealed class CutLabArchetypeSuggesterTests
 
         Assert.Equal("value-engine", result.Slug);
         Assert.Equal(CutLabArchetypeConfidence.Low, result.Confidence);
+        Assert.Equal("no stronger pattern found.", result.Reason);
     }
 
     [Fact]

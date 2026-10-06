@@ -1536,14 +1536,27 @@ public sealed class CutLabPageServiceTests
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
         var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(BuildResolvedCards(entries)), new FakeBanListService([]));
-        var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(new CutLabState
+            {
+                Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { Archetype = null } },
+            }),
+        };
 
         CutLabProcessResult result = await service.ProcessAsync(request);
+        CutLabProcessResult baseline = await new CutLabPageService(new FakeLoader(entries), new FakeResolver(BuildResolvedCards(entries)), new FakeBanListService([]))
+            .ProcessAsync(new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" });
 
         Assert.Null(result.State!.Intent.PlanProfile!.Archetype);
         Assert.Equal(new CutLabPlanProfile { CommanderThemesUnavailable = true }, result.State.Intent.PlanProfile);
         Assert.Equal(new CutLabGoalSettings(), result.State.Goals);
         Assert.Equal(Array.Empty<CutLabRoleFloor>(), result.State.RoleFloors);
+        Assert.Equal(baseline.State!.RoleFloors, result.State.RoleFloors);
+        Assert.Equal(baseline.State.Goals, result.State.Goals);
+        Assert.Equal(baseline.State.Intent.PlanProfile, result.State.Intent.PlanProfile);
     }
 
     [Fact]

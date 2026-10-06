@@ -934,6 +934,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     appliedGoals: CutLabPatchResponse['appliedGoals'];
     archetypeDefaultGoals: CutLabPatchResponse['archetypeDefaultGoals'];
     goalOutcome: CutLabPatchResponse['goalOutcome'];
+    shouldSyncGoals: boolean;
     displayName: string;
   };
   let deferredArchetypeNotice: CutLabArchetypeNotice | null = null;
@@ -3864,11 +3865,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const syncArchetypePanel = (
-    { appliedArchetype, priorArchetype, appliedGoals, archetypeDefaultGoals, goalOutcome, displayName }: CutLabArchetypeNotice,
+    { appliedArchetype, priorArchetype, appliedGoals, archetypeDefaultGoals, goalOutcome, shouldSyncGoals, displayName }: CutLabArchetypeNotice,
     suppressNotice = false,
   ): void => {
     const notice = document.querySelector<HTMLElement>('[data-cut-lab-archetype-notice]');
-    if (appliedGoals) {
+    if (shouldSyncGoals && appliedGoals) {
       const commanderInput = getGoalInput('commander');
       const engineInput = getGoalInput('engine');
       const representativeLineInput = getGoalInput('representative-line');
@@ -4032,6 +4033,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         appliedGoals: data.appliedGoals,
         archetypeDefaultGoals: data.archetypeDefaultGoals,
         goalOutcome: data.goalOutcome,
+        shouldSyncGoals: data.goalOutcome === 'Replaced' || (data.appliedGoals != null && (
+          data.appliedGoals.commanderByTurn !== persistedState.goals?.commanderByTurn ||
+          data.appliedGoals.engineByTurn !== persistedState.goals?.engineByTurn ||
+          data.appliedGoals.representativeLineByTurn !== persistedState.goals?.representativeLineByTurn)),
         displayName: getArchetypeDisplayName(findArchetypeInput(data.appliedArchetype ?? null), 'this archetype'),
       };
       // Why: the patch's state JSON already carries the applied archetype (the server rebuilds the profile before serializing).

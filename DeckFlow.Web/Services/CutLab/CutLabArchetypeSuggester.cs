@@ -41,7 +41,7 @@ public static class CutLabArchetypeSuggester
             && fastMana >= 8
             && averageManaValue is <= 2.5)
         {
-            return Create("turbo-combo", $"Combo present, {tutors} tutors, {fastMana} fast mana, average mana value {averageManaValue.Value:0.0}.", classification);
+            return Create("turbo-combo", $"combo present, {tutors} tutors, {fastMana} fast mana, average mana value {averageManaValue.Value:0.0}.", classification);
         }
 
         // Why: T5 classifies five or more stax pieces as stax after turbo-combo has priority.
@@ -65,17 +65,17 @@ public static class CutLabArchetypeSuggester
         // Why: T5 classifies at least twenty interaction cards and at most fifteen creatures as control.
         if (interaction >= 20 && creatures <= 15)
         {
-            return Create("control", $"{interaction} interaction cards and {creatures} creatures.", classification);
+            return Create("control", $"{interaction} interaction cards and {creatures} creature{(creatures == 1 ? string.Empty : "s")}.", classification);
         }
 
         // Why: T5 classifies any complete combo as midrange-combo after more specific patterns.
         if (classification.ComboDataAvailable && comboPresent)
         {
-            return Create("midrange-combo", "Combo present.", classification);
+            return Create("midrange-combo", "combo present.", classification);
         }
 
         // Why: T5 specifies value-engine as the low-confidence fallback when no stronger pattern matches.
-        return Create("value-engine", "No stronger pattern found.", classification, fallback: true);
+        return Create("value-engine", "no stronger pattern found.", classification, fallback: true);
     }
 
     private static CutLabArchetypeSuggestion Create(

@@ -174,6 +174,35 @@ describe('cut-lab archetype picker', () => {
     expect(notice.classList.contains('hidden')).toBe(true); expect(notice.textContent).not.toContain('Archetype cleared');
   });
 
+  it('keeps unsubmitted goal edits after a no-archetype strategy apply with unchanged goals', async () => {
+    buildFixture();
+    const stateInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!;
+    const goals = { commanderByTurn: 4, engineByTurn: 5, representativeLineByTurn: 6 };
+    stateInput.value = JSON.stringify({ goals, intent: { planProfile: { archetype: null, genericStrategies: [], commanderThemes: [] } } });
+    const commander = document.querySelector<HTMLInputElement>('[data-cut-lab-goal="commander"]')!;
+    const strategy = document.querySelector<HTMLInputElement>('input[name="PlanStrategies"]')!;
+    commander.value = '7';
+    strategy.checked = true;
+    fetchMock.mockResolvedValueOnce(response(null, 'Unchanged', goals));
+
+    strategy.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+
+    expect(commander.value).toBe('7');
+  });
+
+  it('writes Stax defaults when picking Stax from None', async () => {
+    buildFixture();
+    const stateInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!;
+    const defaultGoals = { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: 6 };
+    stateInput.value = JSON.stringify({ goals: { commanderByTurn: 4, engineByTurn: 5, representativeLineByTurn: 6 }, intent: { planProfile: { archetype: null, genericStrategies: [], commanderThemes: [] } } });
+    const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
+    fetchMock.mockResolvedValueOnce(response('stax', 'Replaced', defaultGoals));
+
+    stax.checked = true; stax.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+
+    expect(document.querySelector<HTMLInputElement>('[data-cut-lab-goal="commander"]')!.value).toBe('2');
+  });
+
   it('posts planProfile.archetype and priorArchetype for a radio pick', async () => {
     const radio = buildFixture(); fetchMock.mockResolvedValueOnce(response('turbo-combo'));
     radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); await flush();

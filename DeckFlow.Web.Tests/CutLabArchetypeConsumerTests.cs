@@ -38,7 +38,7 @@ public sealed class CutLabArchetypeConsumerTests
     [Fact]
     public async Task BuildAsync_ArchetypeOnlyProfile_IsNotSkippedByEarlyExit()
     {
-        var result = await new CutLabPlanAffinityFactory(new FakeEdhrecCommanderThemeService()).BuildAsync(
+        var result = await new CutLabPlanAffinityFactory(new FakeEdhrecCommanderThemeService { IsUnavailable = true }).BuildAsync(
             Profile("stax"), [Card("Tax", "tax")], []);
 
         Assert.NotNull(result.Affinities);
@@ -93,10 +93,12 @@ public sealed class CutLabArchetypeConsumerTests
 
     private sealed class FakeEdhrecCommanderThemeService : IEdhrecCommanderThemeService
     {
+        public bool IsUnavailable { get; init; }
+
         public Task<EdhrecThemeResult> GetCommanderThemesAsync(string commanderName, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new EdhrecThemeResult([], false));
+            Task.FromResult(new EdhrecThemeResult([], IsUnavailable));
 
         public Task<EdhrecThemeCardNamesResult> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new EdhrecThemeCardNamesResult([], false));
+            Task.FromResult(new EdhrecThemeCardNamesResult([], IsUnavailable));
     }
 }
