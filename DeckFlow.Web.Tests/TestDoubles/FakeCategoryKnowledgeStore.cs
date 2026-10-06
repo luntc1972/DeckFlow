@@ -40,6 +40,9 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <summary>Optional exception thrown by update sweeps.</summary>
     public Exception? RunUpdateSweepException { get; set; }
 
+    /// <summary>When true, update sweeps wait until cancelled.</summary>
+    public bool RunUpdateSweepBlocksUntilCancelled { get; set; }
+
     /// <summary>Duration passed to the latest update sweep.</summary>
     public int? LastRunUpdateSweepDurationSeconds { get; private set; }
 
@@ -120,17 +123,22 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(RunCacheSweepResult);
     }
 
-    public Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+    public async Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         RunUpdateSweepCalls++;
         LastRunUpdateSweepDurationSeconds = durationSeconds;
+
+        if (RunUpdateSweepBlocksUntilCancelled)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
 
         if (RunUpdateSweepException is not null)
         {
             throw RunUpdateSweepException;
         }
 
-        return Task.FromResult(RunUpdateSweepResult);
+        return RunUpdateSweepResult;
     }
 
     /// <summary>Configurable per-card categories; empty by default so unset cards resolve to no roles.</summary>

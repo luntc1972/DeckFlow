@@ -17,13 +17,14 @@ namespace DeckFlow.Web.Services;
 public interface IArchidektCacheJobService
 {
     /// <summary>
-    /// Validates duration (1s..60min, HARV-01 / D-04), checks for an active row in
-    /// <c>harvest_runs</c>, and either returns the existing job (StartedNewJob=false)
-    /// or inserts a new <c>Queued</c> row and signals the worker channel.
+    /// Validates kind, trigger and the bulk duration window, then checks the single
+    /// active slot across kinds. Update runs use the fixed update duration.
     /// </summary>
-    /// <param name="duration">Operator-selected sweep duration; must be in (0, 60min].</param>
+    /// <param name="kind">Bulk or update run kind.</param>
+    /// <param name="duration">Bulk duration; ignored for update runs.</param>
+    /// <param name="trigger">Manual or scheduled initiator.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default);
+    Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(HarvestRunKind kind, TimeSpan duration, HarvestTriggerSource trigger, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Returns the run row for the supplied id mapped to the public
@@ -130,6 +131,10 @@ public sealed record ArchidektCacheJobEnqueueResult(
 /// </summary>
 public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCacheJobService
 {
+    /// <summary>Fixed duration for the bounded update sweep.</summary>
+    // Why: D-04 defines a short, page-capped run; research sizes ten pages at ten minutes.
+    public static readonly TimeSpan UpdateRunDuration = TimeSpan.FromMinutes(10);
+
     private readonly Channel<QueuedJobSignal> _queue = Channel.CreateUnbounded<QueuedJobSignal>();
     private readonly ICategoryKnowledgeStore _knowledgeStore;
     private readonly IHarvestRunStore _runStore;
@@ -163,8 +168,18 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     }
 
     /// <inheritdoc />
-    public async Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default)
+    public async Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(HarvestRunKind kind, TimeSpan duration, HarvestTriggerSource trigger, CancellationToken cancellationToken = default)
     {
+        if (kind is not (HarvestRunKind.Bulk or HarvestRunKind.Update))
+        {
+            throw new ArgumentOutOfRangeException(nameof(kind));
+        }
+
+        if (!Enum.IsDefined(trigger))
+        {
+            throw new ArgumentOutOfRangeException(nameof(trigger));
+        }
+
         if (duration <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be greater than zero.");
@@ -182,23 +197,24 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
             return new ArchidektCacheJobEnqueueResult(MapToStatus(active), StartedNewJob: false);
         }
 
-        var durationSeconds = (int)Math.Ceiling(duration.TotalSeconds);
+        var effectiveDuration = kind == HarvestRunKind.Update ? UpdateRunDuration : duration;
+        var durationSeconds = (int)Math.Ceiling(effectiveDuration.TotalSeconds);
         var requestedUtc = DateTimeOffset.UtcNow;
 
         // D-03: insert Queued row, get the UUID.
         // Unknown origin counts as scheduled; EnqueueAsync supplies the real trigger in 06-08.
         var jobId = await _runStore.InsertQueuedAsync(
-            HarvestRunKind.Bulk,
+            kind,
             durationSeconds,
             url: null,
             requestedUtc,
-            triggerSource: null,
-            cancellationToken).ConfigureAwait(false);
+            triggerSource: trigger,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
-        var writeAccepted = _queue.Writer.TryWrite(new QueuedJobSignal(jobId, durationSeconds));
+        var writeAccepted = _queue.Writer.TryWrite(new QueuedJobSignal(jobId, kind, durationSeconds));
         _logger.LogInformation(
-            "Harvest.Worker.SignalEnqueued jobId={JobId} writeAccepted={WriteAccepted}",
-            jobId, writeAccepted);
+            "Harvest.Worker.SignalEnqueued jobId={JobId} kind={Kind} trigger={Trigger} writeAccepted={WriteAccepted}",
+            jobId, kind, trigger, writeAccepted);
 
         var status = new ArchidektCacheJobStatus(
             jobId,
@@ -250,6 +266,31 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
         return Task.FromResult(true);
     }
 
+    /// <summary>Runs a bulk sweep and records its discovery counters.</summary>
+    // Why: D-05 keeps bulk discovery counters out of update runs.
+    private async Task<int> ExecuteBulkSweepAsync(QueuedJobSignal signal, IProgress<int> progress, CancellationToken cancellationToken)
+    {
+        var result = await _knowledgeStore.RunCacheSweepAsync(_logger, signal.DurationSeconds, cancellationToken, progress).ConfigureAwait(false);
+        await _runStore.SetSweepCountsAsync(signal.JobId, result.DecksEnqueued, result.DecksDrained, cancellationToken).ConfigureAwait(false);
+        return result.DecksProcessed;
+    }
+
+    /// <summary>Runs an update sweep and records only update counters.</summary>
+    // Why: D-05 keeps update runs out of the discovery health signal.
+    private async Task<int> ExecuteUpdateSweepAsync(QueuedJobSignal signal, IProgress<int> progress, CancellationToken cancellationToken)
+    {
+        var result = await _knowledgeStore.RunUpdateSweepAsync(_logger, signal.DurationSeconds, cancellationToken, progress).ConfigureAwait(false);
+        await _runStore.SetUpdateCountsAsync(
+            signal.JobId,
+            pagesPolled: result.PagesPolled,
+            refreshesRequeued: result.RefreshesRequeued,
+            refreshesDrained: result.RefreshesDrained,
+            newIdsSeen: result.NewIdsSeen,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation("Harvest.Run.UpdateCounts jobId={JobId} pagesPolled={PagesPolled} refreshesRequeued={RefreshesRequeued} refreshesDrained={RefreshesDrained} newIdsSeen={NewIdsSeen}", signal.JobId, result.PagesPolled, result.RefreshesRequeued, result.RefreshesDrained, result.NewIdsSeen);
+        return result.RefreshesDrained;
+    }
+
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -280,24 +321,28 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     errorMessage: null,
                     jobCts.Token).ConfigureAwait(false);
 
-                var initialDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(jobCts.Token).ConfigureAwait(false);
                 var progress = new HarvestProgressWriter(signal.JobId, _runStore, _logger, jobCts.Token);
-                var sweepResult = await _knowledgeStore.RunCacheSweepAsync(_logger, signal.DurationSeconds, jobCts.Token, progress).ConfigureAwait(false);
-                var finalDeckCount = await _knowledgeStore.GetProcessedDeckCountAsync(jobCts.Token).ConfigureAwait(false);
+                var initialDeckCount = signal.Kind == HarvestRunKind.Bulk
+                    ? await _knowledgeStore.GetProcessedDeckCountAsync(jobCts.Token).ConfigureAwait(false)
+                    : 0;
+                var decksProcessed = signal.Kind == HarvestRunKind.Bulk
+                    ? await ExecuteBulkSweepAsync(signal, progress, jobCts.Token).ConfigureAwait(false)
+                    : await ExecuteUpdateSweepAsync(signal, progress, jobCts.Token).ConfigureAwait(false);
+                var finalDeckCount = signal.Kind == HarvestRunKind.Bulk
+                    ? await _knowledgeStore.GetProcessedDeckCountAsync(jobCts.Token).ConfigureAwait(false)
+                    : 0;
 
                 _logger.LogInformation(
                     "Harvest.Run.StateChange jobId={JobId} state={State} decksProcessed={DecksProcessed}",
-                    signal.JobId, HarvestRunState.Succeeded, sweepResult.DecksProcessed);
-
-                await _runStore.SetSweepCountsAsync(signal.JobId, sweepResult.DecksEnqueued, sweepResult.DecksDrained, jobCts.Token).ConfigureAwait(false);
+                    signal.JobId, HarvestRunState.Succeeded, decksProcessed);
 
                 await _runStore.UpdateStateAsync(
                     signal.JobId,
                     HarvestRunState.Succeeded,
                     startedUtc: null,
                     completedUtc: DateTimeOffset.UtcNow,
-                    decksProcessed: sweepResult.DecksProcessed,
-                    additionalDecksFound: Math.Max(finalDeckCount - initialDeckCount, 0),
+                    decksProcessed: decksProcessed,
+                    additionalDecksFound: signal.Kind == HarvestRunKind.Bulk ? Math.Max(finalDeckCount - initialDeckCount, 0) : 0,
                     errorMessage: null,
                     CancellationToken.None).ConfigureAwait(false);
             }
@@ -439,8 +484,9 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     /// rather than carrying status across the channel.
     /// </summary>
     /// <param name="JobId">Server-generated UUID for the queued run.</param>
-    /// <param name="DurationSeconds">Operator-selected sweep cap.</param>
-    private sealed record QueuedJobSignal(Guid JobId, int DurationSeconds);
+    /// <param name="Kind">Bulk or update worker path.</param>
+    /// <param name="DurationSeconds">Effective sweep cap.</param>
+    private sealed record QueuedJobSignal(Guid JobId, HarvestRunKind Kind, int DurationSeconds);
 
     /// <summary>Throttles deck-count updates to the harvest run store so the admin dashboard can poll current progress.</summary>
     private sealed class HarvestProgressWriter : IProgress<int>

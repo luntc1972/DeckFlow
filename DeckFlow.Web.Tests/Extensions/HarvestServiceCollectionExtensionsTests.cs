@@ -50,7 +50,9 @@ public sealed class HarvestServiceCollectionExtensionsTests
     private sealed class FakeArchidektCacheJobService : IArchidektCacheJobService
     {
         public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(
+            HarvestRunKind kind,
             TimeSpan duration,
+            HarvestTriggerSource trigger,
             CancellationToken cancellationToken = default)
             => throw new NotSupportedException("The DI canary only resolves services.");
 

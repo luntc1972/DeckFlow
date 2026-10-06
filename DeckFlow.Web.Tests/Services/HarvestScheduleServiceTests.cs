@@ -73,7 +73,7 @@ public sealed class HarvestScheduleServiceTests
     private sealed class RecordingJob : IArchidektCacheJobService
     {
         public int Calls { get; private set; }
-        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default) { Calls++; return Task.FromResult<ArchidektCacheJobEnqueueResult>(null!); }
+        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(HarvestRunKind kind, TimeSpan duration, HarvestTriggerSource trigger, CancellationToken cancellationToken = default) { Calls++; return Task.FromResult<ArchidektCacheJobEnqueueResult>(null!); }
         public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
         public ArchidektCacheJobStatus? GetActiveJob() => null;
         public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);

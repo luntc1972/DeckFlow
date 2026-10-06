@@ -256,7 +256,7 @@ public sealed class AdminHarvestController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        await _jobService.EnqueueAsync(TimeSpan.FromSeconds(durationSeconds), cancellationToken).ConfigureAwait(false);
+        await _jobService.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(durationSeconds), HarvestTriggerSource.Manual, cancellationToken).ConfigureAwait(false);
         SetBanner($"Run queued (cap {durationSeconds / 60} min).");
         return RedirectToAction(nameof(Index));
     }

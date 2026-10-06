@@ -137,7 +137,7 @@ public sealed class HarvestScheduleService : BackgroundService
             "Harvest.Schedule.Tick.Fired intervalHours={IntervalHours} lastSuccess={LastSuccess} nextDue={NextDue}",
             snapshot.IntervalHours, failureStreak.LastSuccessUtc, nextDue);
 
-        await _jobService.EnqueueAsync(FireDuration, cancellationToken).ConfigureAwait(false);
+        await _jobService.EnqueueAsync(HarvestRunKind.Bulk, FireDuration, HarvestTriggerSource.Scheduled, cancellationToken).ConfigureAwait(false);
     }
 
     private static TimeSpan GetFailureBackoff(int consecutiveFailures, int intervalHours)

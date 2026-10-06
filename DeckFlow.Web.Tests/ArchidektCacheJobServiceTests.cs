@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -10,8 +11,62 @@ namespace DeckFlow.Web.Tests;
 /// <summary>
 /// Tests for <see cref="ArchidektCacheJobService"/> covering harvest scheduling, job control, and progress tracking.
 /// </summary>
-public sealed class ArchidektCacheJobServiceTests
+public sealed class ArchidektCacheJobServiceTests : IDisposable
 {
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"archidekt-cache-job-{Guid.NewGuid():N}.db");
+
+    public void Dispose()
+    {
+        if (File.Exists(_dbPath))
+        {
+            SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(_dbPath)}"));
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            File.Delete(_dbPath);
+        }
+    }
+
+    [Fact]
+    public async Task UpdateRun_ManualEnqueue_RunsUpdateSweepForUpdateRunDurationAndRecordsCounters()
+    {
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunUpdateSweepResult = new(10, 3, 2, 4, 0, TimeSpan.Zero)
+        };
+        var runStore = new HarvestRunStore(_dbPath);
+        await runStore.EnsureSchemaAsync();
+        var service = CreateService(store, runStore);
+
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual);
+            var job = await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            var row = await runStore.GetByIdAsync(result.Job.JobId);
+
+            Assert.True(result.StartedNewJob);
+            Assert.Equal(600, result.Job.DurationSeconds);
+            Assert.Equal(ArchidektCacheJobState.Succeeded, job.State);
+            Assert.NotNull(row);
+            Assert.Equal(HarvestRunKind.Update, row!.Kind);
+            Assert.Equal(HarvestTriggerSource.Manual, row.TriggerSource);
+            Assert.Equal(600, row.DurationSeconds);
+            Assert.Equal(10, row.PagesPolled);
+            Assert.Equal(3, row.RefreshesRequeued);
+            Assert.Equal(2, row.RefreshesDrained);
+            Assert.Equal(4, row.NewIdsSeen);
+            Assert.Null(row.DecksEnqueued);
+            Assert.Null(row.DecksDrained);
+            Assert.Equal(2, row.DecksProcessed);
+            Assert.Equal(1, store.RunUpdateSweepCalls);
+            Assert.Equal(0, store.RunCacheSweepCalls);
+            Assert.Equal(600, store.LastRunUpdateSweepDurationSeconds);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
@@ -20,7 +75,7 @@ public sealed class ArchidektCacheJobServiceTests
     {
         var service = CreateService();
 
-        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.EnqueueAsync(TimeSpan.FromSeconds(seconds)));
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(seconds), HarvestTriggerSource.Manual));
 
         Assert.Equal("duration", exception.ParamName);
     }
@@ -29,7 +84,7 @@ public sealed class ArchidektCacheJobServiceTests
     public async Task EnqueueAsync_CreatesQueuedJobWithCeilingDuration()
     {
         var service = CreateService();
-        var result = await service.EnqueueAsync(TimeSpan.FromMilliseconds(1250));
+        var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromMilliseconds(1250), HarvestTriggerSource.Manual);
 
         Assert.True(result.StartedNewJob);
         Assert.Equal(2, result.Job.DurationSeconds);
@@ -44,8 +99,8 @@ public sealed class ArchidektCacheJobServiceTests
     {
         var service = CreateService();
 
-        var first = await service.EnqueueAsync(TimeSpan.FromSeconds(5));
-        var second = await service.EnqueueAsync(TimeSpan.FromSeconds(10));
+        var first = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(5), HarvestTriggerSource.Manual);
+        var second = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(10), HarvestTriggerSource.Manual);
 
         Assert.True(first.StartedNewJob);
         Assert.False(second.StartedNewJob);
@@ -64,7 +119,7 @@ public sealed class ArchidektCacheJobServiceTests
     public async Task GetJob_ReturnsEnqueuedJob()
     {
         var service = CreateService();
-        var result = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
+        var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
 
         var job = service.GetJob(result.Job.JobId);
 
@@ -85,7 +140,7 @@ public sealed class ArchidektCacheJobServiceTests
     public async Task GetActiveJob_ReturnsQueuedJobAfterEnqueue()
     {
         var service = CreateService();
-        var result = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
+        var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
 
         var activeJob = service.GetActiveJob();
 
@@ -107,7 +162,7 @@ public sealed class ArchidektCacheJobServiceTests
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var enqueueResult = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
+            var enqueueResult = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
             var job = await WaitForTerminalJobAsync(service, runStore, enqueueResult.Job.JobId);
 
             Assert.Equal(ArchidektCacheJobState.Succeeded, job.State);
@@ -137,7 +192,7 @@ public sealed class ArchidektCacheJobServiceTests
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var enqueueResult = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
+            var enqueueResult = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
             var job = await WaitForTerminalJobAsync(service, runStore, enqueueResult.Job.JobId);
 
             Assert.Equal(ArchidektCacheJobState.Failed, job.State);
@@ -167,7 +222,7 @@ public sealed class ArchidektCacheJobServiceTests
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var enqueueResult = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
+            var enqueueResult = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
             var job = await WaitForTerminalJobAsync(service, runStore, enqueueResult.Job.JobId);
 
             Assert.Equal(ArchidektCacheJobState.Succeeded, job.State);
@@ -193,11 +248,11 @@ public sealed class ArchidektCacheJobServiceTests
         await service.StartAsync(CancellationToken.None);
         try
         {
-            var first = await service.EnqueueAsync(TimeSpan.FromSeconds(1));
+            var first = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
             var completed = await WaitForTerminalJobAsync(service, runStore, first.Job.JobId);
             Assert.Equal(ArchidektCacheJobState.Succeeded, completed.State);
 
-            var second = await service.EnqueueAsync(TimeSpan.FromSeconds(2));
+            var second = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(2), HarvestTriggerSource.Manual);
 
             Assert.True(second.StartedNewJob);
             Assert.NotEqual(first.Job.JobId, second.Job.JobId);
@@ -226,7 +281,7 @@ public sealed class ArchidektCacheJobServiceTests
 
     private static async Task<ArchidektCacheJobStatus> WaitForTerminalJobAsync(
         ArchidektCacheJobService service,
-        FakeHarvestRunStore runStore,
+        IHarvestRunStore runStore,
         Guid jobId)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -245,7 +300,7 @@ public sealed class ArchidektCacheJobServiceTests
                 return job;
             }
 
-            var rowFromStore = runStore.GetById(jobId);
+            var rowFromStore = await runStore.GetByIdAsync(jobId, cts.Token);
             if (rowFromStore is not null && IsTerminal(MapState(rowFromStore.State)))
             {
                 return new ArchidektCacheJobStatus(

@@ -923,7 +923,7 @@ public sealed class AdminHarvestControllerTests
 
     private sealed class StubArchidektCacheJobService : IArchidektCacheJobService
     {
-        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(TimeSpan duration, CancellationToken cancellationToken = default)
+        public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(HarvestRunKind kind, TimeSpan duration, HarvestTriggerSource trigger, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
 
         public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
