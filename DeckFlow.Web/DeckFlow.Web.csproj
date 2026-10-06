@@ -57,7 +57,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>2026.09.6</Version>
+    <Version>2026.10.1</Version>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TypeScriptCompileBlocked>true</TypeScriptCompileBlocked>
   </PropertyGroup>
