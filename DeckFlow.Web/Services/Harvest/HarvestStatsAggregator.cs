@@ -19,6 +19,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
 
     private readonly IHarvestRunStore _runStore;
     private readonly IHarvestScheduleCache _scheduleCache;
+    private readonly IHarvestUpdateScheduleCache _updateScheduleCache;
     private readonly ICategoryKnowledgeStore _categoryStore;
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<HarvestStatsAggregator> _logger;
@@ -32,6 +33,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     /// </summary>
     /// <param name="runStore">Harvest run store used for recent and last-success run data.</param>
     /// <param name="scheduleCache">Schedule cache used to calculate the next expected run.</param>
+    /// <param name="updateScheduleCache">Update schedule cache used to calculate the update next run.</param>
     /// <param name="categoryStore">Category knowledge store used for processed deck and observation totals.</param>
     /// <param name="memoryCache">Memory cache that stores the stats payload.</param>
     /// <param name="logger">Logger that records stats rebuild diagnostics.</param>
@@ -39,17 +41,19 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     public HarvestStatsAggregator(
         IHarvestRunStore runStore,
         IHarvestScheduleCache scheduleCache,
+        IHarvestUpdateScheduleCache updateScheduleCache,
         ICategoryKnowledgeStore categoryStore,
         IMemoryCache memoryCache,
         ILogger<HarvestStatsAggregator> logger,
         IOptions<HarvestHealthOptions> healthOptions)
-        : this(runStore, scheduleCache, categoryStore, memoryCache, logger, healthOptions, TimeProvider.System)
+        : this(runStore, scheduleCache, updateScheduleCache, categoryStore, memoryCache, logger, healthOptions, TimeProvider.System)
     {
     }
 
     internal HarvestStatsAggregator(
         IHarvestRunStore runStore,
         IHarvestScheduleCache scheduleCache,
+        IHarvestUpdateScheduleCache updateScheduleCache,
         ICategoryKnowledgeStore categoryStore,
         IMemoryCache memoryCache,
         ILogger<HarvestStatsAggregator> logger,
@@ -58,6 +62,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     {
         ArgumentNullException.ThrowIfNull(runStore);
         ArgumentNullException.ThrowIfNull(scheduleCache);
+        ArgumentNullException.ThrowIfNull(updateScheduleCache);
         ArgumentNullException.ThrowIfNull(categoryStore);
         ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(logger);
@@ -66,6 +71,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
 
         _runStore = runStore;
         _scheduleCache = scheduleCache;
+        _updateScheduleCache = updateScheduleCache;
         _categoryStore = categoryStore;
         _memoryCache = memoryCache;
         _logger = logger;
@@ -161,7 +167,8 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         var databaseSizeBytesTask = _categoryStore.GetDatabaseSizeBytesAsync(cancellationToken);
         var recentRunsTask = _runStore.GetRecentAsync(10, cancellationToken);
         var healthSignalRunsTask = _runStore.GetRecentHealthSignalRunsAsync(HarvestHealthOptions.RecentRunsWindow + 1, cancellationToken);
-        var lastSuccessUtcTask = _runStore.GetLastSuccessUtcAsync(cancellationToken);
+        var lastBulkScheduledSuccessUtcTask = _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Bulk, cancellationToken);
+        var lastUpdateScheduledSuccessUtcTask = _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Update, cancellationToken);
 
         await Task.WhenAll(
             totalDecksTask,
@@ -172,7 +179,8 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             databaseSizeBytesTask,
             recentRunsTask,
             healthSignalRunsTask,
-            lastSuccessUtcTask).ConfigureAwait(false);
+            lastBulkScheduledSuccessUtcTask,
+            lastUpdateScheduledSuccessUtcTask).ConfigureAwait(false);
 
         var totalDecks = await totalDecksTask.ConfigureAwait(false);
         var totalDecks30d = await totalDecks30dTask.ConfigureAwait(false);
@@ -183,14 +191,14 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         var recentRuns = await recentRunsTask.ConfigureAwait(false);
         var healthSignalRuns = await healthSignalRunsTask.ConfigureAwait(false);
         var health = DeriveHealthSignals(healthSignalRuns, queuedDeckCount, _healthOptions.Value);
-        var lastSuccessUtc = await lastSuccessUtcTask.ConfigureAwait(false);
+        // D-08 must match the scheduler: manual completions never move a kind's displayed next run.
+        var lastBulkScheduledSuccessUtc = await lastBulkScheduledSuccessUtcTask.ConfigureAwait(false);
+        var lastUpdateScheduledSuccessUtc = await lastUpdateScheduledSuccessUtcTask.ConfigureAwait(false);
         var scheduleSnapshot = _scheduleCache.Snapshot();
-        DateTimeOffset? nextScheduledUtc =
-            lastSuccessUtc.HasValue
-            && scheduleSnapshot.IntervalHours.HasValue
-            && !scheduleSnapshot.Paused
-                ? lastSuccessUtc.Value + TimeSpan.FromHours(scheduleSnapshot.IntervalHours.Value)
-                : null;
+        var updateScheduleSnapshot = _updateScheduleCache.Snapshot();
+        var now = _timeProvider.GetUtcNow();
+        var nextBulkScheduledUtc = NextScheduledUtc(lastBulkScheduledSuccessUtc, scheduleSnapshot.IntervalHours is int hours ? TimeSpan.FromHours(hours) : null, scheduleSnapshot.Paused, now);
+        var nextUpdateScheduledUtc = NextScheduledUtc(lastUpdateScheduledSuccessUtc, updateScheduleSnapshot.IntervalMinutes is int minutes ? TimeSpan.FromMinutes(minutes) : null, updateScheduleSnapshot.Paused, now);
 
         return new HarvestStatsPayload(
             totalDecks,
@@ -200,10 +208,15 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             totalObservations,
             recentRuns,
             databaseSizeBytes,
-            lastSuccessUtc,
-            nextScheduledUtc,
+            lastBulkScheduledSuccessUtc,
+            nextBulkScheduledUtc,
+            lastUpdateScheduledSuccessUtc,
+            nextUpdateScheduledUtc,
             health);
     }
+
+    private static DateTimeOffset? NextScheduledUtc(DateTimeOffset? anchor, TimeSpan? interval, bool paused, DateTimeOffset now)
+        => interval is null || paused ? null : anchor + interval ?? now;
 
     /// <summary>Pairs aggregated harvest statistics with their cache time for freshness checks.</summary>
     private sealed record CachedHarvestStats(HarvestStatsPayload Payload, DateTimeOffset CachedAtUtc);

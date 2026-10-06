@@ -590,17 +590,46 @@ public sealed class AdminHarvestControllerTests
         Assert.Contains("class=\"admin-empty\">Stats unavailable.", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task HarvestIndex_Stats_RendersPerKindLastAndNextRuns()
+    {
+        var stats = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, new(2026, 9, 23, 6, 0, 0, TimeSpan.Zero), new(2026, 9, 23, 10, 0, 0, TimeSpan.Zero), new(2026, 9, 23, 11, 45, 0, TimeSpan.Zero), new(2026, 9, 23, 12, 0, 0, TimeSpan.Zero), new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), true, new(15, false, DateTimeOffset.UtcNow), new(4, false, DateTimeOffset.UtcNow), stats));
+
+        Assert.Contains("Last scheduled bulk run: 2026-09-23 06:00 UTC", html, StringComparison.Ordinal);
+        Assert.Contains("Next scheduled bulk run: 2026-09-23 10:00 UTC", html, StringComparison.Ordinal);
+        Assert.Contains("Last scheduled update run: 2026-09-23 11:45 UTC", html, StringComparison.Ordinal);
+        Assert.Contains("Next scheduled update run: 2026-09-23 12:00 UTC", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Last successful run:", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(HarvestRunKind.Bulk, false, false, "Off")]
+    [InlineData(HarvestRunKind.Bulk, true, true, "Paused")]
+    [InlineData(HarvestRunKind.Bulk, true, false, "Pending")]
+    [InlineData(HarvestRunKind.Update, false, false, "Off")]
+    [InlineData(HarvestRunKind.Update, true, true, "Paused")]
+    public async Task HarvestIndex_Stats_NoNextRun_RendersLiveScheduleState(HarvestRunKind kind, bool enabled, bool paused, string expected)
+    {
+        var stats = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, kind == HarvestRunKind.Bulk && (paused || !enabled) ? new DateTimeOffset(2026, 9, 23, 10, 0, 0, TimeSpan.Zero) : null, null, kind == HarvestRunKind.Update ? new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero) : null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
+        var bulk = kind == HarvestRunKind.Bulk ? new HarvestScheduleSnapshot(enabled ? 4 : null, paused, DateTimeOffset.UtcNow) : new HarvestScheduleSnapshot(4, false, DateTimeOffset.UtcNow);
+        var update = kind == HarvestRunKind.Update ? new HarvestUpdateScheduleSnapshot(enabled ? 15 : null, paused, DateTimeOffset.UtcNow) : new HarvestUpdateScheduleSnapshot(15, false, DateTimeOffset.UtcNow);
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), true, update, bulk, stats));
+
+        Assert.Contains($"Next scheduled {kind.ToString().ToLowerInvariant()} run: {expected}", html, StringComparison.Ordinal);
+    }
+
     private static HarvestRunRow CreateHarvestRun(string? errorMessage = null, DateTimeOffset? startedUtc = null)
         => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Failed, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), startedUtc, null, 900, 2, 0, null, null, errorMessage, null, null, null, null, null, null);
 
-    private static AdminHarvestViewModel CreateHarvestViewModel(IReadOnlyList<HarvestRunRow> runs, bool includesStats, HarvestUpdateScheduleSnapshot? updateSchedule = null)
+    private static AdminHarvestViewModel CreateHarvestViewModel(IReadOnlyList<HarvestRunRow> runs, bool includesStats, HarvestUpdateScheduleSnapshot? updateSchedule = null, HarvestScheduleSnapshot? schedule = null, HarvestStatsPayload? stats = null)
         => new()
         {
-            Schedule = new HarvestScheduleSnapshot(null, false, DateTimeOffset.Parse("2026-01-01T00:00:00Z")),
+            Schedule = schedule ?? new HarvestScheduleSnapshot(null, false, DateTimeOffset.Parse("2026-01-01T00:00:00Z")),
             UpdateSchedule = updateSchedule ?? DefaultUpdateSchedule,
             RecentRuns = runs,
             Stats = includesStats
-                ? new HarvestStatsPayload(0, 0, 0, 0, 0, runs, null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false))
+                ? stats ?? new HarvestStatsPayload(0, 0, 0, 0, 0, runs, null, null, null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false))
                 : null,
         };
 
@@ -1070,7 +1099,7 @@ public sealed class AdminHarvestControllerTests
     [Fact]
     public async Task HarvestHealthStrip_RendersValuesAndUnknownDatabaseSize()
     {
-        var known = new HarvestStatsPayload(1234, 0, 56, 78, 0, Array.Empty<HarvestRunRow>(), 2048, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
+        var known = new HarvestStatsPayload(1234, 0, 56, 78, 0, Array.Empty<HarvestRunRow>(), 2048, null, null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
         var unknown = known with { DatabaseSizeBytes = null };
 
         var knownHtml = await RenderPartialViewAsync("_HarvestHealthStrip", known);
@@ -1096,7 +1125,7 @@ public sealed class AdminHarvestControllerTests
         string expectedText,
         string expectedTitle)
     {
-        var payload = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, null, new HarvestHealthSignals(true, reason, 100, 3, 0, false));
+        var payload = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, null, null, null, new HarvestHealthSignals(true, reason, 100, 3, 0, false));
 
         var html = await RenderPartialViewAsync("_HarvestHealthStrip", payload);
 
@@ -1108,7 +1137,7 @@ public sealed class AdminHarvestControllerTests
     [Fact]
     public async Task HarvestHealthStrip_NoneReason_DoesNotRenderBacklogBadge()
     {
-        var payload = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
+        var payload = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false));
 
         var html = await RenderPartialViewAsync("_HarvestHealthStrip", payload);
 
@@ -1352,6 +1381,8 @@ public sealed class AdminHarvestControllerTests
                 0,
                 0,
                 Array.Empty<HarvestRunRow>(),
+                null,
+                null,
                 null,
                 null,
                 null,

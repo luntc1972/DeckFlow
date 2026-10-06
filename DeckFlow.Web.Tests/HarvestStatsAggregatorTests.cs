@@ -33,13 +33,97 @@ public sealed class HarvestStatsAggregatorTests
         runStore.Release();
         var payload = await statsTask;
 
-        Assert.Equal(9, startedBeforeRelease);
+        Assert.Equal(10, startedBeforeRelease);
         Assert.Equal(42, payload.TotalDecks);
         Assert.Equal(7, payload.TotalDecks30d);
         Assert.Equal(99, payload.TotalObservations);
         Assert.Equal(4096L, payload.DatabaseSizeBytes);
-        Assert.Equal(runStore.LastSuccessUtc, payload.LastSuccessUtc);
-        Assert.Equal(runStore.LastSuccessUtc + TimeSpan.FromHours(4), payload.NextScheduledUtc);
+        Assert.Equal(runStore.LastSuccessUtc, payload.LastBulkScheduledSuccessUtc);
+        Assert.Equal(runStore.LastSuccessUtc, payload.LastUpdateScheduledSuccessUtc);
+        Assert.Equal(runStore.LastSuccessUtc + TimeSpan.FromHours(4), payload.NextBulkScheduledUtc);
+        Assert.Null(payload.NextUpdateScheduledUtc);
+    }
+
+    [Fact]
+    public async Task GetAsync_PerKindScheduledAnchors_ComputeEachKindsNextRun()
+    {
+        var bulk = new DateTimeOffset(2026, 9, 23, 8, 0, 0, TimeSpan.Zero);
+        var update = new DateTimeOffset(2026, 9, 23, 11, 50, 0, TimeSpan.Zero);
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var store = new ImmediateHarvestRunStore(scheduledSuccesses: new Dictionary<HarvestRunKind, DateTimeOffset?> { [HarvestRunKind.Bulk] = bulk, [HarvestRunKind.Update] = update });
+        var aggregator = CreateAggregator(store, new ImmediateCategoryKnowledgeStore(), cache, new FakeHarvestScheduleCache(new(2, false, bulk)), new FakeHarvestUpdateScheduleCache(new(30, false, update)));
+
+        var payload = await aggregator.GetAsync();
+
+        Assert.Equal(bulk, payload.LastBulkScheduledSuccessUtc);
+        Assert.Equal(bulk.AddHours(2), payload.NextBulkScheduledUtc);
+        Assert.Equal(update, payload.LastUpdateScheduledSuccessUtc);
+        Assert.Equal(update.AddMinutes(30), payload.NextUpdateScheduledUtc);
+        Assert.Equal(new[] { HarvestRunKind.Bulk, HarvestRunKind.Update }, store.QueriedKinds);
+        Assert.Equal(0, store.AnyKindSuccessReads);
+    }
+
+    [Theory]
+    [InlineData(HarvestRunKind.Bulk, false)]
+    [InlineData(HarvestRunKind.Bulk, true)]
+    [InlineData(HarvestRunKind.Update, false)]
+    [InlineData(HarvestRunKind.Update, true)]
+    public async Task GetAsync_KindOffOrPaused_HasNoNextRun(HarvestRunKind kind, bool paused)
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var schedules = kind == HarvestRunKind.Bulk ? new FakeHarvestScheduleCache(new(4, paused, DateTimeOffset.UtcNow)) : new FakeHarvestScheduleCache();
+        var updates = kind == HarvestRunKind.Update ? new FakeHarvestUpdateScheduleCache(new(15, paused, DateTimeOffset.UtcNow)) : new FakeHarvestUpdateScheduleCache(new(15, false, DateTimeOffset.UtcNow));
+        if (!paused)
+        {
+            schedules = kind == HarvestRunKind.Bulk ? new FakeHarvestScheduleCache(new(null, false, DateTimeOffset.UtcNow)) : schedules;
+            updates = kind == HarvestRunKind.Update ? new FakeHarvestUpdateScheduleCache(new(null, false, DateTimeOffset.UtcNow)) : updates;
+        }
+        var payload = await CreateAggregator(new ImmediateHarvestRunStore(), new ImmediateCategoryKnowledgeStore(), cache, schedules, updates).GetAsync();
+        Assert.Null(kind == HarvestRunKind.Bulk ? payload.NextBulkScheduledUtc : payload.NextUpdateScheduledUtc);
+        Assert.NotNull(kind == HarvestRunKind.Bulk ? payload.NextUpdateScheduledUtc : payload.NextBulkScheduledUtc);
+    }
+
+    [Theory]
+    [InlineData(HarvestRunKind.Bulk)]
+    [InlineData(HarvestRunKind.Update)]
+    public async Task GetAsync_EnabledKindWithoutScheduledSuccess_IsDueAtBuildTime(HarvestRunKind kind)
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var clock = new TestTimeProvider();
+        var payload = await CreateAggregator(new ImmediateHarvestRunStore(), new ImmediateCategoryKnowledgeStore(), cache, new FakeHarvestScheduleCache(), new FakeHarvestUpdateScheduleCache(new(15, false, DateTimeOffset.UtcNow)), clock).GetAsync();
+        Assert.Null(kind == HarvestRunKind.Bulk ? payload.LastBulkScheduledSuccessUtc : payload.LastUpdateScheduledSuccessUtc);
+        Assert.Equal(clock.GetUtcNow(), kind == HarvestRunKind.Bulk ? payload.NextBulkScheduledUtc : payload.NextUpdateScheduledUtc);
+    }
+
+    [Fact]
+    public async Task GetAsync_ManualSuccessAfterScheduledSuccess_DoesNotMoveNextRun()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"harvest-anchor-{Guid.NewGuid():N}.db");
+        var scheduled = new DateTimeOffset(2026, 9, 23, 6, 0, 0, TimeSpan.Zero);
+        try
+        {
+            var store = new HarvestRunStore(path);
+            await store.EnsureSchemaAsync();
+            var scheduledId = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 900, null, scheduled, HarvestTriggerSource.Scheduled);
+            await store.UpdateStateAsync(scheduledId, HarvestRunState.Succeeded, scheduled, scheduled, 0, 0, null);
+            var manualBulk = scheduled.AddHours(1);
+            var bulkId = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 900, null, manualBulk, HarvestTriggerSource.Manual);
+            await store.UpdateStateAsync(bulkId, HarvestRunState.Succeeded, manualBulk, manualBulk, 0, 0, null);
+            var manualUpdate = scheduled.AddHours(2);
+            var updateId = await store.InsertQueuedAsync(HarvestRunKind.Update, 900, null, manualUpdate, HarvestTriggerSource.Manual);
+            await store.UpdateStateAsync(updateId, HarvestRunState.Succeeded, manualUpdate, manualUpdate, 0, 0, null);
+            using var cache = new MemoryCache(new MemoryCacheOptions());
+            var payload = await CreateAggregator(store, new ImmediateCategoryKnowledgeStore(), cache, new FakeHarvestScheduleCache(new(4, false, scheduled)), new FakeHarvestUpdateScheduleCache(new(15, false, scheduled)), new TestTimeProvider()).GetAsync();
+            Assert.Equal(scheduled, payload.LastBulkScheduledSuccessUtc);
+            Assert.Equal(scheduled.AddHours(4), payload.NextBulkScheduledUtc);
+            Assert.Null(payload.LastUpdateScheduledSuccessUtc);
+            Assert.Equal(new DateTimeOffset(2026, 9, 23, 12, 0, 0, TimeSpan.Zero), payload.NextUpdateScheduledUtc);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            File.Delete(path);
+        }
     }
 
     [Fact]
@@ -350,6 +434,7 @@ public sealed class HarvestStatsAggregatorTests
         => new(
             runStore,
             new FakeHarvestScheduleCache(),
+            new FakeHarvestUpdateScheduleCache(),
             categoryStore,
             cache,
             NullLogger<HarvestStatsAggregator>.Instance,
@@ -363,11 +448,29 @@ public sealed class HarvestStatsAggregatorTests
         => new(
             runStore,
             new FakeHarvestScheduleCache(),
+            new FakeHarvestUpdateScheduleCache(),
             categoryStore,
             cache,
             NullLogger<HarvestStatsAggregator>.Instance,
             Options.Create(new HarvestHealthOptions { BacklogFloor = 100 }),
             timeProvider);
+
+    private static HarvestStatsAggregator CreateAggregator(
+        IHarvestRunStore runStore,
+        ICategoryKnowledgeStore categoryStore,
+        IMemoryCache cache,
+        IHarvestScheduleCache scheduleCache,
+        IHarvestUpdateScheduleCache updateScheduleCache,
+        TimeProvider? timeProvider = null)
+        => new(
+            runStore,
+            scheduleCache,
+            updateScheduleCache,
+            categoryStore,
+            cache,
+            NullLogger<HarvestStatsAggregator>.Instance,
+            Options.Create(new HarvestHealthOptions { BacklogFloor = 100 }),
+            timeProvider ?? TimeProvider.System);
 
     private sealed class BlockingCategoryKnowledgeStore : ICategoryKnowledgeStore
     {
@@ -640,7 +743,7 @@ public sealed class HarvestStatsAggregatorTests
             => Task.FromResult(0L);
 
         public Task SetUpdateCountsAsync(Guid id, int pagesPolled, int refreshesRequeued, int refreshesDrained, int newIdsSeen, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult<DateTimeOffset?>(null);
+        public Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => BlockAsync<DateTimeOffset?>(LastSuccessUtc);
         public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult(new HarvestFailureStreak(0, null, null));
 
         private async Task<T> BlockAsync<T>(T value)
@@ -654,9 +757,16 @@ public sealed class HarvestStatsAggregatorTests
     private sealed class ImmediateHarvestRunStore : IHarvestRunStore
     {
         private readonly IReadOnlyList<HarvestRunRow> _healthRuns;
+        private readonly IReadOnlyDictionary<HarvestRunKind, DateTimeOffset?> _scheduledSuccesses;
 
-        public ImmediateHarvestRunStore(IReadOnlyList<HarvestRunRow>? healthRuns = null)
-            => _healthRuns = healthRuns ?? Array.Empty<HarvestRunRow>();
+        public ImmediateHarvestRunStore(IReadOnlyList<HarvestRunRow>? healthRuns = null, IReadOnlyDictionary<HarvestRunKind, DateTimeOffset?>? scheduledSuccesses = null)
+        {
+            _healthRuns = healthRuns ?? Array.Empty<HarvestRunRow>();
+            _scheduledSuccesses = scheduledSuccesses ?? new Dictionary<HarvestRunKind, DateTimeOffset?>();
+        }
+
+        public List<HarvestRunKind> QueriedKinds { get; } = new();
+        public int AnyKindSuccessReads { get; private set; }
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
@@ -688,7 +798,10 @@ public sealed class HarvestStatsAggregatorTests
             => Task.FromResult("0");
 
         public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<DateTimeOffset?>(DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+        {
+            AnyKindSuccessReads++;
+            return Task.FromResult<DateTimeOffset?>(DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+        }
 
         public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(new HarvestFailureStreak(0, null, null));
@@ -697,14 +810,37 @@ public sealed class HarvestStatsAggregatorTests
             => Task.FromResult(0L);
 
         public Task SetUpdateCountsAsync(Guid id, int pagesPolled, int refreshesRequeued, int refreshesDrained, int newIdsSeen, CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult<DateTimeOffset?>(null);
+        public Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
+        {
+            QueriedKinds.Add(kind);
+            return Task.FromResult(_scheduledSuccesses.TryGetValue(kind, out var value) ? value : null);
+        }
         public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult(new HarvestFailureStreak(0, null, null));
     }
 
     private sealed class FakeHarvestScheduleCache : IHarvestScheduleCache
     {
+        private readonly HarvestScheduleSnapshot _snapshot;
+
+        public FakeHarvestScheduleCache(HarvestScheduleSnapshot? snapshot = null)
+            => _snapshot = snapshot ?? new(4, Paused: false, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+
         public HarvestScheduleSnapshot Snapshot()
-            => new(4, Paused: false, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+            => _snapshot;
+
+        public Task ReloadAsync(CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class FakeHarvestUpdateScheduleCache : IHarvestUpdateScheduleCache
+    {
+        private readonly HarvestUpdateScheduleSnapshot _snapshot;
+
+        public FakeHarvestUpdateScheduleCache(HarvestUpdateScheduleSnapshot? snapshot = null)
+            => _snapshot = snapshot ?? new(null, Paused: false, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+
+        public HarvestUpdateScheduleSnapshot Snapshot()
+            => _snapshot;
 
         public Task ReloadAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;

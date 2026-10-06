@@ -3,6 +3,8 @@
     ViewData["Title"] = "Harvest";
     ViewData["Lede"] = "Run and monitor deck-knowledge harvest jobs and view stats.";
     var activeState = Model.ActiveRun?.State.ToString() ?? "Idle";
+    static string NextRunLabel(DateTimeOffset? nextRun, bool enabled, bool paused)
+        => !enabled ? "Off" : paused ? "Paused" : nextRun?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Pending";
 }
 
 <noscript>
@@ -148,8 +150,10 @@ else
     {
         <p>Decks processed in last 30 days: @Model.Stats.TotalDecks30d</p>
         <p>Total observations: @Model.Stats.TotalObservations</p>
-        <p>Last successful run: @(Model.Stats.LastSuccessUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</p>
-        <p>Next scheduled run: @(Model.Stats.NextScheduledUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Off")</p>
+        <p>Last scheduled bulk run: @(Model.Stats.LastBulkScheduledSuccessUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</p>
+        <p>Next scheduled bulk run: @NextRunLabel(Model.Stats.NextBulkScheduledUtc, Model.Schedule.IntervalHours.HasValue, Model.Schedule.Paused)</p>
+        <p>Last scheduled update run: @(Model.Stats.LastUpdateScheduledSuccessUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</p>
+        <p>Next scheduled update run: @NextRunLabel(Model.Stats.NextUpdateScheduledUtc, Model.UpdateSchedule.IntervalMinutes.HasValue, Model.UpdateSchedule.Paused)</p>
         <p class="admin-meta">Decks Processed counts written decks (added + updated); unchanged cache hits are skipped to reduce write churn.</p>
     }
 

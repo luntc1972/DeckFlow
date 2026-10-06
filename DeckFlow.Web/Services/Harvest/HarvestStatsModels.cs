@@ -9,6 +9,18 @@ public sealed record HarvestedCommanderRow(string CommanderName, int DeckCount, 
 /// <summary>
 /// Full HARV-06 stats payload (D-16). Cached for 60 seconds in IMemoryCache and
 /// explicitly invalidated on harvest_runs writes (D-13).
+/// <param name="TotalDecks">Total processed decks.</param>
+/// <param name="TotalDecks30d">Processed decks in the last 30 days.</param>
+/// <param name="QueuedDeckCount">Current queued deck count.</param>
+/// <param name="DistinctCommanderCount">Count of processed commanders.</param>
+/// <param name="TotalObservations">Total card observations.</param>
+/// <param name="RecentRuns">Recent harvest run history.</param>
+/// <param name="DatabaseSizeBytes">Optional database size.</param>
+/// <param name="LastBulkScheduledSuccessUtc">Last successful scheduled bulk run.</param>
+/// <param name="NextBulkScheduledUtc">Next expected bulk schedule run.</param>
+/// <param name="LastUpdateScheduledSuccessUtc">Last successful scheduled update run.</param>
+/// <param name="NextUpdateScheduledUtc">Next expected update schedule run.</param>
+/// <param name="Health">Derived harvest health signals.</param>
 /// </summary>
 public sealed record HarvestStatsPayload(
     int TotalDecks,
@@ -18,8 +30,10 @@ public sealed record HarvestStatsPayload(
     int TotalObservations,
     IReadOnlyList<HarvestRunRow> RecentRuns,
     long? DatabaseSizeBytes,
-    DateTimeOffset? LastSuccessUtc,
-    DateTimeOffset? NextScheduledUtc,
+    DateTimeOffset? LastBulkScheduledSuccessUtc,
+    DateTimeOffset? NextBulkScheduledUtc,
+    DateTimeOffset? LastUpdateScheduledSuccessUtc,
+    DateTimeOffset? NextUpdateScheduledUtc,
     HarvestHealthSignals Health);
 
 /// <summary>Reasons that the harvest backlog requires operator attention.</summary>
