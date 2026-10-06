@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using System.Diagnostics;
+using DeckFlow.Core.Integration;
 using DeckFlow.Web.Services.Harvest;
 
 namespace DeckFlow.Web.Services;
@@ -131,6 +132,8 @@ public sealed record ArchidektCacheJobEnqueueResult(
 /// </summary>
 public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCacheJobService
 {
+    /// <summary>Fixed terminal reason used when Archidekt's shared limiter trips.</summary>
+    public const string RateLimitedErrorMessage = "rate-limited by Archidekt (repeated HTTP 429)";
     /// <summary>Fixed duration for the bounded update sweep.</summary>
     // Why: D-04 defines a short, page-capped run; research sizes ten pages at ten minutes.
     public static readonly TimeSpan UpdateRunDuration = TimeSpan.FromMinutes(10);
@@ -138,6 +141,9 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     private readonly Channel<QueuedJobSignal> _queue = Channel.CreateUnbounded<QueuedJobSignal>();
     private readonly ICategoryKnowledgeStore _knowledgeStore;
     private readonly IHarvestRunStore _runStore;
+    private readonly IHarvestThrottleStore _throttleStore;
+    private readonly IHarvestScheduleCache _scheduleCache;
+    private readonly IHarvestUpdateScheduleCache _updateScheduleCache;
     private readonly ILogger<ArchidektCacheJobService> _logger;
 
     // T-07-08: lock-protected per-job CTS. Only one active job at a time by
@@ -153,17 +159,29 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     /// </summary>
     /// <param name="knowledgeStore">Category-knowledge store (sweeps run against this).</param>
     /// <param name="runStore">Postgres harvest run store — single source of truth for state (D-01).</param>
+    /// <param name="throttleStore">Persisted throttle state and atomic schedule pauser.</param>
+    /// <param name="scheduleCache">Bulk schedule snapshot cache.</param>
+    /// <param name="updateScheduleCache">Update schedule snapshot cache.</param>
     /// <param name="logger">Structured logger.</param>
     public ArchidektCacheJobService(
         ICategoryKnowledgeStore knowledgeStore,
         IHarvestRunStore runStore,
+        IHarvestThrottleStore throttleStore,
+        IHarvestScheduleCache scheduleCache,
+        IHarvestUpdateScheduleCache updateScheduleCache,
         ILogger<ArchidektCacheJobService> logger)
     {
         ArgumentNullException.ThrowIfNull(knowledgeStore);
         ArgumentNullException.ThrowIfNull(runStore);
+        ArgumentNullException.ThrowIfNull(throttleStore);
+        ArgumentNullException.ThrowIfNull(scheduleCache);
+        ArgumentNullException.ThrowIfNull(updateScheduleCache);
         ArgumentNullException.ThrowIfNull(logger);
         _knowledgeStore = knowledgeStore;
         _runStore = runStore;
+        _throttleStore = throttleStore;
+        _scheduleCache = scheduleCache;
+        _updateScheduleCache = updateScheduleCache;
         _logger = logger;
     }
 
@@ -423,6 +441,21 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     additionalDecksFound: null,
                     errorMessage: "interrupted by unexpected cancellation",
                     CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (ArchidektRateLimitedException exception)
+            {
+                _logger.LogWarning(exception, "Harvest.Run.RateLimited jobId={JobId} kind={Kind} retryAfterSeconds={RetryAfterSeconds}", signal.JobId, signal.Kind, exception.RetryAfter?.TotalSeconds);
+                try
+                {
+                    await _throttleStore.MarkRateLimitedAsync(DateTimeOffset.UtcNow, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception markException)
+                {
+                    _logger.LogError(markException, "Harvest.Throttle.MarkFailed jobId={JobId}", signal.JobId);
+                }
+                await _scheduleCache.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
+                await _updateScheduleCache.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
+                await _runStore.UpdateStateAsync(signal.JobId, HarvestRunState.Failed, startedUtc: null, completedUtc: DateTimeOffset.UtcNow, decksProcessed: null, additionalDecksFound: null, errorMessage: RateLimitedErrorMessage, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception exception)
             {

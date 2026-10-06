@@ -42,6 +42,9 @@ public sealed class HarvestServiceCollectionExtensionsTests
         Assert.IsType<HarvestStatsAggregator>(provider.GetRequiredService<IHarvestStatsAggregator>());
         Assert.IsType<HarvestScheduleCache>(provider.GetRequiredService<IHarvestScheduleCache>());
         Assert.IsType<HarvestUpdateScheduleStore>(provider.GetRequiredService<IHarvestUpdateScheduleStore>());
+        var throttleStore = provider.GetRequiredService<IHarvestThrottleStore>();
+        Assert.IsType<HarvestThrottleStore>(throttleStore);
+        Assert.Same(throttleStore, provider.GetRequiredService<IHarvestThrottleStore>());
         var updateCache = provider.GetRequiredService<HarvestUpdateScheduleCache>();
         Assert.Same(updateCache, provider.GetRequiredService<IHarvestUpdateScheduleCache>());
 
@@ -50,6 +53,24 @@ public sealed class HarvestServiceCollectionExtensionsTests
         Assert.Contains(hostedServices, service => service is HarvestScheduleService);
         Assert.Contains(hostedServices, service => service is HarvestUpdateScheduleCache);
         Assert.True(Array.FindIndex(hostedServices, service => service is HarvestUpdateScheduleCache) < Array.FindIndex(hostedServices, service => service is HarvestScheduleService));
+    }
+
+    [Fact]
+    public void AddDeckFlowHarvest_RealJobServiceResolvesWithThrottleStoreAndBothScheduleCaches()
+    {
+        var environment = new FakeWebHostEnvironment(Path.Combine(Path.GetTempPath(), $"deckflow-harvest-di-{Guid.NewGuid():N}"));
+        var services = new ServiceCollection();
+        services.AddSingleton<IWebHostEnvironment>(environment);
+        services.AddSingleton<ICategoryKnowledgeStore, FakeCategoryKnowledgeStore>();
+        services.AddSingleton<IFeatureFlagCache, FakeFeatureFlagCache>();
+        services.AddMemoryCache();
+        services.AddLogging();
+        services.AddDeckFlowHarvest(environment);
+        services.AddSingleton<ArchidektCacheJobService>();
+        services.AddSingleton<IArchidektCacheJobService>(sp => sp.GetRequiredService<ArchidektCacheJobService>());
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        Assert.IsType<ArchidektCacheJobService>(provider.GetRequiredService<IArchidektCacheJobService>());
     }
 
     private sealed class FakeArchidektCacheJobService : IArchidektCacheJobService

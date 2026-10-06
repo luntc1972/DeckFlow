@@ -8,7 +8,7 @@ namespace DeckFlow.Web.Extensions;
 /// DI registration extension for the Phase 7 harvest system. Mirrors
 /// <see cref="FeatureFlagsServiceCollectionExtensions.AddDeckFlowFeatureFlags"/>:
 /// one extension call wires the stores, the singleton-and-hosted-service schedule
-/// cache, and the recurring scheduler service.
+/// cache, throttle store, and the recurring scheduler service.
 /// </summary>
 public static class HarvestServiceCollectionExtensions
 {
@@ -33,6 +33,7 @@ public static class HarvestServiceCollectionExtensions
             sp));
         services.AddSingleton<IHarvestScheduleStore, HarvestScheduleStore>();
         services.AddSingleton<IHarvestUpdateScheduleStore, HarvestUpdateScheduleStore>();
+        services.AddSingleton<IHarvestThrottleStore, HarvestThrottleStore>();
 
         services.AddSingleton<HarvestScheduleCache>();
         services.AddSingleton<IHarvestScheduleCache>(sp => sp.GetRequiredService<HarvestScheduleCache>());

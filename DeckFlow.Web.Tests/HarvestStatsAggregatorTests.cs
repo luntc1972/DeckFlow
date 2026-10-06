@@ -236,7 +236,13 @@ public sealed class HarvestStatsAggregatorTests
         {
             RunUpdateSweepResult = new(10, 2, 2, 3, 0, TimeSpan.Zero)
         };
-        var service = new ArchidektCacheJobService(knowledgeStore, runStore, NullLogger<ArchidektCacheJobService>.Instance);
+        var service = new ArchidektCacheJobService(
+            knowledgeStore,
+            runStore,
+            new HarvestThrottleStore(path),
+            new FakeHarvestScheduleCache(),
+            new FakeHarvestUpdateScheduleCache(),
+            NullLogger<ArchidektCacheJobService>.Instance);
         try
         {
             await runStore.EnsureSchemaAsync();

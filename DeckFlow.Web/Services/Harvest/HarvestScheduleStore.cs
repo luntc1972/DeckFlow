@@ -115,12 +115,21 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <summary>Sets pause state in the caller's transaction so coupled harvest state stays atomic.</summary>
+    internal static async Task SetPausedInTransactionAsync(DbConnection connection, DbTransaction transaction, bool paused, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var changed = await connection.ExecuteAsync(new CommandDefinition(SetPausedSql, new { paused, now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (changed != 1) throw new InvalidOperationException("harvest_schedule seed row is missing.");
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         var connection = _connectionInfo.CreateConnection();
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
         return connection;
     }
+
+    private const string SetPausedSql = "UPDATE harvest_schedule SET paused = @paused, updated_utc = @now WHERE id = 1;";
 
     // Single-row schema — id=1 PK + CHECK so a malformed UPSERT can't create id=2.
     // interval_hours CHECK whitelists the four allowed cron intervals (2,4,8,24).
