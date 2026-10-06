@@ -296,8 +296,7 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(1));
         await session.RunAsync(TimeSpan.FromMilliseconds(30));
         var before = await ReadDeckQueueRowAsync("unchanged-deck");
-        await SetLastCheckedUtcAsync("unchanged-deck", DateTimeOffset.UtcNow.AddDays(-6));
-        await repository.AddDeckIdsAsync(new[] { "unchanged-deck" });
+        await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck("unchanged-deck", DateTimeOffset.Parse("2026-01-02T00:00:00Z")) });
         importer.Metadata = second;
         await session.RunAsync(TimeSpan.FromMilliseconds(30));
         var after = await ReadDeckQueueRowAsync("unchanged-deck");
@@ -306,17 +305,6 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         Assert.Equal(before.ContentHash, after.ContentHash);
         Assert.Equal(second.EdhBracket, after.EdhBracket);
         Assert.Equal(second.CapturedUtc, after.CapturedUtc);
-    }
-
-    private async Task SetLastCheckedUtcAsync(string deckId, DateTimeOffset lastCheckedUtc)
-    {
-        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
-        await connection.OpenAsync();
-        var command = connection.CreateCommand();
-        command.CommandText = "UPDATE deck_queue SET last_checked_utc = $lastCheckedUtc WHERE deck_id = $deckId;";
-        command.Parameters.AddWithValue("$lastCheckedUtc", lastCheckedUtc.ToString("O"));
-        command.Parameters.AddWithValue("$deckId", deckId);
-        await command.ExecuteNonQueryAsync();
     }
 
     private async Task<DeckQueueRow> ReadDeckQueueRowAsync(string deckId)

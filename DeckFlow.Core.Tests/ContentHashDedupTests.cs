@@ -198,7 +198,7 @@ public sealed class ContentHashDedupTests : IDisposable
 
         var agedUtc = DateTimeOffset.UtcNow.AddDays(-6);
         await SetLastCheckedUtcAsync(deckId, agedUtc);
-        await repository.AddDeckIdsAsync(new[] { deckId });
+        await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck(deckId, DateTimeOffset.Parse("2026-01-02T00:00:00Z")) });
         var before = await ReadFactSnapshotAsync();
         Assert.NotEmpty(before.Observations);
         Assert.NotEmpty(before.Totals);
@@ -229,8 +229,7 @@ public sealed class ContentHashDedupTests : IDisposable
         var originalHash = await repository.GetContentHashAsync(deckId);
         Assert.NotNull(originalHash);
 
-        await SetLastCheckedUtcAsync(deckId, DateTimeOffset.UtcNow.AddDays(-6));
-        await repository.AddDeckIdsAsync(new[] { deckId });
+        await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck(deckId, DateTimeOffset.Parse("2026-01-02T00:00:00Z")) });
         deckImporter.SetEntries(deckId, new[]
         {
             CreateEntry("Arcane Signet", "Ramp"),
@@ -257,8 +256,7 @@ public sealed class ContentHashDedupTests : IDisposable
 
         await session.RunAsync(TimeSpan.FromMilliseconds(150), fetchBatchSize: 1);
         Assert.NotNull(await repository.GetContentHashAsync(deckId));
-        await SetLastCheckedUtcAsync(deckId, DateTimeOffset.UtcNow.AddDays(-6));
-        await repository.AddDeckIdsAsync(new[] { deckId });
+        await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck(deckId, DateTimeOffset.Parse("2026-01-02T00:00:00Z")) });
         deckImporter.SetEntries(deckId, new[] { CreateEntry("Arcane Signet", "Ramp") });
         await CreateFailingObservationInsertTriggerAsync();
 
@@ -285,8 +283,7 @@ public sealed class ContentHashDedupTests : IDisposable
         var hash = await repository.GetContentHashAsync(deckId);
         Assert.NotNull(hash);
 
-        await SetLastCheckedUtcAsync(deckId, DateTimeOffset.UtcNow.AddDays(-6));
-        await repository.AddDeckIdsAsync(new[] { deckId });
+        await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck(deckId, DateTimeOffset.Parse("2026-01-02T00:00:00Z")) });
         var before = await ReadFactSnapshotAsync();
         var secondResult = await session.RunAsync(TimeSpan.FromMilliseconds(150), fetchBatchSize: 1);
 
@@ -298,23 +295,24 @@ public sealed class ContentHashDedupTests : IDisposable
     }
 
     [Fact]
-    public async Task FiveDayCooldown_RequeueRespectsLastChecked()
+    public async Task RequeueFollowsListingUpdatedAt_NotLastChecked()
     {
         var deckId = "204";
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await repository.AddDeckIdsAsync(new[] { deckId });
         await repository.MarkDeckProcessedAsync(deckId, commanderName: null);
 
-        await repository.AddDeckIdsAsync(new[] { deckId });
-        var withinCooldown = await ReadDeckQueueRowAsync(deckId);
-        Assert.Equal(1, withinCooldown.Processed);
-
         await SetLastCheckedUtcAsync(deckId, DateTimeOffset.UtcNow.AddDays(-6));
         await repository.AddDeckIdsAsync(new[] { deckId });
-        var afterCooldown = await ReadDeckQueueRowAsync(deckId);
+        var afterAdd = await ReadDeckQueueRowAsync(deckId);
+        Assert.Equal(1, afterAdd.Processed);
 
-        Assert.Equal(0, afterCooldown.Processed);
-        Assert.Equal(0, afterCooldown.Skipped);
+        var result = await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck(deckId, DateTimeOffset.Parse("2026-01-02T00:00:00Z")) });
+        var afterListing = await ReadDeckQueueRowAsync(deckId);
+
+        Assert.Equal(1, result.RefreshesRequeued);
+        Assert.Equal(0, afterListing.Processed);
+        Assert.Equal(0, afterListing.Skipped);
     }
 
     private static DeckEntry CreateEntry(

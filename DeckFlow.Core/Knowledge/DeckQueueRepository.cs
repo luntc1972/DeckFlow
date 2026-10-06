@@ -13,7 +13,6 @@ namespace DeckFlow.Core.Knowledge;
 /// </summary>
 internal sealed class DeckQueueRepository
 {
-    private static readonly TimeSpan DeckRefreshCooldown = TimeSpan.FromDays(5);
     // Why: the Postgres pending-index test EXPLAINs these exact texts to verify they use ix_deck_queue_pending.
     internal const string NextUnprocessedDeckIdsSql = """
             SELECT deck_id
@@ -170,12 +169,14 @@ internal sealed class DeckQueueRepository
         return checked((int)await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql, new { prefix }, cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 
-    /// <summary>Inserts new deck IDs into the queue for processing.</summary>
+    /// <summary>
+    /// Inserts IDs with no queue row and leaves every existing row untouched, pending or processed.
+    /// Refresh is driven by listing updatedAt through <see cref="AddListingRowsAsync"/> (D-01, D-02).
+    /// </summary>
     /// <param name="deckIds">Deck IDs to enqueue.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
-    /// Number of IDs with no existing queue row. Requeued IDs, including already processed IDs, are
-    /// deliberately excluded because this count represents IDs discovered by the crawler.
+    /// Number of IDs that had no queue row.
     /// </returns>
     internal async Task<int> AddDeckIdsAsync(IEnumerable<string> deckIds, CancellationToken cancellationToken = default)
     {
@@ -184,23 +185,12 @@ internal sealed class DeckQueueRepository
             .Distinct(StringComparer.Ordinal)
             .ToList();
         var insertedUtc = DateTime.UtcNow;
-        var requeueBeforeUtc = insertedUtc.Subtract(DeckRefreshCooldown);
 
         await _schema.EnsureSchemaAsync(cancellationToken);
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-        var existingIds = new List<string>();
-
-        // Why: last_checked_utc is a TEXT column on both dialects, but the Dapper DateTime
-        // handler binds @requeueBeforeUtc as a native timestamptz on Postgres — and Postgres
-        // has no `text <= timestamptz` operator (42883), so the comparison must cast the column
-        // to timestamptz there. `::timestamptz` parses every datetime text format the column can
-        // hold (ISO-8601 "O" and Postgres' own coercion form), so no data backfill is needed.
-        // SQLite keeps its lexical TEXT comparison unchanged. (F-51-PG-01)
-        var lastChecked = _connectionInfo.IsSqlite
-            ? "deck_queue.last_checked_utc"
-            : "deck_queue.last_checked_utc::timestamptz";
+        var insertedCount = 0;
 
         foreach (var deckId in unique)
         {
@@ -210,41 +200,15 @@ internal sealed class DeckQueueRepository
                 VALUES (@deckId, @insertedUtc, 0, 0, NULL)
                 ON CONFLICT(deck_id) DO NOTHING;
                 """,
-                new { deckId, insertedUtc, requeueBeforeUtc },
+                new { deckId, insertedUtc },
                 transaction: transaction,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
 
-            if (rowsInserted == 0)
-            {
-                existingIds.Add(deckId);
-            }
-        }
-
-        foreach (var deckId in existingIds)
-        {
-            await connection.ExecuteAsync(new CommandDefinition(
-                $"""
-                UPDATE deck_queue
-                SET inserted_utc = @insertedUtc,
-                    processed = CASE
-                        WHEN deck_queue.processed = 0 AND deck_queue.skipped = 0 THEN 0
-                        WHEN deck_queue.last_checked_utc IS NULL OR {lastChecked} <= @requeueBeforeUtc THEN 0
-                        ELSE deck_queue.processed
-                    END,
-                    skipped = CASE
-                        WHEN deck_queue.processed = 0 AND deck_queue.skipped = 0 THEN 0
-                        WHEN deck_queue.last_checked_utc IS NULL OR {lastChecked} <= @requeueBeforeUtc THEN 0
-                        ELSE deck_queue.skipped
-                    END
-                WHERE deck_id = @deckId;
-                """,
-                new { deckId, insertedUtc, requeueBeforeUtc },
-                transaction: transaction,
-                cancellationToken: cancellationToken)).ConfigureAwait(false);
+            insertedCount += rowsInserted;
         }
 
         await transaction.CommitAsync(cancellationToken);
-        return unique.Count - existingIds.Count;
+        return insertedCount;
     }
 
     /// <summary>

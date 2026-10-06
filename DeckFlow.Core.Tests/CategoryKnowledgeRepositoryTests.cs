@@ -33,7 +33,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task AddDeckIdsAsync_ProcessedRequeueIsNotNovel()
+    public async Task AddDeckIdsAsync_ReaddedProcessedDeckIsNotNovel()
     {
         var repository = CreateRepository();
 
@@ -44,7 +44,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task AddDeckIdsAsync_DoesNotRequeueRecentlyProcessedDeck()
+    public async Task AddDeckIdsAsync_DoesNotRequeueProcessedDeck()
     {
         var repository = CreateRepository();
 
@@ -58,7 +58,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task AddDeckIdsAsync_RequeuesDeckAfterCooldownExpires()
+    public async Task AddDeckIdsAsync_ProcessedDeckWithOldLastChecked_StaysProcessed()
     {
         var repository = CreateRepository();
 
@@ -66,11 +66,25 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         await repository.MarkDecksProcessedAsync(new[] { "123" });
         await SetLastCheckedUtcAsync("123", DateTimeOffset.UtcNow.AddDays(-6));
 
-        await repository.AddDeckIdsAsync(new[] { "123" });
+        Assert.Equal(0, await repository.AddDeckIdsAsync(new[] { "123" }));
         var queuedIds = await repository.GetNextUnprocessedDeckIdsAsync(10);
 
-        Assert.Single(queuedIds);
-        Assert.Equal("123", queuedIds[0]);
+        Assert.Empty(queuedIds);
+    }
+
+    [Fact]
+    public async Task AddDeckIdsAsync_PendingRow_KeepsInsertedUtc()
+    {
+        var repository = CreateRepository();
+
+        await repository.AddDeckIdsAsync(new[] { "pending" });
+        var before = await ReadInsertedUtcTextAsync("pending");
+        // Why: the insert timestamp must differ if an existing pending row is rewritten.
+        await Task.Delay(20);
+
+        Assert.Equal(0, await repository.AddDeckIdsAsync(new[] { "pending" }));
+        Assert.Equal(before, await ReadInsertedUtcTextAsync("pending"));
+        Assert.Contains("pending", await repository.GetNextUnprocessedDeckIdsAsync(10));
     }
 
     [Fact]
@@ -1244,6 +1258,16 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
         command.Parameters.AddWithValue("$deckId", deckId);
         command.Parameters.AddWithValue("$timestamp", timestamp.ToString("O"));
         await command.ExecuteNonQueryAsync();
+    }
+
+    private async Task<string> ReadInsertedUtcTextAsync(string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT inserted_utc FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        return (string)(await command.ExecuteScalarAsync())!;
     }
 
     private async Task SetDeckQueueFieldsAsync(
