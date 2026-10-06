@@ -28,6 +28,8 @@ public sealed class AdminHarvestController : Controller
     private readonly IHarvestRunStore _runStore;
     private readonly IHarvestScheduleStore _scheduleStore;
     private readonly IHarvestScheduleCache _scheduleCache;
+    private readonly IHarvestUpdateScheduleStore _updateScheduleStore;
+    private readonly IHarvestUpdateScheduleCache _updateScheduleCache;
     private readonly IHarvestStatsAggregator _statsAggregator;
     private readonly IArchidektDeckImporter _deckImporter;
     private readonly ICategoryKnowledgeStore _categoryStore;
@@ -43,6 +45,8 @@ public sealed class AdminHarvestController : Controller
         IHarvestRunStore runStore,
         IHarvestScheduleStore scheduleStore,
         IHarvestScheduleCache scheduleCache,
+        IHarvestUpdateScheduleStore updateScheduleStore,
+        IHarvestUpdateScheduleCache updateScheduleCache,
         IHarvestStatsAggregator statsAggregator,
         IArchidektDeckImporter deckImporter,
         ICategoryKnowledgeStore categoryStore,
@@ -54,6 +58,8 @@ public sealed class AdminHarvestController : Controller
         ArgumentNullException.ThrowIfNull(runStore);
         ArgumentNullException.ThrowIfNull(scheduleStore);
         ArgumentNullException.ThrowIfNull(scheduleCache);
+        ArgumentNullException.ThrowIfNull(updateScheduleStore);
+        ArgumentNullException.ThrowIfNull(updateScheduleCache);
         ArgumentNullException.ThrowIfNull(statsAggregator);
         ArgumentNullException.ThrowIfNull(deckImporter);
         ArgumentNullException.ThrowIfNull(categoryStore);
@@ -65,6 +71,8 @@ public sealed class AdminHarvestController : Controller
         _runStore = runStore;
         _scheduleStore = scheduleStore;
         _scheduleCache = scheduleCache;
+        _updateScheduleStore = updateScheduleStore;
+        _updateScheduleCache = updateScheduleCache;
         _statsAggregator = statsAggregator;
         _deckImporter = deckImporter;
         _categoryStore = categoryStore;
@@ -102,6 +110,7 @@ public sealed class AdminHarvestController : Controller
             ActiveRun = activeRun,
             RecentRuns = recentRuns,
             Schedule = _scheduleCache.Snapshot(),
+            UpdateSchedule = _updateScheduleCache.Snapshot(),
             LastBanner = TempData[BannerKey] as string,
             LastBannerIsError = string.Equals(TempData[BannerToneKey] as string, "danger", StringComparison.Ordinal),
             Stats = stats,
@@ -460,6 +469,50 @@ public sealed class AdminHarvestController : Controller
         await _scheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         SetBanner(paused ? "Schedule paused." : "Schedule resumed.");
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Saves the update schedule using antiforgery protection only (A5) because BasicAuth gates this route.
+    /// </summary>
+    /// <param name="intervalMinutes">The requested update interval, or null to turn it off.</param>
+    /// <param name="paused">Whether the update schedule is paused.</param>
+    /// <param name="cancellationToken">Cancellation token for the schedule write.</param>
+    [HttpPost("update-schedule")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveUpdateSchedule(int? intervalMinutes, bool paused, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid || (intervalMinutes.HasValue && !AdminHarvestViewModel.AllowedUpdateIntervalMinutes.Contains(intervalMinutes.Value)))
+        {
+            SetBanner("Invalid update interval.", isError: true);
+            return RedirectToAction(nameof(Index));
+        }
+
+        await _updateScheduleStore.SaveAsync(intervalMinutes, paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+        await _updateScheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
+        SetBanner("Update schedule updated.");
+        return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Sets update scheduling pause state using antiforgery protection only (A5) because BasicAuth gates this route.
+    /// </summary>
+    /// <param name="paused">The absolute pause state to persist.</param>
+    /// <param name="cancellationToken">Cancellation token for the schedule write.</param>
+    [HttpPost("update-pause")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> PauseUpdateSchedule(bool paused, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            SetBanner("Invalid update schedule request.", isError: true);
+            return RedirectToAction(nameof(Index));
+        }
+
+        var snapshot = _updateScheduleCache.Snapshot();
+        await _updateScheduleStore.SaveAsync(snapshot.IntervalMinutes, paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+        await _updateScheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
+        SetBanner(paused ? "Update schedule paused." : "Update schedule resumed.");
         return RedirectToAction(nameof(Index));
     }
 

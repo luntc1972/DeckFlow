@@ -81,8 +81,8 @@ else
     </div>
 </section>
 
-<section class="admin-card">
-    <h2 class="admin-card__title">Schedule</h2>
+<section id="harvest-bulk-schedule" class="admin-card">
+    <h2 class="admin-card__title">Bulk Schedule</h2>
     <form method="post" asp-action="SaveSchedule" class="admin-action-form">
         @Html.AntiForgeryToken()
         <div class="admin-field">
@@ -111,6 +111,35 @@ else
     {
         <partial name="_HarvestZeroDiscovery" model="Model.Stats.Health" />
     }
+</section>
+
+<section id="harvest-update-schedule" class="admin-card">
+    <h2 class="admin-card__title">Update Schedule</h2>
+    <form method="post" asp-action="SaveUpdateSchedule" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <div class="admin-field">
+            <label for="updateIntervalMinutes">Interval</label>
+            <select id="updateIntervalMinutes" name="intervalMinutes">
+                <option value="">Off</option>
+                @foreach (var intervalMinutes in Model.UpdateIntervalOptions)
+                {
+                    <option value="@intervalMinutes" selected="@(Model.UpdateSchedule.IntervalMinutes == intervalMinutes ? "selected" : null)">Every @intervalMinutes minutes</option>
+                }
+            </select>
+        </div>
+        <input type="hidden" name="paused" value="@(Model.UpdateSchedule.Paused.ToString().ToLowerInvariant())" />
+        <button class="admin-button admin-button--primary" type="submit">Save</button>
+    </form>
+
+    <form method="post" asp-action="PauseUpdateSchedule" class="admin-action-form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="paused" value="@((!Model.UpdateSchedule.Paused).ToString().ToLowerInvariant())" />
+        <button class="admin-button admin-button--secondary" type="submit">@(Model.UpdateSchedule.Paused ? "Resume" : "Pause")</button>
+    </form>
+
+    <p>Current interval: @(Model.UpdateSchedule.IntervalMinutes.HasValue ? $"Every {Model.UpdateSchedule.IntervalMinutes.Value} minutes" : "Off")</p>
+    <p>Paused: @(Model.UpdateSchedule.Paused ? "Yes" : "No")</p>
+    <p class="admin-meta">Cadence is a research estimate; update harvesting samples recent changes.</p>
 </section>
 
 <section class="admin-card">

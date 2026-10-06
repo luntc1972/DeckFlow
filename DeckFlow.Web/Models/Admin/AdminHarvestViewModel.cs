@@ -17,6 +17,9 @@ public sealed record AdminHarvestViewModel
     /// <summary>Allowed automatic harvest intervals in hours.</summary>
     public static readonly int[] AllowedIntervalHours = { 2, 4, 8, 24 };
 
+    /// <summary>Server-owned valid update intervals; 06-09's CHECK is the storage-side copy.</summary>
+    public static readonly IReadOnlyList<int> AllowedUpdateIntervalMinutes = [15, 30, 60, 120];
+
     /// <summary>Server-owned valid run kinds; this allow-list is the only source of valid kinds.</summary>
     public static readonly IReadOnlyList<HarvestRunKind> AllowedRunKinds = [HarvestRunKind.Bulk, HarvestRunKind.Update];
 
@@ -26,11 +29,17 @@ public sealed record AdminHarvestViewModel
     /// <summary>Run kinds offered by the form from the server's only valid-kind allow-list.</summary>
     public IReadOnlyList<HarvestRunKind> RunKindOptions { get; init; } = AllowedRunKinds;
 
+    /// <summary>Update intervals offered by the operator form.</summary>
+    public IReadOnlyList<int> UpdateIntervalOptions { get; init; } = AllowedUpdateIntervalMinutes;
+
     /// <summary>Server-owned update cap, derived from the server duration rather than a posted value.</summary>
     public static int UpdateRunCapMinutes => (int)ArchidektCacheJobService.UpdateRunDuration.TotalMinutes;
 
     /// <summary>Current persisted harvest schedule settings.</summary>
     public required HarvestScheduleSnapshot Schedule { get; init; }
+
+    /// <summary>Current persisted update-harvest schedule settings.</summary>
+    public required HarvestUpdateScheduleSnapshot UpdateSchedule { get; init; }
 
     /// <summary>Currently active harvest run, if one is in progress.</summary>
     public HarvestRunRow? ActiveRun { get; init; }

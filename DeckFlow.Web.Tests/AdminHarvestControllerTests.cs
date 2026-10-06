@@ -593,10 +593,11 @@ public sealed class AdminHarvestControllerTests
     private static HarvestRunRow CreateHarvestRun(string? errorMessage = null, DateTimeOffset? startedUtc = null)
         => new(Guid.NewGuid(), HarvestRunKind.Bulk, HarvestRunState.Failed, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), startedUtc, null, 900, 2, 0, null, null, errorMessage, null, null, null, null, null, null);
 
-    private static AdminHarvestViewModel CreateHarvestViewModel(IReadOnlyList<HarvestRunRow> runs, bool includesStats)
+    private static AdminHarvestViewModel CreateHarvestViewModel(IReadOnlyList<HarvestRunRow> runs, bool includesStats, HarvestUpdateScheduleSnapshot? updateSchedule = null)
         => new()
         {
             Schedule = new HarvestScheduleSnapshot(null, false, DateTimeOffset.Parse("2026-01-01T00:00:00Z")),
+            UpdateSchedule = updateSchedule ?? DefaultUpdateSchedule,
             RecentRuns = runs,
             Stats = includesStats
                 ? new HarvestStatsPayload(0, 0, 0, 0, 0, runs, null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false))
@@ -892,7 +893,155 @@ public sealed class AdminHarvestControllerTests
     private static async Task<FileContentResult> ExportFileAsync(ICategoryKnowledgeStore store)
         => Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
 
-    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null, IArchidektCacheJobService? jobService = null)
+    [Theory]
+    [InlineData(15, false)]
+    [InlineData(30, true)]
+    [InlineData(60, false)]
+    [InlineData(120, true)]
+    [InlineData(null, false)]
+    public async Task SaveUpdateSchedule_AllowedInterval_SavesReloadsAndConfirms(int? intervalMinutes, bool paused)
+    {
+        var updateStore = new StubHarvestUpdateScheduleStore();
+        var updateCache = new StubHarvestUpdateScheduleCache();
+        var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
+        await controller.SaveUpdateSchedule(intervalMinutes, paused, CancellationToken.None);
+        Assert.Equal([(intervalMinutes, paused)], updateStore.Saves);
+        Assert.Equal(1, updateCache.ReloadCount);
+        Assert.Equal("Update schedule updated.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("success", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(5)]
+    [InlineData(45)]
+    [InlineData(90)]
+    [InlineData(240)]
+    [InlineData(-15)]
+    [InlineData(2)]
+    public async Task SaveUpdateSchedule_IntervalOutsideAllowList_RejectsWithoutWrite(int intervalMinutes)
+    {
+        var updateStore = new StubHarvestUpdateScheduleStore();
+        var updateCache = new StubHarvestUpdateScheduleCache();
+        var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
+        await controller.SaveUpdateSchedule(intervalMinutes, false, CancellationToken.None);
+        Assert.Empty(updateStore.Saves); Assert.Equal(0, updateCache.ReloadCount);
+        Assert.Equal("Invalid update interval.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Fact]
+    public async Task SaveUpdateSchedule_UnparseableInput_RejectsWithoutWrite()
+    {
+        var updateStore = new StubHarvestUpdateScheduleStore(); var updateCache = new StubHarvestUpdateScheduleCache();
+        var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
+        controller.ModelState.AddModelError("intervalMinutes", "invalid");
+        await controller.SaveUpdateSchedule(null, false, CancellationToken.None);
+        Assert.Empty(updateStore.Saves); Assert.Equal(0, updateCache.ReloadCount);
+        Assert.Equal("Invalid update interval.", controller.TempData["AdminHarvestBanner"]);
+    }
+
+    [Theory]
+    [InlineData(30, false, true, "Update schedule paused.")]
+    [InlineData(60, true, false, "Update schedule resumed.")]
+    public async Task PauseUpdateSchedule_PreservesIntervalAndSetsPaused(int interval, bool currentPaused, bool paused, string message)
+    {
+        var updateStore = new StubHarvestUpdateScheduleStore();
+        var updateCache = new StubHarvestUpdateScheduleCache { Current = new(interval, currentPaused, DateTimeOffset.MinValue) };
+        var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
+        await controller.PauseUpdateSchedule(paused, CancellationToken.None);
+        Assert.Equal([(interval, paused)], updateStore.Saves); Assert.Equal(1, updateCache.ReloadCount);
+        Assert.Equal(message, controller.TempData["AdminHarvestBanner"]);
+    }
+
+    [Fact]
+    public async Task PauseUpdateSchedule_DoubleSubmit_WritesSameAbsoluteState()
+    {
+        var updateStore = new StubHarvestUpdateScheduleStore(); var updateCache = new StubHarvestUpdateScheduleCache { Current = new(15, false, DateTimeOffset.MinValue) };
+        var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
+        await controller.PauseUpdateSchedule(true, CancellationToken.None); await controller.PauseUpdateSchedule(true, CancellationToken.None);
+        Assert.Equal([(15, true), (15, true)], updateStore.Saves);
+    }
+
+    [Fact]
+    public async Task PauseUpdateSchedule_UnparseableInput_RejectsWithoutWrite()
+    {
+        var updateStore = new StubHarvestUpdateScheduleStore(); var updateCache = new StubHarvestUpdateScheduleCache();
+        var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
+        controller.ModelState.AddModelError("paused", "invalid"); await controller.PauseUpdateSchedule(false, CancellationToken.None);
+        Assert.Empty(updateStore.Saves); Assert.Equal(0, updateCache.ReloadCount);
+        Assert.Equal("Invalid update schedule request.", controller.TempData["AdminHarvestBanner"]);
+    }
+
+    [Theory]
+    [InlineData(nameof(AdminHarvestController.RunNow), "run")]
+    [InlineData(nameof(AdminHarvestController.SaveUpdateSchedule), "update-schedule")]
+    [InlineData(nameof(AdminHarvestController.PauseUpdateSchedule), "update-pause")]
+    public void AdminHarvestStatePosts_RequirePostRouteAndAntiforgery(string methodName, string route)
+    {
+        var method = typeof(AdminHarvestController).GetMethod(methodName)!;
+        Assert.Equal(route, Assert.Single(method.GetCustomAttributes(typeof(HttpPostAttribute), false).Cast<HttpPostAttribute>()).Template);
+        Assert.Single(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), false));
+    }
+
+    [Fact]
+    public async Task UpdateSchedulePosts_NeverWriteBulkSchedule()
+    {
+        var bulkStore = new StubHarvestScheduleStore(); var bulkCache = new StubHarvestScheduleCache();
+        var controller = Build(NewStore(0), scheduleStore: bulkStore, scheduleCache: bulkCache);
+        await controller.SaveUpdateSchedule(30, false, CancellationToken.None);
+        await controller.PauseUpdateSchedule(true, CancellationToken.None);
+        Assert.Equal(0, bulkStore.SaveCount); Assert.Equal(0, bulkCache.ReloadCount);
+    }
+
+    [Fact]
+    public async Task BulkSchedulePosts_NeverWriteUpdateSchedule()
+    {
+        var updateStore = new StubHarvestUpdateScheduleStore(); var updateCache = new StubHarvestUpdateScheduleCache();
+        var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
+        await controller.SaveSchedule(4, false, CancellationToken.None);
+        await controller.PauseSchedule(true, CancellationToken.None);
+        Assert.Empty(updateStore.Saves); Assert.Equal(0, updateCache.ReloadCount);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_UpdateScheduleCard_RendersProtectedSaveAndPauseForms()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false));
+        var start = html.IndexOf("id=\"harvest-update-schedule\"", StringComparison.Ordinal);
+        var card = html[start..(html.IndexOf("</section>", start, StringComparison.Ordinal) + "</section>".Length)];
+        Assert.Contains("Update Schedule", card, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Matches(card, "<form method=\"post\"").Count);
+        Assert.Contains("SaveUpdateSchedule", card, StringComparison.Ordinal); Assert.Contains("PauseUpdateSchedule", card, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Matches(card, "name=\"__RequestVerificationToken\"").Count);
+        Assert.Contains("id=\"updateIntervalMinutes\" name=\"intervalMinutes\"", card, StringComparison.Ordinal);
+        foreach (var interval in new[] { 15, 30, 60, 120 }) Assert.Contains($"value=\"{interval}\"", card, StringComparison.Ordinal);
+        Assert.Contains("sample", card, StringComparison.Ordinal); Assert.Contains("research estimate", card, StringComparison.Ordinal);
+        Assert.True(html.IndexOf("id=\"harvest-bulk-schedule\"", StringComparison.Ordinal) < start);
+        Assert.Contains("Bulk Schedule", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(null, false, "Current interval: Off", "Paused: No", "Pause")]
+    [InlineData(30, true, "Current interval: Every 30 minutes", "Paused: Yes", "Resume")]
+    public async Task HarvestIndex_UpdateScheduleCard_RendersSnapshotState(int? interval, bool paused, string current, string pause, string button)
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false, new(interval, paused, DateTimeOffset.MinValue)));
+        var start = html.IndexOf("id=\"harvest-update-schedule\"", StringComparison.Ordinal);
+        var card = html[start..(html.IndexOf("</section>", start, StringComparison.Ordinal) + "</section>".Length)];
+        Assert.Contains(current, card, StringComparison.Ordinal); Assert.Contains(pause, card, StringComparison.Ordinal); Assert.Contains($">{button}</button>", card, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Index_ReadsUpdateScheduleSnapshotIntoViewModel()
+    {
+        var snapshot = new HarvestUpdateScheduleSnapshot(60, true, DateTimeOffset.MinValue);
+        var controller = Build(NewStore(0), updateScheduleCache: new StubHarvestUpdateScheduleCache { Current = snapshot });
+        var result = Assert.IsType<ViewResult>(await controller.Index());
+        Assert.Equal(snapshot, Assert.IsType<AdminHarvestViewModel>(result.Model).UpdateSchedule);
+    }
+
+    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null, IArchidektCacheJobService? jobService = null, StubHarvestScheduleStore? scheduleStore = null, StubHarvestScheduleCache? scheduleCache = null, StubHarvestUpdateScheduleStore? updateScheduleStore = null, StubHarvestUpdateScheduleCache? updateScheduleCache = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -902,8 +1051,10 @@ public sealed class AdminHarvestControllerTests
         return new AdminHarvestController(
             jobService ?? new StubArchidektCacheJobService(),
             runStore ?? new StubHarvestRunStore(),
-            new StubHarvestScheduleStore(),
-            new StubHarvestScheduleCache(),
+            scheduleStore ?? new StubHarvestScheduleStore(),
+            scheduleCache ?? new StubHarvestScheduleCache(),
+            updateScheduleStore ?? new StubHarvestUpdateScheduleStore(),
+            updateScheduleCache ?? new StubHarvestUpdateScheduleCache(),
             new StubHarvestStatsAggregator(),
             importer ?? new StubArchidektDeckImporter(),
             store,
@@ -1138,6 +1289,8 @@ public sealed class AdminHarvestControllerTests
 
     private sealed class StubHarvestScheduleStore : IHarvestScheduleStore
     {
+        public int SaveCount { get; private set; }
+
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
@@ -1145,15 +1298,48 @@ public sealed class AdminHarvestControllerTests
             => Task.FromResult(DefaultSchedule);
 
         public Task SaveAsync(int? intervalHours, bool paused, DateTimeOffset now, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            SaveCount++;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class StubHarvestScheduleCache : IHarvestScheduleCache
     {
+        public int ReloadCount { get; private set; }
+
         public HarvestScheduleSnapshot Snapshot() => DefaultSchedule;
 
         public Task ReloadAsync(CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            ReloadCount++;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubHarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
+    {
+        public List<(int? IntervalMinutes, bool Paused)> Saves { get; } = new();
+
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<HarvestUpdateScheduleSnapshot> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(DefaultUpdateSchedule);
+        public Task SaveAsync(int? intervalMinutes, bool paused, DateTimeOffset now, CancellationToken cancellationToken = default)
+        {
+            Saves.Add((intervalMinutes, paused));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubHarvestUpdateScheduleCache : IHarvestUpdateScheduleCache
+    {
+        public HarvestUpdateScheduleSnapshot Current { get; set; } = DefaultUpdateSchedule;
+        public int ReloadCount { get; private set; }
+        public HarvestUpdateScheduleSnapshot Snapshot() => Current;
+        public Task ReloadAsync(CancellationToken cancellationToken = default)
+        {
+            ReloadCount++;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class StubHarvestStatsAggregator : IHarvestStatsAggregator
@@ -1344,6 +1530,9 @@ public sealed class AdminHarvestControllerTests
     }
 
     private static HarvestScheduleSnapshot DefaultSchedule
+        => new(null, Paused: false, DateTimeOffset.MinValue);
+
+    private static HarvestUpdateScheduleSnapshot DefaultUpdateSchedule
         => new(null, Paused: false, DateTimeOffset.MinValue);
 
     private sealed class StubTempDataProvider : ITempDataProvider
