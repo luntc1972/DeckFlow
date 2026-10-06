@@ -384,13 +384,16 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     private sealed class FakeRecentDecksImporter : IArchidektRecentDecksImporter
     {
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
+
+        public Task<IReadOnlyList<ArchidektListingDeck>> ImportRecentListingPageAsync(int page, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ArchidektListingDeck>>(Array.Empty<ArchidektListingDeck>());
     }
 
     private sealed class ThrowingRateLimitedDeckImporter : IArchidektDeckImporter
@@ -429,15 +432,18 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         public List<int> RequestedPages { get; } = new();
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
+
+        public Task<IReadOnlyList<ArchidektListingDeck>> ImportRecentListingPageAsync(int page, CancellationToken cancellationToken = default)
         {
             RequestedPages.Add(page);
-            return Task.FromResult<IReadOnlyList<string>>(page > 1 ? new[] { "discovered-deck" } : Array.Empty<string>());
+            return Task.FromResult<IReadOnlyList<ArchidektListingDeck>>(page > 1 ? new[] { new ArchidektListingDeck("discovered-deck", null) } : Array.Empty<ArchidektListingDeck>());
         }
     }
 
@@ -487,13 +493,19 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         public int Calls => _calls;
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
-            => Throw();
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default)
-            => Throw();
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
-            => Throw();
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
+
+        public Task<IReadOnlyList<ArchidektListingDeck>> ImportRecentListingPageAsync(int page, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _calls);
+            throw _exceptionFactory();
+        }
 
         private Task<IReadOnlyList<string>> Throw()
         {

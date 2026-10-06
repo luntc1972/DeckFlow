@@ -24,7 +24,7 @@ public sealed class ArchidektDeckCacheSession
     /// </summary>
     /// <param name="repository">Repository that persists harvested deck knowledge.</param>
     /// <param name="deckImporter">Importer for individual Archidekt deck contents.</param>
-    /// <param name="recentImporter">Importer for paginated recent Archidekt deck identifiers.</param>
+    /// <param name="recentImporter">Importer for recent Archidekt listing pages (deck id plus listing updatedAt).</param>
     /// <param name="logger">Optional logger for retry and progress messages.</param>
     /// <param name="idlePollDelay">Optional delay used when no deck work is immediately available.</param>
     public ArchidektDeckCacheSession(
@@ -70,10 +70,16 @@ public sealed class ArchidektDeckCacheSession
         {
             try
             {
-                var newestDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(1, cancellationToken);
-                if (newestDeckIds.Count > 0)
+                var newestListingRows = await _recentImporter.ImportRecentListingPageAsync(1, cancellationToken);
+                if (newestListingRows.Count > 0)
                 {
-                    decksEnqueued += await _repository.AddDeckIdsAsync(newestDeckIds, cancellationToken);
+                    var upsertResult = await _repository.AddListingRowsAsync(newestListingRows, cancellationToken);
+                    // Why: D-05 keeps decks_enqueued novel-ids-only under the HarvestRunModels contract.
+                    decksEnqueued += upsertResult.NewIds;
+                    if (upsertResult.RefreshesRequeued > 0)
+                    {
+                        _logger?.LogDebug("Requeued {RefreshesRequeued} modified Archidekt decks from listing page {Page}.", upsertResult.RefreshesRequeued, 1);
+                    }
                 }
 
                 if (await _repository.HasMoreThanUnprocessedDecksAsync(discoveryBacklogThreshold, cancellationToken))
@@ -83,10 +89,15 @@ public sealed class ArchidektDeckCacheSession
                 else
                 {
                     var crawlPage = await _repository.GetRecentDeckCrawlPageAsync(cancellationToken);
-                    var deeperDeckIds = await _recentImporter.ImportRecentDeckIdsPageAsync(crawlPage, cancellationToken);
-                    if (deeperDeckIds.Count > 0)
+                    var deeperListingRows = await _recentImporter.ImportRecentListingPageAsync(crawlPage, cancellationToken);
+                    if (deeperListingRows.Count > 0)
                     {
-                        decksEnqueued += await _repository.AddDeckIdsAsync(deeperDeckIds, cancellationToken);
+                        var upsertResult = await _repository.AddListingRowsAsync(deeperListingRows, cancellationToken);
+                        decksEnqueued += upsertResult.NewIds;
+                        if (upsertResult.RefreshesRequeued > 0)
+                        {
+                            _logger?.LogDebug("Requeued {RefreshesRequeued} modified Archidekt decks from listing page {Page}.", upsertResult.RefreshesRequeued, crawlPage);
+                        }
                         await _repository.SetRecentDeckCrawlPageAsync(crawlPage + 1, cancellationToken);
                     }
                     else

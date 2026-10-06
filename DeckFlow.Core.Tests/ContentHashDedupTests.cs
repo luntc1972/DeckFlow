@@ -460,19 +460,22 @@ public sealed class ContentHashDedupTests : IDisposable
         }
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, int startPage, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
+
+        public Task<IReadOnlyList<ArchidektListingDeck>> ImportRecentListingPageAsync(int page, CancellationToken cancellationToken = default)
         {
             if (page == 1 && _pageOneResponses.Count > 0)
             {
-                return Task.FromResult(_pageOneResponses.Dequeue());
+                return Task.FromResult<IReadOnlyList<ArchidektListingDeck>>(_pageOneResponses.Dequeue().Select(static deckId => new ArchidektListingDeck(deckId, null)).ToList());
             }
 
-            return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+            return Task.FromResult<IReadOnlyList<ArchidektListingDeck>>(Array.Empty<ArchidektListingDeck>());
         }
     }
 

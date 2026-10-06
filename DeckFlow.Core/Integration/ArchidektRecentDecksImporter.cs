@@ -32,6 +32,8 @@ public interface IArchidektRecentDecksImporter
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The deck identifiers found on the requested page.</returns>
     Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default);
+    /// <summary>Imports one listing page through the same request and limiter path as the ID-only page method.</summary>
+    Task<IReadOnlyList<ArchidektListingDeck>> ImportRecentListingPageAsync(int page, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -116,12 +118,22 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
     public Task<IReadOnlyList<string>> ImportRecentDeckIdsPageAsync(int page, CancellationToken cancellationToken = default)
         => ImportRecentDeckIdsPageCoreAsync(page, cancellationToken);
 
+    /// <summary>Imports one page of recent public Archidekt listing rows.</summary>
+    public Task<IReadOnlyList<ArchidektListingDeck>> ImportRecentListingPageAsync(int page, CancellationToken cancellationToken = default)
+        => FetchListingPageAsync(page, cancellationToken);
+
     /// <summary>
     /// Fetches a page of recent deck IDs from Archidekt.
     /// </summary>
     /// <param name="page">Page index to request.</param>
     /// <param name="cancellationToken">Cancellation token for the HTTP call.</param>
     private async Task<IReadOnlyList<string>> ImportRecentDeckIdsPageCoreAsync(int page, CancellationToken cancellationToken)
+    {
+        var listingRows = await FetchListingPageAsync(page, cancellationToken);
+        return listingRows.Select(static row => row.DeckId).ToList();
+    }
+
+    private async Task<IReadOnlyList<ArchidektListingDeck>> FetchListingPageAsync(int page, CancellationToken cancellationToken)
     {
         var response = await ArchidektThrottle.ExecuteAsync(_restClient, () => CreatePageRequest(page), cancellationToken);
         if (!response.IsSuccessful)
@@ -130,11 +142,22 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
         }
 
         var pageResponse = JsonSerializer.Deserialize<ArchidektRecentDecksResponse>(response.Content ?? string.Empty);
-        return (pageResponse?.Results ?? [])
-            .Select(deck => deck.Id.ToString(CultureInfo.InvariantCulture))
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
+        var rows = new List<ArchidektListingDeck>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var deck in pageResponse?.Results ?? [])
+        {
+            var deckId = deck.Id.ToString(CultureInfo.InvariantCulture);
+            if (seen.Add(deckId))
+            {
+                rows.Add(new ArchidektListingDeck(deckId, ParseListingTimestamp(deck.UpdatedAt)));
+            }
+        }
+
+        return rows;
     }
+
+    private static DateTimeOffset? ParseListingTimestamp(JsonElement value)
+        => value.ValueKind == JsonValueKind.String && DateTimeOffset.TryParse(value.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed) ? parsed.ToUniversalTime() : null;
 
     /// <summary>
     /// Builds the request used to fetch a page of public deck listings.
@@ -152,5 +175,6 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
 
     /// <summary>Extracts the deck ID needed to enqueue an Archidekt recent-deck result.</summary>
     private sealed record ArchidektRecentDeck(
-        [property: JsonPropertyName("id")] int Id);
+        [property: JsonPropertyName("id")] int Id,
+        [property: JsonPropertyName("updatedAt")] JsonElement UpdatedAt);
 }
