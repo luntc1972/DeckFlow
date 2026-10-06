@@ -1,9 +1,12 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using DeckFlow.Core.Integration;
+using DeckFlow.Web.Tests.Infrastructure;
 using DeckFlow.Web.Services.CreatorStyle;
 using Polly;
 using Polly.Registry;
+using Polly.Retry;
 using RestSharp;
 using Xunit;
 
@@ -12,8 +15,18 @@ namespace DeckFlow.Web.Tests.Services.CreatorStyle;
 /// <summary>
 /// Tests for <see cref="ArchidektOwnerClient"/> and <see cref="ArchidektOwnerUrl"/>.
 /// </summary>
-public sealed class ArchidektOwnerClientTests
+[Collection("ArchidektThrottleSerial")]
+public sealed class ArchidektOwnerClientTests : IDisposable
 {
+    public ArchidektOwnerClientTests()
+    {
+        ArchidektThrottle.ResetForTests();
+        // Why: the limiter is process-wide static state, and the 10-page listing tests would otherwise wait 3 s per page.
+        ArchidektThrottle.ConfigureForTests(delay: static (_, _) => Task.CompletedTask);
+    }
+
+    public void Dispose() => ArchidektThrottle.ResetForTests();
+
     [Theory]
     [InlineData("snail", "snail")]
     [InlineData("Snail_123", "Snail_123")]
@@ -213,6 +226,89 @@ public sealed class ArchidektOwnerClientTests
         Assert.Empty(decks.Decks);
     }
 
+    [Fact]
+    public async Task ResolveUsernameAsync_ArchidektLimiter_PacesEveryRetryAttempt()
+    {
+        var stub = new StubHttpMessageHandler();
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+            response.Headers.TryAddWithoutValidation("Retry-After", "0");
+            stub.Enqueue(response);
+        }
+
+        var builder = new ResiliencePipelineBuilder<RestResponse>();
+        builder.AddRetry(new RetryStrategyOptions<RestResponse>
+        {
+            MaxRetryAttempts = 2,
+            Delay = TimeSpan.Zero,
+            ShouldHandle = new PredicateBuilder<RestResponse>()
+                .HandleResult(static response => response.StatusCode == HttpStatusCode.TooManyRequests),
+        });
+        var httpClient = new HttpClient(stub, disposeHandler: false) { BaseAddress = new Uri("https://archidekt.com/") };
+        var sut = new ArchidektOwnerClient(new FixedPipelineProvider(builder.Build()), new RestClient(httpClient));
+
+        var trips = 0;
+        try
+        {
+            await sut.ResolveUsernameAsync("snail");
+        }
+        catch (ArchidektRateLimitedException)
+        {
+            trips++;
+        }
+
+        if (trips == 0)
+        {
+            try
+            {
+                await sut.ResolveUsernameAsync("snail");
+            }
+            catch (ArchidektRateLimitedException)
+            {
+                trips++;
+            }
+        }
+
+        Assert.Equal(1, trips);
+        Assert.Equal(3, stub.CallCount);
+    }
+
+    [Fact]
+    public async Task ListDeckSummariesAsync_ArchidektLimiter_TripsOnRetryAfterAboveCap()
+    {
+        var stub = new StubHttpMessageHandler();
+        var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+        response.Headers.TryAddWithoutValidation("Retry-After", "120");
+        stub.Enqueue(response);
+        var sut = CreateClient(stub);
+
+        var trips = 0;
+        try
+        {
+            await sut.ListDeckSummariesAsync("snail");
+        }
+        catch (ArchidektRateLimitedException)
+        {
+            trips++;
+        }
+
+        if (trips == 0)
+        {
+            try
+            {
+                await sut.ListDeckSummariesAsync("snail");
+            }
+            catch (ArchidektRateLimitedException)
+            {
+                trips++;
+            }
+        }
+
+        Assert.Equal(1, trips);
+        Assert.Equal(1, stub.CallCount);
+    }
+
     private static ArchidektOwnerClient CreateClient(StubHttpMessageHandler stub)
     {
         var httpClient = new HttpClient(stub, disposeHandler: false)
@@ -308,6 +404,23 @@ public sealed class ArchidektOwnerClientTests
         {
             LastPipelineName = key;
             pipeline = ResiliencePipeline.Empty;
+            return true;
+        }
+    }
+
+    private sealed class FixedPipelineProvider(ResiliencePipeline<RestResponse> pipeline) : ResiliencePipelineProvider<string>
+    {
+        public override ResiliencePipeline<T> GetPipeline<T>(string key) => (ResiliencePipeline<T>)(object)pipeline;
+
+        public override bool TryGetPipeline<T>(string key, out ResiliencePipeline<T> result)
+        {
+            result = (ResiliencePipeline<T>)(object)pipeline;
+            return true;
+        }
+
+        public override bool TryGetPipeline(string key, out ResiliencePipeline result)
+        {
+            result = ResiliencePipeline.Empty;
             return true;
         }
     }

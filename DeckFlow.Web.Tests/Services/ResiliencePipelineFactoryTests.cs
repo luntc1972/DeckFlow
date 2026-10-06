@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
+using DeckFlow.Core.Integration;
 using DeckFlow.Web.Services.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Polly;
@@ -67,6 +69,38 @@ public sealed class ResiliencePipelineFactoryTests
         Assert.True(
             ResiliencePipelineFactory.EdhrecTotalTimeout >=
             (maxRetryAttempts + 1) * ResiliencePipelineFactory.EdhrecAttemptTimeout);
+    }
+
+    [Fact]
+    public async Task ArchidektPipeline_ArchidektLimiterTrip_IsNotRetried()
+    {
+        var attempts = 0;
+        var pipeline = Provider.GetPipeline<RestResponse>("archidekt");
+
+        await Assert.ThrowsAsync<ArchidektRateLimitedException>(async () => await pipeline.ExecuteAsync(
+            _ =>
+            {
+                attempts++;
+                return ValueTask.FromException<RestResponse>(new ArchidektRateLimitedException("trip", null));
+            }));
+
+        Assert.Equal(1, attempts);
+    }
+
+    [Fact]
+    public async Task ArchidektPipeline_ArchidektLimiterControl_StillRetriesPlainHttpRequestException()
+    {
+        var attempts = 0;
+        var pipeline = Provider.GetPipeline<RestResponse>("archidekt");
+
+        await Assert.ThrowsAsync<HttpRequestException>(async () => await pipeline.ExecuteAsync(
+            _ =>
+            {
+                attempts++;
+                return ValueTask.FromException<RestResponse>(new HttpRequestException("transient"));
+            }));
+
+        Assert.Equal(3, attempts);
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using DeckFlow.Core.Integration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Polly;
@@ -82,7 +83,7 @@ namespace DeckFlow.Web.Services.Http
                 .AddTimeout(attemptTimeout ?? EdhrecAttemptTimeout);
 
         /// <summary>
-        /// Archidekt: TotalTimeout(30s) as OUTERMOST strategy with Retry(2, exponential+jitter) on 5xx and transient exceptions.
+        /// Archidekt: TotalTimeout(30s) as OUTERMOST strategy with Retry(2, exponential+jitter) on 5xx and transient exceptions; a tripped Archidekt limiter is never retried.
         /// </summary>
         private static void BuildArchidekt(ResiliencePipelineBuilder<RestResponse> builder) => builder
             .AddTimeout(new TimeoutStrategyOptions
@@ -97,7 +98,8 @@ namespace DeckFlow.Web.Services.Http
                 UseJitter = true,
                 ShouldHandle = new PredicateBuilder<RestResponse>()
                     .HandleResult(static r => r.StatusCode >= HttpStatusCode.InternalServerError)
-                    .Handle<Exception>(static ex => IsTransientException(ex)),
+                    // Why: a trip must end the call instead of spending budget during a 429 storm (D-12).
+                    .Handle<Exception>(static ex => IsTransientException(ex) && ex is not ArchidektRateLimitedException),
             });
 
         /// <summary>Spellbook: Retry(3, exponential+jitter), AttemptTimeout(10s), CB(50% / 30s).</summary>

@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using DeckFlow.Core.Integration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Polly;
@@ -99,7 +100,7 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
         request.AddHeader("Accept", "application/json");
 
         var response = await _resiliencePipeline.ExecuteAsync(
-            async ct => await _restClient.ExecuteAsync(request, ct).ConfigureAwait(false),
+            async ct => await ExecutePacedAttemptAsync(request, ct).ConfigureAwait(false),
             cancellationToken).ConfigureAwait(false);
 
         if (!response.IsSuccessful)
@@ -163,7 +164,7 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
             request.AddHeader("Accept", "application/json");
 
             var response = await _resiliencePipeline.ExecuteAsync(
-                async ct => await _restClient.ExecuteAsync(request, ct).ConfigureAwait(false),
+                async ct => await ExecutePacedAttemptAsync(request, ct).ConfigureAwait(false),
                 cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessful)
@@ -250,6 +251,21 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
         ArgumentNullException.ThrowIfNull(factory);
         return factory.CreateClient("archidekt-owner");
     }
+
+    // Why: pacing sits inside the lambda so every Polly retry is counted by the process-wide limiter (D-10).
+    private async Task<RestResponse> ExecutePacedAttemptAsync(RestRequest request, CancellationToken cancellationToken)
+    {
+        await ArchidektThrottle.AcquireAsync(cancellationToken).ConfigureAwait(false);
+        var response = await _restClient.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
+        ArchidektThrottle.Observe(response.StatusCode, ReadRetryAfter(response));
+        return response;
+    }
+
+    private static string? ReadRetryAfter(RestResponse response)
+        => response.Headers?
+            .FirstOrDefault(header => string.Equals(header.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
+            .Value?.ToString();
+
 
     private static string ReadString(JsonElement item, string propertyName)
     {
