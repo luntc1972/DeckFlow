@@ -1,9 +1,6 @@
-using System.Net;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Polly;
-using Polly.Retry;
 using RestSharp;
 
 namespace DeckFlow.Core.Integration;
@@ -38,17 +35,11 @@ public interface IArchidektRecentDecksImporter
 }
 
 /// <summary>
-/// Crawls Archidekt's recent-decks endpoint with retry/back-off to retrieve paginated deck IDs.
+/// Crawls Archidekt's recent-decks endpoint paced through <see cref="ArchidektThrottle"/>.
 /// </summary>
 public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
 {
     private readonly RestClient _restClient;
-    private static readonly AsyncRetryPolicy<RestResponse> RetryPolicy = Policy<RestResponse>
-        .HandleResult(response => response.StatusCode == HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500)
-        .WaitAndRetryAsync(
-            retryCount: 4,
-            sleepDurationProvider: attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)) + TimeSpan.FromMilliseconds(Random.Shared.Next(0, 250)));
-
     /// <summary>
     /// Initializes the importer optionally using a provided RestClient.
     /// </summary>
@@ -59,6 +50,8 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
         {
             BaseUrl = new Uri("https://archidekt.com"),
             ThrowOnAnyError = false,
+            // RestSharp would otherwise send its own User-Agent as a second value.
+            UserAgent = null,
         });
     }
 
@@ -130,7 +123,7 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
     /// <param name="cancellationToken">Cancellation token for the HTTP call.</param>
     private async Task<IReadOnlyList<string>> ImportRecentDeckIdsPageCoreAsync(int page, CancellationToken cancellationToken)
     {
-        var response = await RetryPolicy.ExecuteAsync(ct => _restClient.ExecuteAsync(CreatePageRequest(page), ct), cancellationToken);
+        var response = await ArchidektThrottle.ExecuteAsync(_restClient, () => CreatePageRequest(page), cancellationToken);
         if (!response.IsSuccessful)
         {
             throw new HttpRequestException($"Archidekt recent decks page {page} returned {(int)response.StatusCode} {response.StatusDescription}");
@@ -149,7 +142,8 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
     /// <param name="page">Page index to request.</param>
     private static RestRequest CreatePageRequest(int page)
     {
-        return new RestRequest($"/api/decks/v3/?orderBy=-updatedAt&page={page}", Method.Get);
+        return new RestRequest($"/api/decks/v3/?orderBy=-updatedAt&page={page}", Method.Get)
+            .AddHeader("User-Agent", ArchidektUserAgent.Value);
     }
 
     /// <summary>Deserializes one Archidekt recent-decks page so its deck IDs can be queued for import.</summary>
