@@ -1350,6 +1350,9 @@ public sealed class CutLabAnalysisContextBuilderTests
         public Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
             => throw new NotSupportedException();
 
+        public Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+            => throw new NotSupportedException();
+
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

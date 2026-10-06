@@ -330,6 +330,42 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <summary>
+    /// Runs a bounded Archidekt update sweep and persists observed categories.
+    /// </summary>
+    /// <param name="logger">Logger for the sweep.</param>
+    /// <param name="durationSeconds">Duration in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="progress">Optional progress reporter for processed deck counts.</param>
+    public async Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken);
+        // Bulk and update sweeps share deck_queue and the limiter, so one gate serializes them in-process.
+        await _sweepGate.WaitAsync(cancellationToken);
+        try
+        {
+            Directory.CreateDirectory(_artifactsPath);
+            var session = new ArchidektDeckCacheSession(_repository, _archidektImporter, _recentDeckImporter, logger);
+            var result = await session.RunUpdateAsync(
+                TimeSpan.FromSeconds(durationSeconds),
+                fetchBatchSize: HarvestDeckCount,
+                cancellationToken: cancellationToken,
+                progress: progress);
+            logger.LogInformation(
+                "Archidekt update sweep completed with {PagesPolled} pages polled, {RefreshesRequeued} refreshes requeued, {RefreshesDrained} refreshes drained, {NewIdsSeen} new ids left for bulk, and {DecksSkipped} skipped decks.",
+                result.PagesPolled,
+                result.RefreshesRequeued,
+                result.RefreshesDrained,
+                result.NewIdsSeen,
+                result.DecksSkipped);
+            return result;
+        }
+        finally
+        {
+            _sweepGate.Release();
+        }
+    }
+
+    /// <summary>
     /// Retrieves cached category rows for a card.
     /// </summary>
     /// <param name="cardName">Card name to query.</param>

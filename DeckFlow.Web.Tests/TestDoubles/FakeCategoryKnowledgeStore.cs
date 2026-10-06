@@ -31,6 +31,18 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Exception? RunCacheSweepException { get; set; }
 
+    /// <summary>Number of update sweeps requested.</summary>
+    public int RunUpdateSweepCalls { get; private set; }
+
+    /// <summary>Configurable result returned by update sweeps.</summary>
+    public ArchidektUpdateRunResult RunUpdateSweepResult { get; set; } = new(0, 0, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary>Optional exception thrown by update sweeps.</summary>
+    public Exception? RunUpdateSweepException { get; set; }
+
+    /// <summary>Duration passed to the latest update sweep.</summary>
+    public int? LastRunUpdateSweepDurationSeconds { get; private set; }
+
     public int TotalProcessedDeckCount { get; set; }
 
     public string? LastUrlDeckId { get; private set; }
@@ -106,6 +118,19 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         }
 
         return Task.FromResult(RunCacheSweepResult);
+    }
+
+    public Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+    {
+        RunUpdateSweepCalls++;
+        LastRunUpdateSweepDurationSeconds = durationSeconds;
+
+        if (RunUpdateSweepException is not null)
+        {
+            throw RunUpdateSweepException;
+        }
+
+        return Task.FromResult(RunUpdateSweepResult);
     }
 
     /// <summary>Configurable per-card categories; empty by default so unset cards resolve to no roles.</summary>

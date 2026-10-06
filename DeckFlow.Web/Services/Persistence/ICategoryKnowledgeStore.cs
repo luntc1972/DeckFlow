@@ -39,6 +39,15 @@ public interface ICategoryKnowledgeStore
     /// <returns>Aggregate results from the completed sweep.</returns>
     Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null);
     /// <summary>
+    /// Runs a bounded Archidekt update sweep and persists observed categories.
+    /// </summary>
+    /// <param name="logger">Logger that receives sweep progress and diagnostics.</param>
+    /// <param name="durationSeconds">Maximum sweep duration in seconds.</param>
+    /// <param name="cancellationToken">Token used to cancel the sweep.</param>
+    /// <param name="progress">Optional progress reporter for processed deck counts.</param>
+    /// <returns>Aggregate results from the completed update sweep.</returns>
+    Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null);
+    /// <summary>
     /// Returns cached category names for a card.
     /// </summary>
     /// <param name="cardName">Card name to query.</param>

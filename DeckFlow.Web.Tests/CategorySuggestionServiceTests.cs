@@ -195,6 +195,9 @@ public sealed class CategorySuggestionServiceTests
             return Task.FromResult(new ArchidektCacheRunResult(1, 0, 0, 0, 0, TimeSpan.Zero));
         }
 
+        public Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+            => throw new NotSupportedException("CategorySuggestionService never runs an update sweep.");
+
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
             => Task.FromResult(_current);
 

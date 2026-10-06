@@ -300,6 +300,9 @@ public sealed class HarvestStatsAggregatorTests
         public Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
             => Task.FromResult(new ArchidektCacheRunResult(0, 0, 0, 0, 0, TimeSpan.Zero));
 
+        public Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+            => Task.FromResult(new ArchidektUpdateRunResult(0, 0, 0, 0, 0, TimeSpan.Zero));
+
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
 
@@ -407,6 +410,9 @@ public sealed class HarvestStatsAggregatorTests
 
         public Task<ArchidektCacheRunResult> RunCacheSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
             => Task.FromResult(new ArchidektCacheRunResult(0, 0, 0, 0, 0, TimeSpan.Zero));
+
+        public Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
+            => Task.FromResult(new ArchidektUpdateRunResult(0, 0, 0, 0, 0, TimeSpan.Zero));
 
         public Task<IReadOnlyList<string>> GetCategoriesAsync(string cardName, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
