@@ -114,7 +114,9 @@ public partial class Program
             await app.Services.GetRequiredService<IHarvestRunStore>().EnsureSchemaAsync();
             await app.Services.GetRequiredService<IHarvestScheduleStore>().EnsureSchemaAsync();
             await app.Services.GetRequiredService<IHarvestUpdateScheduleStore>().EnsureSchemaAsync();
+            await app.Services.GetRequiredService<IHarvestThrottleStore>().EnsureSchemaAsync();
             app.Logger.LogInformation("Harvest store schemas ensured during startup.");
+            await ApplyHarvestThrottleRateAsync(app.Services, app.Logger);
 
             app.Logger.LogInformation("Ensuring analytics store schema during startup.");
             await app.Services.GetRequiredService<IRequestMetricsStore>().EnsureSchemaAsync();
@@ -524,6 +526,17 @@ public partial class Program
         ArgumentNullException.ThrowIfNull(services);
         var loader = services.GetService<ICreatorStyleSeedLoader>();
         return loader is null ? Task.FromResult(0) : loader.LoadIfPresentAsync();
+    }
+
+    /// <summary>Applies the persisted rate before hosted services or requests can use the static Core limiter.</summary>
+    internal static async Task<int> ApplyHarvestThrottleRateAsync(IServiceProvider services, Microsoft.Extensions.Logging.ILogger logger, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(logger);
+        var snapshot = await services.GetRequiredService<IHarvestThrottleStore>().GetAsync(cancellationToken);
+        ArchidektThrottle.SetRatePerMinute(snapshot.MaxRequestsPerMinute);
+        logger.LogInformation("Harvest.Throttle.RateApplied ratePerMinute={RatePerMinute}", snapshot.MaxRequestsPerMinute);
+        return snapshot.MaxRequestsPerMinute;
     }
 
     internal static async Task AwaitStartupSeedTasksAsync(

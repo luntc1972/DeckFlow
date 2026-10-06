@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Dapper;
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Storage;
 
 namespace DeckFlow.Web.Services.Harvest;
@@ -9,6 +10,7 @@ public sealed class HarvestThrottleStore : IHarvestThrottleStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
+    private readonly SemaphoreSlim _rateGate = new(1, 1);
     private volatile bool _schemaReady;
 
     /// <summary>Creates a SQLite-backed store at <paramref name="databasePath"/>.</summary>
@@ -63,6 +65,21 @@ public sealed class HarvestThrottleStore : IHarvestThrottleStore
     }
 
     /// <inheritdoc />
+    public async Task SaveRateAsync(int ratePerMinute, DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await _rateGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+            var changed = await connection.ExecuteAsync(new CommandDefinition("UPDATE harvest_throttle SET max_requests_per_minute = @ratePerMinute, updated_utc = @now WHERE id = 1;", new { ratePerMinute, now = now.ToUniversalTime() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (changed != 1) throw new InvalidOperationException("harvest_throttle seed row (id=1) is missing.");
+            ArchidektThrottle.SetRatePerMinute(ratePerMinute);
+        }
+        finally { _rateGate.Release(); }
+    }
+
+    /// <inheritdoc />
     public async Task MarkRateLimitedAsync(DateTimeOffset now, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
@@ -76,6 +93,30 @@ public sealed class HarvestThrottleStore : IHarvestThrottleStore
             await HarvestScheduleStore.SetPausedInTransactionAsync(connection, transaction, true, now, cancellationToken).ConfigureAwait(false);
             await HarvestUpdateScheduleStore.SetPausedInTransactionAsync(connection, transaction, true, now, cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); throw; }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ResumeAfterRateLimitAsync(DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var changed = await connection.ExecuteAsync(new CommandDefinition("UPDATE harvest_throttle SET rate_limited_utc = NULL, updated_utc = @now WHERE id = 1 AND rate_limited_utc IS NOT NULL;", new { now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (changed == 0)
+            {
+                var exists = await connection.ExecuteScalarAsync<long?>(new CommandDefinition("SELECT id FROM harvest_throttle WHERE id = 1;", transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                if (exists is null) throw new InvalidOperationException("harvest_throttle seed row (id=1) is missing.");
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                return false;
+            }
+            await HarvestScheduleStore.SetPausedInTransactionAsync(connection, transaction, false, now, cancellationToken).ConfigureAwait(false);
+            await HarvestUpdateScheduleStore.SetPausedInTransactionAsync(connection, transaction, false, now, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return true;
         }
         catch { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); throw; }
     }

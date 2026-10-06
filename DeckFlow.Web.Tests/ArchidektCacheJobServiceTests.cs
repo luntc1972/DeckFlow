@@ -606,7 +606,9 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
     {
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<HarvestThrottleSnapshot> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(new HarvestThrottleSnapshot(20, null, DateTimeOffset.UtcNow));
+        public Task SaveRateAsync(int ratePerMinute, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task MarkRateLimitedAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> ResumeAfterRateLimitAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult(false);
     }
 
     private sealed class FakeHarvestScheduleCache : IHarvestScheduleCache
