@@ -139,6 +139,33 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task Process_Archetype_SavedArchetypeSurvivesIntakeReprocess()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        CutLabState state = CreateState() with
+        {
+            Intent = CreateState().Intent with
+            {
+                PlanProfile = new CutLabPlanProfile { Archetype = "stax" },
+            },
+        };
+        var request = new CutLabRequest
+        {
+            DeckText = "1 Stasis",
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+        };
+
+        var result = await controller.Process(request);
+
+        var view = Assert.IsType<ViewResult>(result);
+        CutLabState restoredState = CutLabStateSerializer.Deserialize(
+            Assert.IsType<CutLabViewModel>(view.Model).CutLabStateJson);
+        Assert.Equal("stax", restoredState.Intent.PlanProfile?.Archetype);
+        Assert.Equal(state.Goals, restoredState.Goals);
+    }
+
+    [Fact]
     public async Task Process_NormalImport_LeavesPostedDeckInputUntouched()
     {
         var service = new FakeCutLabPageService

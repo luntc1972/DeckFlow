@@ -156,6 +156,17 @@ public sealed class CutLabViewRenderTests
     }
 
     [Fact]
+    public async Task Render_Archetype_ThemesUnavailable_StillRendersPicker()
+    {
+        CutLabViewModel model = BuildTwinBadgeModel() with { PlanPanel = CutLabViewModel.BuildPlanPanel(null, [], true) };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("value=\"stax\"", html, StringComparison.Ordinal);
+        Assert.Contains("Commander themes couldn't be loaded from EDHREC right now.", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ResultView_RendersLockPoolStickySummaryWithDistinctTargets()
     {
         var model = new CutLabViewModel

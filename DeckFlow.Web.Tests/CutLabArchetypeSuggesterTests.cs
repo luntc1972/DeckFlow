@@ -33,6 +33,23 @@ public sealed class CutLabArchetypeSuggesterTests
         Assert.Equal("spellslinger-storm", result.Slug);
     }
 
+    [Theory]
+    [InlineData(1, "1 Storm card.")]
+    [InlineData(2, "2 Storm cards.")]
+    public void Suggest_Archetype_StormReason_UsesCorrectPlural(int count, string expectedReason)
+    {
+        var cards = Enumerable.Range(1, count)
+            .Select(index => Card($"Storm {index}") with
+            {
+                SemanticProfile = new CutLabSemanticProfile(null, null, null, null, null, ["Storm"], null, null, null),
+            })
+            .ToArray();
+
+        var result = Suggest(cards);
+
+        Assert.Equal(expectedReason, result.Reason);
+    }
+
     [Fact]
     public void Suggest_Archetype_AggroVoltron_WhenThresholdMet()
     {

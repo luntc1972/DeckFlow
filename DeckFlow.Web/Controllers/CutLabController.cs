@@ -507,6 +507,10 @@ public sealed class CutLabController : Controller
             request.PlanStrategies = priorState.Intent.PlanProfile?.GenericStrategies ?? [];
             request.PlanThemes = priorState.Intent.PlanProfile?.CommanderThemes.Select(theme => theme.Slug).ToArray() ?? [];
         }
+        if (string.IsNullOrWhiteSpace(request.PlanArchetype))
+        {
+            request.PlanArchetype = priorState.Intent.PlanProfile?.Archetype;
+        }
         if (string.IsNullOrWhiteSpace(request.PrimaryPlan))
         {
             request.PrimaryPlan = priorState.Intent.PrimaryPlan;

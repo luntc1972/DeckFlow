@@ -53,7 +53,7 @@ public static class CutLabArchetypeSuggester
         // Why: T5 classifies thirty instants/sorceries or one Storm card as spellslinger-storm.
         if (spells >= 30 || stormCards >= 1)
         {
-            return Create("spellslinger-storm", stormCards >= 1 ? $"{stormCards} Storm card." : $"{spells} instants and sorceries.", classification);
+            return Create("spellslinger-storm", stormCards >= 1 ? $"{stormCards} Storm {(stormCards == 1 ? "card" : "cards")}." : $"{spells} instants and sorceries.", classification);
         }
 
         // Why: T5 classifies ten equipment/aura cards or an EDHREC voltron theme as aggro-voltron.

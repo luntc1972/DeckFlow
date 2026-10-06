@@ -128,15 +128,19 @@ public sealed class CutLabPlanProfileTests
     {
         var state = new CutLabState { Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { GenericStrategies = ["combo"] } } };
         string serialized = CutLabStateSerializer.Serialize(state);
-        Assert.Contains("\"archetype\":null,", serialized, StringComparison.Ordinal);
-        string json = serialized.Replace("\"archetype\":null,", string.Empty, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"archetype\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"archetype\"", serialized, StringComparison.Ordinal);
 
-        CutLabState deserialized = CutLabStateSerializer.Deserialize(json);
+        CutLabState deserialized = CutLabStateSerializer.Deserialize(serialized);
 
         Assert.Null(deserialized.Intent.PlanProfile!.Archetype);
         Assert.Equal(state.Goals, deserialized.Goals);
         Assert.Equal(deserialized.Intent.PlanProfile.GenericStrategies, CutLabArchetypeCatalog.EffectiveStrategies(deserialized.Intent.PlanProfile));
+
+        string archetypeSerialized = CutLabStateSerializer.Serialize(state with
+        {
+            Intent = state.Intent with { PlanProfile = state.Intent.PlanProfile with { Archetype = "stax" } },
+        });
+        Assert.Contains("\"archetype\":\"stax\"", archetypeSerialized, StringComparison.Ordinal);
     }
 
     [Fact]

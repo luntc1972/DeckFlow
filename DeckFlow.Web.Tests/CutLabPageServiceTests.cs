@@ -1541,19 +1541,27 @@ public sealed class CutLabPageServiceTests
         CutLabProcessResult result = await service.ProcessAsync(request);
 
         Assert.Null(result.State!.Intent.PlanProfile!.Archetype);
+        Assert.Equal(new CutLabPlanProfile { CommanderThemesUnavailable = true }, result.State.Intent.PlanProfile);
         Assert.Equal(new CutLabGoalSettings(), result.State.Goals);
+        Assert.Equal(Array.Empty<CutLabRoleFloor>(), result.State.RoleFloors);
     }
 
     [Fact]
     public async Task ProcessAsync_Archetype_SuggestionUsesRecoveredAnalysis()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
-        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(BuildResolvedCards(entries)), new FakeBanListService([]));
+        var cards = BuildResolvedCards(entries);
+        for (var index = 1; index <= 30; index++)
+        {
+            cards[index] = Spell($"Card {index:000}", "Instant");
+        }
+        var resolver = new FakeResolver(cards) { TransientCollectionFailures = 1 };
+        var service = new CutLabPageService(new FakeLoader(entries), resolver, new FakeBanListService([]));
         var request = new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool" };
 
         CutLabProcessResult result = await service.ProcessAsync(request);
 
-        Assert.NotNull(result.ArchetypeSuggestion);
+        Assert.Equal("spellslinger-storm", result.ArchetypeSuggestion?.Slug);
     }
 
     [Fact]
