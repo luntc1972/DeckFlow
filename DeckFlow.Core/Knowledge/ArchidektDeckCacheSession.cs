@@ -168,11 +168,36 @@ public sealed class ArchidektDeckCacheSession
 
         for (var page = 1; page <= UpdateListingPageCap && stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested; page++)
         {
-            var listingRows = await _recentImporter.ImportRecentListingPageAsync(page, cancellationToken);
-            var upsertResult = await _repository.AddListingRowsAsync(listingRows, cancellationToken);
-            pagesPolled++;
-            refreshesRequeued += upsertResult.RefreshesRequeued;
-            newIdsSeen += upsertResult.NewIds;
+            try
+            {
+                var listingRows = await _recentImporter.ImportRecentListingPageAsync(page, cancellationToken);
+                if (listingRows.Count == 0)
+                {
+                    pagesPolled++;
+                    _logger?.LogDebug("Archidekt listing page {Page} was empty; the update run stops polling.", page);
+                    break;
+                }
+
+                var upsertResult = await _repository.AddListingRowsAsync(listingRows, cancellationToken);
+                pagesPolled++;
+                refreshesRequeued += upsertResult.RefreshesRequeued;
+                newIdsSeen += upsertResult.NewIds;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            // Why: the 06-03 carry-forward requires a tripped limiter to end the session, never silently skip it.
+            catch (ArchidektRateLimitedException exception)
+            {
+                _logger?.LogWarning(exception, "Archidekt rate limit tripped while polling listing page {Page} for the update run; ending the run.", page);
+                throw;
+            }
+            // Why: D-10 preserves shared limiter budget by continuing, not retrying; the next run polls from the top.
+            catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+            {
+                _logger?.LogWarning(exception, "Archidekt listing page {Page} failed during the update run; continuing with the next page.", page);
+            }
         }
 
         while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
