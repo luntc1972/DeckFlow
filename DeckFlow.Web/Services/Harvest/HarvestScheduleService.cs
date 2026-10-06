@@ -9,7 +9,8 @@ namespace DeckFlow.Web.Services.Harvest;
 
 /// <summary>
 /// Recurring harvest scheduler. Wakes every 60 seconds, evaluates bulk then update snapshots,
-/// and anchors each kind on its own last scheduled success. The whole loop is gated by
+/// and anchors each kind on its own last scheduled success. A due kind skips while any run
+/// is active; bulk evaluates first and each tick enqueues at most one job. The whole loop is gated by
 /// <see cref="IFeatureFlagCache.IsEnabled"/> on <c>service.harvest-cron.enabled</c>
 /// (Phase 6 FLAG-04 carry-forward kill switch). Per-tick try/catch keeps the loop alive
 /// across transient PG / job-service errors (T-07-14).
@@ -106,13 +107,39 @@ public sealed class HarvestScheduleService : BackgroundService
             return;
         }
 
+        var now = _timeProvider.GetUtcNow();
         var bulk = _scheduleCache.Snapshot();
-        if (await TickKindAsync(HarvestRunKind.Bulk, bulk.IntervalHours is null ? null : TimeSpan.FromHours(bulk.IntervalHours.Value), bulk.Paused, FireDuration, cancellationToken).ConfigureAwait(false)) return;
+        bool bulkEnqueued;
+        try
+        {
+            bulkEnqueued = await TickKindAsync(HarvestRunKind.Bulk, bulk.IntervalHours is null ? null : TimeSpan.FromHours(bulk.IntervalHours.Value), bulk.Paused, FireDuration, now, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Harvest.Schedule.Tick.KindFailure kind={Kind}", HarvestRunKind.Bulk);
+            bulkEnqueued = false;
+        }
+        if (bulkEnqueued) return;
         var update = _updateScheduleCache.Snapshot();
-        await TickKindAsync(HarvestRunKind.Update, update.IntervalMinutes is null ? null : TimeSpan.FromMinutes(update.IntervalMinutes.Value), update.Paused, ArchidektCacheJobService.UpdateRunDuration, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await TickKindAsync(HarvestRunKind.Update, update.IntervalMinutes is null ? null : TimeSpan.FromMinutes(update.IntervalMinutes.Value), update.Paused, ArchidektCacheJobService.UpdateRunDuration, now, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Harvest.Schedule.Tick.KindFailure kind={Kind}", HarvestRunKind.Update);
+        }
     }
 
-    private async Task<bool> TickKindAsync(HarvestRunKind kind, TimeSpan? interval, bool paused, TimeSpan fireDuration, CancellationToken cancellationToken)
+    private async Task<bool> TickKindAsync(HarvestRunKind kind, TimeSpan? interval, bool paused, TimeSpan fireDuration, DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (paused || interval is null) return false;
         var lastSuccess = await _runStore.GetLastScheduledSuccessUtcAsync(kind, cancellationToken).ConfigureAwait(false);
@@ -120,7 +147,13 @@ public sealed class HarvestScheduleService : BackgroundService
         DateTimeOffset? nextDue = lastSuccess + interval;
         var failureDue = failureStreak.LastFailureUtc + GetFailureBackoff(failureStreak.ConsecutiveFailures, interval.Value);
         nextDue = Max(nextDue, failureDue);
-        if (nextDue.HasValue && _timeProvider.GetUtcNow() < nextDue.Value) return false;
+        if (nextDue.HasValue && now < nextDue.Value) return false;
+        var activeRun = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
+        if (activeRun is not null)
+        {
+            _logger.LogInformation("Harvest.Schedule.Tick.SkippedActiveRun kind={Kind} activeRunId={ActiveRunId} activeKind={ActiveKind}", kind, activeRun.Id, activeRun.Kind);
+            return false;
+        }
         _logger.LogInformation("Harvest.Schedule.Tick.Fired kind={Kind} interval={Interval} lastScheduledSuccess={LastScheduledSuccess} nextDue={NextDue}", kind, interval, lastSuccess, nextDue);
         await _jobService.EnqueueAsync(kind, fireDuration, HarvestTriggerSource.Scheduled, cancellationToken).ConfigureAwait(false);
         return true;
