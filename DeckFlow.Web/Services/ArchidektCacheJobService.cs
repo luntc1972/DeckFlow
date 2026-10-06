@@ -180,16 +180,20 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
             throw new ArgumentOutOfRangeException(nameof(trigger));
         }
 
-        if (duration <= TimeSpan.Zero)
+        if (kind == HarvestRunKind.Bulk)
         {
-            throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be greater than zero.");
+            if (duration <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(duration), "Duration must be greater than zero.");
+            }
+
+            if (duration > TimeSpan.FromHours(1))
+            {
+                throw new ArgumentOutOfRangeException(nameof(duration), "Duration cannot exceed one hour.");
+            }
         }
 
-        if (duration > TimeSpan.FromHours(1))
-        {
-            throw new ArgumentOutOfRangeException(nameof(duration), "Duration cannot exceed one hour.");
-        }
-
+        // The server never trusts a caller's update duration: UpdateRunDuration plus 06-07's page cap bounds the shared 20/min Archidekt budget (D-10).
         // D-01: PG is source of truth — check for any active row before inserting.
         var active = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
         if (active is not null)

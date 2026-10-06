@@ -365,10 +365,24 @@ public sealed class AdminHarvestControllerTests
     [Fact]
     public async Task RunNow_InvalidDuration_SetsDangerBannerTone()
     {
-        var controller = Build(NewStore(0));
+        var jobService = new StubArchidektCacheJobService();
+        var controller = Build(NewStore(0), jobService: jobService);
         await controller.RunNow(1, CancellationToken.None);
         Assert.Equal("Invalid duration.", controller.TempData["AdminHarvestBanner"]);
         Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+        Assert.Empty(jobService.Requests);
+    }
+
+    [Fact]
+    public async Task RunNow_AllowedDuration_EnqueuesManualBulkRun()
+    {
+        var jobService = new StubArchidektCacheJobService();
+        var controller = Build(NewStore(0), jobService: jobService);
+
+        await controller.RunNow(900, CancellationToken.None);
+
+        Assert.Equal([(HarvestRunKind.Bulk, TimeSpan.FromSeconds(900), HarvestTriggerSource.Manual)], jobService.Requests);
+        Assert.Equal("Run queued (cap 15 min).", controller.TempData["AdminHarvestBanner"]);
     }
 
     [Fact]
@@ -754,7 +768,7 @@ public sealed class AdminHarvestControllerTests
     private static async Task<FileContentResult> ExportFileAsync(ICategoryKnowledgeStore store)
         => Assert.IsType<FileContentResult>(await Build(store).ExportCommanders(cancellationToken: CancellationToken.None));
 
-    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null)
+    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null, IArchidektCacheJobService? jobService = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -762,7 +776,7 @@ public sealed class AdminHarvestControllerTests
         httpContext.Request.Headers.Origin = crossOrigin ? "https://evil.test" : "https://deckflow.test";
 
         return new AdminHarvestController(
-            new StubArchidektCacheJobService(),
+            jobService ?? new StubArchidektCacheJobService(),
             runStore ?? new StubHarvestRunStore(),
             new StubHarvestScheduleStore(),
             new StubHarvestScheduleCache(),
@@ -923,8 +937,14 @@ public sealed class AdminHarvestControllerTests
 
     private sealed class StubArchidektCacheJobService : IArchidektCacheJobService
     {
+        public List<(HarvestRunKind Kind, TimeSpan Duration, HarvestTriggerSource Trigger)> Requests { get; } = [];
+
         public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(HarvestRunKind kind, TimeSpan duration, HarvestTriggerSource trigger, CancellationToken cancellationToken = default)
-            => throw new NotImplementedException();
+        {
+            Requests.Add((kind, duration, trigger));
+            var job = new ArchidektCacheJobStatus(Guid.NewGuid(), ArchidektCacheJobState.Queued, (int)duration.TotalSeconds, DateTimeOffset.UtcNow, null, null, 0, 0, null);
+            return Task.FromResult(new ArchidektCacheJobEnqueueResult(job, StartedNewJob: true));
+        }
 
         public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
 

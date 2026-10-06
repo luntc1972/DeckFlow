@@ -80,6 +80,136 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
         Assert.Equal("duration", exception.ParamName);
     }
 
+    [Theory]
+    [InlineData(HarvestRunKind.Url)]
+    [InlineData((HarvestRunKind)99)]
+    public async Task EnqueueAsync_RejectsUnsupportedKind(HarvestRunKind kind)
+    {
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(runStore: runStore);
+
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.EnqueueAsync(kind, TimeSpan.FromSeconds(60), HarvestTriggerSource.Manual));
+
+        Assert.Equal("kind", exception.ParamName);
+        Assert.Empty(await runStore.GetRecentAsync(10));
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_RejectsUndefinedTrigger()
+    {
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(runStore: runStore);
+
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(60), (HarvestTriggerSource)99));
+
+        Assert.Equal("trigger", exception.ParamName);
+        Assert.Empty(await runStore.GetRecentAsync(10));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    [InlineData(1)]
+    [InlineData(7200)]
+    public async Task EnqueueAsync_UpdateKind_IgnoresCallerDurationAndUsesUpdateRunDuration(int seconds)
+    {
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(runStore: runStore);
+
+        var result = await service.EnqueueAsync(HarvestRunKind.Update, TimeSpan.FromSeconds(seconds), HarvestTriggerSource.Manual);
+        var row = await runStore.GetByIdAsync(result.Job.JobId);
+
+        Assert.True(result.StartedNewJob);
+        Assert.Equal(600, result.Job.DurationSeconds);
+        Assert.NotNull(row);
+        Assert.Equal(600, row!.DurationSeconds);
+    }
+
+    [Theory]
+    [InlineData(HarvestRunKind.Bulk, HarvestTriggerSource.Manual)]
+    [InlineData(HarvestRunKind.Bulk, HarvestTriggerSource.Scheduled)]
+    [InlineData(HarvestRunKind.Update, HarvestTriggerSource.Manual)]
+    [InlineData(HarvestRunKind.Update, HarvestTriggerSource.Scheduled)]
+    public async Task EnqueueAsync_RecordsKindAndTriggerOnQueuedRow(HarvestRunKind kind, HarvestTriggerSource trigger)
+    {
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(runStore: runStore);
+
+        var result = await service.EnqueueAsync(kind, TimeSpan.FromSeconds(60), trigger);
+        var row = await runStore.GetByIdAsync(result.Job.JobId);
+
+        Assert.NotNull(row);
+        Assert.Equal(kind, row!.Kind);
+        Assert.Equal(trigger, row.TriggerSource);
+    }
+
+    [Theory]
+    [InlineData(HarvestRunKind.Bulk, HarvestRunKind.Update)]
+    [InlineData(HarvestRunKind.Update, HarvestRunKind.Bulk)]
+    public async Task EnqueueAsync_ActiveRunOfOtherKind_ReturnsExistingJobWithoutInsert(HarvestRunKind firstKind, HarvestRunKind secondKind)
+    {
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(runStore: runStore);
+
+        var first = await service.EnqueueAsync(firstKind, TimeSpan.FromSeconds(60), HarvestTriggerSource.Manual);
+        var second = await service.EnqueueAsync(secondKind, TimeSpan.FromSeconds(60), HarvestTriggerSource.Scheduled);
+
+        Assert.False(second.StartedNewJob);
+        Assert.Equal(first.Job.JobId, second.Job.JobId);
+        Assert.Single(await runStore.GetRecentAsync(10));
+    }
+
+    [Fact]
+    public async Task UpdateRun_CallerDurationIgnored_WorkerSweepsForUpdateRunDuration()
+    {
+        var store = new FakeCategoryKnowledgeStore();
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, TimeSpan.FromMinutes(45), HarvestTriggerSource.Scheduled);
+            var job = await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+
+            Assert.Equal(ArchidektCacheJobState.Succeeded, job.State);
+            Assert.Equal(600, store.LastRunUpdateSweepDurationSeconds);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task BulkRun_RecordsTriggerAndLeavesUpdateCountersNull()
+    {
+        var store = new FakeCategoryKnowledgeStore { RunCacheSweepResult = new(7, 0, 0, 0, 0, TimeSpan.Zero) };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Scheduled);
+            var job = await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            var row = await runStore.GetByIdAsync(result.Job.JobId);
+
+            Assert.Equal(ArchidektCacheJobState.Succeeded, job.State);
+            Assert.NotNull(row);
+            Assert.Equal(HarvestTriggerSource.Scheduled, row!.TriggerSource);
+            Assert.Equal(0, row.DecksEnqueued);
+            Assert.Equal(7, row.DecksDrained);
+            Assert.Null(row.PagesPolled);
+            Assert.Null(row.RefreshesRequeued);
+            Assert.Null(row.RefreshesDrained);
+            Assert.Null(row.NewIdsSeen);
+            Assert.Equal(0, store.RunUpdateSweepCalls);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
     [Fact]
     public async Task EnqueueAsync_CreatesQueuedJobWithCeilingDuration()
     {
@@ -278,6 +408,13 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
             store ?? new FakeCategoryKnowledgeStore(),
             runStore ?? new FakeHarvestRunStore(),
             NullLogger<ArchidektCacheJobService>.Instance);
+
+    private async Task<HarvestRunStore> CreateSqliteRunStoreAsync()
+    {
+        var runStore = new HarvestRunStore(_dbPath);
+        await runStore.EnsureSchemaAsync();
+        return runStore;
+    }
 
     private static async Task<ArchidektCacheJobStatus> WaitForTerminalJobAsync(
         ArchidektCacheJobService service,
