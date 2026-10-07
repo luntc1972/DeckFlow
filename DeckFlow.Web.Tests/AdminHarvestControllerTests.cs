@@ -406,7 +406,7 @@ public sealed class AdminHarvestControllerTests
         Assert.Equal((int)ArchidektCacheJobService.UpdateRunDuration.TotalMinutes, AdminHarvestViewModel.UpdateRunCapMinutes);
         await controller.RunNow(updateOption.Groups[1].Value, 0, CancellationToken.None);
 
-        Assert.Equal([(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual)], jobService.Requests);
+        Assert.Equal([(HarvestRunKind.Update, TimeSpan.Zero, HarvestTriggerSource.Manual)], jobService.Requests);
         Assert.Equal($"Update run queued (cap {AdminHarvestViewModel.UpdateRunCapMinutes} min).", controller.TempData["AdminHarvestBanner"]);
         Assert.Equal("success", controller.TempData["AdminHarvestBannerTone"]);
     }
@@ -422,7 +422,7 @@ public sealed class AdminHarvestControllerTests
     {
         var jobService = new StubArchidektCacheJobService();
         await Build(NewStore(0), jobService: jobService).RunNow("update", durationSeconds, CancellationToken.None);
-        Assert.Equal([(HarvestRunKind.Update, ArchidektCacheJobService.UpdateRunDuration, HarvestTriggerSource.Manual)], jobService.Requests);
+        Assert.Equal([(HarvestRunKind.Update, TimeSpan.Zero, HarvestTriggerSource.Manual)], jobService.Requests);
     }
 
     [Theory]

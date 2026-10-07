@@ -267,26 +267,14 @@ public sealed class AdminHarvestController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RunNow(string? kind, int durationSeconds, CancellationToken cancellationToken)
     {
-        var selectedKind = default(HarvestRunKind);
-        var foundKind = false;
-        // default(HarvestRunKind) is Bulk, so validity cannot be encoded by the selected value.
-        foreach (var allowedKind in AdminHarvestViewModel.AllowedRunKinds)
-        {
-            if (string.Equals(AdminHarvestViewModel.RunKindToken(allowedKind), kind, StringComparison.Ordinal))
-            {
-                selectedKind = allowedKind;
-                foundKind = true;
-                break;
-            }
-        }
-
-        if (!foundKind)
+        var selectedKind = AdminHarvestViewModel.AllowedRunKinds.FirstOrDefault(allowedKind => string.Equals(AdminHarvestViewModel.RunKindToken(allowedKind), kind, StringComparison.Ordinal));
+        if (!string.Equals(AdminHarvestViewModel.RunKindToken(selectedKind), kind, StringComparison.Ordinal))
         {
             SetBanner("Invalid run kind.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
-        TimeSpan duration;
+        var duration = TimeSpan.Zero;
         if (selectedKind == HarvestRunKind.Bulk)
         {
             if (!AdminHarvestViewModel.AllowedDurationSeconds.Contains(durationSeconds))
@@ -296,10 +284,6 @@ public sealed class AdminHarvestController : Controller
             }
 
             duration = TimeSpan.FromSeconds(durationSeconds);
-        }
-        else
-        {
-            duration = ArchidektCacheJobService.UpdateRunDuration;
         }
 
         var result = await _jobService.EnqueueAsync(selectedKind, duration, HarvestTriggerSource.Manual, cancellationToken).ConfigureAwait(false);
