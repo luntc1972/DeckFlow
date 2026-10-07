@@ -113,7 +113,8 @@ public sealed class ArchidektDeckCacheSession
             catch (ArchidektRateLimitedException exception)
             {
                 _logger?.LogWarning(exception, "Archidekt rate limiter tripped during the recent-deck listing; ending the harvest session.");
-                throw;
+                stopwatch.Stop();
+                return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, stopwatch.Elapsed, true, false, exception.RetryAfter);
             }
             catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
             {
@@ -131,7 +132,20 @@ public sealed class ArchidektDeckCacheSession
 
             foreach (var deckId in deckIds)
             {
-                await DrainDeckAsync(deckId, tally, progress, cancellationToken);
+                try
+                {
+                    await DrainDeckAsync(deckId, tally, progress, cancellationToken);
+                }
+                catch (ArchidektRateLimitedException exception)
+                {
+                    stopwatch.Stop();
+                    return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, stopwatch.Elapsed, true, false, exception.RetryAfter);
+                }
+                catch (ArchidektTransientFailureException)
+                {
+                    stopwatch.Stop();
+                    return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, stopwatch.Elapsed, false, true, null);
+                }
 
                 if (stopwatch.Elapsed >= duration || cancellationToken.IsCancellationRequested)
                 {
@@ -188,7 +202,8 @@ public sealed class ArchidektDeckCacheSession
             catch (ArchidektRateLimitedException exception)
             {
                 _logger?.LogWarning(exception, "Archidekt rate limit tripped while polling listing page {Page} for the update run; ending the run.", page);
-                throw;
+                stopwatch.Stop();
+                return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed, true, false, exception.RetryAfter);
             }
             // Why: D-10 preserves shared limiter budget by continuing, not retrying; the next run polls from the top.
             catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
@@ -207,7 +222,20 @@ public sealed class ArchidektDeckCacheSession
 
             foreach (var deckId in deckIds)
             {
-                await DrainDeckAsync(deckId, tally, progress, cancellationToken);
+                try
+                {
+                    await DrainDeckAsync(deckId, tally, progress, cancellationToken);
+                }
+                catch (ArchidektRateLimitedException exception)
+                {
+                    stopwatch.Stop();
+                    return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed, true, false, exception.RetryAfter);
+                }
+                catch (ArchidektTransientFailureException)
+                {
+                    stopwatch.Stop();
+                    return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed, false, true, null);
+                }
                 if (stopwatch.Elapsed >= duration || cancellationToken.IsCancellationRequested)
                 {
                     break;
@@ -375,7 +403,7 @@ internal enum DeckCacheWriteResult
 /// <summary>
 /// Holds aggregate statistics for a completed Archidekt deck-cache run.
 /// </summary>
-public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksUnchanged, int DecksSkipped, int DecksEnqueued, TimeSpan Duration)
+public sealed record ArchidektCacheRunResult(int DecksAdded, int DecksUpdated, int DecksUnchanged, int DecksSkipped, int DecksEnqueued, TimeSpan Duration, bool RateLimited = false, bool EndedEarly = false, TimeSpan? RetryAfter = null)
 {
     /// <summary>Total number of decks that produced added or updated cache rows.</summary>
     public int DecksProcessed => DecksAdded + DecksUpdated;

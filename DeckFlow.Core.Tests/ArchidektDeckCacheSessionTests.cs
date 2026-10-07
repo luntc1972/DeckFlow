@@ -77,10 +77,11 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var recentImporter = new ThrowingRecentDecksImporter(() => new ArchidektRateLimitedException("Simulated Archidekt rate limit.", TimeSpan.FromSeconds(120)));
         var session = new ArchidektDeckCacheSession(repository, new FakeDeckImporter(), recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1));
 
-        // Why: the exception derives from HttpRequestException, so without a dedicated catch the session's filters swallow it.
-        await Assert.ThrowsAsync<ArchidektRateLimitedException>(() => session.RunAsync(TimeSpan.FromSeconds(2), fetchBatchSize: 1));
+        var result = await session.RunAsync(TimeSpan.FromSeconds(2), fetchBatchSize: 1);
 
         Assert.Equal(1, recentImporter.Calls);
+        Assert.True(result.RateLimited);
+        Assert.Equal(TimeSpan.FromSeconds(120), result.RetryAfter);
     }
 
     [Fact]
@@ -93,9 +94,12 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(1));
 
         // Why: the exception derives from HttpRequestException, so without a dedicated catch the session's filters swallow it.
-        await Assert.ThrowsAsync<ArchidektRateLimitedException>(() => session.RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 3));
+        var result = await session.RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 3);
 
         Assert.Equal(new[] { "deck-1-ok", "deck-2-rate-limited" }, importer.AttemptedDeckIds);
+        Assert.True(result.RateLimited);
+        Assert.Equal(TimeSpan.FromMinutes(2), result.RetryAfter);
+        Assert.Equal(1, result.DecksProcessed);
         Assert.True(await IsDeckProcessedAsync("deck-1-ok"));
         Assert.False(await IsDeckProcessedAsync("deck-2-rate-limited"));
         Assert.False(await IsDeckSkippedAsync("deck-2-rate-limited"));

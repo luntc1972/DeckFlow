@@ -262,6 +262,16 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
     {
         var result = await _knowledgeStore.RunCacheSweepAsync(_logger, signal.DurationSeconds, cancellationToken, progress).ConfigureAwait(false);
         await _runStore.SetSweepCountsAsync(signal.JobId, result.DecksEnqueued, result.DecksDrained, cancellationToken).ConfigureAwait(false);
+        if (result.RateLimited)
+        {
+            throw new ArchidektRateLimitedException(RateLimitedErrorMessage, result.RetryAfter);
+        }
+
+        if (result.EndedEarly)
+        {
+            throw new ArchidektTransientFailureException("Archidekt transient failures ended the harvest run.");
+        }
+
         return result.DecksProcessed;
     }
 
@@ -278,6 +288,16 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
             newIdsSeen: result.NewIdsSeen,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("Harvest.Run.UpdateCounts jobId={JobId} pagesPolled={PagesPolled} refreshesRequeued={RefreshesRequeued} refreshesDrained={RefreshesDrained} newIdsSeen={NewIdsSeen}", signal.JobId, result.PagesPolled, result.RefreshesRequeued, result.RefreshesDrained, result.NewIdsSeen);
+        if (result.RateLimited)
+        {
+            throw new ArchidektRateLimitedException(RateLimitedErrorMessage, result.RetryAfter);
+        }
+
+        if (result.EndedEarly)
+        {
+            throw new ArchidektTransientFailureException("Archidekt transient failures ended the harvest run.");
+        }
+
         return result.RefreshesDrained;
     }
 

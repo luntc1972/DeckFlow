@@ -98,9 +98,10 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         var deckImporter = new ScriptedDeckImporter();
         var session = new ArchidektDeckCacheSession(repository, deckImporter, listingImporter);
 
-        await Assert.ThrowsAsync<ArchidektRateLimitedException>(() => session.RunUpdateAsync(TimeSpan.FromSeconds(5)));
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal([1, 2], listingImporter.RequestedPages);
+        Assert.True(result.RateLimited);
         Assert.Empty(deckImporter.AttemptedDeckIds);
         Assert.NotNull((await ReadQueueRowAsync("refresh-1")).RefreshRequestedUtc);
     }
@@ -114,9 +115,10 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         var deckImporter = new ScriptedDeckImporter();
         var session = new ArchidektDeckCacheSession(repository, deckImporter, new ScriptedListingImporter(_ => []));
 
-        await Assert.ThrowsAsync<ArchidektRateLimitedException>(() => session.RunUpdateAsync(TimeSpan.FromSeconds(5)));
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(["rate-limited-1"], deckImporter.AttemptedDeckIds);
+        Assert.True(result.RateLimited);
         var row = await ReadQueueRowAsync("rate-limited-1");
         Assert.False(row.Processed);
         Assert.NotNull(row.RefreshRequestedUtc);
