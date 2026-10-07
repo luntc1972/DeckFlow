@@ -116,9 +116,11 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var importer = new ThrowingTransientDeckImporter();
         var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(1));
 
-        await Assert.ThrowsAsync<ArchidektTransientFailureException>(() => session.RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 3));
+        var result = await session.RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 3);
 
         Assert.Equal(new[] { "transient-1", "transient-2", "transient-3" }, importer.AttemptedDeckIds);
+        Assert.Equal(0, result.DecksSkipped);
+        Assert.True(result.EndedEarly);
         foreach (var deckId in importer.AttemptedDeckIds)
         {
             Assert.False(await IsDeckProcessedAsync(deckId));
