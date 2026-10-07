@@ -11,6 +11,16 @@ public sealed class CreatorStoreSuppressionTests : IDisposable
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"creator-store-suppression-{Guid.NewGuid():N}.db");
 
     [Fact]
+    public async Task StatedRules_IdentityAliasSuppressed_Excluded()
+    {
+        var suppressions = new CountingSuppressionStore([Suppression("Suppressed Display")]);
+        var store = new CreatorStyleStatedRuleStore(_databasePath, suppressions, new Lazy<ICreatorIdentityResolver>(() => Resolver("creator-slug", "Suppressed Display")));
+        await store.UpsertAsync(new StatedRuleCandidate { Category = "deckbuilding", Metric = "ramp", Value = 1, Comparator = "gte", SourceClip = "test", Confidence = 1, VideoDateUtc = DateTimeOffset.UtcNow }, "creator-slug");
+
+        Assert.Empty(await store.GetBySlugAsync("creator-slug"));
+    }
+
+    [Fact]
     public async Task ProfileGetAll_ManyProfiles_ListsOnce()
     {
         var suppressions = new CountingSuppressionStore([Suppression("blocked")]);

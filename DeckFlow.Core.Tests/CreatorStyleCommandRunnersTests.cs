@@ -29,6 +29,54 @@ public sealed class CreatorStyleCommandRunnersTests : IDisposable
     }
 
     [Fact]
+    public async Task RunCreatorStyleImportStatedAsync_IdentityAliasSuppressed_SkipsSlug()
+    {
+        const string slug = "creator-slug";
+        var stores = CreatorStyleCommandRunners.CreateStoresForDatabase(_dbPath);
+        var source = new ContentSourceStore(_dbPath, stores.SuppressionStore);
+        await source.InsertSourceAsync(slug, "Suppressed Display", ContentSourceType.Podcast, "https://example.test/source");
+        await stores.SuppressionStore.SuppressAsync("Suppressed Display", [], "test", DateTimeOffset.UtcNow, null);
+        await File.WriteAllTextAsync(_seedPath, JsonSerializer.Serialize(new Dictionary<string, List<StatedRuleCandidate>>
+        {
+            [slug] = [new StatedRuleCandidate { Category = "deckbuilding", Metric = "ramp", Value = 1, Comparator = "gte", SourceClip = "test", Confidence = 1, VideoDateUtc = DateTimeOffset.UtcNow }],
+        }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+
+        var originalError = Console.Error;
+        using var error = new StringWriter();
+        try
+        {
+            Console.SetError(error);
+            var exitCode = await CreatorStyleCommandRunners.RunCreatorStyleImportStatedAsync(new FileInfo(_seedPath), new FileInfo(_dbPath));
+
+            Assert.Equal(2, exitCode);
+            Assert.Contains("Skipping suppressed creator 'creator-slug'.", error.ToString());
+            Assert.Empty(await new CreatorStyleStatedRuleStore(_dbPath).GetBySlugAsync(slug));
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    [Fact]
+    public async Task RunCreatorStyleIndexExportAsync_IdentityAliasSuppressed_ExcludesProfile()
+    {
+        const string slug = "creator-slug";
+        var stores = CreatorStyleCommandRunners.CreateStoresForDatabase(_dbPath);
+        var source = new ContentSourceStore(_dbPath, stores.SuppressionStore);
+        await source.InsertSourceAsync(slug, "Suppressed Display", ContentSourceType.Podcast, "https://example.test/source");
+        await stores.SuppressionStore.SuppressAsync("Suppressed Display", [], "test", DateTimeOffset.UtcNow, null);
+        await stores.ProfileStore.UpsertAsync(new CreatorStyleProfile { Slug = slug, Platform = "youtube", MinDecks = 1, UpdatedUtc = DateTimeOffset.UtcNow });
+        var output = Path.Combine(Path.GetTempPath(), $"profiles-{Guid.NewGuid():N}.json");
+
+        var exitCode = await CreatorStyleCommandRunners.RunCreatorStyleIndexExportAsync(new FileInfo(_dbPath), new FileInfo(output), new FileInfo(Path.Combine(Path.GetTempPath(), $"cache-{Guid.NewGuid():N}.json")));
+
+        Assert.Equal(0, exitCode);
+        Assert.DoesNotContain(slug, await File.ReadAllTextAsync(output));
+        File.Delete(output);
+    }
+
+    [Fact]
     public async Task ImportThenFuse_OneStatedRule_ReachesPersistedFusedTarget()
     {
         const string slug = "tracercreator";

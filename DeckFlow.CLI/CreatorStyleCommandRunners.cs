@@ -49,7 +49,8 @@ internal static class CreatorStyleCommandRunners
                 ?? [];
 
             var stores = CreateStoresForDatabase(dbPath);
-            await stores.SuppressionStore.ListAsync().ConfigureAwait(false);
+            var unsuppressedSlugs = (await stores.SuppressionFilter.GetUnsuppressedAsync(seed.Keys.ToList()).ConfigureAwait(false))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var store = stores.StatedRuleStore;
             var ruleCount = 0;
             var slugCount = 0;
@@ -60,7 +61,7 @@ internal static class CreatorStyleCommandRunners
                     continue;
                 }
 
-                if (await stores.SuppressionStore.IsSuppressedAsync(slug).ConfigureAwait(false))
+                if (!unsuppressedSlugs.Contains(slug))
                 {
                     Console.Error.WriteLine($"Skipping suppressed creator '{slug}'.");
                     continue;
@@ -105,8 +106,7 @@ internal static class CreatorStyleCommandRunners
         {
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var stores = CreateStoresForDatabase(dbPath);
-            await stores.SuppressionStore.ListAsync().ConfigureAwait(false);
-            if (await stores.SuppressionStore.IsSuppressedAsync(slug).ConfigureAwait(false))
+            if (await stores.SuppressionFilter.IsSuppressedAsync(slug).ConfigureAwait(false))
             {
                 Console.Error.WriteLine($"Creator '{slug}' is suppressed.");
                 return 3;
@@ -200,9 +200,8 @@ internal static class CreatorStyleCommandRunners
                 : null;
             var dbPath = ContentKbCliPaths.ResolveDatabasePath(db);
             var stores = CreateStoresForDatabase(dbPath);
-            await stores.SuppressionStore.ListAsync().ConfigureAwait(false);
             var profileStore = new CreatorStyleProfileStore(dbPath);
-            var deckCacheStore = new CreatorDeckCacheStore(ContentKbCliPaths.ResolveCreatorDeckCacheDatabasePath(db), stores.SuppressionStore);
+            var deckCacheStore = new CreatorDeckCacheStore(ContentKbCliPaths.ResolveCreatorDeckCacheDatabasePath(db), stores.SuppressionStore, stores.IdentityResolver);
 
             var summaries = await profileStore.GetAllAsync().ConfigureAwait(false);
             if (summaries.Count == 0)
@@ -213,10 +212,12 @@ internal static class CreatorStyleCommandRunners
 
             var profiles = new List<CreatorStyleProfile>();
             var deckCacheEntries = new List<CreatorDeckCacheEntry>();
+            var unsuppressedSlugs = (await stores.SuppressionFilter.GetUnsuppressedAsync(summaries.Select(summary => summary.Slug).ToList()).ConfigureAwait(false))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (var summary in summaries)
             {
-                if (await stores.SuppressionStore.IsSuppressedAsync(summary.Slug).ConfigureAwait(false))
+                if (!unsuppressedSlugs.Contains(summary.Slug))
                 {
                     Console.Error.WriteLine($"Skipping suppressed creator '{summary.Slug}'.");
                     continue;
@@ -269,14 +270,21 @@ internal static class CreatorStyleCommandRunners
     /// <summary>Creates the shared creator-style stores for a content KB database.</summary>
     internal static (
         CreatorSuppressionStore SuppressionStore,
+        CreatorSuppressionFilter SuppressionFilter,
+        Lazy<ICreatorIdentityResolver> IdentityResolver,
         CreatorStyleProfileStore ProfileStore,
         CreatorStyleStatedRuleStore StatedRuleStore) CreateStoresForDatabase(string databasePath)
     {
         var suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(databasePath));
+        var sourceStore = new ContentSourceStore(databasePath, suppressionStore);
+        var indexStore = new ContentSiteIndexStore(databasePath, suppressionStore);
+        var resolver = new Lazy<ICreatorIdentityResolver>(() => new CreatorIdentityResolver(suppressionStore, sourceStore, indexStore));
         return (
             suppressionStore,
-            new CreatorStyleProfileStore(databasePath, suppressionStore),
-            new CreatorStyleStatedRuleStore(databasePath, suppressionStore));
+            new CreatorSuppressionFilter(suppressionStore, resolver),
+            resolver,
+            new CreatorStyleProfileStore(databasePath, suppressionStore, resolver),
+            new CreatorStyleStatedRuleStore(databasePath, suppressionStore, resolver));
     }
 
     private static string SerializeCreatorStyleSeed<T>(IReadOnlyList<T> items)
