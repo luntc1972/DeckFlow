@@ -226,6 +226,20 @@ Sideboard
             UnrecognizedPasteBehavior.PropagateParseException));
     }
 
+    [Fact]
+    public void ValidateCommanderDeckSize_SideboardEntriesAreExcluded()
+    {
+        var entries = new List<DeckEntry>
+        {
+            new() { Name = "Commander", NormalizedName = "commander", Quantity = 1, Board = "commander" },
+            new() { Name = "Mainboard", NormalizedName = "mainboard", Quantity = 99, Board = "mainboard" },
+            new() { Name = "Sideboard", NormalizedName = "sideboard", Quantity = 10, Board = "sideboard" }
+        };
+        var loader = CreateLoader();
+
+        loader.ValidateCommanderDeckSize("Test", entries);
+    }
+
     private static DeckEntryLoader CreateLoader(
         IMoxfieldDeckImporter? importer = null,
         IArchidektDeckImporter? archidektImporter = null)

@@ -159,7 +159,9 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
     public void ValidateCommanderDeckSize(string systemName, IReadOnlyList<DeckEntry> entries, int requiredDeckSize = 100)
     {
         var count = entries
-            .Where(entry => !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase))
+            .Where(entry =>
+                !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
             .Sum(entry => entry.Quantity);
 
         if (count != requiredDeckSize)
