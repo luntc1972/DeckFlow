@@ -419,7 +419,7 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
 
         var result = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
-            "SELECT 1 FROM deck_queue WHERE processed = 0 AND skipped = 0 LIMIT 1 OFFSET @threshold;",
+            "SELECT 1 FROM deck_queue WHERE processed = 0 AND skipped = 0 AND refresh_requested_utc IS NULL LIMIT 1 OFFSET @threshold;",
             new { threshold },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return result.HasValue;

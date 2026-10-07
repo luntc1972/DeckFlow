@@ -1,3 +1,4 @@
+using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using Microsoft.Data.Sqlite;
 
@@ -22,6 +23,18 @@ public sealed class DeckQueueRepositoryTests : IDisposable
 
         await repository.MarkDeckProcessedAsync("one", null, skip: true, metadata: null);
         await repository.MarkDeckProcessedAsync("two", null, skip: false, metadata: null);
+        Assert.False(await repository.HasMoreThanUnprocessedDecksAsync(0));
+    }
+
+    [Fact]
+    public async Task HasMoreThanUnprocessedDecksAsync_ExcludesRefreshRows()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        await repository.AddDeckIdsAsync(["refresh-only"]);
+        await repository.MarkDeckProcessedAsync("refresh-only", null, metadata: null);
+        await repository.AddListingRowsAsync([new ArchidektListingDeck("refresh-only", DateTimeOffset.UtcNow)]);
+
         Assert.False(await repository.HasMoreThanUnprocessedDecksAsync(0));
     }
 
