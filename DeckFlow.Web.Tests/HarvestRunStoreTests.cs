@@ -57,6 +57,7 @@ public sealed class HarvestRunStoreTests : IDisposable
         {
             var id = await store.InsertQueuedAsync(kind, 600, kind == HarvestRunKind.Url ? "https://archidekt.com/decks/123" : null, DateTimeOffset.UtcNow, triggerSource: null);
             Assert.Equal(kind, (await store.GetByIdAsync(id))!.Kind);
+            await store.UpdateStateAsync(id, HarvestRunState.Succeeded, null, DateTimeOffset.UtcNow, null, null, null);
         }
     }
 
@@ -576,6 +577,23 @@ public sealed class HarvestRunStoreTests : IDisposable
                 NULL);
             """;
         await command.ExecuteNonQueryAsync();
+    }
+
+    [Fact]
+    public async Task EnsureSchemaAsync_ActiveRows_RejectsSecondActiveRow()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "INSERT INTO harvest_runs (id, kind, state, requested_utc, duration_seconds) VALUES ($id, 'bulk', 'Queued', $now, 60);";
+        command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
+        command.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+        await command.ExecuteNonQueryAsync();
+        command.Parameters["$id"].Value = Guid.NewGuid().ToString();
+
+        await Assert.ThrowsAsync<SqliteException>(() => command.ExecuteNonQueryAsync());
     }
 
     private async Task SeedHealthRunAsync(string kind, string state, string completedUtc, int? decksEnqueued, int? decksDrained, string? triggerSource = null)

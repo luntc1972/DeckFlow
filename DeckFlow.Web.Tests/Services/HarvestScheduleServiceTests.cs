@@ -81,6 +81,22 @@ public sealed class HarvestScheduleServiceTests
     }
 
     [Fact]
+    public async Task TickKindAsync_ExistingJobReturned_DoesNotReportFired()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "DeckFlow.Tests", Guid.NewGuid() + ".db");
+        var store = new HarvestRunStore(path);
+        await store.EnsureSchemaAsync();
+        var job = new RecordingJob { StartedNewJob = false };
+        var now = new DateTimeOffset(2026, 6, 12, 12, 0, 0, TimeSpan.Zero);
+        var service = new HarvestScheduleService(new FakeFeatureFlagCache(), new FixedSchedule(1), new FixedUpdateSchedule(null), store, job, NullLogger<HarvestScheduleService>.Instance, new FakeTimeProvider(now));
+        var tick = typeof(HarvestScheduleService).GetMethod("TickKindAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        var result = await (Task<bool>)tick.Invoke(service, [HarvestRunKind.Bulk, TimeSpan.FromHours(1), false, TimeSpan.FromMinutes(1), now, CancellationToken.None])!;
+
+        Assert.False(result);
+    }
+
+    [Fact]
     public async Task TickAsync_UpdateScheduleDue_EnqueuesScheduledUpdateRunEndToEnd()
     {
         var path = Path.Combine(Path.GetTempPath(), "DeckFlow.Tests", Guid.NewGuid() + ".db");
@@ -393,12 +409,15 @@ public sealed class HarvestScheduleServiceTests
 
     private sealed class RecordingJob : IArchidektCacheJobService
     {
+        public bool StartedNewJob { get; set; } = true;
         public List<(HarvestRunKind Kind, TimeSpan Duration, HarvestTriggerSource Trigger)> Enqueued { get; } = [];
         public int Calls => Enqueued.Count;
         public Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(HarvestRunKind kind, TimeSpan duration, HarvestTriggerSource trigger, CancellationToken cancellationToken = default)
         {
             Enqueued.Add((kind, duration, trigger));
-            return Task.FromResult<ArchidektCacheJobEnqueueResult>(null!);
+            return Task.FromResult(new ArchidektCacheJobEnqueueResult(
+                new ArchidektCacheJobStatus(Guid.NewGuid(), ArchidektCacheJobState.Queued, 60, DateTimeOffset.UtcNow, null, null, 0, 0, null),
+                StartedNewJob));
         }
         public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);
     }

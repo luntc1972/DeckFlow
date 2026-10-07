@@ -1,5 +1,6 @@
-using System.Threading.Channels;
 using System.Diagnostics;
+using System.Data.Common;
+using System.Threading.Channels;
 using DeckFlow.Core.Integration;
 using DeckFlow.Web.Services.Harvest;
 
@@ -207,13 +208,27 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
         var requestedUtc = DateTimeOffset.UtcNow;
 
         // D-03: insert Queued row, get the UUID.
-        var jobId = await _runStore.InsertQueuedAsync(
-            kind,
-            durationSeconds,
-            url: null,
-            requestedUtc,
-            triggerSource: trigger,
-            cancellationToken: cancellationToken).ConfigureAwait(false);
+        Guid jobId;
+        try
+        {
+            jobId = await _runStore.InsertQueuedAsync(
+                kind,
+                durationSeconds,
+                url: null,
+                requestedUtc,
+                triggerSource: trigger,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbException exception) when (exception.Message.Contains("ux_harvest_runs_one_active", StringComparison.OrdinalIgnoreCase))
+        {
+            var existing = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
+            if (existing is not null)
+            {
+                return new ArchidektCacheJobEnqueueResult(MapToStatus(existing), StartedNewJob: false);
+            }
+
+            throw;
+        }
 
         var writeAccepted = _queue.Writer.TryWrite(new QueuedJobSignal(jobId, kind, durationSeconds));
         _logger.LogInformation(

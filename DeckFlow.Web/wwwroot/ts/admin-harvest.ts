@@ -388,6 +388,16 @@
       });
     }
 
+    const runNowForm = document.querySelector<HTMLFormElement>('form[action$="RunNow"]');
+    if (runNowForm) {
+      runNowForm.addEventListener('submit', () => {
+        const submitButton = runNowForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+        if (submitButton) {
+          submitButton.disabled = true;
+        }
+      });
+    }
+
     const commandersSearchForm = document.getElementById('commanders-search-form');
     const commandersSearchInput = document.getElementById('commanders-search') as HTMLInputElement | null;
     const commandersSearchClear = document.getElementById('commanders-search-clear');

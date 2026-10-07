@@ -69,6 +69,21 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
             await service.StopAsync(CancellationToken.None);
         }
     }
+
+    [Fact]
+    public async Task EnqueueAsync_ConcurrentRequests_ReturnOneNewJobAndOneExistingJob()
+    {
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(runStore: runStore);
+
+        var results = await Task.WhenAll(
+            service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromMinutes(1), HarvestTriggerSource.Manual),
+            service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromMinutes(1), HarvestTriggerSource.Manual));
+
+        Assert.Single(results, result => result.StartedNewJob);
+        Assert.Single(results, result => !result.StartedNewJob);
+        Assert.Equal(results[0].Job.JobId, results[1].Job.JobId);
+    }
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]

@@ -155,8 +155,8 @@ public sealed class HarvestScheduleService : BackgroundService
             return false;
         }
         _logger.LogInformation("Harvest.Schedule.Tick.Fired kind={Kind} interval={Interval} lastScheduledSuccess={LastScheduledSuccess} nextDue={NextDue}", kind, interval, lastSuccess, nextDue);
-        await _jobService.EnqueueAsync(kind, fireDuration, HarvestTriggerSource.Scheduled, cancellationToken).ConfigureAwait(false);
-        return true;
+        var result = await _jobService.EnqueueAsync(kind, fireDuration, HarvestTriggerSource.Scheduled, cancellationToken).ConfigureAwait(false);
+        return result.StartedNewJob;
     }
 
     private static TimeSpan GetFailureBackoff(int consecutiveFailures, TimeSpan interval)
