@@ -103,6 +103,7 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() => Assert.Contains("A suppressed creator cannot be approved.", cut.Markup));
         Assert.Contains("blocked", cut.Markup);
         Assert.Empty(store.SingleApprovalCalls);
+        Assert.Empty(store.BatchApprovalCalls);
     }
 
     [Fact]
@@ -121,7 +122,11 @@ public sealed class ReviewPageTests : BunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.DoesNotContain("A suppressed creator cannot be approved.", cut.Markup);
-            Assert.Contains(store.SingleApprovalCalls, call => call.Value == "control" && call.Status == "approved");
+            Assert.Single(store.BatchApprovalCalls);
+            var (keys, status) = store.BatchApprovalCalls[0];
+            Assert.Equal("approved", status);
+            Assert.Single(keys);
+            Assert.Equal("control", keys[0].Value);
         });
     }
 
@@ -279,10 +284,11 @@ public sealed class ReviewPageTests : BunitContext
         // Assert: single-overload called with (youtube_channel, "vidABC", "approved")
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(store.SingleApprovalCalls);
-            var (type, value, status) = store.SingleApprovalCalls[0];
-            Assert.Equal(ContentSourceType.Youtube, type);
-            Assert.Equal("vidABC", value);
+            Assert.Single(store.BatchApprovalCalls);
+            var (keys, status) = store.BatchApprovalCalls[0];
+            Assert.Single(keys);
+            Assert.Equal(ContentSourceType.Youtube, keys[0].Type);
+            Assert.Equal("vidABC", keys[0].Value);
             Assert.Equal("approved", status);
         });
     }
@@ -305,7 +311,7 @@ public sealed class ReviewPageTests : BunitContext
         // The default "pending" tab filters out the now-approved row, so view it on the "All"
         // tab where the approved row renders with its table-success class. (Tab buttons are the
         // 4 role='tab' buttons in document order: Pending, Approved, Rejected, All.)
-        cut.WaitForAssertion(() => Assert.Single(store.SingleApprovalCalls));
+        cut.WaitForAssertion(() => Assert.Single(store.BatchApprovalCalls));
         cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.FindAll("ul.nav-tabs button[role='tab']")[3].Click()).GetAwaiter().GetResult());
 
         // Assert: row now has table-success class
@@ -333,10 +339,11 @@ public sealed class ReviewPageTests : BunitContext
         // Assert
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(store.SingleApprovalCalls);
-            var (type, value, status) = store.SingleApprovalCalls[0];
-            Assert.Equal(ContentSourceType.Youtube, type);
-            Assert.Equal("vidGHI", value);
+            Assert.Single(store.BatchApprovalCalls);
+            var (keys, status) = store.BatchApprovalCalls[0];
+            Assert.Single(keys);
+            Assert.Equal(ContentSourceType.Youtube, keys[0].Type);
+            Assert.Equal("vidGHI", keys[0].Value);
             Assert.Equal("rejected", status);
         });
     }
@@ -355,7 +362,7 @@ public sealed class ReviewPageTests : BunitContext
 
         // The default "pending" tab filters out the now-rejected row, so view it on the "All"
         // tab where the rejected row renders with its table-danger class.
-        cut.WaitForAssertion(() => Assert.Single(store.SingleApprovalCalls));
+        cut.WaitForAssertion(() => Assert.Single(store.BatchApprovalCalls));
         cut.WaitForAssertion(() => cut.InvokeAsync(() => cut.FindAll("ul.nav-tabs button[role='tab']")[3].Click()).GetAwaiter().GetResult());
 
         // Assert: row now has table-danger class
@@ -382,10 +389,11 @@ public sealed class ReviewPageTests : BunitContext
         // Assert: natural key type is podcast_rss, value is the RssGuid
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(store.SingleApprovalCalls);
-            var (type, value, status) = store.SingleApprovalCalls[0];
-            Assert.Equal(ContentSourceType.Podcast, type);
-            Assert.Equal("guid-xyz", value);
+            Assert.Single(store.BatchApprovalCalls);
+            var (keys, status) = store.BatchApprovalCalls[0];
+            Assert.Single(keys);
+            Assert.Equal(ContentSourceType.Podcast, keys[0].Type);
+            Assert.Equal("guid-xyz", keys[0].Value);
             Assert.Equal("approved", status);
         });
     }

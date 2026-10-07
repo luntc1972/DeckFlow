@@ -84,8 +84,25 @@ public sealed class ReviewCoordinatorTests : IDisposable
 
         await coordinator.SetApprovalStatusAsync(ContentSourceType.Youtube, "vid1", "approved", CancellationToken.None);
 
-        Assert.Single(store.SingleApprovalCalls);
-        Assert.Equal((ContentSourceType.Youtube, "vid1", "approved"), store.SingleApprovalCalls[0]);
+        Assert.Empty(store.SingleApprovalCalls);
+        Assert.Single(store.BatchApprovalCalls);
+        Assert.Single(store.BatchApprovalCalls[0].Keys);
+        Assert.Equal((ContentSourceType.Youtube, "vid1"), store.BatchApprovalCalls[0].Keys[0]);
+        Assert.Equal("approved", store.BatchApprovalCalls[0].Status);
+    }
+
+    [Theory]
+    [InlineData("", "vid1")]
+    [InlineData("youtube", " ")]
+    public async Task SetApprovalStatusAsync_Single_BlankKey_ThrowsArgumentException(string keyType, string keyValue)
+    {
+        var store = new FakeContentSiteIndexStore();
+        var coordinator = Build(store);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => coordinator.SetApprovalStatusAsync(keyType, keyValue, "approved", CancellationToken.None));
+
+        Assert.Empty(store.SingleApprovalCalls);
+        Assert.Empty(store.BatchApprovalCalls);
     }
 
     [Fact]
@@ -311,7 +328,10 @@ public sealed class ReviewCoordinatorTests : IDisposable
         await coordinator.SetApprovalStatusAsync(ContentSourceType.Youtube, "control", "approved", CancellationToken.None);
 
         Assert.Single(rows); Assert.Equal("control", rows[0].YoutubeVideoId);
-        Assert.Single(store.SingleApprovalCalls); Assert.DoesNotContain(store.SingleApprovalCalls, call => call.Value == "blocked");
+        Assert.Empty(store.SingleApprovalCalls);
+        Assert.Single(store.BatchApprovalCalls);
+        Assert.Single(store.BatchApprovalCalls[0].Keys);
+        Assert.Equal((ContentSourceType.Youtube, "control"), store.BatchApprovalCalls[0].Keys[0]);
     }
 
     [Fact]
@@ -328,9 +348,11 @@ public sealed class ReviewCoordinatorTests : IDisposable
         await Assert.ThrowsAsync<CreatorSuppressedException>(() => coordinator.SetApprovalStatusAsync(new[] { (ContentSourceType.Youtube, "blocked") }, "approved", CancellationToken.None));
         await coordinator.SetApprovalStatusAsync(ContentSourceType.Youtube, "control", "approved", CancellationToken.None);
 
-        Assert.Single(store.SingleApprovalCalls);
-        Assert.Empty(store.BatchApprovalCalls);
-        Assert.Equal((ContentSourceType.Youtube, "control", "approved"), store.SingleApprovalCalls[0]);
+        Assert.Empty(store.SingleApprovalCalls);
+        Assert.Single(store.BatchApprovalCalls);
+        Assert.Single(store.BatchApprovalCalls[0].Keys);
+        Assert.Equal((ContentSourceType.Youtube, "control"), store.BatchApprovalCalls[0].Keys[0]);
+        Assert.Equal("approved", store.BatchApprovalCalls[0].Status);
     }
 
     [Fact]
@@ -338,10 +360,12 @@ public sealed class ReviewCoordinatorTests : IDisposable
     {
         var store = new FakeContentSiteIndexStore(); var row = Youtube(1, "control"); store.Rows.Add(row);
         await Build(store).SetApprovalStatusAsync(ContentSourceType.Youtube, "control", "approved", CancellationToken.None);
-        Assert.Single(store.SingleApprovalCalls); store.SingleApprovalCalls.Clear();
+        Assert.Single(store.BatchApprovalCalls);
+        store.BatchApprovalCalls.Clear();
         var coordinator = Build(store, new CreatorSuppressionRowFilter(new ThrowingCreatorSuppressionStore(), new FakeCreatorIdentityResolver()));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.SetApprovalStatusAsync(ContentSourceType.Youtube, "control", "approved", CancellationToken.None));
         Assert.Empty(store.SingleApprovalCalls);
+        Assert.Empty(store.BatchApprovalCalls);
     }
 }

@@ -248,7 +248,7 @@ internal static class DistillationValidation
             else if (character == '"')
             {
                 kind = 'd';
-                if (char.IsWhiteSpace(previous) || "([{—-".Contains(previous) || i == 0)
+                if (IsOpeningContext(previous, i == 0))
                 {
                     isOpen = !char.IsWhiteSpace(next) || !(stack.Count > 0 && stack.Peek() == 'd');
                     isClose = !isOpen;
@@ -266,7 +266,7 @@ internal static class DistillationValidation
                 {
                     kind = '\0';
                 }
-                else if ((char.IsWhiteSpace(previous) || "([{—-".Contains(previous) || i == 0) && !char.IsWhiteSpace(next))
+                else if (IsOpeningContext(previous, i == 0) && !char.IsWhiteSpace(next))
                 {
                     isOpen = HasLaterSingleCloser(normalized, i);
                 }
@@ -317,7 +317,10 @@ internal static class DistillationValidation
     }
 
     internal static string NormalizeExcerptWhitespace(string excerpt)
-        => string.Join(' ', (excerpt ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        => string.Join(' ', GetWords(excerpt));
+
+    private static bool IsOpeningContext(char previous, bool isFirstCharacter)
+        => char.IsWhiteSpace(previous) || "([{—-".Contains(previous) || isFirstCharacter;
 
     private static bool HasLaterSingleCloser(string text, int index)
     {

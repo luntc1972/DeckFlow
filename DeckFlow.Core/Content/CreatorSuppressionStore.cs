@@ -93,7 +93,7 @@ public sealed class CreatorSuppressionStore : ICreatorSuppressionStore
     }
 
     public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => ApplySnapshotCoreAsync(snapshot, false, cancellationToken);
-    public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, bool failAfterDelete, CancellationToken cancellationToken = default) => ApplySnapshotCoreAsync(snapshot, failAfterDelete, cancellationToken);
+    internal Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, bool failAfterDelete, CancellationToken cancellationToken = default) => ApplySnapshotCoreAsync(snapshot, failAfterDelete, cancellationToken);
 
     public async Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default)
     {

@@ -38,28 +38,26 @@ public sealed class ReviewCoordinator
 
     /// <summary>Persists a single row's approval status by natural key.</summary>
     public Task SetApprovalStatusAsync(string keyType, string keyValue, string status, CancellationToken cancellationToken)
-        => SetApprovalStatusCheckedAsync([(keyType, keyValue)], status, cancellationToken, true);
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyValue);
+        return SetApprovalStatusCheckedAsync([(keyType, keyValue)], status, cancellationToken);
+    }
 
     /// <summary>Persists the approval status for a batch of rows by natural key.</summary>
     public Task SetApprovalStatusAsync(
         IReadOnlyList<(string Type, string Value)> keys,
         string status,
         CancellationToken cancellationToken)
-        => SetApprovalStatusCheckedAsync(keys, status, cancellationToken, false);
+        => SetApprovalStatusCheckedAsync(keys, status, cancellationToken);
 
-    private async Task SetApprovalStatusCheckedAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken, bool isSingle)
+    private async Task SetApprovalStatusCheckedAsync(IReadOnlyList<(string Type, string Value)> keys, string status, CancellationToken cancellationToken)
     {
         if (status == "approved")
         {
             var rows = await _indexStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
             var keyed = rows.Where(row => keys.Contains(GetNaturalKey(row))).ToList();
             if ((await _suppressionFilter.GetAllowedAsync(keyed, cancellationToken).ConfigureAwait(false)).Count != keyed.Count) throw new CreatorSuppressedException();
-        }
-
-        if (isSingle)
-        {
-            await _indexStore.SetApprovalStatusAsync(keys[0].Type, keys[0].Value, status, cancellationToken).ConfigureAwait(false);
-            return;
         }
 
         await _indexStore.SetApprovalStatusAsync(keys, status, cancellationToken).ConfigureAwait(false);
