@@ -392,6 +392,14 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
+    public async Task RunNow_CrossOrigin_Returns403WithoutEnqueue()
+    {
+        var jobs = new StubArchidektCacheJobService();
+        var result = await Build(NewStore(0), crossOrigin: true, jobService: jobs).RunNow("bulk", 60, CancellationToken.None);
+        AssertForbidden(result); Assert.Empty(jobs.Requests);
+    }
+
+    [Fact]
     public async Task RunNow_UpdateOptionFromRenderedForm_EnqueuesManualUpdateRunEndToEnd()
     {
         var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), includesStats: false));
@@ -927,16 +935,16 @@ public sealed class AdminHarvestControllerTests
 
     [Theory]
     [InlineData(15, false)]
-    [InlineData(30, true)]
+    [InlineData(30, false)]
     [InlineData(60, false)]
-    [InlineData(120, true)]
+    [InlineData(120, false)]
     [InlineData(null, false)]
     public async Task SaveUpdateSchedule_AllowedInterval_SavesReloadsAndConfirms(int? intervalMinutes, bool paused)
     {
         var updateStore = new StubHarvestUpdateScheduleStore();
         var updateCache = new StubHarvestUpdateScheduleCache();
         var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
-        await controller.SaveUpdateSchedule(intervalMinutes, paused, CancellationToken.None);
+        await controller.SaveUpdateSchedule(intervalMinutes, CancellationToken.None);
         Assert.Equal([(intervalMinutes, paused)], updateStore.Saves);
         Assert.Equal(1, updateCache.ReloadCount);
         Assert.Equal("Update schedule updated.", controller.TempData["AdminHarvestBanner"]);
@@ -956,7 +964,7 @@ public sealed class AdminHarvestControllerTests
         var updateStore = new StubHarvestUpdateScheduleStore();
         var updateCache = new StubHarvestUpdateScheduleCache();
         var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
-        await controller.SaveUpdateSchedule(intervalMinutes, false, CancellationToken.None);
+        await controller.SaveUpdateSchedule(intervalMinutes, CancellationToken.None);
         Assert.Empty(updateStore.Saves); Assert.Equal(0, updateCache.ReloadCount);
         Assert.Equal("Invalid update interval.", controller.TempData["AdminHarvestBanner"]);
         Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
@@ -968,7 +976,7 @@ public sealed class AdminHarvestControllerTests
         var updateStore = new StubHarvestUpdateScheduleStore(); var updateCache = new StubHarvestUpdateScheduleCache();
         var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
         controller.ModelState.AddModelError("intervalMinutes", "invalid");
-        await controller.SaveUpdateSchedule(null, false, CancellationToken.None);
+        await controller.SaveUpdateSchedule(null, CancellationToken.None);
         Assert.Empty(updateStore.Saves); Assert.Equal(0, updateCache.ReloadCount);
         Assert.Equal("Invalid update interval.", controller.TempData["AdminHarvestBanner"]);
     }
@@ -982,7 +990,7 @@ public sealed class AdminHarvestControllerTests
         var updateCache = new StubHarvestUpdateScheduleCache { Current = new(interval, currentPaused, DateTimeOffset.MinValue) };
         var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
         await controller.PauseUpdateSchedule(paused, CancellationToken.None);
-        Assert.Equal([(interval, paused)], updateStore.Saves); Assert.Equal(1, updateCache.ReloadCount);
+        Assert.Equal(1, updateStore.PauseWriteCount); Assert.Equal(1, updateCache.ReloadCount);
         Assert.Equal(message, controller.TempData["AdminHarvestBanner"]);
     }
 
@@ -992,7 +1000,7 @@ public sealed class AdminHarvestControllerTests
         var updateStore = new StubHarvestUpdateScheduleStore(); var updateCache = new StubHarvestUpdateScheduleCache { Current = new(15, false, DateTimeOffset.MinValue) };
         var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
         await controller.PauseUpdateSchedule(true, CancellationToken.None); await controller.PauseUpdateSchedule(true, CancellationToken.None);
-        Assert.Equal([(15, true), (15, true)], updateStore.Saves);
+        Assert.Equal(2, updateStore.PauseWriteCount);
     }
 
     [Fact]
@@ -1021,7 +1029,7 @@ public sealed class AdminHarvestControllerTests
     {
         var bulkStore = new StubHarvestScheduleStore(); var bulkCache = new StubHarvestScheduleCache();
         var controller = Build(NewStore(0), scheduleStore: bulkStore, scheduleCache: bulkCache);
-        await controller.SaveUpdateSchedule(30, false, CancellationToken.None);
+        await controller.SaveUpdateSchedule(30, CancellationToken.None);
         await controller.PauseUpdateSchedule(true, CancellationToken.None);
         Assert.Equal(0, bulkStore.SaveCount); Assert.Equal(0, bulkCache.ReloadCount);
     }
@@ -1031,9 +1039,18 @@ public sealed class AdminHarvestControllerTests
     {
         var updateStore = new StubHarvestUpdateScheduleStore(); var updateCache = new StubHarvestUpdateScheduleCache();
         var controller = Build(NewStore(0), updateScheduleStore: updateStore, updateScheduleCache: updateCache);
-        await controller.SaveSchedule(4, false, CancellationToken.None);
+        await controller.SaveSchedule(4, CancellationToken.None);
         await controller.PauseSchedule(true, CancellationToken.None);
         Assert.Empty(updateStore.Saves); Assert.Equal(0, updateCache.ReloadCount);
+    }
+
+    [Fact]
+    public async Task SavingIntervals_DoesNotWritePauseState()
+    {
+        var bulkStore = new StubHarvestScheduleStore(); var updateStore = new StubHarvestUpdateScheduleStore();
+        var controller = Build(NewStore(0), scheduleStore: bulkStore, updateScheduleStore: updateStore);
+        await controller.SaveSchedule(4, CancellationToken.None); await controller.SaveUpdateSchedule(30, CancellationToken.None);
+        Assert.Equal(0, bulkStore.PauseWriteCount); Assert.Equal(0, updateStore.PauseWriteCount);
     }
 
     [Fact]
@@ -1532,6 +1549,7 @@ public sealed class AdminHarvestControllerTests
     private sealed class StubHarvestScheduleStore : IHarvestScheduleStore
     {
         public int SaveCount { get; private set; }
+        public int PauseWriteCount { get; private set; }
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
@@ -1544,6 +1562,8 @@ public sealed class AdminHarvestControllerTests
             SaveCount++;
             return Task.CompletedTask;
         }
+        public Task SaveIntervalAsync(int? intervalHours, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SetPausedAsync(bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) { PauseWriteCount++; return Task.CompletedTask; }
     }
 
     private sealed class StubHarvestScheduleCache : IHarvestScheduleCache
@@ -1563,6 +1583,7 @@ public sealed class AdminHarvestControllerTests
     private sealed class StubHarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
     {
         public List<(int? IntervalMinutes, bool Paused)> Saves { get; } = new();
+        public int PauseWriteCount { get; private set; }
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<HarvestUpdateScheduleSnapshot> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(DefaultUpdateSchedule);
@@ -1571,6 +1592,12 @@ public sealed class AdminHarvestControllerTests
             Saves.Add((intervalMinutes, paused));
             return Task.CompletedTask;
         }
+        public Task SaveIntervalAsync(int? intervalMinutes, DateTimeOffset now, CancellationToken cancellationToken = default)
+        {
+            Saves.Add((intervalMinutes, false));
+            return Task.CompletedTask;
+        }
+        public Task SetPausedAsync(bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) { PauseWriteCount++; return Task.CompletedTask; }
     }
 
     private sealed class StubHarvestUpdateScheduleCache : IHarvestUpdateScheduleCache

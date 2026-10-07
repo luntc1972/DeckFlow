@@ -13,6 +13,7 @@ public sealed class HarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
             id INT PRIMARY KEY CONSTRAINT ck_harvest_update_schedule_single_row CHECK (id = 1),
             interval_minutes INT NULL CONSTRAINT ck_harvest_update_schedule_interval CHECK (interval_minutes IS NULL OR interval_minutes IN (15,30,60,120)),
             paused BOOLEAN NOT NULL DEFAULT FALSE,
+            paused_before_rate_limit BOOLEAN NULL,
             updated_utc TIMESTAMPTZ NOT NULL DEFAULT now());
         """;
     private const string SqliteCreateTableSql = """
@@ -20,9 +21,13 @@ public sealed class HarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
             id INTEGER PRIMARY KEY CONSTRAINT ck_harvest_update_schedule_single_row CHECK (id = 1),
             interval_minutes INTEGER NULL CONSTRAINT ck_harvest_update_schedule_interval CHECK (interval_minutes IS NULL OR interval_minutes IN (15,30,60,120)),
             paused INTEGER NOT NULL DEFAULT 0,
+            paused_before_rate_limit INTEGER NULL,
             updated_utc TEXT NOT NULL DEFAULT (datetime('now')));
         """;
     private const string SetPausedSql = "UPDATE harvest_update_schedule SET paused = @paused, updated_utc = @now WHERE id = 1;";
+    private const string SaveIntervalSql = "UPDATE harvest_update_schedule SET interval_minutes = @interval, updated_utc = @now WHERE id = 1;";
+    private const string PauseForRateLimitSql = "UPDATE harvest_update_schedule SET paused_before_rate_limit = CASE WHEN paused_before_rate_limit IS NULL THEN paused ELSE paused_before_rate_limit END, paused = TRUE, updated_utc = @now WHERE id = 1;";
+    private const string RestoreAfterRateLimitSql = "UPDATE harvest_update_schedule SET paused = COALESCE(paused_before_rate_limit, FALSE), paused_before_rate_limit = NULL, updated_utc = @now WHERE id = 1;";
     private const string SeedSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, NULL, FALSE, now()) ON CONFLICT (id) DO NOTHING;";
     private const string SqliteSeedSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, NULL, 0, datetime('now')) ON CONFLICT (id) DO NOTHING;";
     private const string UpsertSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, @interval, @paused, @now) ON CONFLICT (id) DO UPDATE SET interval_minutes = excluded.interval_minutes, paused = excluded.paused, updated_utc = excluded.updated_utc;";
@@ -54,6 +59,7 @@ public sealed class HarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
             if (_schemaReady) return;
             await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await connection.ExecuteAsync(new CommandDefinition(_connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await EnsurePauseRecoveryColumnAsync(connection, cancellationToken).ConfigureAwait(false);
             await connection.ExecuteAsync(new CommandDefinition(_connectionInfo.IsPostgres ? SeedSql : SqliteSeedSql, cancellationToken: cancellationToken)).ConfigureAwait(false);
             _schemaReady = true;
         }
@@ -74,6 +80,21 @@ public sealed class HarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await connection.ExecuteAsync(new CommandDefinition(UpsertSql, new { interval = intervalMinutes, paused, now = now.ToUniversalTime() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
+    /// <inheritdoc />
+    public async Task SaveIntervalAsync(int? intervalMinutes, DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(SaveIntervalSql, new { interval = intervalMinutes, now = now.ToUniversalTime() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+    /// <inheritdoc />
+    public async Task SetPausedAsync(bool paused, DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var changed = await connection.ExecuteAsync(new CommandDefinition(SetPausedSql, new { paused, now = now.ToUniversalTime() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (changed != 1) throw new InvalidOperationException("harvest_update_schedule seed row is missing.");
+    }
     /// <summary>
     /// Sets pause state using the caller's open transaction; 06-11 uses this seam to pause both schedules atomically.
     /// The caller must have ensured the seed row exists before calling this method.
@@ -83,6 +104,25 @@ public sealed class HarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
         var changed = await connection.ExecuteAsync(new CommandDefinition(SetPausedSql, new { paused, now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
         if (changed != 1) throw new InvalidOperationException("harvest_update_schedule seed row is missing.");
     }
+    internal static async Task PauseForRateLimitInTransactionAsync(DbConnection connection, DbTransaction transaction, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (await connection.ExecuteAsync(new CommandDefinition(PauseForRateLimitSql, new { now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false) != 1) throw new InvalidOperationException("harvest_update_schedule seed row is missing.");
+    }
+    internal static async Task RestoreAfterRateLimitInTransactionAsync(DbConnection connection, DbTransaction transaction, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (await connection.ExecuteAsync(new CommandDefinition(RestoreAfterRateLimitSql, new { now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false) != 1) throw new InvalidOperationException("harvest_update_schedule seed row is missing.");
+    }
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken) => await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+    private async Task EnsurePauseRecoveryColumnAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var sql = _connectionInfo.IsPostgres
+                ? "ALTER TABLE harvest_update_schedule ADD COLUMN IF NOT EXISTS paused_before_rate_limit BOOLEAN NULL;"
+                : "ALTER TABLE harvest_update_schedule ADD COLUMN paused_before_rate_limit INTEGER NULL;";
+            await connection.ExecuteAsync(new CommandDefinition(sql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+        catch (DbException exception) when (!_connectionInfo.IsPostgres && exception.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase)) { }
+    }
     private sealed class Row { public int? IntervalMinutes { get; init; } public bool Paused { get; init; } public DateTimeOffset UpdatedUtc { get; init; } }
 }

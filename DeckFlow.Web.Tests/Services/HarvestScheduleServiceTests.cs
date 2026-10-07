@@ -362,6 +362,8 @@ public sealed class HarvestScheduleServiceTests
             return read;
         }
         public Task SaveAsync(int? intervalHours, bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SaveIntervalAsync(int? intervalHours, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SetPausedAsync(bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class GatedReadUpdateScheduleStore(HarvestUpdateScheduleSnapshot snapshot) : IHarvestUpdateScheduleStore
@@ -378,6 +380,8 @@ public sealed class HarvestScheduleServiceTests
             return read;
         }
         public Task SaveAsync(int? intervalMinutes, bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SaveIntervalAsync(int? intervalMinutes, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SetPausedAsync(bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private sealed class FixedUpdateSchedule(int? minutes, bool paused = false) : IHarvestUpdateScheduleCache

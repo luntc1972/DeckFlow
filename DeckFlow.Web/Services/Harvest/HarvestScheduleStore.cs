@@ -70,6 +70,7 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
                 create.CommandText = _connectionInfo.IsPostgres ? PostgresCreateTableSql : SqliteCreateTableSql;
                 await create.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
+            await EnsurePauseRecoveryColumnAsync(connection, cancellationToken).ConfigureAwait(false);
 
             await using (var seed = connection.CreateCommand())
             {
@@ -115,11 +116,38 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public async Task SaveIntervalAsync(int? intervalHours, DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(SaveIntervalSql, new { interval = intervalHours, now = now.ToUniversalTime() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task SetPausedAsync(bool paused, DateTimeOffset now, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var changed = await connection.ExecuteAsync(new CommandDefinition(SetPausedSql, new { paused, now = now.ToUniversalTime() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (changed != 1) throw new InvalidOperationException("harvest_schedule seed row is missing.");
+    }
+
     /// <summary>Sets pause state in the caller's transaction so coupled harvest state stays atomic.</summary>
     internal static async Task SetPausedInTransactionAsync(DbConnection connection, DbTransaction transaction, bool paused, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var changed = await connection.ExecuteAsync(new CommandDefinition(SetPausedSql, new { paused, now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
         if (changed != 1) throw new InvalidOperationException("harvest_schedule seed row is missing.");
+    }
+
+    internal static async Task PauseForRateLimitInTransactionAsync(DbConnection connection, DbTransaction transaction, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (await connection.ExecuteAsync(new CommandDefinition(PauseForRateLimitSql, new { now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false) != 1) throw new InvalidOperationException("harvest_schedule seed row is missing.");
+    }
+
+    internal static async Task RestoreAfterRateLimitInTransactionAsync(DbConnection connection, DbTransaction transaction, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (await connection.ExecuteAsync(new CommandDefinition(RestoreAfterRateLimitSql, new { now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false) != 1) throw new InvalidOperationException("harvest_schedule seed row is missing.");
     }
 
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
@@ -129,7 +157,22 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
         return connection;
     }
 
+    private async Task EnsurePauseRecoveryColumnAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var sql = _connectionInfo.IsPostgres
+                ? "ALTER TABLE harvest_schedule ADD COLUMN IF NOT EXISTS paused_before_rate_limit BOOLEAN NULL;"
+                : "ALTER TABLE harvest_schedule ADD COLUMN paused_before_rate_limit INTEGER NULL;";
+            await connection.ExecuteAsync(new CommandDefinition(sql, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+        catch (DbException exception) when (!_connectionInfo.IsPostgres && exception.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase)) { }
+    }
+
     private const string SetPausedSql = "UPDATE harvest_schedule SET paused = @paused, updated_utc = @now WHERE id = 1;";
+    private const string SaveIntervalSql = "UPDATE harvest_schedule SET interval_hours = @interval, updated_utc = @now WHERE id = 1;";
+    private const string PauseForRateLimitSql = "UPDATE harvest_schedule SET paused_before_rate_limit = CASE WHEN paused_before_rate_limit IS NULL THEN paused ELSE paused_before_rate_limit END, paused = TRUE, updated_utc = @now WHERE id = 1;";
+    private const string RestoreAfterRateLimitSql = "UPDATE harvest_schedule SET paused = COALESCE(paused_before_rate_limit, FALSE), paused_before_rate_limit = NULL, updated_utc = @now WHERE id = 1;";
 
     // Single-row schema — id=1 PK + CHECK so a malformed UPSERT can't create id=2.
     // interval_hours CHECK whitelists the four allowed cron intervals (2,4,8,24).
@@ -138,6 +181,7 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
           id              INT PRIMARY KEY CHECK (id = 1),
           interval_hours  INT NULL CHECK (interval_hours IS NULL OR interval_hours IN (2,4,8,24)),
           paused          BOOLEAN NOT NULL DEFAULT FALSE,
+          paused_before_rate_limit BOOLEAN NULL,
           updated_utc     TIMESTAMPTZ NOT NULL DEFAULT now()
         );
         """;
@@ -147,6 +191,7 @@ public sealed class HarvestScheduleStore : IHarvestScheduleStore
           id              INTEGER PRIMARY KEY CHECK (id = 1),
           interval_hours  INTEGER NULL CHECK (interval_hours IS NULL OR interval_hours IN (2,4,8,24)),
           paused          INTEGER NOT NULL DEFAULT 0,
+          paused_before_rate_limit INTEGER NULL,
           updated_utc     TEXT NOT NULL DEFAULT (datetime('now'))
         );
         """;

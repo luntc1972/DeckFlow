@@ -271,6 +271,12 @@ public sealed class AdminHarvestController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RunNow(string? kind, int durationSeconds, CancellationToken cancellationToken)
     {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null)
+        {
+            return sameOriginFailure;
+        }
+
         var selectedKind = AdminHarvestViewModel.AllowedRunKinds.FirstOrDefault(allowedKind => string.Equals(AdminHarvestViewModel.RunKindToken(allowedKind), kind, StringComparison.Ordinal));
         if (!string.Equals(AdminHarvestViewModel.RunKindToken(selectedKind), kind, StringComparison.Ordinal))
         {
@@ -313,6 +319,8 @@ public sealed class AdminHarvestController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Cancel(Guid jobId, CancellationToken cancellationToken)
     {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null) return sameOriginFailure;
         var active = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
         if (active is null
             || active.Id != jobId
@@ -346,6 +354,8 @@ public sealed class AdminHarvestController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SubmitUrl(string url, CancellationToken cancellationToken)
     {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null) return sameOriginFailure;
         if (string.IsNullOrWhiteSpace(url))
         {
             SetBanner("URL is required.", isError: true);
@@ -428,22 +438,23 @@ public sealed class AdminHarvestController : Controller
     }
 
     /// <summary>
-    /// Saves the scheduled harvest interval and paused state.
+    /// Saves the scheduled harvest interval without changing its pause state.
     /// </summary>
     /// <param name="intervalHours">Selected interval in hours, or null to disable the schedule.</param>
-    /// <param name="paused">Whether scheduled harvests should be paused.</param>
     /// <param name="cancellationToken">Cancellation token for the schedule write.</param>
     [HttpPost("schedule")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveSchedule(int? intervalHours, bool paused, CancellationToken cancellationToken)
+    public async Task<IActionResult> SaveSchedule(int? intervalHours, CancellationToken cancellationToken)
     {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null) return sameOriginFailure;
         if (intervalHours.HasValue && !AdminHarvestViewModel.AllowedIntervalHours.Contains(intervalHours.Value))
         {
             SetBanner("Invalid interval.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
-        await _scheduleStore.SaveAsync(intervalHours, paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+        await _scheduleStore.SaveIntervalAsync(intervalHours, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
         await _scheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         SetBanner("Schedule updated.");
@@ -459,8 +470,9 @@ public sealed class AdminHarvestController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> PauseSchedule(bool paused, CancellationToken cancellationToken)
     {
-        var snapshot = _scheduleCache.Snapshot();
-        await _scheduleStore.SaveAsync(snapshot.IntervalHours, paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null) return sameOriginFailure;
+        await _scheduleStore.SetPausedAsync(paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
         await _scheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
 
         SetBanner(paused ? "Schedule paused." : "Schedule resumed.");
@@ -519,19 +531,20 @@ public sealed class AdminHarvestController : Controller
     /// Saves the update schedule using antiforgery protection only (A5) because BasicAuth gates this route.
     /// </summary>
     /// <param name="intervalMinutes">The requested update interval, or null to turn it off.</param>
-    /// <param name="paused">Whether the update schedule is paused.</param>
     /// <param name="cancellationToken">Cancellation token for the schedule write.</param>
     [HttpPost("update-schedule")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveUpdateSchedule(int? intervalMinutes, bool paused, CancellationToken cancellationToken)
+    public async Task<IActionResult> SaveUpdateSchedule(int? intervalMinutes, CancellationToken cancellationToken)
     {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null) return sameOriginFailure;
         if (!ModelState.IsValid || (intervalMinutes.HasValue && !AdminHarvestViewModel.AllowedUpdateIntervalMinutes.Contains(intervalMinutes.Value)))
         {
             SetBanner("Invalid update interval.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
-        await _updateScheduleStore.SaveAsync(intervalMinutes, paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+        await _updateScheduleStore.SaveIntervalAsync(intervalMinutes, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
         await _updateScheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
         SetBanner("Update schedule updated.");
         return RedirectToAction(nameof(Index));
@@ -546,14 +559,15 @@ public sealed class AdminHarvestController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> PauseUpdateSchedule(bool paused, CancellationToken cancellationToken)
     {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null) return sameOriginFailure;
         if (!ModelState.IsValid)
         {
             SetBanner("Invalid update schedule request.", isError: true);
             return RedirectToAction(nameof(Index));
         }
 
-        var snapshot = _updateScheduleCache.Snapshot();
-        await _updateScheduleStore.SaveAsync(snapshot.IntervalMinutes, paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+        await _updateScheduleStore.SetPausedAsync(paused, DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
         await _updateScheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
         SetBanner(paused ? "Update schedule paused." : "Update schedule resumed.");
         return RedirectToAction(nameof(Index));

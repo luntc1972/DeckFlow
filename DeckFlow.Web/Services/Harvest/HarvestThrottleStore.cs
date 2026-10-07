@@ -87,11 +87,20 @@ public sealed class HarvestThrottleStore : IHarvestThrottleStore
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var changed = await connection.ExecuteAsync(new CommandDefinition("UPDATE harvest_throttle SET rate_limited_utc = COALESCE(rate_limited_utc, @now), updated_utc = @now WHERE id = 1;", new { now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-            if (changed != 1) throw new InvalidOperationException("harvest_throttle seed row (id=1) is missing.");
-            // One transaction keeps the marker and both pauses consistent for the banner and schedulers.
-            await HarvestScheduleStore.SetPausedInTransactionAsync(connection, transaction, true, now, cancellationToken).ConfigureAwait(false);
-            await HarvestUpdateScheduleStore.SetPausedInTransactionAsync(connection, transaction, true, now, cancellationToken).ConfigureAwait(false);
+            var changed = await connection.ExecuteAsync(new CommandDefinition("UPDATE harvest_throttle SET rate_limited_utc = @now, updated_utc = @now WHERE id = 1 AND rate_limited_utc IS NULL;", new { now = now.ToUniversalTime() }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (changed == 1)
+            {
+                // One transaction keeps the marker, saved manual states, and both pauses consistent.
+                await HarvestScheduleStore.PauseForRateLimitInTransactionAsync(connection, transaction, now, cancellationToken).ConfigureAwait(false);
+                await HarvestUpdateScheduleStore.PauseForRateLimitInTransactionAsync(connection, transaction, now, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                var exists = await connection.ExecuteScalarAsync<long?>(new CommandDefinition("SELECT id FROM harvest_throttle WHERE id = 1;", transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                if (exists is null) throw new InvalidOperationException("harvest_throttle seed row (id=1) is missing.");
+                await HarvestScheduleStore.SetPausedInTransactionAsync(connection, transaction, true, now, cancellationToken).ConfigureAwait(false);
+                await HarvestUpdateScheduleStore.SetPausedInTransactionAsync(connection, transaction, true, now, cancellationToken).ConfigureAwait(false);
+            }
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch { await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false); throw; }
@@ -113,8 +122,8 @@ public sealed class HarvestThrottleStore : IHarvestThrottleStore
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
                 return false;
             }
-            await HarvestScheduleStore.SetPausedInTransactionAsync(connection, transaction, false, now, cancellationToken).ConfigureAwait(false);
-            await HarvestUpdateScheduleStore.SetPausedInTransactionAsync(connection, transaction, false, now, cancellationToken).ConfigureAwait(false);
+            await HarvestScheduleStore.RestoreAfterRateLimitInTransactionAsync(connection, transaction, now, cancellationToken).ConfigureAwait(false);
+            await HarvestUpdateScheduleStore.RestoreAfterRateLimitInTransactionAsync(connection, transaction, now, cancellationToken).ConfigureAwait(false);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             return true;
         }

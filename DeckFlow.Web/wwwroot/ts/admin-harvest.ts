@@ -214,6 +214,15 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
+    const runKind = document.querySelector<HTMLSelectElement>('#runKind');
+    const duration = document.querySelector<HTMLSelectElement>('#durationSeconds');
+    const syncRunDuration = (): void => {
+      if (runKind !== null && duration !== null) {
+        duration.disabled = runKind.value === 'update';
+      }
+    };
+    runKind?.addEventListener('change', syncRunDuration);
+    syncRunDuration();
     const root = document.querySelector<HTMLElement>('#harvest-status-live')
       ?? document.querySelector<HTMLElement>('[data-harvest-status]');
     if (root) {

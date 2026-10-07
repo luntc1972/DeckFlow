@@ -49,6 +49,25 @@ public sealed class HarvestThrottlePostgresTests : IClassFixture<PostgresContain
     }
 
     [PostgresFact]
+    public async Task ResumeAfterRateLimitAsync_RestoresManualPause()
+    {
+        var (_, bulk, update, throttle) = await CreateStoresAsync(); var now = DateTimeOffset.UtcNow;
+        await bulk.SaveAsync(2, true, now); await update.SaveAsync(15, false, now);
+        await throttle.MarkRateLimitedAsync(now); await throttle.ResumeAfterRateLimitAsync(now);
+        Assert.True((await bulk.GetAsync()).Paused); Assert.False((await update.GetAsync()).Paused);
+    }
+
+    [PostgresFact]
+    public async Task MarkRateLimitedAsync_RepeatedTrip_RestoresOriginalPauseStates()
+    {
+        var (_, bulk, update, throttle) = await CreateStoresAsync(); var now = DateTimeOffset.UtcNow;
+        await bulk.SaveAsync(2, false, now); await update.SaveAsync(15, true, now);
+        await throttle.MarkRateLimitedAsync(now); await throttle.MarkRateLimitedAsync(now.AddMinutes(1));
+        await throttle.ResumeAfterRateLimitAsync(now.AddMinutes(2));
+        Assert.False((await bulk.GetAsync()).Paused); Assert.True((await update.GetAsync()).Paused);
+    }
+
+    [PostgresFact]
     public async Task MarkRateLimitedAsync_UpdateRowMissing_RollsBackOnPostgres()
     {
         var (connection, bulk, _, throttle) = await CreateStoresAsync(); await ExecuteAsync(connection, "DELETE FROM harvest_update_schedule WHERE id = 1;");

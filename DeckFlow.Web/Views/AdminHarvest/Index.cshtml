@@ -14,7 +14,7 @@
 @if (Model.RateLimitedUtc.HasValue)
 {
     <div id="harvest-rate-limited-banner" class="admin-banner admin-banner--warning" role="alert">
-        <p>Archidekt rate-limited the harvest at @Model.RateLimitedUtc.Value.ToUniversalTime().ToString("yyyy-MM-dd HH:mm UTC"), and both schedules were paused. Resume schedules clears this notice and unpauses both schedules, including one you paused by hand.</p>
+        <p>Archidekt rate-limited the harvest at @Model.RateLimitedUtc.Value.ToUniversalTime().ToString("yyyy-MM-dd HH:mm UTC"), and both schedules were paused. Resume schedules clears this notice; manual pauses are kept.</p>
         <form method="post" asp-action="ResumeSchedules" class="admin-action-form">
             @Html.AntiForgeryToken()
             <button class="admin-button admin-button--secondary" type="submit">Resume schedules</button>
@@ -57,7 +57,7 @@ else
         </div>
         <div class="admin-field">
         <label for="durationSeconds">Duration</label>
-        <select id="durationSeconds" name="durationSeconds">
+        <select id="durationSeconds" name="durationSeconds" aria-describedby="durationSecondsHint">
             @foreach (var durationSeconds in Model.DurationOptions)
             {
                 var minutes = durationSeconds / 60;
@@ -65,7 +65,7 @@ else
             }
         </select>
         </div>
-        <p class="admin-meta">Duration applies to bulk runs only. Update runs stop after @DeckFlow.Web.Models.Admin.AdminHarvestViewModel.UpdateRunCapMinutes minutes.</p>
+        <p id="durationSecondsHint" class="admin-meta">Duration applies to bulk runs only. Update runs stop after @DeckFlow.Web.Models.Admin.AdminHarvestViewModel.UpdateRunCapMinutes minutes.</p>
         <button class="admin-button admin-button--primary" type="submit">Run Now</button>
     </form>
 
@@ -108,7 +108,6 @@ else
             }
         </select>
         </div>
-        <input type="hidden" name="paused" value="@(Model.Schedule.Paused.ToString().ToLowerInvariant())" />
         <button class="admin-button admin-button--primary" type="submit">Save</button>
     </form>
 
@@ -140,7 +139,6 @@ else
                 }
             </select>
         </div>
-        <input type="hidden" name="paused" value="@(Model.UpdateSchedule.Paused.ToString().ToLowerInvariant())" />
         <button class="admin-button admin-button--primary" type="submit">Save</button>
     </form>
 

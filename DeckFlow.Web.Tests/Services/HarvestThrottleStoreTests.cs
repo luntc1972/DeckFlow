@@ -97,6 +97,26 @@ public sealed class HarvestThrottleStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task ResumeAfterRateLimitAsync_RestoresManualPauseAndUnpausedSchedule()
+    {
+        var (bulk, update, _, throttle) = await CreateStoresAsync(); var now = DateTimeOffset.UtcNow;
+        await bulk.SaveAsync(2, true, now); await update.SaveAsync(15, false, now);
+        await throttle.MarkRateLimitedAsync(now);
+        await throttle.ResumeAfterRateLimitAsync(now.AddMinutes(1));
+        Assert.True((await bulk.GetAsync()).Paused); Assert.False((await update.GetAsync()).Paused);
+    }
+
+    [Fact]
+    public async Task MarkRateLimitedAsync_RepeatedTrip_RestoresOriginalPauseStates()
+    {
+        var (bulk, update, _, throttle) = await CreateStoresAsync(); var now = DateTimeOffset.UtcNow;
+        await bulk.SaveAsync(2, false, now); await update.SaveAsync(15, true, now);
+        await throttle.MarkRateLimitedAsync(now); await throttle.MarkRateLimitedAsync(now.AddMinutes(1));
+        await throttle.ResumeAfterRateLimitAsync(now.AddMinutes(2));
+        Assert.False((await bulk.GetAsync()).Paused); Assert.True((await update.GetAsync()).Paused);
+    }
+
+    [Fact]
     public async Task ResumeAfterRateLimitAsync_Marked_ClearsMarkerUnpausesBothReturnsTrue()
     {
         var (bulk, update, _, throttle) = await CreateStoresAsync(); var now = DateTimeOffset.UtcNow; await throttle.MarkRateLimitedAsync(now);

@@ -21,5 +21,7 @@ public sealed class HarvestUpdateScheduleCacheTests
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<HarvestUpdateScheduleSnapshot> GetAsync(CancellationToken cancellationToken = default) { GetCallCount++; return GetException is null ? Task.FromResult(Snapshot) : Task.FromException<HarvestUpdateScheduleSnapshot>(GetException); }
         public Task SaveAsync(int? intervalMinutes, bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SaveIntervalAsync(int? intervalMinutes, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SetPausedAsync(bool paused, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }
