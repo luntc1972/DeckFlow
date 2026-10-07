@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using Polly;
 using Polly.Retry;
@@ -120,15 +119,15 @@ internal static class ArchidektThrottle
         var client = context.Properties.GetValue(RestClientKey, null!);
         var requestFactory = context.Properties.GetValue(RequestFactoryKey, null!);
         var response = await client.ExecuteAsync(requestFactory(), context.CancellationToken);
-        Observe(response.StatusCode, ReadRetryAfter(response));
+        Observe(response.StatusCode, RetryAfterHeader.Read(response));
         if (response.StatusCode == HttpStatusCode.TooManyRequests)
         {
             var count = context.Properties.GetValue(RateLimitCountKey, 0) + 1;
             context.Properties.Set(RateLimitCountKey, count);
             if (count >= TripStreak)
             {
-                var retryAfter = ParseRetryAfter(ReadRetryAfter(response));
-                var fallback = TimeSpan.FromTicks(FallbackRetryDelay.Ticks * (1L << (count - 1)));
+                var retryAfter = RetryAfterHeader.Parse(RetryAfterHeader.Read(response), _utcNow);
+                var fallback = FallbackDelay(count);
                 throw new ArchidektRateLimitedException("Archidekt rate limit did not clear after repeated responses.", retryAfter ?? fallback);
             }
         }
@@ -185,13 +184,13 @@ internal static class ArchidektThrottle
             }
 
             _consecutiveRateLimitedResponses++;
-            var retryAfter = ParseRetryAfter(retryAfterHeader);
+            var retryAfter = RetryAfterHeader.Parse(retryAfterHeader, _utcNow);
             if (retryAfter > RetryAfterCap)
             {
                 throw new ArchidektRateLimitedException("Archidekt rate limit Retry-After exceeds the allowed delay.", retryAfter);
             }
 
-            var fallback = TimeSpan.FromTicks(FallbackRetryDelay.Ticks * (1L << (_consecutiveRateLimitedResponses - 1)));
+            var fallback = FallbackDelay(_consecutiveRateLimitedResponses);
             if (_consecutiveRateLimitedResponses >= TripStreak)
             {
                 throw new ArchidektRateLimitedException("Archidekt rate limit did not clear after repeated responses.", retryAfter ?? fallback);
@@ -231,30 +230,6 @@ internal static class ArchidektThrottle
         return ValueTask.FromResult(false);
     }
 
-    private static string? ReadRetryAfter(RestResponse response)
-        => response.Headers?
-            .FirstOrDefault(header => string.Equals(header.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
-            .Value?.ToString();
-
-    private static TimeSpan? ParseRetryAfter(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return null;
-        }
-
-        var trimmed = raw.Trim();
-        if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var seconds) && seconds >= 0)
-        {
-            return TimeSpan.FromSeconds(seconds);
-        }
-
-        if (DateTimeOffset.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var when))
-        {
-            var delta = when - _utcNow();
-            return delta < TimeSpan.Zero ? TimeSpan.Zero : delta;
-        }
-
-        return null;
-    }
+    private static TimeSpan FallbackDelay(int count)
+        => TimeSpan.FromTicks(FallbackRetryDelay.Ticks * (1L << (count - 1)));
 }

@@ -262,14 +262,9 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
     {
         await ArchidektThrottle.AcquireAsync(cancellationToken).ConfigureAwait(false);
         var response = await _restClient.ExecuteAsync(request, cancellationToken).ConfigureAwait(false);
-        ArchidektThrottle.Observe(response.StatusCode, ReadRetryAfter(response));
+        ArchidektThrottle.Observe(response.StatusCode, RetryAfterHeader.Read(response));
         return response;
     }
-
-    private static string? ReadRetryAfter(RestResponse response)
-        => response.Headers?
-            .FirstOrDefault(header => string.Equals(header.Name, "Retry-After", StringComparison.OrdinalIgnoreCase))?
-            .Value?.ToString();
 
 
     private static string ReadString(JsonElement item, string propertyName)
