@@ -3,6 +3,7 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Storage;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
+using DeckFlow.Web.Tests;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -37,7 +38,7 @@ public sealed class HarvestRunPostgresTests : IClassFixture<PostgresContainerFix
         var connectionString = await ResetAsync();
         var store = CreateStore(connectionString);
         await store.EnsureSchemaAsync();
-        var service = new ArchidektCacheJobService(null!, store, null!, null!, null!, NullLogger<ArchidektCacheJobService>.Instance);
+        var service = CreateService(store);
 
         var results = await Task.WhenAll(
             service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromMinutes(1), HarvestTriggerSource.Manual),
@@ -57,6 +58,14 @@ public sealed class HarvestRunPostgresTests : IClassFixture<PostgresContainerFix
     }
 
     private static HarvestRunStore CreateStore(string connectionString) => new(new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, connectionString));
+
+    private static ArchidektCacheJobService CreateService(IHarvestRunStore runStore) => new(
+        new FakeCategoryKnowledgeStore(),
+        runStore,
+        new FakeHarvestThrottleStore(),
+        new FakeHarvestScheduleCache(),
+        new FakeHarvestUpdateScheduleCache(),
+        NullLogger<ArchidektCacheJobService>.Instance);
 
     private static async Task InsertActiveRowAsync(string connectionString)
     {
@@ -79,5 +88,28 @@ public sealed class HarvestRunPostgresTests : IClassFixture<PostgresContainerFix
         await using var command = connection.CreateCommand();
         command.CommandText = sql;
         await command.ExecuteNonQueryAsync();
+    }
+
+    private sealed class FakeHarvestThrottleStore : IHarvestThrottleStore
+    {
+        public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<HarvestThrottleSnapshot> GetAsync(CancellationToken cancellationToken = default) => Task.FromResult(new HarvestThrottleSnapshot(20, null, DateTimeOffset.UtcNow));
+        public Task SaveRateAsync(int ratePerMinute, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task MarkRateLimitedAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<bool> ResumeAfterRateLimitAsync(DateTimeOffset now, CancellationToken cancellationToken = default) => Task.FromResult(false);
+    }
+
+    private sealed class FakeHarvestScheduleCache : IHarvestScheduleCache
+    {
+        public HarvestScheduleSnapshot Snapshot() => new(null, false, DateTimeOffset.MinValue);
+        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void ForcePausedSnapshot() { }
+    }
+
+    private sealed class FakeHarvestUpdateScheduleCache : IHarvestUpdateScheduleCache
+    {
+        public HarvestUpdateScheduleSnapshot Snapshot() => new(null, false, DateTimeOffset.MinValue);
+        public Task ReloadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public void ForcePausedSnapshot() { }
     }
 }
