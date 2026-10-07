@@ -528,7 +528,7 @@ public sealed class AdminHarvestController : Controller
     }
 
     /// <summary>
-    /// Saves the update schedule using antiforgery protection only (A5) because BasicAuth gates this route.
+    /// Saves the update schedule using antiforgery and same-origin validation (A5) because BasicAuth gates this route.
     /// </summary>
     /// <param name="intervalMinutes">The requested update interval, or null to turn it off.</param>
     /// <param name="cancellationToken">Cancellation token for the schedule write.</param>
@@ -551,7 +551,7 @@ public sealed class AdminHarvestController : Controller
     }
 
     /// <summary>
-    /// Sets update scheduling pause state using antiforgery protection only (A5) because BasicAuth gates this route.
+    /// Sets update scheduling pause state using antiforgery and same-origin validation (A5) because BasicAuth gates this route.
     /// </summary>
     /// <param name="paused">The absolute pause state to persist.</param>
     /// <param name="cancellationToken">Cancellation token for the schedule write.</param>
