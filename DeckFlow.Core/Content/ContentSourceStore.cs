@@ -12,6 +12,7 @@ public sealed class ContentSourceStore : IContentSourceStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly ICreatorSuppressionStore? _suppressionStore;
+    private readonly ICreatorSuppressionFilter? _suppressionFilter;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
 
@@ -20,19 +21,22 @@ public sealed class ContentSourceStore : IContentSourceStore
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public ContentSourceStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore) { }
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public ContentSourceStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore, identityResolver) { }
 
     /// <summary>
     /// Creates a store using the supplied <see cref="RelationalDatabaseConnection"/>.
     /// </summary>
     /// <param name="connectionInfo">Provider + connection string descriptor.</param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public ContentSourceStore(RelationalDatabaseConnection connectionInfo, ICreatorSuppressionStore? suppressionStore = null)
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public ContentSourceStore(RelationalDatabaseConnection connectionInfo, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
         _suppressionStore = suppressionStore;
+        _suppressionFilter = suppressionStore is null ? null : new CreatorSuppressionFilter(suppressionStore, identityResolver ?? CreatorSuppressionFilter.EmptyResolver);
         if (_connectionInfo.IsSqlite)
         {
             var directory = Path.GetDirectoryName(_connectionInfo.ExtractSqlitePath());
@@ -152,25 +156,18 @@ public sealed class ContentSourceStore : IContentSourceStore
             new { isEnabled = true },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         var sourceList = sources.ToList();
-        if (_suppressionStore is null)
+        if (_suppressionFilter is null)
         {
             return sourceList;
         }
 
-        var visibleSources = new List<ContentSource>(sourceList.Count);
-        foreach (var source in sourceList)
-        {
-            var representations = new[] { source.SourceSlug, source.DisplayName }
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Distinct(StringComparer.Ordinal);
-            var suppressionChecks = await Task.WhenAll(representations.Select(value => _suppressionStore.IsSuppressedAsync(value, cancellationToken))).ConfigureAwait(false);
-            if (!suppressionChecks.Any(value => value))
-            {
-                visibleSources.Add(source);
-            }
-        }
-
-        return visibleSources;
+        var representations = sourceList.SelectMany(source => new[] { source.SourceSlug, source.DisplayName }
+            .Where(value => !string.IsNullOrWhiteSpace(value))).ToList();
+        var unsuppressed = await _suppressionFilter.GetUnsuppressedAsync(representations, cancellationToken).ConfigureAwait(false);
+        var visible = unsuppressed.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return sourceList.Where(source => new[] { source.SourceSlug, source.DisplayName }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .All(visible.Contains)).ToList();
     }
 
     /// <inheritdoc />

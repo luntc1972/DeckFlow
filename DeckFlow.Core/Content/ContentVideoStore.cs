@@ -21,15 +21,17 @@ public sealed class ContentVideoStore : IContentVideoStore
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public ContentVideoStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore) { }
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public ContentVideoStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore, identityResolver) { }
 
     /// <summary>
     /// Creates a store using the supplied <see cref="RelationalDatabaseConnection"/>.
     /// </summary>
     /// <param name="connectionInfo">Provider + connection string descriptor.</param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public ContentVideoStore(RelationalDatabaseConnection connectionInfo, ICreatorSuppressionStore? suppressionStore = null)
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public ContentVideoStore(RelationalDatabaseConnection connectionInfo, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;

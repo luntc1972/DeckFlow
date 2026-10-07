@@ -87,6 +87,34 @@ public sealed class CreatorSuppressionFilterTests
     }
 
     [Fact]
+    public async Task Filter_SingleSlug_IdentityDisplayNameSuppressed_ReturnsTrue()
+    {
+        var resolver = new CountingResolver();
+        resolver.Identities["source"] = Identity("canonical", ["blocked-name"], []);
+        var filter = new CreatorSuppressionFilter(new CountingStore([Suppression("blocked-name")]), new Lazy<ICreatorIdentityResolver>(() => resolver));
+
+        Assert.True(await filter.IsSuppressedAsync("source"));
+    }
+
+    [Fact]
+    public async Task Filter_IdentityFolderSlugSuppressed_RowSuppressed()
+    {
+        var resolver = new CountingResolver();
+        resolver.Identities["source"] = Identity("canonical", [], ["blocked-folder"]);
+        var filter = new CreatorSuppressionFilter(new CountingStore([Suppression("blocked-folder")]), new Lazy<ICreatorIdentityResolver>(() => resolver));
+
+        Assert.Empty(await filter.FilterRowsAsync([Row("source", "content-kb/folder/item.md")]));
+    }
+
+    [Fact]
+    public async Task Filter_SingleSlug_Blank_Throws()
+    {
+        var filter = new CreatorSuppressionFilter(new CountingStore(), new Lazy<ICreatorIdentityResolver>(() => new CountingResolver()));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => filter.IsSuppressedAsync(" "));
+    }
+
+    [Fact]
     public async Task Filter_NoRepresentationMatches_AllowsRow()
     {
         var filter = new CreatorSuppressionFilter(new CountingStore([Suppression("blocked")]), new Lazy<ICreatorIdentityResolver>(() => new CountingResolver()));
@@ -149,7 +177,7 @@ public sealed class CreatorSuppressionFilterTests
         public CountingStore(IReadOnlyList<CreatorSuppression>? rows = null) => Rows = rows?.ToList() ?? [];
         public List<CreatorSuppression> Rows { get; }
         public int ListCalls { get; private set; }
-        public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) { ListCalls++; return Task.FromResult<IReadOnlyList<CreatorSuppression>>(Rows); }
+        public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) { ListCalls++; return Task.FromResult<IReadOnlyList<CreatorSuppression>>(Rows.ToList()); }
         public Task SuppressAsync(string slug, IReadOnlyList<string> aliases, string reason, DateTimeOffset requestedUtc, string? note, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UnsuppressAsync(string slug, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SetAliasesAsync(string slug, IReadOnlyList<string> aliases, CancellationToken cancellationToken = default) => Task.CompletedTask;

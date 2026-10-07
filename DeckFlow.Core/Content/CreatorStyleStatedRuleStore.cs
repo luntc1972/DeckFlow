@@ -12,6 +12,7 @@ public sealed class CreatorStyleStatedRuleStore : ICreatorStyleStatedRuleStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly ICreatorSuppressionStore? _suppressionStore;
+    private readonly ICreatorSuppressionFilter? _suppressionFilter;
     private readonly bool _ensureSchemaEnabled;
     private readonly Func<CancellationToken, Task<DbConnection>>? _connectionFactoryOverride;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
@@ -22,8 +23,9 @@ public sealed class CreatorStyleStatedRuleStore : ICreatorStyleStatedRuleStore
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public CreatorStyleStatedRuleStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore) { }
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public CreatorStyleStatedRuleStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore, identityResolver: identityResolver) { }
 
     /// <summary>
     /// Creates a creator stated-rule store using the supplied <see cref="RelationalDatabaseConnection"/>.
@@ -34,8 +36,9 @@ public sealed class CreatorStyleStatedRuleStore : ICreatorStyleStatedRuleStore
     /// <c>false</c> <see cref="EnsureSchemaAsync"/> is a no-op so the store never issues CREATE/ALTER/DROP.
     /// </param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public CreatorStyleStatedRuleStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null)
-        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore) { }
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public CreatorStyleStatedRuleStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore, identityResolver) { }
 
     /// <summary>
     /// Test-seam constructor: injects a connection-factory override so tests can wrap the real
@@ -48,15 +51,18 @@ public sealed class CreatorStyleStatedRuleStore : ICreatorStyleStatedRuleStore
     /// Optional connection factory used by <see cref="OpenConnectionAsync"/> in place of the live one.
     /// </param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
     internal CreatorStyleStatedRuleStore(
         RelationalDatabaseConnection connectionInfo,
         bool ensureSchemaEnabled,
         Func<CancellationToken, Task<DbConnection>>? connectionFactoryOverride,
-        ICreatorSuppressionStore? suppressionStore = null)
+        ICreatorSuppressionStore? suppressionStore = null,
+        Lazy<ICreatorIdentityResolver>? identityResolver = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
         _suppressionStore = suppressionStore;
+        _suppressionFilter = suppressionStore is null ? null : new CreatorSuppressionFilter(suppressionStore, identityResolver ?? CreatorSuppressionFilter.EmptyResolver);
         _ensureSchemaEnabled = ensureSchemaEnabled;
         _connectionFactoryOverride = connectionFactoryOverride;
         if (_connectionInfo.IsSqlite)
@@ -127,6 +133,11 @@ public sealed class CreatorStyleStatedRuleStore : ICreatorStyleStatedRuleStore
     public async Task<IReadOnlyList<StatedRuleCandidate>> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(slug);
+        if (_suppressionFilter is not null
+            && await _suppressionFilter.IsSuppressedAsync(slug, cancellationToken).ConfigureAwait(false))
+        {
+            return Array.Empty<StatedRuleCandidate>();
+        }
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);

@@ -34,9 +34,22 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
     /// <inheritdoc />
     public async Task<bool> IsSuppressedAsync(string slug, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(slug);
         var resolved = await _resolver.Value.ResolveManyAsync([slug], cancellationToken).ConfigureAwait(false);
         var matcher = new CreatorSuppressionMatcher(await _store.ListAsync(cancellationToken).ConfigureAwait(false));
         return IsSuppressed(slug, resolved.GetValueOrDefault(slug), matcher);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> GetUnsuppressedAsync(IReadOnlyList<string> slugs, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(slugs);
+        foreach (var slug in slugs) ArgumentException.ThrowIfNullOrWhiteSpace(slug);
+        if (slugs.Count == 0) return slugs;
+        var representations = slugs.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var resolved = await _resolver.Value.ResolveManyAsync(representations, cancellationToken).ConfigureAwait(false);
+        var matcher = new CreatorSuppressionMatcher(await _store.ListAsync(cancellationToken).ConfigureAwait(false));
+        return slugs.Where(slug => !IsSuppressed(slug, resolved.GetValueOrDefault(slug), matcher)).ToList();
     }
 
     private static bool IsSuppressed(string representation, CreatorIdentity? identity, CreatorSuppressionMatcher matcher)

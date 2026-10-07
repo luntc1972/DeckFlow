@@ -13,6 +13,7 @@ public sealed class CreatorDeckCacheStore : ICreatorDeckCacheStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly ICreatorSuppressionStore? _suppressionStore;
+    private readonly ICreatorSuppressionFilter? _suppressionFilter;
     private readonly bool _ensureSchemaEnabled;
     private readonly Func<CancellationToken, Task<DbConnection>>? _connectionFactoryOverride;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
@@ -23,8 +24,9 @@ public sealed class CreatorDeckCacheStore : ICreatorDeckCacheStore
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public CreatorDeckCacheStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore) { }
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public CreatorDeckCacheStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore, identityResolver: identityResolver) { }
 
     /// <summary>
     /// Creates a creator deck-cache store using the supplied <see cref="RelationalDatabaseConnection"/>.
@@ -35,8 +37,9 @@ public sealed class CreatorDeckCacheStore : ICreatorDeckCacheStore
     /// <c>false</c> <see cref="EnsureSchemaAsync"/> is a no-op so the store never issues CREATE/ALTER/DROP.
     /// </param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public CreatorDeckCacheStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null)
-        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore) { }
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public CreatorDeckCacheStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore, identityResolver) { }
 
     /// <summary>
     /// Test-seam constructor: injects a connection-factory override so tests can wrap the real
@@ -49,15 +52,18 @@ public sealed class CreatorDeckCacheStore : ICreatorDeckCacheStore
     /// Optional connection factory used by <see cref="OpenConnectionAsync"/> in place of the live one.
     /// </param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
     internal CreatorDeckCacheStore(
         RelationalDatabaseConnection connectionInfo,
         bool ensureSchemaEnabled,
         Func<CancellationToken, Task<DbConnection>>? connectionFactoryOverride,
-        ICreatorSuppressionStore? suppressionStore = null)
+        ICreatorSuppressionStore? suppressionStore = null,
+        Lazy<ICreatorIdentityResolver>? identityResolver = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
         _suppressionStore = suppressionStore;
+        _suppressionFilter = suppressionStore is null ? null : new CreatorSuppressionFilter(suppressionStore, identityResolver ?? CreatorSuppressionFilter.EmptyResolver);
         _ensureSchemaEnabled = ensureSchemaEnabled;
         _connectionFactoryOverride = connectionFactoryOverride;
         if (_connectionInfo.IsSqlite)
@@ -124,8 +130,8 @@ public sealed class CreatorDeckCacheStore : ICreatorDeckCacheStore
     public async Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
-        if (_suppressionStore is not null
-            && await _suppressionStore.IsSuppressedAsync(creatorSlug, cancellationToken).ConfigureAwait(false))
+        if (_suppressionFilter is not null
+            && await _suppressionFilter.IsSuppressedAsync(creatorSlug, cancellationToken).ConfigureAwait(false))
         {
             return Array.Empty<CreatorDeckCacheEntry>();
         }

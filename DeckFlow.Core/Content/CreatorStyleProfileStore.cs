@@ -12,6 +12,7 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly ICreatorSuppressionStore? _suppressionStore;
+    private readonly ICreatorSuppressionFilter? _suppressionFilter;
     private readonly bool _ensureSchemaEnabled;
     private readonly Func<CancellationToken, Task<DbConnection>>? _connectionFactoryOverride;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
@@ -22,8 +23,9 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
     /// </summary>
     /// <param name="databasePath">Path to the SQLite file.</param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public CreatorStyleProfileStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null)
-        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore) { }
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public CreatorStyleProfileStore(string databasePath, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(RelationalDatabaseConnection.FromSqlitePath(databasePath), suppressionStore: suppressionStore, identityResolver: identityResolver) { }
 
     /// <summary>
     /// Creates a creator style-profile store using the supplied <see cref="RelationalDatabaseConnection"/>.
@@ -34,8 +36,9 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
     /// <c>false</c> <see cref="EnsureSchemaAsync"/> is a no-op so the store never issues CREATE/ALTER/DROP.
     /// </param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
-    public CreatorStyleProfileStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null)
-        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore) { }
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
+    public CreatorStyleProfileStore(RelationalDatabaseConnection connectionInfo, bool ensureSchemaEnabled = true, ICreatorSuppressionStore? suppressionStore = null, Lazy<ICreatorIdentityResolver>? identityResolver = null)
+        : this(connectionInfo, ensureSchemaEnabled, connectionFactoryOverride: null, suppressionStore, identityResolver) { }
 
     /// <summary>
     /// Test-seam constructor: injects a connection-factory override so tests can wrap the real
@@ -48,15 +51,18 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
     /// Optional connection factory used by <see cref="OpenConnectionAsync"/> in place of the live one.
     /// </param>
     /// <param name="suppressionStore">Creator suppression dependency.</param>
+    /// <param name="identityResolver">Optional creator identity resolver.</param>
     internal CreatorStyleProfileStore(
         RelationalDatabaseConnection connectionInfo,
         bool ensureSchemaEnabled,
         Func<CancellationToken, Task<DbConnection>>? connectionFactoryOverride,
-        ICreatorSuppressionStore? suppressionStore = null)
+        ICreatorSuppressionStore? suppressionStore = null,
+        Lazy<ICreatorIdentityResolver>? identityResolver = null)
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
         _suppressionStore = suppressionStore;
+        _suppressionFilter = suppressionStore is null ? null : new CreatorSuppressionFilter(suppressionStore, identityResolver ?? CreatorSuppressionFilter.EmptyResolver);
         _ensureSchemaEnabled = ensureSchemaEnabled;
         _connectionFactoryOverride = connectionFactoryOverride;
         if (_connectionInfo.IsSqlite)
@@ -118,8 +124,8 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
     public async Task<CreatorStyleProfile?> GetBySlugAsync(string slug, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(slug);
-        if (_suppressionStore is not null
-            && await _suppressionStore.IsSuppressedAsync(slug, cancellationToken).ConfigureAwait(false))
+        if (_suppressionFilter is not null
+            && await _suppressionFilter.IsSuppressedAsync(slug, cancellationToken).ConfigureAwait(false))
         {
             return null;
         }
@@ -156,21 +162,14 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
             """,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         var profiles = rows.AsList();
-        if (_suppressionStore is null)
+        if (_suppressionFilter is null)
         {
             return profiles;
         }
 
-        var visibleProfiles = new List<CreatorStyleProfileSummary>(profiles.Count);
-        foreach (CreatorStyleProfileSummary profile in profiles)
-        {
-            if (!await _suppressionStore.IsSuppressedAsync(profile.Slug, cancellationToken).ConfigureAwait(false))
-            {
-                visibleProfiles.Add(profile);
-            }
-        }
-
-        return visibleProfiles;
+        var unsuppressed = await _suppressionFilter.GetUnsuppressedAsync(profiles.Select(profile => profile.Slug).ToList(), cancellationToken).ConfigureAwait(false);
+        var visible = unsuppressed.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return profiles.Where(profile => visible.Contains(profile.Slug)).ToList();
     }
 
     /// <inheritdoc />

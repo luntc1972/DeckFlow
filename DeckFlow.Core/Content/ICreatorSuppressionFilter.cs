@@ -10,4 +10,7 @@ public interface ICreatorSuppressionFilter
 
     /// <summary>Returns whether a slug is suppressed.</summary>
     Task<bool> IsSuppressedAsync(string slug, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns input slugs that are not suppressed.</summary>
+    Task<IReadOnlyList<string>> GetUnsuppressedAsync(IReadOnlyList<string> slugs, CancellationToken cancellationToken = default);
 }
