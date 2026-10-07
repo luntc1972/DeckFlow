@@ -148,6 +148,10 @@ public sealed class CutLabExportServiceTests
         Assert.Contains("1 Mystic Remora", result.MoxfieldFullListText, StringComparison.Ordinal);
         Assert.Contains("1 Swords to Plowshares", result.ArchidektFullListText, StringComparison.Ordinal);
         Assert.Contains("1 Mystic Remora", result.ArchidektFullListText, StringComparison.Ordinal);
+        Assert.Contains("1 Swords to Plowshares", result.MoxfieldPatchText, StringComparison.Ordinal);
+        Assert.Contains("1 Mystic Remora", result.MoxfieldPatchText, StringComparison.Ordinal);
+        Assert.Contains("1 Swords to Plowshares", result.ArchidektPatchText, StringComparison.Ordinal);
+        Assert.Contains("1 Mystic Remora", result.ArchidektPatchText, StringComparison.Ordinal);
     }
 
     [Fact]

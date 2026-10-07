@@ -208,7 +208,7 @@ public sealed class CutLabExportService : ICutLabExportService
                     Name = keptCard.Name,
                     NormalizedName = normalizedName,
                     Quantity = matchedQuantity,
-                    Board = keptCard.IsCommander ? "commander" : NormalizeBoard(match.Board),
+                    Board = keptCard.IsCommander ? "commander" : "mainboard",
                     SetCode = match.SetCode,
                     CollectorNumber = match.CollectorNumber,
                     Category = match.Category,
