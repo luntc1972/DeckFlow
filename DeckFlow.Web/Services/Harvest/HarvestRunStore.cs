@@ -355,7 +355,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
             SELECT COUNT(1) AS ConsecutiveFailures, MAX(completed_utc) AS LastFailureUtc,
                    (SELECT MAX(completed_utc) FROM harvest_runs WHERE {ScheduledOrLegacySuccessPredicate}) AS LastSuccessUtc
               FROM harvest_runs
-             WHERE kind = @kind AND state = 'Failed' AND completed_utc IS NOT NULL
+             WHERE kind = @kind AND state IN ('Failed','Cancelled','Interrupted') AND completed_utc IS NOT NULL
                AND (trigger_source = 'scheduled' OR trigger_source IS NULL)
                AND (NOT EXISTS (SELECT 1 FROM harvest_runs WHERE {ScheduledOrLegacySuccessPredicate})
                     OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE {ScheduledOrLegacySuccessPredicate}));

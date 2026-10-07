@@ -73,7 +73,7 @@ public sealed class HarvestRunStoreKindMigrationPostgresTests : IClassFixture<Po
         await SeedAsync(store, HarvestRunKind.Update, HarvestTriggerSource.Scheduled, HarvestRunState.Failed, "2026-10-06T14:00:00Z");
         Assert.Equal(DateTimeOffset.Parse("2026-10-06T10:00:00Z"), await store.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Bulk));
         Assert.Equal(DateTimeOffset.Parse("2026-10-06T13:00:00Z"), await store.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Update));
-        Assert.Equal(1, (await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Bulk)).ConsecutiveFailures);
+        Assert.Equal(2, (await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Bulk)).ConsecutiveFailures);
         Assert.Equal(1, (await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Update)).ConsecutiveFailures);
         await store.SetUpdateCountsAsync(update, 3, 5, 4, 2);
         var row = (await store.GetByIdAsync(update))!;

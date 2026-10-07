@@ -487,7 +487,7 @@ public sealed class HarvestRunStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task GetFailureStreakSinceLastSuccessAsync_PerKind_CountsFailedOnly_NotInterruptedOrCancelled()
+    public async Task GetFailureStreakSinceLastSuccessAsync_PerKind_CountsFailedCancelledAndInterrupted()
     {
         var store = new HarvestRunStore(_dbPath); await store.EnsureSchemaAsync();
         await SeedHealthRunAsync("bulk", "Succeeded", "2026-06-12T10:00:00.0000000Z", null, null, "scheduled");
@@ -498,9 +498,9 @@ public sealed class HarvestRunStoreTests : IDisposable
         await SeedHealthRunAsync("bulk", "Interrupted", "2026-06-12T14:00:00.0000000Z", null, null, "scheduled");
         await SeedHealthRunAsync("update", "Interrupted", "2026-06-12T15:00:00.0000000Z", null, null, "scheduled");
         var streak = await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Bulk);
-        Assert.Equal(2, streak.ConsecutiveFailures); Assert.Equal(DateTimeOffset.Parse("2026-06-12T13:00:00Z", CultureInfo.InvariantCulture), streak.LastFailureUtc); Assert.Equal(DateTimeOffset.Parse("2026-06-12T10:00:00Z", CultureInfo.InvariantCulture), streak.LastSuccessUtc);
+        Assert.Equal(5, streak.ConsecutiveFailures); Assert.Equal(DateTimeOffset.Parse("2026-06-12T14:00:00Z", CultureInfo.InvariantCulture), streak.LastFailureUtc); Assert.Equal(DateTimeOffset.Parse("2026-06-12T10:00:00Z", CultureInfo.InvariantCulture), streak.LastSuccessUtc);
         var updateStreak = await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Update);
-        Assert.Equal(0, updateStreak.ConsecutiveFailures); Assert.Null(updateStreak.LastFailureUtc); Assert.Null(updateStreak.LastSuccessUtc);
+        Assert.Equal(1, updateStreak.ConsecutiveFailures); Assert.Equal(DateTimeOffset.Parse("2026-06-12T15:00:00Z", CultureInfo.InvariantCulture), updateStreak.LastFailureUtc); Assert.Null(updateStreak.LastSuccessUtc);
     }
 
     [Fact]

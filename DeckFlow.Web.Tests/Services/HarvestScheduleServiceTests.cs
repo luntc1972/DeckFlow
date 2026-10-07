@@ -236,15 +236,17 @@ public sealed class HarvestScheduleServiceTests
         Assert.Equal(HarvestRunKind.Update, Assert.Single(job.Enqueued).Kind);
     }
 
-    [Fact]
-    public async Task TickAsync_InterruptedUpdateRun_NeitherBlocksAnchorsNorBacksOff()
+    [Theory]
+    [InlineData(HarvestRunState.Cancelled)]
+    [InlineData(HarvestRunState.Interrupted)]
+    public async Task TickAsync_CancelledOrInterruptedUpdateRun_BacksOffSchedule(HarvestRunState state)
     {
         var store = await CreateStoreAsync();
         await SeedRunAsync(store, HarvestRunKind.Update, HarvestRunState.Succeeded, Now.AddMinutes(-20));
-        await SeedRunAsync(store, HarvestRunKind.Update, HarvestRunState.Interrupted, Now.AddMinutes(-1));
+        await SeedRunAsync(store, HarvestRunKind.Update, state, Now.AddMinutes(-1));
         var job = new RecordingJob();
         await InvokeTickAsync(CreateService(store, job, new FixedSchedule(null), new FixedUpdateSchedule(15), Now));
-        Assert.Equal(HarvestRunKind.Update, Assert.Single(job.Enqueued).Kind);
+        Assert.Empty(job.Enqueued);
     }
 
     [Theory]
@@ -351,7 +353,7 @@ public sealed class HarvestScheduleServiceTests
         {
             await store.UpdateStateAsync(id, state,
                 state == HarvestRunState.Running ? timestamp : null,
-                state is HarvestRunState.Succeeded or HarvestRunState.Failed or HarvestRunState.Interrupted ? timestamp : null,
+                state is HarvestRunState.Succeeded or HarvestRunState.Failed or HarvestRunState.Cancelled or HarvestRunState.Interrupted ? timestamp : null,
                 null, null, null);
         }
         return id;
