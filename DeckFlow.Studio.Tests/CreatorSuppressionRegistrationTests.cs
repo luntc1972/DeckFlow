@@ -28,7 +28,7 @@ public sealed class CreatorSuppressionRegistrationTests
         var store = new ProdStoreFactory().Create("Host=localhost;Database=deckflow;Username=test;Password=test");
 
         Assert.NotNull(typeof(ContentSiteIndexStore)
-            .GetField("_suppressionStore", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetField("_suppressionFilter", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(store));
     }
 

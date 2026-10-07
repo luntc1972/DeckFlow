@@ -13,8 +13,7 @@ namespace DeckFlow.Core.Content;
 public sealed class ContentSiteIndexStore : IContentSiteIndexStore
 {
     private readonly RelationalDatabaseConnection _connectionInfo;
-    private readonly ICreatorSuppressionStore? _suppressionStore;
-    private readonly Lazy<ICreatorIdentityResolver>? _identityResolver;
+    private readonly ICreatorSuppressionFilter? _suppressionFilter;
     private readonly bool _ensureSchemaEnabled;
     private readonly Func<CancellationToken, Task<DbConnection>>? _connectionFactoryOverride;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
@@ -65,8 +64,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
-        _suppressionStore = suppressionStore;
-        _identityResolver = identityResolver;
+        _suppressionFilter = suppressionStore is null ? null : new CreatorSuppressionFilter(suppressionStore, identityResolver ?? CreatorSuppressionFilter.EmptyResolver);
         _ensureSchemaEnabled = ensureSchemaEnabled;
         _connectionFactoryOverride = connectionFactoryOverride;
         if (_connectionInfo.IsSqlite)
@@ -195,7 +193,6 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         }
     }
 
-    /// <inheritdoc />
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContentCreatorIdentityRow>> ListCreatorIdentityRowsAsync(CancellationToken cancellationToken = default)
     {
@@ -930,47 +927,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
         IReadOnlyList<ContentSiteIndexRow> rows,
         CancellationToken cancellationToken)
     {
-        if (_suppressionStore is null || rows.Count == 0) return rows;
-
-        var representations = rows
-            .SelectMany(row => GetCreatorRepresentations(row))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        IReadOnlyDictionary<string, CreatorIdentity?> resolved = new Dictionary<string, CreatorIdentity?>(StringComparer.OrdinalIgnoreCase);
-        if (_identityResolver is not null)
-        {
-            resolved = await _identityResolver.Value.ResolveManyAsync(representations, cancellationToken).ConfigureAwait(false);
-        }
-
-        var matcher = new CreatorSuppressionMatcher(await _suppressionStore.ListAsync(cancellationToken).ConfigureAwait(false));
-        var suppressed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var representation in representations)
-        {
-            var candidates = new[] { representation }
-                .Concat(GetIdentityRepresentations(resolved.GetValueOrDefault(representation)))
-                .Distinct(StringComparer.OrdinalIgnoreCase);
-            if (candidates.Any(matcher.IsSuppressed))
-            {
-                suppressed.Add(representation);
-            }
-        }
-
-        return rows.Where(row => GetCreatorRepresentations(row).All(representation => !suppressed.Contains(representation))).ToList();
-    }
-
-    private static IEnumerable<string> GetCreatorRepresentations(ContentSiteIndexRow row)
-    {
-        yield return row.Source;
-        var segments = row.ArtifactPath.Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length > 1) yield return segments[^2];
-    }
-
-    private static IEnumerable<string> GetIdentityRepresentations(CreatorIdentity? identity)
-    {
-        if (identity is null) return Array.Empty<string>();
-        return new[] { identity.CanonicalSlug }
-            .Concat(identity.DisplayNames)
-            .Concat(identity.FolderSlugs);
+        return _suppressionFilter is null ? rows : await _suppressionFilter.FilterRowsAsync(rows, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

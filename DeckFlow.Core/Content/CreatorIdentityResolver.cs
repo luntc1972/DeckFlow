@@ -74,7 +74,7 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
     private static CreatorIdentity? Resolve(Snapshot snapshot, string anyRepresentation)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(anyRepresentation);
-        var match = Normalize(anyRepresentation);
+        var match = CreatorSuppressionMatcher.NormalizeValue(anyRepresentation);
         var suppressions = snapshot.Suppressions;
         var components = snapshot.Components;
 
@@ -152,8 +152,8 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
         {
             var folder = GetFolder(row.ArtifactPath);
             if (folder is null) continue;
-            var sourceNode = Normalize(row.Source);
-            var folderNode = Normalize(folder);
+            var sourceNode = CreatorSuppressionMatcher.NormalizeValue(row.Source);
+            var folderNode = CreatorSuppressionMatcher.NormalizeValue(folder);
             nodes.TryGetValue(sourceNode, out var sourceComponent);
             nodes.TryGetValue(folderNode, out var folderComponent);
             var component = sourceComponent ?? folderComponent ?? new IndexComponent();
@@ -161,7 +161,7 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
             {
                 component = sourceComponent;
                 component.Merge(folderComponent);
-                foreach (var value in folderComponent.Values) nodes[Normalize(value)] = component;
+                foreach (var value in folderComponent.Values) nodes[CreatorSuppressionMatcher.NormalizeValue(value)] = component;
                 components.Remove(folderComponent);
             }
             if (!components.Contains(component)) components.Add(component);
@@ -176,9 +176,8 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
     private static Candidate Get(IDictionary<string, Candidate> candidates, string slug) => candidates.TryGetValue(slug, out var candidate) ? candidate : candidates[slug] = new Candidate(slug);
     private static string? GetFolder(string artifactPath) => CreatorArtifactPathParser.GetFolder(artifactPath);
     private static bool LooksLikeSlug(string value) => value.All(character => char.IsLower(character) || char.IsDigit(character) || character == '-');
-    private static bool Same(string left, string right) => string.Equals(Normalize(left), Normalize(right), StringComparison.Ordinal);
-    private static string Normalize(string value) => value.Trim().ToLowerInvariant();
-    private static IReadOnlyList<string> DistinctOrdinalIgnoringCase(IEnumerable<string> values) => values.GroupBy(Normalize).Select(group => group.Order(StringComparer.Ordinal).First()).Order(StringComparer.Ordinal).ToList();
+    private static bool Same(string left, string right) => string.Equals(CreatorSuppressionMatcher.NormalizeValue(left), CreatorSuppressionMatcher.NormalizeValue(right), StringComparison.Ordinal);
+    private static IReadOnlyList<string> DistinctOrdinalIgnoringCase(IEnumerable<string> values) => values.GroupBy(CreatorSuppressionMatcher.NormalizeValue).Select(group => group.Order(StringComparer.Ordinal).First()).Order(StringComparer.Ordinal).ToList();
     /// <summary>Collects source names, folder slugs, and IDs joined into one creator identity component.</summary>
     private sealed class IndexComponent
     {
