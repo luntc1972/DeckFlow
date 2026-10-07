@@ -138,7 +138,11 @@ public sealed class CreatorSuppressionStore : ICreatorSuppressionStore
         await using var connection = await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         var slugs = snapshot.Rows.Select(row => row.Slug).ToArray();
-        var deleteSql = slugs.Length == 0 ? "DELETE FROM creator_suppression;" : "DELETE FROM creator_suppression WHERE slug NOT IN @slugs;";
+        var deleteSql = slugs.Length == 0
+            ? "DELETE FROM creator_suppression;"
+            : _connectionInfo.Provider == RelationalDatabaseProvider.Postgres
+                ? "DELETE FROM creator_suppression WHERE slug <> ALL(@slugs);"
+                : "DELETE FROM creator_suppression WHERE slug NOT IN @slugs;";
         await connection.ExecuteAsync(new CommandDefinition(deleteSql, new { slugs }, transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
         if (failAfterDelete) throw new InvalidOperationException("Injected snapshot failure.");
         foreach (var row in snapshot.Rows)
