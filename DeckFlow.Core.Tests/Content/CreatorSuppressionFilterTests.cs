@@ -43,6 +43,33 @@ public sealed class CreatorSuppressionFilterTests
     }
 
     [Fact]
+    public async Task Filter_GetUnsuppressed_KeepsOrderAndDuplicates_OneListOneResolve()
+    {
+        var store = new CountingStore([Suppression("blocked")]);
+        var resolver = new CountingResolver();
+        var filter = new CreatorSuppressionFilter(store, new Lazy<ICreatorIdentityResolver>(() => resolver));
+
+        var result = await filter.GetUnsuppressedAsync(["c", "a", "blocked", "a", "b"]);
+
+        Assert.Equal(["c", "a", "a", "b"], result);
+        Assert.Equal(1, store.ListCalls);
+        Assert.Equal(1, resolver.ResolveManyCalls);
+        Assert.Equal(0, resolver.ResolveCalls);
+    }
+
+    [Fact]
+    public async Task Filter_GetUnsuppressed_IdentityDisplayNameSuppressed_Excluded()
+    {
+        var resolver = new CountingResolver();
+        resolver.Identities["source-slug"] = Identity("canonical", ["blocked-alias"], []);
+        var filter = new CreatorSuppressionFilter(new CountingStore([Suppression("blocked-alias")]), new Lazy<ICreatorIdentityResolver>(() => resolver));
+
+        var result = await filter.GetUnsuppressedAsync(["source-slug", "control"]);
+
+        Assert.Equal(["control"], result);
+    }
+
+    [Fact]
     public async Task Filter_RealResolver_SuppressionLoadCountIndependentOfRowCount()
     {
         var databasePath = Path.Combine(Path.GetTempPath(), $"creator-filter-{Guid.NewGuid():N}.db");

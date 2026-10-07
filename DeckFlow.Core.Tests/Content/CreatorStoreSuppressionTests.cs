@@ -24,6 +24,19 @@ public sealed class CreatorStoreSuppressionTests : IDisposable
     }
 
     [Fact]
+    public async Task ProfileGetAll_IdentityAliasSuppressed_Excluded()
+    {
+        var suppressions = new CountingSuppressionStore([Suppression("blocked-alias")]);
+        var store = new CreatorStyleProfileStore(_databasePath, suppressions, new Lazy<ICreatorIdentityResolver>(() => Resolver("profile-slug", "blocked-alias")));
+        await store.UpsertAsync(Profile("profile-slug"));
+        await store.UpsertAsync(Profile("control"));
+
+        var profiles = await store.GetAllAsync();
+
+        Assert.Equal(["control"], profiles.Select(profile => profile.Slug));
+    }
+
+    [Fact]
     public async Task ProfileGetBySlug_IdentityAliasSuppressed_ReturnsNull()
     {
         var suppressions = new CountingSuppressionStore([Suppression("blocked-alias")]);
@@ -66,6 +79,32 @@ public sealed class CreatorStoreSuppressionTests : IDisposable
     }
 
     [Fact]
+    public async Task SourceListEnabled_DisplayNameSuppressedSlugClean_Excluded()
+    {
+        var suppressions = new CountingSuppressionStore([Suppression("Blocked Name")]);
+        var store = new ContentSourceStore(_databasePath, suppressions);
+        await InsertAsync(store, "ok-source", "Blocked Name");
+        await InsertAsync(store, "control", "Control");
+
+        var sources = await store.ListEnabledSourcesAsync();
+
+        Assert.Equal(["control"], sources.Select(source => source.SourceSlug));
+    }
+
+    [Fact]
+    public async Task SourceListEnabled_IdentityAliasSuppressed_Excluded()
+    {
+        var suppressions = new CountingSuppressionStore([Suppression("blocked-alias")]);
+        var store = new ContentSourceStore(_databasePath, suppressions, new Lazy<ICreatorIdentityResolver>(() => Resolver("source-slug", "blocked-alias")));
+        await InsertAsync(store, "source-slug", "Source Display Name");
+        await InsertAsync(store, "control", "Control");
+
+        var sources = await store.ListEnabledSourcesAsync();
+
+        Assert.Equal(["control"], sources.Select(source => source.SourceSlug));
+    }
+
+    [Fact]
     public async Task SourceListEnabled_FilterWiredThroughRealResolver_CompletesWithoutReentry()
     {
         var suppressions = new CountingSuppressionStore([Suppression("blocked")]);
@@ -98,7 +137,7 @@ public sealed class CreatorStoreSuppressionTests : IDisposable
 
     private static CreatorStyleProfile Profile(string slug) => CreatorStyleProfileTestData.CreateFullProfile(slug);
     private static StatedRuleCandidate Rule() => new() { Category = "deckbuilding", Metric = "lands", Comparator = "lte", SourceClip = "test", Confidence = 0.9, VideoDateUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z") };
-    private static CountingResolver Resolver(string representation, string displayName) => new(representation, new CreatorIdentity("canonical", [], [displayName], []));
+    private static MappingResolver Resolver(string representation, string displayName) => new(representation, new CreatorIdentity("canonical", [], [displayName], []));
     private static CreatorSuppression Suppression(string slug) => new() { Slug = slug, Aliases = [], Reason = "test", RequestedUtc = DateTimeOffset.UtcNow };
     private static Task<long> InsertAsync(ContentSourceStore store, string slug, string name) => store.InsertSourceAsync(slug, name, ContentSourceType.Podcast, $"https://example.test/{slug}");
 
@@ -112,7 +151,7 @@ public sealed class CreatorStoreSuppressionTests : IDisposable
         await command.ExecuteNonQueryAsync();
     }
 
-    private sealed class CountingResolver(string representation, CreatorIdentity identity) : ICreatorIdentityResolver
+    private sealed class MappingResolver(string representation, CreatorIdentity identity) : ICreatorIdentityResolver
     {
         public Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default) => Task.FromResult<CreatorIdentity?>(string.Equals(representation, anyRepresentation, StringComparison.OrdinalIgnoreCase) ? identity : null);
     }
