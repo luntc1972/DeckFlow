@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Globalization;
+using System.Text;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using DeckFlow.Core.Integration;
@@ -250,66 +251,87 @@ internal sealed class DeckQueueRepository
 
         var insertedUtc = DateTime.UtcNow;
         var refreshRequestedUtc = FormatUtc(new DateTimeOffset(insertedUtc, TimeSpan.Zero));
-        var newIds = 0;
-        var refreshesRequeued = 0;
         await _schema.EnsureSchemaAsync(cancellationToken);
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        foreach (var row in unique)
+        var existingRows = await connection.QueryAsync<ListingBaselineRow>(new CommandDefinition(
+            """
+            SELECT deck_id, archidekt_updated_utc, listing_updated_seen_utc
+            FROM deck_queue
+            WHERE deck_id IN @deckIds;
+            """,
+            new { deckIds = unique.Select(row => row.DeckId).ToArray() },
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var existingById = existingRows.ToDictionary(row => row.DeckId, StringComparer.Ordinal);
+
+        var insertParameters = new DynamicParameters();
+        insertParameters.Add("insertedUtc", insertedUtc);
+        var insertValues = new StringBuilder();
+        for (var index = 0; index < unique.Count; index++)
         {
-            var listingSeenUtc = row.UpdatedUtc.HasValue ? FormatUtc(FloorToSecond(row.UpdatedUtc.Value)) : null;
-            var inserted = await connection.ExecuteAsync(new CommandDefinition(
-                """
-                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, listing_updated_seen_utc)
-                VALUES (@deckId, @insertedUtc, 0, 0, NULL, @listingSeenUtc)
-                ON CONFLICT(deck_id) DO NOTHING;
-                """,
-                new { deckId = row.DeckId, insertedUtc, listingSeenUtc },
-                transaction: transaction,
-                cancellationToken: cancellationToken)).ConfigureAwait(false);
-            if (inserted == 1)
+            var row = unique[index];
+            if (index > 0)
             {
-                newIds++;
-                continue;
+                insertValues.Append(", ");
             }
 
-            if (!row.UpdatedUtc.HasValue)
-            {
-                continue;
-            }
+            insertValues.Append($"(@deckId{index}, @insertedUtc, 0, 0, NULL, @listingSeenUtc{index})");
+            insertParameters.Add($"deckId{index}", row.DeckId);
+            insertParameters.Add($"listingSeenUtc{index}", row.UpdatedUtc.HasValue ? FormatUtc(FloorToSecond(row.UpdatedUtc.Value)) : null);
+        }
 
-            var baseline = await connection.QuerySingleOrDefaultAsync<ListingBaselineRow>(new CommandDefinition(
-                """
-                SELECT archidekt_updated_utc, listing_updated_seen_utc
-                FROM deck_queue
-                WHERE deck_id = @deckId AND NOT (processed = 0 AND skipped = 0);
-                """,
-                new { deckId = row.DeckId },
-                transaction: transaction,
-                cancellationToken: cancellationToken)).ConfigureAwait(false);
-            // Why: comparison stays in C# because F-51-PG-01 prohibits comparing TEXT timestamps with timestamptz on Postgres.
-            if (baseline is null || !IsNewer(row.UpdatedUtc.Value, ParseStoredUtc(baseline.ArchidektUpdatedUtc), ParseStoredUtc(baseline.ListingUpdatedSeenUtc)))
+        var newIds = await connection.ExecuteAsync(new CommandDefinition(
+            $"""
+            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, listing_updated_seen_utc)
+            VALUES {insertValues}
+            ON CONFLICT(deck_id) DO NOTHING;
+            """,
+            insertParameters,
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+
+        var refreshRows = unique
+            .Where(row => row.UpdatedUtc.HasValue && existingById.TryGetValue(row.DeckId, out var baseline) && IsNewer(row.UpdatedUtc.Value, ParseStoredUtc(baseline.ArchidektUpdatedUtc), ParseStoredUtc(baseline.ListingUpdatedSeenUtc)))
+            .ToList();
+        var refreshesRequeued = 0;
+        if (refreshRows.Count > 0)
+        {
+            var updateParameters = new DynamicParameters();
+            updateParameters.Add("insertedUtc", insertedUtc);
+            updateParameters.Add("refreshRequestedUtc", refreshRequestedUtc);
+            var listingSeenCases = new StringBuilder();
+            var deckIds = new StringBuilder();
+            for (var index = 0; index < refreshRows.Count; index++)
             {
-                continue;
+                var row = refreshRows[index];
+                listingSeenCases.Append($" WHEN @deckId{index} THEN @listingSeenUtc{index}");
+                if (index > 0)
+                {
+                    deckIds.Append(", ");
+                }
+
+                deckIds.Append($"@deckId{index}");
+                updateParameters.Add($"deckId{index}", row.DeckId);
+                updateParameters.Add($"listingSeenUtc{index}", FormatUtc(FloorToSecond(row.UpdatedUtc!.Value)));
             }
 
             // Why: pending rows are excluded so their FIFO place never moves.
-            var requeued = await connection.ExecuteAsync(new CommandDefinition(
-                """
+            refreshesRequeued = await connection.ExecuteAsync(new CommandDefinition(
+                $"""
                 UPDATE deck_queue
                 SET processed = 0,
                     skipped = 0,
                     inserted_utc = @insertedUtc,
                     refresh_requested_utc = @refreshRequestedUtc,
-                    listing_updated_seen_utc = @listingSeenUtc
-                WHERE deck_id = @deckId AND NOT (processed = 0 AND skipped = 0);
+                    listing_updated_seen_utc = CASE deck_id{listingSeenCases} END
+                WHERE deck_id IN ({deckIds}) AND NOT (processed = 0 AND skipped = 0);
                 """,
-                new { deckId = row.DeckId, insertedUtc, refreshRequestedUtc, listingSeenUtc },
+                updateParameters,
                 transaction: transaction,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
-            refreshesRequeued += requeued;
         }
 
         await transaction.CommitAsync(cancellationToken);
@@ -894,6 +916,7 @@ internal sealed class DeckQueueRepository
 
     private sealed class ListingBaselineRow
     {
+        public string DeckId { get; init; } = string.Empty;
         public string? ArchidektUpdatedUtc { get; init; }
         public string? ListingUpdatedSeenUtc { get; init; }
     }

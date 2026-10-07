@@ -61,6 +61,45 @@ public sealed class DeckQueueRepositoryRefreshTests : IDisposable
         Assert.Empty(await repository.GetNextRefreshDeckIdsAsync(10));
     }
 
+    [Fact]
+    public async Task AddListingRowsAsync_MixedPage_MatchesIndividualRowResults()
+    {
+        var (batchRepository, batchPath) = await CreateRepositoryAsync();
+        var (individualRepository, individualPath) = await CreateRepositoryAsync();
+        var old = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var rows = new[]
+        {
+            new ArchidektListingDeck("mixed-new", old),
+            new ArchidektListingDeck("mixed-refresh", old.AddSeconds(2)),
+            new ArchidektListingDeck("mixed-pending", old.AddSeconds(3)),
+        };
+
+        foreach (var repository in new[] { batchRepository, individualRepository })
+        {
+            await repository.AddDeckIdsAsync(new[] { "mixed-refresh", "mixed-pending" });
+            await repository.MarkDeckProcessedAsync("mixed-refresh", null, metadata: Metadata(old));
+        }
+
+        var batch = await batchRepository.AddListingRowsAsync(rows);
+        var individual = new ListingUpsertResult(0, 0);
+        foreach (var row in rows)
+        {
+            var result = await individualRepository.AddListingRowsAsync(new[] { row });
+            individual = new ListingUpsertResult(individual.NewIds + result.NewIds, individual.RefreshesRequeued + result.RefreshesRequeued);
+        }
+
+        Assert.Equal(individual, batch);
+        foreach (var id in rows.Select(row => row.DeckId))
+        {
+            var individualRow = await ReadQueueRowAsync(individualPath, id);
+            var batchRow = await ReadQueueRowAsync(batchPath, id);
+            Assert.Equal(individualRow.Processed, batchRow.Processed);
+            Assert.Equal(individualRow.Skipped, batchRow.Skipped);
+            Assert.Equal(individualRow.ListingUpdatedSeenUtc, batchRow.ListingUpdatedSeenUtc);
+            Assert.Equal(individualRow.RefreshRequestedUtc is not null, batchRow.RefreshRequestedUtc is not null);
+        }
+    }
+
     [Theory]
     [InlineData("2026-01-02T00:00:05Z", "2026-01-02T00:00:05Z", null, false)]
     [InlineData("2026-01-02T00:00:06Z", "2026-01-02T00:00:05Z", null, true)]
