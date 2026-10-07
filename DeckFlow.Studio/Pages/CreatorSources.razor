@@ -241,16 +241,11 @@
 
     private async Task<bool> IsSuppressedAsync(string displayName, string channelRef)
     {
-        foreach (var representation in new[] { displayName, channelRef })
-        {
-            var identity = await CreatorIdentityResolver.ResolveAsync(representation, Cts.Token);
-            if (identity is not null && await CreatorSuppressionStore.IsSuppressedAsync(identity.CanonicalSlug, Cts.Token))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        var filter = new CreatorSuppressionFilter(
+            CreatorSuppressionStore,
+            new Lazy<ICreatorIdentityResolver>(() => CreatorIdentityResolver));
+        return await filter.IsSuppressedAsync(displayName, Cts.Token)
+            || await filter.IsSuppressedAsync(channelRef, Cts.Token);
     }
 
     private async Task RemoveAsync(CreatorSource creator)

@@ -102,6 +102,25 @@ public sealed class CreatorSourcesPageTests : BunitContext
     }
 
     [Fact]
+    public async Task AddCreator_DisplayNameSuppressedWithoutResolvedIdentity_RefusesAdd()
+    {
+        var store = new FakeCreatorSourceStore();
+        var suppression = new FakeCreatorSuppressionStore();
+        suppression.Suppressed.Add("Suppressed Creator");
+        var cut = RenderPage(store, suppressionStore: suppression);
+
+        await cut.InvokeAsync(() =>
+        {
+            cut.Find("#creatorName").Change("Suppressed Creator");
+            cut.Find("#creatorRef").Change("https://youtube.com/@suppressed");
+        });
+        await cut.InvokeAsync(() => cut.Find("button.btn-primary").Click());
+
+        cut.WaitForAssertion(() => Assert.Contains("Suppressed creators cannot be added.", cut.Markup));
+        Assert.Empty(store.AddCalls);
+    }
+
+    [Fact]
     public async Task CreatorSources_Add_FailsClosedWhenSuppressionStoreThrows()
     {
         var store = new FakeCreatorSourceStore();
