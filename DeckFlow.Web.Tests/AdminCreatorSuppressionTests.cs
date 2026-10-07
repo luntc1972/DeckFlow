@@ -217,7 +217,7 @@ public sealed class AdminCreatorSuppressionTests
             var resolver = new CreatorIdentityResolver(fixture.Suppressions, contentSources, fixture.Index);
             await fixture.SeedAsync(contentSources);
             var purge = new CreatorPurgeService(fixture.Index, fixture.Videos, fixture.Rules, fixture.Profiles, fixture.Decks, fixture.Sources, fixture.ProfileSources);
-            fixture.Whitelist = new CreatorWhitelistPoolBuilder(fixture.Decks, new NoopGroundingGuard(), new MemoryCache(new MemoryCacheOptions()));
+            fixture.Whitelist = new CreatorWhitelistPoolBuilder(fixture.Decks, new NoopGroundingGuard(), new MemoryCache(new MemoryCacheOptions()), fixture.Suppressions, new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()));
             fixture.Controller = CreateController(fixture.Index, fixture.Suppressions, resolver, purge, fixture.Logger, fixture.Whitelist);
             return fixture;
         }
@@ -277,7 +277,7 @@ public sealed class AdminCreatorSuppressionTests
             var purge = new CreatorPurgeService(steps.Select(step => step.StoreName == failedStore
                 ? new CreatorPurgeStep(step.StoreName, (_, _) => throw new InvalidOperationException($"boom-{failedStore}")) : step).ToArray());
             Controller = CreateController(Index, Suppressions, new CreatorIdentityResolver(Suppressions, new ContentSourceStore(_path), Index), purge, Logger,
-                new CreatorWhitelistPoolBuilder(Decks, new NoopGroundingGuard(), new MemoryCache(new MemoryCacheOptions())));
+                new CreatorWhitelistPoolBuilder(Decks, new NoopGroundingGuard(), new MemoryCache(new MemoryCacheOptions()), Suppressions, new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore())));
         }
 
         public async Task AssertOnlyFailedTargetRemainsAsync(string failedStore)

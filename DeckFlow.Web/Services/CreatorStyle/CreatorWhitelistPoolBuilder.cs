@@ -35,28 +35,12 @@ public sealed class CreatorWhitelistPoolBuilder
     private const int WhitelistCap = 25; // Why: 25 keeps the whitelist materially useful while bounding grounding latency and packet size even when lift-metric count changes independently.
 
     private readonly ICreatorDeckCacheStore _creatorDeckCacheStore;
-    private readonly ICreatorSuppressionStore? _suppressionStore;
-    private readonly ICreatorSuppressionGate? _suppressionGate;
+    private readonly ICreatorSuppressionStore _suppressionStore;
+    private readonly ICreatorSuppressionGate _suppressionGate;
     private readonly ICardGroundingGuard _cardGroundingGuard;
     private readonly IMemoryCache _cache;
     private readonly ILogger<CreatorWhitelistPoolBuilder> _logger;
     private readonly ConcurrentDictionary<string, byte> _cacheKeys = new(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Creates a creator-whitelist pool builder.
-    /// </summary>
-    /// <param name="creatorDeckCacheStore">Creator deck corpus store.</param>
-    /// <param name="cardGroundingGuard">Strict guard used to validate ranked candidates.</param>
-    /// <param name="cache">In-memory cache for raw per-creator candidate pools.</param>
-    /// <param name="logger">Optional logger.</param>
-    public CreatorWhitelistPoolBuilder(
-        ICreatorDeckCacheStore creatorDeckCacheStore,
-        ICardGroundingGuard cardGroundingGuard,
-        IMemoryCache cache,
-        ILogger<CreatorWhitelistPoolBuilder>? logger = null)
-        : this(creatorDeckCacheStore, cardGroundingGuard, cache, suppressionStore: null, logger, isInternal: true)
-    {
-    }
 
     /// <summary>Creates a creator-whitelist pool builder that honours identity-aware creator suppression.</summary>
     /// <param name="creatorDeckCacheStore">Creator deck corpus store.</param>
@@ -72,36 +56,16 @@ public sealed class CreatorWhitelistPoolBuilder
         ICreatorSuppressionStore suppressionStore,
         ICreatorSuppressionGate suppressionGate,
         ILogger<CreatorWhitelistPoolBuilder>? logger = null)
-        : this(creatorDeckCacheStore, cardGroundingGuard, cache, suppressionStore, logger, isInternal: true)
-    {
-        _suppressionGate = suppressionGate ?? throw new ArgumentNullException(nameof(suppressionGate));
-    }
-
-    /// <summary>Creates a creator-whitelist pool builder that honours creator suppression.</summary>
-    public CreatorWhitelistPoolBuilder(
-        ICreatorDeckCacheStore creatorDeckCacheStore,
-        ICardGroundingGuard cardGroundingGuard,
-        IMemoryCache cache,
-        ICreatorSuppressionStore suppressionStore,
-        ILogger<CreatorWhitelistPoolBuilder>? logger = null)
-        : this(creatorDeckCacheStore, cardGroundingGuard, cache, suppressionStore, logger, isInternal: true)
-    {
-    }
-
-    private CreatorWhitelistPoolBuilder(
-        ICreatorDeckCacheStore creatorDeckCacheStore,
-        ICardGroundingGuard cardGroundingGuard,
-        IMemoryCache cache,
-        ICreatorSuppressionStore? suppressionStore,
-        ILogger<CreatorWhitelistPoolBuilder>? logger,
-        bool isInternal)
     {
         ArgumentNullException.ThrowIfNull(creatorDeckCacheStore);
         ArgumentNullException.ThrowIfNull(cardGroundingGuard);
         ArgumentNullException.ThrowIfNull(cache);
+        ArgumentNullException.ThrowIfNull(suppressionStore);
+        ArgumentNullException.ThrowIfNull(suppressionGate);
 
         _creatorDeckCacheStore = creatorDeckCacheStore;
         _suppressionStore = suppressionStore;
+        _suppressionGate = suppressionGate;
         _cardGroundingGuard = cardGroundingGuard;
         _cache = cache;
         _logger = logger ?? NullLogger<CreatorWhitelistPoolBuilder>.Instance;
@@ -169,21 +133,12 @@ public sealed class CreatorWhitelistPoolBuilder
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (_suppressionGate is not null
-            && await _suppressionGate.IsSuppressedAsync(creatorSlug, cancellationToken).ConfigureAwait(false))
+        if (await _suppressionGate.IsSuppressedAsync(creatorSlug, cancellationToken).ConfigureAwait(false))
         {
             return Array.Empty<string>();
         }
 
-        if (_suppressionGate is null && _suppressionStore is not null
-            && await _suppressionStore.IsSuppressedAsync(creatorSlug, cancellationToken).ConfigureAwait(false))
-        {
-            return Array.Empty<string>();
-        }
-
-        long revision = _suppressionStore is null
-            ? 0
-            : await _suppressionStore.GetRevisionAsync(cancellationToken).ConfigureAwait(false);
+        long revision = await _suppressionStore.GetRevisionAsync(cancellationToken).ConfigureAwait(false);
         var cacheKey = BuildCacheKey(creatorSlug, revision);
         _cacheKeys.TryAdd(cacheKey, 0);
 

@@ -543,7 +543,7 @@ public sealed class AdminCreatorProfileControllerTests
             nowUtc ?? (() => new DateTimeOffset(2026, 9, 9, 12, 0, 0, TimeSpan.Zero)),
             NullLogger<AdminCreatorProfileController>.Instance,
             runTimeout,
-            suppressionGate ?? (suppressionStore is null ? null : new FakeCreatorSuppressionGate(suppressionStore)))
+            suppressionGate ?? new FakeCreatorSuppressionGate(suppressionStore ?? new FakeCreatorSuppressionStore()))
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
         };

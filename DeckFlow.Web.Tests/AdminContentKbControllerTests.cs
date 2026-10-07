@@ -401,7 +401,7 @@ public sealed class AdminContentKbControllerTests
             new FakeCreatorSuppressionStore(),
             new FakeCreatorIdentityResolver(),
             new CreatorPurgeService([]),
-            new CreatorWhitelistPoolBuilder(new FakeCreatorDeckCacheSeedStore(), new NoopGroundingGuard(), new MemoryCache(new MemoryCacheOptions())));
+            new CreatorWhitelistPoolBuilder(new FakeCreatorDeckCacheSeedStore(), new NoopGroundingGuard(), new MemoryCache(new MemoryCacheOptions()), new FakeCreatorSuppressionStore(), new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore())));
 
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";

@@ -154,8 +154,8 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         Func<IReadOnlyList<string>, CardGroundingDeckContext, CancellationToken, Task<CardGroundingBatchResult>> validateAdditionalCardsAsync,
         Func<string, CancellationToken, Task<IReadOnlyList<CreatorDeckCacheEntry>>> getCreatorDecksAsync,
         Func<string, IReadOnlyList<FusedTarget>, SubmittedDeckStats, RubricScoreResult> scoreRubric,
-        ILogger<CreatorStylePacketService>? logger = null,
-        Func<string, CancellationToken, Task<bool>>? isSuppressedAsync = null)
+        Func<string, CancellationToken, Task<bool>> isSuppressedAsync,
+        ILogger<CreatorStylePacketService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(getProfileAsync);
         ArgumentNullException.ThrowIfNull(buildSubmittedDeckAsync);
@@ -163,12 +163,13 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         ArgumentNullException.ThrowIfNull(validateAdditionalCardsAsync);
         ArgumentNullException.ThrowIfNull(getCreatorDecksAsync);
         ArgumentNullException.ThrowIfNull(scoreRubric);
+        ArgumentNullException.ThrowIfNull(isSuppressedAsync);
         _getProfileAsync = getProfileAsync;
         _buildSubmittedDeckAsync = buildSubmittedDeckAsync;
         _buildWhitelistAsync = buildWhitelistAsync;
         _validateAdditionalCardsAsync = validateAdditionalCardsAsync;
         _getCreatorDecksAsync = getCreatorDecksAsync;
-        _isSuppressedAsync = isSuppressedAsync ?? ((_, _) => Task.FromResult(false));
+        _isSuppressedAsync = isSuppressedAsync;
         _scoreRubric = scoreRubric;
         _logger = logger ?? NullLogger<CreatorStylePacketService>.Instance;
     }

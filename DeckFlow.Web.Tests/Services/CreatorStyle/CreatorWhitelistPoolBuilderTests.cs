@@ -61,7 +61,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         var suppressionStore = new FakeCreatorSuppressionStore();
         var store = new FakeCreatorDeckCacheStore(Deck("control", "deck-1", Mainboard("Sol Ring")));
         var guard = new FakeCardGroundingGuard();
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, suppressionStore);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, suppressionStore, new FakeCreatorSuppressionGate(suppressionStore));
 
         CreatorWhitelistPoolBuildResult cached = await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext());
         suppressionStore.Suppressed.Add("control");
@@ -89,7 +89,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         var suppressionStore = new FakeCreatorSuppressionStore();
         var store = new FakeCreatorDeckCacheStore(Deck("control", "deck-1", Mainboard("Sol Ring")));
         var guard = new FakeCardGroundingGuard();
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, suppressionStore);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, suppressionStore, new FakeCreatorSuppressionGate(suppressionStore));
 
         CreatorWhitelistPoolBuildResult readable = await sut.BuildWithDiagnosticsAsync("control", EmptyDeckContext());
         suppressionStore.ReadException = new InvalidOperationException("suppression store unavailable");
@@ -111,7 +111,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
             Deck("ranker", "deck-2", Mainboard("Arcane Signet", "Swords to Plowshares")),
             Deck("ranker", "deck-3", Mainboard("Arcane Signet", "Boros Signet")));
         var guard = new FakeCardGroundingGuard();
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, new FakeCreatorSuppressionStore(), new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()));
 
         IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("ranker", EmptyDeckContext())).AcceptedNames;
 
@@ -132,7 +132,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
             .ToArray();
         var store = new FakeCreatorDeckCacheStore(Deck("capped", "deck-1", Mainboard(entries)));
         var guard = new FakeCardGroundingGuard();
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, new FakeCreatorSuppressionStore(), new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()));
 
         IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("capped", EmptyDeckContext())).AcceptedNames;
 
@@ -153,7 +153,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
             ["Hullbreacher"] = Rejected("Hullbreacher", CardGroundingRejectReason.NotLegal),
             ["Mystic Remora"] = Accepted("Mystic Remora Prime"),
         });
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, new FakeCreatorSuppressionStore(), new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()));
 
         IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("guarded", EmptyDeckContext())).AcceptedNames;
 
@@ -167,7 +167,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var store = new FakeCreatorDeckCacheStore();
         var guard = new FakeCardGroundingGuard();
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, new FakeCreatorSuppressionStore(), new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()));
 
         IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("empty", EmptyDeckContext())).AcceptedNames;
 
@@ -183,7 +183,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
             Deck("cache-me", "deck-1", Mainboard("Arcane Signet", "Lightning Greaves")),
             Deck("cache-me", "deck-2", Mainboard("Arcane Signet", "Swiftfoot Boots")));
         var guard = new FakeCardGroundingGuard();
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, new FakeCreatorSuppressionStore(), new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()));
 
         IReadOnlyList<string> first = (await sut.BuildWithDiagnosticsAsync("cache-me", EmptyDeckContext(["arcane signet"]))).AcceptedNames;
         IReadOnlyList<string> second = (await sut.BuildWithDiagnosticsAsync(" cache-me ", EmptyDeckContext(["swiftfoot boots"]))).AcceptedNames;
@@ -206,7 +206,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
             ["Arcane Signet"] = Accepted("Arcane Signet"),
             ["Jeska's Will"] = Rejected("Jeska's Will", CardGroundingRejectReason.UpstreamUnavailable),
         });
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, new FakeCreatorSuppressionStore(), new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()));
 
         CreatorWhitelistPoolBuildResult result = await sut.BuildWithDiagnosticsAsync("guarded", EmptyDeckContext());
 
@@ -229,7 +229,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
                 }),
             Deck("normalized", "deck-2", Mainboard("Mystic Remora")));
         var guard = new FakeCardGroundingGuard();
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, new FakeCreatorSuppressionStore(), new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()));
 
         IReadOnlyList<string> whitelist = (await sut.BuildWithDiagnosticsAsync("normalized", EmptyDeckContext())).AcceptedNames;
 
@@ -247,7 +247,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
         using var cache = new MemoryCache(new MemoryCacheOptions());
         var store = new GatedCreatorDeckCacheStore(Deck("stampede", "deck-1", Mainboard("Sol Ring")));
         var guard = new FakeCardGroundingGuard();
-        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache);
+        var sut = new CreatorWhitelistPoolBuilder(store, guard, cache, new FakeCreatorSuppressionStore(), new FakeCreatorSuppressionGate(new FakeCreatorSuppressionStore()));
         using var cts = new CancellationTokenSource();
 
         Task<CreatorWhitelistPoolBuildResult> firstCall = sut.BuildWithDiagnosticsAsync("stampede", EmptyDeckContext(), cts.Token);
@@ -285,6 +285,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
             var suppressionStore = new FakeCreatorSuppressionStore();
             suppressionStore.Suppressed.Add("suppressed");
             services.AddSingleton<ICreatorSuppressionStore>(suppressionStore);
+            services.AddSingleton<ICreatorSuppressionGate>(new FakeCreatorSuppressionGate(suppressionStore));
             services.AddSingleton<CreatorWhitelistPoolBuilder>();
 
             using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions

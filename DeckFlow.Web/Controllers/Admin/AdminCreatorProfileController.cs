@@ -27,7 +27,7 @@ public sealed class AdminCreatorProfileController : Controller
     };
 
     private readonly ICreatorProfileSourceStore _sourceStore;
-    private readonly ICreatorSuppressionGate? _suppressionGate;
+    private readonly ICreatorSuppressionGate _suppressionGate;
     private readonly Func<string, string, CancellationToken, Task<MeasuredStyleBuildResult>> _buildDetailedAsync;
     private readonly Func<DateTimeOffset> _nowUtc;
     private readonly TimeSpan _runTimeout;
@@ -50,6 +50,7 @@ public sealed class AdminCreatorProfileController : Controller
             BindBuildDelegate(builder),
             nowUtc: null,
             logger: logger,
+            runTimeout: null,
             suppressionGate: suppressionGate)
     {
     }
@@ -66,17 +67,18 @@ public sealed class AdminCreatorProfileController : Controller
     /// Optional run-timeout override; defaults to the production ten-minute constant. Lets a fact
     /// supply a short deterministic interval instead of waiting out the real timeout.
     /// </param>
-    /// <param name="suppressionGate">Optional gate that determines whether a creator is suppressed.</param>
+    /// <param name="suppressionGate">Gate that determines whether a creator is suppressed.</param>
     internal AdminCreatorProfileController(
         ICreatorProfileSourceStore sourceStore,
         Func<string, string, CancellationToken, Task<MeasuredStyleBuildResult>> buildDetailedAsync,
-        Func<DateTimeOffset>? nowUtc = null,
-        ILogger<AdminCreatorProfileController>? logger = null,
-        TimeSpan? runTimeout = null,
-        ICreatorSuppressionGate? suppressionGate = null)
+        Func<DateTimeOffset>? nowUtc,
+        ILogger<AdminCreatorProfileController>? logger,
+        TimeSpan? runTimeout,
+        ICreatorSuppressionGate suppressionGate)
     {
         ArgumentNullException.ThrowIfNull(sourceStore);
         ArgumentNullException.ThrowIfNull(buildDetailedAsync);
+        ArgumentNullException.ThrowIfNull(suppressionGate);
         _sourceStore = sourceStore;
         _suppressionGate = suppressionGate;
         _buildDetailedAsync = buildDetailedAsync;
@@ -155,8 +157,7 @@ public sealed class AdminCreatorProfileController : Controller
             return View("Index", BuildViewModel(normalizedInput));
         }
 
-        if (_suppressionGate is not null
-            && await _suppressionGate.IsSuppressedAsync(normalizedSlug, HttpContext?.RequestAborted ?? CancellationToken.None).ConfigureAwait(false))
+        if (await _suppressionGate.IsSuppressedAsync(normalizedSlug, HttpContext?.RequestAborted ?? CancellationToken.None).ConfigureAwait(false))
         {
             return View("Index", BuildViewModel(
                 normalizedInput,
