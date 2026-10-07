@@ -24,6 +24,6 @@ internal sealed record ArchidektDeckMetadataParameters(
             metadata.CapturedUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
     }
 
-    private static string? Format(DateTimeOffset? value)
+    internal static string? Format(DateTimeOffset? value)
         => value?.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
 }

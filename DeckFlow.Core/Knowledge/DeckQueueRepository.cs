@@ -890,7 +890,7 @@ internal sealed class DeckQueueRepository
     /// <param name="value">Time to format.</param>
     /// <returns>Invariant UTC timestamp text.</returns>
     private static string FormatUtc(DateTimeOffset value)
-        => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
+        => ArchidektDeckMetadataParameters.Format(value)!;
 
     private sealed class ListingBaselineRow
     {
