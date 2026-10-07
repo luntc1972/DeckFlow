@@ -38,6 +38,7 @@ public sealed class DeckEntryLoaderTests
                 Assert.Equal("mainboard", entry.Board);
             });
         Assert.Equal("Used fallback import.", result.FallbackNotice);
+        Assert.True(result.IncludedBoardsUnavailable);
         Assert.Equal(" https://www.moxfield.com/decks/example ", importer.LastImportWithSourceArgument);
     }
 
@@ -56,6 +57,7 @@ public sealed class DeckEntryLoaderTests
         var result = await loader.LoadFromSourceAsync("https://www.moxfield.com/decks/example");
 
         Assert.Equal("Jegantha, the Wellspring", result.DetectedCompanionName);
+        Assert.False(result.IncludedBoardsUnavailable);
     }
 
     [Fact]

@@ -846,6 +846,40 @@ public sealed class CutLabPageServiceTests
         Assert.DoesNotContain(result.Warnings, warning => warning.Contains("could not be looked up", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData(true, false, "sideboard", "considering")]
+    [InlineData(true, true, "sideboard and considering", "")]
+    [InlineData(false, false, "", "")]
+    public async Task ProcessAsync_FallbackOmitsIncludedBoards_WarnsOnlyForRequestedBoards(bool includeSideboard, bool includeMaybeboard, string expectedBoards, string excludedBoard)
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 101, commanderName: "Atraxa, Praetors' Voice");
+        var service = new CutLabPageService(new FakeLoader(entries, includedBoardsUnavailable: true), new FakeResolver(BuildResolvedCards(entries)), new FakeBanListService([]));
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            IncludeSideboard = includeSideboard,
+            IncludeMaybeboard = includeMaybeboard,
+        };
+
+        var result = await service.ProcessAsync(request);
+
+        Assert.True(result.HasResult);
+        if (string.IsNullOrEmpty(expectedBoards))
+        {
+            Assert.DoesNotContain(result.Warnings, warning => warning.Contains("Moxfield blocked", StringComparison.Ordinal));
+            return;
+        }
+
+        string warning = Assert.Single(result.Warnings, warning => warning.Contains("Moxfield blocked", StringComparison.Ordinal));
+        Assert.Contains(expectedBoards, warning, StringComparison.Ordinal);
+        Assert.Contains("Paste the Moxfield export text", warning, StringComparison.Ordinal);
+        if (!string.IsNullOrEmpty(excludedBoard))
+        {
+            Assert.DoesNotContain(excludedBoard, warning, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public async Task ProcessAsync_IncludeSideboardAndMaybeboardOff_ExcludesExtraBoardsFromPool()
     {
@@ -3400,7 +3434,7 @@ public sealed class CutLabPageServiceTests
             ],
         };
 
-    private sealed class FakeLoader(List<DeckEntry> entries) : IDeckEntryLoader
+    private sealed class FakeLoader(List<DeckEntry> entries, bool includedBoardsUnavailable = false) : IDeckEntryLoader
     {
         public Task<List<DeckEntry>> LoadAsync(DeckLoadRequest request, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
@@ -3409,7 +3443,7 @@ public sealed class CutLabPageServiceTests
             string deckSource,
             UnrecognizedPasteBehavior unrecognizedBehavior = UnrecognizedPasteBehavior.ThrowNotRecognized,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new DeckSourceLoadResult(entries, null));
+            => Task.FromResult(new DeckSourceLoadResult(entries, null, IncludedBoardsUnavailable: includedBoardsUnavailable));
 
         public void ValidateCommanderDeckSize(string systemName, IReadOnlyList<DeckEntry> entries, int requiredDeckSize = 100)
             => throw new NotSupportedException();

@@ -265,6 +265,14 @@ internal sealed class CutLabPageService : ICutLabPageService
             warnings.Add(load.FallbackNotice);
         }
 
+        if (load.IncludedBoardsUnavailable && (request.IncludeSideboard || request.IncludeMaybeboard))
+        {
+            string boards = request.IncludeSideboard && request.IncludeMaybeboard
+                ? "sideboard and considering"
+                : request.IncludeSideboard ? "sideboard" : "considering";
+            warnings.Add($"Moxfield blocked this request, so {boards} cards were not loaded. Paste the Moxfield export text to include them.");
+        }
+
         var entries = ReflagInferredCommanders(load.Entries);
         IReadOnlySet<string> analyzedBoards = BuildAnalyzedBoards(request);
         EntryAnalysis analysis = AnalyzeEntries(entries, analyzedBoards);
