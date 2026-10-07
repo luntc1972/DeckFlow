@@ -233,9 +233,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         var row = await connection.QuerySingleOrDefaultAsync<HarvestRunRowData>(new CommandDefinition(
-            """
-            SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url, trigger_source, pages_polled, refreshes_requeued, refreshes_drained, new_ids_seen
+            $"""
+            SELECT {HarvestRunSelectColumns}
               FROM harvest_runs
              WHERE state IN ('Queued','Running','Stopping')
              ORDER BY requested_utc DESC
@@ -252,9 +251,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
 
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         var row = await connection.QuerySingleOrDefaultAsync<HarvestRunRowData>(new CommandDefinition(
-            """
-            SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                    duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url, trigger_source, pages_polled, refreshes_requeued, refreshes_drained, new_ids_seen
+            $"""
+            SELECT {HarvestRunSelectColumns}
               FROM harvest_runs
              WHERE id = @id
              LIMIT 1;
@@ -272,9 +270,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         // NULLS LAST works on Postgres natively; SQLite >= 3.30 (shipped with Microsoft.Data.Sqlite 10) supports it too.
         var rows = await connection.QueryAsync<HarvestRunRowData>(new CommandDefinition(
-            """
-            SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url, trigger_source, pages_polled, refreshes_requeued, refreshes_drained, new_ids_seen
+            $"""
+            SELECT {HarvestRunSelectColumns}
               FROM harvest_runs
              ORDER BY started_utc DESC NULLS LAST
              LIMIT @n;
@@ -292,9 +289,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         // Succeeded is essential: sweep counts are written before the terminal state transition.
         var rows = await connection.QueryAsync<HarvestRunRowData>(new CommandDefinition(
-            """
-            SELECT id, kind, state, requested_utc, started_utc, completed_utc,
-                   duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url, trigger_source, pages_polled, refreshes_requeued, refreshes_drained, new_ids_seen
+            $"""
+            SELECT {HarvestRunSelectColumns}
               FROM harvest_runs
              WHERE kind = 'bulk' AND state = 'Succeeded'
                AND decks_enqueued IS NOT NULL AND decks_drained IS NOT NULL
@@ -336,10 +332,9 @@ public sealed class HarvestRunStore : IHarvestRunStore
         // Manual runs must not move a schedule; legacy NULL counts as scheduled on deploy.
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var completedUtc = await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-            "SELECT MAX(completed_utc) FROM harvest_runs WHERE kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL);",
+        return await connection.ExecuteScalarAsync<DateTimeOffset?>(new CommandDefinition(
+            $"SELECT MAX(completed_utc) FROM harvest_runs WHERE {ScheduledOrLegacySuccessPredicate};",
             new { kind = ToStoredKind(kind) }, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return ConvertCompletedUtc(completedUtc);
     }
 
     /// <inheritdoc />
@@ -349,14 +344,14 @@ public sealed class HarvestRunStore : IHarvestRunStore
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         var row = await connection.QuerySingleAsync<FailureStreakRow>(new CommandDefinition(
-            """
+            $"""
             SELECT COUNT(1) AS ConsecutiveFailures, MAX(completed_utc) AS LastFailureUtc,
-                   (SELECT MAX(completed_utc) FROM harvest_runs WHERE kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL)) AS LastSuccessUtc
+                   (SELECT MAX(completed_utc) FROM harvest_runs WHERE {ScheduledOrLegacySuccessPredicate}) AS LastSuccessUtc
               FROM harvest_runs
              WHERE kind = @kind AND state = 'Failed' AND completed_utc IS NOT NULL
                AND (trigger_source = 'scheduled' OR trigger_source IS NULL)
-               AND (NOT EXISTS (SELECT 1 FROM harvest_runs WHERE kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL))
-                    OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL)));
+               AND (NOT EXISTS (SELECT 1 FROM harvest_runs WHERE {ScheduledOrLegacySuccessPredicate})
+                    OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE {ScheduledOrLegacySuccessPredicate}));
             """, new { kind = ToStoredKind(kind) }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         return new HarvestFailureStreak(checked((int)row.ConsecutiveFailures), ConvertCompletedUtc(row.LastFailureUtc), ConvertCompletedUtc(row.LastSuccessUtc));
     }
@@ -493,7 +488,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
             try
             {
                 await connection.ExecuteAsync(new CommandDefinition(
-                    $"ALTER TABLE harvest_runs ADD COLUMN {(_connectionInfo.IsPostgres ? "IF NOT EXISTS " : string.Empty)}{column.Name} {(_connectionInfo.IsPostgres ? column.PostgresType : column.SqliteType)} NULL;",
+                    $"ALTER TABLE harvest_runs ADD COLUMN {column.Name} {column.SqliteType} NULL;",
                     cancellationToken: cancellationToken)).ConfigureAwait(false);
             }
             catch (DbException exception) when (exception.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
@@ -824,6 +819,8 @@ public sealed class HarvestRunStore : IHarvestRunStore
         );
         """;
 
+    private const string ScheduledOrLegacySuccessPredicate = "kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL)";
+    private const string HarvestRunSelectColumns = "id, kind, state, requested_utc, started_utc, completed_utc, duration_seconds, decks_processed, additional_decks_found, decks_enqueued, decks_drained, error_message, url, trigger_source, pages_polled, refreshes_requeued, refreshes_drained, new_ids_seen";
     private static readonly string[] HarvestRunColumns = ["id", "kind", "state", "requested_utc", "started_utc", "completed_utc", "duration_seconds", "decks_processed", "additional_decks_found", "decks_enqueued", "decks_drained", "error_message", "url", "trigger_source", "pages_polled", "refreshes_requeued", "refreshes_drained", "new_ids_seen"];
     private static readonly AdditiveColumn[] AdditiveColumns = [new("decks_enqueued", "INTEGER", "INT"), new("decks_drained", "INTEGER", "INT"), new("trigger_source", "TEXT", "TEXT"), new("pages_polled", "INTEGER", "INT"), new("refreshes_requeued", "INTEGER", "INT"), new("refreshes_drained", "INTEGER", "INT"), new("new_ids_seen", "INTEGER", "INT")];
     private sealed record AdditiveColumn(string Name, string SqliteType, string PostgresType);

@@ -25,8 +25,7 @@ public sealed class HarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
     private const string SetPausedSql = "UPDATE harvest_update_schedule SET paused = @paused, updated_utc = @now WHERE id = 1;";
     private const string SeedSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, NULL, FALSE, now()) ON CONFLICT (id) DO NOTHING;";
     private const string SqliteSeedSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, NULL, 0, datetime('now')) ON CONFLICT (id) DO NOTHING;";
-    private const string PostgresUpsertSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, @interval, @paused, @now) ON CONFLICT (id) DO UPDATE SET interval_minutes = EXCLUDED.interval_minutes, paused = EXCLUDED.paused, updated_utc = EXCLUDED.updated_utc;";
-    private const string SqliteUpsertSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, @interval, @paused, @now) ON CONFLICT (id) DO UPDATE SET interval_minutes = excluded.interval_minutes, paused = excluded.paused, updated_utc = excluded.updated_utc;";
+    private const string UpsertSql = "INSERT INTO harvest_update_schedule (id, interval_minutes, paused, updated_utc) VALUES (1, @interval, @paused, @now) ON CONFLICT (id) DO UPDATE SET interval_minutes = excluded.interval_minutes, paused = excluded.paused, updated_utc = excluded.updated_utc;";
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly SemaphoreSlim _schemaGate = new(1, 1);
     private volatile bool _schemaReady;
@@ -73,7 +72,7 @@ public sealed class HarvestUpdateScheduleStore : IHarvestUpdateScheduleStore
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await connection.ExecuteAsync(new CommandDefinition(_connectionInfo.IsPostgres ? PostgresUpsertSql : SqliteUpsertSql, new { interval = intervalMinutes, paused, now = now.ToUniversalTime() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(UpsertSql, new { interval = intervalMinutes, paused, now = now.ToUniversalTime() }, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
     /// <summary>
     /// Sets pause state using the caller's open transaction; 06-11 uses this seam to pause both schedules atomically.
