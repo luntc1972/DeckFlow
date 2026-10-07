@@ -62,6 +62,27 @@ public sealed class HarvestStatsAggregatorTests
         Assert.Equal(new[] { HarvestRunKind.Bulk, HarvestRunKind.Update }, store.QueriedKinds);
     }
 
+    [Fact]
+    public async Task GetAsync_ScheduledFailuresAfterAnchor_NextRunIgnoresFailureBackoff()
+    {
+        var anchor = new DateTimeOffset(2026, 9, 23, 11, 50, 0, TimeSpan.Zero);
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var store = new ImmediateHarvestRunStore(
+            scheduledSuccesses: new Dictionary<HarvestRunKind, DateTimeOffset?> { [HarvestRunKind.Update] = anchor },
+            failureStreak: new HarvestFailureStreak(2, anchor.AddMinutes(45), anchor));
+        var aggregator = CreateAggregator(
+            store,
+            new ImmediateCategoryKnowledgeStore(),
+            cache,
+            new FakeHarvestScheduleCache(),
+            new FakeHarvestUpdateScheduleCache(new(30, false, anchor)));
+
+        var payload = await aggregator.GetAsync();
+
+        // Why: Admin display intentionally ignores scheduler failure backoff and stays anchored to the last scheduled success.
+        Assert.Equal(anchor.AddMinutes(30), payload.NextUpdateScheduledUtc);
+    }
+
     [Theory]
     [InlineData(HarvestRunKind.Bulk, false)]
     [InlineData(HarvestRunKind.Bulk, true)]
@@ -757,11 +778,16 @@ public sealed class HarvestStatsAggregatorTests
     {
         private readonly IReadOnlyList<HarvestRunRow> _healthRuns;
         private readonly IReadOnlyDictionary<HarvestRunKind, DateTimeOffset?> _scheduledSuccesses;
+        private readonly HarvestFailureStreak _failureStreak;
 
-        public ImmediateHarvestRunStore(IReadOnlyList<HarvestRunRow>? healthRuns = null, IReadOnlyDictionary<HarvestRunKind, DateTimeOffset?>? scheduledSuccesses = null)
+        public ImmediateHarvestRunStore(
+            IReadOnlyList<HarvestRunRow>? healthRuns = null,
+            IReadOnlyDictionary<HarvestRunKind, DateTimeOffset?>? scheduledSuccesses = null,
+            HarvestFailureStreak? failureStreak = null)
         {
             _healthRuns = healthRuns ?? Array.Empty<HarvestRunRow>();
             _scheduledSuccesses = scheduledSuccesses ?? new Dictionary<HarvestRunKind, DateTimeOffset?>();
+            _failureStreak = failureStreak ?? new HarvestFailureStreak(0, null, null);
         }
 
         public List<HarvestRunKind> QueriedKinds { get; } = new();
@@ -804,7 +830,8 @@ public sealed class HarvestStatsAggregatorTests
             QueriedKinds.Add(kind);
             return Task.FromResult(_scheduledSuccesses.TryGetValue(kind, out var value) ? value : null);
         }
-        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default) => Task.FromResult(new HarvestFailureStreak(0, null, null));
+        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
+            => Task.FromResult(_failureStreak);
     }
 
     private sealed class FakeHarvestScheduleCache : IHarvestScheduleCache

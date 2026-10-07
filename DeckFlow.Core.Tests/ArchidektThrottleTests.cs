@@ -91,6 +91,18 @@ public sealed class ArchidektThrottleTests : IDisposable
     }
 
     [Fact]
+    public async Task AcquireAsync_AfterPauseElapsed_ReturnsToOrdinaryInterval()
+    {
+        await ArchidektThrottle.AcquireAsync(CancellationToken.None);
+        ArchidektThrottle.Observe(HttpStatusCode.TooManyRequests, "1");
+
+        await ArchidektThrottle.AcquireAsync(CancellationToken.None);
+        await ArchidektThrottle.AcquireAsync(CancellationToken.None);
+
+        Assert.Equal([TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3)], _clock.Waits);
+    }
+
+    [Fact]
     public async Task Observe_TwoConsecutive429s_DoNotTrip_ThirdTrips()
     {
         Assert.Equal(TimeSpan.FromSeconds(5), ArchidektThrottle.Observe(HttpStatusCode.TooManyRequests, null));
