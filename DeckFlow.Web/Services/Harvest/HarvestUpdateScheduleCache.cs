@@ -65,6 +65,13 @@ public sealed class HarvestUpdateScheduleCache : BackgroundService, IHarvestUpda
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(PollInterval);
-        while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false)) await ReloadAsync(stoppingToken).ConfigureAwait(false);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false)) await ReloadAsync(stoppingToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Normal shutdown path.
+        }
     }
 }
