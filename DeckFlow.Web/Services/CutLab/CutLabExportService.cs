@@ -211,7 +211,7 @@ public sealed class CutLabExportService : ICutLabExportService
                     Board = keptCard.IsCommander ? "commander" : "mainboard",
                     SetCode = match.SetCode,
                     CollectorNumber = match.CollectorNumber,
-                    Category = match.Category,
+                    Category = NormalizePromotedCategory(match.Category, match.Board, keptCard.IsCommander),
                 });
                 remaining -= matchedQuantity;
             }
@@ -256,4 +256,22 @@ public sealed class CutLabExportService : ICutLabExportService
 
     private static string NormalizeBoard(string? board)
         => string.IsNullOrWhiteSpace(board) ? "mainboard" : board.Trim();
+
+    private static string? NormalizePromotedCategory(string? category, string? originalBoard, bool isCommander)
+    {
+        if (isCommander || string.Equals(NormalizeBoard(originalBoard), "mainboard", StringComparison.OrdinalIgnoreCase))
+        {
+            return category;
+        }
+
+        string[] categories = category?
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(token => !string.Equals(token, "Maybeboard", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(token, "Considering", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(token, "Sideboard", StringComparison.OrdinalIgnoreCase))
+            .ToArray()
+            ?? [];
+
+        return categories.Length == 0 ? null : string.Join(',', categories);
+    }
 }

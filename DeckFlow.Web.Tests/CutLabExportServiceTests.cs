@@ -136,8 +136,8 @@ public sealed class CutLabExportServiceTests
             [
                 CreateOriginalEntry("Zur the Enchanter", 1, "commander"),
                 CreateOriginalEntry("Arcane Signet", 97, "mainboard"),
-                CreateOriginalEntry("Swords to Plowshares", 1, "sideboard"),
-                CreateOriginalEntry("Mystic Remora", 1, "maybeboard"),
+                CreateOriginalEntry("Swords to Plowshares", 1, "sideboard", category: "Sideboard"),
+                CreateOriginalEntry("Mystic Remora", 1, "maybeboard", category: "Ramp,Maybeboard"),
             ],
         };
 
@@ -152,6 +152,9 @@ public sealed class CutLabExportServiceTests
         Assert.Contains("1 Mystic Remora", result.MoxfieldPatchText, StringComparison.Ordinal);
         Assert.Contains("1 Swords to Plowshares", result.ArchidektPatchText, StringComparison.Ordinal);
         Assert.Contains("1 Mystic Remora", result.ArchidektPatchText, StringComparison.Ordinal);
+        Assert.DoesNotContain("[Sideboard]", result.ArchidektFullListText, StringComparison.Ordinal);
+        Assert.DoesNotContain("[Ramp,Maybeboard]", result.ArchidektFullListText, StringComparison.Ordinal);
+        Assert.Contains("1 Mystic Remora [Ramp]", result.ArchidektFullListText, StringComparison.Ordinal);
     }
 
     [Fact]
