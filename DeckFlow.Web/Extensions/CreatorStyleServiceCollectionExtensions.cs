@@ -43,7 +43,8 @@ public static class CreatorStyleServiceCollectionExtensions
         services.AddSingleton<ICreatorDeckCacheStore>(provider =>
             new CreatorDeckCacheStore(
                 DeckFlowDatabaseConnectionFactory.CreateCreatorDeckCacheConnection(environment),
-                suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>()));
+                suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>(),
+                identityResolver: new Lazy<ICreatorIdentityResolver>(() => provider.GetRequiredService<ICreatorIdentityResolver>())));
         services.AddSingleton<ICreatorProfileSourceStore>(_ =>
             new CreatorProfileSourceStore(
                 DeckFlowDatabaseConnectionFactory.CreateCreatorDeckCacheConnection(environment)));
@@ -54,7 +55,8 @@ public static class CreatorStyleServiceCollectionExtensions
             // Why: creator-style profiles live in the local-only content-kb DB because production never crawls; it only reads git-shipped seeds.
             new CreatorStyleProfileStore(
                 DeckFlowDatabaseConnectionFactory.CreateLocalContentKbConnection(environment),
-                suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>()));
+                suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>(),
+                identityResolver: new Lazy<ICreatorIdentityResolver>(() => provider.GetRequiredService<ICreatorIdentityResolver>())));
 
         services.AddSingleton<ICreatorSuppressionGate, CreatorSuppressionGate>();
         services.AddSingleton<CreatorWhitelistPoolBuilder>();

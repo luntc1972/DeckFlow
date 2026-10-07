@@ -65,10 +65,35 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
             .ConfigureAwait(false)
             ?? Array.Empty<ContentKbSeedEntry>();
 
+        var filter = new CreatorSuppressionFilter(_suppressionStore, new Lazy<ICreatorIdentityResolver>(() => _identityResolver));
+        HashSet<string> unsuppressed;
+        try
+        {
+            unsuppressed = (await filter.GetUnsuppressedAsync(entries.Select(entry => entry.Source).ToList(), cancellationToken).ConfigureAwait(false))
+                .ToHashSet(StringComparer.Ordinal);
+        }
+        catch (CreatorAliasConflictException)
+        {
+            unsuppressed = [];
+            foreach (var entry in entries)
+            {
+                try
+                {
+                    if ((await filter.GetUnsuppressedAsync([entry.Source], cancellationToken).ConfigureAwait(false)).Count > 0)
+                    {
+                        unsuppressed.Add(entry.Source);
+                    }
+                }
+                catch (CreatorAliasConflictException)
+                {
+                    _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", entry.Source);
+                }
+            }
+        }
         var loaded = 0;
         foreach (var entry in entries)
         {
-            if (await IsSuppressedAsync(entry.Source, cancellationToken).ConfigureAwait(false))
+            if (!unsuppressed.Contains(entry.Source))
             {
                 continue;
             }
@@ -80,22 +105,6 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
 
         _logger.LogInformation("Content KB seed load complete: {RowCount} rows.", entries.Length);
         return loaded;
-    }
-
-    private async Task<bool> IsSuppressedAsync(string representation, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var identity = await _identityResolver.ResolveAsync(representation, cancellationToken).ConfigureAwait(false);
-            return await _suppressionStore
-                .IsSuppressedAsync(identity?.CanonicalSlug ?? representation, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (CreatorAliasConflictException)
-        {
-            _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", representation);
-            return true;
-        }
     }
 
     private static ContentSiteIndexRow BuildRow(ContentKbSeedEntry entry)

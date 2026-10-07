@@ -19,7 +19,8 @@ public static class ContentKbStoreServiceCollectionExtensions
         services.AddSingleton<ICreatorSuppressionStore>(_ => new CreatorSuppressionStore(connection));
         services.AddSingleton<IContentSourceStore>(provider => new ContentSourceStore(
             connection,
-            provider.GetRequiredService<ICreatorSuppressionStore>()));
+            suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>(),
+            identityResolver: new Lazy<ICreatorIdentityResolver>(() => provider.GetRequiredService<ICreatorIdentityResolver>())));
         services.AddSingleton<IContentVideoStore>(provider => new ContentVideoStore(
             connection,
             provider.GetRequiredService<ICreatorSuppressionStore>()));
@@ -29,7 +30,8 @@ public static class ContentKbStoreServiceCollectionExtensions
             identityResolver: new Lazy<ICreatorIdentityResolver>(() => provider.GetRequiredService<ICreatorIdentityResolver>())));
         services.AddSingleton<ICreatorStyleStatedRuleStore>(provider => new CreatorStyleStatedRuleStore(
             connection,
-            suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>()));
+            suppressionStore: provider.GetRequiredService<ICreatorSuppressionStore>(),
+            identityResolver: new Lazy<ICreatorIdentityResolver>(() => provider.GetRequiredService<ICreatorIdentityResolver>())));
         services.AddSingleton<ICreatorSourceStore>(_ => new CreatorSourceStore(connection));
         services.AddSingleton<ICreatorIdentityResolver, CreatorIdentityResolver>();
         services.AddSingleton<CreatorPurgeService>();

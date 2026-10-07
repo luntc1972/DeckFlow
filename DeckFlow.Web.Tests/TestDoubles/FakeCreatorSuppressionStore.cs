@@ -30,7 +30,9 @@ internal sealed class FakeCreatorSuppressionStore : ICreatorSuppressionStore
             throw ReadException;
         }
 
-        return Task.FromResult<IReadOnlyList<CreatorSuppression>>(Rows);
+        // Why: identity-aware callers read ListAsync, so Suppressed must be visible here as well as via IsSuppressedAsync.
+        return Task.FromResult<IReadOnlyList<CreatorSuppression>>(
+            [.. Rows, .. Suppressed.Select(slug => new CreatorSuppression { Slug = slug, Aliases = [], Reason = "test", RequestedUtc = DateTimeOffset.UnixEpoch })]);
     }
     public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default)
     {

@@ -94,10 +94,40 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
             return 0;
         }
 
+        var filter = new CreatorSuppressionFilter(_suppressionStore, new Lazy<ICreatorIdentityResolver>(() => _identityResolver));
+        var profileSlugs = profiles.Select(profile => profile.Slug).Where(slug => !string.IsNullOrWhiteSpace(slug)).ToList();
+        HashSet<string> unsuppressed;
+        try
+        {
+            unsuppressed = (await filter.GetUnsuppressedAsync(profileSlugs, cancellationToken).ConfigureAwait(false))
+                .ToHashSet(StringComparer.Ordinal);
+        }
+        catch (CreatorAliasConflictException)
+        {
+            unsuppressed = [];
+            foreach (var profile in profiles)
+            {
+                if (string.IsNullOrWhiteSpace(profile.Slug))
+                {
+                    continue;
+                }
+                try
+                {
+                    if ((await filter.GetUnsuppressedAsync([profile.Slug], cancellationToken).ConfigureAwait(false)).Count > 0)
+                    {
+                        unsuppressed.Add(profile.Slug);
+                    }
+                }
+                catch (CreatorAliasConflictException)
+                {
+                    _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", profile.Slug);
+                }
+            }
+        }
         var loaded = 0;
         foreach (var profile in profiles)
         {
-            if (await IsSuppressedAsync(profile.Slug, cancellationToken).ConfigureAwait(false))
+            if (!string.IsNullOrWhiteSpace(profile.Slug) && !unsuppressed.Contains(profile.Slug))
             {
                 continue;
             }
@@ -147,10 +177,40 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
             return 0;
         }
 
+        var filter = new CreatorSuppressionFilter(_suppressionStore, new Lazy<ICreatorIdentityResolver>(() => _identityResolver));
+        var creatorSlugs = entries.Select(entry => entry.CreatorSlug).Where(slug => !string.IsNullOrWhiteSpace(slug)).ToList();
+        HashSet<string> unsuppressed;
+        try
+        {
+            unsuppressed = (await filter.GetUnsuppressedAsync(creatorSlugs, cancellationToken).ConfigureAwait(false))
+                .ToHashSet(StringComparer.Ordinal);
+        }
+        catch (CreatorAliasConflictException)
+        {
+            unsuppressed = [];
+            foreach (var entry in entries)
+            {
+                if (string.IsNullOrWhiteSpace(entry.CreatorSlug))
+                {
+                    continue;
+                }
+                try
+                {
+                    if ((await filter.GetUnsuppressedAsync([entry.CreatorSlug], cancellationToken).ConfigureAwait(false)).Count > 0)
+                    {
+                        unsuppressed.Add(entry.CreatorSlug);
+                    }
+                }
+                catch (CreatorAliasConflictException)
+                {
+                    _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", entry.CreatorSlug);
+                }
+            }
+        }
         var loaded = 0;
         foreach (var entry in entries)
         {
-            if (await IsSuppressedAsync(entry.CreatorSlug, cancellationToken).ConfigureAwait(false))
+            if (!string.IsNullOrWhiteSpace(entry.CreatorSlug) && !unsuppressed.Contains(entry.CreatorSlug))
             {
                 continue;
             }
@@ -172,22 +232,6 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
         }
 
         return loaded;
-    }
-
-    private async Task<bool> IsSuppressedAsync(string representation, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var identity = await _identityResolver.ResolveAsync(representation, cancellationToken).ConfigureAwait(false);
-            return await _suppressionStore
-                .IsSuppressedAsync(identity?.CanonicalSlug ?? representation, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (CreatorAliasConflictException)
-        {
-            _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", representation);
-            return true;
-        }
     }
 
     private string ResolveSeedFilePath(string relativePath)
