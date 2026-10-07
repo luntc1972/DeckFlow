@@ -911,53 +911,54 @@ public partial class Harvest
         CancellationToken cancellationToken)
     {
         var suppressed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var group in groups)
+        var groupRepresentations = groups.Select(group => new
         {
-            var representations = new[]
-            {
-                group.CreatorRef,
-                group.ChannelName,
-                CreatorNameResolver.FromChannelTitle(group.ChannelName),
-                group.ChannelUrl,
-            };
-            var resolvedIdentity = false;
-            foreach (var representation in representations.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                var identity = await CreatorIdentityResolver.ResolveAsync(representation!, cancellationToken);
-                if (identity is null)
+            Group = group,
+            PrimaryRepresentations = new[]
                 {
-                    continue;
+                    group.CreatorRef,
+                    group.ChannelName,
+                    CreatorNameResolver.FromChannelTitle(group.ChannelName),
+                    group.ChannelUrl,
                 }
-
-                resolvedIdentity = true;
-                if (await CreatorSuppressionStore.IsSuppressedAsync(identity.CanonicalSlug, cancellationToken))
-                {
-                    suppressed.Add(group.ChannelUrl);
-                    break;
-                }
-            }
-
-            if (!resolvedIdentity)
-            {
-                var browseSources = selectedVideos
-                    .Where(video => group.VideoIds.Contains(video.VideoId, StringComparer.Ordinal))
-                    .Select(video => video.BrowseSource)
-                    .Where(source => !string.IsNullOrWhiteSpace(source))
-                    .Distinct(StringComparer.OrdinalIgnoreCase);
-
-                foreach (var browseSource in browseSources)
-                {
-                    var identity = await CreatorIdentityResolver.ResolveAsync(browseSource!, cancellationToken);
-                    if (identity is not null && await CreatorSuppressionStore.IsSuppressedAsync(identity.CanonicalSlug, cancellationToken))
-                    {
-                        suppressed.Add(group.ChannelUrl);
-                        break;
-                    }
-                }
-            }
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .OfType<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            BrowseSources = selectedVideos
+                .Where(video => group.VideoIds.Contains(video.VideoId, StringComparer.Ordinal))
+                .Select(video => video.BrowseSource)
+                .Where(source => !string.IsNullOrWhiteSpace(source))
+                .OfType<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+        }).ToList();
+        var representations = groupRepresentations.SelectMany(entry => entry.PrimaryRepresentations.Concat(entry.BrowseSources)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var identities = await CreatorIdentityResolver.ResolveManyAsync(representations, cancellationToken);
+        var candidates = groupRepresentations.Select(entry => new
+        {
+            entry.Group,
+            Representations = entry.PrimaryRepresentations.Any(representation => identities.GetValueOrDefault(representation) is not null)
+                ? entry.PrimaryRepresentations
+                : entry.PrimaryRepresentations.Concat(entry.BrowseSources).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+        }).ToList();
+        var filter = new CreatorSuppressionFilter(CreatorSuppressionStore, new Lazy<ICreatorIdentityResolver>(() => new ResolvedCreatorIdentityResolver(identities)));
+        var allowed = (await filter.GetUnsuppressedAsync(candidates.SelectMany(entry => entry.Representations).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), cancellationToken)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in candidates)
+        {
+            if (entry.Representations.Any(representation => !allowed.Contains(representation))) suppressed.Add(entry.Group.ChannelUrl);
         }
 
         return suppressed;
+    }
+
+    private sealed class ResolvedCreatorIdentityResolver(IReadOnlyDictionary<string, CreatorIdentity?> identities) : ICreatorIdentityResolver
+    {
+        public Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default)
+            => Task.FromResult(identities.GetValueOrDefault(anyRepresentation));
+
+        public Task<IReadOnlyDictionary<string, CreatorIdentity?>> ResolveManyAsync(IReadOnlyCollection<string> representations, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(representations.ToDictionary(representation => representation, representation => identities.GetValueOrDefault(representation), StringComparer.OrdinalIgnoreCase));
     }
 
     private void CancelOperation()

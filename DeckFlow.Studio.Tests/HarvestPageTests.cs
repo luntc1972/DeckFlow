@@ -980,6 +980,57 @@ namespace DeckFlow.Studio.Tests
         }
 
         [Fact]
+        public async Task HarvestPage_HarvestSelected_BatchesSuppressionForThreeGroups()
+        {
+            var suppression = new FakeCreatorSuppressionStore();
+            var identities = new FakeCreatorIdentityResolver();
+            var (cut, _, harv, _) = RenderHarvest(
+                new[]
+                {
+                    Vid("batch-one", "Batch one", channelId: "UCbatchone"),
+                    Vid("batch-two", "Batch two", channelId: "UCbatchtwo"),
+                    Vid("batch-three", "Batch three", channelId: "UCbatchthree"),
+                },
+                new MapBlockedStore(), new MapSiteIndexStore(), suppressionStore: suppression, identityResolver: identities);
+
+            await cut.InvokeAsync(() => cut.Find("#channelInput").Change("https://youtube.com/@paste"));
+            await cut.InvokeAsync(() => cut.FindAll("button").First(button => button.TextContent.Contains("Browse", StringComparison.Ordinal)).Click());
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Fetching channel videos", cut.Markup), UiTimeout);
+            await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Batch one']").Change(true));
+            await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Batch two']").Change(true));
+            await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Batch three']").Change(true));
+            var listCallsBeforeHarvest = suppression.ListCalls;
+            var resolveAsyncCallsBeforeHarvest = identities.ResolveAsyncCalls;
+            var resolveManyCallsBeforeHarvest = identities.ResolveManyAsyncCalls;
+            await cut.InvokeAsync(() => cut.FindAll("button").First(button => button.TextContent.Contains("Harvest Selected", StringComparison.Ordinal)).Click());
+
+            cut.WaitForAssertion(() => Assert.Equal(3, harv.HarvestCalls.SelectMany(call => call ?? []).Count()), UiTimeout);
+            Assert.Equal(listCallsBeforeHarvest + 1, suppression.ListCalls);
+            Assert.Equal(resolveAsyncCallsBeforeHarvest, identities.ResolveAsyncCalls);
+            Assert.Equal(resolveManyCallsBeforeHarvest + 1, identities.ResolveManyAsyncCalls);
+        }
+
+        [Fact]
+        public async Task HarvestPage_HarvestSelected_SkipsCreatorWhoseDisplayNameIsSuppressed()
+        {
+            var suppression = new FakeCreatorSuppressionStore();
+            suppression.Suppressed.Add("blocked-display-name");
+            var identities = new FakeCreatorIdentityResolver();
+            identities.Identities["https://www.youtube.com/channel/UCdisplay"] = new CreatorIdentity("allowed-creator", [], ["blocked-display-name"], []);
+            var (cut, _, harv, _) = RenderHarvest(
+                new[] { Vid("display-video", "Display video", channelId: "UCdisplay") },
+                new MapBlockedStore(), new MapSiteIndexStore(), suppressionStore: suppression, identityResolver: identities);
+
+            await cut.InvokeAsync(() => cut.Find("#channelInput").Change("https://youtube.com/@paste"));
+            await cut.InvokeAsync(() => cut.FindAll("button").First(button => button.TextContent.Contains("Browse", StringComparison.Ordinal)).Click());
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Fetching channel videos", cut.Markup), UiTimeout);
+            await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Display video']").Change(true));
+            await cut.InvokeAsync(() => cut.FindAll("button").First(button => button.TextContent.Contains("Harvest Selected", StringComparison.Ordinal)).Click());
+
+            cut.WaitForAssertion(() => Assert.DoesNotContain(harv.HarvestCalls, call => call?.Contains("display-video") == true), UiTimeout);
+        }
+
+        [Fact]
         public async Task HarvestPage_HarvestSelected_SkipsSuppressedPasteUrlGroupWithoutCreatorRef()
         {
             var suppression = new FakeCreatorSuppressionStore();

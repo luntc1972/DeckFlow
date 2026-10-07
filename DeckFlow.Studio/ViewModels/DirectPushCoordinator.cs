@@ -70,7 +70,7 @@ public sealed class DirectPushCoordinator
     /// </summary>
     public async Task<DirectPushInitData> LoadInitDataAsync(CancellationToken cancellationToken)
     {
-        var rows = await _suppressionFilter.GetAllowedAsync(await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+        var rows = await GetPublishableRowsAsync(await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
         var dataRoot = Path.GetDirectoryName(_options.ArtifactRoot) ?? _options.ArtifactRoot;
         return new DirectPushInitData(rows.Count, dataRoot);
     }
@@ -83,7 +83,7 @@ public sealed class DirectPushCoordinator
     /// </summary>
     public async Task<DirectPushDiff> ComputeDiffAsync(CancellationToken cancellationToken)
     {
-        var localRows = await _suppressionFilter.GetAllowedAsync(await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+        var localRows = await GetPublishableRowsAsync(await _localStore.GetApprovedRowsAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
 
         var prodStore = CreateProdStore();
         var prodRows = await prodStore.GetAllRowsAsync(cancellationToken).ConfigureAwait(false);
@@ -178,7 +178,7 @@ public sealed class DirectPushCoordinator
 
         await EnsureDirectPushGitBodyFlagOffAsync(cancellationToken).ConfigureAwait(false);
 
-        publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
+        publishRows = await GetPublishableRowsAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         var requests = publishRows
             .Select(r => new SshUploadRequest(
@@ -210,7 +210,7 @@ public sealed class DirectPushCoordinator
 
         await EnsureDirectPushGitBodyFlagOffAsync(cancellationToken).ConfigureAwait(false);
 
-        publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
+        publishRows = await GetPublishableRowsAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         var prodStore = CreateProdStore();
 
@@ -242,7 +242,7 @@ public sealed class DirectPushCoordinator
     {
         ArgumentNullException.ThrowIfNull(publishRows);
         await EnsureDirectPushGitBodyFlagOffAsync(cancellationToken).ConfigureAwait(false);
-        publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
+        publishRows = await GetPublishableRowsAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         var prodStore = CreateProdStore();
         var keys = DeriveKeys(publishRows);
@@ -264,7 +264,7 @@ public sealed class DirectPushCoordinator
         ArgumentNullException.ThrowIfNull(publishRows);
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         await EnsureDirectPushGitBodyFlagOffAsync(cancellationToken).ConfigureAwait(false);
-        publishRows = await _suppressionFilter.GetAllowedAsync(publishRows, cancellationToken).ConfigureAwait(false);
+        publishRows = await GetPublishableRowsAsync(publishRows, cancellationToken).ConfigureAwait(false);
 
         var privateKbRoot = _privateKbRootProvider.GetRoot();
         var blankArtifactPathCount = publishRows.Count(row => string.IsNullOrWhiteSpace(row.ArtifactPath));
@@ -314,6 +314,9 @@ public sealed class DirectPushCoordinator
 
     private IContentSiteIndexStore CreateProdStore()
         => _prodStoreFactory.Create(_prodConnection.ConnectionString);
+
+    private Task<IReadOnlyList<ContentSiteIndexRow>> GetPublishableRowsAsync(IReadOnlyList<ContentSiteIndexRow> rows, CancellationToken cancellationToken)
+        => _suppressionFilter.GetAllowedAsync(rows, cancellationToken);
 
     private static IReadOnlyList<(string Type, string Value)> DeriveKeys(IReadOnlyList<ContentSiteIndexRow> rows)
         => rows.Select(row => ContentIndexExportRow.From(row))

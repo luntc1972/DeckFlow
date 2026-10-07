@@ -66,7 +66,7 @@ internal sealed class PerGroupThrowingCreatorSuppressionStore : ICreatorSuppress
     public Task<CreatorSuppressionSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default) => _inner.ReadSnapshotAsync(cancellationToken);
     public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => _inner.ApplySnapshotAsync(snapshot, cancellationToken);
     public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => Task.FromResult(false);
-    public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) => _inner.ListAsync(cancellationToken);
+    public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Suppression store unavailable.");
     public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Suppression store unavailable.");
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => _inner.EnsureSchemaAsync(cancellationToken);
 }
@@ -74,7 +74,18 @@ internal sealed class PerGroupThrowingCreatorSuppressionStore : ICreatorSuppress
 internal sealed class FakeCreatorIdentityResolver : ICreatorIdentityResolver
 {
     public Dictionary<string, CreatorIdentity> Identities { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public int ResolveAsyncCalls { get; private set; }
+    public int ResolveManyAsyncCalls { get; private set; }
 
     public Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default)
-        => Task.FromResult(Identities.GetValueOrDefault(anyRepresentation));
+    {
+        ResolveAsyncCalls++;
+        return Task.FromResult(Identities.GetValueOrDefault(anyRepresentation));
+    }
+
+    public Task<IReadOnlyDictionary<string, CreatorIdentity?>> ResolveManyAsync(IReadOnlyCollection<string> representations, CancellationToken cancellationToken = default)
+    {
+        ResolveManyAsyncCalls++;
+        return Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(representations.ToDictionary(representation => representation, representation => (CreatorIdentity?)Identities.GetValueOrDefault(representation), StringComparer.OrdinalIgnoreCase));
+    }
 }

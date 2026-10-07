@@ -20,7 +20,8 @@ public static class ContentKbStoreServiceCollectionExtensions
             RelationalDatabaseConnection.FromSqlitePath(databasePath)));
         services.AddSingleton<IContentSourceStore>(provider => new ContentSourceStore(
             databasePath,
-            provider.GetRequiredService<ICreatorSuppressionStore>()));
+            provider.GetRequiredService<ICreatorSuppressionStore>(),
+            identityResolver: new Lazy<ICreatorIdentityResolver>(() => provider.GetRequiredService<ICreatorIdentityResolver>())));
         services.AddSingleton<IContentVideoStore>(provider => new ContentVideoStore(
             databasePath,
             provider.GetRequiredService<ICreatorSuppressionStore>()));
