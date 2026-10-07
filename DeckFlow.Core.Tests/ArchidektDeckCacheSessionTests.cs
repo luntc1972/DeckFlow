@@ -104,6 +104,25 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_TransientDeckFailures_LeavesRowsPendingAndEndsAfterThree()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        await repository.AddDeckIdsAsync(new[] { "transient-1", "transient-2", "transient-3" });
+        var importer = new ThrowingTransientDeckImporter();
+        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        await Assert.ThrowsAsync<ArchidektTransientFailureException>(() => session.RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 3));
+
+        Assert.Equal(new[] { "transient-1", "transient-2", "transient-3" }, importer.AttemptedDeckIds);
+        foreach (var deckId in importer.AttemptedDeckIds)
+        {
+            Assert.False(await IsDeckProcessedAsync(deckId));
+            Assert.False(await IsDeckSkippedAsync(deckId));
+        }
+    }
+
+    [Fact]
     public async Task RunAsync_UsesFetchBatchSizeForDeckProcessing()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -563,6 +582,25 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => new(await ImportAsync(urlOrDeckId, cancellationToken), null);
+    }
+
+    private sealed class ThrowingTransientDeckImporter : IArchidektDeckImporter
+    {
+        private readonly List<string> _attemptedDeckIds = new();
+
+        public IReadOnlyList<string> AttemptedDeckIds => _attemptedDeckIds;
+
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+        {
+            _attemptedDeckIds.Add(urlOrDeckId);
+            throw new ArchidektTransientFailureException("Simulated transient Archidekt failure.");
+        }
+
+        public Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+        {
+            _attemptedDeckIds.Add(urlOrDeckId);
+            throw new ArchidektTransientFailureException("Simulated transient Archidekt failure.");
+        }
     }
 
     private sealed class RecordingRecentDecksImporter : IArchidektRecentDecksImporter

@@ -250,6 +250,7 @@ public sealed class ArchidektDeckCacheSession
             await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: false, metadata: metadata, cancellationToken: cancellationToken);
             progress?.Report(tally.Added + tally.Updated);
             tally.ConsecutiveUnexpectedFailures = 0;
+            tally.ConsecutiveTransientFailures = 0;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -260,6 +261,15 @@ public sealed class ArchidektDeckCacheSession
         {
             _logger?.LogWarning(exception, "Archidekt rate limiter tripped while importing deck {DeckId}; ending the harvest session and leaving the deck queued.", deckId);
             throw;
+        }
+        catch (ArchidektTransientFailureException exception)
+        {
+            tally.ConsecutiveTransientFailures++;
+            _logger?.LogWarning(exception, "Archidekt transient failure while importing deck {DeckId}; leaving the deck queued.", deckId);
+            if (tally.ConsecutiveTransientFailures >= 3)
+            {
+                throw;
+            }
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or NotSupportedException)
         {
@@ -349,6 +359,8 @@ public sealed class ArchidektDeckCacheSession
         public int Skipped { get; set; }
 
         public int ConsecutiveUnexpectedFailures { get; set; }
+
+        public int ConsecutiveTransientFailures { get; set; }
     }
 }
 

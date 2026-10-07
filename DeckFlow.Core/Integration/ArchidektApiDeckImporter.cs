@@ -58,6 +58,11 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
         var body = response.Content ?? string.Empty;
         if (!response.IsSuccessStatusCode)
         {
+            if ((int)response.StatusCode is 0 or >= 500 and <= 599)
+            {
+                throw new ArchidektTransientFailureException($"Archidekt API deck {deckId} returned {(int)response.StatusCode} {response.StatusDescription}: {body[..Math.Min(body.Length, 500)]}", response.StatusCode);
+            }
+
             throw new InvalidOperationException($"Archidekt API deck {deckId} returned {(int)response.StatusCode} {response.StatusDescription}: {body[..Math.Min(body.Length, 500)]}");
         }
 

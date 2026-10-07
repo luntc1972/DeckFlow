@@ -371,15 +371,26 @@ public sealed class ArchidektApiDeckImporterTests : IDisposable
     }
 
     [Fact]
-    public async Task ImportWithMetadataAsync_PersistentServerError_ThrowsInvalidOperationAfterThreeAttempts()
+    public async Task ImportWithMetadataAsync_PersistentServerError_ThrowsTransientFailureAfterThreeAttempts()
     {
         var handler = new QueuedResponseHandler([(HttpStatusCode.ServiceUnavailable, null, string.Empty), (HttpStatusCode.ServiceUnavailable, null, string.Empty), (HttpStatusCode.ServiceUnavailable, null, string.Empty)]);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateImporter(handler).ImportWithMetadataAsync("3674983"));
+        var exception = await Assert.ThrowsAsync<ArchidektTransientFailureException>(() => CreateImporter(handler).ImportWithMetadataAsync("3674983"));
 
         Assert.Contains("503", exception.Message);
         Assert.Equal(3, handler.RequestCount);
         Assert.Equal([TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3)], _clock.Waits);
+    }
+
+    [Fact]
+    public async Task ImportWithMetadataAsync_StatusZero_ThrowsTransientFailure()
+    {
+        var handler = new QueuedResponseHandler([((HttpStatusCode)0, null, string.Empty)]);
+
+        var exception = await Assert.ThrowsAsync<ArchidektTransientFailureException>(() => CreateImporter(handler).ImportWithMetadataAsync("3674983"));
+
+        Assert.Contains("0", exception.Message);
+        Assert.Equal(1, handler.RequestCount);
     }
 
     [Fact]
