@@ -279,7 +279,7 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
 
         if (categories.Any(category => string.Equals(category, "Sideboard", StringComparison.OrdinalIgnoreCase)))
         {
-            return "maybeboard";
+            return "sideboard";
         }
 
         if (categories.Any(excludedCategoryNames.Contains))

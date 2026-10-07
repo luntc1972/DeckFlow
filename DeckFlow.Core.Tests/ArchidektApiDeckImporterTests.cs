@@ -58,6 +58,17 @@ public sealed class ArchidektApiDeckImporterTests
     }
 
     [Fact]
+    public async Task ImportAsync_SideboardCategory_RoutesCardToSideboard()
+    {
+        var importer = CreateImporterReturningJson(ReadFixture("archidekt-includedindeck.json")
+            .Replace("\"Maybeboard\"", "\"Sideboard\"", StringComparison.Ordinal));
+
+        var entries = await importer.ImportAsync("https://archidekt.com/decks/3674983");
+
+        Assert.Equal("sideboard", Assert.Single(entries, entry => entry.Name == "Cavern of Souls").Board);
+    }
+
+    [Fact]
     public async Task ImportAsync_ExcludedCategoryFixture_CommanderOutranksExcludedCategory()
     {
         var importer = CreateImporterReturningFixture("archidekt-includedindeck.json");
