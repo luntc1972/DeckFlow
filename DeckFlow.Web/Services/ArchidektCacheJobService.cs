@@ -219,7 +219,7 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                 triggerSource: trigger,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
         }
-        catch (DbException exception) when (exception.Message.Contains("ux_harvest_runs_one_active", StringComparison.OrdinalIgnoreCase))
+        catch (DbException exception) when (exception.Message.Contains("ux_harvest_runs_one_active_job", StringComparison.OrdinalIgnoreCase))
         {
             var existing = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
             if (existing is not null)

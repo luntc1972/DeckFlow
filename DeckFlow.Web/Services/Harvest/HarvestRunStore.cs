@@ -103,7 +103,7 @@ public sealed class HarvestRunStore : IHarvestRunStore
             // The reaper makes a legacy database safe to index before this enforces one active worker.
             await using (var activeRunIndex = connection.CreateCommand())
             {
-                activeRunIndex.CommandText = "CREATE UNIQUE INDEX IF NOT EXISTS ux_harvest_runs_one_active ON harvest_runs ((1)) WHERE state IN ('Queued','Running','Stopping');";
+                activeRunIndex.CommandText = "DROP INDEX IF EXISTS ux_harvest_runs_one_active; CREATE UNIQUE INDEX IF NOT EXISTS ux_harvest_runs_one_active_job ON harvest_runs ((1)) WHERE kind IN ('bulk','update') AND state IN ('Queued','Running','Stopping');";
                 await activeRunIndex.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
 

@@ -27,9 +27,11 @@ public sealed class HarvestRunPostgresTests : IClassFixture<PostgresContainerFix
         await store.EnsureSchemaAsync();
         await InsertActiveRowAsync(connectionString);
 
-        var exception = await Assert.ThrowsAnyAsync<DbException>(() => InsertActiveRowAsync(connectionString));
+        await InsertUrlRowAsync(connectionString);
 
-        Assert.Contains("ux_harvest_runs_one_active", exception.Message, StringComparison.OrdinalIgnoreCase);
+        var exception = await Assert.ThrowsAnyAsync<DbException>(() => InsertUpdateRowAsync(connectionString));
+
+        Assert.Contains("ux_harvest_runs_one_active_job", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [PostgresFact]
@@ -70,6 +72,16 @@ public sealed class HarvestRunPostgresTests : IClassFixture<PostgresContainerFix
     private static async Task InsertActiveRowAsync(string connectionString)
     {
         await ExecuteAsync(connectionString, "INSERT INTO harvest_runs (id, kind, state, duration_seconds) VALUES (gen_random_uuid(), 'bulk', 'Queued', 60);");
+    }
+
+    private static async Task InsertUrlRowAsync(string connectionString)
+    {
+        await ExecuteAsync(connectionString, "INSERT INTO harvest_runs (id, kind, state, duration_seconds, url) VALUES (gen_random_uuid(), 'url', 'Queued', 0, 'https://archidekt.com/decks/123');");
+    }
+
+    private static async Task InsertUpdateRowAsync(string connectionString)
+    {
+        await ExecuteAsync(connectionString, "INSERT INTO harvest_runs (id, kind, state, duration_seconds) VALUES (gen_random_uuid(), 'update', 'Queued', 60);");
     }
 
     private static async Task<long> CountActiveRowsAsync(string connectionString)

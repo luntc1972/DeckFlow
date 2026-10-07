@@ -57,7 +57,10 @@ public sealed class HarvestRunStoreTests : IDisposable
         {
             var id = await store.InsertQueuedAsync(kind, 600, kind == HarvestRunKind.Url ? "https://archidekt.com/decks/123" : null, DateTimeOffset.UtcNow, triggerSource: null);
             Assert.Equal(kind, (await store.GetByIdAsync(id))!.Kind);
-            await store.UpdateStateAsync(id, HarvestRunState.Succeeded, null, DateTimeOffset.UtcNow, null, null, null);
+            if (kind != HarvestRunKind.Url)
+            {
+                await store.UpdateStateAsync(id, HarvestRunState.Succeeded, null, DateTimeOffset.UtcNow, null, null, null);
+            }
         }
     }
 
@@ -594,6 +597,19 @@ public sealed class HarvestRunStoreTests : IDisposable
         command.Parameters["$id"].Value = Guid.NewGuid().ToString();
 
         await Assert.ThrowsAsync<SqliteException>(() => command.ExecuteNonQueryAsync());
+    }
+
+    [Fact]
+    public async Task EnsureSchemaAsync_ActiveBulkRun_AllowsUrlAndRejectsSecondJob()
+    {
+        var store = new HarvestRunStore(_dbPath);
+        await store.EnsureSchemaAsync();
+        await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.UtcNow, triggerSource: null);
+
+        var urlId = await store.InsertQueuedAsync(HarvestRunKind.Url, 0, "https://archidekt.com/decks/123", DateTimeOffset.UtcNow, triggerSource: null);
+
+        Assert.NotEqual(Guid.Empty, urlId);
+        await Assert.ThrowsAsync<SqliteException>(() => store.InsertQueuedAsync(HarvestRunKind.Update, 60, null, DateTimeOffset.UtcNow, triggerSource: null));
     }
 
     private async Task SeedHealthRunAsync(string kind, string state, string completedUtc, int? decksEnqueued, int? decksDrained, string? triggerSource = null)
