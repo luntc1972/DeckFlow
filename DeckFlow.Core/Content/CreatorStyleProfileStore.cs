@@ -168,7 +168,8 @@ public sealed class CreatorStyleProfileStore : ICreatorStyleProfileStore
         }
 
         var unsuppressed = await _suppressionFilter.GetUnsuppressedAsync(profiles.Select(profile => profile.Slug).ToList(), cancellationToken).ConfigureAwait(false);
-        var visible = unsuppressed.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Why: filter output preserves exact input strings; case folding could restore a suppressed Unicode variant.
+        var visible = unsuppressed.ToHashSet(StringComparer.Ordinal);
         return profiles.Where(profile => visible.Contains(profile.Slug)).ToList();
     }
 

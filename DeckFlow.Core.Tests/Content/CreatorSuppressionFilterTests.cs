@@ -19,6 +19,16 @@ public sealed class CreatorSuppressionFilterTests
     }
 
     [Fact]
+    public async Task Filter_GetUnsuppressed_SuppressionAddedBetweenCalls_SecondCallSuppresses()
+    {
+        var store = new CountingStore();
+        var filter = new CreatorSuppressionFilter(store, new Lazy<ICreatorIdentityResolver>(() => new CountingResolver()));
+        Assert.Equal(["source"], await filter.GetUnsuppressedAsync(["source"]));
+        store.Rows.Add(Suppression("source"));
+        Assert.Empty(await filter.GetUnsuppressedAsync(["source"]));
+    }
+
+    [Fact]
     public async Task Filter_TwoOperations_ListsOncePerOperation()
     {
         var store = new CountingStore();
@@ -139,6 +149,14 @@ public sealed class CreatorSuppressionFilterTests
         var filter = new CreatorSuppressionFilter(new CountingStore(), new Lazy<ICreatorIdentityResolver>(() => new CountingResolver()));
 
         await Assert.ThrowsAsync<ArgumentException>(() => filter.IsSuppressedAsync(" "));
+    }
+
+    [Fact]
+    public async Task Filter_GetUnsuppressed_BlankElement_Throws()
+    {
+        var filter = new CreatorSuppressionFilter(new CountingStore(), new Lazy<ICreatorIdentityResolver>(() => new CountingResolver()));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => filter.GetUnsuppressedAsync([" "]));
     }
 
     [Fact]

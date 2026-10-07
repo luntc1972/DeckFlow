@@ -37,6 +37,19 @@ public sealed class CreatorStoreSuppressionTests : IDisposable
     }
 
     [Fact]
+    public async Task ProfileGetAll_CaseFoldVariant_DoesNotUnsuppress()
+    {
+        var suppressions = new CountingSuppressionStore([Suppression("µ-creator")]);
+        var store = new CreatorStyleProfileStore(_databasePath, suppressions);
+        await store.UpsertAsync(Profile("µ-creator"));
+        await store.UpsertAsync(Profile("μ-creator"));
+
+        var profiles = await store.GetAllAsync();
+
+        Assert.Equal(["μ-creator"], profiles.Select(profile => profile.Slug));
+    }
+
+    [Fact]
     public async Task ProfileGetBySlug_IdentityAliasSuppressed_ReturnsNull()
     {
         var suppressions = new CountingSuppressionStore([Suppression("blocked-alias")]);
@@ -89,6 +102,19 @@ public sealed class CreatorStoreSuppressionTests : IDisposable
         var sources = await store.ListEnabledSourcesAsync();
 
         Assert.Equal(["control"], sources.Select(source => source.SourceSlug));
+    }
+
+    [Fact]
+    public async Task SourceListEnabled_CaseFoldVariant_DoesNotUnsuppress()
+    {
+        var suppressions = new CountingSuppressionStore([Suppression("µ-creator")]);
+        var store = new ContentSourceStore(_databasePath, suppressions);
+        await InsertAsync(store, "µ-creator", "Micro Sign Creator");
+        await InsertAsync(store, "μ-creator", "Greek Mu Creator");
+
+        var sources = await store.ListEnabledSourcesAsync();
+
+        Assert.Equal(["μ-creator"], sources.Select(source => source.SourceSlug));
     }
 
     [Fact]

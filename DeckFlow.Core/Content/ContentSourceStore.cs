@@ -164,7 +164,8 @@ public sealed class ContentSourceStore : IContentSourceStore
         var representations = sourceList.SelectMany(source => new[] { source.SourceSlug, source.DisplayName }
             .Where(value => !string.IsNullOrWhiteSpace(value))).ToList();
         var unsuppressed = await _suppressionFilter.GetUnsuppressedAsync(representations, cancellationToken).ConfigureAwait(false);
-        var visible = unsuppressed.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Why: filter output preserves exact input strings; case folding could restore a suppressed Unicode variant.
+        var visible = unsuppressed.ToHashSet(StringComparer.Ordinal);
         return sourceList.Where(source => new[] { source.SourceSlug, source.DisplayName }
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .All(visible.Contains)).ToList();
