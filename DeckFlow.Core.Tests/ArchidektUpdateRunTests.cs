@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
@@ -65,6 +66,20 @@ public sealed class ArchidektUpdateRunTests : IDisposable
     {
         // Why: D-10 continues the cheap poll instead of retrying a transient listing failure.
         var listingImporter = new ScriptedListingImporter(page => [new ArchidektListingDeck($"n-{page}", DateTimeOffset.Parse("2026-01-03T00:00:00Z"))], page => page == 2 ? new HttpRequestException("fixture failure", null, HttpStatusCode.InternalServerError) : null);
+        var session = new ArchidektDeckCacheSession(new CategoryKnowledgeRepository(_databasePath), new ScriptedDeckImporter(), listingImporter);
+
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(Enumerable.Range(1, 10), listingImporter.RequestedPages);
+        Assert.Equal(9, result.PagesPolled);
+        Assert.Equal(9, result.NewIdsSeen);
+    }
+
+    [Fact]
+    public async Task RunUpdateAsync_ListingPageFailsWithJsonError_ContinuesWithNextPage()
+    {
+        // Why: D-10 continues polling when the listing endpoint returns a non-JSON success body.
+        var listingImporter = new ScriptedListingImporter(page => [new ArchidektListingDeck($"n-{page}", DateTimeOffset.Parse("2026-01-03T00:00:00Z"))], page => page == 2 ? new JsonException("fixture JSON failure") : null);
         var session = new ArchidektDeckCacheSession(new CategoryKnowledgeRepository(_databasePath), new ScriptedDeckImporter(), listingImporter);
 
         var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(5));
@@ -311,9 +326,9 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         public int Count => 1;
 
         // Why: the fetch succeeds, so the fixture surfaces the upsert-side failure in AddListingRowsAsync.
-        public ArchidektListingDeck this[int index] => throw new InvalidOperationException("fixture upsert failure");
+        public ArchidektListingDeck this[int index] => throw new SqliteException("fixture upsert failure", 1);
 
-        public IEnumerator<ArchidektListingDeck> GetEnumerator() => throw new InvalidOperationException("fixture upsert failure");
+        public IEnumerator<ArchidektListingDeck> GetEnumerator() => throw new SqliteException("fixture upsert failure", 1);
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }

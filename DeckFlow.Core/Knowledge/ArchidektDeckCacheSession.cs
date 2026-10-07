@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Data.Common;
+using System.Text.Json;
 using System.Net;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Models;
@@ -116,7 +118,7 @@ public sealed class ArchidektDeckCacheSession
                 stopwatch.Stop();
                 return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, stopwatch.Elapsed, true, false, exception.RetryAfter);
             }
-            catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+            catch (Exception exception) when (exception is HttpRequestException or JsonException or DbException)
             {
                 _logger?.LogWarning(exception, "Recent Archidekt deck fetch failed during cache sweep; retrying until the harvest window ends.");
                 await DelayUntilNextRetryAsync(stopwatch, duration, cancellationToken);
@@ -206,7 +208,7 @@ public sealed class ArchidektDeckCacheSession
                 return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed, true, false, exception.RetryAfter);
             }
             // Why: D-10 preserves shared limiter budget by continuing, not retrying; the next run polls from the top.
-            catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+            catch (Exception exception) when (exception is HttpRequestException or JsonException or DbException)
             {
                 _logger?.LogWarning(exception, "Archidekt listing page {Page} failed during the update run; continuing with the next page.", page);
             }
