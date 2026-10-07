@@ -160,6 +160,36 @@ public sealed class ArchidektUpdateRunTests : IDisposable
     }
 
     [Fact]
+    public async Task RunUpdateAsync_TransientDeckAheadOfRefreshDeck_DrainsRefreshDeckAndEndsBeforeDurationCap()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await SeedRefreshDeckAsync(repository, "a-transient-1");
+        await SeedRefreshDeckAsync(repository, "b-refresh-1");
+        Assert.Equal(["a-transient-1", "b-refresh-1"], await repository.GetNextRefreshDeckIdsAsync(2));
+        var deckImporter = new ScriptedDeckImporter();
+        var session = new ArchidektDeckCacheSession(repository, deckImporter, new ScriptedListingImporter(_ => []));
+
+        var stopwatch = Stopwatch.StartNew();
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 1);
+        stopwatch.Stop();
+
+        Assert.Equal(["a-transient-1", "b-refresh-1"], deckImporter.AttemptedDeckIds);
+        var refreshed = await ReadQueueRowAsync("b-refresh-1");
+        Assert.True(refreshed.Processed);
+        Assert.False(refreshed.Skipped);
+        Assert.Null(refreshed.RefreshRequestedUtc);
+        var transient = await ReadQueueRowAsync("a-transient-1");
+        Assert.False(transient.Processed);
+        Assert.False(transient.Skipped);
+        Assert.NotNull(transient.RefreshRequestedUtc);
+        Assert.Equal(1, result.RefreshesDrained);
+        Assert.Equal(0, result.DecksSkipped);
+        Assert.False(result.EndedEarly);
+        Assert.False(result.RateLimited);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
     public async Task RunUpdateAsync_RefreshDeckImportFails_IsSkippedCountedAndLeavesRefreshQueue()
     {
         // Why: D-04 drains refresh-only rows and the 06-03 carry-forward counts a failed import as skipped.

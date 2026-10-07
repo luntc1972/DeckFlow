@@ -224,13 +224,14 @@ public sealed class ArchidektDeckCacheSession
 
         while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
         {
-            var deckIds = await _repository.GetNextRefreshDeckIdsAsync(fetchBatchSize, cancellationToken);
+            // Why: pending decks already attempted in this run keep their FIFO place at the head, so widen by the attempted count to reach decks behind them without changing SQL.
+            var deckIds = await _repository.GetNextRefreshDeckIdsAsync(fetchBatchSize + attemptedDeckIds.Count, cancellationToken);
             if (deckIds.Count == 0)
             {
                 break;
             }
 
-            var unattemptedDeckIds = deckIds.Where(attemptedDeckIds.Add).ToList();
+            var unattemptedDeckIds = TakeUnattemptedDeckIds(deckIds, attemptedDeckIds, fetchBatchSize);
             if (unattemptedDeckIds.Count == 0)
             {
                 break;
@@ -334,6 +335,24 @@ public sealed class ArchidektDeckCacheSession
             tally.Skipped++;
             await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, cancellationToken);
         }
+    }
+
+    private static List<string> TakeUnattemptedDeckIds(IReadOnlyList<string> deckIds, HashSet<string> attemptedDeckIds, int fetchBatchSize)
+    {
+        var unattemptedDeckIds = new List<string>(fetchBatchSize);
+        foreach (var deckId in deckIds)
+        {
+            if (attemptedDeckIds.Contains(deckId) || unattemptedDeckIds.Count == fetchBatchSize)
+            {
+                continue;
+            }
+
+            // Why: only IDs returned for this batch are marked attempted.
+            attemptedDeckIds.Add(deckId);
+            unattemptedDeckIds.Add(deckId);
+        }
+
+        return unattemptedDeckIds;
     }
 
     private async Task SkipDeckAsync(string deckId, int added, int updated, IProgress<int>? progress, CancellationToken cancellationToken)
