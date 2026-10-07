@@ -323,6 +323,7 @@ internal sealed class DeckQueueRepository
                 UPDATE deck_queue
                 SET processed = 0,
                     skipped = 0,
+                    transient_failure_count = 0,
                     inserted_utc = @insertedUtc,
                     refresh_requested_utc = @refreshRequestedUtc,
                     listing_updated_seen_utc = CASE deck_id{listingSeenCases} END

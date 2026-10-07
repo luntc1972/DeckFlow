@@ -62,6 +62,29 @@ public sealed class DeckQueueRepositoryTests : IDisposable
         Assert.Empty(await repository.GetNextUnprocessedDeckIdsAsync(1));
     }
 
+    [Fact]
+    public async Task AddListingRowsAsync_RequeuedDeck_ResetsTransientFailureCount()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        var initialUpdatedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+        await repository.AddListingRowsAsync([new ArchidektListingDeck("refresh-transient", initialUpdatedUtc)]);
+        await repository.MarkDeckProcessedAsync("refresh-transient", null, metadata: null);
+        await using (var setupConnection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await setupConnection.OpenAsync();
+            await setupConnection.ExecuteAsync("UPDATE deck_queue SET transient_failure_count = 2 WHERE deck_id = 'refresh-transient';");
+        }
+
+        var result = await repository.AddListingRowsAsync([new ArchidektListingDeck("refresh-transient", initialUpdatedUtc.AddMinutes(1))]);
+
+        Assert.Equal(1, result.RefreshesRequeued);
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var failures = await connection.ExecuteScalarAsync<long>("SELECT transient_failure_count FROM deck_queue WHERE deck_id = 'refresh-transient';");
+        Assert.Equal(0, failures);
+    }
+
     public void Dispose()
     {
         if (File.Exists(_databasePath))
