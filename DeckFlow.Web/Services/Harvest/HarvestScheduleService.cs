@@ -142,8 +142,8 @@ public sealed class HarvestScheduleService : BackgroundService
     private async Task<bool> TickKindAsync(HarvestRunKind kind, TimeSpan? interval, bool paused, TimeSpan fireDuration, DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (paused || interval is null) return false;
-        var lastSuccess = await _runStore.GetLastScheduledSuccessUtcAsync(kind, cancellationToken).ConfigureAwait(false);
         var failureStreak = await _runStore.GetFailureStreakSinceLastSuccessAsync(kind, cancellationToken).ConfigureAwait(false);
+        var lastSuccess = failureStreak.LastSuccessUtc;
         DateTimeOffset? nextDue = lastSuccess + interval;
         var failureDue = failureStreak.LastFailureUtc + GetFailureBackoff(failureStreak.ConsecutiveFailures, interval.Value);
         nextDue = Max(nextDue, failureDue);
