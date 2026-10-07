@@ -57,8 +57,9 @@ public static class FullImportExporter
     /// <param name="targetSystem">Target import system that controls the output format.</param>
     /// <param name="conflicts">Resolved printing conflicts to apply while exporting.</param>
     /// <param name="categoryMode">Category synchronization behavior for the merged output.</param>
+    /// <param name="includeSideboard">Whether sideboard entries are included in the output.</param>
     /// <returns>The formatted merged deck text.</returns>
-    public static string ToText(List<DeckEntry> sourceEntries, List<DeckEntry> targetEntries, MatchMode matchMode, string targetSystem, IReadOnlyList<PrintingConflict>? conflicts = null, CategorySyncMode categoryMode = CategorySyncMode.TargetCategories)
+    public static string ToText(List<DeckEntry> sourceEntries, List<DeckEntry> targetEntries, MatchMode matchMode, string targetSystem, IReadOnlyList<PrintingConflict>? conflicts = null, CategorySyncMode categoryMode = CategorySyncMode.TargetCategories, bool includeSideboard = false)
     {
         ArgumentNullException.ThrowIfNull(sourceEntries);
         ArgumentNullException.ThrowIfNull(targetEntries);
@@ -73,7 +74,7 @@ public static class FullImportExporter
 
         var resolvedEntries = new List<DeckEntry>();
         foreach (var entry in sourceEntries
-            .Where(entry => !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+            .Where(entry => includeSideboard || !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
             .OrderBy(entry => BoardOrder(entry.Board))
             .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
         {
@@ -180,6 +181,13 @@ public static class FullImportExporter
             return string.IsNullOrWhiteSpace(entry.Category)
                 ? "Commander"
                 : $"Commander,{entry.Category}";
+        }
+
+        if (string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.IsNullOrWhiteSpace(entry.Category)
+                ? "Sideboard"
+                : $"Sideboard,{entry.Category}";
         }
 
         return entry.Category;
@@ -322,13 +330,15 @@ public static class FullImportExporter
         "commander" => 0,
         "mainboard" => 1,
         "maybeboard" => 2,
-        _ => 3,
+        "sideboard" => 3,
+        _ => 4,
     };
 
     private static string TitleCaseBoard(string board) => board switch
     {
         "commander" => "Commander",
         "maybeboard" => "Maybeboard",
+        "sideboard" => "Sideboard",
         _ => "Mainboard",
     };
 }

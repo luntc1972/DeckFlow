@@ -25,6 +25,22 @@ public sealed class ExporterTests
     }
 
     [Fact]
+    public void FullImportExporter_IncludesSideboardOnlyWhenRequested()
+    {
+        var source = new List<DeckEntry>
+        {
+            new() { Name = "Sideboard Card", NormalizedName = "sideboard card", Quantity = 1, Board = "sideboard" },
+        };
+
+        var defaultText = FullImportExporter.ToText(source, [], MatchMode.Loose, "Archidekt");
+        var sideboardText = FullImportExporter.ToText(source, [], MatchMode.Loose, "Archidekt", includeSideboard: true);
+
+        Assert.DoesNotContain("Sideboard Card", defaultText);
+        Assert.Contains("// Sideboard", sideboardText);
+        Assert.Contains("1 Sideboard Card [Sideboard]", sideboardText);
+    }
+
+    [Fact]
     public void DeltaExporter_IncludesPrintingWhenPresent()
     {
         var text = DeltaExporter.ToText(new List<DeckEntry>

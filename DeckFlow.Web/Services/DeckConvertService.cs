@@ -103,7 +103,7 @@ public sealed class DeckConvertService : IDeckConvertService
         }
 
         var targetSystem = isTargetArchidekt ? "Archidekt" : "Moxfield";
-        var text = FullImportExporter.ToText([.. entries], [], MatchMode.Loose, targetSystem, null, CategorySyncMode.SourceTags);
+        var text = FullImportExporter.ToText([.. entries], [], MatchMode.Loose, targetSystem, null, CategorySyncMode.SourceTags, includeSideboard: true);
 
         return new DeckConvertResult(text, commanderMissing);
     }

@@ -110,6 +110,29 @@ public sealed class DeckConvertServiceTests
     }
 
     /// <summary>
+    /// Preserves sideboard entries when converting Archidekt text to Moxfield text.
+    /// </summary>
+    [Fact]
+    public async Task ConvertAsync_PreservesSideboard_WhenArchidektToMoxfield()
+    {
+        var service = BuildService(archidektEntries:
+        [
+            MakeEntry("Sideboard Card", null, null) with { Board = "sideboard" }
+        ]);
+
+        var result = await service.ConvertAsync(new DeckConvertRequest
+        {
+            SourceFormat = "Archidekt",
+            TargetFormat = "Moxfield",
+            InputSource = DeckInputSource.PublicUrl,
+            DeckUrl = "https://archidekt.com/decks/123/test"
+        });
+
+        Assert.Contains("// Sideboard", result.ConvertedText);
+        Assert.Contains("1 Sideboard Card", result.ConvertedText);
+    }
+
+    /// <summary>
     /// When the Scryfall name matches the entry name, the entry is returned unchanged.
     /// </summary>
     [Fact]
