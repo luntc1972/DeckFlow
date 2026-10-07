@@ -88,6 +88,7 @@ Current behavior:
 - The CLI runs a dedicated cache session, records skips for noisy decks, and persists card/category observations to `artifacts/category-knowledge.db`.
 - The background hosted service reuses the same session logic to keep the cache fresh (the user-triggered harvest button was removed in v1.4).
 - The cache session now stays alive for the requested harvest window even when the queue runs dry, and it retries transient recent-page fetch failures instead of ending the whole job early. A tripped rate limiter is the exception and ends the session at once.
+- A deck whose import fails with a transient error is tried at most once per run and stays queued for a later run; it is skipped after its third transient failure. The run keeps draining the decks queued behind it, so a failing deck never holds up the rest of the queue. Three transient failures in a row still end the run early. When only decks already tried in this run are left, a bulk run idles until its window ends, as it does when the queue runs dry, and an update run ends at once.
 - Basic card type categories (Creature, Instant, Sorcery, Enchantment, Artifact, Planeswalker, Battle) are filtered out of cache suggestions.
 
 **Request pacing (HARV-12)**
