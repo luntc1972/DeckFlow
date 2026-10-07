@@ -71,15 +71,14 @@ public sealed class ArchidektDeckCacheSession
         {
             try
             {
-                var newestListingRows = await _recentImporter.ImportRecentListingPageAsync(1, cancellationToken);
-                if (newestListingRows.Count > 0)
+                var newestUpsertResult = await PollAndIngestListingPageAsync(1, cancellationToken);
+                if (newestUpsertResult is not null)
                 {
-                    var upsertResult = await _repository.AddListingRowsAsync(newestListingRows, cancellationToken);
                     // Why: D-05 keeps decks_enqueued novel-ids-only under the HarvestRunModels contract.
-                    decksEnqueued += upsertResult.NewIds;
-                    if (upsertResult.RefreshesRequeued > 0)
+                    decksEnqueued += newestUpsertResult.NewIds;
+                    if (newestUpsertResult.RefreshesRequeued > 0)
                     {
-                        _logger?.LogDebug("Requeued {RefreshesRequeued} modified Archidekt decks from listing page {Page}.", upsertResult.RefreshesRequeued, 1);
+                        _logger?.LogDebug("Requeued {RefreshesRequeued} modified Archidekt decks from listing page {Page}.", newestUpsertResult.RefreshesRequeued, 1);
                     }
                 }
 
@@ -90,14 +89,13 @@ public sealed class ArchidektDeckCacheSession
                 else
                 {
                     var crawlPage = await _repository.GetRecentDeckCrawlPageAsync(cancellationToken);
-                    var deeperListingRows = await _recentImporter.ImportRecentListingPageAsync(crawlPage, cancellationToken);
-                    if (deeperListingRows.Count > 0)
+                    var deeperUpsertResult = await PollAndIngestListingPageAsync(crawlPage, cancellationToken);
+                    if (deeperUpsertResult is not null)
                     {
-                        var upsertResult = await _repository.AddListingRowsAsync(deeperListingRows, cancellationToken);
-                        decksEnqueued += upsertResult.NewIds;
-                        if (upsertResult.RefreshesRequeued > 0)
+                        decksEnqueued += deeperUpsertResult.NewIds;
+                        if (deeperUpsertResult.RefreshesRequeued > 0)
                         {
-                            _logger?.LogDebug("Requeued {RefreshesRequeued} modified Archidekt decks from listing page {Page}.", upsertResult.RefreshesRequeued, crawlPage);
+                            _logger?.LogDebug("Requeued {RefreshesRequeued} modified Archidekt decks from listing page {Page}.", deeperUpsertResult.RefreshesRequeued, crawlPage);
                         }
                         await _repository.SetRecentDeckCrawlPageAsync(crawlPage + 1, cancellationToken);
                     }
@@ -170,15 +168,14 @@ public sealed class ArchidektDeckCacheSession
         {
             try
             {
-                var listingRows = await _recentImporter.ImportRecentListingPageAsync(page, cancellationToken);
-                if (listingRows.Count == 0)
+                var upsertResult = await PollAndIngestListingPageAsync(page, cancellationToken);
+                if (upsertResult is null)
                 {
                     pagesPolled++;
                     _logger?.LogDebug("Archidekt listing page {Page} was empty; the update run stops polling.", page);
                     break;
                 }
 
-                var upsertResult = await _repository.AddListingRowsAsync(listingRows, cancellationToken);
                 pagesPolled++;
                 refreshesRequeued += upsertResult.RefreshesRequeued;
                 newIdsSeen += upsertResult.NewIds;
@@ -220,6 +217,14 @@ public sealed class ArchidektDeckCacheSession
 
         stopwatch.Stop();
         return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed);
+    }
+
+    private async Task<ListingUpsertResult?> PollAndIngestListingPageAsync(int page, CancellationToken cancellationToken)
+    {
+        var listingRows = await _recentImporter.ImportRecentListingPageAsync(page, cancellationToken);
+        return listingRows.Count == 0
+            ? null
+            : await _repository.AddListingRowsAsync(listingRows, cancellationToken);
     }
 
     private async Task DrainDeckAsync(string deckId, DeckDrainTally tally, IProgress<int>? progress, CancellationToken cancellationToken)
