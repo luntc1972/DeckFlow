@@ -385,10 +385,7 @@ internal static class ContentKbCommandRunners
             var contentBase = NormalizeToContentBase(rawRoot);
 
             var suppressionStore = new CreatorSuppressionStore(RelationalDatabaseConnection.FromSqlitePath(dbPath));
-            var sourceStore = new ContentSourceStore(dbPath, suppressionStore);
-            ContentSiteIndexStore? store = null;
-            var resolver = new Lazy<ICreatorIdentityResolver>(() => new CreatorIdentityResolver(suppressionStore, sourceStore, store!));
-            store = new ContentSiteIndexStore(dbPath, suppressionStore, resolver);
+            var store = new ContentSiteIndexStore(dbPath, suppressionStore);
             var rows = await store.GetAllRowsAsync().ConfigureAwait(false);
             var result = ContentKbOrphanScanner.Scan(rows, contentBase);
 

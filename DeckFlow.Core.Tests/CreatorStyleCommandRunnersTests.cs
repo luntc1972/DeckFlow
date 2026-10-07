@@ -69,11 +69,19 @@ public sealed class CreatorStyleCommandRunnersTests : IDisposable
         await stores.ProfileStore.UpsertAsync(new CreatorStyleProfile { Slug = slug, Platform = "youtube", MinDecks = 1, UpdatedUtc = DateTimeOffset.UtcNow });
         var output = Path.Combine(Path.GetTempPath(), $"profiles-{Guid.NewGuid():N}.json");
 
-        var exitCode = await CreatorStyleCommandRunners.RunCreatorStyleIndexExportAsync(new FileInfo(_dbPath), new FileInfo(output), new FileInfo(Path.Combine(Path.GetTempPath(), $"cache-{Guid.NewGuid():N}.json")));
+        var cache = Path.Combine(Path.GetTempPath(), $"cache-{Guid.NewGuid():N}.json");
+        try
+        {
+            var exitCode = await CreatorStyleCommandRunners.RunCreatorStyleIndexExportAsync(new FileInfo(_dbPath), new FileInfo(output), new FileInfo(cache));
 
-        Assert.Equal(0, exitCode);
-        Assert.DoesNotContain(slug, await File.ReadAllTextAsync(output));
-        File.Delete(output);
+            Assert.Equal(0, exitCode);
+            Assert.DoesNotContain(slug, await File.ReadAllTextAsync(output));
+        }
+        finally
+        {
+            File.Delete(output);
+            File.Delete(cache);
+        }
     }
 
     [Fact]
@@ -180,6 +188,31 @@ public sealed class CreatorStyleCommandRunnersTests : IDisposable
             new FileInfo(_dbPath));
 
         Assert.Equal(1, exitCode);
+    }
+
+    [Fact]
+    public async Task RunFuseProfileAsync_IdentityAliasSuppressed_ReturnsSuppressedExitCode()
+    {
+        const string slug = "creator-slug";
+        var stores = CreatorStyleCommandRunners.CreateStoresForDatabase(_dbPath);
+        var source = new ContentSourceStore(_dbPath, stores.SuppressionStore);
+        await source.InsertSourceAsync(slug, "Suppressed Display", ContentSourceType.Podcast, "https://example.test/source");
+        await stores.SuppressionStore.SuppressAsync("Suppressed Display", [], "test", DateTimeOffset.UtcNow, null);
+
+        var originalError = Console.Error;
+        using var error = new StringWriter();
+        try
+        {
+            Console.SetError(error);
+            var exitCode = await CreatorStyleCommandRunners.RunFuseProfileAsync(slug, new FileInfo(_dbPath));
+
+            Assert.Equal(3, exitCode);
+            Assert.Contains("is suppressed", error.ToString());
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
     }
 
     [Fact]
