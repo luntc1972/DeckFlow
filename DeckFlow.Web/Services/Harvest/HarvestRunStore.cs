@@ -331,17 +331,6 @@ public sealed class HarvestRunStore : IHarvestRunStore
     }
 
     /// <inheritdoc />
-    public async Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
-    {
-        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-
-        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        return await connection.ExecuteScalarAsync<DateTimeOffset?>(new CommandDefinition(
-            "SELECT MAX(completed_utc) FROM harvest_runs WHERE state='Succeeded';",
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc />
     public async Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
     {
         // Manual runs must not move a schedule; legacy NULL counts as scheduled on deploy.
@@ -351,31 +340,6 @@ public sealed class HarvestRunStore : IHarvestRunStore
             "SELECT MAX(completed_utc) FROM harvest_runs WHERE kind = @kind AND state = 'Succeeded' AND (trigger_source = 'scheduled' OR trigger_source IS NULL);",
             new { kind = ToStoredKind(kind) }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         return ConvertCompletedUtc(completedUtc);
-    }
-
-    /// <inheritdoc />
-    public async Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
-    {
-        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-
-        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        var row = await connection.QuerySingleAsync<FailureStreakRow>(new CommandDefinition(
-            """
-            SELECT COUNT(1) AS ConsecutiveFailures,
-                   MAX(completed_utc) AS LastFailureUtc,
-                   (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded') AS LastSuccessUtc
-            FROM harvest_runs
-            WHERE state = 'Failed'
-              AND kind = 'bulk'
-              AND completed_utc IS NOT NULL
-              AND (NOT EXISTS (SELECT 1 FROM harvest_runs WHERE state = 'Succeeded')
-                   OR completed_utc > (SELECT MAX(completed_utc) FROM harvest_runs WHERE state = 'Succeeded'));
-            """,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return new HarvestFailureStreak(
-            checked((int)row.ConsecutiveFailures),
-            ConvertCompletedUtc(row.LastFailureUtc),
-            ConvertCompletedUtc(row.LastSuccessUtc));
     }
 
     /// <inheritdoc />

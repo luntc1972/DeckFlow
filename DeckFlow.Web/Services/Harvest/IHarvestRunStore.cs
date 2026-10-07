@@ -10,12 +10,6 @@ namespace DeckFlow.Web.Services.Harvest;
 /// </summary>
 public interface IHarvestRunStore
 {
-    /// <summary>
-    /// Gets the failed-run streak completed after the most recent successful run.
-    /// </summary>
-    /// <param name="cancellationToken">Token used to cancel the read.</param>
-    Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default);
-
     /// <summary>Returns the scheduled-or-legacy failed-only streak for a kind.</summary>
     Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default);
 
@@ -114,8 +108,7 @@ public interface IHarvestRunStore
     /// Returns the run row with the matching <paramref name="id"/>, or null when no
     /// such row exists. Unlike <see cref="GetActiveAsync"/>, this returns terminal-state
     /// rows (Succeeded / Failed / Cancelled) so callers can re-fetch the row after the
-    /// background worker has cleared it from the active set. Used by
-    /// <c>ArchidektCacheJobService.GetJob(Guid)</c> so completed jobs remain
+    /// background worker has cleared it from the active set, keeping completed jobs
     /// queryable by id from admin/API surfaces.
     /// </summary>
     /// <param name="id">UUID primary key of the row to retrieve.</param>
@@ -145,15 +138,6 @@ public interface IHarvestRunStore
     /// </summary>
     /// <param name="cancellationToken">Token used to cancel the read.</param>
     Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Returns <c>MAX(completed_utc) FROM harvest_runs WHERE state='Succeeded'</c>
-    /// (D-16 #7), or null when no successful run has ever completed. Single source
-    /// of truth — both the stats aggregator and the schedule tick service MUST
-    /// call this method (W5).
-    /// </summary>
-    /// <param name="cancellationToken">Token used to cancel the read.</param>
-    Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Returns the last scheduled-or-legacy successful run for a kind.</summary>
     Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default);

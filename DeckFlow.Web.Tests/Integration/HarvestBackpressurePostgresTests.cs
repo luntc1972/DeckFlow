@@ -24,7 +24,7 @@ public sealed class HarvestBackpressurePostgresTests : IClassFixture<PostgresCon
         var failure = await store.InsertQueuedAsync(HarvestRunKind.Bulk, 60, null, DateTimeOffset.Parse("2026-06-12T12:00:00Z"), triggerSource: null);
         await store.UpdateStateAsync(failure, HarvestRunState.Failed, null, DateTimeOffset.Parse("2026-06-12T12:30:00Z"), null, null, null);
 
-        var streak = await store.GetFailureStreakSinceLastSuccessAsync();
+        var streak = await store.GetFailureStreakSinceLastSuccessAsync(HarvestRunKind.Bulk);
 
         Assert.Equal(1, streak.ConsecutiveFailures);
         Assert.Equal(DateTimeOffset.Parse("2026-06-12T12:30:00Z"), streak.LastFailureUtc);

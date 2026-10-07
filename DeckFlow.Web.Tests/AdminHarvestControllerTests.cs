@@ -1475,10 +1475,6 @@ public sealed class AdminHarvestControllerTests
             return Task.FromResult(new ArchidektCacheJobEnqueueResult(job, StartedNewJob));
         }
 
-        public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
-
-        public ArchidektCacheJobStatus? GetActiveJob() => null;
-
         public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(false);
     }
@@ -1522,12 +1518,6 @@ public sealed class AdminHarvestControllerTests
 
         public Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
             => Task.FromResult("0");
-
-        public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<DateTimeOffset?>(null);
-
-        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(new HarvestFailureStreak(0, null, null));
 
         public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
             => Task.FromResult(new HarvestFailureStreak(0, null, null));

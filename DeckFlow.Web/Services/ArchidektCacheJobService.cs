@@ -11,9 +11,7 @@ namespace DeckFlow.Web.Services;
 /// in-memory dictionary that previously tracked job state was removed in
 /// Phase 7 Plan 02. Manual job control is Admin-only through
 /// <c>AdminHarvestController</c>, behind Basic Auth, while scheduled starts come from
-/// <c>HarvestScheduleService</c>; the public job API was removed in Phase 6 (D-14). The
-/// <see cref="ArchidektCacheJobStatus"/> shape is preserved and built from a
-/// <see cref="HarvestRunRow"/> on read.
+/// <c>HarvestScheduleService</c>; the public job API was removed in Phase 6 (D-14).
 /// </summary>
 public interface IArchidektCacheJobService
 {
@@ -26,21 +24,6 @@ public interface IArchidektCacheJobService
     /// <param name="trigger">Manual or scheduled initiator.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task<ArchidektCacheJobEnqueueResult> EnqueueAsync(HarvestRunKind kind, TimeSpan duration, HarvestTriggerSource trigger, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Returns the run row for the supplied id mapped to the public
-    /// <see cref="ArchidektCacheJobStatus"/> shape, or null when not found.
-    /// Reads Postgres synchronously via <c>.GetAwaiter().GetResult()</c> — admin
-    /// API surface, sub-1RPS, no thread-pool starvation risk (T-07-10).
-    /// </summary>
-    /// <param name="jobId">Job UUID.</param>
-    ArchidektCacheJobStatus? GetJob(Guid jobId);
-
-    /// <summary>
-    /// Returns the most recent non-terminal run row mapped to
-    /// <see cref="ArchidektCacheJobStatus"/>, or null when no active run exists.
-    /// </summary>
-    ArchidektCacheJobStatus? GetActiveJob();
 
     /// <summary>
     /// Signals the currently active harvest job (if any) to stop after the
@@ -224,7 +207,6 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
         var requestedUtc = DateTimeOffset.UtcNow;
 
         // D-03: insert Queued row, get the UUID.
-        // Unknown origin counts as scheduled; EnqueueAsync supplies the real trigger in 06-08.
         var jobId = await _runStore.InsertQueuedAsync(
             kind,
             durationSeconds,
@@ -249,20 +231,6 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
             AdditionalDecksFound: 0,
             ErrorMessage: null);
         return new ArchidektCacheJobEnqueueResult(status, StartedNewJob: true);
-    }
-
-    /// <inheritdoc />
-    public ArchidektCacheJobStatus? GetJob(Guid jobId)
-    {
-        var row = _runStore.GetByIdAsync(jobId, CancellationToken.None).GetAwaiter().GetResult();
-        return row is null ? null : MapToStatus(row);
-    }
-
-    /// <inheritdoc />
-    public ArchidektCacheJobStatus? GetActiveJob()
-    {
-        var active = _runStore.GetActiveAsync(CancellationToken.None).GetAwaiter().GetResult();
-        return active is null ? null : MapToStatus(active);
     }
 
     /// <inheritdoc />

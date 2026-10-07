@@ -222,8 +222,6 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
         Assert.Equal(2, result.Job.DurationSeconds);
         Assert.Equal(ArchidektCacheJobState.Queued, result.Job.State);
         Assert.NotEqual(Guid.Empty, result.Job.JobId);
-        // Records map structurally — content equal, not reference equal.
-        Assert.Equal(result.Job, service.GetJob(result.Job.JobId));
     }
 
     [Fact]
@@ -237,48 +235,6 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
         Assert.True(first.StartedNewJob);
         Assert.False(second.StartedNewJob);
         Assert.Equal(first.Job.JobId, second.Job.JobId);
-    }
-
-    [Fact]
-    public void GetJob_ReturnsNullForUnknownJob()
-    {
-        var service = CreateService();
-
-        Assert.Null(service.GetJob(Guid.NewGuid()));
-    }
-
-    [Fact]
-    public async Task GetJob_ReturnsEnqueuedJob()
-    {
-        var service = CreateService();
-        var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
-
-        var job = service.GetJob(result.Job.JobId);
-
-        Assert.NotNull(job);
-        Assert.Equal(result.Job.JobId, job!.JobId);
-        Assert.Equal(ArchidektCacheJobState.Queued, job.State);
-    }
-
-    [Fact]
-    public void GetActiveJob_ReturnsNullBeforeAnyEnqueue()
-    {
-        var service = CreateService();
-
-        Assert.Null(service.GetActiveJob());
-    }
-
-    [Fact]
-    public async Task GetActiveJob_ReturnsQueuedJobAfterEnqueue()
-    {
-        var service = CreateService();
-        var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
-
-        var activeJob = service.GetActiveJob();
-
-        Assert.NotNull(activeJob);
-        Assert.Equal(result.Job.JobId, activeJob!.JobId);
-        Assert.Equal(ArchidektCacheJobState.Queued, activeJob.State);
     }
 
     [Fact]
@@ -302,8 +258,6 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
             Assert.Equal(4, job.AdditionalDecksFound);
             Assert.Equal(new[] { (0, 7) }, runStore.SweepCounts);
             Assert.NotNull(job.CompletedUtc);
-            Assert.Null(service.GetActiveJob());
-            Assert.NotNull(service.GetJob(job.JobId));
         }
         finally
         {
@@ -358,8 +312,6 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
             var job = await WaitForTerminalJobAsync(service, runStore, enqueueResult.Job.JobId);
 
             Assert.Equal(ArchidektCacheJobState.Succeeded, job.State);
-            Assert.Null(service.GetActiveJob());
-            Assert.NotNull(service.GetJob(job.JobId));
         }
         finally
         {
@@ -749,16 +701,6 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
         {
             cts.Token.ThrowIfCancellationRequested();
 
-            // The service rebuilds status from the run store on each GetJob call. Once the
-            // background loop transitions the row to a terminal state the service no longer
-            // sees it as the "active" row, so GetJob returns null. Read directly from the
-            // fake store in that case.
-            var job = service.GetJob(jobId);
-            if (job is not null && IsTerminal(job.State))
-            {
-                return job;
-            }
-
             var rowFromStore = await runStore.GetByIdAsync(jobId, cts.Token);
             if (rowFromStore is not null && IsTerminal(MapState(rowFromStore.State)))
             {
@@ -934,20 +876,6 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
             var count = _rows.Count.ToString(CultureInfo.InvariantCulture);
             return Task.FromResult($"{startedToken}|{completedToken}|{count}");
         }
-
-        public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
-        {
-            var max = _rows.Values
-                .Where(r => r.State == HarvestRunState.Succeeded)
-                .Select(r => r.CompletedUtc)
-                .Where(t => t is not null)
-                .DefaultIfEmpty(null)
-                .Max();
-            return Task.FromResult(max);
-        }
-
-        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(new HarvestFailureStreak(0, null, null));
 
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult((long)_rows.Values.Count(r => r.State == HarvestRunState.Succeeded));

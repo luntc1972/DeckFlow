@@ -82,10 +82,6 @@ public sealed class HarvestServiceCollectionExtensionsTests
             CancellationToken cancellationToken = default)
             => throw new NotSupportedException("The DI canary only resolves services.");
 
-        public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
-
-        public ArchidektCacheJobStatus? GetActiveJob() => null;
-
         public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(false);
     }

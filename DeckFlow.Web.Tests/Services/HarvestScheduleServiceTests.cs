@@ -396,8 +396,6 @@ public sealed class HarvestScheduleServiceTests
             Enqueued.Add((kind, duration, trigger));
             return Task.FromResult<ArchidektCacheJobEnqueueResult>(null!);
         }
-        public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
-        public ArchidektCacheJobStatus? GetActiveJob() => null;
         public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);
     }
 
@@ -410,8 +408,6 @@ public sealed class HarvestScheduleServiceTests
             Enqueued.Add((kind, duration, trigger));
             return Task.FromResult<ArchidektCacheJobEnqueueResult>(null!);
         }
-        public ArchidektCacheJobStatus? GetJob(Guid jobId) => null;
-        public ArchidektCacheJobStatus? GetActiveJob() => null;
         public Task<bool> CancelActiveAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);
     }
 }

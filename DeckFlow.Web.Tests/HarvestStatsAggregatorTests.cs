@@ -60,7 +60,6 @@ public sealed class HarvestStatsAggregatorTests
         Assert.Equal(update, payload.LastUpdateScheduledSuccessUtc);
         Assert.Equal(update.AddMinutes(30), payload.NextUpdateScheduledUtc);
         Assert.Equal(new[] { HarvestRunKind.Bulk, HarvestRunKind.Update }, store.QueriedKinds);
-        Assert.Equal(0, store.AnyKindSuccessReads);
     }
 
     [Theory]
@@ -739,12 +738,6 @@ public sealed class HarvestStatsAggregatorTests
         public Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
             => Task.FromResult("0");
 
-        public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
-            => BlockAsync<DateTimeOffset?>(LastSuccessUtc);
-
-        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
-            => BlockAsync(new HarvestFailureStreak(0, null, null));
-
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0L);
 
@@ -772,7 +765,6 @@ public sealed class HarvestStatsAggregatorTests
         }
 
         public List<HarvestRunKind> QueriedKinds { get; } = new();
-        public int AnyKindSuccessReads { get; private set; }
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
@@ -802,15 +794,6 @@ public sealed class HarvestStatsAggregatorTests
 
         public Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
             => Task.FromResult("0");
-
-        public Task<DateTimeOffset?> GetLastSuccessUtcAsync(CancellationToken cancellationToken = default)
-        {
-            AnyKindSuccessReads++;
-            return Task.FromResult<DateTimeOffset?>(DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
-        }
-
-        public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(new HarvestFailureStreak(0, null, null));
 
         public Task<long> GetTotalSucceededCountAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(0L);
