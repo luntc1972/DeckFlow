@@ -144,6 +144,12 @@ internal static class ArchidektThrottle
             lock (StateLock)
             {
                 var now = _utcNow();
+                var retryAfter = _resumeAtUtc is null ? TimeSpan.Zero : _resumeAtUtc.Value - now;
+                if (retryAfter > RetryAfterCap)
+                {
+                    throw new ArchidektRateLimitedException("Archidekt rate limit pause exceeds the allowed delay.", retryAfter);
+                }
+
                 var intervalStart = _lastStartUtc?.Add(CurrentInterval);
                 var nextStart = intervalStart is null ? _resumeAtUtc : _resumeAtUtc is null ? intervalStart : intervalStart > _resumeAtUtc ? intervalStart : _resumeAtUtc;
                 wait = nextStart is null ? TimeSpan.Zero : nextStart.Value - now;
@@ -185,22 +191,22 @@ internal static class ArchidektThrottle
 
             _consecutiveRateLimitedResponses++;
             var retryAfter = RetryAfterHeader.Parse(retryAfterHeader, _utcNow);
-            if (retryAfter > RetryAfterCap)
-            {
-                throw new ArchidektRateLimitedException("Archidekt rate limit Retry-After exceeds the allowed delay.", retryAfter);
-            }
-
             var fallback = FallbackDelay(_consecutiveRateLimitedResponses);
-            if (_consecutiveRateLimitedResponses >= TripStreak)
-            {
-                throw new ArchidektRateLimitedException("Archidekt rate limit did not clear after repeated responses.", retryAfter ?? fallback);
-            }
-
             var delay = retryAfter ?? fallback;
             var resumeAt = _utcNow().Add(delay);
             if (_resumeAtUtc is null || resumeAt > _resumeAtUtc)
             {
                 _resumeAtUtc = resumeAt;
+            }
+
+            if (retryAfter > RetryAfterCap)
+            {
+                throw new ArchidektRateLimitedException("Archidekt rate limit Retry-After exceeds the allowed delay.", retryAfter);
+            }
+
+            if (_consecutiveRateLimitedResponses >= TripStreak)
+            {
+                throw new ArchidektRateLimitedException("Archidekt rate limit did not clear after repeated responses.", retryAfter ?? fallback);
             }
 
             return delay;

@@ -109,7 +109,8 @@ public sealed class ArchidektThrottleTests : IDisposable
         Assert.Equal(TimeSpan.FromSeconds(10), ArchidektThrottle.Observe(HttpStatusCode.TooManyRequests, null));
         var exception = Assert.Throws<ArchidektRateLimitedException>(() => ArchidektThrottle.Observe(HttpStatusCode.TooManyRequests, null));
         Assert.Equal(TimeSpan.FromSeconds(20), exception.RetryAfter);
-        using var client = CreateClient(new QueuedResponseHandler([(HttpStatusCode.OK, null)]));
+        var handler = new QueuedResponseHandler([(HttpStatusCode.OK, null)]);
+        using var client = CreateClient(handler);
         var response = await ArchidektThrottle.ExecuteAsync(client, CreateRequest, CancellationToken.None);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(0, ArchidektThrottle.ConsecutiveRateLimitedResponses);
@@ -147,6 +148,19 @@ public sealed class ArchidektThrottleTests : IDisposable
         var exception = Assert.Throws<ArchidektRateLimitedException>(() => ArchidektThrottle.Observe(HttpStatusCode.TooManyRequests, "61"));
         Assert.Equal(TimeSpan.FromSeconds(61), exception.RetryAfter);
         Assert.Equal(1, ArchidektThrottle.ConsecutiveRateLimitedResponses);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AfterTripAboveCap_FailsFastWithoutCallingHandler()
+    {
+        Assert.Throws<ArchidektRateLimitedException>(() => ArchidektThrottle.Observe(HttpStatusCode.TooManyRequests, "61"));
+        var handler = new QueuedResponseHandler([(HttpStatusCode.OK, null)]);
+        using var client = CreateClient(handler);
+
+        await Assert.ThrowsAsync<ArchidektRateLimitedException>(() => ArchidektThrottle.ExecuteAsync(client, CreateRequest, CancellationToken.None));
+
+        Assert.Empty(_clock.Waits);
+        Assert.Equal(0, handler.RequestCount);
     }
 
     [Theory]
