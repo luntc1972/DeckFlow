@@ -256,13 +256,12 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
+        var listingDeckIds = unique.Select(row => row.DeckId).ToArray();
         var existingRows = await connection.QueryAsync<ListingBaselineRow>(new CommandDefinition(
-            """
-            SELECT deck_id, archidekt_updated_utc, listing_updated_seen_utc
-            FROM deck_queue
-            WHERE deck_id IN @deckIds;
-            """,
-            new { deckIds = unique.Select(row => row.DeckId).ToArray() },
+            _connectionInfo.IsPostgres
+                ? "SELECT deck_id, archidekt_updated_utc, listing_updated_seen_utc FROM deck_queue WHERE deck_id = ANY(@deckIds);"
+                : "SELECT deck_id, archidekt_updated_utc, listing_updated_seen_utc FROM deck_queue WHERE deck_id IN @deckIds;",
+            new { deckIds = listingDeckIds },
             transaction: transaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         var existingById = existingRows.ToDictionary(row => row.DeckId, StringComparer.Ordinal);
