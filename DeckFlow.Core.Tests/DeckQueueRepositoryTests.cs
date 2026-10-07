@@ -1,5 +1,6 @@
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using Dapper;
 using Microsoft.Data.Sqlite;
 
 namespace DeckFlow.Core.Tests;
@@ -36,6 +37,29 @@ public sealed class DeckQueueRepositoryTests : IDisposable
         await repository.AddListingRowsAsync([new ArchidektListingDeck("refresh-only", DateTimeOffset.UtcNow)]);
 
         Assert.False(await repository.HasMoreThanUnprocessedDecksAsync(0));
+    }
+
+    [Fact]
+    public async Task RecordTransientDeckFailureAsync_SkipsDeckAfterThirdFailureAndSuccessResetsCounter()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        await repository.AddDeckIdsAsync(["transient"]);
+
+        Assert.False(await repository.RecordTransientDeckFailureAsync("transient"));
+        Assert.False(await repository.RecordTransientDeckFailureAsync("transient"));
+        await repository.MarkDeckProcessedAsync("transient", null, skip: false, metadata: null);
+
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var failures = await connection.ExecuteScalarAsync<long>("SELECT transient_failure_count FROM deck_queue WHERE deck_id = 'transient';");
+        Assert.Equal(0, failures);
+
+        await repository.AddDeckIdsAsync(["skipped"]);
+        Assert.False(await repository.RecordTransientDeckFailureAsync("skipped"));
+        Assert.False(await repository.RecordTransientDeckFailureAsync("skipped"));
+        Assert.True(await repository.RecordTransientDeckFailureAsync("skipped"));
+        Assert.Empty(await repository.GetNextUnprocessedDeckIdsAsync(1));
     }
 
     public void Dispose()

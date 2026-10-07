@@ -68,6 +68,7 @@ public sealed class ArchidektDeckCacheSession
         var stopwatch = Stopwatch.StartNew();
         var tally = new DeckDrainTally();
         var decksEnqueued = 0;
+        var attemptedDeckIds = new HashSet<string>(StringComparer.Ordinal);
 
         while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
         {
@@ -132,7 +133,7 @@ public sealed class ArchidektDeckCacheSession
                 continue;
             }
 
-            foreach (var deckId in deckIds)
+            foreach (var deckId in deckIds.Where(attemptedDeckIds.Add))
             {
                 try
                 {
@@ -179,6 +180,7 @@ public sealed class ArchidektDeckCacheSession
         var pagesPolled = 0;
         var refreshesRequeued = 0;
         var newIdsSeen = 0;
+        var attemptedDeckIds = new HashSet<string>(StringComparer.Ordinal);
 
         for (var page = 1; page <= UpdateListingPageCap && stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested; page++)
         {
@@ -222,7 +224,7 @@ public sealed class ArchidektDeckCacheSession
                 break;
             }
 
-            foreach (var deckId in deckIds)
+            foreach (var deckId in deckIds.Where(attemptedDeckIds.Add))
             {
                 try
                 {
@@ -294,8 +296,9 @@ public sealed class ArchidektDeckCacheSession
         }
         catch (ArchidektTransientFailureException exception)
         {
+            var skipped = await _repository.RecordTransientDeckFailureAsync(deckId, cancellationToken);
             tally.ConsecutiveTransientFailures++;
-            _logger?.LogWarning(exception, "Archidekt transient failure while importing deck {DeckId}; leaving the deck queued.", deckId);
+            _logger?.LogWarning(exception, "Archidekt transient failure while importing deck {DeckId}; {Disposition}.", deckId, skipped ? "skipping after third failure" : "leaving queued");
             if (tally.ConsecutiveTransientFailures >= 3)
             {
                 throw;

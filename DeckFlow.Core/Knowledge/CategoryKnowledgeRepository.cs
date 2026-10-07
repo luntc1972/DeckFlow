@@ -247,6 +247,12 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.GetNextUnprocessedDeckIdsAsync(count, cancellationToken);
 
     /// <summary>
+    /// Records a transient import failure and returns whether the deck was skipped after its third failure.
+    /// </summary>
+    public Task<bool> RecordTransientDeckFailureAsync(string deckId, CancellationToken cancellationToken = default)
+        => _deckQueue.RecordTransientDeckFailureAsync(deckId, cancellationToken);
+
+    /// <summary>
     /// Inserts listing rows and requeues a known deck only when its listing updatedAt is newer, to the second,
     /// than its stored or last-seen value. Pending rows are untouched.
     /// </summary>

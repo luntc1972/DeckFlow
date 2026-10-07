@@ -367,6 +367,29 @@ internal sealed class DeckQueueRepository
     }
 
     /// <summary>
+    /// Records a transient import failure and skips the deck after its third failure.
+    /// </summary>
+    internal async Task<bool> RecordTransientDeckFailureAsync(string deckId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var skipped = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            """
+            UPDATE deck_queue
+            SET transient_failure_count = transient_failure_count + 1,
+                skipped = CASE WHEN transient_failure_count + 1 >= 3 THEN 1 ELSE skipped END
+            WHERE deck_id = @deckId AND processed = 0 AND skipped = 0
+            RETURNING CASE WHEN transient_failure_count >= 3 THEN 1 ELSE 0 END;
+            """,
+            new { deckId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return skipped == 1;
+    }
+
+    /// <summary>
     /// Gets the next batch of deck IDs that have not been processed or skipped.
     /// </summary>
     /// <param name="count">Maximum number of deck IDs to return.</param>
@@ -529,6 +552,7 @@ internal sealed class DeckQueueRepository
             UPDATE deck_queue
                SET processed = 1,
                    skipped = @skipped,
+                   transient_failure_count = CASE WHEN @skipped = 0 THEN 0 ELSE transient_failure_count END,
                    last_checked_utc = @now,
                    refresh_requested_utc = NULL,
                    commander_name = COALESCE(@commanderName, deck_queue.commander_name)
@@ -538,6 +562,7 @@ internal sealed class DeckQueueRepository
             UPDATE deck_queue
                SET processed = 1,
                    skipped = @skipped,
+                   transient_failure_count = CASE WHEN @skipped = 0 THEN 0 ELSE transient_failure_count END,
                    last_checked_utc = @now,
                    refresh_requested_utc = NULL,
                    commander_name = @commanderName,

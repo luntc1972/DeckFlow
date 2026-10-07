@@ -83,6 +83,7 @@ internal sealed class CategoryCacheSchema
                 inserted_utc TEXT NOT NULL,
                 processed INTEGER NOT NULL DEFAULT 0,
                 skipped INTEGER NOT NULL DEFAULT 0,
+                transient_failure_count INTEGER NOT NULL DEFAULT 0,
                 last_checked_utc TEXT,
                 commander_name TEXT NULL,
                 content_hash TEXT NULL,
@@ -109,6 +110,7 @@ internal sealed class CategoryCacheSchema
                      ("archidekt_metadata_captured_utc", "TEXT NULL"),
                      ("refresh_requested_utc", "TEXT NULL"),
                      ("listing_updated_seen_utc", "TEXT NULL"),
+                     ("transient_failure_count", "INTEGER NOT NULL DEFAULT 0"),
                  }, cancellationToken);
 
         var crawlStateCommand = connection.CreateCommand();

@@ -129,6 +129,20 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_TransientDeckFailure_DoesNotRefetchDeckDuringRun()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        await repository.AddDeckIdsAsync(["transient-1"]);
+        var importer = new ThrowingTransientDeckImporter();
+        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        await session.RunAsync(TimeSpan.FromMilliseconds(20), fetchBatchSize: 1);
+
+        Assert.Equal(["transient-1"], importer.AttemptedDeckIds);
+    }
+
+    [Fact]
     public async Task RunAsync_UsesFetchBatchSizeForDeckProcessing()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);

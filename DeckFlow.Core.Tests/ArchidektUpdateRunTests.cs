@@ -141,6 +141,19 @@ public sealed class ArchidektUpdateRunTests : IDisposable
     }
 
     [Fact]
+    public async Task RunUpdateAsync_TransientDeckFailure_DoesNotRefetchDeckDuringRun()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await SeedRefreshDeckAsync(repository, "transient-1");
+        var deckImporter = new ScriptedDeckImporter();
+        var session = new ArchidektDeckCacheSession(repository, deckImporter, new ScriptedListingImporter(_ => []));
+
+        await session.RunUpdateAsync(TimeSpan.FromMilliseconds(20), fetchBatchSize: 1);
+
+        Assert.Equal(["transient-1"], deckImporter.AttemptedDeckIds);
+    }
+
+    [Fact]
     public async Task RunUpdateAsync_RefreshDeckImportFails_IsSkippedCountedAndLeavesRefreshQueue()
     {
         // Why: D-04 drains refresh-only rows and the 06-03 carry-forward counts a failed import as skipped.
@@ -345,6 +358,11 @@ public sealed class ArchidektUpdateRunTests : IDisposable
             if (deckId.Contains("rate-limited", StringComparison.Ordinal))
             {
                 throw new ArchidektRateLimitedException("fixture limit", TimeSpan.FromSeconds(1));
+            }
+
+            if (deckId.Contains("transient", StringComparison.Ordinal))
+            {
+                throw new ArchidektTransientFailureException("fixture transient failure");
             }
 
             if (deckId.Contains("broken", StringComparison.Ordinal))
