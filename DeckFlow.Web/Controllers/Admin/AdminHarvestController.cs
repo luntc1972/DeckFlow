@@ -92,9 +92,13 @@ public sealed class AdminHarvestController : Controller
     [HttpGet("")]
     public async Task<IActionResult> Index(CancellationToken cancellationToken = default)
     {
-        var activeRun = await _runStore.GetActiveAsync(cancellationToken).ConfigureAwait(false);
-        var recentRuns = await _runStore.GetRecentAsync(10, cancellationToken).ConfigureAwait(false);
-        var throttle = await _throttleStore.GetAsync(cancellationToken).ConfigureAwait(false);
+        var activeRunTask = _runStore.GetActiveAsync(cancellationToken);
+        var recentRunsTask = _runStore.GetRecentAsync(10, cancellationToken);
+        var throttleTask = _throttleStore.GetAsync(cancellationToken);
+        await Task.WhenAll(activeRunTask, recentRunsTask, throttleTask).ConfigureAwait(false);
+        var activeRun = await activeRunTask.ConfigureAwait(false);
+        var recentRuns = await recentRunsTask.ConfigureAwait(false);
+        var throttle = await throttleTask.ConfigureAwait(false);
         HarvestStatsPayload? stats = null;
 
         try
@@ -505,8 +509,7 @@ public sealed class AdminHarvestController : Controller
 
         var resumed = await _throttleStore.ResumeAfterRateLimitAsync(DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
         // Why: the store does not reload caches; a reload after a no-op is harmless.
-        await _scheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
-        await _updateScheduleCache.ReloadAsync(cancellationToken).ConfigureAwait(false);
+        await ArchidektCacheJobService.ReloadAllScheduleCachesAsync(_scheduleCache, _updateScheduleCache, cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("Harvest.Throttle.Resumed resumed={Resumed}", resumed);
         SetBanner(resumed ? "Rate-limit pause cleared. Both schedules resumed." : "Schedules are not rate-limited; nothing to resume.");
         return RedirectToAction(nameof(Index));

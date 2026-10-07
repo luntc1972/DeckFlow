@@ -423,8 +423,7 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                 {
                     _logger.LogError(markException, "Harvest.Throttle.MarkFailed jobId={JobId}", signal.JobId);
                 }
-                await _scheduleCache.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
-                await _updateScheduleCache.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
+                await ReloadAllScheduleCachesAsync(_scheduleCache, _updateScheduleCache, CancellationToken.None).ConfigureAwait(false);
                 if (marked)
                 {
                     // Why: ReloadAsync swallows failures, so only an explicit in-memory pause guarantees the scheduler sees the committed pause.
@@ -455,6 +454,9 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
             }
         }
     }
+
+    internal static Task ReloadAllScheduleCachesAsync(IHarvestScheduleCache scheduleCache, IHarvestUpdateScheduleCache updateScheduleCache, CancellationToken cancellationToken)
+        => Task.WhenAll(scheduleCache.ReloadAsync(cancellationToken), updateScheduleCache.ReloadAsync(cancellationToken));
 
     /// <summary>
     /// Maps a <see cref="HarvestRunRow"/> from <see cref="IHarvestRunStore"/> to the
