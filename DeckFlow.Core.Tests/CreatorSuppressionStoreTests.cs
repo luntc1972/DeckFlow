@@ -2,6 +2,7 @@ using System.IO;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Storage;
 using Microsoft.Data.Sqlite;
+using Npgsql;
 using Xunit;
 
 namespace DeckFlow.Core.Tests;
@@ -58,33 +59,47 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
         Assert.Equal(sql.Increment, CreatorSuppressionStore.GetSql(RelationalDatabaseProvider.Postgres).Increment);
     }
 
-    [Fact]
+    [CreatorSuppressionPostgresFact]
     public async Task SuppressAsync_UsesPostgresProviderLive()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DECKFLOW_TEST_POSTGRES")))
-        {
-            return;
-        }
-
+        var slug = $"postgres-{Guid.NewGuid():N}";
         var store = new CreatorSuppressionStore(new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, Environment.GetEnvironmentVariable("DECKFLOW_TEST_POSTGRES")!));
-        await store.SuppressAsync("postgres", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
-        Assert.True(await store.IsSuppressedAsync("postgres"));
+        try
+        {
+            await store.SuppressAsync(slug, Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+            Assert.True(await store.IsSuppressedAsync(slug));
+        }
+        finally { await store.UnsuppressAsync(slug); }
     }
 
     [CreatorSuppressionPostgresFact]
     public async Task ApplySnapshotAsync_DeletesStaleRowsOnPostgres()
     {
-        var connectionString = Environment.GetEnvironmentVariable("DECKFLOW_TEST_POSTGRES");
-        var store = new CreatorSuppressionStore(new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, connectionString!));
-        await store.SuppressAsync("stale", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
-        await store.ApplySnapshotAsync(new CreatorSuppressionSnapshot(1, new[]
+        var schema = $"creator_suppression_test_{Guid.NewGuid():N}";
+        var connectionString = Environment.GetEnvironmentVariable("DECKFLOW_TEST_POSTGRES")!;
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using (var createSchema = new NpgsqlCommand($"CREATE SCHEMA {schema};", connection)) await createSchema.ExecuteNonQueryAsync();
+        try
         {
-            new CreatorSuppression { Slug = "kept", Aliases = Array.Empty<string>(), Reason = "request", RequestedUtc = DateTimeOffset.UtcNow }
-        }), false);
+            var testConnectionString = new NpgsqlConnectionStringBuilder(connectionString) { SearchPath = schema }.ConnectionString;
+            var store = new CreatorSuppressionStore(new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, testConnectionString));
+            await store.SuppressAsync("stale-one", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+            await store.SuppressAsync("stale-two", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+            await store.ApplySnapshotAsync(new CreatorSuppressionSnapshot(1, new[]
+            {
+                new CreatorSuppression { Slug = "kept", Aliases = Array.Empty<string>(), Reason = "request", RequestedUtc = DateTimeOffset.UtcNow }
+            }), false);
 
-        var rows = await store.ListAsync();
-        Assert.DoesNotContain(rows, row => row.Slug == "stale");
-        Assert.Contains(rows, row => row.Slug == "kept");
+            var rows = await store.ListAsync();
+            Assert.DoesNotContain(rows, row => row.Slug is "stale-one" or "stale-two");
+            Assert.Contains(rows, row => row.Slug == "kept");
+        }
+        finally
+        {
+            await using var dropSchema = new NpgsqlCommand($"DROP SCHEMA IF EXISTS {schema} CASCADE;", connection);
+            await dropSchema.ExecuteNonQueryAsync();
+        }
     }
 
     [Fact]
@@ -137,21 +152,6 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
     }
 
     private CreatorSuppressionStore CreateStore() => new(RelationalDatabaseConnection.FromSqlitePath(_dbPath));
-}
-
-public sealed class CreatorSuppressionPostgresFactAttribute : FactAttribute
-{
-    public CreatorSuppressionPostgresFactAttribute()
-    {
-        if (!string.Equals(Environment.GetEnvironmentVariable("DECKFLOW_POSTGRES_TESTS"), "1", StringComparison.Ordinal))
-        {
-            Skip = "Postgres integration tests are disabled. Set DECKFLOW_POSTGRES_TESTS=1 to enable.";
-        }
-        else if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DECKFLOW_TEST_POSTGRES")))
-        {
-            Skip = "DECKFLOW_TEST_POSTGRES must provide the live Postgres test connection string.";
-        }
-    }
 }
 
 public sealed class CreatorSuppressionSyncTests : IDisposable
