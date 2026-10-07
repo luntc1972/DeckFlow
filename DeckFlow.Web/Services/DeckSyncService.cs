@@ -56,9 +56,13 @@ public sealed class DeckSyncService : IDeckSyncService
         _deckEntryLoader.ValidateCommanderDeckSize(DeckSyncSupport.GetLeftPanelSystem(request.Direction), loadedDecks.MoxfieldEntries);
         _deckEntryLoader.ValidateCommanderDeckSize(DeckSyncSupport.GetRightPanelSystem(request.Direction), loadedDecks.ArchidektEntries);
 
-        var diff = new DiffEngine(request.Mode).Compare(
-            DeckSyncSupport.GetSourceEntries(request.Direction, loadedDecks),
-            DeckSyncSupport.GetTargetEntries(request.Direction, loadedDecks));
+        var sourceEntries = DeckSyncSupport.GetSourceEntries(request.Direction, loadedDecks)
+            .Where(entry => !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var targetEntries = DeckSyncSupport.GetTargetEntries(request.Direction, loadedDecks)
+            .Where(entry => !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var diff = new DiffEngine(request.Mode).Compare(sourceEntries, targetEntries);
 
         return new DeckSyncResult(diff, loadedDecks);
     }

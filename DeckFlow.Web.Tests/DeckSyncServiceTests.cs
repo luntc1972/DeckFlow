@@ -71,6 +71,41 @@ public sealed class DeckSyncServiceTests
     }
 
     /// <summary>
+    /// Excludes sideboard entries from the deck comparison.
+    /// </summary>
+    [Fact]
+    public async Task CompareDecksAsync_ExcludesSideboardEntriesFromDiff()
+    {
+        var moxfieldEntries = CreateDeckEntries(100);
+        moxfieldEntries.Add(new DeckEntry
+        {
+            Name = "Sideboard Card",
+            NormalizedName = CardNormalizer.Normalize("Sideboard Card"),
+            Quantity = 1,
+            Board = "sideboard"
+        });
+        var service = new DeckSyncService(
+            new DeckEntryLoader(
+            new FakeMoxfieldDeckImporter(moxfieldEntries),
+            new FakeArchidektDeckImporter(CreateDeckEntries(100)),
+            new MoxfieldParser(),
+            new ArchidektParser()));
+
+        var result = await service.CompareDecksAsync(
+            new DeckDiffRequest
+            {
+                MoxfieldInputSource = DeckInputSource.PublicUrl,
+                MoxfieldUrl = "https://moxfield.com/decks/test",
+                ArchidektInputSource = DeckInputSource.PublicUrl,
+                ArchidektUrl = "https://archidekt.com/decks/123/test"
+            },
+            CancellationToken.None);
+
+        Assert.DoesNotContain(result.Diff.ToAdd, entry => entry.Name == "Sideboard Card");
+        Assert.DoesNotContain(result.Diff.OnlyInArchidekt, entry => entry.Name == "Sideboard Card");
+    }
+
+    /// <summary>
     /// Verifies that two Moxfield decks can be compared directly.
     /// </summary>
     [Fact]
