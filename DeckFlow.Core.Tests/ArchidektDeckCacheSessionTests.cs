@@ -129,22 +129,92 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_OnlyAttemptedTransientDeckRemains_EndsBeforeDurationCap()
+    public async Task RunAsync_OnlyAttemptedTransientDeckRemains_IdlesLikeDryQueueWithoutRefetch()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await repository.EnsureSchemaAsync();
         await repository.AddDeckIdsAsync(["transient-1"]);
         var importer = new ThrowingTransientDeckImporter();
         var recentImporter = new FakeRecentDecksImporter();
-        var session = new ArchidektDeckCacheSession(repository, importer, recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1));
+        var session = new ArchidektDeckCacheSession(repository, importer, recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(250));
 
         var stopwatch = Stopwatch.StartNew();
-        await session.RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 1);
+        var result = await session.RunAsync(TimeSpan.FromSeconds(1), fetchBatchSize: 1);
         stopwatch.Stop();
 
         Assert.Equal(["transient-1"], importer.AttemptedDeckIds);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(1));
-        Assert.InRange(recentImporter.Calls, 1, 5);
+        Assert.True(stopwatch.Elapsed >= TimeSpan.FromMilliseconds(900), $"Expected the bulk run to idle until its window ended; elapsed {stopwatch.ElapsedMilliseconds} ms.");
+        // Why: each idle iteration makes two listing calls, so a hot loop would far exceed 30.
+        Assert.InRange(recentImporter.Calls, 2, 30);
+        Assert.False(result.EndedEarly);
+        Assert.False(await IsDeckProcessedAsync("transient-1"));
+        Assert.False(await IsDeckSkippedAsync("transient-1"));
+    }
+
+    [Fact]
+    public async Task RunAsync_TransientDeckAheadOfPendingDeck_DrainsPendingDeckInSameRun()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        await repository.AddDeckIdsAsync(["transient-1", "good-1"]);
+        Assert.Equal(["transient-1", "good-1"], await repository.GetNextUnprocessedDeckIdsAsync(2));
+        var importer = new ThrowingTransientOnMarkedDeckImporter();
+        using var cancellation = new CancellationTokenSource();
+        var progress = new SynchronousProgress<int>(processed => { if (processed >= 1) cancellation.Cancel(); });
+        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(100));
+
+        var stopwatch = Stopwatch.StartNew();
+        var result = await session.RunAsync(TimeSpan.FromSeconds(10), fetchBatchSize: 1, cancellationToken: cancellation.Token, progress: progress);
+        stopwatch.Stop();
+
+        Assert.Equal(["transient-1", "good-1"], importer.AttemptedDeckIds);
+        Assert.True(await IsDeckProcessedAsync("good-1"));
+        Assert.False(await IsDeckProcessedAsync("transient-1"));
+        Assert.False(await IsDeckSkippedAsync("transient-1"));
+        Assert.Equal(1, result.DecksProcessed);
+        Assert.False(result.EndedEarly);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task RunAsync_TwentyInterleavedTransientDecks_DrainsEveryHealthyDeckAtProductionBatchSize()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        var deckIds = Enumerable.Range(1, 20).SelectMany(i => new[] { $"transient-{i:00}", $"good-{i:00}" }).Append("good-tail").ToList();
+        await repository.AddDeckIdsAsync(deckIds);
+        Assert.Equal(deckIds, await repository.GetNextUnprocessedDeckIdsAsync(41));
+        var importer = new ThrowingTransientOnMarkedDeckImporter();
+        using var cancellation = new CancellationTokenSource();
+        var progress = new SynchronousProgress<int>(processed => { if (processed >= 21) cancellation.Cancel(); });
+        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(100));
+
+        var stopwatch = Stopwatch.StartNew();
+        // Why: 20 is CategoryKnowledgeStore.HarvestDeckCount, the production batch for both run kinds.
+        var result = await session.RunAsync(TimeSpan.FromSeconds(10), fetchBatchSize: 20, cancellationToken: cancellation.Token, progress: progress);
+        stopwatch.Stop();
+
+        var goodIds = deckIds.Where(id => id.StartsWith("good", StringComparison.Ordinal)).ToList();
+        var processedGoodIds = new List<string>();
+        foreach (var goodId in goodIds)
+        {
+            if (await IsDeckProcessedAsync(goodId))
+            {
+                processedGoodIds.Add(goodId);
+            }
+        }
+
+        Assert.Equal(goodIds, processedGoodIds);
+        foreach (var transientId in deckIds.Where(id => id.Contains("transient", StringComparison.Ordinal)))
+        {
+            Assert.Equal(1, importer.AttemptedDeckIds.Count(attempt => attempt == transientId));
+            Assert.False(await IsDeckProcessedAsync(transientId));
+            Assert.False(await IsDeckSkippedAsync(transientId));
+        }
+        Assert.Equal(41, importer.AttemptedDeckIds.Count);
+        Assert.Equal(21, result.DecksProcessed);
+        Assert.False(result.EndedEarly);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(9));
     }
 
     [Fact]
@@ -630,6 +700,39 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         {
             _attemptedDeckIds.Add(urlOrDeckId);
             throw new ArchidektTransientFailureException("Simulated transient Archidekt failure.");
+        }
+    }
+
+    /// <summary>
+    /// Exception-injection double that fails only IDs marked transient.
+    /// </summary>
+    private sealed class ThrowingTransientOnMarkedDeckImporter : IArchidektDeckImporter
+    {
+        private readonly FakeDeckImporter _inner = new();
+        private readonly List<string> _attemptedDeckIds = [];
+
+        public IReadOnlyList<string> AttemptedDeckIds => _attemptedDeckIds;
+
+        public async Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+        {
+            _attemptedDeckIds.Add(urlOrDeckId);
+            if (urlOrDeckId.Contains("transient", StringComparison.Ordinal))
+            {
+                throw new ArchidektTransientFailureException("Simulated transient Archidekt failure.");
+            }
+
+            return await _inner.ImportAsync(urlOrDeckId, cancellationToken);
+        }
+
+        public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+        {
+            _attemptedDeckIds.Add(urlOrDeckId);
+            if (urlOrDeckId.Contains("transient", StringComparison.Ordinal))
+            {
+                throw new ArchidektTransientFailureException("Simulated transient Archidekt failure.");
+            }
+
+            return await _inner.ImportWithMetadataAsync(urlOrDeckId, cancellationToken);
         }
     }
 

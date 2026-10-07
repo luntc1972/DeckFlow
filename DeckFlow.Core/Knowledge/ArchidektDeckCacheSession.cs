@@ -126,17 +126,20 @@ public sealed class ArchidektDeckCacheSession
                 continue;
             }
 
-            var deckIds = await _repository.GetNextUnprocessedDeckIdsAsync(fetchBatchSize, cancellationToken);
+            // Why: pending decks already attempted in this run keep their FIFO place at the head, so widen by the attempted count to reach decks behind them without changing SQL.
+            var deckIds = await _repository.GetNextUnprocessedDeckIdsAsync(fetchBatchSize + attemptedDeckIds.Count, cancellationToken);
             if (deckIds.Count == 0)
             {
                 await DelayUntilNextRetryAsync(stopwatch, duration, cancellationToken);
                 continue;
             }
 
-            var unattemptedDeckIds = deckIds.Where(attemptedDeckIds.Add).ToList();
+            var unattemptedDeckIds = TakeUnattemptedDeckIds(deckIds, attemptedDeckIds, fetchBatchSize);
             if (unattemptedDeckIds.Count == 0)
             {
-                break;
+                // Why: when visible pending decks were already tried, behave as a dry queue and retain listing discovery.
+                await DelayUntilNextRetryAsync(stopwatch, duration, cancellationToken);
+                continue;
             }
 
             foreach (var deckId in unattemptedDeckIds)
