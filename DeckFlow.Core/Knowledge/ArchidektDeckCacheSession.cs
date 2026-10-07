@@ -133,7 +133,13 @@ public sealed class ArchidektDeckCacheSession
                 continue;
             }
 
-            foreach (var deckId in deckIds.Where(attemptedDeckIds.Add))
+            var unattemptedDeckIds = deckIds.Where(attemptedDeckIds.Add).ToList();
+            if (unattemptedDeckIds.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var deckId in unattemptedDeckIds)
             {
                 try
                 {
@@ -224,7 +230,13 @@ public sealed class ArchidektDeckCacheSession
                 break;
             }
 
-            foreach (var deckId in deckIds.Where(attemptedDeckIds.Add))
+            var unattemptedDeckIds = deckIds.Where(attemptedDeckIds.Add).ToList();
+            if (unattemptedDeckIds.Count == 0)
+            {
+                break;
+            }
+
+            foreach (var deckId in unattemptedDeckIds)
             {
                 try
                 {

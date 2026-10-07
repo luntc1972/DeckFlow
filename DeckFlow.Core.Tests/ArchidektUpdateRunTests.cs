@@ -1,4 +1,5 @@
 using System.Net;
+using System.Diagnostics;
 using System.Text.Json;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
@@ -141,16 +142,21 @@ public sealed class ArchidektUpdateRunTests : IDisposable
     }
 
     [Fact]
-    public async Task RunUpdateAsync_TransientDeckFailure_DoesNotRefetchDeckDuringRun()
+    public async Task RunUpdateAsync_OnlyAttemptedTransientDeckRemains_EndsBeforeDurationCap()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await SeedRefreshDeckAsync(repository, "transient-1");
         var deckImporter = new ScriptedDeckImporter();
-        var session = new ArchidektDeckCacheSession(repository, deckImporter, new ScriptedListingImporter(_ => []));
+        var listingImporter = new ScriptedListingImporter(_ => []);
+        var session = new ArchidektDeckCacheSession(repository, deckImporter, listingImporter);
 
-        await session.RunUpdateAsync(TimeSpan.FromMilliseconds(20), fetchBatchSize: 1);
+        var stopwatch = Stopwatch.StartNew();
+        await session.RunUpdateAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 1);
+        stopwatch.Stop();
 
         Assert.Equal(["transient-1"], deckImporter.AttemptedDeckIds);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(1));
+        Assert.InRange(listingImporter.RequestedPages.Count, 1, 3);
     }
 
     [Fact]

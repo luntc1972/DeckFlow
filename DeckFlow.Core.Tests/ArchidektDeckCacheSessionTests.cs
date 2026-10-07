@@ -129,17 +129,22 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_TransientDeckFailure_DoesNotRefetchDeckDuringRun()
+    public async Task RunAsync_OnlyAttemptedTransientDeckRemains_EndsBeforeDurationCap()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await repository.EnsureSchemaAsync();
         await repository.AddDeckIdsAsync(["transient-1"]);
         var importer = new ThrowingTransientDeckImporter();
-        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(1));
+        var recentImporter = new FakeRecentDecksImporter();
+        var session = new ArchidektDeckCacheSession(repository, importer, recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(1));
 
-        await session.RunAsync(TimeSpan.FromMilliseconds(20), fetchBatchSize: 1);
+        var stopwatch = Stopwatch.StartNew();
+        await session.RunAsync(TimeSpan.FromSeconds(5), fetchBatchSize: 1);
+        stopwatch.Stop();
 
         Assert.Equal(["transient-1"], importer.AttemptedDeckIds);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(1));
+        Assert.InRange(recentImporter.Calls, 1, 5);
     }
 
     [Fact]
@@ -533,6 +538,8 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
 
     private sealed class FakeRecentDecksImporter : IArchidektRecentDecksImporter
     {
+        public int Calls { get; private set; }
+
         public Task<IReadOnlyList<string>> ImportRecentDeckIdsAsync(int count, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
@@ -543,7 +550,10 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
             => throw new NotSupportedException("The bulk session must call ImportRecentListingPageAsync.");
 
         public Task<IReadOnlyList<ArchidektListingDeck>> ImportRecentListingPageAsync(int page, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<ArchidektListingDeck>>(Array.Empty<ArchidektListingDeck>());
+        {
+            Calls++;
+            return Task.FromResult<IReadOnlyList<ArchidektListingDeck>>(Array.Empty<ArchidektListingDeck>());
+        }
     }
 
     /// <summary>
