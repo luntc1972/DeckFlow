@@ -53,7 +53,7 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
     }
 
     private static bool IsSuppressed(string representation, CreatorIdentity? identity, CreatorSuppressionMatcher matcher)
-        => GetIdentityRepresentations(identity).Prepend(representation).Any(matcher.IsSuppressed);
+        => ExpandIdentityRepresentations(identity).Prepend(representation).Any(matcher.IsSuppressed);
 
     private static IEnumerable<string> GetRepresentations(ContentSiteIndexRow row)
     {
@@ -62,7 +62,7 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
         if (!string.IsNullOrWhiteSpace(folder)) yield return folder;
     }
 
-    private static IEnumerable<string> GetIdentityRepresentations(CreatorIdentity? identity)
+    private static IEnumerable<string> ExpandIdentityRepresentations(CreatorIdentity? identity)
         => identity is null ? [] : [identity.CanonicalSlug, .. identity.DisplayNames, .. identity.FolderSlugs];
 
     private sealed class EmptyCreatorIdentityResolver : ICreatorIdentityResolver

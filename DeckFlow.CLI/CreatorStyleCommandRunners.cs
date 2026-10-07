@@ -271,7 +271,6 @@ internal static class CreatorStyleCommandRunners
     internal static (
         CreatorSuppressionStore SuppressionStore,
         CreatorSuppressionFilter SuppressionFilter,
-        Lazy<ICreatorIdentityResolver> IdentityResolver,
         CreatorStyleProfileStore ProfileStore,
         CreatorStyleStatedRuleStore StatedRuleStore) CreateStoresForDatabase(string databasePath)
     {
@@ -282,7 +281,6 @@ internal static class CreatorStyleCommandRunners
         return (
             suppressionStore,
             new CreatorSuppressionFilter(suppressionStore, resolver),
-            resolver,
             new CreatorStyleProfileStore(databasePath, suppressionStore, resolver),
             new CreatorStyleStatedRuleStore(databasePath, suppressionStore, resolver));
     }
