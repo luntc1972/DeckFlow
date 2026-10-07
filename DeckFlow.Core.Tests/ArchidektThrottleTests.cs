@@ -151,6 +151,18 @@ public sealed class ArchidektThrottleTests : IDisposable
     }
 
     [Fact]
+    public void Observe_PreseededStreakAtForty_ClampsFallbackDelayToCap()
+    {
+        typeof(ArchidektThrottle)
+            .GetField("_consecutiveRateLimitedResponses", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
+            .SetValue(null, 39);
+
+        var exception = Assert.Throws<ArchidektRateLimitedException>(() => ArchidektThrottle.Observe(HttpStatusCode.TooManyRequests, null));
+
+        Assert.Equal(TimeSpan.FromSeconds(60), exception.RetryAfter);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_AfterTripAboveCap_FailsFastWithoutCallingHandler()
     {
         Assert.Throws<ArchidektRateLimitedException>(() => ArchidektThrottle.Observe(HttpStatusCode.TooManyRequests, "61"));

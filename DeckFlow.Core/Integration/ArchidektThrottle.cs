@@ -127,7 +127,7 @@ internal static class ArchidektThrottle
             if (count >= TripStreak)
             {
                 var retryAfter = RetryAfterHeader.Parse(RetryAfterHeader.Read(response), _utcNow);
-                var fallback = FallbackDelay(count);
+                var fallback = FallbackDelay();
                 throw new ArchidektRateLimitedException("Archidekt rate limit did not clear after repeated responses.", retryAfter ?? fallback);
             }
         }
@@ -191,7 +191,7 @@ internal static class ArchidektThrottle
 
             _consecutiveRateLimitedResponses++;
             var retryAfter = RetryAfterHeader.Parse(retryAfterHeader, _utcNow);
-            var fallback = FallbackDelay(_consecutiveRateLimitedResponses);
+            var fallback = FallbackDelay();
             var delay = retryAfter ?? fallback;
             var resumeAt = _utcNow().Add(delay);
             if (_resumeAtUtc is null || resumeAt > _resumeAtUtc)
@@ -236,6 +236,10 @@ internal static class ArchidektThrottle
         return ValueTask.FromResult(false);
     }
 
-    private static TimeSpan FallbackDelay(int count)
-        => TimeSpan.FromTicks(FallbackRetryDelay.Ticks * (1L << (count - 1)));
+    private static TimeSpan FallbackDelay()
+    {
+        var exponent = Math.Clamp(ConsecutiveRateLimitedResponses - 1, 0, 4);
+        var delay = TimeSpan.FromTicks(FallbackRetryDelay.Ticks * (1L << exponent));
+        return delay > RetryAfterCap ? RetryAfterCap : delay;
+    }
 }
