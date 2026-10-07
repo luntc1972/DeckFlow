@@ -31,14 +31,20 @@ async function expectRateLimitedBanner(page: Page): Promise<void> {
   }
 }
 
+async function optionValues(page: Page, selector: string): Promise<string[]> {
+  return page.locator(selector).evaluateAll((options) =>
+    options.map((option) => (option as HTMLOptionElement).value),
+  );
+}
+
 test('admin harvest controls render update, schedule and rate cards', async ({ page }) => {
   const response = await page.goto('/Admin/Harvest');
   expect(response?.ok()).toBeTruthy();
-  await expect(page.locator('#runKind option')).toHaveValues(['bulk', 'update']);
+  expect(await optionValues(page, '#runKind option')).toEqual(['bulk', 'update']);
   await expect(page.locator('#harvest-bulk-schedule')).toBeVisible();
   await expect(page.locator('#harvest-update-schedule')).toBeVisible();
-  await expect(page.locator('#harvest-update-schedule #updateIntervalMinutes option')).toHaveValues(['', '15', '30', '60', '120']);
-  await expect(page.locator('#ratePerMinute option')).toHaveValues(['5', '10', '20']);
+  expect(await optionValues(page, '#harvest-update-schedule #updateIntervalMinutes option')).toEqual(['', '15', '30', '60', '120']);
+  expect(await optionValues(page, '#ratePerMinute option')).toEqual(['5', '10', '20']);
   await expect(page.locator('#ratePerMinute')).toHaveValue(/^(5|10|20)$/);
   await expectRateLimitedBanner(page);
 
