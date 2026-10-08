@@ -27,6 +27,25 @@ public sealed class CreatorSuppressionFilterTests
     }
 
     [Fact]
+    public async Task FilterRowsAsync_KelvinAndMicroSignLookalikes_SuppressesAll()
+    {
+        var filter = new CreatorSuppressionFilter(
+            new CountingStore([Suppression("k\u00B5")]),
+            new Lazy<ICreatorIdentityResolver>(() => new NullResolver()));
+
+        var rows = new[]
+        {
+            Row("\u212A\u00B5", "content-kb/kelvin/item.md"),
+            Row("k\u00B5", "content-kb/micro/item.md"),
+            Row("k\u03BC", "content-kb/greek/item.md"),
+        };
+
+        var result = await filter.FilterRowsAsync(rows);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
     public async Task GetUnsuppressedAsync_MicroSignVariants_SuppressesOnlyMatchingValue()
     {
         // Why: only the U+00B5 slug resolves to the suppressed folder, so a shared resolver key would leak it.

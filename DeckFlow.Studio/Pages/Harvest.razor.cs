@@ -914,6 +914,17 @@ public partial class Harvest
         var groupRepresentations = groups.Select(group => new
         {
             Group = group,
+            RawPrimaryRepresentations = new[]
+                {
+                    group.CreatorRef,
+                    group.ChannelName,
+                    CreatorNameResolver.FromChannelTitle(group.ChannelName),
+                    group.ChannelUrl,
+                }
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .OfType<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
             PrimaryRepresentations = new[]
                 {
                     group.CreatorRef,
@@ -939,8 +950,7 @@ public partial class Harvest
         var candidates = groupRepresentations.Select(entry => new
         {
             entry.Group,
-            Representations = entry.PrimaryRepresentations
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
+            Representations = entry.RawPrimaryRepresentations
                     .Any(representation => identities.GetValueOrDefault(representation) is not null)
                 ? entry.PrimaryRepresentations
                 : entry.PrimaryRepresentations.Concat(entry.BrowseSources).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList(),

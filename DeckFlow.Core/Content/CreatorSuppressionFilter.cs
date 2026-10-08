@@ -24,11 +24,15 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
     {
         ArgumentNullException.ThrowIfNull(rows);
         if (rows.Count == 0) return rows;
-        var representations = rows.SelectMany(GetRepresentations).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList();
+        var rawRepresentations = rows.SelectMany(GetRepresentations).ToList();
+        var representations = rawRepresentations.Distinct(CreatorSuppressionMatcher.ValueComparer).ToList();
         var resolved = await _resolver.Value.ResolveManyAsync(representations, cancellationToken).ConfigureAwait(false);
         var matcher = new CreatorSuppressionMatcher(await _store.ListAsync(cancellationToken).ConfigureAwait(false));
-        // Why: preserve base OrdinalIgnoreCase widening while evaluating every ValueComparer-distinct variant.
-        var suppressed = SuppressedRepresentations.Create(representations.Where(representation => IsSuppressed(representation, resolved.GetValueOrDefault(representation), matcher)));
+        // Why: build the OIC set from raw values so a ValueComparer-collapsed value still widens.
+        var suppressedClasses = representations
+            .Where(representation => IsSuppressed(representation, resolved.GetValueOrDefault(representation), matcher))
+            .ToHashSet(CreatorSuppressionMatcher.ValueComparer);
+        var suppressed = SuppressedRepresentations.Create(rawRepresentations.Where(suppressedClasses.Contains));
         return rows.Where(row => GetRepresentations(row).All(representation => !suppressed.Contains(representation))).ToList();
     }
 
