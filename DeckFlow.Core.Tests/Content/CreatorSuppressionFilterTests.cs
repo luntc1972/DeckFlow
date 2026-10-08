@@ -6,8 +6,10 @@ namespace DeckFlow.Core.Tests.Content;
 
 public sealed class CreatorSuppressionFilterTests
 {
-    [Fact]
-    public async Task FilterRowsAsync_MicroSignVariants_SuppressesOnlyMatchingValue()
+    [Theory]
+    [InlineData("\u03BCx", "\u00B5x")]
+    [InlineData("\u00B5x", "\u03BCx")]
+    public async Task FilterRowsAsync_MicroSignVariants_SuppressesBothVariants(string firstSource, string secondSource)
     {
         var filter = new CreatorSuppressionFilter(
             new CountingStore([Suppression("\u00B5x")]),
@@ -15,13 +17,13 @@ public sealed class CreatorSuppressionFilterTests
 
         var rows = new[]
         {
-            Row("\u03BCx", "content-kb/greek/item.md"),
-            Row("\u00B5x", "content-kb/micro/item.md"),
+            Row(firstSource, "content-kb/greek/item.md"),
+            Row(secondSource, "content-kb/micro/item.md"),
         };
 
         var result = await filter.FilterRowsAsync(rows);
 
-        Assert.Equal(["\u03BCx"], result.Select(row => row.Source));
+        Assert.Empty(result);
     }
 
     [Fact]
@@ -35,6 +37,18 @@ public sealed class CreatorSuppressionFilterTests
         var result = await filter.GetUnsuppressedAsync(["\u03BCx", "\u00B5x"]);
 
         Assert.Equal(["\u03BCx"], result);
+    }
+
+    [Fact]
+    public async Task IsSuppressedAsync_MicroSignLookalike_NotSuppressed()
+    {
+        var filter = new CreatorSuppressionFilter(
+            new CountingStore([Suppression("\u00B5x")]),
+            new Lazy<ICreatorIdentityResolver>(() => new NullResolver()));
+
+        var result = await filter.IsSuppressedAsync("\u03BCx");
+
+        Assert.False(result);
     }
 
     [Fact]

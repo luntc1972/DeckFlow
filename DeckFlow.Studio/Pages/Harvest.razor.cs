@@ -935,10 +935,13 @@ public partial class Harvest
         }).ToList();
         var representations = groupRepresentations.SelectMany(entry => entry.PrimaryRepresentations.Concat(entry.BrowseSources)).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList();
         var identities = await CreatorIdentityResolver.ResolveManyAsync(representations, cancellationToken);
+        // Why: determine primary resolution from OrdinalIgnoreCase-distinct values so later lookalikes cannot suppress the browse fallback check.
         var candidates = groupRepresentations.Select(entry => new
         {
             entry.Group,
-            Representations = entry.PrimaryRepresentations.Any(representation => identities.GetValueOrDefault(representation) is not null)
+            Representations = entry.PrimaryRepresentations
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Any(representation => identities.GetValueOrDefault(representation) is not null)
                 ? entry.PrimaryRepresentations
                 : entry.PrimaryRepresentations.Concat(entry.BrowseSources).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList(),
         }).ToList();

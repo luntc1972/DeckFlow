@@ -73,7 +73,7 @@ internal sealed class PerGroupThrowingCreatorSuppressionStore : ICreatorSuppress
 
 internal sealed class FakeCreatorIdentityResolver : ICreatorIdentityResolver
 {
-    public Dictionary<string, CreatorIdentity> Identities { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, CreatorIdentity> Identities { get; } = new(CreatorSuppressionMatcher.ValueComparer);
     public int ResolveAsyncCalls { get; private set; }
     public int ResolveManyAsyncCalls { get; private set; }
 
@@ -86,6 +86,6 @@ internal sealed class FakeCreatorIdentityResolver : ICreatorIdentityResolver
     public Task<IReadOnlyDictionary<string, CreatorIdentity?>> ResolveManyAsync(IReadOnlyCollection<string> representations, CancellationToken cancellationToken = default)
     {
         ResolveManyAsyncCalls++;
-        return Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(representations.ToDictionary(representation => representation, representation => (CreatorIdentity?)Identities.GetValueOrDefault(representation), StringComparer.OrdinalIgnoreCase));
+        return Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(representations.ToDictionary(representation => representation, representation => (CreatorIdentity?)Identities.GetValueOrDefault(representation), CreatorSuppressionMatcher.ValueComparer));
     }
 }

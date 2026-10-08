@@ -1076,6 +1076,27 @@ namespace DeckFlow.Studio.Tests
             cut.WaitForAssertion(() => Assert.DoesNotContain("Fetching channel videos", cut.Markup), UiTimeout);
             await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Paste video']").Change(true));
             await cut.InvokeAsync(() => cut.FindAll("button").First(button => button.TextContent.Contains("Harvest Selected", StringComparison.Ordinal)).Click());
+            cut.WaitForAssertion(() => Assert.True(cut.Markup.Contains("suppressed creator group(s)", StringComparison.Ordinal), cut.Markup), UiTimeout);
+            Assert.Empty(harv.HarvestCalls);
+        }
+
+        [Fact]
+        public async Task HarvestPage_HarvestSelected_LookalikePrimaryResolves_StillChecksBrowseSource()
+        {
+            var suppression = new FakeCreatorSuppressionStore();
+            suppression.Suppressed.Add("suppressed-creator");
+            var identities = new FakeCreatorIdentityResolver();
+            identities.Identities["https://www.youtube.com/channel/\u03BCx"] = new CreatorIdentity("allowed-creator", [], [], []);
+            identities.Identities["https://youtube.com/@paste"] = new CreatorIdentity("suppressed-creator", [], [], []);
+            var (cut, _, harv, _) = RenderHarvest(
+                new[] { Vid("paste-video", "Paste video", "https://www.youtube.com/channel/\u00B5x", "\u03BCx") },
+                new MapBlockedStore(), new MapSiteIndexStore(), suppressionStore: suppression, identityResolver: identities);
+
+            await cut.InvokeAsync(() => cut.Find("#channelInput").Change("https://youtube.com/@paste"));
+            await cut.InvokeAsync(() => cut.FindAll("button").First(button => button.TextContent.Contains("Browse", StringComparison.Ordinal)).Click());
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Fetching channel videos", cut.Markup), UiTimeout);
+            await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Paste video']").Change(true));
+            await cut.InvokeAsync(() => cut.FindAll("button").First(button => button.TextContent.Contains("Harvest Selected", StringComparison.Ordinal)).Click());
             cut.WaitForAssertion(() => Assert.Contains("1 suppressed creator group(s) were skipped", cut.Markup, StringComparison.Ordinal), UiTimeout);
             Assert.Empty(harv.HarvestCalls);
         }

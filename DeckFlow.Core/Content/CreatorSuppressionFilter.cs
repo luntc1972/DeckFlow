@@ -27,7 +27,8 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
         var representations = rows.SelectMany(GetRepresentations).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList();
         var resolved = await _resolver.Value.ResolveManyAsync(representations, cancellationToken).ConfigureAwait(false);
         var matcher = new CreatorSuppressionMatcher(await _store.ListAsync(cancellationToken).ConfigureAwait(false));
-        var suppressed = representations.Where(representation => IsSuppressed(representation, resolved.GetValueOrDefault(representation), matcher)).ToHashSet(CreatorSuppressionMatcher.ValueComparer);
+        // Why: preserve base OrdinalIgnoreCase widening while evaluating every ValueComparer-distinct variant.
+        var suppressed = SuppressedRepresentations.Create(representations.Where(representation => IsSuppressed(representation, resolved.GetValueOrDefault(representation), matcher)));
         return rows.Where(row => GetRepresentations(row).All(representation => !suppressed.Contains(representation))).ToList();
     }
 
@@ -64,6 +65,24 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
 
     private static IEnumerable<string> ExpandIdentityRepresentations(CreatorIdentity? identity)
         => identity is null ? [] : [identity.CanonicalSlug, .. identity.DisplayNames, .. identity.FolderSlugs];
+
+    private sealed class SuppressedRepresentations
+    {
+        private readonly HashSet<string> _valueComparer;
+        private readonly HashSet<string> _ordinalIgnoreCase;
+
+        private SuppressedRepresentations(IEnumerable<string> representations)
+        {
+            var values = representations.ToList();
+            _valueComparer = values.ToHashSet(CreatorSuppressionMatcher.ValueComparer);
+            _ordinalIgnoreCase = values.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        public static SuppressedRepresentations Create(IEnumerable<string> representations) => new(representations);
+
+        public bool Contains(string representation)
+            => _valueComparer.Contains(representation) || _ordinalIgnoreCase.Contains(representation);
+    }
 
     private sealed class EmptyCreatorIdentityResolver : ICreatorIdentityResolver
     {

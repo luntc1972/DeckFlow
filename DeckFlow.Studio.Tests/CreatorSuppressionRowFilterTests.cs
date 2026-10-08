@@ -7,7 +7,7 @@ namespace DeckFlow.Studio.Tests;
 public sealed class CreatorSuppressionRowFilterTests
 {
     [Fact]
-    public async Task GetAllowedAsync_MicroSignVariants_ExcludesOnlySuppressedValue()
+    public async Task GetAllowedAsync_MicroSignVariants_ExcludesBothVariants()
     {
         var store = new FakeCreatorSuppressionStore();
         store.Suppressed.Add("\u00B5x");
@@ -16,7 +16,7 @@ public sealed class CreatorSuppressionRowFilterTests
 
         var result = await filter.GetAllowedAsync(rows, CancellationToken.None);
 
-        Assert.Equal(["\u03BCx"], result.Select(row => row.Source));
+        Assert.Empty(result);
     }
 
     [Fact]
