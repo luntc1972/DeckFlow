@@ -24,10 +24,10 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
     {
         ArgumentNullException.ThrowIfNull(rows);
         if (rows.Count == 0) return rows;
-        var representations = rows.SelectMany(GetRepresentations).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var representations = rows.SelectMany(GetRepresentations).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList();
         var resolved = await _resolver.Value.ResolveManyAsync(representations, cancellationToken).ConfigureAwait(false);
         var matcher = new CreatorSuppressionMatcher(await _store.ListAsync(cancellationToken).ConfigureAwait(false));
-        var suppressed = representations.Where(representation => IsSuppressed(representation, resolved.GetValueOrDefault(representation), matcher)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var suppressed = representations.Where(representation => IsSuppressed(representation, resolved.GetValueOrDefault(representation), matcher)).ToHashSet(CreatorSuppressionMatcher.ValueComparer);
         return rows.Where(row => GetRepresentations(row).All(representation => !suppressed.Contains(representation))).ToList();
     }
 
@@ -46,7 +46,7 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
         ArgumentNullException.ThrowIfNull(slugs);
         foreach (var slug in slugs) ArgumentException.ThrowIfNullOrWhiteSpace(slug);
         if (slugs.Count == 0) return slugs;
-        var representations = slugs.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var representations = slugs.Distinct(CreatorSuppressionMatcher.ValueComparer).ToList();
         var resolved = await _resolver.Value.ResolveManyAsync(representations, cancellationToken).ConfigureAwait(false);
         var matcher = new CreatorSuppressionMatcher(await _store.ListAsync(cancellationToken).ConfigureAwait(false));
         return slugs.Where(slug => !IsSuppressed(slug, resolved.GetValueOrDefault(slug), matcher)).ToList();
@@ -71,6 +71,6 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
             => Task.FromResult<CreatorIdentity?>(null);
 
         public Task<IReadOnlyDictionary<string, CreatorIdentity?>> ResolveManyAsync(IReadOnlyCollection<string> representations, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(representations.ToDictionary(representation => representation, _ => (CreatorIdentity?)null, StringComparer.OrdinalIgnoreCase));
+            => Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(representations.ToDictionary(representation => representation, _ => (CreatorIdentity?)null, CreatorSuppressionMatcher.ValueComparer));
     }
 }

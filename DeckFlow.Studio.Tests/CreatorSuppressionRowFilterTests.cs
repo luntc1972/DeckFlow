@@ -1,3 +1,4 @@
+using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Studio.Services;
 
@@ -5,6 +6,19 @@ namespace DeckFlow.Studio.Tests;
 
 public sealed class CreatorSuppressionRowFilterTests
 {
+    [Fact]
+    public async Task GetAllowedAsync_MicroSignVariants_ExcludesOnlySuppressedValue()
+    {
+        var store = new FakeCreatorSuppressionStore();
+        store.Suppressed.Add("\u00B5x");
+        var filter = new CreatorSuppressionRowFilter(store, new NullCreatorIdentityResolver());
+        var rows = new[] { MakeRow(1, "\u03BCx"), MakeRow(2, "\u00B5x") };
+
+        var result = await filter.GetAllowedAsync(rows, CancellationToken.None);
+
+        Assert.Equal(["\u03BCx"], result.Select(row => row.Source));
+    }
+
     [Fact]
     public async Task GetAllowedAsync_SeveralCreators_ReadsSuppressionsOnceWithoutPerCandidateChecks()
     {
@@ -32,4 +46,10 @@ public sealed class CreatorSuppressionRowFilterTests
             BracketTags = Array.Empty<string>(),
             CardCategoryTags = Array.Empty<string>(),
         };
+
+    private sealed class NullCreatorIdentityResolver : ICreatorIdentityResolver
+    {
+        public Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default)
+            => Task.FromResult<CreatorIdentity?>(null);
+    }
 }

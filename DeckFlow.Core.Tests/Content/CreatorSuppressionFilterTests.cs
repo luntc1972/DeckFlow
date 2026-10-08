@@ -7,6 +7,37 @@ namespace DeckFlow.Core.Tests.Content;
 public sealed class CreatorSuppressionFilterTests
 {
     [Fact]
+    public async Task FilterRowsAsync_MicroSignVariants_SuppressesOnlyMatchingValue()
+    {
+        var filter = new CreatorSuppressionFilter(
+            new CountingStore([Suppression("\u00B5x")]),
+            new Lazy<ICreatorIdentityResolver>(() => new NullResolver()));
+
+        var rows = new[]
+        {
+            Row("\u03BCx", "content-kb/greek/item.md"),
+            Row("\u00B5x", "content-kb/micro/item.md"),
+        };
+
+        var result = await filter.FilterRowsAsync(rows);
+
+        Assert.Equal(["\u03BCx"], result.Select(row => row.Source));
+    }
+
+    [Fact]
+    public async Task GetUnsuppressedAsync_MicroSignVariants_SuppressesOnlyMatchingValue()
+    {
+        // Why: only the U+00B5 slug resolves to the suppressed folder, so a shared resolver key would leak it.
+        var filter = new CreatorSuppressionFilter(
+            new CountingStore([Suppression("suppressed-folder")]),
+            new Lazy<ICreatorIdentityResolver>(() => new MicroSignResolver()));
+
+        var result = await filter.GetUnsuppressedAsync(["\u03BCx", "\u00B5x"]);
+
+        Assert.Equal(["\u03BCx"], result);
+    }
+
+    [Fact]
     public async Task Filter_SuppressionAddedBetweenCalls_SecondCallSuppresses()
     {
         var store = new CountingStore();
@@ -215,6 +246,18 @@ public sealed class CreatorSuppressionFilterTests
             ResolveManyCalls++;
             return Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(representations.ToDictionary(value => value, value => Identities.GetValueOrDefault(value), StringComparer.OrdinalIgnoreCase));
         }
+    }
+
+    private sealed class MicroSignResolver : ICreatorIdentityResolver
+    {
+        public Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default)
+            => Task.FromResult(anyRepresentation == "\u00B5x" ? new CreatorIdentity("\u00B5x", [], [], ["suppressed-folder"]) : null);
+    }
+
+    private sealed class NullResolver : ICreatorIdentityResolver
+    {
+        public Task<CreatorIdentity?> ResolveAsync(string anyRepresentation, CancellationToken cancellationToken = default)
+            => Task.FromResult<CreatorIdentity?>(null);
     }
 
     private sealed class CountingStore : ICreatorSuppressionStore

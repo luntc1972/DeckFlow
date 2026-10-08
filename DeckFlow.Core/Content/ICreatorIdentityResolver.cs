@@ -12,8 +12,8 @@ public interface ICreatorIdentityResolver
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(representations);
-        var resolved = new Dictionary<string, CreatorIdentity?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var representation in representations.Distinct(StringComparer.OrdinalIgnoreCase))
+        var resolved = new Dictionary<string, CreatorIdentity?>(CreatorSuppressionMatcher.ValueComparer);
+        foreach (var representation in representations.Distinct(CreatorSuppressionMatcher.ValueComparer))
         {
             resolved[representation] = await ResolveAsync(representation, cancellationToken).ConfigureAwait(false);
         }

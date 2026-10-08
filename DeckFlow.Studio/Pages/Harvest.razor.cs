@@ -923,27 +923,27 @@ public partial class Harvest
                 }
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .OfType<string>()
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Distinct(CreatorSuppressionMatcher.ValueComparer)
                 .ToList(),
             BrowseSources = selectedVideos
                 .Where(video => group.VideoIds.Contains(video.VideoId, StringComparer.Ordinal))
                 .Select(video => video.BrowseSource)
                 .Where(source => !string.IsNullOrWhiteSpace(source))
                 .OfType<string>()
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Distinct(CreatorSuppressionMatcher.ValueComparer)
                 .ToList(),
         }).ToList();
-        var representations = groupRepresentations.SelectMany(entry => entry.PrimaryRepresentations.Concat(entry.BrowseSources)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var representations = groupRepresentations.SelectMany(entry => entry.PrimaryRepresentations.Concat(entry.BrowseSources)).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList();
         var identities = await CreatorIdentityResolver.ResolveManyAsync(representations, cancellationToken);
         var candidates = groupRepresentations.Select(entry => new
         {
             entry.Group,
             Representations = entry.PrimaryRepresentations.Any(representation => identities.GetValueOrDefault(representation) is not null)
                 ? entry.PrimaryRepresentations
-                : entry.PrimaryRepresentations.Concat(entry.BrowseSources).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                : entry.PrimaryRepresentations.Concat(entry.BrowseSources).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList(),
         }).ToList();
         var filter = new CreatorSuppressionFilter(CreatorSuppressionStore, new Lazy<ICreatorIdentityResolver>(() => new ResolvedCreatorIdentityResolver(identities)));
-        var allowed = (await filter.GetUnsuppressedAsync(candidates.SelectMany(entry => entry.Representations).Distinct(StringComparer.OrdinalIgnoreCase).ToList(), cancellationToken)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allowed = (await filter.GetUnsuppressedAsync(candidates.SelectMany(entry => entry.Representations).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList(), cancellationToken)).ToHashSet(CreatorSuppressionMatcher.ValueComparer);
         foreach (var entry in candidates)
         {
             if (entry.Representations.Any(representation => !allowed.Contains(representation))) suppressed.Add(entry.Group.ChannelUrl);
@@ -958,7 +958,7 @@ public partial class Harvest
             => Task.FromResult(identities.GetValueOrDefault(anyRepresentation));
 
         public Task<IReadOnlyDictionary<string, CreatorIdentity?>> ResolveManyAsync(IReadOnlyCollection<string> representations, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(representations.ToDictionary(representation => representation, representation => identities.GetValueOrDefault(representation), StringComparer.OrdinalIgnoreCase));
+            => Task.FromResult<IReadOnlyDictionary<string, CreatorIdentity?>>(representations.ToDictionary(representation => representation, representation => identities.GetValueOrDefault(representation), CreatorSuppressionMatcher.ValueComparer));
     }
 
     private void CancelOperation()

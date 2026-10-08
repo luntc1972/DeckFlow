@@ -29,6 +29,35 @@ public sealed class CreatorStyleCommandRunnersTests : IDisposable
     }
 
     [Fact]
+    public async Task RunCreatorStyleImportStatedAsync_MicroSignVariantSuppressed_SkipsOnlySuppressedSlug()
+    {
+        var stores = CreatorStyleCommandRunners.CreateStoresForDatabase(_dbPath);
+        await stores.SuppressionStore.SuppressAsync("\u00B5x", [], "test", DateTimeOffset.UtcNow, null);
+        await File.WriteAllTextAsync(_seedPath, JsonSerializer.Serialize(new Dictionary<string, List<StatedRuleCandidate>>
+        {
+            ["\u03BCx"] = [new StatedRuleCandidate { Category = "deckbuilding", Metric = "ramp", Value = 1, Comparator = "gte", SourceClip = "test", Confidence = 1, VideoDateUtc = DateTimeOffset.UtcNow }],
+            ["\u00B5x"] = [new StatedRuleCandidate { Category = "deckbuilding", Metric = "ramp", Value = 2, Comparator = "gte", SourceClip = "test", Confidence = 1, VideoDateUtc = DateTimeOffset.UtcNow }],
+        }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+
+        var originalError = Console.Error;
+        using var error = new StringWriter();
+        try
+        {
+            Console.SetError(error);
+            var exitCode = await CreatorStyleCommandRunners.RunCreatorStyleImportStatedAsync(new FileInfo(_seedPath), new FileInfo(_dbPath));
+
+            Assert.Equal(0, exitCode);
+            Assert.Contains("Skipping suppressed creator '\u00B5x'.", error.ToString());
+            Assert.NotEmpty(await stores.StatedRuleStore.GetBySlugAsync("\u03BCx"));
+            Assert.Empty(await stores.StatedRuleStore.GetBySlugAsync("\u00B5x"));
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+    }
+
+    [Fact]
     public async Task RunCreatorStyleImportStatedAsync_IdentityAliasSuppressed_SkipsSlug()
     {
         const string slug = "creator-slug";

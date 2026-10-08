@@ -5,6 +5,13 @@ namespace DeckFlow.Core.Tests;
 
 public sealed class CreatorSuppressionMatcherTests
 {
+    [Fact]
+    public void ValueComparer_NormalizesWithOrdinalEquality()
+    {
+        Assert.True(CreatorSuppressionMatcher.ValueComparer.Equals("AbC", " abc "));
+        Assert.False(CreatorSuppressionMatcher.ValueComparer.Equals("\u03BCx", "\u00B5x"));
+    }
+
     [Theory]
     [InlineData("creator-slug")]
     [InlineData("creator alias")]

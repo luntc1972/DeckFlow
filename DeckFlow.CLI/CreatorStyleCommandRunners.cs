@@ -50,7 +50,8 @@ internal static class CreatorStyleCommandRunners
 
             var stores = CreateStoresForDatabase(dbPath);
             var unsuppressedSlugs = (await stores.SuppressionFilter.GetUnsuppressedAsync(seed.Keys.ToList()).ConfigureAwait(false))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                // Why: the filter returns exact input strings, so membership must preserve matcher equality.
+                .ToHashSet(StringComparer.Ordinal);
             var store = stores.StatedRuleStore;
             var ruleCount = 0;
             var slugCount = 0;
@@ -213,7 +214,8 @@ internal static class CreatorStyleCommandRunners
             var profiles = new List<CreatorStyleProfile>();
             var deckCacheEntries = new List<CreatorDeckCacheEntry>();
             var unsuppressedSlugs = (await stores.SuppressionFilter.GetUnsuppressedAsync(summaries.Select(summary => summary.Slug).ToList()).ConfigureAwait(false))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                // Why: the filter returns exact input strings, so membership must preserve matcher equality.
+                .ToHashSet(StringComparer.Ordinal);
 
             foreach (var summary in summaries)
             {

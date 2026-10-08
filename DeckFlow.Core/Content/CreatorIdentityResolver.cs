@@ -30,8 +30,8 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
     {
         ArgumentNullException.ThrowIfNull(representations);
         var snapshot = await LoadSnapshotAsync(cancellationToken).ConfigureAwait(false);
-        var resolved = new Dictionary<string, CreatorIdentity?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var representation in representations.Distinct(StringComparer.OrdinalIgnoreCase))
+        var resolved = new Dictionary<string, CreatorIdentity?>(CreatorSuppressionMatcher.ValueComparer);
+        foreach (var representation in representations.Distinct(CreatorSuppressionMatcher.ValueComparer))
         {
             resolved[representation] = Resolve(snapshot, representation);
         }
@@ -181,14 +181,14 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
     /// <summary>Collects source names, folder slugs, and IDs joined into one creator identity component.</summary>
     private sealed class IndexComponent
     {
-        public HashSet<string> DisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public HashSet<string> DisplayNames { get; } = new(CreatorSuppressionMatcher.ValueComparer);
         public HashSet<string> FolderSlugs { get; } = new(StringComparer.Ordinal);
-        public HashSet<string> SourceSlugs { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public HashSet<string> SourceSlugs { get; } = new(CreatorSuppressionMatcher.ValueComparer);
         public HashSet<long> SourceIds { get; } = [];
         public IEnumerable<string> Values => DisplayNames.Concat(FolderSlugs).Concat(SourceSlugs);
         public void Merge(IndexComponent other) { DisplayNames.UnionWith(other.DisplayNames); FolderSlugs.UnionWith(other.FolderSlugs); SourceSlugs.UnionWith(other.SourceSlugs); SourceIds.UnionWith(other.SourceIds); }
     }
     /// <summary>Accumulates canonical creator details returned after aliases and suppression rules are resolved.</summary>
-    private sealed class Candidate(string slug) { public string Slug { get; } = slug; public HashSet<long> SourceIds { get; } = []; public HashSet<string> Aliases { get; } = new(StringComparer.OrdinalIgnoreCase); public HashSet<string> DisplayNames { get; } = new(StringComparer.OrdinalIgnoreCase); public HashSet<string> FolderSlugs { get; } = new(StringComparer.OrdinalIgnoreCase); }
+    private sealed class Candidate(string slug) { public string Slug { get; } = slug; public HashSet<long> SourceIds { get; } = []; public HashSet<string> Aliases { get; } = new(CreatorSuppressionMatcher.ValueComparer); public HashSet<string> DisplayNames { get; } = new(CreatorSuppressionMatcher.ValueComparer); public HashSet<string> FolderSlugs { get; } = new(CreatorSuppressionMatcher.ValueComparer); }
 }
 #pragma warning restore CS1591
