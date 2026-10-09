@@ -7,8 +7,8 @@ namespace DeckFlow.Web.Services.Harvest;
 public sealed record HarvestedCommanderRow(string CommanderName, int DeckCount, string? LastProcessedUtc);
 
 /// <summary>
-/// Full HARV-06 stats payload (D-16). Cached for 60 seconds in IMemoryCache and
-/// explicitly invalidated on harvest_runs writes (D-13).
+/// Full HARV-06 stats payload (D-16). Count fields come from a 60-second cache refreshed in the background and marked stale on harvest_runs writes (D-13);
+/// recent runs, scheduled-run times and health are read on each request.
 /// <param name="TotalDecks">Total processed decks.</param>
 /// <param name="TotalDecks30d">Processed decks in the last 30 days.</param>
 /// <param name="QueuedDeckCount">Current queued deck count.</param>
