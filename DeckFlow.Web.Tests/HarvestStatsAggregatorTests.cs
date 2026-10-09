@@ -147,6 +147,43 @@ public sealed class HarvestStatsAggregatorTests
     }
 
     [Fact]
+    public async Task GetAsync_ScheduleSavedWithinCacheWindow_ReturnsNextRunFromLiveSchedule()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var clock = new TestTimeProvider();
+        var bulkAnchor = new DateTimeOffset(2026, 9, 23, 11, 0, 0, TimeSpan.Zero);
+        var updateAnchor = new DateTimeOffset(2026, 9, 23, 11, 50, 0, TimeSpan.Zero);
+        var bulkSchedule = new FakeHarvestScheduleCache(new(null, false, clock.GetUtcNow()));
+        var updateSchedule = new FakeHarvestUpdateScheduleCache(new(null, false, clock.GetUtcNow()));
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        var store = new ImmediateHarvestRunStore(scheduledSuccesses: new Dictionary<HarvestRunKind, DateTimeOffset?>
+        {
+            [HarvestRunKind.Bulk] = bulkAnchor,
+            [HarvestRunKind.Update] = updateAnchor,
+        });
+        var aggregator = CreateAggregator(store, categoryStore, cache, bulkSchedule, updateSchedule, clock);
+
+        var first = await aggregator.GetAsync();
+        Assert.Null(first.NextBulkScheduledUtc);
+        Assert.Null(first.NextUpdateScheduledUtc);
+
+        // Why: controller save actions reload only schedule caches, so Current models a saved schedule here.
+        bulkSchedule.Current = new(24, false, clock.GetUtcNow());
+        updateSchedule.Current = new(30, false, clock.GetUtcNow());
+        clock.Advance(TimeSpan.FromSeconds(5));
+
+        var second = await aggregator.GetAsync();
+        Assert.Equal(bulkAnchor.AddHours(24), second.NextBulkScheduledUtc);
+        Assert.Equal(updateAnchor.AddMinutes(30), second.NextUpdateScheduledUtc);
+
+        bulkSchedule.Current = new(24, true, clock.GetUtcNow());
+        var third = await aggregator.GetAsync();
+        Assert.Null(third.NextBulkScheduledUtc);
+        Assert.Equal(updateAnchor.AddMinutes(30), third.NextUpdateScheduledUtc);
+        Assert.Equal(1, categoryStore.BuildCount);
+    }
+
+    [Fact]
     public async Task GetAsync_TransfersQueuedDeckCountFromStore()
     {
         using var cache = new MemoryCache(new MemoryCacheOptions());
@@ -356,7 +393,10 @@ public sealed class HarvestStatsAggregatorTests
         var payloads = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => aggregator.GetAsync()));
         await categoryStore.WaitForBlockedBuildAsync();
 
-        Assert.All(payloads, payload => Assert.Equal(cached, payload));
+        // Why: only next-run is derived per read at this commit; every other field remains cached.
+        Assert.All(payloads, payload => Assert.Equal(
+            cached with { NextBulkScheduledUtc = null, NextUpdateScheduledUtc = null },
+            payload with { NextBulkScheduledUtc = null, NextUpdateScheduledUtc = null }));
         Assert.Equal(2, categoryStore.BuildCount);
         categoryStore.ReleaseBlockedBuild();
     }
@@ -836,13 +876,13 @@ public sealed class HarvestStatsAggregatorTests
 
     private sealed class FakeHarvestScheduleCache : IHarvestScheduleCache
     {
-        private readonly HarvestScheduleSnapshot _snapshot;
+        public HarvestScheduleSnapshot Current { get; set; }
 
         public FakeHarvestScheduleCache(HarvestScheduleSnapshot? snapshot = null)
-            => _snapshot = snapshot ?? new(4, Paused: false, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+            => Current = snapshot ?? new(4, Paused: false, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
 
         public HarvestScheduleSnapshot Snapshot()
-            => _snapshot;
+            => Current;
 
         public Task ReloadAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
@@ -851,13 +891,13 @@ public sealed class HarvestStatsAggregatorTests
 
     private sealed class FakeHarvestUpdateScheduleCache : IHarvestUpdateScheduleCache
     {
-        private readonly HarvestUpdateScheduleSnapshot _snapshot;
+        public HarvestUpdateScheduleSnapshot Current { get; set; }
 
         public FakeHarvestUpdateScheduleCache(HarvestUpdateScheduleSnapshot? snapshot = null)
-            => _snapshot = snapshot ?? new(null, Paused: false, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+            => Current = snapshot ?? new(null, Paused: false, DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
 
         public HarvestUpdateScheduleSnapshot Snapshot()
-            => _snapshot;
+            => Current;
 
         public Task ReloadAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;

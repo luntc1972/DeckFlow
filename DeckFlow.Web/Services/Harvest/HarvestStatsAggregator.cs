@@ -80,20 +80,27 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     }
 
     /// <inheritdoc/>
-    public Task<HarvestStatsPayload> GetAsync(CancellationToken cancellationToken = default)
+    public async Task<HarvestStatsPayload> GetAsync(CancellationToken cancellationToken = default)
     {
+        HarvestStatsPayload payload;
         if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached) && cached is not null)
         {
             if (_timeProvider.GetUtcNow() - cached.CachedAtUtc < TimeSpan.FromSeconds(60))
             {
-                return Task.FromResult(cached.Payload);
+                payload = cached.Payload;
             }
-
-            StartRebuild();
-            return Task.FromResult(cached.Payload);
+            else
+            {
+                _ = StartRebuild();
+                payload = cached.Payload;
+            }
+        }
+        else
+        {
+            payload = await StartRebuild().ConfigureAwait(false);
         }
 
-        return StartRebuild();
+        return WithLiveNextRuns(payload);
     }
 
     /// <inheritdoc/>
@@ -194,12 +201,6 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         // D-08 must match the scheduler: manual completions never move a kind's displayed next run.
         var lastBulkScheduledSuccessUtc = await lastBulkScheduledSuccessUtcTask.ConfigureAwait(false);
         var lastUpdateScheduledSuccessUtc = await lastUpdateScheduledSuccessUtcTask.ConfigureAwait(false);
-        var scheduleSnapshot = _scheduleCache.Snapshot();
-        var updateScheduleSnapshot = _updateScheduleCache.Snapshot();
-        var now = _timeProvider.GetUtcNow();
-        var nextBulkScheduledUtc = NextScheduledUtc(lastBulkScheduledSuccessUtc, scheduleSnapshot.IntervalHours is int hours ? TimeSpan.FromHours(hours) : null, scheduleSnapshot.Paused, now);
-        var nextUpdateScheduledUtc = NextScheduledUtc(lastUpdateScheduledSuccessUtc, updateScheduleSnapshot.IntervalMinutes is int minutes ? TimeSpan.FromMinutes(minutes) : null, updateScheduleSnapshot.Paused, now);
-
         return new HarvestStatsPayload(
             totalDecks,
             totalDecks30d,
@@ -209,10 +210,24 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             recentRuns,
             databaseSizeBytes,
             lastBulkScheduledSuccessUtc,
-            nextBulkScheduledUtc,
+            null, // Why: GetAsync fills next-run times on every read.
             lastUpdateScheduledSuccessUtc,
-            nextUpdateScheduledUtc,
+            null, // Why: GetAsync fills next-run times on every read.
             health);
+    }
+
+    // Why: schedule save, pause and resume reload schedule caches without touching stats cache (G-06-2).
+    private HarvestStatsPayload WithLiveNextRuns(HarvestStatsPayload payload)
+    {
+        var scheduleSnapshot = _scheduleCache.Snapshot();
+        var updateScheduleSnapshot = _updateScheduleCache.Snapshot();
+        var now = _timeProvider.GetUtcNow();
+
+        return payload with
+        {
+            NextBulkScheduledUtc = NextScheduledUtc(payload.LastBulkScheduledSuccessUtc, scheduleSnapshot.IntervalHours is int hours ? TimeSpan.FromHours(hours) : null, scheduleSnapshot.Paused, now),
+            NextUpdateScheduledUtc = NextScheduledUtc(payload.LastUpdateScheduledSuccessUtc, updateScheduleSnapshot.IntervalMinutes is int minutes ? TimeSpan.FromMinutes(minutes) : null, updateScheduleSnapshot.Paused, now),
+        };
     }
 
     private static DateTimeOffset? NextScheduledUtc(DateTimeOffset? anchor, TimeSpan? interval, bool paused, DateTimeOffset now)
