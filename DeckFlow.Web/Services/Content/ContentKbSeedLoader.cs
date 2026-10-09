@@ -66,30 +66,11 @@ public sealed class ContentKbSeedLoader : IContentKbSeedLoader
             ?? Array.Empty<ContentKbSeedEntry>();
 
         var filter = new CreatorSuppressionFilter(_suppressionStore, new Lazy<ICreatorIdentityResolver>(() => _identityResolver));
-        HashSet<string> unsuppressed;
-        try
-        {
-            unsuppressed = (await filter.GetUnsuppressedAsync(entries.Select(entry => entry.Source).ToList(), cancellationToken).ConfigureAwait(false))
-                .ToHashSet(StringComparer.Ordinal);
-        }
-        catch (CreatorAliasConflictException)
-        {
-            unsuppressed = [];
-            foreach (var entry in entries)
-            {
-                try
-                {
-                    if ((await filter.GetUnsuppressedAsync([entry.Source], cancellationToken).ConfigureAwait(false)).Count > 0)
-                    {
-                        unsuppressed.Add(entry.Source);
-                    }
-                }
-                catch (CreatorAliasConflictException)
-                {
-                    _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", entry.Source);
-                }
-            }
-        }
+        var unsuppressed = await CreatorSuppressionSeedFiltering.GetUnsuppressedWithConflictFallbackAsync(
+            filter,
+            entries.Select(entry => entry.Source).ToList(),
+            source => _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", source),
+            cancellationToken).ConfigureAwait(false);
         var loaded = 0;
         foreach (var entry in entries)
         {

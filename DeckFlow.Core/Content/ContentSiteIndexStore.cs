@@ -64,7 +64,7 @@ public sealed class ContentSiteIndexStore : IContentSiteIndexStore
     {
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
-        _suppressionFilter = suppressionStore is null ? null : new CreatorSuppressionFilter(suppressionStore, identityResolver ?? CreatorSuppressionFilter.EmptyResolver);
+        _suppressionFilter = CreatorSuppressionFilter.CreateOrNull(suppressionStore, identityResolver);
         _ensureSchemaEnabled = ensureSchemaEnabled;
         _connectionFactoryOverride = connectionFactoryOverride;
         if (_connectionInfo.IsSqlite)

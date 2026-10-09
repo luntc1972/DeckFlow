@@ -5,7 +5,7 @@ namespace DeckFlow.Core.Content;
 /// <summary>Filters creators against one fresh suppression snapshot per operation.</summary>
 public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
 {
-    internal static Lazy<ICreatorIdentityResolver> EmptyResolver { get; } = new(() => new EmptyCreatorIdentityResolver());
+    private static Lazy<ICreatorIdentityResolver> EmptyResolver { get; } = new(() => new EmptyCreatorIdentityResolver());
 
     private readonly ICreatorSuppressionStore _store;
     private readonly Lazy<ICreatorIdentityResolver> _resolver;
@@ -18,6 +18,12 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
         _store = store;
         _resolver = resolver;
     }
+
+    /// <summary>Creates a filter when a suppression store is available.</summary>
+    internal static CreatorSuppressionFilter? CreateOrNull(
+        ICreatorSuppressionStore? suppressionStore,
+        Lazy<ICreatorIdentityResolver>? identityResolver)
+        => suppressionStore is null ? null : new CreatorSuppressionFilter(suppressionStore, identityResolver ?? EmptyResolver);
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContentSiteIndexRow>> FilterRowsAsync(IReadOnlyList<ContentSiteIndexRow> rows, CancellationToken cancellationToken = default)
@@ -32,6 +38,7 @@ public sealed class CreatorSuppressionFilter : ICreatorSuppressionFilter
         var suppressedClasses = representations
             .Where(representation => IsSuppressed(representation, resolved.GetValueOrDefault(representation), matcher))
             .ToHashSet(CreatorSuppressionMatcher.ValueComparer);
+        if (suppressedClasses.Count == 0) return rows;
         var suppressed = SuppressedRepresentations.Create(rawRepresentations.Where(suppressedClasses.Contains));
         return rows.Where(row => GetRepresentations(row).All(representation => !suppressed.Contains(representation))).ToList();
     }

@@ -96,34 +96,11 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
 
         var filter = new CreatorSuppressionFilter(_suppressionStore, new Lazy<ICreatorIdentityResolver>(() => _identityResolver));
         var profileSlugs = profiles.Select(profile => profile.Slug).Where(slug => !string.IsNullOrWhiteSpace(slug)).ToList();
-        HashSet<string> unsuppressed;
-        try
-        {
-            unsuppressed = (await filter.GetUnsuppressedAsync(profileSlugs, cancellationToken).ConfigureAwait(false))
-                .ToHashSet(StringComparer.Ordinal);
-        }
-        catch (CreatorAliasConflictException)
-        {
-            unsuppressed = [];
-            foreach (var profile in profiles)
-            {
-                if (string.IsNullOrWhiteSpace(profile.Slug))
-                {
-                    continue;
-                }
-                try
-                {
-                    if ((await filter.GetUnsuppressedAsync([profile.Slug], cancellationToken).ConfigureAwait(false)).Count > 0)
-                    {
-                        unsuppressed.Add(profile.Slug);
-                    }
-                }
-                catch (CreatorAliasConflictException)
-                {
-                    _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", profile.Slug);
-                }
-            }
-        }
+        var unsuppressed = await CreatorSuppressionSeedFiltering.GetUnsuppressedWithConflictFallbackAsync(
+            filter,
+            profileSlugs,
+            source => _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", source),
+            cancellationToken).ConfigureAwait(false);
         var loaded = 0;
         foreach (var profile in profiles)
         {
@@ -179,34 +156,11 @@ public sealed class CreatorStyleSeedLoader : ICreatorStyleSeedLoader
 
         var filter = new CreatorSuppressionFilter(_suppressionStore, new Lazy<ICreatorIdentityResolver>(() => _identityResolver));
         var creatorSlugs = entries.Select(entry => entry.CreatorSlug).Where(slug => !string.IsNullOrWhiteSpace(slug)).ToList();
-        HashSet<string> unsuppressed;
-        try
-        {
-            unsuppressed = (await filter.GetUnsuppressedAsync(creatorSlugs, cancellationToken).ConfigureAwait(false))
-                .ToHashSet(StringComparer.Ordinal);
-        }
-        catch (CreatorAliasConflictException)
-        {
-            unsuppressed = [];
-            foreach (var entry in entries)
-            {
-                if (string.IsNullOrWhiteSpace(entry.CreatorSlug))
-                {
-                    continue;
-                }
-                try
-                {
-                    if ((await filter.GetUnsuppressedAsync([entry.CreatorSlug], cancellationToken).ConfigureAwait(false)).Count > 0)
-                    {
-                        unsuppressed.Add(entry.CreatorSlug);
-                    }
-                }
-                catch (CreatorAliasConflictException)
-                {
-                    _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", entry.CreatorSlug);
-                }
-            }
-        }
+        var unsuppressed = await CreatorSuppressionSeedFiltering.GetUnsuppressedWithConflictFallbackAsync(
+            filter,
+            creatorSlugs,
+            source => _logger.LogWarning("Skipping seed entry with conflicting creator alias: {Source}", source),
+            cancellationToken).ConfigureAwait(false);
         var loaded = 0;
         foreach (var entry in entries)
         {

@@ -36,7 +36,7 @@ public sealed class ContentSourceStore : IContentSourceStore
         ArgumentNullException.ThrowIfNull(connectionInfo);
         _connectionInfo = connectionInfo;
         _suppressionStore = suppressionStore;
-        _suppressionFilter = suppressionStore is null ? null : new CreatorSuppressionFilter(suppressionStore, identityResolver ?? CreatorSuppressionFilter.EmptyResolver);
+        _suppressionFilter = CreatorSuppressionFilter.CreateOrNull(suppressionStore, identityResolver);
         if (_connectionInfo.IsSqlite)
         {
             var directory = Path.GetDirectoryName(_connectionInfo.ExtractSqlitePath());
