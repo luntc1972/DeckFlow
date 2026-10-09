@@ -339,10 +339,9 @@ public sealed class AdminContentKbController : Controller
 
             var aliases = identity.DisplayNames.Concat(identity.FolderSlugs)
                 .Where(alias => !string.Equals(alias, identity.CanonicalSlug, StringComparison.OrdinalIgnoreCase))
-                // Why: every spelling the resolver returns must reach the exact-match writes.
-                .Distinct(StringComparer.Ordinal).ToArray();
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             await _suppressionStore.SuppressAsync(identity.CanonicalSlug, aliases, reason ?? string.Empty, utc, note, cancellationToken).ConfigureAwait(false);
-            foreach (var displayName in identity.DisplayNames.Distinct(StringComparer.Ordinal))
+            foreach (var displayName in identity.DisplayNames.Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 await _store.SetVisibilityBySourceAsync(displayName, visible: false, cancellationToken).ConfigureAwait(false);
             }

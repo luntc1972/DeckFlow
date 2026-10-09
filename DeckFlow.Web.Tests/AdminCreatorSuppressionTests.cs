@@ -32,7 +32,7 @@ public sealed class AdminCreatorSuppressionTests
         await fixture.Controller.SuppressCreator("3/3 Elk", "admin.suppress", "note", default);
         var row = Assert.Single(await fixture.Suppressions.ListAsync());
         Assert.Equal("elk-canon", row.Slug);
-        Assert.Contains(row.Aliases, alias => string.Equals(alias, "3/3 Elk", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("3/3 Elk", row.Aliases);
         Assert.Contains("3-3-elk-old", row.Aliases);
         Assert.True(await fixture.Suppressions.GetRevisionAsync() > before);
         Assert.All((await fixture.Index.GetAllRowsAsync()).Where(row => row.Source == "3/3 Elk"), row => Assert.False(row.IsVisible));
