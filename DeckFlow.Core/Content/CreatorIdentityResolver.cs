@@ -178,17 +178,26 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
     private static bool LooksLikeSlug(string value) => value.All(character => char.IsLower(character) || char.IsDigit(character) || character == '-');
     private static bool Same(string left, string right) => string.Equals(CreatorSuppressionMatcher.NormalizeValue(left), CreatorSuppressionMatcher.NormalizeValue(right), StringComparison.Ordinal);
     private static IReadOnlyList<string> DistinctOrdinalIgnoringCase(IEnumerable<string> values) => values.GroupBy(CreatorSuppressionMatcher.NormalizeValue).Select(group => group.Order(StringComparer.Ordinal).First()).Order(StringComparer.Ordinal).ToList();
+    /// <summary>Preserves base ordinal-lowest spelling candidates while deduping ordinary case variants.</summary>
+    private sealed class BaseSpellingComparer : IEqualityComparer<string>
+    {
+        // Why: ValueComparer folds Kelvin sign and k, while ordinal-ignore-case does not.
+        public bool Equals(string? x, string? y) => CreatorSuppressionMatcher.ValueComparer.Equals(x, y) && StringComparer.OrdinalIgnoreCase.Equals(x, y);
+        public int GetHashCode(string obj) => CreatorSuppressionMatcher.ValueComparer.GetHashCode(obj);
+    }
+    private static readonly BaseSpellingComparer SpellingComparer = new();
+
     /// <summary>Collects source names, folder slugs, and IDs joined into one creator identity component.</summary>
     private sealed class IndexComponent
     {
-        public HashSet<string> DisplayNames { get; } = new(CreatorSuppressionMatcher.ValueComparer);
+        public HashSet<string> DisplayNames { get; } = new(SpellingComparer);
         public HashSet<string> FolderSlugs { get; } = new(StringComparer.Ordinal);
-        public HashSet<string> SourceSlugs { get; } = new(CreatorSuppressionMatcher.ValueComparer);
+        public HashSet<string> SourceSlugs { get; } = new(SpellingComparer);
         public HashSet<long> SourceIds { get; } = [];
         public IEnumerable<string> Values => DisplayNames.Concat(FolderSlugs).Concat(SourceSlugs);
         public void Merge(IndexComponent other) { DisplayNames.UnionWith(other.DisplayNames); FolderSlugs.UnionWith(other.FolderSlugs); SourceSlugs.UnionWith(other.SourceSlugs); SourceIds.UnionWith(other.SourceIds); }
     }
     /// <summary>Accumulates canonical creator details returned after aliases and suppression rules are resolved.</summary>
-    private sealed class Candidate(string slug) { public string Slug { get; } = slug; public HashSet<long> SourceIds { get; } = []; public HashSet<string> Aliases { get; } = new(CreatorSuppressionMatcher.ValueComparer); public HashSet<string> DisplayNames { get; } = new(CreatorSuppressionMatcher.ValueComparer); public HashSet<string> FolderSlugs { get; } = new(CreatorSuppressionMatcher.ValueComparer); }
+    private sealed class Candidate(string slug) { public string Slug { get; } = slug; public HashSet<long> SourceIds { get; } = []; public HashSet<string> Aliases { get; } = new(SpellingComparer); public HashSet<string> DisplayNames { get; } = new(SpellingComparer); public HashSet<string> FolderSlugs { get; } = new(SpellingComparer); }
 }
 #pragma warning restore CS1591

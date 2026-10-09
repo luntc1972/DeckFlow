@@ -101,6 +101,38 @@ public sealed class CreatorIdentityResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task ResolveAsync_KelvinAndPlainKRowsUseOrdinalLowestSpelling()
+    {
+        var rows = new[]
+        {
+            CreateRow("\u212Aate", "content-kb/\u212Aate/one.md", "one"),
+            CreateRow("kate", "content-kb/kate/two.md", "two"),
+        };
+
+        var forward = await ResolveRowsAsync(rows, "kate");
+        var reversed = await ResolveRowsAsync(rows.Reverse().ToArray(), "kate");
+
+        Assert.Equal(new[] { "kate" }, forward!.DisplayNames);
+        Assert.Equal(new[] { "kate" }, forward.FolderSlugs);
+        Assert.Equal(forward.DisplayNames, reversed!.DisplayNames);
+        Assert.Equal(forward.FolderSlugs, reversed.FolderSlugs);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_MicroSignVariantsInSameComponentRetainBothDisplayNames()
+    {
+        var rows = new[]
+        {
+            CreateRow("\u00B5x", "content-kb/shared/one.md", "one"),
+            CreateRow("\u03BCx", "content-kb/shared/two.md", "two"),
+        };
+
+        var identity = await ResolveRowsAsync(rows, "\u00B5x");
+
+        Assert.Equal(new[] { "\u00B5x", "\u03BCx" }, identity!.DisplayNames.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
     public async Task ResolveAsync_ChainedIndexRowsMergeIdentitiesInEveryOrder()
     {
         var rows = new[]
