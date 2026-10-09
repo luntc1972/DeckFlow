@@ -36,7 +36,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     /// <param name="scheduleCache">Schedule cache used to calculate the next expected run.</param>
     /// <param name="updateScheduleCache">Update schedule cache used to calculate the update next run.</param>
     /// <param name="categoryStore">Category knowledge store used for processed deck and observation totals.</param>
-    /// <param name="memoryCache">Memory cache that stores the stats payload.</param>
+    /// <param name="memoryCache">Memory cache that stores the cached deck counts.</param>
     /// <param name="logger">Logger that records stats rebuild diagnostics.</param>
     /// <param name="healthOptions">Options that configure backlog thresholds.</param>
     public HarvestStatsAggregator(
