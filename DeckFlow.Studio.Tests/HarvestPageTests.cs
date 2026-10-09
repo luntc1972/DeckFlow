@@ -1211,6 +1211,7 @@ namespace DeckFlow.Studio.Tests
             await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Control video']").Change(true));
             ClickOneClick(cut);
             cut.WaitForAssertion(() => Assert.Contains("Nothing was harvested; 2 suppressed creator group(s) were skipped.", cut.Markup, StringComparison.Ordinal), UiTimeout);
+            Assert.Contains("Harvest did not complete; 2 suppressed creator group(s) skipped", cut.Markup, StringComparison.Ordinal);
         }
 
         [Fact]
