@@ -914,17 +914,6 @@ public partial class Harvest
         var groupRepresentations = groups.Select(group => new
         {
             Group = group,
-            RawPrimaryRepresentations = new[]
-                {
-                    group.CreatorRef,
-                    group.ChannelName,
-                    CreatorNameResolver.FromChannelTitle(group.ChannelName),
-                    group.ChannelUrl,
-                }
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .OfType<string>()
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList(),
             PrimaryRepresentations = new[]
                 {
                     group.CreatorRef,
@@ -946,14 +935,11 @@ public partial class Harvest
         }).ToList();
         var representations = groupRepresentations.SelectMany(entry => entry.PrimaryRepresentations.Concat(entry.BrowseSources)).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList();
         var identities = await CreatorIdentityResolver.ResolveManyAsync(representations, cancellationToken);
-        // Why: determine primary resolution from OrdinalIgnoreCase-distinct values so later lookalikes cannot suppress the browse fallback check.
+        // Why: browse sources are always checked so suppression never depends on whether a lookalike primary resolves (only widens).
         var candidates = groupRepresentations.Select(entry => new
         {
             entry.Group,
-            Representations = entry.RawPrimaryRepresentations
-                    .Any(representation => identities.GetValueOrDefault(representation) is not null)
-                ? entry.PrimaryRepresentations
-                : entry.PrimaryRepresentations.Concat(entry.BrowseSources).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList(),
+            Representations = entry.PrimaryRepresentations.Concat(entry.BrowseSources).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList(),
         }).ToList();
         var filter = new CreatorSuppressionFilter(CreatorSuppressionStore, new Lazy<ICreatorIdentityResolver>(() => new ResolvedCreatorIdentityResolver(identities)));
         var allowed = (await filter.GetUnsuppressedAsync(candidates.SelectMany(entry => entry.Representations).Distinct(CreatorSuppressionMatcher.ValueComparer).ToList(), cancellationToken)).ToHashSet(CreatorSuppressionMatcher.ValueComparer);

@@ -1152,17 +1152,16 @@ namespace DeckFlow.Studio.Tests
             await cut.InvokeAsync(() => cut.FindAll("button").First(b => b.TextContent.Contains("Harvest Selected", StringComparison.Ordinal)).Click());
             cut.WaitForAssertion(() =>
             {
-                Assert.Contains(harv.HarvestCalls, call => call?.Contains("control-video") == true);
-                Assert.DoesNotContain(harv.HarvestCalls, call => call?.Contains("paste-video") == true);
-                Assert.Contains("1 suppressed creator group(s) skipped", cut.Markup, StringComparison.Ordinal);
+                Assert.Empty(harv.HarvestCalls);
+                Assert.Contains("Nothing was harvested; 2 suppressed creator group(s) were skipped.", cut.Markup, StringComparison.Ordinal);
             }, UiTimeout);
 
             suppression.Suppressed.Clear();
             ClickOneClick(cut);
             cut.WaitForAssertion(() =>
             {
-                Assert.True(harv.HarvestCalls.Count >= 2);
-                var oneClickCalls = harv.HarvestCalls.Skip(1).SelectMany(call => call ?? []).ToList();
+                Assert.True(harv.HarvestCalls.Count >= 1);
+                var oneClickCalls = harv.HarvestCalls.SelectMany(call => call ?? []).ToList();
                 Assert.Contains("paste-video", oneClickCalls);
                 Assert.Contains("control-video", oneClickCalls);
             }, UiTimeout);
@@ -1211,7 +1210,7 @@ namespace DeckFlow.Studio.Tests
             await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Paste video']").Change(true));
             await cut.InvokeAsync(() => cut.Find("input[aria-label='Select Control video']").Change(true));
             ClickOneClick(cut);
-            cut.WaitForAssertion(() => Assert.Contains("Harvest completed; 1 suppressed creator group(s) skipped", cut.Markup, StringComparison.Ordinal), UiTimeout);
+            cut.WaitForAssertion(() => Assert.Contains("Nothing was harvested; 2 suppressed creator group(s) were skipped.", cut.Markup, StringComparison.Ordinal), UiTimeout);
         }
 
         [Fact]
