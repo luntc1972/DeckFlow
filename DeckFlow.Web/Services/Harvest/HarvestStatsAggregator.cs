@@ -11,7 +11,7 @@ using Serilog;
 namespace DeckFlow.Web.Services.Harvest;
 
 /// <summary>
-/// Aggregates the HARV-06 stats payload under a 60-second IMemoryCache entry.
+/// Aggregates HARV-06 stats; counts are cached for 60 seconds while run state and next runs are live.
 /// </summary>
 public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
 {
@@ -26,6 +26,8 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     private readonly IOptions<HarvestHealthOptions> _healthOptions;
     private readonly TimeProvider _timeProvider;
     private readonly object _rebuildGate = new();
+    // Why: the gate makes increment-plus-mark and compare-plus-publish atomic; Interlocked leaves a lost-mark window.
+    private long _countsGeneration;
     private Task? _rebuildTask;
 
     /// <summary>
@@ -82,66 +84,79 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     /// <inheritdoc/>
     public async Task<HarvestStatsPayload> GetAsync(CancellationToken cancellationToken = default)
     {
-        HarvestStatsPayload payload;
-        if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached) && cached is not null)
-        {
-            if (_timeProvider.GetUtcNow() - cached.CachedAtUtc < TimeSpan.FromSeconds(60))
-            {
-                payload = cached.Payload;
-            }
-            else
-            {
-                _ = StartRebuild();
-                payload = cached.Payload;
-            }
-        }
-        else
-        {
-            payload = await StartRebuild().ConfigureAwait(false);
-        }
-
-        return WithLiveNextRuns(payload);
+        var countsTask = GetCountsAsync();
+        var recentRunsTask = _runStore.GetRecentAsync(10, cancellationToken);
+        var healthSignalRunsTask = _runStore.GetRecentHealthSignalRunsAsync(HarvestHealthOptions.RecentRunsWindow + 1, cancellationToken);
+        var lastBulkScheduledSuccessUtcTask = _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Bulk, cancellationToken);
+        var lastUpdateScheduledSuccessUtcTask = _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Update, cancellationToken);
+        await Task.WhenAll(countsTask, recentRunsTask, healthSignalRunsTask, lastBulkScheduledSuccessUtcTask, lastUpdateScheduledSuccessUtcTask).ConfigureAwait(false);
+        return ComposePayload(await countsTask.ConfigureAwait(false), await recentRunsTask.ConfigureAwait(false), await healthSignalRunsTask.ConfigureAwait(false), await lastBulkScheduledSuccessUtcTask.ConfigureAwait(false), await lastUpdateScheduledSuccessUtcTask.ConfigureAwait(false));
     }
 
     /// <inheritdoc/>
     public void Invalidate()
     {
-        if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached) && cached is not null)
+        lock (_rebuildGate)
         {
-            _memoryCache.Set(CacheKey, cached with { CachedAtUtc = DateTimeOffset.MinValue });
+            _countsGeneration++;
+            if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached) && cached is not null)
+            {
+                _memoryCache.Set(CacheKey, cached with { CachedAtUtc = DateTimeOffset.MinValue });
+            }
         }
 
         Log.Debug("Harvest stats cache marked stale");
     }
 
-    private Task<HarvestStatsPayload> StartRebuild()
+    private async Task<CountSlice> GetCountsAsync()
+    {
+        if (_memoryCache.TryGetValue(CacheKey, out CachedHarvestStats? cached) && cached is not null)
+        {
+            if (_timeProvider.GetUtcNow() - cached.CachedAtUtc < TimeSpan.FromSeconds(60))
+            {
+                return cached.Counts;
+            }
+
+            _ = StartRebuild();
+            return cached.Counts;
+        }
+
+        return await StartRebuild().ConfigureAwait(false);
+    }
+
+    private Task<CountSlice> StartRebuild()
     {
         lock (_rebuildGate)
         {
-            if (_rebuildTask is Task<HarvestStatsPayload> rebuildTask)
+            if (_rebuildTask is Task<CountSlice> rebuildTask)
             {
                 return rebuildTask;
             }
 
-            var completion = new TaskCompletionSource<HarvestStatsPayload>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var completion = new TaskCompletionSource<CountSlice>(TaskCreationOptions.RunContinuationsAsynchronously);
             _rebuildTask = completion.Task;
             _ = completion.Task.ContinueWith(
                 task => _ = task.Exception,
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
-            _ = CompleteRebuildAsync(completion);
+            _ = CompleteRebuildAsync(completion, _countsGeneration);
             return completion.Task;
         }
     }
 
-    private async Task CompleteRebuildAsync(TaskCompletionSource<HarvestStatsPayload> completion)
+    private async Task CompleteRebuildAsync(TaskCompletionSource<CountSlice> completion, long generation)
     {
         try
         {
-            var payload = await BuildAsync(CancellationToken.None).ConfigureAwait(false);
-            _memoryCache.Set(CacheKey, new CachedHarvestStats(payload, _timeProvider.GetUtcNow()));
-            completion.TrySetResult(payload);
+            var counts = await BuildCountsAsync(CancellationToken.None).ConfigureAwait(false);
+            lock (_rebuildGate)
+            {
+                var stamp = _countsGeneration == generation ? _timeProvider.GetUtcNow() : DateTimeOffset.MinValue;
+                _memoryCache.Set(CacheKey, new CachedHarvestStats(counts, stamp));
+            }
+
+            completion.TrySetResult(counts);
         }
         catch (Exception exception)
         {
@@ -160,7 +175,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         }
     }
 
-    private async Task<HarvestStatsPayload> BuildAsync(CancellationToken cancellationToken)
+    private async Task<CountSlice> BuildCountsAsync(CancellationToken cancellationToken)
     {
         _logger.LogDebug("Harvest.Stats.Build rebuilding cached payload.");
 
@@ -172,10 +187,6 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         var distinctCommanderCountTask = _categoryStore.GetDistinctProcessedCommanderCountAsync(cancellationToken);
         var totalObservationsTask = _categoryStore.GetTotalObservationCountAsync(cancellationToken);
         var databaseSizeBytesTask = _categoryStore.GetDatabaseSizeBytesAsync(cancellationToken);
-        var recentRunsTask = _runStore.GetRecentAsync(10, cancellationToken);
-        var healthSignalRunsTask = _runStore.GetRecentHealthSignalRunsAsync(HarvestHealthOptions.RecentRunsWindow + 1, cancellationToken);
-        var lastBulkScheduledSuccessUtcTask = _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Bulk, cancellationToken);
-        var lastUpdateScheduledSuccessUtcTask = _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Update, cancellationToken);
 
         await Task.WhenAll(
             totalDecksTask,
@@ -183,11 +194,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             queuedDeckCountTask,
             distinctCommanderCountTask,
             totalObservationsTask,
-            databaseSizeBytesTask,
-            recentRunsTask,
-            healthSignalRunsTask,
-            lastBulkScheduledSuccessUtcTask,
-            lastUpdateScheduledSuccessUtcTask).ConfigureAwait(false);
+            databaseSizeBytesTask).ConfigureAwait(false);
 
         var totalDecks = await totalDecksTask.ConfigureAwait(false);
         var totalDecks30d = await totalDecks30dTask.ConfigureAwait(false);
@@ -195,46 +202,36 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         var distinctCommanderCount = await distinctCommanderCountTask.ConfigureAwait(false);
         var totalObservations = await totalObservationsTask.ConfigureAwait(false);
         var databaseSizeBytes = await databaseSizeBytesTask.ConfigureAwait(false);
-        var recentRuns = await recentRunsTask.ConfigureAwait(false);
-        var healthSignalRuns = await healthSignalRunsTask.ConfigureAwait(false);
-        var health = DeriveHealthSignals(healthSignalRuns, queuedDeckCount, _healthOptions.Value);
-        // D-08 must match the scheduler: manual completions never move a kind's displayed next run.
-        var lastBulkScheduledSuccessUtc = await lastBulkScheduledSuccessUtcTask.ConfigureAwait(false);
-        var lastUpdateScheduledSuccessUtc = await lastUpdateScheduledSuccessUtcTask.ConfigureAwait(false);
-        return new HarvestStatsPayload(
-            totalDecks,
-            totalDecks30d,
-            queuedDeckCount,
-            distinctCommanderCount,
-            totalObservations,
-            recentRuns,
-            databaseSizeBytes,
-            lastBulkScheduledSuccessUtc,
-            null, // Why: GetAsync fills next-run times on every read.
-            lastUpdateScheduledSuccessUtc,
-            null, // Why: GetAsync fills next-run times on every read.
-            health);
+        return new CountSlice(totalDecks, totalDecks30d, queuedDeckCount, distinctCommanderCount, totalObservations, databaseSizeBytes);
     }
 
-    // Why: schedule save, pause and resume reload schedule caches without touching stats cache (G-06-2).
-    private HarvestStatsPayload WithLiveNextRuns(HarvestStatsPayload payload)
+    private HarvestStatsPayload ComposePayload(
+        CountSlice counts,
+        IReadOnlyList<HarvestRunRow> recentRuns,
+        IReadOnlyList<HarvestRunRow> healthSignalRuns,
+        DateTimeOffset? lastBulkScheduledSuccessUtc,
+        DateTimeOffset? lastUpdateScheduledSuccessUtc)
     {
         var scheduleSnapshot = _scheduleCache.Snapshot();
         var updateScheduleSnapshot = _updateScheduleCache.Snapshot();
         var now = _timeProvider.GetUtcNow();
-
-        return payload with
-        {
-            NextBulkScheduledUtc = NextScheduledUtc(payload.LastBulkScheduledSuccessUtc, scheduleSnapshot.IntervalHours is int hours ? TimeSpan.FromHours(hours) : null, scheduleSnapshot.Paused, now),
-            NextUpdateScheduledUtc = NextScheduledUtc(payload.LastUpdateScheduledSuccessUtc, updateScheduleSnapshot.IntervalMinutes is int minutes ? TimeSpan.FromMinutes(minutes) : null, updateScheduleSnapshot.Paused, now),
-        };
+        var health = DeriveHealthSignals(healthSignalRuns, counts.QueuedDeckCount, _healthOptions.Value);
+        // D-08 must match the scheduler: manual completions never move a kind's displayed next run.
+        return new HarvestStatsPayload(
+            counts.TotalDecks, counts.TotalDecks30d, counts.QueuedDeckCount, counts.DistinctCommanderCount,
+            counts.TotalObservations, recentRuns, counts.DatabaseSizeBytes, lastBulkScheduledSuccessUtc,
+            NextScheduledUtc(lastBulkScheduledSuccessUtc, scheduleSnapshot.IntervalHours is int hours ? TimeSpan.FromHours(hours) : null, scheduleSnapshot.Paused, now),
+            lastUpdateScheduledSuccessUtc,
+            NextScheduledUtc(lastUpdateScheduledSuccessUtc, updateScheduleSnapshot.IntervalMinutes is int minutes ? TimeSpan.FromMinutes(minutes) : null, updateScheduleSnapshot.Paused, now), health);
     }
 
     private static DateTimeOffset? NextScheduledUtc(DateTimeOffset? anchor, TimeSpan? interval, bool paused, DateTimeOffset now)
         => interval is null || paused ? null : anchor + interval ?? now;
 
-    /// <summary>Pairs aggregated harvest statistics with their cache time for freshness checks.</summary>
-    private sealed record CachedHarvestStats(HarvestStatsPayload Payload, DateTimeOffset CachedAtUtc);
+    private sealed record CountSlice(int TotalDecks, int TotalDecks30d, int QueuedDeckCount, int DistinctCommanderCount, int TotalObservations, long? DatabaseSizeBytes);
+
+    /// <summary>Pairs cached harvest counts with their cache time for freshness checks.</summary>
+    private sealed record CachedHarvestStats(CountSlice Counts, DateTimeOffset CachedAtUtc);
 
     /// <summary>
     /// Derives health only from persisted sweep counts (see plan 01-05 and

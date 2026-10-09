@@ -1,5 +1,6 @@
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Knowledge;
+using System.Diagnostics;
 using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
@@ -181,6 +182,106 @@ public sealed class HarvestStatsAggregatorTests
         Assert.Null(third.NextBulkScheduledUtc);
         Assert.Equal(updateAnchor.AddMinutes(30), third.NextUpdateScheduledUtc);
         Assert.Equal(1, categoryStore.BuildCount);
+    }
+
+    [Fact]
+    public async Task GetAsync_RunFinishedAfterInvalidate_FirstReadShowsFinishedRunWithoutAwaitingCountRebuild()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var clock = new TestTimeProvider();
+        var store = new ImmediateHarvestRunStore();
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        var aggregator = CreateAggregator(store, categoryStore, cache, clock);
+        var running = new HarvestRunRow(Guid.NewGuid(), HarvestRunKind.Update, HarvestRunState.Running, clock.GetUtcNow().AddMinutes(-2), clock.GetUtcNow().AddMinutes(-2), null, 600, 0, 0, null, null, null, null, HarvestTriggerSource.Manual, null, null, null, null);
+        store.RecentRuns = new[] { running };
+        Assert.Equal(HarvestRunState.Running, Assert.Single((await aggregator.GetAsync()).RecentRuns).State);
+        categoryStore.BlockNextBuild();
+        store.RecentRuns = new[] { running with { State = HarvestRunState.Succeeded, CompletedUtc = clock.GetUtcNow(), PagesPolled = 10, RefreshesRequeued = 0, RefreshesDrained = 0, NewIdsSeen = 280 } };
+        aggregator.Invalidate();
+        try
+        {
+            // Why: a request-path count rebuild would hang here, recreating the 87ee1786 regression.
+            var payload = await aggregator.GetAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            var finished = Assert.Single(payload.RecentRuns);
+            Assert.Equal(HarvestRunState.Succeeded, finished.State);
+            Assert.Equal(clock.GetUtcNow(), finished.CompletedUtc);
+            Assert.Equal(10, finished.PagesPolled);
+            Assert.Equal(0, finished.RefreshesRequeued);
+            Assert.Equal(0, finished.RefreshesDrained);
+            Assert.Equal(280, finished.NewIdsSeen);
+            await categoryStore.WaitForBlockedBuildAsync();
+            Assert.Equal(2, categoryStore.BuildCount);
+        }
+        finally { categoryStore.ReleaseBlockedBuild(); }
+    }
+
+    [Fact]
+    public async Task GetAsync_ScheduledUpdateSucceededAfterInvalidate_FirstReadMovesLastAndNextScheduledRun()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var clock = new TestTimeProvider();
+        var anchors = new Dictionary<HarvestRunKind, DateTimeOffset?> { [HarvestRunKind.Update] = new(2026, 9, 23, 11, 0, 0, TimeSpan.Zero) };
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(scheduledSuccesses: anchors), new ImmediateCategoryKnowledgeStore(), cache, new FakeHarvestScheduleCache(), new FakeHarvestUpdateScheduleCache(new(30, false, clock.GetUtcNow())), clock);
+        var warm = await aggregator.GetAsync();
+        Assert.Equal(anchors[HarvestRunKind.Update], warm.LastUpdateScheduledSuccessUtc);
+        Assert.Equal(new DateTimeOffset(2026, 9, 23, 11, 30, 0, TimeSpan.Zero), warm.NextUpdateScheduledUtc);
+        // Why: this shared dictionary models a newly recorded scheduled success.
+        anchors[HarvestRunKind.Update] = new(2026, 9, 23, 11, 58, 0, TimeSpan.Zero);
+        aggregator.Invalidate();
+        var payload = await aggregator.GetAsync();
+        Assert.Equal(anchors[HarvestRunKind.Update], payload.LastUpdateScheduledSuccessUtc);
+        Assert.Equal(new DateTimeOffset(2026, 9, 23, 12, 28, 0, TimeSpan.Zero), payload.NextUpdateScheduledUtc);
+    }
+
+    [Fact]
+    public async Task GetAsync_WarmCache_ReadsHealthRunsAndBothScheduledAnchorsOnEveryCall()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var clock = new TestTimeProvider();
+        var healthRuns = new List<HarvestRunRow>();
+        var anchors = new Dictionary<HarvestRunKind, DateTimeOffset?> { [HarvestRunKind.Bulk] = new(2026, 9, 23, 8, 0, 0, TimeSpan.Zero), [HarvestRunKind.Update] = new(2026, 9, 23, 11, 0, 0, TimeSpan.Zero) };
+        var categoryStore = new ImmediateCategoryKnowledgeStore(99);
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(healthRuns, anchors), categoryStore, cache, new FakeHarvestScheduleCache(new(4, false, clock.GetUtcNow())), new FakeHarvestUpdateScheduleCache(new(30, false, clock.GetUtcNow())), clock);
+        var warm = await aggregator.GetAsync();
+        Assert.Equal(HarvestBacklogReason.None, warm.Health.BacklogReason);
+        healthRuns.Add(HealthRun(3, 2)); healthRuns.Add(HealthRun(2, 1)); healthRuns.Add(HealthRun(1, 0));
+        anchors[HarvestRunKind.Bulk] = new(2026, 9, 23, 11, 30, 0, TimeSpan.Zero);
+        anchors[HarvestRunKind.Update] = new(2026, 9, 23, 11, 55, 0, TimeSpan.Zero);
+        // Why: this is a fresh cache hit; only per-call reads can show these changes.
+        var payload = await aggregator.GetAsync();
+        Assert.Equal(HarvestBacklogReason.Growing, payload.Health.BacklogReason);
+        Assert.Equal(anchors[HarvestRunKind.Bulk], payload.LastBulkScheduledSuccessUtc);
+        Assert.Equal(new DateTimeOffset(2026, 9, 23, 15, 30, 0, TimeSpan.Zero), payload.NextBulkScheduledUtc);
+        Assert.Equal(anchors[HarvestRunKind.Update], payload.LastUpdateScheduledSuccessUtc);
+        Assert.Equal(new DateTimeOffset(2026, 9, 23, 12, 25, 0, TimeSpan.Zero), payload.NextUpdateScheduledUtc);
+        Assert.Equal(1, categoryStore.BuildCount);
+    }
+
+    [Fact]
+    public async Task Invalidate_DuringCountRebuild_PublishesCountsStaleSoNextReadRebuilds()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var clock = new TestTimeProvider();
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache, clock);
+        await aggregator.GetAsync();
+        categoryStore.BlockNextBuild();
+        try
+        {
+            clock.Advance(TimeSpan.FromSeconds(61));
+            await aggregator.GetAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            await categoryStore.WaitForBlockedBuildAsync();
+            aggregator.Invalidate(); // Why: harvest_runs write lands while rebuild A is running.
+            categoryStore.ReleaseBlockedBuild();
+            categoryStore.BlockNextBuild();
+            HarvestStatsPayload? payload = null;
+            var deadline = Stopwatch.StartNew();
+            // Why: a read can land between A's publish and its gate-clear window.
+            while (categoryStore.BuildCount < 3 && deadline.Elapsed < TimeSpan.FromSeconds(5)) { payload = await aggregator.GetAsync().WaitAsync(TimeSpan.FromSeconds(5)); await Task.Delay(10); }
+            Assert.Equal(3, categoryStore.BuildCount);
+            Assert.Equal(42, payload!.TotalDecks);
+        }
+        finally { categoryStore.ReleaseBlockedBuild(); }
     }
 
     [Fact]
@@ -393,10 +494,10 @@ public sealed class HarvestStatsAggregatorTests
         var payloads = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => aggregator.GetAsync()));
         await categoryStore.WaitForBlockedBuildAsync();
 
-        // Why: only next-run is derived per read at this commit; every other field remains cached.
+        // Why: run state and next-run times are live, so only counts remain stale.
         Assert.All(payloads, payload => Assert.Equal(
-            cached with { NextBulkScheduledUtc = null, NextUpdateScheduledUtc = null },
-            payload with { NextBulkScheduledUtc = null, NextUpdateScheduledUtc = null }));
+            (cached.TotalDecks, cached.TotalDecks30d, cached.QueuedDeckCount, cached.DistinctCommanderCount, cached.TotalObservations, cached.DatabaseSizeBytes),
+            (payload.TotalDecks, payload.TotalDecks30d, payload.QueuedDeckCount, payload.DistinctCommanderCount, payload.TotalObservations, payload.DatabaseSizeBytes)));
         Assert.Equal(2, categoryStore.BuildCount);
         categoryStore.ReleaseBlockedBuild();
     }
@@ -831,6 +932,7 @@ public sealed class HarvestStatsAggregatorTests
         }
 
         public List<HarvestRunKind> QueriedKinds { get; } = new();
+        public IReadOnlyList<HarvestRunRow> RecentRuns { get; set; } = Array.Empty<HarvestRunRow>();
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
@@ -853,7 +955,8 @@ public sealed class HarvestStatsAggregatorTests
             => Task.FromResult<HarvestRunRow?>(null);
 
         public Task<IReadOnlyList<HarvestRunRow>> GetRecentAsync(int n, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<HarvestRunRow>>(Array.Empty<HarvestRunRow>());
+            // Why: record equality in cache-contract tests relies on this shared reference.
+            => Task.FromResult(RecentRuns);
 
         public Task<IReadOnlyList<HarvestRunRow>> GetRecentHealthSignalRunsAsync(int n, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<HarvestRunRow>>(_healthRuns.Take(n).ToList());
