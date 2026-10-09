@@ -6,7 +6,6 @@ using DeckFlow.Web.Services;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Serilog;
 
 namespace DeckFlow.Web.Services.Harvest;
 
@@ -85,10 +84,26 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
     public async Task<HarvestStatsPayload> GetAsync(CancellationToken cancellationToken = default)
     {
         var countsTask = GetCountsAsync();
-        var recentRunsTask = _runStore.GetRecentAsync(10, cancellationToken);
-        var healthSignalRunsTask = _runStore.GetRecentHealthSignalRunsAsync(HarvestHealthOptions.RecentRunsWindow + 1, cancellationToken);
-        var lastBulkScheduledSuccessUtcTask = _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Bulk, cancellationToken);
-        var lastUpdateScheduledSuccessUtcTask = _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Update, cancellationToken);
+        var recentRunsTask = ReadLiveAsync(
+            () => _runStore.GetRecentAsync(10, cancellationToken),
+            Array.Empty<HarvestRunRow>(),
+            "recent runs",
+            cancellationToken);
+        var healthSignalRunsTask = ReadLiveAsync(
+            () => _runStore.GetRecentHealthSignalRunsAsync(HarvestHealthOptions.RecentRunsWindow + 1, cancellationToken),
+            Array.Empty<HarvestRunRow>(),
+            "health signal runs",
+            cancellationToken);
+        var lastBulkScheduledSuccessUtcTask = ReadLiveAsync(
+            () => _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Bulk, cancellationToken),
+            null,
+            "last bulk scheduled success",
+            cancellationToken);
+        var lastUpdateScheduledSuccessUtcTask = ReadLiveAsync(
+            () => _runStore.GetLastScheduledSuccessUtcAsync(HarvestRunKind.Update, cancellationToken),
+            null,
+            "last update scheduled success",
+            cancellationToken);
         await Task.WhenAll(countsTask, recentRunsTask, healthSignalRunsTask, lastBulkScheduledSuccessUtcTask, lastUpdateScheduledSuccessUtcTask).ConfigureAwait(false);
         return ComposePayload(await countsTask.ConfigureAwait(false), await recentRunsTask.ConfigureAwait(false), await healthSignalRunsTask.ConfigureAwait(false), await lastBulkScheduledSuccessUtcTask.ConfigureAwait(false), await lastUpdateScheduledSuccessUtcTask.ConfigureAwait(false));
     }
@@ -105,7 +120,7 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             }
         }
 
-        Log.Debug("Harvest stats cache marked stale");
+        _logger.LogDebug("Harvest stats cache marked stale");
     }
 
     private async Task<CountSlice> GetCountsAsync()
@@ -126,6 +141,8 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
 
     private Task<CountSlice> StartRebuild()
     {
+        TaskCompletionSource<CountSlice> completion;
+        long generation;
         lock (_rebuildGate)
         {
             if (_rebuildTask is Task<CountSlice> rebuildTask)
@@ -133,15 +150,34 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
                 return rebuildTask;
             }
 
-            var completion = new TaskCompletionSource<CountSlice>(TaskCreationOptions.RunContinuationsAsynchronously);
+            completion = new TaskCompletionSource<CountSlice>(TaskCreationOptions.RunContinuationsAsynchronously);
             _rebuildTask = completion.Task;
-            _ = completion.Task.ContinueWith(
-                task => _ = task.Exception,
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
-            _ = CompleteRebuildAsync(completion, _countsGeneration);
-            return completion.Task;
+            generation = _countsGeneration;
+        }
+
+        _ = completion.Task.ContinueWith(
+            task => _ = task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        _ = CompleteRebuildAsync(completion, generation);
+        return completion.Task;
+    }
+
+    private async Task<T> ReadLiveAsync<T>(Func<Task<T>> readAsync, T fallback, string readName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await readAsync().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Harvest stats live {ReadName} read failed; using fallback.", readName);
+            return fallback;
         }
     }
 
