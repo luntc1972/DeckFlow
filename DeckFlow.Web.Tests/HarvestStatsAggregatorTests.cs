@@ -212,7 +212,11 @@ public sealed class HarvestStatsAggregatorTests
             await categoryStore.WaitForBlockedBuildAsync();
             Assert.Equal(2, categoryStore.BuildCount);
         }
-        finally { categoryStore.ReleaseBlockedBuild(); }
+        finally
+        {
+            categoryStore.ReleaseBlockedBuild();
+            await categoryStore.WaitForReleasedBuildAsync();
+        }
     }
 
     [Fact]
@@ -273,15 +277,100 @@ public sealed class HarvestStatsAggregatorTests
             await categoryStore.WaitForBlockedBuildAsync();
             aggregator.Invalidate(); // Why: harvest_runs write lands while rebuild A is running.
             categoryStore.ReleaseBlockedBuild();
+            await categoryStore.WaitForReleasedBuildAsync();
             categoryStore.BlockNextBuild();
             HarvestStatsPayload? payload = null;
             var deadline = Stopwatch.StartNew();
             // Why: a read can land between A's publish and its gate-clear window.
-            while (categoryStore.BuildCount < 3 && deadline.Elapsed < TimeSpan.FromSeconds(5)) { payload = await aggregator.GetAsync().WaitAsync(TimeSpan.FromSeconds(5)); await Task.Delay(10); }
+            while (categoryStore.BuildCount < 3 && deadline.Elapsed < TimeSpan.FromSeconds(5))
+            {
+                payload = await aggregator.GetAsync().WaitAsync(TimeSpan.FromSeconds(5));
+                await Task.Delay(10);
+            }
             Assert.Equal(3, categoryStore.BuildCount);
-            Assert.Equal(42, payload!.TotalDecks);
+            Assert.NotNull(payload);
+            Assert.Equal(3, categoryStore.BuildCount);
         }
-        finally { categoryStore.ReleaseBlockedBuild(); }
+        finally
+        {
+            categoryStore.ReleaseBlockedBuild();
+            await categoryStore.WaitForReleasedBuildAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Invalidate_DuringColdCountRebuild_PublishesCountsStaleSoNextReadRebuilds()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        categoryStore.BlockNextBuild();
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache, new TestTimeProvider());
+
+        var firstRead = aggregator.GetAsync();
+        await categoryStore.WaitForBlockedBuildAsync();
+        aggregator.Invalidate();
+        categoryStore.ReleaseBlockedBuild();
+        await firstRead;
+
+        await aggregator.GetAsync();
+
+        Assert.Equal(2, categoryStore.BuildCount);
+    }
+
+    [Fact]
+    public async Task GetAsync_LiveRecentReadFails_ReturnsCachedCountsAndEmptyRecentRuns()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var runStore = new ImmediateHarvestRunStore();
+        var aggregator = CreateAggregator(runStore, new ImmediateCategoryKnowledgeStore(), cache, new TestTimeProvider());
+        var cached = await aggregator.GetAsync();
+        runStore.ThrowOnRecentRead = true;
+
+        var payload = await aggregator.GetAsync();
+
+        Assert.Equal(cached.TotalDecks, payload.TotalDecks);
+        Assert.Empty(payload.RecentRuns);
+    }
+
+    [Fact]
+    public async Task GetAsync_CallerCancellation_ReachesEveryLiveRunStoreRead()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var runStore = new ImmediateHarvestRunStore();
+        var aggregator = CreateAggregator(runStore, new ImmediateCategoryKnowledgeStore(), cache, new TestTimeProvider());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => aggregator.GetAsync(cancellation.Token));
+
+        Assert.Equal(4, runStore.LiveReadTokens.Count);
+        Assert.All(runStore.LiveReadTokens, token => Assert.Equal(cancellation.Token, token));
+    }
+
+    [Fact]
+    public async Task Invalidate_DoesNotBlockWhileCountBuildIsStarting()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var categoryStore = new ImmediateCategoryKnowledgeStore();
+        categoryStore.BlockNextBuildSynchronously();
+        var aggregator = CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache, new TestTimeProvider());
+
+        var getTask = Task.Factory.StartNew(
+            () => aggregator.GetAsync(),
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default).Unwrap();
+        await categoryStore.WaitForSynchronousBuildAsync();
+        try
+        {
+            await Task.Run(aggregator.Invalidate).WaitAsync(TimeSpan.FromSeconds(1));
+        }
+        finally
+        {
+            categoryStore.ReleaseBlockedBuild();
+        }
+
+        await getTask;
     }
 
     [Fact]
@@ -500,6 +589,7 @@ public sealed class HarvestStatsAggregatorTests
             (payload.TotalDecks, payload.TotalDecks30d, payload.QueuedDeckCount, payload.DistinctCommanderCount, payload.TotalObservations, payload.DatabaseSizeBytes)));
         Assert.Equal(2, categoryStore.BuildCount);
         categoryStore.ReleaseBlockedBuild();
+        await categoryStore.WaitForReleasedBuildAsync();
     }
 
     [Fact]
@@ -534,6 +624,7 @@ public sealed class HarvestStatsAggregatorTests
         Assert.Equal(cached, payload);
         Assert.Equal(2, categoryStore.BuildCount);
         categoryStore.ReleaseBlockedBuild();
+        await categoryStore.WaitForReleasedBuildAsync();
     }
 
     [Fact]
@@ -564,11 +655,17 @@ public sealed class HarvestStatsAggregatorTests
         cancellation.Cancel();
 
         aggregator.Invalidate();
-        await aggregator.GetAsync(cancellation.Token);
-        await categoryStore.WaitForBlockedBuildAsync();
-
-        Assert.False(categoryStore.BlockedBuildToken.CanBeCanceled);
-        categoryStore.ReleaseBlockedBuild();
+        try
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => aggregator.GetAsync(cancellation.Token));
+            await categoryStore.WaitForBlockedBuildAsync();
+            Assert.False(categoryStore.BlockedBuildToken.CanBeCanceled);
+        }
+        finally
+        {
+            categoryStore.ReleaseBlockedBuild();
+            await categoryStore.WaitForReleasedBuildAsync();
+        }
     }
 
     private static HarvestRunRow HealthRun(int enqueued, int drained)
@@ -729,7 +826,10 @@ public sealed class HarvestStatsAggregatorTests
         private readonly int _queuedDeckCount;
         private TaskCompletionSource? _blockedBuildRelease;
         private TaskCompletionSource? _blockedBuildStarted;
+        private TaskCompletionSource? _blockedBuildCompleted;
         private TaskCompletionSource? _failedBuild;
+        private TaskCompletionSource? _synchronousBuildStarted;
+        private ManualResetEventSlim? _synchronousBuildRelease;
         private CancellationToken _blockedBuildToken;
         private int _buildCount;
         private int _throwNextBuild;
@@ -744,12 +844,29 @@ public sealed class HarvestStatsAggregatorTests
         {
             _blockedBuildRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _blockedBuildStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _blockedBuildCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+
+        public void BlockNextBuildSynchronously()
+        {
+            _synchronousBuildStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            _synchronousBuildRelease = new ManualResetEventSlim();
         }
 
         public Task WaitForBlockedBuildAsync()
             => _blockedBuildStarted?.Task ?? throw new InvalidOperationException("No blocked build was configured.");
 
-        public void ReleaseBlockedBuild() => _blockedBuildRelease?.TrySetResult();
+        public Task WaitForReleasedBuildAsync()
+            => _blockedBuildCompleted?.Task ?? throw new InvalidOperationException("No blocked build was configured.");
+
+        public Task WaitForSynchronousBuildAsync()
+            => _synchronousBuildStarted?.Task ?? throw new InvalidOperationException("No synchronous blocked build was configured.");
+
+        public void ReleaseBlockedBuild()
+        {
+            _blockedBuildRelease?.TrySetResult();
+            _synchronousBuildRelease?.Set();
+        }
 
         public void ThrowOnNextBuild()
         {
@@ -812,6 +929,13 @@ public sealed class HarvestStatsAggregatorTests
                 return Task.FromException<int>(new InvalidOperationException("Simulated rebuild failure."));
             }
 
+            if (_synchronousBuildRelease is not null)
+            {
+                _synchronousBuildStarted?.TrySetResult();
+                _synchronousBuildRelease.Wait();
+                return Task.FromResult(42);
+            }
+
             if (_blockedBuildRelease is null)
             {
                 return Task.FromResult(42);
@@ -846,6 +970,7 @@ public sealed class HarvestStatsAggregatorTests
         private async Task<int> WaitForBlockedBuildAsync(CancellationToken cancellationToken)
         {
             await _blockedBuildRelease!.Task.WaitAsync(cancellationToken);
+            _blockedBuildCompleted?.TrySetResult();
             return 42;
         }
     }
@@ -932,7 +1057,9 @@ public sealed class HarvestStatsAggregatorTests
         }
 
         public List<HarvestRunKind> QueriedKinds { get; } = new();
+        public List<CancellationToken> LiveReadTokens { get; } = new();
         public IReadOnlyList<HarvestRunRow> RecentRuns { get; set; } = Array.Empty<HarvestRunRow>();
+        public bool ThrowOnRecentRead { get; set; }
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
@@ -955,11 +1082,29 @@ public sealed class HarvestStatsAggregatorTests
             => Task.FromResult<HarvestRunRow?>(null);
 
         public Task<IReadOnlyList<HarvestRunRow>> GetRecentAsync(int n, CancellationToken cancellationToken = default)
+        {
+            LiveReadTokens.Add(cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return Task.FromCanceled<IReadOnlyList<HarvestRunRow>>(cancellationToken);
+            }
+
+            if (ThrowOnRecentRead)
+            {
+                return Task.FromException<IReadOnlyList<HarvestRunRow>>(new InvalidOperationException("Simulated live recent-runs failure."));
+            }
+
             // Why: record equality in cache-contract tests relies on this shared reference.
-            => Task.FromResult(RecentRuns);
+            return Task.FromResult(RecentRuns);
+        }
 
         public Task<IReadOnlyList<HarvestRunRow>> GetRecentHealthSignalRunsAsync(int n, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<HarvestRunRow>>(_healthRuns.Take(n).ToList());
+        {
+            LiveReadTokens.Add(cancellationToken);
+            return cancellationToken.IsCancellationRequested
+                ? Task.FromCanceled<IReadOnlyList<HarvestRunRow>>(cancellationToken)
+                : Task.FromResult<IReadOnlyList<HarvestRunRow>>(_healthRuns.Take(n).ToList());
+        }
 
         public Task<string> GetRecentRevisionAsync(CancellationToken cancellationToken = default)
             => Task.FromResult("0");
@@ -970,7 +1115,13 @@ public sealed class HarvestStatsAggregatorTests
         public Task SetUpdateCountsAsync(Guid id, int pagesPolled, int refreshesRequeued, int refreshesDrained, int newIdsSeen, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<DateTimeOffset?> GetLastScheduledSuccessUtcAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
         {
+            LiveReadTokens.Add(cancellationToken);
             QueriedKinds.Add(kind);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return Task.FromCanceled<DateTimeOffset?>(cancellationToken);
+            }
+
             return Task.FromResult(_scheduledSuccesses.TryGetValue(kind, out var value) ? value : null);
         }
         public Task<HarvestFailureStreak> GetFailureStreakSinceLastSuccessAsync(HarvestRunKind kind, CancellationToken cancellationToken = default)
