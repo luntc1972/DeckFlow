@@ -101,7 +101,7 @@ public sealed class CreatorIdentityResolverTests : IDisposable
     }
 
     [Fact]
-    public async Task ResolveAsync_KelvinAndPlainKRowsUseOrdinalLowestSpelling()
+    public async Task ResolveAsync_KelvinAndPlainKRows_ReturnsBothSpellings()
     {
         var rows = new[]
         {
@@ -112,8 +112,8 @@ public sealed class CreatorIdentityResolverTests : IDisposable
         var forward = await ResolveRowsAsync(rows, "kate");
         var reversed = await ResolveRowsAsync(rows.Reverse().ToArray(), "kate");
 
-        Assert.Equal(new[] { "kate" }, forward!.DisplayNames);
-        Assert.Equal(new[] { "kate" }, forward.FolderSlugs);
+        Assert.Equal(new[] { "kate", "\u212Aate" }, forward!.DisplayNames);
+        Assert.Equal(new[] { "kate", "\u212Aate" }, forward.FolderSlugs);
         Assert.Equal(forward.DisplayNames, reversed!.DisplayNames);
         Assert.Equal(forward.FolderSlugs, reversed.FolderSlugs);
     }
@@ -130,6 +130,39 @@ public sealed class CreatorIdentityResolverTests : IDisposable
         var identity = await ResolveRowsAsync(rows, "\u00B5x");
 
         Assert.Equal(new[] { "\u00B5x", "\u03BCx" }, identity!.DisplayNames.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ThreeThetaLookalikes_ReturnsAllSpellings()
+    {
+        var rows = new[]
+        {
+            CreateRow("\u03D1a", "content-kb/shared/\u03D1a/one.md", "one"),
+            CreateRow("\u03B8a", "content-kb/shared/\u03B8a/two.md", "two"),
+            CreateRow("\u03F4a", "content-kb/shared/\u03F4a/three.md", "three"),
+        };
+
+        var expected = new[] { "\u03B8a", "\u03D1a", "\u03F4a" };
+        var forward = await ResolveRowsAsync(rows, "\u03B8a");
+        var reversed = await ResolveRowsAsync(rows.Reverse().ToArray(), "\u03B8a");
+
+        Assert.Equal(expected, forward!.DisplayNames);
+        Assert.Equal(expected, reversed!.DisplayNames);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_AsciiCaseVariants_ReturnBothSpellings()
+    {
+        var rows = new[]
+        {
+            CreateRow("Kate", "content-kb/Kate/one.md", "one"),
+            CreateRow("kate", "content-kb/kate/two.md", "two"),
+        };
+
+        var identity = await ResolveRowsAsync(rows, "kate");
+
+        Assert.Equal(new[] { "Kate", "kate" }, identity!.DisplayNames);
+        Assert.Equal(new[] { "Kate", "kate" }, identity.FolderSlugs);
     }
 
     [Fact]
