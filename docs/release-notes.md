@@ -6,16 +6,18 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.10.2 — Admin harvest redesign (2026-10-11)
+
+- **Admin Harvest:** the page now separates operational health, run history, and imports into an Overview tab, with a lazily loaded Commanders tab for searching, sorting, drilling into, and exporting commander category data.
+- **Harvest updates and scheduling:** known decks refresh from Archidekt listings only when they changed; operators can run Bulk or Update jobs, schedule each kind independently, pause schedules, and control the Archidekt throttle. Run state, schedules, and the run log are live on each page load; only deck-count totals are cached.
+- **Admin findability and visual polish:** Admin Tools and Flags have clearer search and filtering, and the admin surface has a consistent visual redesign across its cards, tables, controls, and responsive layouts.
+- **Operator note:** boot schema creates partial index `ix_deck_queue_refresh_pending` on `deck_queue` with plain `CREATE INDEX`; this can briefly take a write lock during startup.
+- **Commander-category norms in analysis prompts:** `analysis.commander-category-norms` is OFF by default and, when enabled, adds harvested category norms to all three analysis prompts. The block needs at least 10 decks, reports LOW/MEDIUM/HIGH confidence tiers, times out after 2.5 seconds, and remains byte-identical when the flag is off.
+
 ### 2026.10.1 — Cut Lab deck archetypes and commander staples (2026-10-06)
 
 - **Deck archetypes:** Cut Lab now includes a Step 3 deck archetype picker that suggests an archetype with a reason, applies its preset strategies and default goal turns, and re-runs the round queue; the user's choice wins, while selecting None keeps the previous behavior.
 - **Commander staples:** Commander-specific staples from bundled EDHREC data now join lands and ramp in the Mana base & staples infrastructure round, so they are proposed only after the other first-pass rounds. Commander staple data is provided by EDHREC.
-
-### Unreleased — Commander-category norms in analysis prompts (2026-10-01)
-
-- `analysis.commander-category-norms` optionally adds harvested commander-category norms to all three analysis prompts, with category deck share, deck count, and confidence tier.
-- The block is omitted below 10 harvested decks and on timeout or failure; LOW covers 10-49 decks, MEDIUM 50-249, and HIGH 250 and up. The 2.5-second timeout is cooperative.
-- The flag is off by default; off output is byte-identical.
 
 ### Unreleased — Private Content KB corpus transition (2026-09-25)
 
