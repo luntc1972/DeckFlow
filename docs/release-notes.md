@@ -6,9 +6,11 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
-### Unreleased — Creator suppression consolidation (2026-10-12)
+### 2026.10.3 — Creator suppression consolidation (2026-10-14)
 
 - Creator suppression is consolidated into one filter and now covers lookalike Unicode spellings more widely; admin suppress/purge behaviour is unchanged.
+- Suppressing a creator whose alias differs from its slug only by letter case no longer breaks later suppression writes.
+
 ### 2026.10.2 — Admin harvest redesign (2026-10-11)
 
 - **Admin Harvest:** the page now separates operational health, run history, and imports into an Overview tab, with a lazily loaded Commanders tab for searching, sorting, drilling into, and exporting commander category data.
