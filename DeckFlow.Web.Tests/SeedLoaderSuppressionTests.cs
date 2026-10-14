@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -123,10 +124,12 @@ public sealed class SeedLoaderSuppressionTests : IDisposable
         var baseDir = CreateBase();
         WriteContent(baseDir, "Conflict", "control", "third");
         var target = new FakeContentSiteIndexStore();
+        var logger = new StructuredLogger<ContentKbSeedLoader>();
 
-        await ContentLoader(baseDir, target, new ConflictResolver("Conflict"), new CountingStore()).LoadIfPresentAsync();
+        await ContentLoader(baseDir, target, new ConflictResolver("Conflict"), new CountingStore(), logger).LoadIfPresentAsync();
 
         Assert.Equal(["control", "third"], target.PreservingUpserts.Select(row => row.Source));
+        AssertConflictWarning(logger);
     }
 
     [Fact]
@@ -135,17 +138,39 @@ public sealed class SeedLoaderSuppressionTests : IDisposable
         var baseDir = CreateBase();
         WriteProfiles(baseDir, "Conflict", "control", "third");
         var target = new ProfileStore();
+        var logger = new StructuredLogger<CreatorStyleSeedLoader>();
 
-        await StyleLoader(baseDir, target, new DeckStore(), new ConflictResolver("Conflict"), new CountingStore()).LoadIfPresentAsync();
+        await StyleLoader(baseDir, target, new DeckStore(), new ConflictResolver("Conflict"), new CountingStore(), logger).LoadIfPresentAsync();
 
         Assert.Equal(["control", "third"], target.Upserts.Select(profile => profile.Slug));
+        AssertConflictWarning(logger);
     }
 
-    private ContentKbSeedLoader ContentLoader(string baseDir, IContentSiteIndexStore target, ICreatorIdentityResolver resolver, ICreatorSuppressionStore store)
-        => new(PathResolver(baseDir), target, resolver, store, NullLogger<ContentKbSeedLoader>.Instance);
+    [Fact]
+    public async Task CreatorDeckCacheSeed_AliasConflictFallback_SkipsConflictingEntryAndLoadsOthers()
+    {
+        var baseDir = CreateBase();
+        WriteDeckCache(baseDir, "Conflict", "control", "third");
+        var target = new DeckStore();
+        var logger = new StructuredLogger<CreatorStyleSeedLoader>();
 
-    private CreatorStyleSeedLoader StyleLoader(string baseDir, ICreatorStyleProfileStore profiles, ICreatorDeckCacheStore decks, ICreatorIdentityResolver resolver, ICreatorSuppressionStore store)
-        => new(PathResolver(baseDir), profiles, decks, resolver, store, NullLogger<CreatorStyleSeedLoader>.Instance);
+        await StyleLoader(baseDir, new ProfileStore(), target, new ConflictResolver("Conflict"), new CountingStore(), logger).LoadIfPresentAsync();
+
+        Assert.Equal(["control", "third"], target.Upserts.Select(entry => entry.CreatorSlug));
+        AssertConflictWarning(logger);
+    }
+
+    private static void AssertConflictWarning<T>(StructuredLogger<T> logger)
+    {
+        var warning = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Warning);
+        Assert.Equal("Conflict", Assert.Single(warning.Values, value => value.Key == "Source").Value);
+    }
+
+    private ContentKbSeedLoader ContentLoader(string baseDir, IContentSiteIndexStore target, ICreatorIdentityResolver resolver, ICreatorSuppressionStore store, ILogger<ContentKbSeedLoader>? logger = null)
+        => new(PathResolver(baseDir), target, resolver, store, logger ?? NullLogger<ContentKbSeedLoader>.Instance);
+
+    private CreatorStyleSeedLoader StyleLoader(string baseDir, ICreatorStyleProfileStore profiles, ICreatorDeckCacheStore decks, ICreatorIdentityResolver resolver, ICreatorSuppressionStore store, ILogger<CreatorStyleSeedLoader>? logger = null)
+        => new(PathResolver(baseDir), profiles, decks, resolver, store, logger ?? NullLogger<CreatorStyleSeedLoader>.Instance);
 
     private static ContentKbArtifactPathResolver PathResolver(string baseDir)
     {
@@ -250,6 +275,21 @@ public sealed class SeedLoaderSuppressionTests : IDisposable
         public Task<string?> GetContentHashAsync(string creatorSlug, string deckId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
         public Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CreatorDeckCacheEntry>>([]);
         public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default) { Upserts.Add(entry); return Task.CompletedTask; }
+    }
+
+    private sealed class StructuredLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, IReadOnlyList<KeyValuePair<string, object?>> Values)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (state is IEnumerable<KeyValuePair<string, object?>> values)
+            {
+                Entries.Add((logLevel, values.ToArray()));
+            }
+        }
     }
 
     private sealed class TestEnvironment(string contentRootPath) : IWebHostEnvironment

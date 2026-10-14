@@ -1,3 +1,4 @@
+using System.Reflection;
 using DeckFlow.Core.Content;
 using DeckFlow.Core.Knowledge;
 using Microsoft.Data.Sqlite;
@@ -6,6 +7,18 @@ namespace DeckFlow.Core.Tests.Content;
 
 public sealed class CreatorSuppressionFilterTests
 {
+    [Fact]
+    public void SuppressedRepresentations_ValueComparer_RecognizesTrimmedRepresentation()
+    {
+        // Why: FilterRowsAsync currently adds each raw value to the set, so this direct contract check pins the ValueComparer half of Contains.
+        var type = typeof(CreatorSuppressionFilter).GetNestedType("SuppressedRepresentations", BindingFlags.NonPublic)!;
+        var create = type.GetMethod("Create", BindingFlags.Public | BindingFlags.Static)!;
+        var contains = type.GetMethod("Contains", BindingFlags.Public | BindingFlags.Instance)!;
+        var representations = create.Invoke(null, [new[] { "creator" }]);
+
+        Assert.True((bool)contains.Invoke(representations, [" creator "])!);
+    }
+
     [Theory]
     [InlineData("\u03BCx", "\u00B5x")]
     [InlineData("\u00B5x", "\u03BCx")]

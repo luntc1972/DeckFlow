@@ -191,6 +191,14 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
     public async Task SuppressAsync_RefusesAliasConflict()
     {
         var store = CreateStore();
+        await store.SuppressAsync("one", new[] { "shared" }, "request", DateTimeOffset.UtcNow, null);
+        await Assert.ThrowsAsync<CreatorAliasConflictException>(() => store.SuppressAsync("two", new[] { "shared" }, "request", DateTimeOffset.UtcNow, null));
+    }
+
+    [Fact]
+    public async Task SuppressAsync_RefusesCaseVariantAliasConflict()
+    {
+        var store = CreateStore();
         await store.SuppressAsync("one", new[] { "Elk" }, "request", DateTimeOffset.UtcNow, null);
         await Assert.ThrowsAsync<CreatorAliasConflictException>(() => store.SuppressAsync("two", new[] { "ELK" }, "request", DateTimeOffset.UtcNow, null));
     }

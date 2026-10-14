@@ -24,6 +24,7 @@ public sealed class CreatorIdentityResolver : ICreatorIdentityResolver
         return Resolve(snapshot, anyRepresentation);
     }
 
+    /// <remarks>Callers deciding suppression must union <see cref="CreatorSuppressionMatcher.ValueComparer"/> and <see cref="StringComparer.OrdinalIgnoreCase"/> matches, as <see cref="CreatorSuppressionFilter.FilterRowsAsync"/> does. A single comparer can narrow suppression for lookalike spellings.</remarks>
     public async Task<IReadOnlyDictionary<string, CreatorIdentity?>> ResolveManyAsync(
         IReadOnlyCollection<string> representations,
         CancellationToken cancellationToken = default)
