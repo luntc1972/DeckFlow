@@ -208,7 +208,7 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
     }
 
     [Fact]
-    public async Task GetApprovedRowsAsync_SeveralCreators_ReadsSuppressionsOnceWithoutPerCandidateChecks()
+    public async Task GetApprovedRowsAsync_SeveralCreators_ReadsSuppressionsOnce()
     {
         var suppressionStore = new CountingSuppressionStore();
         var store = new ContentSiteIndexStore(_dbPath, suppressionStore);
@@ -219,7 +219,6 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
         _ = await store.GetApprovedRowsAsync();
 
         Assert.Equal(1, suppressionStore.ListCalls);
-        Assert.Equal(0, suppressionStore.IsSuppressedCalls);
     }
 
     [Fact]
@@ -626,7 +625,6 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
     private sealed class CountingSuppressionStore : ICreatorSuppressionStore
     {
         public int ListCalls { get; private set; }
-        public int IsSuppressedCalls { get; private set; }
         public Task SuppressAsync(string slug, IReadOnlyList<string> aliases, string reason, DateTimeOffset requestedUtc, string? note, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task UnsuppressAsync(string slug, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SetAliasesAsync(string slug, IReadOnlyList<string> aliases, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -636,7 +634,6 @@ public sealed class ContentSiteIndexStoreApprovalTests : IDisposable
         public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) { ListCalls++; return Task.FromResult<IReadOnlyList<CreatorSuppression>>([]); }
-        public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) { IsSuppressedCalls++; return Task.FromResult(false); }
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 

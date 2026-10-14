@@ -30,12 +30,56 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task IsSuppressedAsync_AliasResolvesToCanonicalSlug()
+    public async Task SuppressAsync_RetainsMatcherDistinctLookalikeAliases()
+    {
+        var store = CreateStore();
+        await store.SuppressAsync("one", new[] { "\u00B5x", "\u03BCx" }, "request", DateTimeOffset.UtcNow, null);
+        Assert.Equal(new[] { "\u00B5x", "\u03BCx" }, Assert.Single(await store.ListAsync()).Aliases);
+    }
+
+    [Fact]
+    public async Task SuppressAsync_CollapsesAliasesEquivalentUnderBothComparers()
+    {
+        var store = CreateStore();
+        await store.SuppressAsync("one", new[] { "Elk", "elk" }, "request", DateTimeOffset.UtcNow, null);
+        Assert.Equal(new[] { "Elk" }, Assert.Single(await store.ListAsync()).Aliases);
+    }
+
+    [Fact]
+    public async Task SuppressAsync_AllowsMatcherDistinctAliasesOnDifferentCreators()
+    {
+        var store = CreateStore();
+        await store.SuppressAsync("one", new[] { "\u00B5x" }, "request", DateTimeOffset.UtcNow, null);
+        await store.SuppressAsync("two", new[] { "\u03BCx" }, "request", DateTimeOffset.UtcNow, null);
+        Assert.Equal(2, (await store.ListAsync()).Count);
+    }
+
+    [Fact]
+    public async Task SuppressAsync_AfterLookalikeAliases_AllowsFurtherWrites()
+    {
+        var store = CreateStore();
+        await store.SuppressAsync("one", new[] { "\u00B5x", "\u03BCx" }, "request", DateTimeOffset.UtcNow, null);
+        await store.SuppressAsync("two", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+        await store.SetAliasesAsync("two", new[] { "Other" });
+        Assert.Equal(2, (await store.ListAsync()).Count);
+    }
+
+    [Fact]
+    public async Task SuppressAsync_AllowsOwnSlugRepeatedAsAlias()
+    {
+        var store = CreateStore();
+        await store.SuppressAsync("elk", new[] { "Elk" }, "request", DateTimeOffset.UtcNow, null);
+        await store.SuppressAsync("other", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
+        Assert.Equal(2, (await store.ListAsync()).Count);
+    }
+
+    [Fact]
+    public async Task MatcherFromList_AliasResolvesToCanonicalSlug()
     {
         var store = CreateStore();
         await store.SuppressAsync("salubrious-snail", new[] { "Salubrious Snail" }, "request", DateTimeOffset.UtcNow, null);
 
-        Assert.True(await store.IsSuppressedAsync("Salubrious Snail"));
+        Assert.True(new CreatorSuppressionMatcher(await store.ListAsync()).IsSuppressed("Salubrious Snail"));
     }
 
     [Fact]
@@ -43,7 +87,7 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
     {
         var store = CreateStore();
         await store.SuppressAsync("sqlite", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
-        Assert.True(await store.IsSuppressedAsync("sqlite"));
+        Assert.True(new CreatorSuppressionMatcher(await store.ListAsync()).IsSuppressed("sqlite"));
     }
 
     [Fact]
@@ -67,7 +111,7 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
         try
         {
             await store.SuppressAsync(slug, Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
-            Assert.True(await store.IsSuppressedAsync(slug));
+            Assert.True(new CreatorSuppressionMatcher(await store.ListAsync()).IsSuppressed(slug));
         }
         finally { await store.UnsuppressAsync(slug); }
     }
@@ -107,7 +151,7 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
     {
         var store = CreateStore();
         await store.SuppressAsync("creator", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
-        Assert.True(await store.IsSuppressedAsync("creator"));
+        Assert.True(new CreatorSuppressionMatcher(await store.ListAsync()).IsSuppressed("creator"));
     }
 
     [Fact]
@@ -116,11 +160,11 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
         var store = CreateStore();
         await store.SuppressAsync("creator", Array.Empty<string>(), "request", DateTimeOffset.UtcNow, null);
         await store.UnsuppressAsync("creator");
-        Assert.False(await store.IsSuppressedAsync("creator"));
+        Assert.False(new CreatorSuppressionMatcher(await store.ListAsync()).IsSuppressed("creator"));
     }
 
     [Fact]
-    public async Task IsSuppressedAsync_UnreadableTableThrows()
+    public async Task MatcherFromList_UnreadableTableThrows()
     {
         var store = CreateStore();
         await store.EnsureSchemaAsync();
@@ -131,7 +175,7 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
             command.CommandText = "DROP TABLE creator_suppression;";
             await command.ExecuteNonQueryAsync();
         }
-        await Assert.ThrowsAnyAsync<Exception>(() => store.IsSuppressedAsync("creator"));
+        await Assert.ThrowsAnyAsync<Exception>(async () => { _ = new CreatorSuppressionMatcher(await store.ListAsync()).IsSuppressed("creator"); });
     }
 
     [Fact]
@@ -147,8 +191,8 @@ public sealed class CreatorSuppressionStoreTests : IDisposable
     public async Task SuppressAsync_RefusesAliasConflict()
     {
         var store = CreateStore();
-        await store.SuppressAsync("one", new[] { "shared" }, "request", DateTimeOffset.UtcNow, null);
-        await Assert.ThrowsAsync<CreatorAliasConflictException>(() => store.SuppressAsync("two", new[] { "shared" }, "request", DateTimeOffset.UtcNow, null));
+        await store.SuppressAsync("one", new[] { "Elk" }, "request", DateTimeOffset.UtcNow, null);
+        await Assert.ThrowsAsync<CreatorAliasConflictException>(() => store.SuppressAsync("two", new[] { "ELK" }, "request", DateTimeOffset.UtcNow, null));
     }
 
     private CreatorSuppressionStore CreateStore() => new(RelationalDatabaseConnection.FromSqlitePath(_dbPath));
@@ -229,7 +273,6 @@ public sealed class CreatorSuppressionSyncTests : IDisposable
         public Task<long> GetRevisionAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
         public Task<long?> GetSyncedRevisionAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
         public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
-        public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
         public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
         public Task<CreatorSuppressionSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");
         public Task SetAliasesAsync(string slug, IReadOnlyList<string> aliases, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Production suppression table unreadable.");

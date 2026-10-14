@@ -14,7 +14,6 @@ public interface ICreatorSuppressionStore
     Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default);
     Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default);
-    Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default);
     Task EnsureSchemaAsync(CancellationToken cancellationToken = default);
 }
 #pragma warning restore CS1591

@@ -109,12 +109,6 @@ public sealed class CreatorSuppressionStore : ICreatorSuppressionStore
         return rows.Select(ToSuppression).ToList();
     }
 
-    public async Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(nameOrAlias);
-        return new CreatorSuppressionMatcher(await ListAsync(cancellationToken).ConfigureAwait(false)).IsSuppressed(nameOrAlias);
-    }
-
     private async Task WriteAsync(string slug, IReadOnlyList<string> aliases, Func<DbConnection, DbTransaction, Task> write, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(slug);
@@ -156,7 +150,17 @@ public sealed class CreatorSuppressionStore : ICreatorSuppressionStore
     private static async Task<IReadOnlyDictionary<string, string>> ListAliasesAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         var rows = await connection.QueryAsync<Row>(new CommandDefinition("SELECT slug, aliases, reason, requested_utc AS RequestedUtc, note FROM creator_suppression;", transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        return rows.SelectMany(row => (JsonSerializer.Deserialize<string[]>(row.Aliases) ?? Array.Empty<string>()).Append(row.Slug).Select(alias => new { Key = CreatorSuppressionMatcher.NormalizeValue(alias), row.Slug })).ToDictionary(item => item.Key, item => item.Slug, StringComparer.OrdinalIgnoreCase);
+        var owners = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var row in rows.OrderBy(row => row.Slug, StringComparer.Ordinal))
+        {
+            foreach (var alias in (JsonSerializer.Deserialize<string[]>(row.Aliases) ?? Array.Empty<string>()).Append(row.Slug))
+            {
+                var key = CreatorSuppressionMatcher.NormalizeValue(alias);
+                // Why: repeated normalized keys can belong to one row or conflicting stored rows; keep the ordinal-lowest slug deterministically.
+                owners.TryAdd(key, row.Slug);
+            }
+        }
+        return owners;
     }
 
     private static CreatorSuppression ToSuppression(Row row) => new()
@@ -171,7 +175,18 @@ public sealed class CreatorSuppressionStore : ICreatorSuppressionStore
     private static Task BumpRevisionAsync(DbConnection connection, DbTransaction transaction, string sql, CancellationToken cancellationToken)
         => connection.ExecuteAsync(new CommandDefinition(sql, new { updatedUtc = DateTimeOffset.UtcNow }, transaction, cancellationToken: cancellationToken));
 
-    private static IReadOnlyList<string> CleanAliases(IReadOnlyList<string> aliases) => aliases.Where(alias => !string.IsNullOrWhiteSpace(alias)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    private static IReadOnlyList<string> CleanAliases(IReadOnlyList<string> aliases)
+    {
+        var kept = new List<string>();
+        foreach (var alias in aliases)
+        {
+            if (string.IsNullOrWhiteSpace(alias)) continue;
+            // Why: preserve spellings distinguished by either the store or the matcher while retaining the first equivalent alias.
+            if (kept.Any(previous => StringComparer.OrdinalIgnoreCase.Equals(previous, alias) && CreatorSuppressionMatcher.ValueComparer.Equals(previous, alias))) continue;
+            kept.Add(alias);
+        }
+        return kept;
+    }
 
     /// <summary>Groups provider-specific schema, suppression upsert, and revision-update SQL for store initialization.</summary>
     internal sealed record SqlText(string Schema, string Upsert, string Increment);

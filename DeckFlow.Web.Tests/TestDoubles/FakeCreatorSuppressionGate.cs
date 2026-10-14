@@ -9,8 +9,11 @@ internal sealed class FakeCreatorSuppressionGate : ICreatorSuppressionGate
 
     public FakeCreatorSuppressionGate(ICreatorSuppressionStore store) => _store = store;
 
-    public Task<bool> IsSuppressedAsync(string creatorSlug, CancellationToken cancellationToken = default)
-        => _store.IsSuppressedAsync(creatorSlug, cancellationToken);
+    public async Task<bool> IsSuppressedAsync(string creatorSlug, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
+        return new CreatorSuppressionMatcher(await _store.ListAsync(cancellationToken).ConfigureAwait(false)).IsSuppressed(creatorSlug);
+    }
 
     public async Task<IReadOnlySet<string>> GetUnsuppressedAsync(IEnumerable<string> creatorSlugs, CancellationToken cancellationToken = default)
     {

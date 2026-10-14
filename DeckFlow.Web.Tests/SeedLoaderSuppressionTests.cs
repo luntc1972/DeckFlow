@@ -230,7 +230,6 @@ public sealed class SeedLoaderSuppressionTests : IDisposable
         public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) { ListCalls++; return Task.FromResult<IReadOnlyList<CreatorSuppression>>(suppressed.Select(slug => new CreatorSuppression { Slug = slug, Aliases = [], Reason = "test", RequestedUtc = DateTimeOffset.UnixEpoch }).ToList()); }
-        public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => Task.FromResult(suppressed.Contains(nameOrAlias, StringComparer.Ordinal));
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 

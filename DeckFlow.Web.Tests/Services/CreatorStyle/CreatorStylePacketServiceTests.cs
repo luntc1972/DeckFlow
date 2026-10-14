@@ -29,7 +29,7 @@ public sealed class CreatorStylePacketServiceTests
                 packetInputReads++;
                 return Task.FromResult<CreatorStyleProfile?>(CreateProfile("suppressed"));
             },
-            isSuppressedAsync: suppressionStore.IsSuppressedAsync);
+            isSuppressedAsync: new FakeCreatorSuppressionGate(suppressionStore).IsSuppressedAsync);
 
         CreatorStylePacketResult suppressed = await sut.BuildAsync(new CreatorStyleRequest
         {
@@ -107,7 +107,7 @@ public sealed class CreatorStylePacketServiceTests
     public async Task BuildAsync_SuppressionStoreThrows_ThrowsWithoutReturningPacket()
     {
         var suppressionStore = new FakeCreatorSuppressionStore();
-        var sut = CreateSut(isSuppressedAsync: suppressionStore.IsSuppressedAsync);
+        var sut = CreateSut(isSuppressedAsync: new FakeCreatorSuppressionGate(suppressionStore).IsSuppressedAsync);
         var request = new CreatorStyleRequest
         {
             CreatorSlug = "alpha",

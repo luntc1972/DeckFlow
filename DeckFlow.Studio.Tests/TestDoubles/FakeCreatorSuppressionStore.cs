@@ -7,7 +7,6 @@ internal sealed class FakeCreatorSuppressionStore : ICreatorSuppressionStore
 {
     public ISet<string> Suppressed { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     public int ListCalls { get; private set; }
-    public int IsSuppressedCalls { get; private set; }
 
     public Task SuppressAsync(string slug, IReadOnlyList<string> aliases, string reason, DateTimeOffset requestedUtc, string? note, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task UnsuppressAsync(string slug, CancellationToken cancellationToken = default) => Task.CompletedTask;
@@ -28,7 +27,6 @@ internal sealed class FakeCreatorSuppressionStore : ICreatorSuppressionStore
             RequestedUtc = DateTimeOffset.UtcNow,
         }).ToList());
     }
-    public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) { IsSuppressedCalls++; return Task.FromResult(Suppressed.Contains(nameOrAlias)); }
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
@@ -50,7 +48,6 @@ internal sealed class ThrowingCreatorSuppressionStore : ICreatorSuppressionStore
     public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => throw ReadFailure;
     public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) => throw ReadFailure;
-    public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => throw ReadFailure;
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
@@ -67,7 +64,6 @@ internal sealed class PerGroupThrowingCreatorSuppressionStore : ICreatorSuppress
     public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => _inner.ApplySnapshotAsync(snapshot, cancellationToken);
     public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => Task.FromResult(false);
     public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) => throw new InvalidOperationException("Suppression store unavailable.");
-    public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => throw new InvalidOperationException("Suppression store unavailable.");
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => _inner.EnsureSchemaAsync(cancellationToken);
 }
 

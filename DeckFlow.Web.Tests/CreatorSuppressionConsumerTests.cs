@@ -102,7 +102,6 @@ public sealed class CreatorSuppressionConsumerTests : IDisposable
         public Task<long> GetRevisionAsync(CancellationToken cancellationToken = default) => throw Failure();
         public Task<long?> GetSyncedRevisionAsync(CancellationToken cancellationToken = default) => throw Failure();
         public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => throw Failure();
-        public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => throw Failure();
         public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) => throw Failure();
         public Task<CreatorSuppressionSnapshot> ReadSnapshotAsync(CancellationToken cancellationToken = default) => throw Failure();
         public Task SetAliasesAsync(string slug, IReadOnlyList<string> aliases, CancellationToken cancellationToken = default) => throw Failure();

@@ -20,7 +20,7 @@ public sealed class CreatorSuppressionRowFilterTests
     }
 
     [Fact]
-    public async Task GetAllowedAsync_SeveralCreators_ReadsSuppressionsOnceWithoutPerCandidateChecks()
+    public async Task GetAllowedAsync_SeveralCreators_ReadsSuppressionsOnce()
     {
         var store = new FakeCreatorSuppressionStore();
         var filter = new CreatorSuppressionRowFilter(store, new FakeCreatorIdentityResolver());
@@ -29,7 +29,6 @@ public sealed class CreatorSuppressionRowFilterTests
         _ = await filter.GetAllowedAsync(rows, CancellationToken.None);
 
         Assert.Equal(1, store.ListCalls);
-        Assert.Equal(0, store.IsSuppressedCalls);
     }
 
     private static ContentSiteIndexRow MakeRow(long id, string source)

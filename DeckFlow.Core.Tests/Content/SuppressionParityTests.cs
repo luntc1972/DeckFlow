@@ -88,7 +88,6 @@ public sealed class SuppressionParityTests : IDisposable
         public Task ApplySnapshotAsync(CreatorSuppressionSnapshot snapshot, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<bool> IsStaleComparedToAsync(ICreatorSuppressionStore productionStore, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<IReadOnlyList<CreatorSuppression>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult(rows);
-        public Task<bool> IsSuppressedAsync(string nameOrAlias, CancellationToken cancellationToken = default) => Task.FromResult(rows.Any(row => row.Slug == nameOrAlias || row.Aliases.Contains(nameOrAlias)));
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 }
