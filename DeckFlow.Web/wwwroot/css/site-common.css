@@ -7216,16 +7216,68 @@ button {
   margin-top: 1rem;
 }
 
+.meta-gap-recommended-edits__intro,
+.meta-gap-edit-group__hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.meta-gap-recommended-edits__intro {
+  margin: 0 0 1rem;
+}
+
+.meta-gap-edit-group {
+  border-left: 2px solid var(--line);
+  margin-top: 1rem;
+  padding-left: 1rem;
+}
+
+.meta-gap-edit-group h5 {
+  margin: 0;
+}
+
+.meta-gap-edit-group__hint {
+  margin: 0.25rem 0 0.5rem;
+}
+
+.meta-gap-edit-group ul {
+  margin: 0;
+}
+
+.meta-gap-edit-group li {
+  margin-bottom: 0.65rem;
+}
+
+.meta-gap-edit-item__details {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 0.2rem;
+}
+
+.meta-gap-edit-item__why {
+  display: block;
+  margin-top: 0.2rem;
+}
+
 .meta-gap-core-convergence__chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
 }
 
+@media (min-width: 1280px) {
+  .meta-gap-results {
+    width: min(1440px, 100vw - 4rem);
+    /* Why: .result-panel caps max-width at 100%, which would clamp this breakout back to the shell. */
+    max-width: none;
+    margin-inline: calc(50% - min(1440px, 100vw - 4rem) / 2);
+  }
+}
+
 @media (min-width: 1024px) {
   .meta-gap-mirror {
     display: grid;
-    grid-template-columns: minmax(8rem, 0.8fr) minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: stretch;
   }
 

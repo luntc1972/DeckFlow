@@ -6,6 +6,11 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — cEDH Meta Gap results readability (2026-10-15)
+
+- **Wider comparison columns:** on screens 1280px and wider, the rendered meta-gap results break out of the page width (up to 1440px), and the stat-label column is capped so the "Your deck" and "The field" prose columns get the space.
+- **Grouped recommended edits:** Recommended Edits is split into Add & cut swaps, Recommended cuts, Add staple, and Potential cut groups, each with a coloured badge and a one-line explanation of what the group means; the swaps and cuts are the AI's recommendations, while staples and potential cuts are the reference-deck overlap evidence behind them.
+
 ### 2026.10.3 — Creator suppression consolidation (2026-10-14)
 
 - Creator suppression is consolidated into one filter and now covers lookalike Unicode spellings more widely; admin suppress/purge behaviour is unchanged.
