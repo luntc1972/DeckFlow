@@ -7302,7 +7302,11 @@ button {
 
   .meta-gap-mirror__delta {
     grid-column: 3;
-    align-self: center;
+    /* Why: stretch keeps the cell's top border level with the row; flex centres the chip instead. */
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding-inline: 0.45rem;
   }
 }
