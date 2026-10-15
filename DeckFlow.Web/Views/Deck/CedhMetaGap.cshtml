@@ -25,7 +25,7 @@
     };
 }
 
-<section class="hero">
+<section class="hero meta-gap-page">
     <h1>cEDH Meta Gap</h1>
     <p class="page-lede">Generate a prompt analyzing your deck against current cEDH meta. Paste into @platformList.</p>
     <p class="lede">Compare your deck against 1 to 3 EDH Top 16 reference lists for the same commander, generate a strict AI prompt, and paste the returned <code>meta_gap</code> JSON back here for a readable upgrade path.</p>
@@ -414,46 +414,50 @@
             var analysis = Model.AnalysisResponse.MetaGap;
             <section class="result-panel nested-panel summary-panel meta-gap-results" data-prompt-cedh-result-anchor data-print-result>
                 <div class="toolbar prompt-step-actions">
-                    <button type="submit" class="run-button" data-no-busy data-prompt-download-submit
-                            formaction="@Url.Content("~/cedh-meta-gap/download")"
-                            formmethod="post"
-                            formnovalidate>
-                        Download meta-gap session (.zip)
-                    </button>
                     <button type="button" class="run-button prompt-print-button" data-no-busy data-prompt-print>
                         Print results
                     </button>
                 </div>
                 <h3>Meta Gap Analysis</h3>
+                <nav class="meta-gap-section-nav" aria-label="Meta gap result sections">
+                    <a href="#meta-gap-overview">Overview</a>
+                    <a href="#meta-gap-comparison">Deck vs. field</a>
+                    @if (analysis.CoreConvergence.Count > 0) { <a href="#meta-gap-core-convergence">Core Convergence</a> }
+                    @if (analysis.MissingStaples.Count > 0 || analysis.PotentialCuts.Count > 0 || analysis.Top10Adds.Count > 0 || analysis.Top10Cuts.Count > 0) { <a href="#meta-gap-recommended-edits">Recommended Edits</a> }
+                </nav>
                 <div class="stack">
-                    <section class="result-panel nested-panel">
+                    <section id="meta-gap-overview" class="result-panel nested-panel meta-gap-overview">
                         <h4>Overview</h4>
-                        <p><strong>Commander:</strong> @analysis.Commander</p>
-                        <p><strong>Reference decks:</strong> @analysis.RefDeckCount</p>
+                        <dl class="meta-gap-overview__facts">
+                            <div><dt>Commander</dt><dd>@analysis.Commander</dd></div>
+                            <div><dt>Reference decks</dt><dd>@analysis.RefDeckCount</dd></div>
                         @if (!string.IsNullOrWhiteSpace(analysis.ColorId))
                         {
-                            <p><strong>Color identity:</strong> @analysis.ColorId</p>
+                            <div><dt>Color identity</dt><dd>@analysis.ColorId</dd></div>
                         }
                         @if (analysis.ReadinessScore > 0)
                         {
-                            <p><strong>cEDH Readiness:</strong> @analysis.ReadinessScore / 10</p>
+                            <div><dt>cEDH Readiness</dt><dd>@analysis.ReadinessScore / 10</dd></div>
                         }
+                        </dl>
                         @if (!string.IsNullOrWhiteSpace(analysis.ReadinessJustification))
                         {
-                            <p><strong>Readiness call:</strong> @analysis.ReadinessJustification</p>
+                            <p class="meta-gap-overview__narrative"><strong>Readiness call:</strong> @analysis.ReadinessJustification</p>
                         }
                         @if (!string.IsNullOrWhiteSpace(analysis.MetaSummary))
                         {
-                            <p><strong>Meta positioning:</strong> @analysis.MetaSummary</p>
+                            <p class="meta-gap-overview__narrative"><strong>Meta positioning:</strong> @analysis.MetaSummary</p>
                         }
                         @if (!string.IsNullOrWhiteSpace(analysis.OptimizationPath))
                         {
-                            <p><strong>Upgrade path:</strong> @analysis.OptimizationPath</p>
+                            <p class="meta-gap-overview__narrative"><strong>Upgrade path:</strong> @analysis.OptimizationPath</p>
                         }
                     </section>
 
 
-                    <section class="meta-gap-mirror" aria-label="Your deck compared with the reference field">
+                    <section id="meta-gap-comparison" class="meta-gap-comparison" aria-label="Your deck compared with the reference field">
+                        <h4>Deck vs. field</h4>
+                        <div class="meta-gap-mirror">
                         <div class="meta-gap-mirror__header meta-gap-mirror__header--stat">Stat</div>
                         <div class="meta-gap-mirror__header">Your Deck</div>
                         <div class="meta-gap-mirror__header meta-gap-mirror__header--delta">Delta</div>
@@ -531,11 +535,12 @@
                             <div class="meta-gap-mirror__delta"><span class="manabase-chip @(landsDelta > 0 ? "manabase-chip--good" : landsDelta < 0 ? "manabase-chip--low" : "manabase-chip--ok")">@(landsDelta > 0 ? "↑" : landsDelta < 0 ? "↓" : "↔") @landsDelta.ToString("+0.0;-0.0;0.0")</span></div>
                             <div class="meta-gap-mirror__value" data-label="The field">@analysis.ManaEfficiency.RefAvgLands.ToString("F1")</div>
                         }
+                        </div>
                     </section>
 
                     @if (analysis.CoreConvergence.Count > 0)
                     {
-                        <section class="result-panel nested-panel meta-gap-core-convergence">
+                        <section id="meta-gap-core-convergence" class="result-panel nested-panel meta-gap-core-convergence">
                             <h4>Core Convergence</h4>
                             <p class="meta-gap-core-convergence__chips">
                                 @foreach (var item in analysis.CoreConvergence.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
@@ -548,7 +553,7 @@
 
                     @if (analysis.MissingStaples.Count > 0 || analysis.PotentialCuts.Count > 0 || analysis.Top10Adds.Count > 0 || analysis.Top10Cuts.Count > 0)
                     {
-                        <section class="result-panel nested-panel meta-gap-recommended-edits">
+                        <section id="meta-gap-recommended-edits" class="result-panel nested-panel meta-gap-recommended-edits">
                             <h4>Recommended Edits</h4>
                             <p class="meta-gap-recommended-edits__intro">The swaps and cuts are the AI's prioritized recommendations; staples and potential cuts are the overlap evidence behind them.</p>
                             @if (analysis.Top10Adds.Any(item => !string.IsNullOrWhiteSpace(item.Card)))
@@ -559,7 +564,7 @@
                                     <ul>
                                         @foreach (var item in analysis.Top10Adds.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
                                         {
-                                            <li><span class="manabase-chip manabase-chip--good">Add</span> <strong>@item.Card</strong>@if (!string.IsNullOrWhiteSpace(item.Replaces)) { <text> <span class="manabase-chip manabase-chip--low">Cut</span> @item.Replaces</text> }<div class="meta-gap-edit-item__details">@if (!string.IsNullOrWhiteSpace(item.Role)) { <text>@item.Role</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <span class="meta-gap-edit-item__why">Why: @item.Why</span> }</div></li>
+                                            <li><div class="meta-gap-edit-item__header"><div class="meta-gap-edit-item__line"><span class="manabase-chip manabase-chip--good">Add</span> <strong>@item.Card</strong></div>@if (!string.IsNullOrWhiteSpace(item.Replaces)) { <div class="meta-gap-edit-item__line"><span class="manabase-chip manabase-chip--low">Cut</span> @item.Replaces</div> }</div>@if (!string.IsNullOrWhiteSpace(item.Role)) { <div class="meta-gap-edit-item__details">@item.Role</div> }@if (!string.IsNullOrWhiteSpace(item.Why)) { <div class="meta-gap-edit-item__why"><span class="meta-gap-edit-item__why-label">Why:</span> @item.Why</div> }</li>
                                         }
                                     </ul>
                                 </div>
@@ -572,36 +577,36 @@
                                     <ul>
                                         @foreach (var item in analysis.Top10Cuts.Where(item => !string.IsNullOrWhiteSpace(item.Card)))
                                         {
-                                            <li><span class="manabase-chip manabase-chip--low">Cut</span> <strong>@item.Card</strong><div class="meta-gap-edit-item__details">@if (!string.IsNullOrWhiteSpace(item.Role)) { <text>@item.Role</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <span class="meta-gap-edit-item__why">Why: @item.Why</span> }</div></li>
+                                            <li><div class="meta-gap-edit-item__header"><div class="meta-gap-edit-item__line"><span class="manabase-chip manabase-chip--low">Cut</span> <strong>@item.Card</strong></div></div>@if (!string.IsNullOrWhiteSpace(item.Role)) { <div class="meta-gap-edit-item__details">@item.Role</div> }@if (!string.IsNullOrWhiteSpace(item.Why)) { <div class="meta-gap-edit-item__why"><span class="meta-gap-edit-item__why-label">Why:</span> @item.Why</div> }</li>
                                         }
                                     </ul>
                                 </div>
                             }
                             @if (analysis.MissingStaples.Any(item => !string.IsNullOrWhiteSpace(item.Card)))
                             {
-                                <div class="meta-gap-edit-group meta-gap-edit-group--staple">
-                                    <h5>Add staple</h5>
+                                <details open class="meta-gap-edit-group meta-gap-edit-group--staple">
+                                    <summary class="meta-gap-edit-group__summary">Add staple <span class="meta-gap-edit-group__count">(@analysis.MissingStaples.Count(item => !string.IsNullOrWhiteSpace(item.Card)))</span></summary>
                                     <p class="meta-gap-edit-group__hint">Cards in 2 or more reference decks that your list lacks. Evidence to weigh, not an automatic add.</p>
                                     <ul>
                                         @foreach (var item in analysis.MissingStaples.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
                                         {
-                                            <li><span class="manabase-chip manabase-chip--good">Add staple</span> <strong>#@item.Priority @item.Card</strong><div class="meta-gap-edit-item__details">@if (!string.IsNullOrWhiteSpace(item.Role)) { <text>@item.Role</text> } @if (item.RefCount > 0) { if (!string.IsNullOrWhiteSpace(item.Role)) { <text> · </text> } <text>seen in @item.RefCount reference deck(s)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <span class="meta-gap-edit-item__why">Why: @item.Why</span> }</div></li>
+                                            <li><div class="meta-gap-edit-item__header"><span class="manabase-chip manabase-chip--good">Add staple</span> <span class="meta-gap-edit-item__rank">#@item.Priority</span> <strong class="meta-gap-edit-item__name">@item.Card</strong></div><div class="meta-gap-edit-item__details">@if (!string.IsNullOrWhiteSpace(item.Role)) { <text>@item.Role</text> } @if (item.RefCount > 0) { if (!string.IsNullOrWhiteSpace(item.Role)) { <text> · </text> } <text>seen in @item.RefCount reference deck(s)</text> }</div>@if (!string.IsNullOrWhiteSpace(item.Why)) { <div class="meta-gap-edit-item__why"><span class="meta-gap-edit-item__why-label">Why:</span> @item.Why</div> }</li>
                                         }
                                     </ul>
-                                </div>
+                                </details>
                             }
                             @if (analysis.PotentialCuts.Any(item => !string.IsNullOrWhiteSpace(item.Card)))
                             {
-                                <div class="meta-gap-edit-group meta-gap-edit-group--potential-cut">
-                                    <h5>Potential cut</h5>
+                                <details open class="meta-gap-edit-group meta-gap-edit-group--potential-cut">
+                                    <summary class="meta-gap-edit-group__summary">Potential cut <span class="meta-gap-edit-group__count">(@analysis.PotentialCuts.Count(item => !string.IsNullOrWhiteSpace(item.Card)))</span></summary>
                                     <p class="meta-gap-edit-group__hint">Cards in none of the reference decks (combo pieces and their tutors are excluded). Review them; unique is not the same as bad.</p>
                                     <ul>
                                         @foreach (var item in analysis.PotentialCuts.OrderBy(item => item.Priority).Where(item => !string.IsNullOrWhiteSpace(item.Card)))
                                         {
-                                            <li><span class="manabase-chip manabase-chip--low">Potential cut</span> <strong>#@item.Priority @item.Card</strong><div class="meta-gap-edit-item__details">@if (!string.IsNullOrWhiteSpace(item.Role)) { <text>@item.Role</text> } @if (item.RefCount > 0) { if (!string.IsNullOrWhiteSpace(item.Role)) { <text> · </text> } <text>found in @item.RefCount reference deck(s)</text> } @if (!string.IsNullOrWhiteSpace(item.Why)) { <span class="meta-gap-edit-item__why">Why: @item.Why</span> }</div></li>
+                                            <li><div class="meta-gap-edit-item__header"><span class="manabase-chip manabase-chip--low">Potential cut</span> <span class="meta-gap-edit-item__rank">#@item.Priority</span> <strong class="meta-gap-edit-item__name">@item.Card</strong></div><div class="meta-gap-edit-item__details">@if (!string.IsNullOrWhiteSpace(item.Role)) { <text>@item.Role</text> } @if (item.RefCount > 0) { if (!string.IsNullOrWhiteSpace(item.Role)) { <text> · </text> } <text>found in @item.RefCount reference deck(s)</text> }</div>@if (!string.IsNullOrWhiteSpace(item.Why)) { <div class="meta-gap-edit-item__why"><span class="meta-gap-edit-item__why-label">Why:</span> @item.Why</div> }</li>
                                         }
                                     </ul>
-                                </div>
+                                </details>
                             }
                         </section>
                     }

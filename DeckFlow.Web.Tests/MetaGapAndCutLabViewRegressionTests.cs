@@ -10,8 +10,9 @@ public sealed class MetaGapAndCutLabViewRegressionTests
     {
         string content = ReadWebFile("Views", "Deck", "CedhMetaGap.cshtml");
 
-        Assert.Contains("<span class=\"manabase-chip manabase-chip--good\">Add staple</span> <strong>#@item.Priority @item.Card</strong>", content, StringComparison.Ordinal);
-        Assert.Contains("<span class=\"manabase-chip manabase-chip--low\">Potential cut</span> <strong>#@item.Priority @item.Card</strong>", content, StringComparison.Ordinal);
+        Assert.Contains("<div class=\"meta-gap-edit-item__header\">", content, StringComparison.Ordinal);
+        Assert.Contains("<div class=\"meta-gap-edit-item__line\"><span class=\"manabase-chip manabase-chip--good\">Add</span>", content, StringComparison.Ordinal);
+        Assert.Contains("<div class=\"meta-gap-edit-item__line\"><span class=\"manabase-chip manabase-chip--low\">Cut</span>", content, StringComparison.Ordinal);
         Assert.Contains("names the card it replaces", content, StringComparison.Ordinal);
         Assert.Contains("low-impact", content, StringComparison.Ordinal);
         Assert.Contains("2 or more reference decks", content, StringComparison.Ordinal);
@@ -52,16 +53,20 @@ public sealed class MetaGapAndCutLabViewRegressionTests
     }
 
     [Fact]
-    public void CedhMetaGapResults_BreaksOutOnlyOnWideScreens()
+    public void CedhMetaGapPage_UsesOneScopedShellWithoutResultsBreakout()
     {
         string view = ReadWebFile("Views", "Deck", "CedhMetaGap.cshtml");
         string css = ReadWebFile("wwwroot", "css", "site-common.css");
 
+        Assert.Contains("class=\"hero meta-gap-page\"", view, StringComparison.Ordinal);
         Assert.Contains("class=\"result-panel nested-panel summary-panel meta-gap-results\"", view, StringComparison.Ordinal);
-        Assert.Contains("@media (min-width: 1280px)", css, StringComparison.Ordinal);
-        Assert.Contains(".meta-gap-results", css, StringComparison.Ordinal);
-        Assert.Contains("width: min(1440px, 100vw - 4rem);", css, StringComparison.Ordinal);
-        Assert.Contains("margin-inline: calc(50% - min(1440px, 100vw - 4rem) / 2);", css, StringComparison.Ordinal);
+        Assert.Contains("body:has(.meta-gap-page)", css, StringComparison.Ordinal);
+        Assert.Contains("--shell-max-width: 1360px;", css, StringComparison.Ordinal);
+        Assert.Contains("body:has(.meta-gap-page) .content-shell", css, StringComparison.Ordinal);
+        Assert.Contains("max-width: var(--shell-max-width);", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("100vw - 4rem", css, StringComparison.Ordinal);
+        Assert.Contains("body:has(.meta-gap-page) .prompt-sticky-download", css, StringComparison.Ordinal);
+        Assert.Contains("position: static", css, StringComparison.Ordinal);
         Assert.Contains("--shell-max-width: 1120px;", css, StringComparison.Ordinal);
     }
 

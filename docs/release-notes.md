@@ -8,8 +8,8 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 ### Unreleased — cEDH Meta Gap results readability (2026-10-15)
 
-- **Wider comparison columns:** on screens 1280px and wider, the rendered meta-gap results break out of the page width (up to 1440px), and the stat-label column is capped so the "Your deck" and "The field" prose columns get the space.
-- **Grouped recommended edits:** Recommended Edits is split into Add & cut swaps, Recommended cuts, Add staple, and Potential cut groups, each with a coloured badge and a one-line explanation of what the group means; the swaps and cuts are the AI's recommendations, while staples and potential cuts are the reference-deck overlap evidence behind them.
+- **Aligned readable results:** this page now uses one 1360px-wide shell on large screens, keeping header, steps, results, and footer aligned while retaining the bounded stat-label column. Section jump links and a visible Deck vs. field heading make long reports easier to scan.
+- **Grouped recommended edits:** Recommended Edits is split into Add & cut swaps, Recommended cuts, Add staple, and Potential cut groups. Evidence groups are open disclosure sections with counts; cards show rank, metadata, and rationale clearly, remain readable on phones, and print in one column.
 
 ### 2026.10.3 — Creator suppression consolidation (2026-10-14)
 

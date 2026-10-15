@@ -52,7 +52,7 @@ Claude also rarely splits this prompt, so switching the target AI in Step 2 is a
 
 Paste the raw JSON or fenced `json` block back into the page. The shared JSON extractor accepts fenced responses and ignores surrounding prose or extra trailing fence noise before parsing the payload. The page renders:
 
-- Overview and readiness score
+- Overview and readiness score, with jump links for each result section
 - Win lines
 - Interaction
 - Speed
@@ -64,7 +64,7 @@ Paste the raw JSON or fenced `json` block back into the page. The shared JSON ex
 
 ## Artifact saving
 
-Use **Download meta-gap session (.zip)** in the sticky bar at the top of the page (always available, regardless of step) or in the Step 3 results panel to save the current artifacts locally.
+Use **Download meta-gap session (.zip)** in the session bar at the top of the page (always available, regardless of step) to save the current artifacts locally. Step 3 also offers **Print results**.
 
 The zip can contain: `00-input-summary.txt`, `30-meta-gap-prompt.txt`, `31-meta-gap-schema.json`, and `40-meta-gap-response.json`.
 

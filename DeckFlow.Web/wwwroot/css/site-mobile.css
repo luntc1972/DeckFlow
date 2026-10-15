@@ -1148,3 +1148,13 @@
     font-size: 1.2rem;
   }
 }
+
+/* Why: nested result insets consumed too much of the 375px result column. */
+@media (max-width: 600px) {
+  .meta-gap-results { border: 0; padding: 0; }
+  .meta-gap-results .nested-panel { padding: 0.5rem; }
+  .meta-gap-edit-group { border-left: 0; padding-left: 0; }
+  .meta-gap-mirror { margin-block: 0.5rem; }
+  .meta-gap-edit-group li { padding: 0.6rem; }
+  .meta-gap-section-nav { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; }
+}
