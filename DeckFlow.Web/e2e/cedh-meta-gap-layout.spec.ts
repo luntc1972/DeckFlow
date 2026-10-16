@@ -67,6 +67,8 @@ test('cEDH meta-gap results retain one aligned shell at supported widths', async
 });
 
 test('deck analysis preserves sticky session bar', async ({ page }) => {
+  // Why: the session bar is static by design at <=600px, so the sticky check needs a desktop viewport.
+  await page.setViewportSize({ width: 1280, height: 900 });
   const response = await page.goto('/deck-analysis');
   expect(response?.ok()).toBeTruthy();
   await expect(page.locator('.prompt-sticky-download')).not.toHaveCSS('position', 'static');
