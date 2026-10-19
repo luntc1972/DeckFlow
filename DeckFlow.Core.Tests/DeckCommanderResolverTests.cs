@@ -42,11 +42,23 @@ public sealed class DeckCommanderResolverTests
         Assert.Equal("Thrasios, Triton Hero", secondOrder);
     }
 
-    private static DeckEntry CreateEntry(string name, string board) => new()
+    [Fact]
+    public void ResolveCommanderName_ZeroQuantityCommander_IsIgnored()
+    {
+        var result = DeckCommanderResolver.ResolveCommanderName(new[]
+        {
+            CreateEntry("Aaa", "commander", 0),
+            CreateEntry("Zed", "commander"),
+        });
+
+        Assert.Equal("Zed", result);
+    }
+
+    private static DeckEntry CreateEntry(string name, string board, int quantity = 1) => new()
     {
         Name = name,
         NormalizedName = name.ToLowerInvariant(),
-        Quantity = 1,
+        Quantity = quantity,
         Board = board,
     };
 }

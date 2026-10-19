@@ -158,17 +158,20 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
     /// <inheritdoc />
     public void ValidateCommanderDeckSize(string systemName, IReadOnlyList<DeckEntry> entries, int requiredDeckSize = 100)
     {
-        var count = entries
-            .Where(entry =>
-                !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
-            .Sum(entry => entry.Quantity);
+        var count = CountCommanderDeckCards(entries);
 
         if (count != requiredDeckSize)
         {
             throw new InvalidOperationException($"{systemName} deck must contain exactly {requiredDeckSize} cards across commander and mainboard. Found {count}.");
         }
     }
+
+    internal static int CountCommanderDeckCards(IEnumerable<DeckEntry> entries)
+        => entries
+            .Where(entry =>
+                !string.Equals(entry.Board, "maybeboard", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry.Board, "sideboard", StringComparison.OrdinalIgnoreCase))
+            .Sum(entry => entry.Quantity);
 
     /// <summary>
     /// Loads a Moxfield deck using the request settings.
