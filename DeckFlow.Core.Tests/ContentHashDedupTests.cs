@@ -246,7 +246,7 @@ public sealed class ContentHashDedupTests : IDisposable
     }
 
     [Fact]
-    public async Task ChangedPath_PartialFailureLeavesNullHash()
+    public async Task ChangedPath_PartialFailureLeavesPriorRowsHashAndSummariesUnchanged()
     {
         var deckId = "202";
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -255,14 +255,21 @@ public sealed class ContentHashDedupTests : IDisposable
         var session = CreateSession(repository, deckImporter, new FakeRecentDecksImporter(deckId));
 
         await session.RunAsync(TimeSpan.FromMilliseconds(150), fetchBatchSize: 1);
-        Assert.NotNull(await repository.GetContentHashAsync(deckId));
+        var h1 = await repository.GetContentHashAsync(deckId);
+        Assert.NotNull(h1);
         await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck(deckId, DateTimeOffset.Parse("2026-01-02T00:00:00Z")) });
         deckImporter.SetEntries(deckId, new[] { CreateEntry("Arcane Signet", "Ramp") });
+        var factsBefore = await ReadFactSnapshotAsync();
+        var summariesBefore = await ReadCategoryRowsAsync("card_category_summary");
+        var qualifiedBefore = await ReadCategoryRowsAsync("card_category_qualified");
         await CreateFailingObservationInsertTriggerAsync();
 
         await Assert.ThrowsAsync<SqliteException>(() => session.RunAsync(TimeSpan.FromMilliseconds(150), fetchBatchSize: 1));
 
-        Assert.Null(await repository.GetContentHashAsync(deckId));
+        Assert.Equal(h1, await repository.GetContentHashAsync(deckId));
+        Assert.Equal(factsBefore, await ReadFactSnapshotAsync());
+        Assert.Equal(summariesBefore, await ReadCategoryRowsAsync("card_category_summary"));
+        Assert.Equal(qualifiedBefore, await ReadCategoryRowsAsync("card_category_qualified"));
     }
 
     [Fact]
@@ -385,6 +392,13 @@ public sealed class ContentHashDedupTests : IDisposable
                 FROM card_deck_totals
                 ORDER BY source_id, card_id, board;
                 """)));
+    }
+
+    private async Task<IReadOnlyList<string>> ReadCategoryRowsAsync(string tableName)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        return await ReadRowsAsync(connection, $"SELECT * FROM {tableName} ORDER BY 1, 2;");
     }
 
     private static async Task<IReadOnlyList<string>> ReadRowsAsync(SqliteConnection connection, string sql)

@@ -216,6 +216,14 @@ public sealed class CategoryKnowledgeRepository
         CancellationToken cancellationToken = default)
         => _cardCategory.PersistDeckCategoryBatchAsync(source, observations, cardBoardTotals, cancellationToken);
 
+    internal Task ReplaceDeckCategoryBatchAsync(
+        string source,
+        IReadOnlyList<(string CardName, string Category, string Board, int Quantity, int DeckCountIncrement)> observations,
+        IReadOnlyList<(string CardName, string Board)> cardBoardTotals,
+        DeckContentHashWrite? contentHashWrite,
+        CancellationToken cancellationToken = default)
+        => _cardCategory.ReplaceDeckCategoryBatchAsync(source, observations, cardBoardTotals, contentHashWrite, cancellationToken);
+
     /// <summary>
     /// Retrieves deck totals for the card, optionally filtered by board.
     /// </summary>

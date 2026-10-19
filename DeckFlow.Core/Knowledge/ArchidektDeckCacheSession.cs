@@ -383,9 +383,8 @@ public sealed class ArchidektDeckCacheSession
     /// commander entry from the imported deck (most decks have exactly one Commander; partner
     /// pairs return the first deterministically) and returns it alongside the write result so
     /// <see cref="RunAsync"/> can persist <c>deck_queue.commander_name</c> in the same UPDATE
-    /// that flips <c>processed=1</c>. Because <see cref="DeckCategoryCacheWriter.ReplaceDeckEntriesAsync"/>
-    /// deletes and persists in separate repository transactions, the hash is cleared before
-    /// replacement and set only after replacement succeeds.
+    /// that flips <c>processed=1</c>. Category replacement and the hash update share one
+    /// transaction, preserving the prior cached deck if the replacement fails.
     /// </summary>
     /// <param name="deckId">Deck ID to process.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -409,9 +408,8 @@ public sealed class ArchidektDeckCacheSession
             return (DeckCacheWriteResult.Unchanged, commanderName, import.Metadata);
         }
 
-        await _repository.SetContentHashAsync(deckId, null, cancellationToken);
-        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(_repository, source, entries, cancellationToken);
-        await _repository.SetContentHashAsync(deckId, newHash, cancellationToken);
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(
+            _repository, source, entries, new DeckContentHashWrite(deckId, newHash), cancellationToken);
         return (alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added, commanderName, import.Metadata);
     }
 
