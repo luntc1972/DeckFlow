@@ -548,6 +548,55 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         Assert.True(DeckLegality.Evaluate(result.Entries, result.Metadata).IsLegal);
     }
 
+    [Fact]
+    public async Task RunAsync_StoredDeckBecameIllegal_RemovesRowsAndRecordsReason()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var importer = new FakeDeckImporter();
+        var updatedUtc = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var metadata = LegalCommanderDeck.ForceCommanderFormat(CreateMetadata(updatedUtc));
+        importer.Results.Enqueue(new(LegalCommanderDeck.Complete([]), metadata));
+        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        await repository.AddListingRowsAsync([new ArchidektListingDeck("301", updatedUtc)]);
+        await session.RunAsync(TimeSpan.FromSeconds(1));
+        var illegalEntries = LegalCommanderDeck.Complete([]);
+        illegalEntries[^1] = illegalEntries[^1] with { Quantity = illegalEntries[^1].Quantity - 1 };
+        importer.Results.Enqueue(new(illegalEntries, metadata));
+        await repository.AddListingRowsAsync([new ArchidektListingDeck("301", updatedUtc.AddHours(1))]);
+
+        var result = await session.RunAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(DeckSkipReasons.WrongSize, await ReadSkipReasonAsync("301"));
+        Assert.True(await IsDeckSkippedAsync("301"));
+        Assert.True(await IsDeckProcessedAsync("301"));
+        Assert.Equal(0, await ReadScalarAsync("SELECT COUNT(1) FROM card_category_observations WHERE source_id = (SELECT id FROM sources WHERE source = 'archidekt_live:301');"));
+        Assert.Equal(0, await ReadScalarAsync("SELECT COUNT(1) FROM card_deck_totals WHERE source_id = (SELECT id FROM sources WHERE source = 'archidekt_live:301');"));
+        Assert.Equal(await ReadScalarAsync("SELECT COUNT(1) FROM card_category_observations;"), await ReadScalarAsync("SELECT COALESCE(SUM(observation_rows), 0) FROM card_category_summary;"));
+        Assert.Equal(await ReadScalarAsync("SELECT COUNT(1) FROM card_category_summary WHERE observation_rows >= 5;"), await ReadScalarAsync("SELECT COUNT(1) FROM card_category_qualified;"));
+        Assert.Null(await repository.GetContentHashAsync("301"));
+        Assert.Equal(1, result.DecksSkipped);
+    }
+
+    private async Task<int> ReadScalarAsync(string sql)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    private async Task<string?> ReadSkipReasonAsync(string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT skip_reason FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        return await command.ExecuteScalarAsync() as string;
+    }
+
     private async Task<DeckQueueRow> ReadDeckQueueRowAsync(string deckId)
     {
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
@@ -607,6 +656,8 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
 
         public ArchidektDeckMetadata? Metadata { get; set; }
 
+        public Queue<ArchidektDeckImportResult> Results { get; } = new();
+
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
         {
             ImportCalls++;
@@ -628,6 +679,11 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
         {
+            if (Results.Count > 0)
+            {
+                return Results.Dequeue();
+            }
+
             var entries = await ImportAsync(urlOrDeckId, cancellationToken);
             var metadata = LegalCommanderDeck.ForceCommanderFormat(Metadata);
             LegalCommanderDeck.AssertLegal(entries, metadata);
@@ -696,7 +752,7 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
                 throw new ArchidektRateLimitedException("Simulated Archidekt rate limit.", TimeSpan.FromSeconds(120));
             }
 
-            return Task.FromResult(new List<DeckEntry>
+            return Task.FromResult(LegalCommanderDeck.Complete(new List<DeckEntry>
             {
                 new()
                 {
@@ -706,11 +762,11 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
                     Board = "mainboard",
                     Category = "Ramp"
                 }
-            });
+            }));
         }
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => new(await ImportAsync(urlOrDeckId, cancellationToken), null);
+            => new(await ImportAsync(urlOrDeckId, cancellationToken), LegalCommanderDeck.ForceCommanderFormat(null));
     }
 
     private sealed class ThrowingTransientDeckImporter : IArchidektDeckImporter
