@@ -94,7 +94,8 @@ internal sealed class CategoryCacheSchema
                 archidekt_updated_utc TEXT NULL,
                 archidekt_metadata_captured_utc TEXT NULL,
                 refresh_requested_utc TEXT NULL,
-                listing_updated_seen_utc TEXT NULL
+                listing_updated_seen_utc TEXT NULL,
+                skip_reason TEXT NULL
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -110,6 +111,7 @@ internal sealed class CategoryCacheSchema
                      ("archidekt_metadata_captured_utc", "TEXT NULL"),
                      ("refresh_requested_utc", "TEXT NULL"),
                      ("listing_updated_seen_utc", "TEXT NULL"),
+                     ("skip_reason", "TEXT NULL"),
                      ("transient_failure_count", "INTEGER NOT NULL DEFAULT 0"),
                  }, cancellationToken);
 

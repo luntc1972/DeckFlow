@@ -77,7 +77,7 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
         var metadata = new ArchidektDeckMetadata(3, 1, true, capturedUtc, capturedUtc, capturedUtc);
 
         await repository.AddDeckIdsAsync(new[] { deckId });
-        await repository.MarkDeckProcessedAsync(deckId, "Commander", false, metadata, CancellationToken.None);
+        await repository.MarkDeckProcessedAsync(deckId, "Commander", false, metadata, cancellationToken: CancellationToken.None);
 
         var row = await ReadArchidektMetadataRowAsync(deckId);
 

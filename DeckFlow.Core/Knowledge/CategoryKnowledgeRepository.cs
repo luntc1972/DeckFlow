@@ -327,14 +327,22 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="commanderName">Commander card name extracted from the imported deck, or null on skip / unknown.</param>
     /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
     /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
+    /// <param name="skipReason">Reason recorded when the deck is skipped.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task MarkDeckProcessedAsync(
         string deckId,
         string? commanderName,
         bool skip = false,
         ArchidektDeckMetadata? metadata = null,
+        string? skipReason = null,
         CancellationToken cancellationToken = default)
-        => _deckQueue.MarkDeckProcessedAsync(deckId, commanderName, skip, metadata, cancellationToken);
+        => _deckQueue.MarkDeckProcessedAsync(
+            deckId,
+            commanderName,
+            skip: skip,
+            metadata: metadata,
+            skipReason: skipReason,
+            cancellationToken: cancellationToken);
 
     /// <summary>
     /// Gets the stored canonical content hash for a queued Archidekt deck.
@@ -386,8 +394,9 @@ public sealed class CategoryKnowledgeRepository
     /// </summary>
     /// <param name="deckIds">Deck IDs to update.</param>
     /// <param name="skip">Whether the decks should be skipped after failure.</param>
+    /// <param name="skipReason">Reason recorded when the decks are skipped.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, CancellationToken cancellationToken = default)
-        => _deckQueue.MarkDecksProcessedAsync(deckIds, skip, cancellationToken);
+    public Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, string? skipReason = null, CancellationToken cancellationToken = default)
+        => _deckQueue.MarkDecksProcessedAsync(deckIds, skip, skipReason, cancellationToken);
 
 }
