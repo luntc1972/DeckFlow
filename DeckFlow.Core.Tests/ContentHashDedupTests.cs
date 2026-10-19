@@ -322,6 +322,19 @@ public sealed class ContentHashDedupTests : IDisposable
         Assert.Equal(0, afterListing.Skipped);
     }
 
+    [Fact]
+    public async Task FakeDeckImporter_SuccessPaths_ReturnLegalCommanderDecks()
+    {
+        var importer = new FakeDeckImporter();
+        importer.SetEntries("legal-fake", [CreateEntry("Legal Fake", null, 1, "Ramp")]);
+        importer.SetEntries("legal-fake-metadata", [CreateEntry("Legal Fake Metadata", null, 1, "Ramp")]);
+        var entries = await importer.ImportAsync("legal-fake");
+        var result = await importer.ImportWithMetadataAsync("legal-fake-metadata");
+
+        Assert.True(DeckLegality.Evaluate(entries, LegalCommanderDeck.Metadata()).IsLegal);
+        Assert.True(DeckLegality.Evaluate(result.Entries, result.Metadata).IsLegal);
+    }
+
     private static DeckEntry CreateEntry(
         string cardName,
         string? category,
@@ -450,15 +463,27 @@ public sealed class ContentHashDedupTests : IDisposable
         private readonly Dictionary<string, List<DeckEntry>> _entriesByDeckId = new(StringComparer.Ordinal);
 
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => Task.FromResult(_entriesByDeckId[urlOrDeckId].ToList());
+        {
+            var entries = LegalCommanderDeck.Complete(_entriesByDeckId[urlOrDeckId]);
+            LegalCommanderDeck.AssertLegal(entries, Metadata());
+            return Task.FromResult(entries);
+        }
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => new(await ImportAsync(urlOrDeckId, cancellationToken), new ArchidektDeckMetadata(3, 1, false, null, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z")));
+        {
+            var entries = await ImportAsync(urlOrDeckId, cancellationToken);
+            var metadata = Metadata();
+            LegalCommanderDeck.AssertLegal(entries, metadata);
+            return new(entries, metadata);
+        }
 
         public void SetEntries(string deckId, IReadOnlyList<DeckEntry> entries)
         {
             _entriesByDeckId[deckId] = entries.ToList();
         }
+
+        private static ArchidektDeckMetadata Metadata()
+            => LegalCommanderDeck.ForceCommanderFormat(new ArchidektDeckMetadata(3, DeckLegality.CommanderDeckFormat, false, null, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z")));
     }
 
     private sealed class FakeRecentDecksImporter : IArchidektRecentDecksImporter

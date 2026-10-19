@@ -419,7 +419,7 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var row = await ReadDeckQueueRowAsync("metadata-deck");
         Assert.Equal(1, importer.ImportCalls);
         Assert.Equal(metadata.EdhBracket, row.EdhBracket);
-        Assert.Equal(metadata.DeckFormat, row.DeckFormat);
+        Assert.Equal(DeckLegality.CommanderDeckFormat, row.DeckFormat);
         Assert.Equal(metadata.Theorycrafted, row.Theorycrafted);
         Assert.Equal(metadata.CapturedUtc, row.CapturedUtc);
     }
@@ -526,6 +526,28 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         Assert.Equal(second.CapturedUtc, after.CapturedUtc);
     }
 
+    [Fact]
+    public async Task FakeDeckImporter_SuccessPaths_ReturnLegalCommanderDecks()
+    {
+        var importer = new FakeDeckImporter();
+        var entries = await importer.ImportAsync("legal-fake");
+        var result = await importer.ImportWithMetadataAsync("legal-fake-metadata");
+
+        Assert.True(DeckLegality.Evaluate(entries, LegalCommanderDeck.ForceCommanderFormat(importer.Metadata)).IsLegal);
+        Assert.True(DeckLegality.Evaluate(result.Entries, result.Metadata).IsLegal);
+    }
+
+    [Fact]
+    public async Task SelectiveFailureDeckImporter_SuccessBranch_ReturnsLegalCommanderDeck()
+    {
+        var importer = new SelectiveFailureDeckImporter();
+        var entries = await importer.ImportAsync("success-fake");
+        var result = await importer.ImportWithMetadataAsync("success-fake-metadata");
+
+        Assert.True(DeckLegality.Evaluate(entries, LegalCommanderDeck.Metadata()).IsLegal);
+        Assert.True(DeckLegality.Evaluate(result.Entries, result.Metadata).IsLegal);
+    }
+
     private async Task<DeckQueueRow> ReadDeckQueueRowAsync(string deckId)
     {
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
@@ -589,7 +611,7 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         {
             ImportCalls++;
             ImportedDeckIds.Add(urlOrDeckId);
-            return Task.FromResult(new List<DeckEntry>
+            var entries = LegalCommanderDeck.Complete(new List<DeckEntry>
             {
                 new()
                 {
@@ -600,10 +622,17 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
                     Category = "Ramp"
                 }
             });
+            LegalCommanderDeck.AssertLegal(entries, LegalCommanderDeck.ForceCommanderFormat(Metadata));
+            return Task.FromResult(entries);
         }
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => new(await ImportAsync(urlOrDeckId, cancellationToken), Metadata);
+        {
+            var entries = await ImportAsync(urlOrDeckId, cancellationToken);
+            var metadata = LegalCommanderDeck.ForceCommanderFormat(Metadata);
+            LegalCommanderDeck.AssertLegal(entries, metadata);
+            return new(entries, metadata);
+        }
     }
 
     private sealed class FakeRecentDecksImporter : IArchidektRecentDecksImporter
@@ -778,10 +807,15 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
                 ? throw new Exception("unexpected")
                 : urlOrDeckId.StartsWith("expected-skip", StringComparison.Ordinal)
                     ? throw new HttpRequestException("expected skip")
-                    : Task.FromResult(new List<DeckEntry>());
+                    : Task.FromResult(LegalCommanderDeck.Complete([]));
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => new(await ImportAsync(urlOrDeckId, cancellationToken), null);
+        {
+            var entries = await ImportAsync(urlOrDeckId, cancellationToken);
+            var metadata = LegalCommanderDeck.Metadata();
+            LegalCommanderDeck.AssertLegal(entries, metadata);
+            return new(entries, metadata);
+        }
     }
 
     /// <summary>

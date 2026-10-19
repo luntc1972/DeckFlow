@@ -271,6 +271,17 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         if (Directory.Exists(_tempDirectory)) Directory.Delete(_tempDirectory, recursive: true);
     }
 
+    [Fact]
+    public async Task ScriptedDeckImporter_SuccessPaths_ReturnLegalCommanderDecks()
+    {
+        var importer = new ScriptedDeckImporter();
+        var entries = await importer.ImportAsync("legal-fake");
+        var result = await importer.ImportWithMetadataAsync("legal-fake-metadata");
+
+        Assert.True(DeckLegality.Evaluate(entries, LegalCommanderDeck.Metadata()).IsLegal);
+        Assert.True(DeckLegality.Evaluate(result.Entries, result.Metadata).IsLegal);
+    }
+
     private async Task<bool> IsProcessedAsync(string deckId)
     {
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
@@ -406,10 +417,20 @@ public sealed class ArchidektUpdateRunTests : IDisposable
                 throw new HttpRequestException("fixture failure");
             }
 
-            return Task.FromResult(new List<DeckEntry> { new() { Name = $"Card {deckId}", NormalizedName = CardNormalizer.Normalize($"Card {deckId}"), Quantity = 1, Board = "mainboard", Category = "Ramp" } });
+            var entries = LegalCommanderDeck.Complete([new() { Name = $"Card {deckId}", NormalizedName = CardNormalizer.Normalize($"Card {deckId}"), Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
+            LegalCommanderDeck.AssertLegal(entries, Metadata());
+            return Task.FromResult(entries);
         }
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string deckId, CancellationToken cancellationToken = default)
-            => new(await ImportAsync(deckId, cancellationToken), new ArchidektDeckMetadata(null, null, null, null, DateTimeOffset.Parse("2026-01-02T00:00:00Z"), DateTimeOffset.UtcNow));
+        {
+            var entries = await ImportAsync(deckId, cancellationToken);
+            var metadata = Metadata();
+            LegalCommanderDeck.AssertLegal(entries, metadata);
+            return new(entries, metadata);
+        }
+
+        private static ArchidektDeckMetadata Metadata()
+            => LegalCommanderDeck.ForceCommanderFormat(new ArchidektDeckMetadata(null, null, null, null, DateTimeOffset.Parse("2026-01-02T00:00:00Z"), DateTimeOffset.UtcNow));
     }
 }
