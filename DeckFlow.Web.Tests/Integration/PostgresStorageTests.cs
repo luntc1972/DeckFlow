@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Dapper;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Reporting;
@@ -466,6 +467,70 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
 
         await repo.SetRecentDeckCrawlPageAsync(7);
         Assert.Equal(7, await repo.GetRecentDeckCrawlPageAsync());
+    }
+
+    [PostgresFact]
+    public async Task DeckQueue_SkipReason_RoundTripsOnPostgres()
+    {
+        var repository = await CreateRepositoryAsync();
+        var deckId = $"skip-reason-{Guid.NewGuid():N}";
+
+        await repository.AddDeckIdsAsync(new[] { deckId });
+        await repository.MarkDeckProcessedAsync(
+            deckId,
+            commanderName: null,
+            skip: true,
+            skipReason: DeckSkipReasons.WrongSize);
+
+        await using var connection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection();
+        var skipReason = await connection.QuerySingleAsync<string?>(
+            "SELECT skip_reason FROM deck_queue WHERE deck_id = @deckId;",
+            new { deckId });
+
+        Assert.Equal(DeckSkipReasons.WrongSize, skipReason);
+    }
+
+    [PostgresFact]
+    public async Task DeckQueue_ExistingTableWithoutSkipReason_GainsColumnOnPostgres()
+    {
+        var schema = $"df_skipmig_{Guid.NewGuid():N}";
+        Assert.Matches("^[a-z0-9_]{1,63}$", schema);
+        var quotedSchema = $"\"{schema}\"";
+        var fixtureConnectionString = await _fixture.GetConnectionStringOrSkipAsync();
+
+        await using var adminConnection = CreateConnection(fixtureConnectionString).CreateConnection();
+        await adminConnection.OpenAsync();
+        try
+        {
+            await adminConnection.ExecuteAsync($"CREATE SCHEMA {quotedSchema};");
+            var connectionStringA = new Npgsql.NpgsqlConnectionStringBuilder(fixtureConnectionString)
+            {
+                SearchPath = schema,
+            }.ConnectionString;
+            var repositoryA = new CategoryKnowledgeRepository(CreateConnection(connectionStringA));
+            await repositoryA.EnsureSchemaAsync();
+            await adminConnection.ExecuteAsync($"ALTER TABLE {quotedSchema}.deck_queue DROP COLUMN skip_reason;");
+
+            var connectionStringB = new Npgsql.NpgsqlConnectionStringBuilder(connectionStringA)
+            {
+                ApplicationName = $"skipmig-{Guid.NewGuid():N}",
+            }.ConnectionString;
+            var repositoryB = new CategoryKnowledgeRepository(CreateConnection(connectionStringB));
+            await repositoryB.EnsureSchemaAsync();
+
+            var columnCount = await adminConnection.QuerySingleAsync<long>(
+                """
+                SELECT COUNT(1)
+                FROM information_schema.columns
+                WHERE table_schema = @schema AND table_name = 'deck_queue' AND column_name = 'skip_reason';
+                """,
+                new { schema });
+            Assert.Equal(1L, columnCount);
+        }
+        finally
+        {
+            await adminConnection.ExecuteAsync($"DROP SCHEMA IF EXISTS {quotedSchema} CASCADE;");
+        }
     }
 
     private static async Task AssertCategorySummaryMatchesObservationsAsync(DbConnection connection)
