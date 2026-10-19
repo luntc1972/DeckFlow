@@ -62,6 +62,18 @@ public sealed class CategoryWriterLockOrderPostgresTests : IClassFixture<Postgre
     }
 
     [PostgresFact]
+    public async Task ReplaceDeckCategoryBatchAsync_CardLockContention_DoesNotLockHigherCardFirst()
+    {
+        await AssertOrderedLockAcquisitionAsync(holdSummary: false, replaceBatch: true);
+    }
+
+    [PostgresFact]
+    public async Task ReplaceDeckCategoryBatchAsync_SummaryLockContention_DoesNotLockHigherSummaryFirst()
+    {
+        await AssertOrderedLockAcquisitionAsync(holdSummary: true, replaceBatch: true);
+    }
+
+    [PostgresFact]
     public async Task ReplaceSourceRowsAsync_OpposingReplacements_CompleteWithExactSummary()
     {
         var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
@@ -180,7 +192,7 @@ public sealed class CategoryWriterLockOrderPostgresTests : IClassFixture<Postgre
         await AssertSummaryExactAsync(connectionString, first, second);
     }
 
-    private async Task AssertOrderedLockAcquisitionAsync(bool holdSummary, bool persistBatch = false)
+    private async Task AssertOrderedLockAcquisitionAsync(bool holdSummary, bool persistBatch = false, bool replaceBatch = false)
     {
         var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
         var applicationName = $"catsum-order-{Guid.NewGuid():N}";
@@ -221,9 +233,15 @@ public sealed class CategoryWriterLockOrderPostgresTests : IClassFixture<Postgre
             await repository.ReplaceSourceRowsAsync(writerSource, new[] { Row("Ramp", highName) });
         }
 
-        var writer = persistBatch
+        var observations = new[] { (lowName, "Ramp", "mainboard", 1, 1), (highName, "Ramp", "mainboard", 1, 1) };
+        var writer = replaceBatch
+            ? repository.ReplaceDeckCategoryBatchAsync(writerSource,
+                holdSummary ? observations[..1] : observations,
+                Array.Empty<(string CardName, string Board)>(),
+                contentHashWrite: null)
+            : persistBatch
             ? repository.PersistDeckCategoryBatchAsync(writerSource,
-                new[] { (lowName, "Ramp", "mainboard", 1, 1), (highName, "Ramp", "mainboard", 1, 1) },
+                observations,
                 Array.Empty<(string CardName, string Board)>())
             : repository.ReplaceSourceRowsAsync(writerSource, holdSummary
                 ? new[] { Row("Ramp", lowName) }
