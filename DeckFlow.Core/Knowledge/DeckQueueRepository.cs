@@ -26,6 +26,7 @@ internal sealed class DeckQueueRepository
     internal const string UnprocessedCountSql = "SELECT COUNT(1) FROM deck_queue WHERE processed = 0 AND skipped = 0;";
     // Why: `_` in the live-source prefix is a LIKE wildcard; SUBSTR compares it literally on both providers.
     internal const string StoredLiveRowsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
+    private const string RetentionCandidateSql = "q.processed = 1 AND q.skipped = 0 AND q.commander_name IS NOT NULL AND " + StoredLiveRowsSql;
     // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
@@ -98,9 +99,45 @@ internal sealed class DeckQueueRepository
     }
 
     /// <summary>
-    /// Counts distinct processed commanders in the deck queue.
+    /// Gets the stored decks eligible for retention for one commander.
     /// </summary>
+    /// <param name="commanderName">Commander whose stored decks are requested.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Eligible stored deck candidates.</returns>
+    internal async Task<IReadOnlyList<RetentionCandidate>> GetRetentionCandidatesAsync(string commanderName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<RetentionCandidateRow>(new CommandDefinition(
+            $"SELECT q.id AS DeckQueueId, q.deck_id AS DeckId, q.commander_name AS CommanderName, q.archidekt_updated_utc AS UpdatedUtc, q.inserted_utc AS InsertedUtc FROM deck_queue q WHERE LOWER(q.commander_name) = LOWER(@commanderName) AND {RetentionCandidateSql};",
+            new { commanderName, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Select(row => new RetentionCandidate(row.DeckQueueId, row.DeckId, row.CommanderName, RetentionRanking.RankUtcFor(row.UpdatedUtc, row.InsertedUtc))).ToArray();
+    }
+
+    /// <summary>
+    /// Gets normalized commander keys with more stored candidates than the supplied minimum.
+    /// </summary>
+    /// <param name="minimum">Exclusive minimum candidate count.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Normalized commander keys in ascending order.</returns>
+    internal async Task<IReadOnlyList<string>> GetRetentionCommanderKeysAsync(int minimum, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(minimum);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var keys = await connection.QueryAsync<string>(new CommandDefinition(
+            $"SELECT LOWER(q.commander_name) FROM deck_queue q WHERE {RetentionCandidateSql} GROUP BY LOWER(q.commander_name) HAVING COUNT(1) > @minimum ORDER BY LOWER(q.commander_name);",
+            new { minimum, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return keys.ToArray();
+    }
+
     internal async Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
     {
         await _schema.EnsureSchemaAsync(cancellationToken);
@@ -977,6 +1014,15 @@ internal sealed class DeckQueueRepository
         public string DeckId { get; init; } = string.Empty;
         public string? ArchidektUpdatedUtc { get; init; }
         public string? ListingUpdatedSeenUtc { get; init; }
+    }
+
+    private sealed class RetentionCandidateRow
+    {
+        public long DeckQueueId { get; init; }
+        public string DeckId { get; init; } = string.Empty;
+        public string CommanderName { get; init; } = string.Empty;
+        public string? UpdatedUtc { get; init; }
+        public DateTimeOffset InsertedUtc { get; init; }
     }
 
     /// <summary>Maps processed-deck aggregates used to refresh each commander's queue summary.</summary>

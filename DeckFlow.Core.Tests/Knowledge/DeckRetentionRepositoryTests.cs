@@ -229,6 +229,75 @@ public sealed class DeckRetentionRepositoryTests : IDisposable
         Assert.Equal(first, await ReadQueueAsync("pruned"));
     }
 
+    [Fact]
+    public async Task GetRetentionCandidatesAsync_ExcludesIneligibleDecks()
+    {
+        var repository = CreateRepository();
+        var older = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var newer = older.AddDays(1);
+        await SeedStoredDeckAsync(repository, "stored-older", "Atraxa", older, ("Sol Ring", "Ramp"));
+        await SeedStoredDeckAsync(repository, "stored-newer", "Atraxa", newer, ("Arcane Signet", "Ramp"));
+        await SeedStoredDeckAsync(repository, "skipped", "Atraxa", newer, ("Rhystic Study", "Draw"));
+        await SetQueueStateAsync("skipped", processed: true, skipped: true, null);
+        await SeedStoredDeckAsync(repository, "requeued", "Atraxa", newer, ("Mana Crypt", "Ramp"));
+        await SetQueueStateAsync("requeued", processed: false, skipped: false, null);
+        await repository.MarkUrlDeckProcessedAsync("url-only", "Atraxa");
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_url:url-only", [CreateEntry("Sol Ring", "Ramp")]);
+
+        var candidates = await repository.GetRetentionCandidatesAsync("Atraxa");
+
+        Assert.Equal(["stored-newer", "stored-older"], candidates.Select(candidate => candidate.DeckId).Order());
+        Assert.Equal(older, Assert.Single(candidates, candidate => candidate.DeckId == "stored-older").RankUtc);
+        Assert.Equal(newer, Assert.Single(candidates, candidate => candidate.DeckId == "stored-newer").RankUtc);
+    }
+
+    [Fact]
+    public async Task GetRetentionCandidatesAsync_LinkedSourceWithoutRows_Excluded()
+    {
+        var repository = CreateRepository();
+        await SeedStoredDeckAsync(repository, "empty", "Atraxa", null, Array.Empty<(string Card, string? Category)>());
+
+        Assert.Empty(await repository.GetRetentionCandidatesAsync("Atraxa"));
+        Assert.Empty(await repository.GetRetentionCommanderKeysAsync(0));
+    }
+
+    [Fact]
+    public async Task GetRetentionCommanderKeysAsync_OnlyGroupsOverMinimum()
+    {
+        var repository = CreateRepository();
+        await SeedStoredDeckAsync(repository, "a1", "Atraxa", null, ("Sol Ring", "Ramp"));
+        await SeedStoredDeckAsync(repository, "a2", "Atraxa", null, ("Arcane Signet", "Ramp"));
+        await SeedStoredDeckAsync(repository, "a3", "Atraxa", null, ("Rhystic Study", "Draw"));
+        await SeedStoredDeckAsync(repository, "b1", "Breya", null, ("Mana Crypt", "Ramp"));
+
+        Assert.Equal(["atraxa"], await repository.GetRetentionCommanderKeysAsync(2));
+        Assert.Equal(["atraxa", "breya"], await repository.GetRetentionCommanderKeysAsync(0));
+    }
+
+    [Fact]
+    public async Task GetRetentionCommanderKeysAsync_CommanderCaseVariants_GroupTogether()
+    {
+        var repository = CreateRepository();
+        await SeedStoredDeckAsync(repository, "first", "Atraxa, Praetors' Voice", null, ("Sol Ring", "Ramp"));
+        await SeedStoredDeckAsync(repository, "second", "ATRAXA, PRAETORS' VOICE", null, ("Arcane Signet", "Ramp"));
+
+        Assert.Equal(["atraxa, praetors' voice"], await repository.GetRetentionCommanderKeysAsync(1));
+    }
+
+    [Fact]
+    public async Task GetRetentionCommanderKeysAsync_UrlOnlyDecks_NotCounted()
+    {
+        var repository = CreateRepository();
+        await SeedStoredDeckAsync(repository, "stored-1", "Atraxa", null, ("Sol Ring", "Ramp"));
+        await SeedStoredDeckAsync(repository, "stored-2", "Atraxa", null, ("Arcane Signet", "Ramp"));
+        await repository.MarkUrlDeckProcessedAsync("url-1", "Atraxa");
+        await repository.MarkUrlDeckProcessedAsync("url-2", "Atraxa");
+
+        Assert.Empty(await repository.GetRetentionCommanderKeysAsync(2));
+        Assert.Equal(["atraxa"], await repository.GetRetentionCommanderKeysAsync(1));
+        Assert.Equal(2, (await repository.GetRetentionCandidatesAsync("Atraxa")).Count);
+    }
+
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
 
     private CategoryKnowledgeRepository CreateUnusableRepository()

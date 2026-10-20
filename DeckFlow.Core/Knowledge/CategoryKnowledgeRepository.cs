@@ -145,6 +145,18 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.GetCommanderDeckCountAsync(commanderName, cancellationToken);
 
     /// <summary>
+    /// Gets stored decks eligible for retention for one commander.
+    /// </summary>
+    internal Task<IReadOnlyList<RetentionCandidate>> GetRetentionCandidatesAsync(string commanderName, CancellationToken cancellationToken = default)
+        => _deckQueue.GetRetentionCandidatesAsync(commanderName, cancellationToken);
+
+    /// <summary>
+    /// Gets normalized commander keys with more retained candidates than the supplied minimum.
+    /// </summary>
+    internal Task<IReadOnlyList<string>> GetRetentionCommanderKeysAsync(int minimum, CancellationToken cancellationToken = default)
+        => _deckQueue.GetRetentionCommanderKeysAsync(minimum, cancellationToken);
+
+    /// <summary>
     /// Returns a paged slice of processed commander aggregates for the harvested-commanders admin grid.
     /// </summary>
     /// <param name="page">One-based page number.</param>
