@@ -896,12 +896,54 @@ public sealed class AdminHarvestControllerTests
         Assert.Equal((HarvestRunKind.Url, HarvestTriggerSource.Manual), runStore.Inserted[0]);
     }
 
+    [Theory]
+    [InlineData("not_commander_format")]
+    [InlineData("no_commander")]
+    [InlineData("wrong_size")]
+    public async Task SubmitUrl_IllegalDeck_RejectsWithoutPersisting(string expectedReason)
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 0);
+        var runStore = new StubHarvestRunStore();
+        var importer = new StubArchidektDeckImporter { Entries = IllegalEntries(expectedReason) };
+        importer.Metadata = expectedReason == "not_commander_format"
+            ? LegalCommanderDeck.Metadata() with { DeckFormat = 1 }
+            : LegalCommanderDeck.Metadata();
+        var controller = Build(store, importer: importer, runStore: runStore);
+
+        await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
+
+        Assert.Equal(0, store.PersistObservedCategoriesCalls);
+        var rejected = Assert.Single(store.RejectedUrlDecks);
+        Assert.Equal("archidekt_url:https://archidekt.com/decks/123", rejected.Source);
+        Assert.Equal("123", rejected.DeckId);
+        Assert.Equal(expectedReason, rejected.SkipReason);
+        Assert.Null(store.LastUrlDeckId);
+        Assert.Equal((HarvestRunState.Failed, $"Rejected: {expectedReason}"), runStore.StateUpdates.Last());
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Fact]
+    public async Task SubmitUrl_LegalDeck_PersistsAndMarksProcessed()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 0);
+        var importer = new StubArchidektDeckImporter { Entries = LegalCommanderDeck.Complete(new[] { new DeckEntry { Name = "Sol Ring", NormalizedName = "Sol Ring", Category = "Ramp", Quantity = 1, Board = "mainboard" } }) };
+        var runStore = new StubHarvestRunStore();
+        var controller = Build(store, importer: importer, runStore: runStore);
+
+        await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
+
+        Assert.True(store.PersistObservedCategoriesCalls > 0);
+        Assert.Empty(store.RejectedUrlDecks);
+        Assert.Equal("123", store.LastUrlDeckId);
+        Assert.Equal(HarvestRunState.Succeeded, runStore.StateUpdates.Last().State);
+    }
+
     [Fact]
     public async Task SubmitUrl_MetadataBearingImport_PassesMetadataToStore()
     {
         var store = NewStore(distinctProcessedCommanderCount: 0);
-        var metadata = new ArchidektDeckMetadata(3, 1, true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.Parse("2026-01-02T00:00:00Z"), DateTimeOffset.Parse("2026-01-03T00:00:00Z"));
-        var importer = new StubArchidektDeckImporter { Metadata = metadata };
+        var metadata = new ArchidektDeckMetadata(3, DeckLegality.CommanderDeckFormat, true, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.Parse("2026-01-02T00:00:00Z"), DateTimeOffset.Parse("2026-01-03T00:00:00Z"));
+        var importer = new StubArchidektDeckImporter { Entries = LegalCommanderDeck.Complete(Array.Empty<DeckEntry>()), Metadata = metadata };
         var controller = Build(store, importer: importer);
 
         await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
@@ -916,18 +958,18 @@ public sealed class AdminHarvestControllerTests
         var store = NewStore(distinctProcessedCommanderCount: 0);
         var importer = new StubArchidektDeckImporter
         {
-            Entries = new List<DeckEntry>
+            Entries = LegalCommanderDeck.Complete(new[]
             {
-                new() { Name = "Kenrith, the Returned King", NormalizedName = "Kenrith, the Returned King", Board = "commander", Quantity = 1 },
-                new() { Name = "Sol Ring", NormalizedName = "Sol Ring", Board = "mainboard", Quantity = 1 },
-            },
+                new DeckEntry { Name = "Kenrith, the Returned King", NormalizedName = "Kenrith, the Returned King", Board = "commander", Quantity = 1 },
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "Sol Ring", Category = "Ramp", Board = "mainboard", Quantity = 1 },
+            }),
         };
         var controller = Build(store, importer: importer);
 
         await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
 
         Assert.Equal("Kenrith, the Returned King", store.LastUrlCommanderName);
-        Assert.Equal("Harvested Kenrith, the Returned King: 2 new observations.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("Harvested Kenrith, the Returned King: 3 new observations.", controller.TempData["AdminHarvestBanner"]);
     }
 
     private static async Task<FileContentResult> ExportFileAsync(ICategoryKnowledgeStore store)
@@ -1314,6 +1356,34 @@ public sealed class AdminHarvestControllerTests
         };
     }
 
+    private static List<DeckEntry> IllegalEntries(string reason)
+    {
+        if (reason == "no_commander")
+        {
+            return new List<DeckEntry>
+            {
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "Sol Ring", Category = "Ramp", Quantity = 1, Board = "mainboard" },
+                new DeckEntry { Name = "Wastes", NormalizedName = "wastes", Quantity = 99, Board = "mainboard" },
+            };
+        }
+
+        if (reason == "wrong_size")
+        {
+            return new List<DeckEntry>
+            {
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "Sol Ring", Category = "Ramp", Quantity = 1, Board = "mainboard" },
+                new DeckEntry { Name = LegalCommanderDeck.CommanderName, NormalizedName = "test commander", Quantity = 1, Board = "commander" },
+                new DeckEntry { Name = "Wastes", NormalizedName = "wastes", Quantity = 97, Board = "mainboard" },
+            };
+        }
+
+        var entries = LegalCommanderDeck.Complete(new[]
+        {
+            new DeckEntry { Name = "Sol Ring", NormalizedName = "Sol Ring", Category = "Ramp", Quantity = 1, Board = "mainboard" },
+        });
+        return entries;
+    }
+
     private sealed class StubHarvestThrottleStore : IHarvestThrottleStore
     {
         public HarvestThrottleSnapshot Snapshot { get; set; } = new(20, null, DateTimeOffset.MinValue);
@@ -1500,6 +1570,8 @@ public sealed class AdminHarvestControllerTests
     {
         public List<(HarvestRunKind Kind, HarvestTriggerSource? TriggerSource)> Inserted { get; } = [];
 
+        public List<(HarvestRunState State, string? ErrorMessage)> StateUpdates { get; } = [];
+
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
@@ -1510,7 +1582,10 @@ public sealed class AdminHarvestControllerTests
         }
 
         public Task UpdateStateAsync(Guid id, HarvestRunState state, DateTimeOffset? startedUtc, DateTimeOffset? completedUtc, int? decksProcessed, int? additionalDecksFound, string? errorMessage, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            StateUpdates.Add((state, errorMessage));
+            return Task.CompletedTask;
+        }
 
         public Task UpdateProgressAsync(Guid id, int decksProcessed, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
@@ -1637,9 +1712,9 @@ public sealed class AdminHarvestControllerTests
 
     private sealed class StubArchidektDeckImporter : IArchidektDeckImporter
     {
-        public List<DeckEntry> Entries { get; set; } = new();
+        public List<DeckEntry> Entries { get; set; } = LegalCommanderDeck.Complete(Array.Empty<DeckEntry>());
 
-        public ArchidektDeckMetadata? Metadata { get; set; }
+        public ArchidektDeckMetadata? Metadata { get; set; } = LegalCommanderDeck.Metadata();
 
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
             => Task.FromResult(Entries);
