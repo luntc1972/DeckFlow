@@ -288,6 +288,14 @@ public sealed class ArchidektDeckCacheSession
                 return;
             }
 
+            if (cacheResult == DeckCacheWriteResult.StillPruned)
+            {
+                tally.Skipped++;
+                await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: true, metadata: metadata, skipReason: "retention", cancellationToken: cancellationToken);
+                progress?.Report(tally.Added + tally.Updated);
+                return;
+            }
+
             if (cacheResult == DeckCacheWriteResult.Added)
             {
                 tally.Added++;
@@ -417,6 +425,17 @@ public sealed class ArchidektDeckCacheSession
             return (DeckCacheWriteResult.Rejected, commanderName, import.Metadata, legality.SkipReason);
         }
 
+        var retainedCoreHash = await _repository.GetRetentionCoreHashAsync(deckId, cancellationToken);
+        if (retainedCoreHash is not null && string.Equals(retainedCoreHash, DeckCategoryCacheWriter.ComputeCoreFingerprint(entries), StringComparison.Ordinal))
+        {
+            return (DeckCacheWriteResult.StillPruned, commanderName, import.Metadata, null);
+        }
+
+        if (retainedCoreHash is not null)
+        {
+            await _repository.ClearRetentionCoreHashAsync(deckId, cancellationToken);
+        }
+
         var newHash = DeckCategoryCacheWriter.ComputeCanonicalHash(entries);
         var storedHash = await _repository.GetContentHashAsync(deckId, cancellationToken);
         if (storedHash is not null && string.Equals(storedHash, newHash, StringComparison.Ordinal))
@@ -451,6 +470,9 @@ internal enum DeckCacheWriteResult
     Added,
     Updated,
     Unchanged,
+
+    /// <summary>The imported deck has the same retained commander and main-deck fingerprint.</summary>
+    StillPruned,
 
     /// <summary>The imported deck failed Commander legality and was removed.</summary>
     Rejected,

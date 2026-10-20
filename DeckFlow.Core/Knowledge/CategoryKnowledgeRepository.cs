@@ -405,6 +405,14 @@ public sealed class CategoryKnowledgeRepository
     public Task SetContentHashAsync(string deckId, string? hash, CancellationToken cancellationToken = default)
         => _deckQueue.SetContentHashAsync(deckId, hash, cancellationToken);
 
+    /// <summary>Gets the retention fingerprint stored for a pruned deck.</summary>
+    public Task<string?> GetRetentionCoreHashAsync(string deckId, CancellationToken cancellationToken = default)
+        => _deckQueue.GetRetentionCoreHashAsync(deckId, cancellationToken);
+
+    /// <summary>Clears the retention fingerprint after a deck's core changes.</summary>
+    public Task ClearRetentionCoreHashAsync(string deckId, CancellationToken cancellationToken = default)
+        => _deckQueue.ClearRetentionCoreHashAsync(deckId, cancellationToken);
+
     /// <summary>
     /// Removes stored live-deck rows and records their retention state.
     /// </summary>

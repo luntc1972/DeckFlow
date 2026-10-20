@@ -677,6 +677,28 @@ internal sealed class DeckQueueRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    internal async Task<string?> GetRetentionCoreHashAsync(string deckId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "SELECT retention_core_hash FROM deck_queue WHERE deck_id = @deckId;",
+            new { deckId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    internal async Task ClearRetentionCoreHashAsync(string deckId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE deck_queue SET retention_core_hash = NULL WHERE deck_id = @deckId;",
+            new { deckId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Gets stored canonical content hashes for queued Archidekt decks keyed by <c>deck_queue.id</c>.
     /// </summary>
@@ -783,6 +805,7 @@ internal sealed class DeckQueueRepository
                 skip_reason = excluded.skip_reason,
                 last_checked_utc = excluded.last_checked_utc,
                 refresh_requested_utc = NULL,
+                retention_core_hash = NULL,
                 commander_name = COALESCE(excluded.commander_name, deck_queue.commander_name),
                 archidekt_edh_bracket = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_edh_bracket ELSE excluded.archidekt_edh_bracket END,
                 archidekt_deck_format = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_deck_format ELSE excluded.archidekt_deck_format END,
