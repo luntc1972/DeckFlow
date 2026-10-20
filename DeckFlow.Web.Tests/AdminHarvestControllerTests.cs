@@ -614,6 +614,35 @@ public sealed class AdminHarvestControllerTests
         Assert.DoesNotContain("Last successful run:", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task HarvestIndex_SkipReasonCounts_RendersEachReasonInOrdinalOrder()
+    {
+        var stats = new HarvestStatsPayload(0, 0, 0, 0, 0, Array.Empty<HarvestRunRow>(), null, null, null, null, null, new HarvestHealthSignals(false, HarvestBacklogReason.None, 100, 3, 0, false))
+        {
+            SkipReasonCounts = new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["wrong_size"] = 2,
+                ["fetch_failure"] = 1,
+            },
+        };
+
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), true, stats: stats));
+        var skipReasonsStart = html.IndexOf("id=\"harvest-skip-reasons\"", StringComparison.Ordinal);
+        var fetchFailure = html.IndexOf("fetch_failure: 1", skipReasonsStart, StringComparison.Ordinal);
+        var wrongSize = html.IndexOf("wrong_size: 2", skipReasonsStart, StringComparison.Ordinal);
+
+        Assert.True(skipReasonsStart >= 0);
+        Assert.True(fetchFailure >= 0 && fetchFailure < wrongSize);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_NoSkippedDecks_RendersNoneRecorded()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), true));
+
+        Assert.Contains("Skipped decks: none recorded", html, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(HarvestRunKind.Bulk, false, false, "Off")]
     [InlineData(HarvestRunKind.Bulk, true, true, "Paused")]

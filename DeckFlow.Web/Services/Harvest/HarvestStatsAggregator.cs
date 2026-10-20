@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using DeckFlow.Web.Configuration;
@@ -223,6 +225,11 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         var distinctCommanderCountTask = _categoryStore.GetDistinctProcessedCommanderCountAsync(cancellationToken);
         var totalObservationsTask = _categoryStore.GetTotalObservationCountAsync(cancellationToken);
         var databaseSizeBytesTask = _categoryStore.GetDatabaseSizeBytesAsync(cancellationToken);
+        var skipReasonCountsTask = ReadLiveAsync(
+            () => _categoryStore.GetSkipReasonCountsAsync(cancellationToken),
+            ReadOnlyDictionary<string, int>.Empty,
+            "skip reason counts",
+            cancellationToken);
 
         await Task.WhenAll(
             totalDecksTask,
@@ -230,7 +237,8 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             queuedDeckCountTask,
             distinctCommanderCountTask,
             totalObservationsTask,
-            databaseSizeBytesTask).ConfigureAwait(false);
+            databaseSizeBytesTask,
+            skipReasonCountsTask).ConfigureAwait(false);
 
         var totalDecks = await totalDecksTask.ConfigureAwait(false);
         var totalDecks30d = await totalDecks30dTask.ConfigureAwait(false);
@@ -238,7 +246,8 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
         var distinctCommanderCount = await distinctCommanderCountTask.ConfigureAwait(false);
         var totalObservations = await totalObservationsTask.ConfigureAwait(false);
         var databaseSizeBytes = await databaseSizeBytesTask.ConfigureAwait(false);
-        return new CountSlice(totalDecks, totalDecks30d, queuedDeckCount, distinctCommanderCount, totalObservations, databaseSizeBytes);
+        var skipReasonCounts = await skipReasonCountsTask.ConfigureAwait(false);
+        return new CountSlice(totalDecks, totalDecks30d, queuedDeckCount, distinctCommanderCount, totalObservations, databaseSizeBytes, skipReasonCounts);
     }
 
     private HarvestStatsPayload ComposePayload(
@@ -258,13 +267,16 @@ public sealed class HarvestStatsAggregator : IHarvestStatsAggregator
             counts.TotalObservations, recentRuns, counts.DatabaseSizeBytes, lastBulkScheduledSuccessUtc,
             NextScheduledUtc(lastBulkScheduledSuccessUtc, scheduleSnapshot.IntervalHours is int hours ? TimeSpan.FromHours(hours) : null, scheduleSnapshot.Paused, now),
             lastUpdateScheduledSuccessUtc,
-            NextScheduledUtc(lastUpdateScheduledSuccessUtc, updateScheduleSnapshot.IntervalMinutes is int minutes ? TimeSpan.FromMinutes(minutes) : null, updateScheduleSnapshot.Paused, now), health);
+            NextScheduledUtc(lastUpdateScheduledSuccessUtc, updateScheduleSnapshot.IntervalMinutes is int minutes ? TimeSpan.FromMinutes(minutes) : null, updateScheduleSnapshot.Paused, now), health)
+        {
+            SkipReasonCounts = counts.SkipReasonCounts,
+        };
     }
 
     private static DateTimeOffset? NextScheduledUtc(DateTimeOffset? anchor, TimeSpan? interval, bool paused, DateTimeOffset now)
         => interval is null || paused ? null : anchor + interval ?? now;
 
-    private sealed record CountSlice(int TotalDecks, int TotalDecks30d, int QueuedDeckCount, int DistinctCommanderCount, int TotalObservations, long? DatabaseSizeBytes);
+    private sealed record CountSlice(int TotalDecks, int TotalDecks30d, int QueuedDeckCount, int DistinctCommanderCount, int TotalObservations, long? DatabaseSizeBytes, IReadOnlyDictionary<string, int> SkipReasonCounts);
 
     /// <summary>Pairs cached harvest counts with their cache time for freshness checks.</summary>
     private sealed record CachedHarvestStats(CountSlice Counts, DateTimeOffset CachedAtUtc);
