@@ -14,7 +14,7 @@ namespace DeckFlow.Core.Knowledge;
 /// </summary>
 internal sealed class CardCategoryRepository
 {
-    private const string ArchidektLiveSourcePrefix = "archidekt_live:";
+    internal const string ArchidektLiveSourcePrefix = "archidekt_live:";
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
 
@@ -525,6 +525,103 @@ internal sealed class CardCategoryRepository
             await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
+    }
+
+    /// <summary>
+    /// Removes stored live-deck rows and marks eligible queue rows with their skip reason.
+    /// </summary>
+    internal async Task<int> RemoveStoredDecksAsync(IReadOnlyList<(long DeckQueueId, string SkipReason)> removals, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(removals);
+        if (removals.Count == 0)
+        {
+            return 0;
+        }
+
+        var reasons = new Dictionary<long, string>();
+        foreach (var removal in removals)
+        {
+            if (removal.SkipReason is not (DeckSkipReasons.Retention or DeckSkipReasons.NotCommanderFormat or DeckSkipReasons.NoCommander))
+            {
+                throw new ArgumentException($"Unsupported skip reason: {removal.SkipReason}", nameof(removals));
+            }
+
+            if (!reasons.TryAdd(removal.DeckQueueId, removal.SkipReason))
+            {
+                throw new ArgumentException($"Duplicate deck queue ID: {removal.DeckQueueId}", nameof(removals));
+            }
+        }
+
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
+        var markedCount = 0;
+        await DeadlockRetry.ExecuteAsync(async () =>
+        {
+            markedCount = 0;
+            await using var connection = CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var ids = reasons.Keys.ToArray();
+            var membership = _connectionInfo.IsPostgres ? "= ANY(@ids)" : "IN @ids";
+            var candidates = (await connection.QueryAsync<StoredDeckRemovalRow>(new CommandDefinition(
+                $"SELECT q.id AS Id, q.commander_name AS CommanderName, q.processed AS Processed, q.skipped AS Skipped FROM deck_queue q WHERE q.id {membership} AND {DeckQueueRepository.StoredLiveRowsSql};",
+                new { ids, livePrefix = ArchidektLiveSourcePrefix, livePrefixLength = ArchidektLiveSourcePrefix.Length }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false))
+                .Where(row => reasons[row.Id] == DeckSkipReasons.Retention
+                    ? row.Processed == 1 && row.Skipped == 0
+                    : !(row.Processed == 0 && row.Skipped == 0))
+                .OrderBy(row => row.Id)
+                .ToArray();
+            if (candidates.Length == 0)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return;
+            }
+
+            var candidateIds = candidates.Select(row => row.Id).ToArray();
+            var sourceRows = (await connection.QueryAsync<StoredLiveSourceRow>(new CommandDefinition(
+                $"SELECT s.id AS SourceId, s.deck_queue_id AS DeckQueueId FROM sources s WHERE s.deck_queue_id {membership} AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix ORDER BY s.id" + (_connectionInfo.IsPostgres ? " FOR UPDATE;" : ";"),
+                new { ids = candidateIds, livePrefix = ArchidektLiveSourcePrefix, livePrefixLength = ArchidektLiveSourcePrefix.Length }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+            var sourcesByDeck = sourceRows.GroupBy(row => row.DeckQueueId).ToDictionary(group => group.Key, group => group.Select(row => row.SourceId).ToArray());
+            var coreHashes = new Dictionary<long, string?>();
+            foreach (var candidate in candidates.Where(row => reasons[row.Id] == DeckSkipReasons.Retention))
+            {
+                var sourceIds = sourcesByDeck[candidate.Id];
+                var observations = await connection.QueryAsync<RetentionCoreObservationRow>(new CommandDefinition(
+                    $"SELECT c.normalized_card_name AS CardName, o.category AS Category, o.board AS Board, o.count AS Quantity FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE o.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
+                    new { sourceIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                var totals = await connection.QueryAsync<RetentionCoreTotalRow>(new CommandDefinition(
+                    $"SELECT c.normalized_card_name AS CardName, t.board AS Board FROM card_deck_totals t JOIN cards c ON c.id = t.card_id WHERE t.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
+                    new { sourceIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                coreHashes[candidate.Id] = DeckCategoryCacheWriter.ComputeCoreFingerprint(
+                    observations.Select(row => (row.CardName, row.Category, row.Board, checked((int)row.Quantity))), totals.Select(row => (row.CardName, row.Board)));
+            }
+
+            var deltas = new CategoryWriteOrder();
+            foreach (var source in sourceRows.OrderBy(row => row.SourceId))
+            {
+                await DeleteCategoryObservationsForSourceAsync(connection, transaction, source.SourceId, deltas, cancellationToken);
+                await connection.ExecuteAsync(new CommandDefinition("DELETE FROM card_deck_totals WHERE source_id = @sourceId;", new { sourceId = source.SourceId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+
+            await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            foreach (var candidate in candidates)
+            {
+                var reason = reasons[candidate.Id];
+                var eligibility = reason == DeckSkipReasons.Retention ? "processed = 1 AND skipped = 0" : "NOT (processed = 0 AND skipped = 0)";
+                var changed = await connection.ExecuteAsync(new CommandDefinition(
+                    $"UPDATE deck_queue SET processed = 1, skipped = 1, skip_reason = @reason, content_hash = NULL, retention_core_hash = @coreHash WHERE id = @id AND {eligibility};",
+                    new { id = candidate.Id, reason, coreHash = reason == DeckSkipReasons.Retention ? coreHashes[candidate.Id] : null }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                markedCount += changed;
+                if (changed == 0)
+                {
+                    await connection.ExecuteAsync(new CommandDefinition("UPDATE deck_queue SET content_hash = NULL, retention_core_hash = NULL WHERE id = @id AND processed = 0 AND skipped = 0;", new { id = candidate.Id }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                }
+            }
+
+            await DeckQueueRepository.RefreshCommanderSummaryAsync(connection, transaction, candidates.Select(row => row.CommanderName), _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken);
+        }, _schema.Logger, cancellationToken);
+        return markedCount;
     }
 
     /// <summary>
@@ -1127,6 +1224,14 @@ internal sealed class CardCategoryRepository
             ? string.Concat(categoryA, "|", categoryB)
             : string.Concat(categoryB, "|", categoryA);
     }
+
+    private sealed record StoredDeckRemovalRow(long Id, string? CommanderName, long Processed, long Skipped);
+
+    private sealed record StoredLiveSourceRow(long SourceId, long DeckQueueId);
+
+    private sealed record RetentionCoreObservationRow(string CardName, string Category, string Board, long Quantity);
+
+    private sealed record RetentionCoreTotalRow(string CardName, string Board);
 
     private DbConnection CreateConnection() => _connectionInfo.CreateConnection();
 

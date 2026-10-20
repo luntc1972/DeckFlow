@@ -394,6 +394,12 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.SetContentHashAsync(deckId, hash, cancellationToken);
 
     /// <summary>
+    /// Removes stored live-deck rows and records their retention state.
+    /// </summary>
+    public Task<int> RemoveStoredDecksAsync(IReadOnlyList<(long DeckQueueId, string SkipReason)> removals, CancellationToken cancellationToken = default)
+        => _cardCategory.RemoveStoredDecksAsync(removals, cancellationToken);
+
+    /// <summary>
     /// B2 / D-17: idempotently records a URL-imported deck as processed with its commander name.
     /// Mirrors the <see cref="AddDeckIdsAsync"/> UPSERT idiom but always lands processed=1
     /// (URL flow has no queueing step) so Plan 04 SubmitUrl can ship a deck_queue row in one

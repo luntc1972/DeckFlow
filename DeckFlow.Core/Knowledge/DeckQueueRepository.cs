@@ -24,6 +24,8 @@ internal sealed class DeckQueueRepository
             LIMIT @count;
             """;
     internal const string UnprocessedCountSql = "SELECT COUNT(1) FROM deck_queue WHERE processed = 0 AND skipped = 0;";
+    // Why: `_` in the live-source prefix is a LIKE wildcard; SUBSTR compares it literally on both providers.
+    internal const string StoredLiveRowsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
     // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
@@ -847,7 +849,7 @@ internal sealed class DeckQueueRepository
         return new string(characters);
     }
 
-    private static async Task RefreshCommanderSummaryAsync(
+    internal static async Task RefreshCommanderSummaryAsync(
         DbConnection connection,
         DbTransaction? transaction,
         IEnumerable<string?> commanderNames,
