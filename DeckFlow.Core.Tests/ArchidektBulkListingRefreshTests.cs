@@ -40,7 +40,7 @@ public sealed class ArchidektBulkListingRefreshTests : IDisposable
 
         Assert.Equal(2, deckImporter.ImportCalls);
         Assert.Equal(0, result.DecksEnqueued);
-        Assert.All(handler.RequestPaths, path => Assert.StartsWith("/api/decks/v3/?orderBy=-updatedAt&page=", path, StringComparison.Ordinal));
+        Assert.All(handler.RequestPaths, path => Assert.StartsWith("/api/decks/v3/?orderBy=-updatedAt&deckFormat=3&page=", path, StringComparison.Ordinal));
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
         await connection.OpenAsync();
         var command = connection.CreateCommand();

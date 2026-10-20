@@ -265,13 +265,14 @@ internal sealed class DeckQueueRepository
             transaction: transaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         var existingById = existingRows.ToDictionary(row => row.DeckId, StringComparer.Ordinal);
+        var rowsToInsert = unique.Where(row => !existingById.ContainsKey(row.DeckId) && (!row.Size.HasValue || row.Size >= 100)).ToList();
 
         var insertParameters = new DynamicParameters();
         insertParameters.Add("insertedUtc", insertedUtc);
         var insertValues = new StringBuilder();
-        for (var index = 0; index < unique.Count; index++)
+        for (var index = 0; index < rowsToInsert.Count; index++)
         {
-            var row = unique[index];
+            var row = rowsToInsert[index];
             if (index > 0)
             {
                 insertValues.Append(", ");
@@ -282,7 +283,7 @@ internal sealed class DeckQueueRepository
             insertParameters.Add($"listingSeenUtc{index}", row.UpdatedUtc.HasValue ? FormatUtc(FloorToSecond(row.UpdatedUtc.Value)) : null);
         }
 
-        var newIds = await connection.ExecuteAsync(new CommandDefinition(
+        var newIds = rowsToInsert.Count == 0 ? 0 : await connection.ExecuteAsync(new CommandDefinition(
             $"""
             INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, listing_updated_seen_utc)
             VALUES {insertValues}

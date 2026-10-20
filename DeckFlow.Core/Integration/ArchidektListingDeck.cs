@@ -5,4 +5,4 @@ namespace DeckFlow.Core.Integration;
 /// </summary>
 /// <param name="DeckId">Archidekt deck identifier.</param>
 /// <param name="UpdatedUtc">Listing update time, if the listing supplied one.</param>
-public sealed record ArchidektListingDeck(string DeckId, DateTimeOffset? UpdatedUtc);
+public sealed record ArchidektListingDeck(string DeckId, DateTimeOffset? UpdatedUtc, int? Size = null);

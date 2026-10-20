@@ -53,13 +53,49 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         Assert.Equal(0, result.DecksSkipped);
         Assert.True(result.Duration < TimeSpan.FromSeconds(30));
         Assert.Equal(Enumerable.Range(1, 10), handler.RequestPages);
-        Assert.All(handler.RequestPaths, path => Assert.StartsWith("/api/decks/v3/?orderBy=-updatedAt&page=", path, StringComparison.Ordinal));
+        Assert.All(handler.RequestPaths, path => Assert.StartsWith("/api/decks/v3/?orderBy=-updatedAt&deckFormat=3&page=", path, StringComparison.Ordinal));
         Assert.Equal(7, await repository.GetRecentDeckCrawlPageAsync());
         Assert.True(await IsProcessedAsync("101"));
         Assert.Null(await GetRefreshRequestedUtcAsync("101"));
         Assert.Empty(await repository.GetNextRefreshDeckIdsAsync(10));
         Assert.Equal(["pending-1", "303", "505"], await repository.GetNextUnprocessedDeckIdsAsync(10));
         Assert.Equal(1, progressValues.Last());
+    }
+
+    [Fact]
+    public async Task RunUpdateAsync_CommanderListing_RequestsFormatThreeAndSkipsSmallNewDecks()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var handler = new UpdateListingFixtureHandler
+        {
+            PageOneBody = "{\"results\":[{\"id\":701,\"size\":60},{\"id\":702,\"size\":100},{\"id\":703}]}"
+        };
+        var client = new RestClient(new RestClientOptions { BaseUrl = new Uri("https://archidekt.com"), UserAgent = null, ConfigureMessageHandler = _ => handler });
+        var session = new ArchidektDeckCacheSession(repository, new ScriptedDeckImporter(), new ArchidektRecentDecksImporter(client), idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal("/api/decks/v3/?orderBy=-updatedAt&deckFormat=3&page=1", handler.RequestPaths[0]);
+        Assert.Equal(2, result.NewIdsSeen);
+        Assert.Equal(["702", "703"], await repository.GetNextUnprocessedDeckIdsAsync(10));
+    }
+
+    [Fact]
+    public async Task RunUpdateAsync_KnownDeckShrankBelowListingSize_IsStillRequeued()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddListingRowsAsync([new ArchidektListingDeck("704", DateTimeOffset.Parse("2026-01-01T00:00:00Z"))]);
+        await repository.MarkDeckProcessedAsync("704", commanderName: null, metadata: new ArchidektDeckMetadata(null, null, null, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.UtcNow));
+        var handler = new UpdateListingFixtureHandler
+        {
+            PageOneBody = "{\"results\":[{\"id\":704,\"size\":40,\"updatedAt\":\"2026-01-02T00:00:00Z\"}]}"
+        };
+        var client = new RestClient(new RestClientOptions { BaseUrl = new Uri("https://archidekt.com"), UserAgent = null, ConfigureMessageHandler = _ => handler });
+        var session = new ArchidektDeckCacheSession(repository, new ScriptedDeckImporter(), new ArchidektRecentDecksImporter(client), idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(1, result.RefreshesRequeued);
     }
 
     [Fact]
@@ -373,13 +409,17 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         public List<string> RequestPaths { get; } = [];
         public List<int> RequestPages { get; } = [];
 
+        public string? PageOneBody { get; set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.PathAndQuery;
             RequestPaths.Add(path);
             var page = int.Parse(request.RequestUri.Query.Split("page=")[1], System.Globalization.CultureInfo.InvariantCulture);
             RequestPages.Add(page);
-            var body = "{\"results\":[{\"id\":101,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"},{\"id\":303,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"},{\"id\":505,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"}]}";
+            var body = PageOneBody is null
+                ? "{\"results\":[{\"id\":101,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"},{\"id\":303,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"},{\"id\":505,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"}]}"
+                : page == 1 ? PageOneBody : "{\"results\":[]}";
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
         }
     }
