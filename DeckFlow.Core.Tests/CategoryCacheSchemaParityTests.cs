@@ -20,12 +20,23 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
     }
 
     [Fact]
-    public async Task EnsureSchema_OnFreshSqlite_AllowsSurrogateIdPlusUniqueGrain()
+    public async Task EnsureSchema_OnFreshSqlite_PerDeckTablesHaveNoIdAndUniqueGrain()
     {
         var repository = CreateRepository();
 
         await repository.EnsureSchemaAsync();
         await using var connection = await OpenConnectionAsync();
+
+        var observationColumns = await QueryStringListAsync(connection, "SELECT name FROM pragma_table_info('card_category_observations');");
+        Assert.DoesNotContain("id", observationColumns);
+        var totalColumns = await QueryStringListAsync(connection, "SELECT name FROM pragma_table_info('card_deck_totals');");
+        Assert.DoesNotContain("id", totalColumns);
+        Assert.All(
+            await QueryInt64ListAsync(connection, "SELECT pk FROM pragma_table_info('card_category_observations');"),
+            primaryKey => Assert.Equal(0L, primaryKey));
+        Assert.All(
+            await QueryInt64ListAsync(connection, "SELECT pk FROM pragma_table_info('card_deck_totals');"),
+            primaryKey => Assert.Equal(0L, primaryKey));
 
         await ExecuteNonQueryAsync(
             connection,
@@ -46,17 +57,18 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
             VALUES (1, 1, 'Sol Ring', 'Ramp', 'sideboard', 1, 1, '2026-01-01T00:00:00.0000000Z');
             """);
 
-        var ids = await QueryInt64ListAsync(
-            connection,
-            "SELECT id FROM card_category_observations ORDER BY id;");
-        Assert.Equal(new[] { 1L, 2L }, ids);
-
         await Assert.ThrowsAsync<SqliteException>(() => ExecuteNonQueryAsync(
             connection,
             """
             INSERT INTO card_category_observations (source_id, card_id, card_name, category, board, deck_count, count, last_seen_utc)
             VALUES (1, 1, 'Sol Ring', 'Ramp', 'mainboard', 1, 1, '2026-01-01T00:00:00.0000000Z');
             """));
+        await ExecuteNonQueryAsync(
+            connection,
+            "INSERT INTO card_deck_totals (source_id, card_id, board, deck_count, last_seen_utc) VALUES (1, 1, 'mainboard', 1, '2026-01-01T00:00:00.0000000Z');");
+        await Assert.ThrowsAsync<SqliteException>(() => ExecuteNonQueryAsync(
+            connection,
+            "INSERT INTO card_deck_totals (source_id, card_id, board, deck_count, last_seen_utc) VALUES (1, 1, 'mainboard', 1, '2026-01-01T00:00:00.0000000Z');"));
         await Assert.ThrowsAsync<SqliteException>(() => ExecuteNonQueryAsync(
             connection,
             "INSERT INTO cards (normalized_card_name, display_name) VALUES ('sol ring', 'SOL RING');"));
@@ -69,6 +81,31 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
             connection,
             "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = 'card_category_qualified';");
         Assert.Equal(1L, qualifiedTableCount);
+    }
+
+    [Fact]
+    public async Task EnsureSchema_OnLegacySqliteWithSurrogateId_LeavesTablesUnchanged()
+    {
+        await using (var connection = await OpenConnectionAsync())
+        {
+            await ExecuteNonQueryAsync(
+                connection,
+                "CREATE TABLE card_category_observations (id INTEGER PRIMARY KEY AUTOINCREMENT, source_id INTEGER NOT NULL, card_id INTEGER NOT NULL, card_name TEXT NOT NULL, category TEXT NOT NULL, board TEXT NOT NULL DEFAULT 'mainboard', deck_count INTEGER NOT NULL DEFAULT 0, count INTEGER NOT NULL, last_seen_utc TEXT NOT NULL);");
+            await ExecuteNonQueryAsync(
+                connection,
+                "CREATE TABLE card_deck_totals (id INTEGER PRIMARY KEY AUTOINCREMENT, source_id INTEGER NOT NULL, card_id INTEGER NOT NULL, board TEXT NOT NULL DEFAULT 'mainboard', deck_count INTEGER NOT NULL DEFAULT 0, last_seen_utc TEXT NOT NULL);");
+        }
+
+        var repository = CreateRepository();
+        await repository.EnsureSchemaAsync();
+        await repository.PersistObservedCategoriesAsync("legacy:deck-1", "Sol Ring", new[] { "Ramp" }, quantity: 1, board: "mainboard", deckCountIncrement: 1);
+
+        await using var verificationConnection = await OpenConnectionAsync();
+        var observationColumns = await QueryStringListAsync(verificationConnection, "SELECT name FROM pragma_table_info('card_category_observations');");
+        var totalColumns = await QueryStringListAsync(verificationConnection, "SELECT name FROM pragma_table_info('card_deck_totals');");
+        Assert.Contains("id", observationColumns);
+        Assert.Contains("id", totalColumns);
+        Assert.Equal(1L, await QuerySingleInt64Async(verificationConnection, "SELECT COUNT(1) FROM card_category_observations WHERE card_name = 'Sol Ring' AND category = 'Ramp';"));
     }
 
     [Fact]
