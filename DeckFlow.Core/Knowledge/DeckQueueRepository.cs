@@ -323,6 +323,7 @@ internal sealed class DeckQueueRepository
                 UPDATE deck_queue
                 SET processed = 0,
                     skipped = 0,
+                    skip_reason = NULL,
                     transient_failure_count = 0,
                     inserted_utc = @insertedUtc,
                     refresh_requested_utc = @refreshRequestedUtc,
@@ -381,11 +382,12 @@ internal sealed class DeckQueueRepository
             """
             UPDATE deck_queue
             SET transient_failure_count = transient_failure_count + 1,
-                skipped = CASE WHEN transient_failure_count + 1 >= 3 THEN 1 ELSE skipped END
+                skipped = CASE WHEN transient_failure_count + 1 >= 3 THEN 1 ELSE skipped END,
+                skip_reason = CASE WHEN transient_failure_count + 1 >= 3 THEN @fetchFailure ELSE skip_reason END
             WHERE deck_id = @deckId AND processed = 0 AND skipped = 0
             RETURNING CASE WHEN transient_failure_count >= 3 THEN 1 ELSE 0 END;
             """,
-            new { deckId },
+            new { deckId, fetchFailure = DeckSkipReasons.FetchFailure },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return skipped == 1;
     }

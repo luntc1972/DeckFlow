@@ -368,8 +368,8 @@ public sealed class ArchidektDeckCacheSession
 
     private async Task SkipDeckAsync(string deckId, int added, int updated, IProgress<int>? progress, CancellationToken cancellationToken)
     {
-        // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
-        await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, cancellationToken: cancellationToken);
+        // Skip path passes an explicit fetch-failure reason and null commander — top-N query filters commander_name IS NOT NULL.
+        await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, skipReason: DeckSkipReasons.FetchFailure, cancellationToken: cancellationToken);
         progress?.Report(added + updated);
     }
 
