@@ -533,6 +533,56 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
         }
     }
 
+    [PostgresFact]
+    public async Task ProcessedCommanderSummary_ReconciliationInsertsMissingCommander_OnPostgres()
+    {
+        var schema = $"df_recon_{Guid.NewGuid():N}";
+        Assert.Matches("^[a-z0-9_]{1,63}$", schema);
+        var quotedSchema = $"\"{schema}\"";
+        var fixtureConnectionString = await _fixture.GetConnectionStringOrSkipAsync();
+
+        await using var adminConnection = CreateConnection(fixtureConnectionString).CreateConnection();
+        await adminConnection.OpenAsync();
+        try
+        {
+            await adminConnection.ExecuteAsync($"CREATE SCHEMA {quotedSchema};");
+            var connectionStringA = new Npgsql.NpgsqlConnectionStringBuilder(fixtureConnectionString)
+            {
+                SearchPath = schema,
+            }.ConnectionString;
+            var repositoryA = new CategoryKnowledgeRepository(CreateConnection(connectionStringA));
+            await repositoryA.EnsureSchemaAsync();
+            await repositoryA.AddDeckIdsAsync(new[] { "d1", "d2", "d3", "d4" });
+
+            await using var schemaConnection = CreateConnection(connectionStringA).CreateConnection();
+            await schemaConnection.OpenAsync();
+            await schemaConnection.ExecuteAsync("UPDATE deck_queue SET processed = 1, skipped = 0, commander_name = 'Atraxa, Praetors'' Voice' WHERE deck_id = 'd1';");
+            await schemaConnection.ExecuteAsync("UPDATE deck_queue SET processed = 1, skipped = 0, commander_name = 'atraxa, praetors'' voice' WHERE deck_id = 'd2';");
+            await schemaConnection.ExecuteAsync("UPDATE deck_queue SET processed = 1, skipped = 0, commander_name = 'Kenrith, the Returned King' WHERE deck_id = 'd3';");
+            await schemaConnection.ExecuteAsync("UPDATE deck_queue SET processed = 1, skipped = 1, commander_name = 'Skippy' WHERE deck_id = 'd4';");
+            await schemaConnection.ExecuteAsync("DELETE FROM processed_commander_summary;");
+            await schemaConnection.ExecuteAsync("INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc, commander_name_search_key) VALUES ('atraxa, praetors'' voice', 5, NULL, 'seeded-key');");
+
+            var connectionStringB = new Npgsql.NpgsqlConnectionStringBuilder(connectionStringA)
+            {
+                ApplicationName = $"recon-{Guid.NewGuid():N}",
+            }.ConnectionString;
+            var repositoryB = new CategoryKnowledgeRepository(CreateConnection(connectionStringB));
+            await repositoryB.EnsureSchemaAsync();
+
+            var rows = (await schemaConnection.QueryAsync<(string CommanderName, int DeckCount, string? SearchKey)>(
+                "SELECT commander_name AS CommanderName, deck_count AS DeckCount, commander_name_search_key AS SearchKey FROM processed_commander_summary ORDER BY commander_name;")).ToList();
+
+            Assert.Equal(2, rows.Count);
+            Assert.Contains(rows, row => row == ("atraxa, praetors' voice", 2, "seeded-key"));
+            Assert.Contains(rows, row => row.CommanderName == "Kenrith, the Returned King" && row.DeckCount == 1);
+        }
+        finally
+        {
+            await adminConnection.ExecuteAsync($"DROP SCHEMA IF EXISTS {quotedSchema} CASCADE;");
+        }
+    }
+
     private static async Task AssertCategorySummaryMatchesObservationsAsync(DbConnection connection)
     {
         var command = connection.CreateCommand();

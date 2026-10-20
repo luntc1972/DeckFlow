@@ -511,6 +511,95 @@ public sealed class CategoryKnowledgeStoreTests
         Assert.Equal(12, counts["draw"]);
     }
 
+    [Fact]
+    public async Task GetTotalProcessedDeckCountAsync_ExcludesSkippedDecks()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        var store = CreateStore(Path.Combine(tempRoot, "content"));
+        var deckIdPrefix = Guid.NewGuid().ToString("N");
+
+        _ = await store.GetTotalProcessedDeckCountAsync();
+
+        Assert.NotNull(store.DatabasePath);
+        await using var connection = new SqliteConnection($"Data Source={store.DatabasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
+            VALUES ('{deckIdPrefix}-processed', '2026-01-01T00:00:00.0000000Z', 1, 0, NULL, 'Commander'),
+                   ('{deckIdPrefix}-skipped', '2026-01-01T00:00:00.0000000Z', 1, 1, NULL, 'Commander');
+            """;
+        await command.ExecuteNonQueryAsync();
+
+        Assert.Equal(1, await store.GetTotalProcessedDeckCountAsync());
+    }
+
+    [Fact]
+    public async Task GetTotalProcessedDeckCountSinceAsync_ExcludesSkippedDecks()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        var store = CreateStore(Path.Combine(tempRoot, "content"));
+        var cutoffUtc = new DateTime(2026, 01, 15, 12, 00, 00, DateTimeKind.Utc);
+        var deckIdPrefix = Guid.NewGuid().ToString("N");
+
+        _ = await store.GetTotalProcessedDeckCountAsync();
+
+        Assert.NotNull(store.DatabasePath);
+        await using var connection = new SqliteConnection($"Data Source={store.DatabasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
+            VALUES ('{deckIdPrefix}-processed', @cutoff, 1, 0, NULL, 'Commander'),
+                   ('{deckIdPrefix}-skipped', @cutoff, 1, 1, NULL, 'Commander');
+            """;
+        command.Parameters.AddWithValue("@cutoff", cutoffUtc.ToString("O"));
+        await command.ExecuteNonQueryAsync();
+
+        Assert.Equal(1, await store.GetTotalProcessedDeckCountSinceAsync(cutoffUtc));
+    }
+
+    [Fact]
+    public async Task GetSkipReasonCountsAsync_GroupsByReasonAndReportsNullAsUnrecorded()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        var store = CreateStore(Path.Combine(tempRoot, "content"));
+        var deckIdPrefix = Guid.NewGuid().ToString("N");
+
+        _ = await store.GetTotalProcessedDeckCountAsync();
+
+        Assert.NotNull(store.DatabasePath);
+        await using var connection = new SqliteConnection($"Data Source={store.DatabasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, skip_reason, last_checked_utc, commander_name)
+            VALUES ('{deckIdPrefix}-wrong-size-one', '2026-01-01T00:00:00.0000000Z', 0, 1, 'wrong_size', NULL, 'Commander'),
+                   ('{deckIdPrefix}-wrong-size-two', '2026-01-01T00:00:00.0000000Z', 0, 1, 'wrong_size', NULL, 'Commander'),
+                   ('{deckIdPrefix}-fetch-failure', '2026-01-01T00:00:00.0000000Z', 0, 1, 'fetch_failure', NULL, 'Commander'),
+                   ('{deckIdPrefix}-legacy', '2026-01-01T00:00:00.0000000Z', 0, 1, NULL, NULL, 'Commander'),
+                   ('{deckIdPrefix}-processed', '2026-01-01T00:00:00.0000000Z', 1, 0, NULL, NULL, 'Commander');
+            """;
+        await command.ExecuteNonQueryAsync();
+
+        var counts = await store.GetSkipReasonCountsAsync();
+
+        Assert.Equal(3, counts.Count);
+        Assert.Equal(2, counts["wrong_size"]);
+        Assert.Equal(1, counts["fetch_failure"]);
+        Assert.Equal(1, counts["unrecorded"]);
+    }
+
+    [Fact]
+    public async Task GetSkipReasonCountsAsync_DefaultInterfaceImplementation_ReturnsEmpty()
+    {
+        ICategoryKnowledgeStore store = new FakeCategoryKnowledgeStore();
+
+        var counts = await store.GetSkipReasonCountsAsync();
+
+        Assert.Empty(counts);
+    }
+
     [Theory]
     [InlineData(null, 0)]
     [InlineData(-1L, 0)]

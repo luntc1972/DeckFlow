@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Globalization;
@@ -20,6 +21,8 @@ namespace DeckFlow.Web.Services;
 public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 {
     private const int HarvestDeckCount = 20;
+    // Why: legacy skipped rows predate the skip_reason column.
+    private const string UnrecordedSkipReason = "unrecorded";
     private const string ProcessedCommanderCountCacheKey = "category-knowledge:processed-commanders:count";
     private readonly string _artifactsPath;
     private readonly RelationalDatabaseConnection _connectionInfo;
@@ -159,7 +162,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1;",
+            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND skipped = 0;",
             cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 
@@ -176,16 +179,34 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         if (_connectionInfo.IsSqlite)
         {
             return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-                "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;",
+                "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND skipped = 0 AND inserted_utc >= @cutoff;",
                 new { cutoff = cutoffUtc },
                 cancellationToken: cancellationToken)).ConfigureAwait(false));
         }
 
         var cutoff = cutoffUtc.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND inserted_utc >= @cutoff;",
+            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND skipped = 0 AND inserted_utc >= @cutoff;",
             new { cutoff },
             cancellationToken: cancellationToken)).ConfigureAwait(false));
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyDictionary<string, int>> GetSkipReasonCountsAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await connection.QueryAsync<SkipReasonCountRow>(new CommandDefinition(
+            "SELECT skip_reason AS Reason, COUNT(1) AS Count FROM deck_queue WHERE skipped = 1 GROUP BY skip_reason;",
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var row in rows)
+        {
+            counts[row.Reason ?? UnrecordedSkipReason] = CoerceCount(row.Count);
+        }
+
+        return new ReadOnlyDictionary<string, int>(counts);
     }
 
     /// <inheritdoc/>
@@ -477,6 +498,13 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             int value => Math.Max(value, 0),
             _ => ClampCount(Convert.ToInt64(result, CultureInfo.InvariantCulture))
         };
+    }
+
+    private sealed class SkipReasonCountRow
+    {
+        public string? Reason { get; init; }
+
+        public object? Count { get; init; }
     }
 
     private static int ClampCount(long value)
