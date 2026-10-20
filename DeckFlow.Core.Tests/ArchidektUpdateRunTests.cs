@@ -282,6 +282,48 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         Assert.True(DeckLegality.Evaluate(result.Entries, result.Metadata).IsLegal);
     }
 
+    [Fact]
+    public async Task RunUpdateAsync_RefreshedDeckBecameIllegal_RemovesRowsAndCountsSkipped()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var importer = new ScriptedDeckImporter();
+        var session = new ArchidektDeckCacheSession(repository, importer, new ScriptedListingImporter(_ => []), idlePollDelay: TimeSpan.FromMilliseconds(1));
+        var updatedUtc = DateTimeOffset.Parse("2026-01-03T00:00:00Z");
+        await repository.AddDeckIdsAsync(["refresh-illegal"]);
+        await session.RunAsync(TimeSpan.FromSeconds(1));
+        importer.ResultOverride = _ => new(
+            LegalCommanderDeck.Complete([]).Where(entry => entry.Board != "commander").ToList(),
+            LegalCommanderDeck.Metadata(updatedUtc.AddHours(1)));
+        await repository.AddListingRowsAsync([new ArchidektListingDeck("refresh-illegal", updatedUtc.AddHours(1))]);
+
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(1, result.DecksSkipped);
+        Assert.Equal(1, result.RefreshesDrained);
+        Assert.Equal(DeckSkipReasons.NoCommander, await ReadSkipReasonAsync("refresh-illegal"));
+        Assert.Equal(0, await ReadScalarAsync("SELECT COUNT(1) FROM card_category_observations WHERE source_id = (SELECT id FROM sources WHERE source = 'archidekt_live:refresh-illegal');"));
+        Assert.Equal(0, await ReadScalarAsync("SELECT COUNT(1) FROM card_deck_totals WHERE source_id = (SELECT id FROM sources WHERE source = 'archidekt_live:refresh-illegal');"));
+    }
+
+    private async Task<string?> ReadSkipReasonAsync(string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT skip_reason FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        return await command.ExecuteScalarAsync() as string;
+    }
+
+    private async Task<long> ReadScalarAsync(string sql)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return Convert.ToInt64(await command.ExecuteScalarAsync());
+    }
+
     private async Task<bool> IsProcessedAsync(string deckId)
     {
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
@@ -399,6 +441,8 @@ public sealed class ArchidektUpdateRunTests : IDisposable
 
         public IReadOnlyList<string> AttemptedDeckIds => ImportedDeckIds;
 
+        public Func<string, ArchidektDeckImportResult?>? ResultOverride { get; set; }
+
         public Task<List<DeckEntry>> ImportAsync(string deckId, CancellationToken cancellationToken = default)
         {
             ImportedDeckIds.Add(deckId);
@@ -425,6 +469,12 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string deckId, CancellationToken cancellationToken = default)
         {
             var entries = await ImportAsync(deckId, cancellationToken);
+            var overrideResult = ResultOverride?.Invoke(deckId);
+            if (overrideResult is not null)
+            {
+                return overrideResult;
+            }
+
             var metadata = Metadata();
             LegalCommanderDeck.AssertLegal(entries, metadata);
             return new(entries, metadata);
