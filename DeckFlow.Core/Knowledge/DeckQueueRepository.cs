@@ -721,6 +721,8 @@ internal sealed class DeckQueueRepository
             deckId,
             now,
             commanderName,
+            Skipped = 0,
+            SkipReason = (string?)null,
             // Why: These member names must match the SQL parameter names exactly for Dapper binding.
             EdhBracket = metadataParameters?.EdhBracket,
             DeckFormat = metadataParameters?.DeckFormat,
@@ -731,14 +733,15 @@ internal sealed class DeckQueueRepository
         };
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name,
+            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, skip_reason, last_checked_utc, commander_name,
                 archidekt_edh_bracket, archidekt_deck_format, archidekt_theorycrafted, archidekt_created_utc,
                 archidekt_updated_utc, archidekt_metadata_captured_utc)
-            VALUES (@deckId, @now, 1, 0, @now, @commanderName, @EdhBracket, @DeckFormat, @Theorycrafted,
+            VALUES (@deckId, @now, 1, @Skipped, @SkipReason, @now, @commanderName, @EdhBracket, @DeckFormat, @Theorycrafted,
                 @CreatedUtc, @UpdatedUtc, @CapturedUtc)
             ON CONFLICT(deck_id) DO UPDATE
             SET processed = 1,
-                skipped = 0,
+                skipped = excluded.skipped,
+                skip_reason = excluded.skip_reason,
                 last_checked_utc = excluded.last_checked_utc,
                 refresh_requested_utc = NULL,
                 commander_name = COALESCE(excluded.commander_name, deck_queue.commander_name),
@@ -760,6 +763,9 @@ internal sealed class DeckQueueRepository
         await RefreshCommanderSummaryAsync(connection, summaryTransaction, new[] { priorCommanderName, currentCommanderName }, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
         await summaryTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    internal Task MarkUrlDeckRejectedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, string skipReason, CancellationToken cancellationToken = default)
+        => MarkDecksProcessedAsync([deckId], skip: true, skipReason, cancellationToken);
 
     /// <summary>
     /// Marks the provided deck IDs as processed, optionally skipping them.

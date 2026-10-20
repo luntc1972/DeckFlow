@@ -191,6 +191,29 @@ public sealed class CategoryKnowledgeRepository
         => _cardCategory.DeleteSourceDataAsync(source, cancellationToken);
 
     /// <summary>
+    /// Removes stored rows for an illegal URL deck and records its rejection (RET-01, OQ4).
+    /// </summary>
+    public async Task RejectUrlDeckAsync(string urlSource, string deckId, string? commanderName, ArchidektDeckMetadata? metadata, string skipReason, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(urlSource) || !urlSource.StartsWith("archidekt_url:", StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(deckId) || !ArchidektApiUrl.TryGetDeckId(urlSource["archidekt_url:".Length..], out var sourceDeckId) ||
+            !string.Equals(sourceDeckId, deckId, StringComparison.Ordinal) ||
+            skipReason is not (DeckSkipReasons.NotCommanderFormat or DeckSkipReasons.NoCommander or DeckSkipReasons.WrongSize))
+        {
+            throw new ArgumentException("The URL source, deck ID, and skip reason must describe an illegal Commander deck.");
+        }
+
+        var storedSources = await _cardCategory.GetSourceLabelsByPrefixAsync("archidekt_url:", cancellationToken).ConfigureAwait(false);
+        var sources = storedSources.Where(source => ArchidektApiUrl.TryGetDeckId(source["archidekt_url:".Length..], out var storedDeckId) && string.Equals(storedDeckId, deckId, StringComparison.Ordinal))
+            .Append(urlSource)
+            .Append("archidekt_live:" + deckId)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        await _cardCategory.RemoveDeckSourcesAsync(sources, new DeckContentHashWrite(deckId, null), cancellationToken).ConfigureAwait(false);
+        await _deckQueue.MarkUrlDeckRejectedAsync(deckId, commanderName, metadata, skipReason, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Persists observed categories for a specific card occurrence.
     /// </summary>
     /// <param name="source">Data source label.</param>

@@ -709,6 +709,52 @@ internal sealed class CardCategoryRepository
         }, _schema.Logger, cancellationToken);
     }
 
+    internal async Task<IReadOnlyList<string>> GetSourceLabelsByPrefixAsync(string prefix, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var pattern = prefix.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal) + "%";
+        var rows = await connection.QueryAsync<string>(new CommandDefinition(
+            "SELECT source FROM sources WHERE source LIKE @pattern ESCAPE '\\';",
+            new { pattern }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.ToArray();
+    }
+
+    internal async Task RemoveDeckSourcesAsync(IReadOnlyList<string> sources, DeckContentHashWrite contentHashWrite, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
+        await DeadlockRetry.ExecuteAsync(async () =>
+        {
+            await using var connection = CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var deltas = new CategoryWriteOrder();
+            foreach (var source in sources.Where(source => !string.IsNullOrWhiteSpace(source)).Distinct(StringComparer.Ordinal))
+            {
+                var sourceId = await ResolveSourceIdForWriteAsync(connection, transaction, source, cancellationToken);
+                if (sourceId is null)
+                {
+                    continue;
+                }
+
+                await DeleteCategoryObservationsForSourceAsync(connection, transaction, sourceId.Value, deltas, cancellationToken);
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM card_deck_totals WHERE source_id = @sourceId;",
+                    new { sourceId = sourceId.Value }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            }
+
+            await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            await connection.ExecuteAsync(new CommandDefinition(
+                "UPDATE deck_queue SET content_hash = @hash WHERE deck_id = @deckId;",
+                new { deckId = contentHashWrite.DeckId, hash = contentHashWrite.Hash }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken);
+        }, _schema.Logger, cancellationToken);
+    }
+
     /// <summary>
     /// Retrieves deck totals for the card, optionally filtered by board.
     /// </summary>

@@ -95,6 +95,9 @@ public interface ICategoryKnowledgeStore
     /// Marks a URL-imported deck as processed while preserving importer-captured metadata.
     /// </summary>
     Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, CancellationToken cancellationToken = default);
+    /// <summary>Removes persisted rows for a rejected URL deck.</summary>
+    Task RejectUrlDeckAsync(string urlSource, string deckId, string? commanderName, ArchidektDeckMetadata? metadata, string skipReason, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
     /// <summary>
     /// Returns the total number of processed decks across the category cache.
     /// </summary>

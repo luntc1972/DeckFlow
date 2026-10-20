@@ -1,5 +1,6 @@
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
+using DeckFlow.Core.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.AspNetCore.Hosting;
@@ -598,6 +599,185 @@ public sealed class CategoryKnowledgeStoreTests
         var counts = await store.GetSkipReasonCountsAsync();
 
         Assert.Empty(counts);
+    }
+
+    [Fact]
+    public async Task RejectUrlDeckAsync_StoredUrlAndLiveRows_RemovesBothAndRecordsReason()
+    {
+        await WithTemporaryUrlStoreAsync(async (store, repository) =>
+        {
+            const string source = "archidekt_url:https://archidekt.com/decks/123";
+            await SeedRejectedDeckRowsAsync(store, repository, source, "123");
+
+            await store.RejectUrlDeckAsync(source, "123", "Test Commander", TestMetadata(), DeckSkipReasons.WrongSize);
+
+            Assert.False(await repository.HasSourceDataAsync(source));
+            Assert.False(await repository.HasSourceDataAsync("archidekt_live:123"));
+            Assert.Null(await repository.GetContentHashAsync("123"));
+            Assert.Equal(new Dictionary<string, int> { [DeckSkipReasons.WrongSize] = 1 }, await store.GetSkipReasonCountsAsync());
+            Assert.Equal(0, await store.GetDistinctProcessedCommanderCountAsync());
+            Assert.Equal(0, await store.GetTotalObservationCountAsync());
+        });
+    }
+
+    [Theory]
+    [InlineData(DeckSkipReasons.FetchFailure)]
+    [InlineData(DeckSkipReasons.Retention)]
+    [InlineData("")]
+    public async Task RejectUrlDeckAsync_NonGateReason_ThrowsBeforeWriting(string skipReason)
+    {
+        await WithTemporaryUrlStoreAsync(async (store, repository) =>
+        {
+            const string source = "archidekt_url:https://archidekt.com/decks/123";
+            await SeedRejectedDeckRowsAsync(store, repository, source, "123");
+
+            await Assert.ThrowsAsync<ArgumentException>(() => store.RejectUrlDeckAsync(source, "123", "Test Commander", TestMetadata(), skipReason));
+
+            Assert.True(await repository.HasSourceDataAsync(source));
+            Assert.Equal("h1", await repository.GetContentHashAsync("123"));
+        });
+    }
+
+    [Fact]
+    public async Task MarkUrlDeckProcessedAsync_AfterRejection_ClearsSkipReasonAndCountsDeck()
+    {
+        await WithTemporaryUrlStoreAsync(async (store, repository) =>
+        {
+            const string source = "archidekt_url:https://archidekt.com/decks/123";
+            await SeedRejectedDeckRowsAsync(store, repository, source, "123");
+            await store.RejectUrlDeckAsync(source, "123", "Test Commander", TestMetadata(), DeckSkipReasons.WrongSize);
+
+            await store.MarkUrlDeckProcessedAsync("123", "Test Commander", TestMetadata());
+
+            Assert.Empty(await store.GetSkipReasonCountsAsync());
+            Assert.Equal(1, await store.GetDistinctProcessedCommanderCountAsync());
+        });
+    }
+
+    [Fact]
+    public async Task RejectUrlDeckAsync_EquivalentUrlSpelling_RemovesEarlierUrlRows()
+    {
+        await WithTemporaryUrlStoreAsync(async (store, repository) =>
+        {
+            const string storedSource = "archidekt_url:https://archidekt.com/decks/123";
+            const string rejectedSource = "archidekt_url:https://archidekt.com/decks/123/";
+            await SeedRejectedDeckRowsAsync(store, repository, storedSource, "123");
+            await store.PersistObservedCategoriesAsync(rejectedSource, "Mana Crypt", ["Ramp"], 1, "mainboard", 1);
+
+            await store.RejectUrlDeckAsync(rejectedSource, "123", "Test Commander", TestMetadata(), DeckSkipReasons.WrongSize);
+
+            Assert.False(await repository.HasSourceDataAsync(storedSource));
+            Assert.False(await repository.HasSourceDataAsync(rejectedSource));
+        });
+    }
+
+    [Fact]
+    public async Task RejectUrlDeckAsync_OtherDeckUrlRows_AreUntouched()
+    {
+        await WithTemporaryUrlStoreAsync(async (store, repository) =>
+        {
+            const string rejectedSource = "archidekt_url:https://archidekt.com/decks/123";
+            const string otherSource = "archidekt_url:https://archidekt.com/decks/456";
+            await SeedRejectedDeckRowsAsync(store, repository, rejectedSource, "123");
+            await store.PersistObservedCategoriesAsync(otherSource, "Mana Crypt", ["Ramp"], 1, "mainboard", 1);
+
+            await store.RejectUrlDeckAsync(rejectedSource, "123", "Test Commander", TestMetadata(), DeckSkipReasons.WrongSize);
+
+            Assert.True(await repository.HasSourceDataAsync(otherSource));
+        });
+    }
+
+    [Fact]
+    public async Task RejectUrlDeckAsync_HashClearFails_RollsBackRowRemoval()
+    {
+        await WithTemporaryUrlStoreAsync(async (store, repository) =>
+        {
+            const string source = "archidekt_url:https://archidekt.com/decks/123";
+            await SeedRejectedDeckRowsAsync(store, repository, source, "123");
+            await using var connection = new SqliteConnection($"Data Source={store.DatabasePath}");
+            await connection.OpenAsync();
+            await using var trigger = connection.CreateCommand();
+            trigger.CommandText = "CREATE TRIGGER reject_hash_clear BEFORE UPDATE OF content_hash ON deck_queue WHEN NEW.content_hash IS NULL BEGIN SELECT RAISE(ABORT, 'hash clear failure'); END;";
+            await trigger.ExecuteNonQueryAsync();
+
+            await Assert.ThrowsAsync<SqliteException>(() => store.RejectUrlDeckAsync(source, "123", "Test Commander", TestMetadata(), DeckSkipReasons.WrongSize));
+
+            Assert.True(await repository.HasSourceDataAsync(source));
+            Assert.True(await repository.HasSourceDataAsync("archidekt_live:123"));
+            Assert.Equal("h1", await repository.GetContentHashAsync("123"));
+            Assert.Equal(2, await store.GetTotalObservationCountAsync());
+        });
+    }
+
+    [Fact]
+    public async Task RejectUrlDeckAsync_InvalidReason_OnFreshStore_ThrowsBeforeSchemaCreation()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", tempRoot);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+
+            await Assert.ThrowsAsync<ArgumentException>(() => store.RejectUrlDeckAsync("archidekt_url:https://archidekt.com/decks/123", "123", "Test Commander", TestMetadata(), DeckSkipReasons.FetchFailure));
+
+            Assert.False(File.Exists(Assert.IsType<string>(store.DatabasePath)));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+        }
+    }
+
+    [Fact]
+    public async Task RejectUrlDeckAsync_UrlSourceForOtherDeck_ThrowsBeforeWriting()
+    {
+        await WithTemporaryUrlStoreAsync(async (store, repository) =>
+        {
+            const string source = "archidekt_url:https://archidekt.com/decks/456";
+            await SeedRejectedDeckRowsAsync(store, repository, source, "123");
+
+            await Assert.ThrowsAsync<ArgumentException>(() => store.RejectUrlDeckAsync(source, "123", "Test Commander", TestMetadata(), DeckSkipReasons.WrongSize));
+
+            Assert.True(await repository.HasSourceDataAsync(source));
+            Assert.Equal("h1", await repository.GetContentHashAsync("123"));
+        });
+    }
+
+    private static ArchidektDeckMetadata TestMetadata()
+        => new(3, 1, false, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+
+    private static async Task SeedRejectedDeckRowsAsync(CategoryKnowledgeStore store, CategoryKnowledgeRepository repository, string source, string deckId)
+    {
+        await store.MarkUrlDeckProcessedAsync(deckId, "Test Commander", TestMetadata());
+        await repository.SetContentHashAsync(deckId, "h1");
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId, [new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
+        await store.PersistObservedCategoriesAsync(source, "Sol Ring", ["Ramp"], 1, "mainboard", 1);
+    }
+
+    private static async Task WithTemporaryUrlStoreAsync(Func<CategoryKnowledgeStore, CategoryKnowledgeRepository, Task> action)
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        var databasePath = Path.Combine(tempRoot, "category-knowledge.db");
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", tempRoot);
+            await WithSqliteConnectionAsync($"Data Source={databasePath}", async () =>
+            {
+                var store = CreateStore(Path.Combine(tempRoot, "content"));
+                await action(store, new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath)));
+            });
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+            ClearPool(databasePath);
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
     }
 
     [Theory]
