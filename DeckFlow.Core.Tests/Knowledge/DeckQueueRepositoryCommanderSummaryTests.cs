@@ -228,6 +228,114 @@ public sealed class DeckQueueRepositoryCommanderSummaryTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task MarkDeckProcessedAsync_SkippedDeckWithCommander_IsNotCountedInSummary()
+    {
+        var (repository, _) = await CreateRepositoryAsync();
+        await repository.AddDeckIdsAsync(new[] { "deck-1", "deck-2", "deck-3" });
+        await repository.MarkDeckProcessedAsync("deck-1", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-2", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-3", "Kinnan, Bonder Prodigy", skip: true, skipReason: DeckSkipReasons.WrongSize);
+
+        Assert.Equal(2, await repository.GetCommanderDeckCountAsync("Kinnan, Bonder Prodigy"));
+        var rows = await repository.GetPagedProcessedCommanderRowsAsync(1, 20);
+        Assert.Equal(2, Assert.Single(rows).DeckCount);
+    }
+
+    [Fact]
+    public async Task GetProcessedDeckCountAsync_ExcludesSkippedDecks()
+    {
+        var (repository, _) = await CreateRepositoryAsync();
+        await repository.AddDeckIdsAsync(new[] { "deck-1", "deck-2", "deck-3" });
+        await repository.MarkDeckProcessedAsync("deck-1", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-2", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-3", "Kinnan, Bonder Prodigy", skip: true, skipReason: DeckSkipReasons.WrongSize);
+
+        Assert.Equal(2, await repository.GetProcessedDeckCountAsync());
+    }
+
+    [Fact]
+    public async Task EnsureSchema_SummaryBackfill_ExcludesSkippedDecks()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await using var connection = new SqliteConnection($"Data Source={databasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM processed_commander_summary; INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, commander_name) VALUES ('deck-1', '2026-01-01T00:00:00Z', 1, 0, 'Kinnan, Bonder Prodigy'), ('deck-2', '2026-01-01T00:00:00Z', 1, 0, 'Kinnan, Bonder Prodigy'), ('deck-3', '2026-01-01T00:00:00Z', 1, 1, 'Kinnan, Bonder Prodigy');";
+        await command.ExecuteNonQueryAsync();
+
+        var schema = new CategoryCacheSchema(new RelationalDatabaseConnection(RelationalDatabaseProvider.Sqlite, $"Data Source={databasePath};Pooling=False"), _tempDirectory, logger: null);
+        await schema.EnsureSchemaAsync();
+
+        var rows = await repository.GetPagedProcessedCommanderRowsAsync(1, 20);
+        Assert.Equal(2, Assert.Single(rows).DeckCount);
+    }
+
+    [Fact]
+    public async Task EnsureSchema_StaleSummaryCountingSkippedDecks_IsReconciled()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await repository.AddDeckIdsAsync(new[] { "deck-1", "deck-2", "deck-3" });
+        await repository.MarkDeckProcessedAsync("deck-1", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-2", "Kinnan, Bonder Prodigy");
+        await repository.MarkDeckProcessedAsync("deck-3", "Kinnan, Bonder Prodigy");
+
+        await using (var connection = new SqliteConnection($"Data Source={databasePath}"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE deck_queue SET skipped = 1 WHERE deck_id = 'deck-3';";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var schema = new CategoryCacheSchema(new RelationalDatabaseConnection(RelationalDatabaseProvider.Sqlite, $"Data Source={databasePath};Pooling=False"), _tempDirectory, logger: null);
+        await schema.EnsureSchemaAsync();
+
+        var rows = await repository.GetPagedProcessedCommanderRowsAsync(1, 20);
+        Assert.Equal(2, Assert.Single(rows).DeckCount);
+    }
+
+    [Fact]
+    public async Task EnsureSchema_SummaryCaseVariantRow_IsReconciledInPlace()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await using (var connection = new SqliteConnection($"Data Source={databasePath}"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, commander_name) VALUES ('deck-1', '2026-01-01T00:00:00Z', 1, 0, 'kinnan, bonder prodigy'), ('deck-2', '2026-01-02T00:00:00Z', 1, 0, 'kinnan, bonder prodigy'); INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc) VALUES ('Kinnan, Bonder Prodigy', 99, '2020-01-01T00:00:00Z');";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var schema = new CategoryCacheSchema(new RelationalDatabaseConnection(RelationalDatabaseProvider.Sqlite, $"Data Source={databasePath};Pooling=False"), _tempDirectory, logger: null);
+        await schema.EnsureSchemaAsync();
+
+        var rows = await repository.GetPagedProcessedCommanderRowsAsync(1, 20);
+        var row = Assert.Single(rows);
+        Assert.Equal("Kinnan, Bonder Prodigy", row.CommanderName);
+        Assert.Equal(2, row.DeckCount);
+    }
+
+    [Fact]
+    public async Task EnsureSchema_NonEmptySummary_InsertsMissingCommanderBesideCaseVariantRow()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await using (var connection = new SqliteConnection($"Data Source={databasePath}"))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, commander_name) VALUES ('deck-1', '2026-01-01T00:00:00Z', 1, 0, 'kinnan, bonder prodigy'), ('deck-2', '2026-01-02T00:00:00Z', 1, 0, 'Atraxa, Praetors'' Voice'); INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc) VALUES ('Kinnan, Bonder Prodigy', 99, '2020-01-01T00:00:00Z');";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var schema = new CategoryCacheSchema(new RelationalDatabaseConnection(RelationalDatabaseProvider.Sqlite, $"Data Source={databasePath};Pooling=False"), _tempDirectory, logger: null);
+        await schema.EnsureSchemaAsync();
+
+        var rows = await repository.GetPagedProcessedCommanderRowsAsync(1, 20);
+        Assert.Equal(new[] { "Atraxa, Praetors' Voice", "Kinnan, Bonder Prodigy" }, rows.Select(row => row.CommanderName).OrderBy(name => name));
+        Assert.Equal(1, Assert.Single(rows, row => row.CommanderName == "Kinnan, Bonder Prodigy").DeckCount);
+    }
+
     private async Task<(DeckQueueRepository Repository, string DatabasePath)> CreateRepositoryAsync()
     {
         Directory.CreateDirectory(_tempDirectory);

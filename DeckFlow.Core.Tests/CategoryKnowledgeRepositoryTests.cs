@@ -618,6 +618,27 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCategoryRowsForCommanderAsync_SkippedDeckRows_AreExcluded()
+    {
+        var repository = CreateRepository();
+        var insertedUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+
+        await SeedProcessedDeckAsync(repository, "included", "Krenko, Mob Boss", insertedUtc, insertedUtc);
+        await repository.AddDeckIdsAsync(new[] { "skipped" });
+        await repository.MarkDeckProcessedAsync("skipped", "Krenko, Mob Boss", skip: true, skipReason: DeckSkipReasons.WrongSize);
+        await repository.PersistObservedCategoriesAsync("archidekt_live:included", "Sol Ring", new[] { "Artifact" });
+        await repository.PersistObservedCategoriesAsync("archidekt_live:skipped", "Mana Crypt", new[] { "Ramp" });
+
+        var rows = await repository.GetCategoryRowsForCommanderAsync("Krenko, Mob Boss");
+        var memberships = await repository.GetCategoryDeckMembershipForCommanderAsync("Krenko, Mob Boss");
+
+        Assert.Single(rows);
+        Assert.DoesNotContain(rows, row => row.CardName == "Mana Crypt");
+        Assert.Single(memberships);
+        Assert.DoesNotContain(memberships, membership => membership.CardName == "Mana Crypt");
+    }
+
+    [Fact]
     public async Task GetCategoriesForNamesAsync_ExcludesRarePairsAndCoversEveryRequestedName()
     {
         var repository = CreateRepository();

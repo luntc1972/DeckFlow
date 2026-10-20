@@ -83,7 +83,7 @@ internal sealed class CardCategoryRepository
                 SELECT DISTINCT q.id AS deck_id, o.category
                 FROM card_category_observations o
                 JOIN sources s ON s.id = o.source_id
-                JOIN deck_queue q ON q.id = s.deck_queue_id AND q.processed = 1
+                JOIN deck_queue q ON q.id = s.deck_queue_id AND q.processed = 1 AND q.skipped = 0
             ),
             total_decks AS (
                 SELECT COUNT(DISTINCT deck_id) AS deck_count
@@ -391,7 +391,7 @@ internal sealed class CardCategoryRepository
             JOIN sources s ON s.id = o.source_id
             JOIN deck_queue q ON q.id = s.deck_queue_id
             WHERE LOWER(q.commander_name) = LOWER(@commanderName)
-              AND q.processed = 1
+              AND q.processed = 1 AND q.skipped = 0
             GROUP BY o.category, o.card_name
             ORDER BY total DESC, LOWER(o.category), o.category;
             """,
@@ -422,7 +422,7 @@ internal sealed class CardCategoryRepository
             JOIN sources s ON s.id = o.source_id
             JOIN deck_queue q ON q.id = s.deck_queue_id
             WHERE LOWER(q.commander_name) = LOWER(@commanderName)
-              AND q.processed = 1
+              AND q.processed = 1 AND q.skipped = 0
               {0};
             """;
         var filterClause = boardFilter is null
