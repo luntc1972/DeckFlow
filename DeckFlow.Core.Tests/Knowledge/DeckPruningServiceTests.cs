@@ -75,7 +75,8 @@ public sealed class DeckPruningServiceTests : IDisposable
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT skip_reason FROM deck_queue WHERE deck_id = @deckId";
         command.Parameters.AddWithValue("@deckId", deckId);
-        return (string?)await command.ExecuteScalarAsync();
+        var value = await command.ExecuteScalarAsync();
+        return value is DBNull ? null : (string?)value;
     }
 
     private async Task<long> CountAsync(string table, string predicate)
@@ -102,6 +103,137 @@ public sealed class DeckPruningServiceTests : IDisposable
         await using var command = connection.CreateCommand();
         command.CommandText = sql;
         return Convert.ToInt64(await command.ExecuteScalarAsync());
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_ProbeBelowFloor_RemovesNothing()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await SeedStoredDeckAsync(repository, "floor", "A", DateTimeOffset.UtcNow);
+        await SeedStoredDeckAsync(repository, "floor-candidate", "A", DateTimeOffset.UtcNow.AddMinutes(1));
+        var result = await CreateService(repository, new DeckPruningOptions { PerCommanderCap = 1 }, [1L]).RunRetentionAsync();
+        Assert.Equal(DeckPruningStopReason.DiskFloor, result.StopReason);
+        Assert.Equal(0, result.DecksRemoved);
+        Assert.Null(await SkipReasonAsync("floor"));
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_ProbeReturnsNull_RemovesNothing()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await SeedStoredDeckAsync(repository, "null", "A", DateTimeOffset.UtcNow);
+        await SeedStoredDeckAsync(repository, "null-candidate", "A", DateTimeOffset.UtcNow.AddMinutes(1));
+        var result = await CreateService(repository, new DeckPruningOptions { PerCommanderCap = 1 }, [null]).RunRetentionAsync();
+        Assert.Equal(DeckPruningStopReason.DiskProbeUnavailable, result.StopReason);
+        Assert.Equal(0, result.DecksRemoved);
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_ProbeThrows_StopsAsUnavailable()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await SeedStoredDeckAsync(repository, "throws", "A", DateTimeOffset.UtcNow);
+        await SeedStoredDeckAsync(repository, "throws-candidate", "A", DateTimeOffset.UtcNow.AddMinutes(1));
+        var service = new DeckPruningService(repository, new DeckPruningOptions { PerCommanderCap = 1 }, static _ => throw new InvalidOperationException());
+        var result = await service.RunRetentionAsync();
+        Assert.Equal(DeckPruningStopReason.DiskProbeUnavailable, result.StopReason);
+        Assert.Equal(0, result.DecksRemoved);
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_FloorCrossedAfterFirstBatch_StopsAfterOneBatch()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        for (var i = 0; i < 4; i++) await SeedStoredDeckAsync(repository, $"cross-{i}", "A", DateTimeOffset.UtcNow.AddDays(i));
+        var result = await CreateService(repository, new DeckPruningOptions { PerCommanderCap = 1, BatchSize = 1 }, [10L * 1024 * 1024 * 1024, 1L]).RunRetentionAsync();
+        Assert.Equal(1, result.DecksRemoved);
+        Assert.Equal(DeckPruningStopReason.DiskFloor, result.StopReason);
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_RemovalsAcrossCommanders_PausesOnlyBetweenBatches()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        foreach (var commander in new[] { "A", "B" }) for (var i = 0; i < 3; i++) await SeedStoredDeckAsync(repository, $"{commander}-{i}", commander, DateTimeOffset.UtcNow.AddDays(i));
+        var delays = new List<TimeSpan>();
+        var service = CreateService(repository, new DeckPruningOptions { PerCommanderCap = 1, BatchSize = 3, Pause = TimeSpan.FromSeconds(2) }, [10L * 1024 * 1024 * 1024, 10L * 1024 * 1024 * 1024], (delay, _) => { delays.Add(delay); return Task.CompletedTask; });
+        var result = await service.RunRetentionAsync();
+        Assert.Equal(2, result.Batches);
+        Assert.Equal(4, result.DecksRemoved);
+        Assert.Equal([TimeSpan.FromSeconds(2)], delays);
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_MaxDecks_StopsWithRemovalsLeft()
+    {
+        var repository = await SeedCandidatesAsync(5);
+        var result = await CreateService(repository, new DeckPruningOptions { PerCommanderCap = 1, BatchSize = 2 }, [10L * 1024 * 1024 * 1024, 10L * 1024 * 1024 * 1024]).RunRetentionAsync(3);
+        Assert.Equal(3, result.DecksRemoved);
+        Assert.Equal(DeckPruningStopReason.MaxDecksReached, result.StopReason);
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_MaxDecksExactlyExhaustsCandidates_Completes()
+    {
+        var repository = await SeedCandidatesAsync(5);
+        var result = await CreateService(repository, new DeckPruningOptions { PerCommanderCap = 1, BatchSize = 2 }, [10L * 1024 * 1024 * 1024, 10L * 1024 * 1024 * 1024]).RunRetentionAsync(4);
+        Assert.Equal(4, result.DecksRemoved);
+        Assert.Equal(2, result.Batches);
+        Assert.Equal(DeckPruningStopReason.Completed, result.StopReason);
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_MaxAgeSet_RemovesOldDeckUnderCap()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var now = new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero);
+        await SeedStoredDeckAsync(repository, "old", "A", now.AddDays(-40));
+        await SeedStoredDeckAsync(repository, "new", "A", now.AddDays(-20));
+        var result = await CreateService(repository, new DeckPruningOptions { PerCommanderCap = 100, MaxAge = TimeSpan.FromDays(30) }, [10L * 1024 * 1024 * 1024], utcNow: now).RunRetentionAsync();
+        Assert.Equal(1, result.DecksRemoved);
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_MaxAgeNull_KeepsOldDeckUnderCap()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await SeedStoredDeckAsync(repository, "old", "A", DateTimeOffset.UtcNow.AddDays(-40));
+        var result = await CreateService(repository, new DeckPruningOptions { PerCommanderCap = 100 }, [10L * 1024 * 1024 * 1024]).RunRetentionAsync();
+        Assert.Equal(0, result.DecksRemoved);
+        Assert.Equal(DeckPruningStopReason.Completed, result.StopReason);
+    }
+
+    [Theory]
+    [InlineData(0, 1, 0, 0, null)]
+    [InlineData(1, 0, 0, 0, null)]
+    [InlineData(1, 1, -1, 0, null)]
+    [InlineData(1, 1, 0, -1, null)]
+    [InlineData(1, 1, 0, 0, 0)]
+    public void Constructor_InvalidOptions_Throws(int cap, int batch, int pauseMilliseconds, long floor, int? maxAgeDays)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DeckPruningOptions(cap, batch, TimeSpan.FromMilliseconds(pauseMilliseconds), floor, maxAgeDays.HasValue ? TimeSpan.FromDays(maxAgeDays.Value) : null));
+    }
+
+    [Fact]
+    public async Task RunRetentionAsync_CancelledDuringPause_PropagatesAfterFirstBatch()
+    {
+        var repository = await SeedCandidatesAsync(5);
+        var service = CreateService(repository, new DeckPruningOptions { PerCommanderCap = 1, BatchSize = 2, Pause = TimeSpan.FromMilliseconds(1) }, [10L * 1024 * 1024 * 1024], static (_, _) => throw new OperationCanceledException());
+        await Assert.ThrowsAsync<OperationCanceledException>(() => service.RunRetentionAsync());
+        Assert.Equal(DeckSkipReasons.Retention, await SkipReasonAsync("candidate-0"));
+    }
+
+    private async Task<CategoryKnowledgeRepository> SeedCandidatesAsync(int count)
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        for (var i = 0; i < count; i++) await SeedStoredDeckAsync(repository, $"candidate-{i}", "A", DateTimeOffset.UtcNow.AddDays(i));
+        return repository;
+    }
+
+    private static DeckPruningService CreateService(CategoryKnowledgeRepository repository, DeckPruningOptions options, IReadOnlyList<long?> answers, Func<TimeSpan, CancellationToken, Task>? delay = null, DateTimeOffset? utcNow = null)
+    {
+        var next = 0;
+        return new DeckPruningService(repository, options, _ => Task.FromResult(answers[Math.Min(next++, answers.Count - 1)]), delay ?? ((_, _) => Task.CompletedTask), () => utcNow ?? DateTimeOffset.UtcNow);
     }
 
     public void Dispose()
