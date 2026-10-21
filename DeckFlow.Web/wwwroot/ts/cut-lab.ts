@@ -667,38 +667,35 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
-  const attachAnchorNavHandler = (): void => {
-    const anchorNav = document.querySelector<HTMLElement>('.cutlab-anchor-nav');
-    if (!anchorNav) {
+  const handleAnchorJump = (link: HTMLAnchorElement, event: Event): void => {
+    const hash = link.getAttribute('href');
+    if (!hash || hash === '#') {
       return;
     }
 
-    anchorNav.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach(link => {
-      link.addEventListener('click', event => {
-        const hash = link.getAttribute('href');
-        if (!hash || hash === '#') {
-          return;
-        }
+    const target = document.getElementById(hash.slice(1));
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
 
-        const target = document.getElementById(hash.slice(1));
-        if (!(target instanceof HTMLElement)) {
-          return;
-        }
+    event.preventDefault();
+    const targetPanel = target.closest<HTMLElement>('[role="tabpanel"]');
+    const targetTabId = targetPanel?.getAttribute('aria-labelledby');
+    const targetTab = targetTabId ? document.getElementById(targetTabId) : null;
+    if (targetTab instanceof HTMLButtonElement) {
+      activateStepTab(targetTab, false);
+    }
+    expandJumpTarget(target);
+    scrollJumpTargetIntoView(target);
+    focusJumpTarget(target);
+    if (window.location.hash !== hash) {
+      history.pushState(null, '', hash);
+    }
+  };
 
-        event.preventDefault();
-        const targetPanel = target.closest<HTMLElement>('[role="tabpanel"]');
-        const targetTabId = targetPanel?.getAttribute('aria-labelledby');
-        const targetTab = targetTabId ? document.getElementById(targetTabId) : null;
-        if (targetTab instanceof HTMLButtonElement) {
-          activateStepTab(targetTab, false);
-        }
-        expandJumpTarget(target);
-        scrollJumpTargetIntoView(target);
-        focusJumpTarget(target);
-        if (window.location.hash !== hash) {
-          history.pushState(null, '', hash);
-        }
-      });
+  const attachAnchorNavHandler = (): void => {
+    document.querySelectorAll<HTMLAnchorElement>('.cutlab-anchor-nav a[href^="#"], [data-cut-lab-jump-link][href^="#"]').forEach(link => {
+      link.addEventListener('click', event => handleAnchorJump(link, event));
     });
   };
 
@@ -4500,6 +4497,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const roleChips = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-chips]');
     const roleCaption = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-caption]');
     const roleMore = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-more]');
+    const roleHint = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-hint]');
     const packages = getPackageContainers();
     const roleButtons = getRoleLockButtons();
     const lockedRows = getPoolRows().filter(row => getLockCheckbox(row)?.checked);
@@ -4544,6 +4542,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     if (roleCaption) {
       roleCaption.hidden = unprotectedRoles.length === 0;
+    }
+
+    if (roleHint) {
+      roleHint.hidden = unprotectedRoles.length === 0;
     }
 
     if (roleMore) {

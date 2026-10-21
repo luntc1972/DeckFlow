@@ -33,6 +33,7 @@ const buildFixture = (allProtected: boolean): void => {
       <span data-cut-lab-constraints-role-caption>Not yet protected:</span>
       <div data-cut-lab-constraints-role-chips></div>
       <p data-cut-lab-constraints-role-more hidden></p>
+      <p data-cut-lab-constraints-role-hint hidden>Protect a role with its "Lock all" button in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
       <table><tbody>${rows}</tbody></table>
       ${buttons}
     </form>`;
@@ -49,6 +50,8 @@ describe('Cut Lab constraints summary', () => {
     expect(document.querySelectorAll('[data-cut-lab-constraints-role-chips] .kb-chip')).toHaveLength(3);
     expect(document.querySelector('[data-cut-lab-constraints-role-more]')?.textContent).toBe('+2 more');
     expect(document.querySelector('[data-cut-lab-constraints-role-more]')?.hidden).toBe(false);
+    expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.hidden).toBe(false);
+    expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.textContent).toBe('Protect a role with its "Lock all" button in How your pool competes.');
   });
 
   it('hides the unprotected role details when all roles are protected', () => {
@@ -58,5 +61,6 @@ describe('Cut Lab constraints summary', () => {
     expect(document.querySelector('[data-cut-lab-constraints-role-count]')?.textContent).toBe('5/5');
     expect(document.querySelector('[data-cut-lab-constraints-role-caption]')?.hidden).toBe(true);
     expect(document.querySelector('[data-cut-lab-constraints-role-more]')?.hidden).toBe(true);
+    expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.hidden).toBe(true);
   });
 });
