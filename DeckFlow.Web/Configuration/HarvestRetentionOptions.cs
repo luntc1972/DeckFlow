@@ -42,7 +42,7 @@ public sealed class HarvestRetentionOptions
     [Range(0, int.MaxValue)]
     public int PostHarvestMaxDecks { get; set; } = DeckPruningOptions.DefaultPostHarvestMaxDecks;
 
-    /// <summary>Gets or sets the maximum decks processed by one operator maintenance chunk.</summary>
+    /// <summary>Gets or sets the number of decks per sweep during an operator maintenance run.</summary>
     [Range(1, int.MaxValue)]
     public int MaintenanceChunkDecks { get; set; } = DefaultMaintenanceChunkDecks;
 

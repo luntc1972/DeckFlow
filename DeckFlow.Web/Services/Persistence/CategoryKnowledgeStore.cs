@@ -93,22 +93,25 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
-    public Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
-        => operation switch
-        {
-            HarvestMaintenanceOperation.Drain => HarvestMaintenanceChunkLoop.RunAsync(
-                _sweepGate,
-                _retentionOptions.MaintenanceChunkDecks,
-                token => RunRetentionChunkAsync(token),
-                progress,
-                cancellationToken),
-            _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
-        };
-
-    private async Task<DeckPruningResult> RunRetentionChunkAsync(CancellationToken cancellationToken)
+    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
-        return await _deckPruningService.RunRetentionAsync(_retentionOptions.MaintenanceChunkDecks, cancellationToken).ConfigureAwait(false);
+        if (operation != HarvestMaintenanceOperation.Drain)
+        {
+            throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
+        }
+
+        ILogger logger = _logger is null ? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance : _logger;
+        var outcome = await HarvestMaintenanceChunkLoop.RunAsync(
+            operation,
+            _sweepGate,
+            _retentionOptions.MaintenanceChunkDecks,
+            (deckCount, token) => _deckPruningService.RunRetentionAsync(deckCount, token),
+            progress,
+            logger,
+            cancellationToken).ConfigureAwait(false);
+        _logger?.LogInformation("Harvest.Maintenance.Completed operation={Operation} decksAffected={DecksAffected} batches={Batches} stopReason={StopReason}", outcome.Operation, outcome.DecksAffected, outcome.Batches, outcome.StopReason);
+        return outcome;
     }
 
     private static string ResolveArtifactsPath(IWebHostEnvironment environment)

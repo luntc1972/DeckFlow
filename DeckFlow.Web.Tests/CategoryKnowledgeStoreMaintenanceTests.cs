@@ -24,9 +24,20 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         await SeedTracerAsync(store);
         var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain, new Progress<int>());
 
+        Assert.Equal(HarvestMaintenanceOperation.Drain, outcome.Operation);
         Assert.Equal(5, outcome.DecksAffected);
         Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
         Assert.True(outcome.Batches >= 2);
+    }
+
+    [Theory]
+    [InlineData(HarvestMaintenanceOperation.Purge)]
+    [InlineData(HarvestMaintenanceOperation.Refetch)]
+    public async Task RunMaintenanceAsync_NotYetImplementedOperation_ThrowsArgumentOutOfRangeException(HarvestMaintenanceOperation operation)
+    {
+        var store = CreateStore();
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.RunMaintenanceAsync(operation));
     }
 
     [Fact]

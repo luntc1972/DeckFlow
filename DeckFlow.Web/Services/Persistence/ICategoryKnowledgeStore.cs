@@ -14,7 +14,8 @@ public interface ICategoryKnowledgeStore
 {
     /// <summary>Runs an operator-requested harvest maintenance operation.</summary>
     Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
-        => throw new NotSupportedException();
+        // Why: a double that cannot run maintenance must not report a completed run.
+        => Task.FromException<HarvestMaintenanceOutcome>(new NotSupportedException());
 
     /// <summary>
     /// Returns stored category observations for a card, optionally narrowed to one board.
