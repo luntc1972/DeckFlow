@@ -11,9 +11,12 @@ using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Storage;
+using DeckFlow.Web.Configuration;
+using DeckFlow.Web.Services.Harvest;
+using DeckFlow.Web.Services.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using DeckFlow.Web.Services.Harvest;
+using Microsoft.Extensions.Options;
 
 namespace DeckFlow.Web.Services;
 
@@ -34,6 +37,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private readonly ArchidektRecentDecksImporter _recentDeckImporter;
     private readonly IMemoryCache _memoryCache;
     private readonly ILogger<CategoryKnowledgeStore>? _logger;
+    private readonly HarvestRetentionOptions _retentionOptions;
+    private readonly DeckPruningService _deckPruningService;
     private volatile bool _schemaReady;
 
     /// <summary>
@@ -42,7 +47,9 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <param name="environment">Web host environment for locating artifacts.</param>
     /// <param name="memoryCache">Application cache for expensive harvested-commander grid queries.</param>
     /// <param name="logger">Optional logger forwarded to the category repository and retained for store diagnostics.</param>
-    public CategoryKnowledgeStore(IWebHostEnvironment environment, IMemoryCache memoryCache, ILogger<CategoryKnowledgeStore>? logger = null)
+    /// <param name="retentionOptions">Configured post-harvest retention settings.</param>
+    /// <param name="renderDiskProbe">Optional Render disk probe used for PostgreSQL retention.</param>
+    public CategoryKnowledgeStore(IWebHostEnvironment environment, IMemoryCache memoryCache, ILogger<CategoryKnowledgeStore>? logger = null, IOptions<HarvestRetentionOptions>? retentionOptions = null, RenderDiskHeadroomProbe? renderDiskProbe = null)
     {
         ArgumentNullException.ThrowIfNull(memoryCache);
 
@@ -56,6 +63,33 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         _recentDeckImporter = new ArchidektRecentDecksImporter();
         _memoryCache = memoryCache;
         _logger = logger;
+        _retentionOptions = retentionOptions?.Value ?? new HarvestRetentionOptions();
+        _deckPruningService = new DeckPruningService(_repository, _retentionOptions.ToPruningOptions(), SelectFreeDiskProbe(_connectionInfo, renderDiskProbe, logger));
+    }
+
+    internal static Func<CancellationToken, Task<long?>> SelectFreeDiskProbe(RelationalDatabaseConnection connectionInfo, RenderDiskHeadroomProbe? renderDiskProbe, ILogger? logger)
+        => connectionInfo.IsPostgres && renderDiskProbe is not null
+            ? renderDiskProbe.GetFreeBytesAsync
+            : new DeckPruningDiskProbe(connectionInfo, logger).GetFreeBytesAsync;
+
+    /// <inheritdoc/>
+    public async Task<DeckPruningResult?> RunPostHarvestRetentionAsync(CancellationToken cancellationToken = default)
+    {
+        if (_retentionOptions.PostHarvestMaxDecks == 0)
+        {
+            return null;
+        }
+
+        await _sweepGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+            return await _deckPruningService.RunRetentionAsync(_retentionOptions.PostHarvestMaxDecks, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _sweepGate.Release();
+        }
     }
 
     private static string ResolveArtifactsPath(IWebHostEnvironment environment)

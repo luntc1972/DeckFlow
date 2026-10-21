@@ -112,6 +112,9 @@ public interface ICategoryKnowledgeStore
     /// <param name="cancellationToken">Token used to cancel the query.</param>
     Task<IReadOnlyDictionary<string, int>> GetSkipReasonCountsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyDictionary<string, int>>(new ReadOnlyDictionary<string, int>(new Dictionary<string, int>()));
+    /// <summary>Runs configured retention after a completed harvest.</summary>
+    Task<DeckPruningResult?> RunPostHarvestRetentionAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<DeckPruningResult?>(null);
     /// <summary>
     /// Returns the total number of stored card-category observations.
     /// </summary>
