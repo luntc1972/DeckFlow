@@ -3,6 +3,9 @@ namespace DeckFlow.Core.Knowledge;
 /// <summary>Configures per-commander stored-deck retention.</summary>
 public sealed record DeckPruningOptions
 {
+    /// <summary>Default maximum decks removed by one post-harvest retention run (OQ6, D3); the single home of this number.</summary>
+    public const int DefaultPostHarvestMaxDecks = 500;
+
     /// <summary>Gets the maximum number of retained decks for each commander.</summary>
     public int PerCommanderCap { get; init; } = 100;
 
