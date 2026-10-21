@@ -218,7 +218,10 @@
 
     <div class="toolbar">
         <button type="submit" class="run-button">Import pool</button>
-        <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
+        @if (!Model.HasResult)
+        {
+            <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
+        }
     </div>
 </form>
 }
@@ -282,7 +285,10 @@
     <section class="deck-history-results" data-scroll-on-load>
         <script type="application/json" id="cutlab-card-text-data">@Html.Raw(JsonSerializer.Serialize(cardTextData))</script>
         @await Html.PartialAsync("_WorkflowStepTabs", exportTabs)
-        <button type="button" class="run-button" data-cut-lab-session-download>Download session</button>
+        <div class="toolbar">
+            <button type="button" class="run-button" data-cut-lab-session-download>Download session</button>
+            <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
+        </div>
 
         @if (Model.Warnings.Count > 0)
         {
