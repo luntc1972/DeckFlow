@@ -86,6 +86,20 @@ const renderPortableSessionDom = (): void => {
   `;
 };
 
+const renderStartPagePortableSessionDom = (): void => {
+  renderPortableSessionDom();
+  document.querySelector('[data-cut-lab-session-file]')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <section class="result-panel">
+      <h2>No pool imported yet</h2>
+      <div class="cutlab-scenarios__portable-actions">
+        <label class="copy-button cutlab-scenarios__file-label" for="cut-lab-session-file-start">Load session file</label>
+        <input id="cut-lab-session-file-start" class="cutlab-scenarios__file-input" type="file" accept=".json,application/json" data-cut-lab-session-file />
+      </div>
+      <p role="status" data-cut-lab-scenario-status></p>
+    </section>`);
+};
+
 const readBlobAsText = async (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -203,6 +217,32 @@ describe('cut-lab portable session controls', () => {
     await vi.waitFor(() => {
       expect(document.querySelector<HTMLElement>('[data-cut-lab-scenario-status]')?.textContent).toBe("That file isn't a Cut Lab session.");
     });
+    expect(requestSubmitSpy).not.toHaveBeenCalled();
+  });
+
+  it('loads a valid session file from the empty start page', async () => {
+    renderStartPagePortableSessionDom();
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    const form = document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
+    const requestSubmitSpy = vi.fn();
+    Object.defineProperty(form!, 'requestSubmit', { configurable: true, value: requestSubmitSpy });
+    const fileInput = document.querySelector<HTMLInputElement>('[data-cut-lab-session-file]');
+    const file = new File(['{"pool":[]}'], 'session.json', { type: 'application/json' });
+    Object.defineProperty(fileInput!, 'files', { configurable: true, value: [file] });
+    fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    await vi.waitFor(() => expect(requestSubmitSpy).toHaveBeenCalledOnce());
+  });
+
+  it('shows an error for an invalid session file on the empty start page', async () => {
+    renderStartPagePortableSessionDom();
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    const form = document.querySelector<HTMLFormElement>('form[data-cache-key="cut-lab"]');
+    const requestSubmitSpy = vi.fn();
+    Object.defineProperty(form!, 'requestSubmit', { configurable: true, value: requestSubmitSpy });
+    const fileInput = document.querySelector<HTMLInputElement>('[data-cut-lab-session-file]');
+    Object.defineProperty(fileInput!, 'files', { configurable: true, value: [new File(['{}'], 'bad.json', { type: 'application/json' })] });
+    fileInput?.dispatchEvent(new Event('change', { bubbles: true }));
+    await vi.waitFor(() => expect(document.querySelector('[data-cut-lab-scenario-status]')?.textContent).toContain("That file isn't a Cut Lab session."));
     expect(requestSubmitSpy).not.toHaveBeenCalled();
   });
 });

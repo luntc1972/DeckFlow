@@ -282,6 +282,7 @@
     <section class="deck-history-results" data-scroll-on-load>
         <script type="application/json" id="cutlab-card-text-data">@Html.Raw(JsonSerializer.Serialize(cardTextData))</script>
         @await Html.PartialAsync("_WorkflowStepTabs", exportTabs)
+        <button type="button" class="run-button" data-cut-lab-session-download>Download session</button>
 
         @if (Model.Warnings.Count > 0)
         {
@@ -1659,6 +1660,18 @@ else if (string.IsNullOrWhiteSpace(Model.ErrorMessage))
     <section class="result-panel">
         <h2>No pool imported yet</h2>
         <p>Paste a Moxfield or Archidekt URL, or paste your decklist text, then choose Import pool. Cut Lab is for an oversized pool — 101 to 150 cards plus your commander.</p>
+        <div class="cutlab-scenarios__portable-row">
+            <h3>Resume a saved session</h3>
+            <div class="cutlab-scenarios__portable-actions">
+                <label class="copy-button cutlab-scenarios__file-label" for="cut-lab-session-file-start">Load session file</label>
+                <input id="cut-lab-session-file-start"
+                       class="cutlab-scenarios__file-input"
+                       type="file"
+                       accept=".json,application/json"
+                       data-cut-lab-session-file />
+            </div>
+            <p class="prompt-size-note cutlab-scenarios__status" role="status" data-cut-lab-scenario-status></p>
+        </div>
     </section>
 }
 </div>
