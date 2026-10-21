@@ -54,11 +54,14 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
         await DeleteLiveRowsAsync(database.ConnectionString, "pruned");
         await SeedStoredDeckAsync(repository, database.ConnectionString, "pending", "Delta", metadata: null, processed: false);
 
+        Assert.Equal(1L, await ScalarAsync<long>(database.ConnectionString, "SELECT COUNT(1) FROM processed_commander_summary WHERE LOWER(commander_name) = 'delta';"));
+
         var marked = await repository.MarkMetadataLessDecksForRefreshAsync();
 
         Assert.Equal(2, marked);
         Assert.Equal(["skipped", "stored"], (await repository.GetNextRefreshDeckIdsAsync(10)).Order());
-        Assert.Equal(1, await repository.GetCommanderDeckCountAsync("Delta"));
+        Assert.Equal(0L, await ScalarAsync<long>(database.ConnectionString, "SELECT COUNT(1) FROM processed_commander_summary WHERE LOWER(commander_name) = 'delta';"));
+        Assert.Equal(0, await repository.GetCommanderDeckCountAsync("Delta"));
         Assert.Equal(0L, await ScalarAsync<long>(database.ConnectionString, "SELECT COUNT(1) FROM deck_queue WHERE deck_id IN ('no-source', 'pruned', 'pending') AND refresh_requested_utc IS NOT NULL;"));
     }
 

@@ -88,6 +88,7 @@ public sealed class DeckQueueRefetchMarkTests : IDisposable
         await repository.MarkMetadataLessDecksForRefreshAsync();
 
         Assert.Equal(1, await repository.GetCommanderDeckCountAsync("Delta"));
+        Assert.Equal(1L, await GetValueAsync<long>("SELECT deck_count FROM processed_commander_summary WHERE LOWER(commander_name) = 'delta';"));
     }
 
     [Fact]
