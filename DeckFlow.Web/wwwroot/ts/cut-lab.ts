@@ -1481,7 +1481,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const syncRoleGroupLockState = (): void => {
-    const lockedCounts = new Map<string, number>();
+    const lockedCardsByRole = new Map<string, Set<string>>();
 
     getPoolRows().forEach(row => {
       const cardName = row.dataset.cutLabCard ?? '';
@@ -1500,8 +1500,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         .map(token => token.trim())
         .filter(token => token !== '')
         .forEach(roleKey => {
-          const previous = lockedCounts.get(roleKey) ?? 0;
-          lockedCounts.set(roleKey, previous + (isLocked ? parseRowQuantity(row) : 0));
+          if (isLocked) {
+            const lockedCards = lockedCardsByRole.get(roleKey) ?? new Set<string>();
+            lockedCards.add(cardName);
+            lockedCardsByRole.set(roleKey, lockedCards);
+          }
         });
     });
 
@@ -1511,7 +1514,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
-      count.textContent = `${lockedCounts.get(roleKey) ?? 0}`;
+      count.textContent = `${lockedCardsByRole.get(roleKey)?.size ?? 0}`;
     });
 
     getTypeGroupLockedCounts().forEach(count => {

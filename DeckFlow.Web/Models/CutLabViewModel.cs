@@ -487,7 +487,9 @@ public sealed record CutLabViewModel
                         .Where(card => card.IsLocked
                             && roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
                             && roles.Contains(roleKey, StringComparer.Ordinal))
-                        .Sum(card => card.Quantity),
+                        .Select(card => card.Name)
+                        .Distinct(StringComparer.Ordinal)
+                        .Count(),
                 };
             })
             .ToArray();

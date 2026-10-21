@@ -3076,7 +3076,7 @@ public sealed class CutLabPageServiceTests
         CutLabFloorRowView landsRow = Assert.Single(model.FloorRows, row => row.RoleKey == "lands");
         Assert.Equal(38, landsRow.InPoolCount);
         Assert.False(landsRow.AtFloor);
-        Assert.Equal(38, model.RoleGroups.Single(group => group.RoleKey == "lands").LockedCount);
+        Assert.Equal(1, model.RoleGroups.Single(group => group.RoleKey == "lands").LockedCount);
         Assert.DoesNotContain(
             result.Findings.Findings,
             finding => finding.Kind == CutLabFindingKind.WeakFloorCase
