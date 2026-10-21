@@ -33,6 +33,10 @@ services:
         sync: false
       - key: FEEDBACK_ADMIN_PASSWORD
         sync: false
+      - key: RENDER_API_KEY
+        sync: false
+      - key: RENDER_POSTGRES_ID
+        sync: false
     disk:
       name: deckflow-data
       mountPath: /data
