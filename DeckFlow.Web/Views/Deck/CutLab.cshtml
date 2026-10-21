@@ -358,13 +358,14 @@
                             <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-role-count>@Model.RoleGroups.Count(group => group.IsLockable && group.AllLockableMembersLocked)/@Model.RoleGroups.Count(group => group.IsLockable)</span>
                             <span class="cutlab-constraints-summary__label">roles protected</span>
                         </div>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-caption hidden="@(Model.RoleGroups.Any(group => group.IsLockable && !group.AllLockableMembersLocked) ? null : "hidden")">Not yet protected:</p>
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-role-chips>
                             @foreach (var group in Model.RoleGroups.Where(group => group.IsLockable && !group.AllLockableMembersLocked).Take(3))
                             {
                                 <span class="kb-chip">@group.DisplayLabel</span>
                             }
                         </div>
-                        <p class="cutlab-constraints-summary__note">not yet protected</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-more hidden="@(Model.RoleGroups.Count(group => group.IsLockable && !group.AllLockableMembersLocked) > 3 ? null : "hidden")">+@Math.Max(0, Model.RoleGroups.Count(group => group.IsLockable && !group.AllLockableMembersLocked) - 3) more</p>
                     </div>
                 </div>
             </details>

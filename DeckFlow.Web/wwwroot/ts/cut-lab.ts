@@ -4498,6 +4498,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const packageChips = document.querySelector<HTMLElement>('[data-cut-lab-constraints-package-chips]');
     const roleCount = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-count]');
     const roleChips = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-chips]');
+    const roleCaption = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-caption]');
+    const roleMore = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-more]');
     const packages = getPackageContainers();
     const roleButtons = getRoleLockButtons();
     const lockedRows = getPoolRows().filter(row => getLockCheckbox(row)?.checked);
@@ -4538,6 +4540,16 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     if (roleCount) {
       roleCount.textContent = `${roleButtons.length - unprotectedRoles.length}/${roleButtons.length}`;
+    }
+
+    if (roleCaption) {
+      roleCaption.hidden = unprotectedRoles.length === 0;
+    }
+
+    if (roleMore) {
+      const remainingRoleCount = Math.max(0, unprotectedRoles.length - 3);
+      roleMore.textContent = `+${remainingRoleCount} more`;
+      roleMore.hidden = remainingRoleCount === 0;
     }
 
     if (roleChips) {
