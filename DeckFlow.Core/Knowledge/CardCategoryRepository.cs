@@ -564,7 +564,7 @@ internal sealed class CardCategoryRepository
             var ids = reasons.Keys.ToArray();
             var membership = _connectionInfo.IsPostgres ? "= ANY(@ids)" : "IN @ids";
             var candidates = (await connection.QueryAsync<StoredDeckRemovalRow>(new CommandDefinition(
-                $"SELECT q.id AS Id, q.commander_name AS CommanderName, q.processed AS Processed, q.skipped AS Skipped FROM deck_queue q WHERE q.id {membership} AND {DeckQueueRepository.StoredLiveRowsSql};",
+                $"SELECT q.id AS Id, q.commander_name AS CommanderName, CAST(q.processed AS BIGINT) AS Processed, CAST(q.skipped AS BIGINT) AS Skipped FROM deck_queue q WHERE q.id {membership} AND {DeckQueueRepository.StoredLiveRowsSql};",
                 new { ids, livePrefix = ArchidektLiveSourcePrefix, livePrefixLength = ArchidektLiveSourcePrefix.Length }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false))
                 .Where(row => reasons[row.Id] == DeckSkipReasons.Retention
                     ? row.Processed == 1 && row.Skipped == 0
@@ -587,7 +587,7 @@ internal sealed class CardCategoryRepository
             {
                 var sourceIds = sourcesByDeck[candidate.Id];
                 var observations = await connection.QueryAsync<RetentionCoreObservationRow>(new CommandDefinition(
-                    $"SELECT c.normalized_card_name AS CardName, o.category AS Category, o.board AS Board, o.count AS Quantity FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE o.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
+                    $"SELECT c.normalized_card_name AS CardName, o.category AS Category, o.board AS Board, CAST(o.count AS BIGINT) AS Quantity FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE o.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
                     new { sourceIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 var totals = await connection.QueryAsync<RetentionCoreTotalRow>(new CommandDefinition(
                     $"SELECT c.normalized_card_name AS CardName, t.board AS Board FROM card_deck_totals t JOIN cards c ON c.id = t.card_id WHERE t.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
