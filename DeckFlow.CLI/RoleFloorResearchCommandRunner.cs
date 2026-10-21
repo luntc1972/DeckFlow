@@ -146,6 +146,7 @@ internal static class RoleFloorResearchCommandRunner
         "engines",
         "payoffs",
         "wincons",
+        "tutor",
     ];
 
     private static readonly int[] DiagnosticThresholds = [15, 20, 25, 30, 40, 50, 75, 100];
@@ -912,7 +913,7 @@ internal static class RoleFloorResearchCommandRunner
         // Why: CutLabRoleAssigner.RoleKeys is private static readonly, so the harness reflects the
         // authoritative shipped list instead of hand-copying it; "other" is a separate const
         // outside RoleKeys and is deliberately excluded per D-01; and this turns silent taxonomy
-        // drift from a corpus-wide zero into a startup abort for any of the nine shipped keys.
+        // drift from a corpus-wide zero into a startup abort for any of the ten shipped keys.
         CardFact[] probes =
         [
             new()
@@ -929,6 +930,14 @@ internal static class RoleFloorResearchCommandRunner
                 TypeLine = "Sorcery",
                 OracleText = "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
                 // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_Cultivate_MapsToRampOnly
+            },
+            new()
+            {
+                Name = "Wishclaw Talisman",
+                Quantity = 1,
+                TypeLine = "Artifact",
+                OracleText = "{1}, {T}, Remove a wish counter from Wishclaw Talisman: Search your library for a card, put it into your hand, then shuffle. An opponent gains control of Wishclaw Talisman. Activate only during your turn.",
+                // Source: DeckFlow.Web.Tests/CutLabRoleAssignerTests.AssignRoles_WishclawTalisman_MapsToTutorOnly
             },
             new()
             {
@@ -2009,7 +2018,7 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine(FormattableString.Invariant(
             $"The vocabulary was widened in Phase 9.1 from the four needles the classifier originally carried ({string.Join(", ", ProtectionHistoricalNarrowNeedles.Select(needle => $"`{needle}`"))}). Runs produced before that widening used only those four needles, so their reported `protection` and `interaction-targeted` counts are lower bounds, not true counts; runs produced after it use the corpus-derived table above."));
         builder.AppendLine(
-            "`interaction-targeted` is affected because CutLabRoleAssigner grants it on PlanRoleClassifier's pre-gate interaction signal, which IsProtectionCard feeds. On the nine-fixture reference sample the widening moved it from 68 to 77 cards.");
+            "`interaction-targeted` now derives only from targeted-removal oracle, counterspell oracle, and targeted-interaction category-tag signals. Historically, the nine-fixture reference sample moved from 68 to 77 cards after protection-category widening.");
         builder.AppendLine("Cards previously missed under the narrow four-needle set, now detected, with evidence grade stated rather than flattened:");
         foreach (ProtectionMissedCardDisclosure card in ProtectionKnownMissedCards)
         {

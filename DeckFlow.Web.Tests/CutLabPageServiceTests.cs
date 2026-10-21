@@ -2983,7 +2983,7 @@ public sealed class CutLabPageServiceTests
         Assert.False(model.ComboDataUnavailable);
         Assert.False(model.CategoryDataUnavailable);
         Assert.NotEmpty(model.Findings);
-        Assert.Equal(9, model.FloorRows.Count);
+        Assert.Equal(10, model.FloorRows.Count);
         Assert.Equal("Card draw · Engines", model.RoleListByCardName["Value Engine"]);
         Assert.Equal("draw engines", model.RoleKeysByCardName["Value Engine"]);
         Assert.Equal(string.Empty, model.RoleListByCardName["Unresolved Card"]);
@@ -2994,7 +2994,7 @@ public sealed class CutLabPageServiceTests
 
         CutLabFloorRowView targetedRow = Assert.Single(model.FloorRows, row => row.RoleKey == "interaction-targeted");
         Assert.Equal("Targeted removal", targetedRow.DisplayLabel);
-        Assert.Equal(2, targetedRow.InPoolCount);
+        Assert.Equal(1, targetedRow.InPoolCount);
         Assert.Equal(11, targetedRow.Floor);
         Assert.Equal(7, targetedRow.DefaultValue);
         Assert.True(targetedRow.IsUserSet);

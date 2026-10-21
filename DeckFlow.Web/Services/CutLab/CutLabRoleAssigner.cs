@@ -5,7 +5,7 @@ using DeckFlow.Web.Services.Manabase;
 namespace DeckFlow.Web.Services.CutLab;
 
 /// <summary>
-/// Assigns each pool card to zero or more of Cut Lab's nine structural role keys using only the
+/// Assigns each pool card to zero or more of Cut Lab's ten structural role keys using only the
 /// existing role and deck-stat classifiers. This taxonomy is wider than <see cref="PlanRole"/>:
 /// lands, ramp, and filler draw still matter for slot competition even though
 /// <see cref="PlanRoleClassifier"/> deliberately excludes them from plan-presence roles, and Cut
@@ -18,6 +18,7 @@ public static class CutLabRoleAssigner
     private const string LandsRole = "lands";
     private const string RampRole = "ramp";
     private const string DrawRole = "draw";
+    private const string TutorRole = "tutor";
     private const string InteractionTargetedRole = "interaction-targeted";
     private const string InteractionMassRole = "interaction-mass";
     private const string ProtectionRole = "protection";
@@ -37,6 +38,7 @@ public static class CutLabRoleAssigner
         EnginesRole,
         PayoffsRole,
         WinconsRole,
+        TutorRole,
     ];
 
     // Shared primary-type order used both for UI grouping and deterministic service-side ranking.
@@ -59,6 +61,7 @@ public static class CutLabRoleAssigner
             ["lands"] = "Lands",
             ["ramp"] = "Ramp",
             ["draw"] = "Card draw",
+            ["tutor"] = "Tutors",
             ["interaction-targeted"] = "Targeted removal",
             ["interaction-mass"] = "Mass removal",
             ["protection"] = "Protection",
@@ -121,7 +124,7 @@ public static class CutLabRoleAssigner
         string typeLine = fact.TypeLine;
         string oracle = fact.FrontOracleText;
         bool isLand = CutLabLockRules.IsLand(typeLine) || fact.HasLandFace;
-        PlanRole roles = PlanRoleClassifier.Classify(fact, categories, isComboPiece, mode, out bool interactionMeritPreGate);
+        PlanRole roles = PlanRoleClassifier.Classify(fact, categories, isComboPiece, mode, out _);
         // Use neutral card metadata for land faces so only their oracle text supplies these roles.
         // In particular, an Instant front face alone must not grant land interaction.
         PlanRole oracleRoles = isLand
@@ -148,10 +151,11 @@ public static class CutLabRoleAssigner
             assigned.Add(DrawRole);
         }
 
-        // Why: interactionMeritPreGate is a SUPERSET signal -- PlanRoleClassifier sets
-        // PlanRole.Interaction from board wipes (GrantsInteraction) AND from the "wipe" category
-        // tag (IsInteractionCategory), so routing it to targeted unsubtracted would put every
-        // sweeper in the targeted bucket. Mass is computed first and subtracted.
+        if (roles.HasFlag(PlanRole.TutorCombo))
+        {
+            assigned.Add(TutorRole);
+        }
+
         // Why: targeted/mass are mutually exclusive -- IsTargetedRemovalCard already opens with
         // !IsBoardWipeCard (DeckStatClassifier.cs:185); the !isMass gate makes that structural
         // rather than emergent, and also covers the category-tag path.
@@ -159,10 +163,13 @@ public static class CutLabRoleAssigner
         // Why: Casual drops pure counterspells from oracle roles; a crowd interaction tag
         // restores a land face only when its own oracle text actually counters a spell.
         if (!isMass
-            && (DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle) || (isLand
-                ? oracleRoles.HasFlag(PlanRole.Interaction) || DeckStatClassifier.IsPseudoRemovalCard("Land", oracle)
-                    || (interactionMeritPreGate && PlanRoleClassifier.CountersASpell(oracle))
-                : interactionMeritPreGate)))
+            && (DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle)
+                || (!isLand && HasTargetedInteractionCategoryTag(categories))
+                || (!isLand && PlanRoleClassifier.CountersASpell(oracle))
+                || (isLand && PlanRoleClassifier.CountersASpell(oracle)
+                    && PlanRoleClassifier.FromCategories(categories, mode).HasFlag(PlanRole.Interaction))
+                || (isLand && (oracleRoles.HasFlag(PlanRole.Interaction)
+                    || DeckStatClassifier.IsPseudoRemovalCard("Land", oracle)))))
         {
             assigned.Add(InteractionTargetedRole);
         }
@@ -214,6 +221,22 @@ public static class CutLabRoleAssigner
         foreach (string category in categories)
         {
             if (category.ToLowerInvariant().Contains("wipe", StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasTargetedInteractionCategoryTag(IReadOnlyList<string> categories)
+    {
+        foreach (string category in categories)
+        {
+            if (category.Contains("removal", StringComparison.OrdinalIgnoreCase)
+                || category.Contains("interaction", StringComparison.OrdinalIgnoreCase)
+                || category.Contains("answer", StringComparison.OrdinalIgnoreCase)
+                || category.Contains("counterspell", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
