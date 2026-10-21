@@ -165,9 +165,10 @@ public sealed class DeckRetentionPostgresTests : IClassFixture<PostgresContainer
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
-        foreach (var table in new[] { "card_category_summary", "card_category_qualified" })
+        // Why: card_category_qualified only holds groups at or above the observation-row threshold.
+        foreach (var (table, having) in new[] { ("card_category_summary", string.Empty), ("card_category_qualified", $" HAVING COUNT(1) >= {CategoryCacheSchema.DefaultMinObservationRows}") })
         {
-            var sql = $"SELECT COUNT(1) FROM ((SELECT card_id, category, COUNT(1) FROM card_category_observations GROUP BY card_id, category EXCEPT SELECT card_id, category, observation_rows FROM {table}) UNION ALL (SELECT card_id, category, observation_rows FROM {table} EXCEPT SELECT card_id, category, COUNT(1) FROM card_category_observations GROUP BY card_id, category)) x;";
+            var sql = $"SELECT COUNT(1) FROM ((SELECT card_id, category, COUNT(1) FROM card_category_observations GROUP BY card_id, category{having} EXCEPT SELECT card_id, category, observation_rows FROM {table}) UNION ALL (SELECT card_id, category, observation_rows FROM {table} EXCEPT SELECT card_id, category, COUNT(1) FROM card_category_observations GROUP BY card_id, category{having})) x;";
             await using var command = new NpgsqlCommand(sql, connection);
             Assert.Equal(0L, Convert.ToInt64(await command.ExecuteScalarAsync()));
         }
@@ -179,7 +180,7 @@ public sealed class DeckRetentionPostgresTests : IClassFixture<PostgresContainer
         await connection.OpenAsync();
         foreach (var deckId in deckIds)
         {
-            const string sql = "SELECT (SELECT COUNT(1) FROM card_category_observations o JOIN sources s ON s.id = o.source_id WHERE s.source_id = @sourceId), (SELECT COUNT(1) FROM card_deck_totals t JOIN sources s ON s.id = t.source_id WHERE s.source_id = @sourceId), (SELECT COUNT(1) FROM sources WHERE source_id = @sourceId);";
+            const string sql = "SELECT (SELECT COUNT(1) FROM card_category_observations o JOIN sources s ON s.id = o.source_id WHERE s.source = @sourceId), (SELECT COUNT(1) FROM card_deck_totals t JOIN sources s ON s.id = t.source_id WHERE s.source = @sourceId), (SELECT COUNT(1) FROM sources WHERE source = @sourceId);";
             await using var command = new NpgsqlCommand(sql, connection);
             command.Parameters.AddWithValue("sourceId", "archidekt_live:" + deckId);
             await using var reader = await command.ExecuteReaderAsync();
@@ -210,7 +211,7 @@ public sealed class DeckRetentionPostgresTests : IClassFixture<PostgresContainer
             command.Parameters.AddWithValue("id", deckId);
             await using var reader = await command.ExecuteReaderAsync();
             Assert.True(await reader.ReadAsync());
-            Assert.Equal(skipped, reader.GetBoolean(0));
+            Assert.Equal(skipped ? 1 : 0, reader.GetInt32(0));
             Assert.Equal(reason, reader.IsDBNull(1) ? null : reader.GetString(1));
         }
     }
