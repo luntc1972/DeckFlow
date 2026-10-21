@@ -663,7 +663,7 @@
                 @foreach (var group in Model.TypeGroups)
                 {
                     <details class="cutlab-role-group" data-cutlab-group-kind="type">
-                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span data-cut-lab-type-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                         <div class="cutlab-role-group__body">
                             <div class="kb-chip-area__chips">
                                 @foreach (var member in group.Members)

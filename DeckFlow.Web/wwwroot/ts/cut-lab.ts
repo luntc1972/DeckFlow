@@ -1092,8 +1092,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getRoleLockButtons = (): HTMLButtonElement[] =>
     Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
 
-  const getRoleGroupLockedCount = (roleKey: string): HTMLElement | null =>
-    document.querySelector<HTMLElement>(`[data-cut-lab-group-locked="${cssEscape(roleKey)}"]`);
+  const getTypeGroupLockedCounts = (): HTMLElement[] =>
+    Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-type-locked]'));
 
   const getRoleGroupChips = (cardName: string): HTMLElement[] =>
     Array.from(document.querySelectorAll<HTMLElement>(`[data-cut-lab-chip-card="${cssEscape(cardName)}"]`));
@@ -1508,16 +1508,30 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         });
     });
 
-    getRoleLockButtons().forEach(button => {
-      const roleKey = button.dataset.cutLabLockRole ?? '';
+    document.querySelectorAll<HTMLElement>('[data-cut-lab-group-locked]').forEach(count => {
+      const roleKey = count.dataset.cutLabGroupLocked ?? '';
       if (roleKey === '') {
         return;
       }
 
-      const count = getRoleGroupLockedCount(roleKey);
-      if (count) {
-        count.textContent = `${lockedCounts.get(roleKey) ?? 0}`;
+      count.textContent = `${lockedCounts.get(roleKey) ?? 0}`;
+    });
+
+    getTypeGroupLockedCounts().forEach(count => {
+      const group = count.closest('details.cutlab-role-group');
+      if (!group) {
+        return;
       }
+
+      const cardNames = new Set(
+        Array.from(group.querySelectorAll<HTMLElement>('[data-cut-lab-chip-card]'))
+          .map(chip => chip.dataset.cutLabChipCard ?? '')
+          .filter(cardName => cardName !== ''),
+      );
+      const lockedQuantity = getPoolRows()
+        .filter(row => cardNames.has(row.dataset.cutLabCard ?? '') && getLockCheckbox(row)?.checked)
+        .reduce((total, row) => total + parseRowQuantity(row), 0);
+      count.textContent = `${lockedQuantity}`;
     });
   };
 
