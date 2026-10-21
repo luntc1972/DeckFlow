@@ -31,6 +31,16 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Exception? RunCacheSweepException { get; set; }
 
+    public int RunPostHarvestRetentionCalls { get; private set; }
+
+    public Exception? RunPostHarvestRetentionException { get; set; }
+
+    public DeckPruningResult? RunPostHarvestRetentionResult { get; set; }
+
+    public TaskCompletionSource? RunPostHarvestRetentionGate { get; set; }
+
+    public CancellationToken RunPostHarvestRetentionToken { get; private set; }
+
     /// <summary>Number of update sweeps requested.</summary>
     public int RunUpdateSweepCalls { get; private set; }
 
@@ -125,6 +135,24 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         }
 
         return Task.FromResult(RunCacheSweepResult);
+    }
+
+    public async Task<DeckPruningResult?> RunPostHarvestRetentionAsync(CancellationToken cancellationToken = default)
+    {
+        RunPostHarvestRetentionCalls++;
+        RunPostHarvestRetentionToken = cancellationToken;
+
+        if (RunPostHarvestRetentionGate is not null)
+        {
+            await RunPostHarvestRetentionGate.Task.ConfigureAwait(false);
+        }
+
+        if (RunPostHarvestRetentionException is not null)
+        {
+            throw RunPostHarvestRetentionException;
+        }
+
+        return RunPostHarvestRetentionResult;
     }
 
     public async Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)

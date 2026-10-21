@@ -651,6 +651,150 @@ public sealed class ArchidektCacheJobServiceTests : IDisposable
         finally { await service.StopAsync(CancellationToken.None); }
     }
 
+    [Fact]
+    public async Task BulkRun_Succeeded_RunsPostHarvestRetentionOnce()
+    {
+        var store = new FakeCategoryKnowledgeStore();
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
+            await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            await WaitForAsync(() => store.RunPostHarvestRetentionCalls == 1);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task UpdateRun_Succeeded_RunsPostHarvestRetentionOnce()
+    {
+        var store = new FakeCategoryKnowledgeStore();
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, TimeSpan.Zero, HarvestTriggerSource.Manual);
+            await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            await WaitForAsync(() => store.RunPostHarvestRetentionCalls == 1);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task BulkRun_SweepFails_SkipsPostHarvestRetention()
+    {
+        var store = new FakeCategoryKnowledgeStore { RunCacheSweepException = new InvalidOperationException("cache sweep failed") };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
+            await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            Assert.Equal(0, store.RunPostHarvestRetentionCalls);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task BulkRun_RetentionThrows_RunStaysSucceededAndWorkerContinues()
+    {
+        var store = new FakeCategoryKnowledgeStore { RunPostHarvestRetentionException = new InvalidOperationException("retention failed") };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var first = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
+            var second = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
+            var firstRow = await WaitForTerminalJobAsync(service, runStore, first.Job.JobId);
+            var secondRow = await WaitForTerminalJobAsync(service, runStore, second.Job.JobId);
+            Assert.Equal(ArchidektCacheJobState.Succeeded, firstRow.State);
+            Assert.Equal(ArchidektCacheJobState.Succeeded, secondRow.State);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task BulkRun_RetentionCancelled_RunStaysSucceeded()
+    {
+        var store = new FakeCategoryKnowledgeStore { RunPostHarvestRetentionException = new OperationCanceledException() };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
+            var row = await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            Assert.Equal(ArchidektCacheJobState.Succeeded, row.State);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task UpdateRun_OperatorCancel_SkipsPostHarvestRetention()
+    {
+        var store = new FakeCategoryKnowledgeStore { RunUpdateSweepBlocksUntilCancelled = true };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Update, TimeSpan.Zero, HarvestTriggerSource.Manual);
+            await WaitForAsync(() => store.RunUpdateSweepCalls == 1);
+            await service.CancelActiveAsync();
+            await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            Assert.Equal(0, store.RunPostHarvestRetentionCalls);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task BulkRun_RateLimitedTrip_SkipsPostHarvestRetention()
+    {
+        var store = new FakeCategoryKnowledgeStore { RunCacheSweepException = new ArchidektRateLimitedException("limited", TimeSpan.FromSeconds(1)) };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var result = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
+            await WaitForTerminalJobAsync(service, runStore, result.Job.JobId);
+            Assert.Equal(0, store.RunPostHarvestRetentionCalls);
+        }
+        finally { await service.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task QueuedJobCancelledDuringPostHarvestRetention_IsCancelledNotRun()
+    {
+        var gate = new TaskCompletionSource();
+        var store = new FakeCategoryKnowledgeStore { RunPostHarvestRetentionGate = gate };
+        var runStore = await CreateSqliteRunStoreAsync();
+        var service = CreateService(store, runStore);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var first = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
+            await WaitForAsync(() => store.RunPostHarvestRetentionCalls == 1);
+            var second = await service.EnqueueAsync(HarvestRunKind.Bulk, TimeSpan.FromSeconds(1), HarvestTriggerSource.Manual);
+            await runStore.UpdateStateAsync(second.Job.JobId, HarvestRunState.Stopping, null, null, null, null, null);
+            Assert.False(await service.CancelActiveAsync());
+            Assert.False(store.RunPostHarvestRetentionToken.IsCancellationRequested);
+            gate.SetResult();
+            var secondRow = await WaitForTerminalJobAsync(service, runStore, second.Job.JobId);
+            var firstRow = await WaitForTerminalJobAsync(service, runStore, first.Job.JobId);
+            Assert.Equal(ArchidektCacheJobState.Cancelled, secondRow.State);
+            Assert.Equal(ArchidektCacheJobState.Succeeded, firstRow.State);
+            Assert.Equal(1, store.RunCacheSweepCalls);
+            Assert.Equal(1, store.RunPostHarvestRetentionCalls);
+        }
+        finally { gate.TrySetResult(); await service.StopAsync(CancellationToken.None); }
+    }
+
     private static ArchidektCacheJobService CreateService(
         ICategoryKnowledgeStore? store = null,
         IHarvestRunStore? runStore = null,
