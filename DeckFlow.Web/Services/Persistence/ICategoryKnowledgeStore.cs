@@ -12,6 +12,10 @@ namespace DeckFlow.Web.Services;
 /// </summary>
 public interface ICategoryKnowledgeStore
 {
+    /// <summary>Runs an operator-requested harvest maintenance operation.</summary>
+    Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+
     /// <summary>
     /// Returns stored category observations for a card, optionally narrowed to one board.
     /// </summary>

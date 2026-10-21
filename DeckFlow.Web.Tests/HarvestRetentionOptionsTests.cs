@@ -11,6 +11,18 @@ namespace DeckFlow.Web.Tests;
 public sealed class HarvestRetentionOptionsTests
 {
     [Fact]
+    public void MaintenanceChunkDecks_DefaultBindAndRange()
+    {
+        Assert.Equal(HarvestRetentionOptions.DefaultMaintenanceChunkDecks, new HarvestRetentionOptions().MaintenanceChunkDecks);
+
+        using var validProvider = CreateProvider(new Dictionary<string, string?> { ["HarvestRetention:MaintenanceChunkDecks"] = "50" });
+        Assert.Equal(50, validProvider.GetRequiredService<IOptions<HarvestRetentionOptions>>().Value.MaintenanceChunkDecks);
+
+        using var invalidProvider = CreateProvider(new Dictionary<string, string?> { ["HarvestRetention:MaintenanceChunkDecks"] = "0" });
+        Assert.Throws<OptionsValidationException>(() => invalidProvider.GetRequiredService<IOptions<HarvestRetentionOptions>>().Value);
+    }
+
+    [Fact]
     public void Defaults_MatchOq6()
     {
         var options = new HarvestRetentionOptions();

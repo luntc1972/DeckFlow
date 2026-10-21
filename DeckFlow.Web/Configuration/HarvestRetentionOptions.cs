@@ -9,6 +9,9 @@ namespace DeckFlow.Web.Configuration;
 /// <summary>Configures automatic post-harvest retention for OQ6, D2, and D3.</summary>
 public sealed class HarvestRetentionOptions
 {
+    /// <summary>Default number of decks processed by one operator maintenance chunk.</summary>
+    public const int DefaultMaintenanceChunkDecks = 1000;
+
     private static readonly DeckPruningOptions Defaults = new();
 
     /// <summary>Configuration section name for OQ6 retention settings.</summary>
@@ -38,6 +41,10 @@ public sealed class HarvestRetentionOptions
     /// <summary>Gets or sets the OQ6 maximum removals after one harvest from <see cref="DeckPruningOptions.DefaultPostHarvestMaxDecks"/>.</summary>
     [Range(0, int.MaxValue)]
     public int PostHarvestMaxDecks { get; set; } = DeckPruningOptions.DefaultPostHarvestMaxDecks;
+
+    /// <summary>Gets or sets the maximum decks processed by one operator maintenance chunk.</summary>
+    [Range(1, int.MaxValue)]
+    public int MaintenanceChunkDecks { get; set; } = DefaultMaintenanceChunkDecks;
 
     /// <summary>Converts bound web settings to validated core pruning settings.</summary>
     public DeckPruningOptions ToPruningOptions()

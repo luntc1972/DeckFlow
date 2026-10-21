@@ -92,6 +92,25 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         }
     }
 
+    /// <inheritdoc/>
+    public Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+        => operation switch
+        {
+            HarvestMaintenanceOperation.Drain => HarvestMaintenanceChunkLoop.RunAsync(
+                _sweepGate,
+                _retentionOptions.MaintenanceChunkDecks,
+                token => RunRetentionChunkAsync(token),
+                progress,
+                cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
+        };
+
+    private async Task<DeckPruningResult> RunRetentionChunkAsync(CancellationToken cancellationToken)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        return await _deckPruningService.RunRetentionAsync(_retentionOptions.MaintenanceChunkDecks, cancellationToken).ConfigureAwait(false);
+    }
+
     private static string ResolveArtifactsPath(IWebHostEnvironment environment)
     {
         var dataDir = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
