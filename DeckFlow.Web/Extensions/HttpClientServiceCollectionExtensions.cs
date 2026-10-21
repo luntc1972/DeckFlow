@@ -1,5 +1,6 @@
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Services.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DeckFlow.Web.Extensions;
@@ -13,7 +14,7 @@ public static class HttpClientServiceCollectionExtensions
 {
     /// <summary>
     /// Registers all named HttpClients (commander-banlist, commander-spellbook, scryfall-rest,
-    /// scryfall-tagger, youtube-metadata), the <see cref="System.Net.CookieContainer"/> singleton,
+    /// scryfall-tagger, youtube-metadata, render-api), the <see cref="System.Net.CookieContainer"/> singleton,
     /// and the <see cref="ScryfallTaggerHttpClient"/> typed-client singletons.
     /// </summary>
     /// <remarks>
@@ -32,6 +33,14 @@ public static class HttpClientServiceCollectionExtensions
             c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
         });
 
+        services.AddHttpClient("render-api", c =>
+        {
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+            c.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+            c.Timeout = TimeSpan.FromSeconds(15);
+        }).RemoveAllLoggers();
+
+        RenderDiskHeadroomProbe.AddTo(services);
         services.AddHttpClient("edhrec", c =>
         {
             c.BaseAddress = new Uri("https://json.edhrec.com/pages/");
