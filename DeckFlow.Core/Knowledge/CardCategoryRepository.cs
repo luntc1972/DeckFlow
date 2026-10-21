@@ -564,7 +564,7 @@ internal sealed class CardCategoryRepository
             var ids = reasons.Keys.ToArray();
             var membership = _connectionInfo.IsPostgres ? "= ANY(@ids)" : "IN @ids";
             var candidates = (await connection.QueryAsync<StoredDeckRemovalRow>(new CommandDefinition(
-                $"SELECT q.id AS Id, q.commander_name AS CommanderName, CAST(q.processed AS BIGINT) AS Processed, CAST(q.skipped AS BIGINT) AS Skipped FROM deck_queue q WHERE q.id {membership} AND {DeckQueueRepository.StoredLiveRowsSql};",
+                $"SELECT q.id AS Id, q.commander_name AS CommanderName, {IntegerProjection("q.processed", "Processed", _connectionInfo.IsPostgres)}, {IntegerProjection("q.skipped", "Skipped", _connectionInfo.IsPostgres)} FROM deck_queue q WHERE q.id {membership} AND {DeckQueueRepository.StoredLiveRowsSql};",
                 new { ids, livePrefix = ArchidektLiveSourcePrefix, livePrefixLength = ArchidektLiveSourcePrefix.Length }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false))
                 .Where(row => reasons[row.Id] == DeckSkipReasons.Retention
                     ? row.Processed == 1 && row.Skipped == 0
@@ -579,7 +579,7 @@ internal sealed class CardCategoryRepository
 
             var candidateIds = candidates.Select(row => row.Id).ToArray();
             var sourceRows = (await connection.QueryAsync<StoredLiveSourceRow>(new CommandDefinition(
-                $"SELECT s.id AS SourceId, s.deck_queue_id AS DeckQueueId FROM sources s WHERE s.deck_queue_id {membership} AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix ORDER BY s.id" + (_connectionInfo.IsPostgres ? " FOR UPDATE;" : ";"),
+                $"SELECT s.id AS SourceId, {IntegerProjection("s.deck_queue_id", "DeckQueueId", _connectionInfo.IsPostgres)} FROM sources s WHERE s.deck_queue_id {membership} AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix ORDER BY s.id" + (_connectionInfo.IsPostgres ? " FOR UPDATE;" : ";"),
                 new { ids = candidateIds, livePrefix = ArchidektLiveSourcePrefix, livePrefixLength = ArchidektLiveSourcePrefix.Length }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
             var sourcesByDeck = sourceRows.GroupBy(row => row.DeckQueueId).ToDictionary(group => group.Key, group => group.Select(row => row.SourceId).ToArray());
             var coreHashes = new Dictionary<long, string?>();
@@ -587,7 +587,7 @@ internal sealed class CardCategoryRepository
             {
                 var sourceIds = sourcesByDeck[candidate.Id];
                 var observations = await connection.QueryAsync<RetentionCoreObservationRow>(new CommandDefinition(
-                    $"SELECT c.normalized_card_name AS CardName, o.category AS Category, o.board AS Board, CAST(o.count AS BIGINT) AS Quantity FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE o.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
+                    $"SELECT c.normalized_card_name AS CardName, o.category AS Category, o.board AS Board, {IntegerProjection("o.count", "Quantity", _connectionInfo.IsPostgres)} FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE o.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
                     new { sourceIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 var totals = await connection.QueryAsync<RetentionCoreTotalRow>(new CommandDefinition(
                     $"SELECT c.normalized_card_name AS CardName, t.board AS Board FROM card_deck_totals t JOIN cards c ON c.id = t.card_id WHERE t.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
@@ -1223,6 +1223,11 @@ internal sealed class CardCategoryRepository
         return string.Compare(categoryA, categoryB, StringComparison.OrdinalIgnoreCase) <= 0
             ? string.Concat(categoryA, "|", categoryB)
             : string.Concat(categoryB, "|", categoryA);
+    }
+
+    private static string IntegerProjection(string column, string alias, bool isPostgres)
+    {
+        return isPostgres ? $"CAST({column} AS BIGINT) AS {alias}" : $"{column} AS {alias}";
     }
 
     private sealed record StoredDeckRemovalRow(long Id, string? CommanderName, long Processed, long Skipped);
