@@ -53,4 +53,32 @@ public sealed class DeckPruningService
         }
         return new DeckPruningResult(removed, batches, maxDecks.HasValue && removed < removals.Count ? DeckPruningStopReason.MaxDecksReached : DeckPruningStopReason.Completed);
     }
+
+    /// <summary>Removes stored decks whose captured metadata is not legal for Commander.</summary>
+    public Task<DeckPruningResult> RunPurgeAsync(int? maxDecks = null, CancellationToken cancellationToken = default)
+        => RunPurgeCoreAsync(maxDecks, cancellationToken);
+
+    private async Task<DeckPruningResult> RunPurgeCoreAsync(int? maxDecks, CancellationToken cancellationToken)
+    {
+        if (maxDecks is < 1) throw new ArgumentOutOfRangeException(nameof(maxDecks));
+        var removed = 0;
+        var batches = 0;
+        while (!maxDecks.HasValue || removed < maxDecks.Value)
+        {
+            var candidates = await _repository.GetPurgeCandidatesAsync(cancellationToken).ConfigureAwait(false);
+            if (candidates.Count == 0) return new DeckPruningResult(removed, batches, DeckPruningStopReason.Completed);
+            long? freeBytes;
+            try { freeBytes = await _freeDiskBytesAsync(cancellationToken).ConfigureAwait(false); }
+            catch { return new DeckPruningResult(removed, batches, DeckPruningStopReason.DiskProbeUnavailable); }
+            if (!freeBytes.HasValue) return new DeckPruningResult(removed, batches, DeckPruningStopReason.DiskProbeUnavailable);
+            if (freeBytes.Value < _options.MinFreeDiskBytes) return new DeckPruningResult(removed, batches, DeckPruningStopReason.DiskFloor);
+            var take = Math.Min(_options.BatchSize, candidates.Count);
+            if (maxDecks.HasValue) take = Math.Min(take, maxDecks.Value - removed);
+            await _repository.RemoveStoredDecksAsync(candidates.Take(take).ToArray(), cancellationToken).ConfigureAwait(false);
+            removed += take;
+            batches++;
+            if (take < candidates.Count && (!maxDecks.HasValue || removed < maxDecks.Value)) await _delayAsync(_options.Pause, cancellationToken).ConfigureAwait(false);
+        }
+        return new DeckPruningResult(removed, batches, DeckPruningStopReason.MaxDecksReached);
+    }
 }

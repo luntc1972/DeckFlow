@@ -27,6 +27,7 @@ internal sealed class DeckQueueRepository
     // Why: `_` in the live-source prefix is a LIKE wildcard; SUBSTR compares it literally on both providers.
     internal const string StoredLiveRowsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
     private const string RetentionCandidateSql = "q.processed = 1 AND q.skipped = 0 AND q.commander_name IS NOT NULL AND " + StoredLiveRowsSql;
+    private const string PurgeCandidateSql = "NOT (q.processed = 0 AND q.skipped = 0) AND q.archidekt_metadata_captured_utc IS NOT NULL AND (q.archidekt_deck_format IS NULL OR q.archidekt_deck_format <> 3 OR q.commander_name IS NULL) AND " + StoredLiveRowsSql;
     // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
@@ -116,6 +117,29 @@ internal sealed class DeckQueueRepository
             new { commanderName, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return rows.Select(row => new RetentionCandidate(row.DeckQueueId, row.DeckId, row.CommanderName, RetentionRanking.RankUtcFor(row.UpdatedUtc, row.InsertedUtc))).ToArray();
+    }
+
+    internal async Task<IReadOnlyList<(long DeckQueueId, string SkipReason)>> GetPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<PurgeCandidateRow>(new CommandDefinition(
+            $"SELECT q.id AS DeckQueueId, q.archidekt_deck_format AS DeckFormat, q.commander_name AS CommanderName FROM deck_queue q WHERE {PurgeCandidateSql} ORDER BY q.id;",
+            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Select(row => (row.DeckQueueId, row.DeckFormat != 3 ? DeckSkipReasons.NotCommanderFormat : DeckSkipReasons.NoCommander)).ToArray();
+    }
+
+    internal async Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(1) FROM deck_queue q WHERE {PurgeCandidateSql};",
+            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1046,6 +1070,13 @@ internal sealed class DeckQueueRepository
         public string CommanderName { get; init; } = string.Empty;
         public string? UpdatedUtc { get; init; }
         public DateTimeOffset InsertedUtc { get; init; }
+    }
+
+    private sealed class PurgeCandidateRow
+    {
+        public long DeckQueueId { get; init; }
+        public int? DeckFormat { get; init; }
+        public string? CommanderName { get; init; }
     }
 
     /// <summary>Maps processed-deck aggregates used to refresh each commander's queue summary.</summary>

@@ -150,6 +150,12 @@ public sealed class CategoryKnowledgeRepository
     internal Task<IReadOnlyList<RetentionCandidate>> GetRetentionCandidatesAsync(string commanderName, CancellationToken cancellationToken = default)
         => _deckQueue.GetRetentionCandidatesAsync(commanderName, cancellationToken);
 
+    internal Task<IReadOnlyList<(long DeckQueueId, string SkipReason)>> GetPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.GetPurgeCandidatesAsync(cancellationToken);
+
+    internal Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.CountPurgeCandidatesAsync(cancellationToken);
+
     /// <summary>
     /// Gets normalized commander keys with more retained candidates than the supplied minimum.
     /// </summary>
