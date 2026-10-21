@@ -1,6 +1,5 @@
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
-using DeckFlow.Web.Services.Http;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DeckFlow.Web.Extensions;
@@ -40,7 +39,6 @@ public static class HttpClientServiceCollectionExtensions
             c.Timeout = TimeSpan.FromSeconds(15);
         }).RemoveAllLoggers();
 
-        RenderDiskHeadroomProbe.AddTo(services);
         services.AddHttpClient("edhrec", c =>
         {
             c.BaseAddress = new Uri("https://json.edhrec.com/pages/");

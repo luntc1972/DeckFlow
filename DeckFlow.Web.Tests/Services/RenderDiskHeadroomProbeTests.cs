@@ -229,6 +229,7 @@ public sealed class RenderDiskHeadroomProbeTests
         services.AddLogging();
         services.AddDeckFlowHttpClients();
         services.AddDeckFlowResiliencePipelines();
+        RenderDiskHeadroomProbe.AddTo(services);
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["RENDER_API_KEY"] = "test-key-not-real", ["RENDER_POSTGRES_ID"] = "test-db-1" }).Build());
         var provider = services.BuildServiceProvider();
         Assert.Same(provider.GetRequiredService<RenderDiskHeadroomProbe>(), provider.GetRequiredService<RenderDiskHeadroomProbe>());
