@@ -28,6 +28,7 @@ internal sealed class DeckQueueRepository
     internal const string StoredLiveRowsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
     private const string RetentionCandidateSql = "q.processed = 1 AND q.skipped = 0 AND q.commander_name IS NOT NULL AND " + StoredLiveRowsSql;
     private const string PurgeCandidateSql = "NOT (q.processed = 0 AND q.skipped = 0) AND q.archidekt_metadata_captured_utc IS NOT NULL AND (q.archidekt_deck_format IS NULL OR q.archidekt_deck_format <> 3 OR q.commander_name IS NULL) AND " + StoredLiveRowsSql;
+    private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND " + StoredLiveRowsSql;
     // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
@@ -138,6 +139,47 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"SELECT COUNT(1) FROM deck_queue q WHERE {PurgeCandidateSql};",
+            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    internal async Task<int> MarkMetadataLessDecksForRefreshAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        var affectedCommanderNames = await connection.QueryAsync<string?>(new CommandDefinition(
+            $"SELECT q.commander_name FROM deck_queue q WHERE {RefetchCandidateSql};",
+            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var marked = await connection.ExecuteAsync(new CommandDefinition(
+            $"""
+            UPDATE deck_queue
+            SET processed = 0,
+                skipped = 0,
+                transient_failure_count = 0,
+                skip_reason = NULL,
+                refresh_requested_utc = @refreshRequestedUtc
+            WHERE id IN (SELECT q.id FROM deck_queue q WHERE {RefetchCandidateSql});
+            """,
+            new { refreshRequestedUtc = DateTime.UtcNow, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await RefreshCommanderSummaryAsync(connection, transaction, affectedCommanderNames, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken);
+        return marked;
+    }
+
+    internal async Task<int> CountRefetchCandidatesAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(1) FROM deck_queue q WHERE {RefetchCandidateSql};",
             new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }

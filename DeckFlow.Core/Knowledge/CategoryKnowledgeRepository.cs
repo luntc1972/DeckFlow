@@ -157,6 +157,22 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.CountPurgeCandidatesAsync(cancellationToken);
 
     /// <summary>
+    /// Marks stored decks without captured metadata for refresh.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of marked decks.</returns>
+    public Task<int> MarkMetadataLessDecksForRefreshAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.MarkMetadataLessDecksForRefreshAsync(cancellationToken);
+
+    /// <summary>
+    /// Counts stored decks without captured metadata eligible for refresh.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of eligible decks.</returns>
+    public Task<int> CountRefetchCandidatesAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.CountRefetchCandidatesAsync(cancellationToken);
+
+    /// <summary>
     /// Gets normalized commander keys with more retained candidates than the supplied minimum.
     /// </summary>
     internal Task<IReadOnlyList<string>> GetRetentionCommanderKeysAsync(int minimum, CancellationToken cancellationToken = default)
