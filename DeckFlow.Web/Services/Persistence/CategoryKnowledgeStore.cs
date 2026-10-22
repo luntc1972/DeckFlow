@@ -41,6 +41,8 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private readonly DeckPruningService _deckPruningService;
     private volatile bool _schemaReady;
 
+    internal SemaphoreSlim SweepGate => _sweepGate;
+
     /// <summary>
     /// Initializes the knowledge store for the web app environment.
     /// </summary>
@@ -96,22 +98,43 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
-        if (operation != HarvestMaintenanceOperation.Drain)
+        if (operation == HarvestMaintenanceOperation.Refetch)
         {
-            throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
+            await _sweepGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var marked = await _repository.MarkMetadataLessDecksForRefreshAsync(cancellationToken).ConfigureAwait(false);
+                progress?.Report(marked);
+                return new HarvestMaintenanceOutcome(operation, marked, 0, null);
+            }
+            finally
+            {
+                _sweepGate.Release();
+            }
         }
 
+        if (operation is not HarvestMaintenanceOperation.Drain and not HarvestMaintenanceOperation.Purge) throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
         ILogger logger = _logger is null ? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance : _logger;
         var outcome = await HarvestMaintenanceChunkLoop.RunAsync(
             operation,
             _sweepGate,
             _retentionOptions.MaintenanceChunkDecks,
-            (deckCount, token) => _deckPruningService.RunRetentionAsync(deckCount, token),
+            (deckCount, token) => operation == HarvestMaintenanceOperation.Drain ? _deckPruningService.RunRetentionAsync(deckCount, token) : _deckPruningService.RunPurgeAsync(deckCount, token),
             progress,
             logger,
             cancellationToken).ConfigureAwait(false);
         _logger?.LogInformation("Harvest.Maintenance.Completed operation={Operation} decksAffected={DecksAffected} batches={Batches} stopReason={StopReason}", outcome.Operation, outcome.DecksAffected, outcome.Batches, outcome.StopReason);
         return outcome;
+    }
+
+    /// <inheritdoc/>
+    public async Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        return new HarvestMaintenancePreview(
+            await _repository.CountRetentionExcessAsync(_retentionOptions.PerCommanderCap, cancellationToken).ConfigureAwait(false),
+            await _repository.CountPurgeCandidatesAsync(cancellationToken).ConfigureAwait(false),
+            await _repository.CountRefetchCandidatesAsync(cancellationToken).ConfigureAwait(false));
     }
 
     private static string ResolveArtifactsPath(IWebHostEnvironment environment)

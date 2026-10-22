@@ -143,6 +143,19 @@ internal sealed class DeckQueueRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    internal async Task<int> CountRetentionExcessAsync(int perCommanderCap, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(perCommanderCap);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        // Why: Postgres SUM over bigint returns numeric; the cast keeps one scalar type on both providers.
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT CAST(COALESCE(SUM(deck_count - @cap), 0) AS INTEGER) FROM (SELECT COUNT(1) AS deck_count FROM deck_queue q WHERE {RetentionCandidateSql} GROUP BY LOWER(q.commander_name) HAVING COUNT(1) > @cap) AS retention_excess;",
+            new { cap = perCommanderCap, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
     internal async Task<int> MarkMetadataLessDecksForRefreshAsync(CancellationToken cancellationToken = default)
     {
         await _schema.EnsureSchemaAsync(cancellationToken);

@@ -156,6 +156,9 @@ public sealed class CategoryKnowledgeRepository
     internal Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
         => _deckQueue.CountPurgeCandidatesAsync(cancellationToken);
 
+    internal Task<int> CountRetentionExcessAsync(int perCommanderCap, CancellationToken cancellationToken = default)
+        => _deckQueue.CountRetentionExcessAsync(perCommanderCap, cancellationToken);
+
     /// <summary>
     /// Marks stored decks without captured metadata for refresh.
     /// </summary>

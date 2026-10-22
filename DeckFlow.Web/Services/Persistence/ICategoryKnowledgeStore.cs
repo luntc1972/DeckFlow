@@ -12,6 +12,9 @@ namespace DeckFlow.Web.Services;
 /// </summary>
 public interface ICategoryKnowledgeStore
 {
+    /// <summary>Gets the currently eligible maintenance work, when supported by the store.</summary>
+    Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<HarvestMaintenancePreview?>(null);
     /// <summary>Runs an operator-requested harvest maintenance operation.</summary>
     Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
         // Why: a double that cannot run maintenance must not report a completed run.

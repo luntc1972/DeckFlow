@@ -30,14 +30,75 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         Assert.True(outcome.Batches >= 2);
     }
 
-    [Theory]
-    [InlineData(HarvestMaintenanceOperation.Purge)]
-    [InlineData(HarvestMaintenanceOperation.Refetch)]
-    public async Task RunMaintenanceAsync_NotYetImplementedOperation_ThrowsArgumentOutOfRangeException(HarvestMaintenanceOperation operation)
+    [Fact]
+    public async Task RunMaintenanceAsync_Purge_RemovesIllegalDecksAcrossChunks()
     {
         var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "illegal-format-one", "Alpha", 7);
+        await SeedStoredDeckAsync(repository, "illegal-format-two", "Alpha", 7);
+        await SeedStoredDeckAsync(repository, "missing-one", null, 3);
+        await SeedStoredDeckAsync(repository, "missing-two", null, 3);
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => store.RunMaintenanceAsync(operation));
+        var progress = new List<int>();
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge, new Progress<int>(progress.Add));
+
+        Assert.Equal(4, outcome.DecksAffected);
+        Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
+        Assert.Equal([3, 4], progress);
+        Assert.Equal(0, await repository.CountPurgeCandidatesAsync());
+    }
+
+    [Fact]
+    public async Task RunMaintenanceAsync_Refetch_MarksMetadataLessDecks()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "refresh-one", "Gamma", 3, metadataLess: true);
+        await SeedStoredDeckAsync(repository, "refresh-two", "Gamma", 3, metadataLess: true);
+
+        var progress = new List<int>();
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, new Progress<int>(progress.Add));
+
+        Assert.Equal(2, outcome.DecksAffected);
+        Assert.Equal(0, outcome.Batches);
+        Assert.Null(outcome.StopReason);
+        Assert.Equal([2], progress);
+        Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
+    }
+
+    [Fact]
+    public async Task RunMaintenanceAsync_Refetch_WaitsForSweepGate()
+    {
+        var store = CreateStore();
+        Task<HarvestMaintenanceOutcome>? refetch = null;
+        await store.SweepGate.WaitAsync();
+        try
+        {
+            refetch = Task.Run(() => store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch));
+            await Task.Delay(100);
+            Assert.False(refetch.IsCompleted);
+        }
+        finally
+        {
+            store.SweepGate.Release();
+        }
+
+        await refetch!;
+    }
+
+    [Fact]
+    public async Task GetMaintenancePreviewAsync_ReturnsAllCandidateCounts()
+    {
+        var store = CreateStore();
+        await SeedTracerAsync(store);
+
+        var preview = await store.GetMaintenancePreviewAsync();
+
+        Assert.NotNull(preview);
+        Assert.Equal(5, preview.RetentionExcessDecks);
+        Assert.Equal(0, preview.PurgeCandidates);
+        Assert.Equal(0, preview.RefetchCandidates);
     }
 
     [Fact]
@@ -125,6 +186,13 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
             await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId, [new DeckEntry { Name = "Sol Ring", NormalizedName = CardNormalizer.Normalize("Sol Ring"), Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
             await repository.MarkDeckProcessedAsync(deckId, commander, skip: false, new ArchidektDeckMetadata(null, 3, false, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z").AddDays(offset + index), DateTimeOffset.UtcNow));
         }
+    }
+
+    private static async Task SeedStoredDeckAsync(CategoryKnowledgeRepository repository, string deckId, string? commander, int? deckFormat, bool metadataLess = false)
+    {
+        await repository.AddDeckIdsAsync([deckId]);
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId, [new DeckEntry { Name = "Sol Ring", NormalizedName = CardNormalizer.Normalize("Sol Ring"), Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
+        await repository.MarkDeckProcessedAsync(deckId, commander, false, metadataLess ? null : new ArchidektDeckMetadata(null, deckFormat, false, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
     }
 
     private sealed class PausingProgress(TaskCompletionSource firstReport, TaskCompletionSource resume) : IProgress<int>
