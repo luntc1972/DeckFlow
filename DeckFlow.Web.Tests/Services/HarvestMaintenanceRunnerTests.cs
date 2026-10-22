@@ -112,7 +112,8 @@ public sealed class HarvestMaintenanceRunnerTests
         {
             Assert.True(runner.TryStart(HarvestMaintenanceOperation.Drain));
             var failed = await WaitForCompletionAsync(runner);
-            Assert.True(failed.Failed); Assert.Single(logger.Entries); Assert.Equal(LogLevel.Error, logger.Entries[0].Level); Assert.Same(exception, logger.Entries[0].Exception);
+            var errorEntries = await WaitForErrorEntriesAsync(logger);
+            Assert.True(failed.Failed); Assert.Single(errorEntries); Assert.Same(exception, errorEntries[0].Exception);
             Assert.DoesNotContain("secret-detail", string.Join(' ', failed.ToString()));
             store.RunMaintenanceException = null;
             Assert.True(runner.TryStart(HarvestMaintenanceOperation.Drain));
@@ -142,10 +143,33 @@ public sealed class HarvestMaintenanceRunnerTests
 
     private sealed class ExceptionRecordingLogger : ILogger<HarvestMaintenanceRunner>
     {
-        public List<(LogLevel Level, Exception? Exception)> Entries { get; } = [];
+        private readonly object _sync = new();
+        private readonly List<(LogLevel Level, Exception? Exception)> _entries = [];
+
+        public IReadOnlyList<(LogLevel Level, Exception? Exception)> Snapshot
+        {
+            get { lock (_sync) return [.. _entries]; }
+        }
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) => Entries.Add((logLevel, exception));
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            lock (_sync) _entries.Add((logLevel, exception));
+        }
+    }
+
+    private static async Task<IReadOnlyList<(LogLevel Level, Exception? Exception)>> WaitForErrorEntriesAsync(ExceptionRecordingLogger logger)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < deadline)
+        {
+            var errorEntries = logger.Snapshot.Where(entry => entry.Level == LogLevel.Error).ToArray();
+            if (errorEntries.Length > 0) return errorEntries;
+            await Task.Delay(20);
+        }
+
+        throw new TimeoutException("Maintenance runner did not log an error within 10 seconds.");
     }
 
     private static CategoryKnowledgeStore CreateStore()
