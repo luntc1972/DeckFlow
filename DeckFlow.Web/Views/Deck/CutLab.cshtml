@@ -650,6 +650,11 @@
                                 <p class="cutlab-role-group__help">One-shot removal aimed at a single permanent or spell. Counterspells count here only for a cEDH play experience.</p>
                             }
 
+                            @if (string.Equals(group.RoleKey, "lands", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <p class="cutlab-role-group__help">Change how many copies of each basic land you run in <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a>.</p>
+                            }
+
                             @if (string.Equals(group.RoleKey, "interaction-mass", StringComparison.Ordinal))
                             {
                                 <p class="cutlab-role-group__help">Board wipes and other sweepers that hit multiple permanents at once.</p>
@@ -962,6 +967,7 @@
                 <details class="cutlab-collapsible" data-cut-lab-lands-disclosure id="cut-lab-section-lands-now">
                     <summary class="cutlab-collapsible__summary">Lands right now</summary>
                     <p data-cut-lab-lands-text>Lands: @actualLands/@roundedTargetLands (@landPercent%) as your pool stands now (@Model.CurrentCount cards).</p>
+                    <p>Adjust basic land copies in <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a>.</p>
                 </details>
             }
 
@@ -1053,7 +1059,7 @@
             {
                 <div class="cutlab-proposal">
                     <p class="cutlab-proposal__heading">You're under 100 cards</p>
-                    <p>Add copies or a basic land in the Tune quantities section below to reach exactly 100.</p>
+                    <p>Add copies or a basic land in the <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a> section below to reach exactly 100.</p>
                 </div>
             }
             else if (Model.Proposal.IsAtTarget)

@@ -296,6 +296,30 @@ public sealed class CutLabViewRenderTests
     }
 
     [Fact]
+    public async Task ResultView_RendersTuneQuantityJumpLinksForLands()
+    {
+        var model = BuildTwinBadgeModel() with
+        {
+            RoleGroups =
+            [
+                new CutLabRoleGroupView
+                {
+                    RoleKey = "lands",
+                    DisplayLabel = "Lands",
+                    Members = [new CutLabRoleMemberView { Name = "Forest", Quantity = 10 }],
+                },
+            ],
+            CurrentActualLands = 10,
+            CurrentTargetLands = 12,
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("Change how many copies of each basic land you run in <a href=\"#cut-lab-section-tune\" data-cut-lab-jump-link>Tune quantities</a>.", html, StringComparison.Ordinal);
+        Assert.Contains("Adjust basic land copies in <a href=\"#cut-lab-section-tune\" data-cut-lab-jump-link>Tune quantities</a>.", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ResultView_RendersConstraintsSummaryFromPoolPackagesAndRoleGroups()
     {
         var model = BuildTwinBadgeModel() with
