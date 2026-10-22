@@ -693,7 +693,16 @@ public sealed class AdminHarvestControllerTests
     [Fact] public void MaintenanceStop_Idle_ShowsNothingToStop() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceStop"));
     [Fact] public void MaintenancePreview_ShowsThreeCounts() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePreview"));
     [Fact] public void MaintenancePreview_Unavailable_ShowsError() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePreview"));
-    [Fact] public void MaintenanceActions_ArePostWithAntiforgery() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePreview"));
+    [Fact]
+    public void MaintenanceActions_ArePostWithAntiforgery()
+    {
+        foreach (var action in new[] { "MaintenancePurge", "MaintenanceRefetch", "MaintenanceStop", "MaintenancePreview" })
+        {
+            var method = typeof(AdminHarvestController).GetMethod(action)!;
+            Assert.Single(method.GetCustomAttributes(typeof(HttpPostAttribute), false));
+            Assert.Single(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), false));
+        }
+    }
     [Fact] public void MaintenanceActions_CrossOrigin_Return403() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePreview"));
     [Fact] public void IndexView_Running_ShowsStopAndDisablesStarts() => Assert.NotNull(typeof(AdminHarvestViewModel).GetProperty("Maintenance"));
     [Fact] public void IndexView_Failed_ShowsSeeLogs() => Assert.NotNull(typeof(AdminHarvestViewModel).GetProperty("Maintenance"));

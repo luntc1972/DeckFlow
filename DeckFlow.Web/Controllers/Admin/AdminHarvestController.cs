@@ -178,7 +178,8 @@ public sealed class AdminHarvestController : Controller
     {
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
-        SetBanner(_maintenanceRunner.RequestStop() ? "Stop requested." : "Nothing to stop.", !_maintenanceRunner.GetStatus().IsRunning);
+        var requested = _maintenanceRunner.RequestStop();
+        SetBanner(requested ? "Stop requested." : "Nothing to stop.", !requested);
         return RedirectToAction(nameof(Index));
     }
 

@@ -205,12 +205,12 @@ else
     <h2 class="admin-card__title">Retention maintenance</h2>
     @if (Model.Maintenance.IsRunning)
     {
-        <p data-maintenance-state="running">@Model.Maintenance.Operation: @Model.Maintenance.DecksAffected decks so far</p>
+        <p data-maintenance-state="running">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks so far</p>
         <form method="post" asp-action="MaintenanceStop" class="admin-action-form" data-maintenance-operation="stop">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Stop</button></form>
     }
     else if (Model.Maintenance.CompletedUtc.HasValue)
     {
-        <p data-maintenance-state="@(Model.Maintenance.Failed ? "failed" : Model.Maintenance.StopRequested ? "stopped" : "completed")">@Model.Maintenance.Operation: @Model.Maintenance.DecksAffected decks; @(Model.Maintenance.Failed ? "see the logs" : Model.Maintenance.StopRequested ? "stopped" : $"completed ({Model.Maintenance.StopReason})") @Model.Maintenance.CompletedUtc.Value.ToString("yyyy-MM-dd HH:mm 'UTC'")</p>
+        <p data-maintenance-state="@(Model.Maintenance.Failed ? "failed" : Model.Maintenance.StopRequested ? "stopped" : "completed")">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks; @(Model.Maintenance.Failed ? "see the logs" : Model.Maintenance.StopRequested ? "stopped" : $"completed ({Model.Maintenance.StopReason})") @Model.Maintenance.CompletedUtc.Value.ToString("yyyy-MM-dd HH:mm 'UTC'")</p>
     }
     else
     {
