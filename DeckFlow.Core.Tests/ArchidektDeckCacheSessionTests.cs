@@ -164,7 +164,13 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var importer = new ThrowingTransientOnMarkedDeckImporter();
         using var cancellation = new CancellationTokenSource();
         var progress = new SynchronousProgress<int>(processed => { if (processed >= 1) cancellation.Cancel(); });
-        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(100));
+        var timeProvider = new AdvancingTimeProvider();
+        var session = new ArchidektDeckCacheSession(
+            repository,
+            importer,
+            new FakeRecentDecksImporter(),
+            idlePollDelay: TimeSpan.FromMilliseconds(100),
+            timeProvider: timeProvider);
 
         var result = await session.RunAsync(TimeSpan.FromSeconds(10), fetchBatchSize: 1, cancellationToken: cancellation.Token, progress: progress);
 
@@ -174,6 +180,8 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         Assert.False(await IsDeckSkippedAsync("transient-1"));
         Assert.Equal(1, result.DecksProcessed);
         Assert.False(result.EndedEarly);
+        // Why: cancellation ends the run before any idle delay advances the fake clock.
+        Assert.Equal(TimeSpan.Zero, result.Duration);
     }
 
     [Fact]
@@ -187,7 +195,13 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var importer = new ThrowingTransientOnMarkedDeckImporter();
         using var cancellation = new CancellationTokenSource();
         var progress = new SynchronousProgress<int>(processed => { if (processed >= 21) cancellation.Cancel(); });
-        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(100));
+        var timeProvider = new AdvancingTimeProvider();
+        var session = new ArchidektDeckCacheSession(
+            repository,
+            importer,
+            new FakeRecentDecksImporter(),
+            idlePollDelay: TimeSpan.FromMilliseconds(100),
+            timeProvider: timeProvider);
 
         // Why: 20 is CategoryKnowledgeStore.HarvestDeckCount, the production batch for both run kinds.
         var result = await session.RunAsync(TimeSpan.FromSeconds(10), fetchBatchSize: 20, cancellationToken: cancellation.Token, progress: progress);
@@ -212,6 +226,8 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         Assert.Equal(41, importer.AttemptedDeckIds.Count);
         Assert.Equal(21, result.DecksProcessed);
         Assert.False(result.EndedEarly);
+        // Why: cancellation ends the run before any idle delay advances the fake clock.
+        Assert.Equal(TimeSpan.Zero, result.Duration);
     }
 
     [Fact]
