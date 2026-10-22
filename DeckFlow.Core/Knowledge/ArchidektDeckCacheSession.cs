@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Data.Common;
 using System.Text.Json;
 using System.Net;
@@ -25,6 +24,7 @@ public sealed class ArchidektDeckCacheSession
     private readonly IArchidektRecentDecksImporter _recentImporter;
     private readonly ILogger? _logger;
     private readonly TimeSpan _idlePollDelay;
+    private readonly TimeProvider _timeProvider;
 
     /// <summary>
     /// Initializes a cache session with the repository and Archidekt import dependencies.
@@ -34,18 +34,21 @@ public sealed class ArchidektDeckCacheSession
     /// <param name="recentImporter">Importer for recent Archidekt listing pages (deck id plus listing updatedAt).</param>
     /// <param name="logger">Optional logger for retry and progress messages.</param>
     /// <param name="idlePollDelay">Optional delay used when no deck work is immediately available.</param>
+    /// <param name="timeProvider">Optional clock used for session durations and idle delays.</param>
     public ArchidektDeckCacheSession(
         CategoryKnowledgeRepository repository,
         IArchidektDeckImporter deckImporter,
         IArchidektRecentDecksImporter recentImporter,
         ILogger? logger = null,
-        TimeSpan? idlePollDelay = null)
+        TimeSpan? idlePollDelay = null,
+        TimeProvider? timeProvider = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _deckImporter = deckImporter ?? throw new ArgumentNullException(nameof(deckImporter));
         _recentImporter = recentImporter ?? throw new ArgumentNullException(nameof(recentImporter));
         _logger = logger;
         _idlePollDelay = idlePollDelay.GetValueOrDefault(IdlePollDelay);
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -65,12 +68,12 @@ public sealed class ArchidektDeckCacheSession
         discoveryBacklogThreshold = Math.Max(0, discoveryBacklogThreshold);
 
         await _repository.EnsureSchemaAsync(cancellationToken);
-        var stopwatch = Stopwatch.StartNew();
+        var startTimestamp = _timeProvider.GetTimestamp();
         var tally = new DeckDrainTally();
         var decksEnqueued = 0;
         var attemptedDeckIds = new HashSet<string>(StringComparer.Ordinal);
 
-        while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
+        while (_timeProvider.GetElapsedTime(startTimestamp) < duration && !cancellationToken.IsCancellationRequested)
         {
             try
             {
@@ -116,13 +119,12 @@ public sealed class ArchidektDeckCacheSession
             catch (ArchidektRateLimitedException exception)
             {
                 _logger?.LogWarning(exception, "Archidekt rate limiter tripped during the recent-deck listing; ending the harvest session.");
-                stopwatch.Stop();
-                return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, stopwatch.Elapsed, true, false, exception.RetryAfter);
+                return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, _timeProvider.GetElapsedTime(startTimestamp), true, false, exception.RetryAfter);
             }
             catch (Exception exception) when (exception is HttpRequestException or JsonException or DbException)
             {
                 _logger?.LogWarning(exception, "Recent Archidekt deck fetch failed during cache sweep; retrying until the harvest window ends.");
-                await DelayUntilNextRetryAsync(stopwatch, duration, cancellationToken);
+                await DelayUntilNextRetryAsync(startTimestamp, duration, cancellationToken);
                 continue;
             }
 
@@ -130,7 +132,7 @@ public sealed class ArchidektDeckCacheSession
             var deckIds = await _repository.GetNextUnprocessedDeckIdsAsync(fetchBatchSize + attemptedDeckIds.Count, cancellationToken);
             if (deckIds.Count == 0)
             {
-                await DelayUntilNextRetryAsync(stopwatch, duration, cancellationToken);
+                await DelayUntilNextRetryAsync(startTimestamp, duration, cancellationToken);
                 continue;
             }
 
@@ -138,7 +140,7 @@ public sealed class ArchidektDeckCacheSession
             if (unattemptedDeckIds.Count == 0)
             {
                 // Why: when visible pending decks were already tried, behave as a dry queue and retain listing discovery.
-                await DelayUntilNextRetryAsync(stopwatch, duration, cancellationToken);
+                await DelayUntilNextRetryAsync(startTimestamp, duration, cancellationToken);
                 continue;
             }
 
@@ -150,24 +152,21 @@ public sealed class ArchidektDeckCacheSession
                 }
                 catch (ArchidektRateLimitedException exception)
                 {
-                    stopwatch.Stop();
-                    return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, stopwatch.Elapsed, true, false, exception.RetryAfter);
+                    return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, _timeProvider.GetElapsedTime(startTimestamp), true, false, exception.RetryAfter);
                 }
                 catch (ArchidektTransientFailureException)
                 {
-                    stopwatch.Stop();
-                    return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, stopwatch.Elapsed, false, true, null);
+                    return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, _timeProvider.GetElapsedTime(startTimestamp), false, true, null);
                 }
 
-                if (stopwatch.Elapsed >= duration || cancellationToken.IsCancellationRequested)
+                if (_timeProvider.GetElapsedTime(startTimestamp) >= duration || cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
             }
         }
 
-        stopwatch.Stop();
-        return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, stopwatch.Elapsed);
+        return new ArchidektCacheRunResult(tally.Added, tally.Updated, tally.Unchanged, tally.Skipped, decksEnqueued, _timeProvider.GetElapsedTime(startTimestamp));
     }
 
     /// <summary>
@@ -184,14 +183,14 @@ public sealed class ArchidektDeckCacheSession
         fetchBatchSize = Math.Max(1, fetchBatchSize);
 
         await _repository.EnsureSchemaAsync(cancellationToken);
-        var stopwatch = Stopwatch.StartNew();
+        var startTimestamp = _timeProvider.GetTimestamp();
         var tally = new DeckDrainTally();
         var pagesPolled = 0;
         var refreshesRequeued = 0;
         var newIdsSeen = 0;
         var attemptedDeckIds = new HashSet<string>(StringComparer.Ordinal);
 
-        for (var page = 1; page <= UpdateListingPageCap && stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested; page++)
+        for (var page = 1; page <= UpdateListingPageCap && _timeProvider.GetElapsedTime(startTimestamp) < duration && !cancellationToken.IsCancellationRequested; page++)
         {
             try
             {
@@ -215,8 +214,7 @@ public sealed class ArchidektDeckCacheSession
             catch (ArchidektRateLimitedException exception)
             {
                 _logger?.LogWarning(exception, "Archidekt rate limit tripped while polling listing page {Page} for the update run; ending the run.", page);
-                stopwatch.Stop();
-                return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed, true, false, exception.RetryAfter);
+                return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, _timeProvider.GetElapsedTime(startTimestamp), true, false, exception.RetryAfter);
             }
             // Why: D-10 preserves shared limiter budget by continuing, not retrying; the next run polls from the top.
             catch (Exception exception) when (exception is HttpRequestException or JsonException or DbException)
@@ -225,7 +223,7 @@ public sealed class ArchidektDeckCacheSession
             }
         }
 
-        while (stopwatch.Elapsed < duration && !cancellationToken.IsCancellationRequested)
+        while (_timeProvider.GetElapsedTime(startTimestamp) < duration && !cancellationToken.IsCancellationRequested)
         {
             // Why: pending decks already attempted in this run keep their FIFO place at the head, so widen by the attempted count to reach decks behind them without changing SQL.
             var deckIds = await _repository.GetNextRefreshDeckIdsAsync(fetchBatchSize + attemptedDeckIds.Count, cancellationToken);
@@ -248,23 +246,20 @@ public sealed class ArchidektDeckCacheSession
                 }
                 catch (ArchidektRateLimitedException exception)
                 {
-                    stopwatch.Stop();
-                    return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed, true, false, exception.RetryAfter);
+                    return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, _timeProvider.GetElapsedTime(startTimestamp), true, false, exception.RetryAfter);
                 }
                 catch (ArchidektTransientFailureException)
                 {
-                    stopwatch.Stop();
-                    return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed, false, true, null);
+                    return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, _timeProvider.GetElapsedTime(startTimestamp), false, true, null);
                 }
-                if (stopwatch.Elapsed >= duration || cancellationToken.IsCancellationRequested)
+                if (_timeProvider.GetElapsedTime(startTimestamp) >= duration || cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
             }
         }
 
-        stopwatch.Stop();
-        return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, stopwatch.Elapsed);
+        return new ArchidektUpdateRunResult(pagesPolled, refreshesRequeued, tally.Added + tally.Updated + tally.Unchanged + tally.Skipped, newIdsSeen, tally.Skipped, _timeProvider.GetElapsedTime(startTimestamp));
     }
 
     private async Task<ListingUpsertResult?> PollAndIngestListingPageAsync(int page, CancellationToken cancellationToken)
@@ -365,16 +360,16 @@ public sealed class ArchidektDeckCacheSession
         progress?.Report(added + updated);
     }
 
-    private async Task DelayUntilNextRetryAsync(Stopwatch stopwatch, TimeSpan duration, CancellationToken cancellationToken)
+    private async Task DelayUntilNextRetryAsync(long startTimestamp, TimeSpan duration, CancellationToken cancellationToken)
     {
-        var remaining = duration - stopwatch.Elapsed;
+        var remaining = duration - _timeProvider.GetElapsedTime(startTimestamp);
         if (remaining <= TimeSpan.Zero)
         {
             return;
         }
 
         var idleDelay = remaining < _idlePollDelay ? remaining : _idlePollDelay;
-        await Task.Delay(idleDelay, cancellationToken);
+        await Task.Delay(idleDelay, _timeProvider, cancellationToken);
     }
 
     /// <summary>
