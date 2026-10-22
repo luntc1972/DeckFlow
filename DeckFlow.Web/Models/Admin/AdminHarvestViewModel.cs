@@ -10,6 +10,8 @@ namespace DeckFlow.Web.Models.Admin;
 /// </summary>
 public sealed record AdminHarvestViewModel
 {
+    /// <summary>Current or most recent retention-maintenance operation.</summary>
+    public HarvestMaintenanceStatus Maintenance { get; init; } = HarvestMaintenanceStatus.Idle;
     /// <summary>Default number of harvested commander rows shown per page.</summary>
     public const int DefaultDeckPageSize = 25;
 

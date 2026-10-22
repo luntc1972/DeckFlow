@@ -25,6 +25,10 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int GetCommanderDeckCountCalls { get; private set; }
 
+    public HarvestMaintenancePreview? MaintenancePreview { get; set; }
+
+    public int MaintenancePreviewCalls { get; private set; }
+
     public int RunCacheSweepCalls { get; private set; }
 
     public ArchidektCacheRunResult RunCacheSweepResult { get; set; } = new(0, 0, 0, 0, 0, TimeSpan.Zero);
@@ -321,5 +325,11 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         GetCommanderDeckCountCalls++;
         return Task.FromResult(CommanderDeckCount);
+    }
+
+    public Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
+    {
+        MaintenancePreviewCalls++;
+        return Task.FromResult(MaintenancePreview);
     }
 }

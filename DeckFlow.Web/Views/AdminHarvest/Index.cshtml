@@ -201,6 +201,32 @@ else
 
 </section>
 
+<section id="harvest-maintenance" class="admin-card" data-maintenance-state="@(Model.Maintenance.IsRunning ? "running" : Model.Maintenance.Failed ? "failed" : Model.Maintenance.CompletedUtc.HasValue ? (Model.Maintenance.StopRequested ? "stopped" : "completed") : "idle")">
+    <h2 class="admin-card__title">Retention maintenance</h2>
+    @if (Model.Maintenance.IsRunning)
+    {
+        <p data-maintenance-state="running">@Model.Maintenance.Operation: @Model.Maintenance.DecksAffected decks so far</p>
+        <form method="post" asp-action="MaintenanceStop" class="admin-action-form" data-maintenance-operation="stop">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Stop</button></form>
+    }
+    else if (Model.Maintenance.CompletedUtc.HasValue)
+    {
+        <p data-maintenance-state="@(Model.Maintenance.Failed ? "failed" : Model.Maintenance.StopRequested ? "stopped" : "completed")">@Model.Maintenance.Operation: @Model.Maintenance.DecksAffected decks; @(Model.Maintenance.Failed ? "see the logs" : Model.Maintenance.StopRequested ? "stopped" : $"completed ({Model.Maintenance.StopReason})") @Model.Maintenance.CompletedUtc.Value.ToString("yyyy-MM-dd HH:mm 'UTC'")</p>
+    }
+    else
+    {
+        <p data-maintenance-state="idle">Preview counts before each rollout step.</p>
+    }
+    <form method="post" asp-action="MaintenancePreview" class="admin-action-form" data-maintenance-operation="preview">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Preview</button></form>
+    @foreach (var item in new[] { ("MaintenancePurge", "purge", "Purge"), ("MaintenanceDrain", "drain", "Retention drain"), ("MaintenanceRefetch", "refetch", "Refetch") })
+    {
+        <form method="post" asp-action="@item.Item1" class="admin-action-form" data-maintenance-operation="@item.Item2">
+            @Html.AntiForgeryToken()
+            <label><input type="checkbox" name="confirmed" value="true" /> Confirm @item.Item3</label>
+            <button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">@item.Item3</button>
+        </form>
+    }
+</section>
+
 <details id="harvest-import-panel" class="admin-card">
     <summary class="admin-card__title">Import a single URL</summary>
     <form method="post" asp-action="SubmitUrl" class="admin-action-form">

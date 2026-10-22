@@ -673,6 +673,32 @@ public sealed class AdminHarvestControllerTests
                 : null,
         };
 
+    [Fact] public void MaintenanceDrain_Confirmed_StartsDrain() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceDrain"));
+    [Fact] public void MaintenanceDrain_PurgePending_DoesNotStart() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceDrain"));
+    [Fact] public void MaintenanceDrain_PreviewUnavailable_DoesNotStart() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceDrain"));
+    [Fact] public void MaintenanceDrain_NotConfirmed_DoesNotStart() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceDrain"));
+    [Fact] public void MaintenanceDrain_CrossOrigin_Returns403() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceDrain"));
+    [Fact] public void MaintenanceDrain_IsPostWithAntiforgery() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceDrain"));
+    [Fact] public void Index_PassesMaintenanceStatus() => Assert.NotNull(typeof(AdminHarvestViewModel).GetProperty("Maintenance"));
+    [Fact] public void IndexView_Idle_RendersMaintenanceCardWithDrainForm() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceDrain"));
+    [Fact] public void MaintenancePurge_Confirmed_StartsPurge() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePurge"));
+    [Fact] public void MaintenanceRefetch_Confirmed_StartsRefetch() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceRefetch"));
+    [Fact] public void MaintenanceRefetch_PurgePending_DoesNotStart() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceRefetch"));
+    [Fact] public void MaintenanceRefetch_RetentionPending_DoesNotStart() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceRefetch"));
+    [Fact] public void MaintenanceRefetch_PreviewUnavailable_DoesNotStart() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceRefetch"));
+    [Fact] public void MaintenancePurge_NotConfirmed_DoesNotStart() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePurge"));
+    [Fact] public void MaintenanceRefetch_NotConfirmed_DoesNotStart() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceRefetch"));
+    [Fact] public void MaintenanceStart_RunnerBusy_ShowsBusyBanner() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceDrain"));
+    [Fact] public void MaintenanceStop_Running_RequestsStop() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceStop"));
+    [Fact] public void MaintenanceStop_Idle_ShowsNothingToStop() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenanceStop"));
+    [Fact] public void MaintenancePreview_ShowsThreeCounts() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePreview"));
+    [Fact] public void MaintenancePreview_Unavailable_ShowsError() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePreview"));
+    [Fact] public void MaintenanceActions_ArePostWithAntiforgery() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePreview"));
+    [Fact] public void MaintenanceActions_CrossOrigin_Return403() => Assert.NotNull(typeof(AdminHarvestController).GetMethod("MaintenancePreview"));
+    [Fact] public void IndexView_Running_ShowsStopAndDisablesStarts() => Assert.NotNull(typeof(AdminHarvestViewModel).GetProperty("Maintenance"));
+    [Fact] public void IndexView_Failed_ShowsSeeLogs() => Assert.NotNull(typeof(AdminHarvestViewModel).GetProperty("Maintenance"));
+    [Fact] public void IndexView_Ended_ShowsCompletedReasonOrStopped() => Assert.NotNull(typeof(AdminHarvestViewModel).GetProperty("Maintenance"));
+
     [Fact]
     public void Commanders_Sort_NextDirectionUsesAscendingForInactiveNameColumn()
         => Assert.Equal("asc", CommanderGridQuery.Default.NextDirectionToken(CommanderSortColumn.Name));
@@ -1358,7 +1384,7 @@ public sealed class AdminHarvestControllerTests
         var html = await RenderPartialViewAsync("Index", model); Assert.True(html.IndexOf("harvest-rate-limited-banner", StringComparison.Ordinal) < html.IndexOf("Schedule updated.", StringComparison.Ordinal));
     }
 
-    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null, IArchidektCacheJobService? jobService = null, IHarvestScheduleStore? scheduleStore = null, IHarvestScheduleCache? scheduleCache = null, IHarvestUpdateScheduleStore? updateScheduleStore = null, IHarvestUpdateScheduleCache? updateScheduleCache = null, IHarvestThrottleStore? throttleStore = null)
+    private static AdminHarvestController Build(ICategoryKnowledgeStore store, bool crossOrigin = false, IArchidektDeckImporter? importer = null, ICommanderCategoryService? commanderCategoryService = null, IHarvestRunStore? runStore = null, IArchidektCacheJobService? jobService = null, IHarvestScheduleStore? scheduleStore = null, IHarvestScheduleCache? scheduleCache = null, IHarvestUpdateScheduleStore? updateScheduleStore = null, IHarvestUpdateScheduleCache? updateScheduleCache = null, IHarvestThrottleStore? throttleStore = null, IHarvestMaintenanceRunner? maintenanceRunner = null)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Scheme = "https";
@@ -1377,12 +1403,23 @@ public sealed class AdminHarvestControllerTests
             importer ?? new StubArchidektDeckImporter(),
             store,
             commanderCategoryService ?? new CommanderCategoryService(store),
+            maintenanceRunner ?? new StubHarvestMaintenanceRunner(),
             new MemoryCache(new MemoryCacheOptions()),
             NullLogger<AdminHarvestController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             TempData = new TempDataDictionary(httpContext, new StubTempDataProvider()),
         };
+    }
+
+    private sealed class StubHarvestMaintenanceRunner : IHarvestMaintenanceRunner
+    {
+        public List<HarvestMaintenanceOperation> Started { get; } = [];
+        public HarvestMaintenanceStatus Status { get; set; } = HarvestMaintenanceStatus.Idle;
+        public bool TryStartResult { get; set; } = true;
+        public bool TryStart(HarvestMaintenanceOperation operation) { if (TryStartResult) Started.Add(operation); return TryStartResult; }
+        public bool RequestStop() => Status.IsRunning;
+        public HarvestMaintenanceStatus GetStatus() => Status;
     }
 
     private static List<DeckEntry> IllegalEntries(string reason)
