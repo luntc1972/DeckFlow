@@ -217,14 +217,15 @@ else
         <p data-maintenance-state="idle">Preview counts before each rollout step.</p>
     }
     <form method="post" asp-action="MaintenancePreview" class="admin-action-form" data-maintenance-operation="preview">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Preview</button></form>
-    @foreach (var item in new[] { ("MaintenancePurge", "purge", "Purge"), ("MaintenanceDrain", "drain", "Retention drain"), ("MaintenanceRefetch", "refetch", "Refetch") })
-    {
-        <form method="post" asp-action="@item.Item1" class="admin-action-form" data-maintenance-operation="@item.Item2">
-            @Html.AntiForgeryToken()
-            <label><input type="checkbox" name="confirmed" value="true" /> Confirm @item.Item3</label>
-            <button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">@item.Item3</button>
-        </form>
-    }
+    <form method="post" asp-action="MaintenancePurge" class="admin-action-form" data-maintenance-operation="purge">
+        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Purge</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Purge</button>
+    </form>
+    <form method="post" asp-action="MaintenanceDrain" class="admin-action-form" data-maintenance-operation="drain">
+        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Retention drain</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Retention drain</button>
+    </form>
+    <form method="post" asp-action="MaintenanceRefetch" class="admin-action-form" data-maintenance-operation="refetch">
+        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Refetch</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Refetch</button>
+    </form>
 </section>
 
 <details id="harvest-import-panel" class="admin-card">
