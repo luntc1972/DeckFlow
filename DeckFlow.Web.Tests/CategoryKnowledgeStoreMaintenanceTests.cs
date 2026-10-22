@@ -140,7 +140,9 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
 
         var firstPurge = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge);
         Assert.Equal(2, firstPurge.DecksAffected);
-        Assert.Equal(0, (await store.GetMaintenancePreviewAsync()).PurgeCandidates);
+        var afterPurge = await store.GetMaintenancePreviewAsync();
+        Assert.NotNull(afterPurge);
+        Assert.Equal(0, afterPurge.PurgeCandidates);
 
         var secondPurge = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge);
         Assert.Equal(0, secondPurge.DecksAffected);
@@ -214,13 +216,13 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
                 new FakeWebHostEnvironment(dataDirectory),
                 new MemoryCache(new MemoryCacheOptions()),
                 retentionOptions: Options.Create(options ?? new HarvestRetentionOptions
-            {
-                PerCommanderCap = 2,
-                BatchSize = 2,
-                MaintenanceChunkDecks = 3,
-                PauseMilliseconds = 0,
-                MinFreeDiskBytes = 0
-            }));
+                {
+                    PerCommanderCap = 2,
+                    BatchSize = 2,
+                    MaintenanceChunkDecks = 3,
+                    PauseMilliseconds = 0,
+                    MinFreeDiskBytes = 0
+                }));
         }
         finally
         {
