@@ -6,6 +6,9 @@ public interface IHarvestMaintenanceRunner
     /// <summary>Attempts to queue a maintenance operation.</summary>
     bool TryStart(HarvestMaintenanceOperation operation);
 
+    /// <summary>Requests that the active maintenance operation stop.</summary>
+    bool RequestStop();
+
     /// <summary>Gets the current or most recently completed operation status.</summary>
     HarvestMaintenanceStatus GetStatus();
 }

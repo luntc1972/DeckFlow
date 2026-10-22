@@ -11,6 +11,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -56,6 +57,95 @@ public sealed class HarvestMaintenanceRunnerTests
         var runner = new HarvestMaintenanceRunner(new FakeCategoryKnowledgeStore(), NullLogger<HarvestMaintenanceRunner>.Instance);
 
         Assert.Equal(HarvestMaintenanceStatus.Idle, runner.GetStatus());
+    }
+
+    [Fact]
+    public async Task TryStart_WhileQueuedOrRunning_ReturnsFalse()
+    {
+        var store = new FakeCategoryKnowledgeStore { RunMaintenanceBlocksUntilCancelled = true };
+        var runner = new HarvestMaintenanceRunner(store, NullLogger<HarvestMaintenanceRunner>.Instance);
+        Assert.True(runner.TryStart(HarvestMaintenanceOperation.Drain));
+        Assert.False(runner.TryStart(HarvestMaintenanceOperation.Purge));
+        await runner.StartAsync(CancellationToken.None);
+        try
+        {
+            await WaitForMaintenanceCallAsync(store);
+            Assert.False(runner.TryStart(HarvestMaintenanceOperation.Refetch));
+            Assert.Equal(1, store.RunMaintenanceCalls);
+            Assert.Equal(HarvestMaintenanceOperation.Drain, store.LastMaintenanceOperation);
+        }
+        finally { await runner.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task RequestStop_WhileRunning_EndsStoppedWithReportedProgress()
+    {
+        var store = new FakeCategoryKnowledgeStore { RunMaintenanceProgress = 7, RunMaintenanceBlocksUntilCancelled = true };
+        var runner = new HarvestMaintenanceRunner(store, NullLogger<HarvestMaintenanceRunner>.Instance);
+        await runner.StartAsync(CancellationToken.None);
+        try
+        {
+            Assert.True(runner.TryStart(HarvestMaintenanceOperation.Drain));
+            await WaitForMaintenanceCallAsync(store);
+            Assert.True(runner.RequestStop());
+            var status = await WaitForCompletionAsync(runner);
+            Assert.False(status.IsRunning); Assert.True(status.StopRequested); Assert.False(status.Failed); Assert.Equal(7, status.DecksAffected);
+        }
+        finally { await runner.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public void RequestStop_WhenIdle_ReturnsFalse()
+    {
+        Assert.False(new HarvestMaintenanceRunner(new FakeCategoryKnowledgeStore(), NullLogger<HarvestMaintenanceRunner>.Instance).RequestStop());
+    }
+
+    [Fact]
+    public async Task StoreThrows_EndsFailed_AndNextStartRuns()
+    {
+        var exception = new InvalidOperationException("secret-detail");
+        var store = new FakeCategoryKnowledgeStore { RunMaintenanceException = exception };
+        var logger = new ExceptionRecordingLogger();
+        var runner = new HarvestMaintenanceRunner(store, logger);
+        await runner.StartAsync(CancellationToken.None);
+        try
+        {
+            Assert.True(runner.TryStart(HarvestMaintenanceOperation.Drain));
+            var failed = await WaitForCompletionAsync(runner);
+            Assert.True(failed.Failed); Assert.Single(logger.Entries); Assert.Equal(LogLevel.Error, logger.Entries[0].Level); Assert.Same(exception, logger.Entries[0].Exception);
+            Assert.DoesNotContain("secret-detail", string.Join(' ', failed.ToString()));
+            store.RunMaintenanceException = null;
+            Assert.True(runner.TryStart(HarvestMaintenanceOperation.Drain));
+            Assert.False((await WaitForCompletionAsync(runner)).Failed);
+        }
+        finally { await runner.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
+    public async Task StopAsync_WhileRunning_CancelsOperation()
+    {
+        var store = new FakeCategoryKnowledgeStore { RunMaintenanceBlocksUntilCancelled = true };
+        var runner = new HarvestMaintenanceRunner(store, NullLogger<HarvestMaintenanceRunner>.Instance);
+        await runner.StartAsync(CancellationToken.None);
+        Assert.True(runner.TryStart(HarvestMaintenanceOperation.Drain));
+        await WaitForMaintenanceCallAsync(store);
+        await runner.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(runner.GetStatus().StopRequested);
+    }
+
+    private static async Task WaitForMaintenanceCallAsync(FakeCategoryKnowledgeStore store)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (store.RunMaintenanceCalls == 0 && DateTime.UtcNow < deadline) await Task.Delay(20);
+        Assert.Equal(1, store.RunMaintenanceCalls);
+    }
+
+    private sealed class ExceptionRecordingLogger : ILogger<HarvestMaintenanceRunner>
+    {
+        public List<(LogLevel Level, Exception? Exception)> Entries { get; } = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) => Entries.Add((logLevel, exception));
     }
 
     private static CategoryKnowledgeStore CreateStore()

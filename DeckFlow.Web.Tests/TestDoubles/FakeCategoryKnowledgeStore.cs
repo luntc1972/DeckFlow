@@ -53,6 +53,18 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     /// <summary>When true, update sweeps wait until cancelled.</summary>
     public bool RunUpdateSweepBlocksUntilCancelled { get; set; }
 
+    public int RunMaintenanceCalls { get; private set; }
+
+    public HarvestMaintenanceOperation? LastMaintenanceOperation { get; private set; }
+
+    public HarvestMaintenanceOutcome RunMaintenanceOutcome { get; set; } = new(HarvestMaintenanceOperation.Drain, 0, 0, DeckPruningStopReason.Completed);
+
+    public Exception? RunMaintenanceException { get; set; }
+
+    public int? RunMaintenanceProgress { get; set; }
+
+    public bool RunMaintenanceBlocksUntilCancelled { get; set; }
+
     /// <summary>Duration passed to the latest update sweep.</summary>
     public int? LastRunUpdateSweepDurationSeconds { get; private set; }
 
@@ -171,6 +183,16 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         }
 
         return RunUpdateSweepResult;
+    }
+
+    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    {
+        RunMaintenanceCalls++;
+        LastMaintenanceOperation = operation;
+        if (RunMaintenanceProgress is not null) progress?.Report(RunMaintenanceProgress.Value);
+        if (RunMaintenanceBlocksUntilCancelled) await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        if (RunMaintenanceException is not null) throw RunMaintenanceException;
+        return RunMaintenanceOutcome;
     }
 
     /// <summary>Configurable per-card categories; empty by default so unset cards resolve to no roles.</summary>
