@@ -606,7 +606,7 @@
                     var memberCount = group.Members.Count;
                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
                     <details class="cutlab-role-group" data-cutlab-group-kind="role">
-                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                         <div class="cutlab-role-group__body">
                             @if (group.IsLockable)
                             {
@@ -626,7 +626,7 @@
                                         {
                                             <span class="kb-chip cutlab-lock-badge--commander"
                                                   data-cutlab-card-open="@member.Name"
-                                                  data-cut-lab-chip-card="@member.Name">@member.Name</span>
+                                                  data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
                                         }
                                         else
                                         {
@@ -635,7 +635,7 @@
                                                     class="@chipClasses"
                                                     data-cutlab-card-open="@member.Name"
                                                     data-cut-lab-chip-card="@member.Name"
-                                                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
+                                                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
                                         }
                                     }
                                 </div>
@@ -681,7 +681,7 @@
                                     {
                                         <span class="kb-chip cutlab-lock-badge--commander"
                                               data-cutlab-card-open="@member.Name"
-                                              data-cut-lab-chip-card="@member.Name">@member.Name</span>
+                                              data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
                                     }
                                     else
                                     {
@@ -690,7 +690,7 @@
                                                 class="@chipClasses"
                                                 data-cutlab-card-open="@member.Name"
                                                 data-cut-lab-chip-card="@member.Name"
-                                                aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
+                                                aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
                                     }
                                 }
                             </div>

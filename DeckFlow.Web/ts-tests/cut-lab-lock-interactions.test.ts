@@ -377,7 +377,7 @@ describe('DeckFlowCutLab', () => {
     });
   });
 
-  it('syncs role-group chip classes and distinct-card locked counts from pool-table checkbox state', () => {
+  it('syncs role-group chip classes and quantity-weighted locked counts from pool-table checkbox state', () => {
     document.body.innerHTML = `
       <form data-cache-key="cut-lab">
         <input type="hidden" name="CutLabStateJson" value="" />
@@ -444,7 +444,7 @@ describe('DeckFlowCutLab', () => {
 
     expect(firstChip?.classList.contains('cutlab-role-chip--locked')).toBe(true);
     expect(secondChip?.classList.contains('cutlab-role-chip--locked')).toBe(true);
-    expect(lockedCount?.textContent).toBe('2');
+    expect(lockedCount?.textContent).toBe('13');
   });
 
   it('opens an individual card pill in the modal and toggles through the canonical pool checkbox', () => {
@@ -619,7 +619,7 @@ describe('DeckFlowCutLab', () => {
     const checkbox = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Mystery Card"]');
     checkbox!.checked = true;
     checkbox!.dispatchEvent(new Event('change', { bubbles: true }));
-    expect(document.querySelector('[data-cut-lab-group-locked="other"]')?.textContent).toBe('1');
+    expect(document.querySelector('[data-cut-lab-group-locked="other"]')?.textContent).toBe('2');
   });
 
   it('syncs every CutLabStateJson input when a pool lock changes', () => {

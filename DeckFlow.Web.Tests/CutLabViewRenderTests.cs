@@ -318,7 +318,8 @@ public sealed class CutLabViewRenderTests
                 {
                     RoleKey = "ramp",
                     DisplayLabel = "Ramp",
-                    Members = [new CutLabRoleMemberView { Name = "Sol Ring", IsLocked = true }],
+                    CardCount = 9,
+                    Members = [new CutLabRoleMemberView { Name = "Sol Ring", Quantity = 9, IsLocked = true }],
                 },
                 new CutLabRoleGroupView
                 {
@@ -334,7 +335,8 @@ public sealed class CutLabViewRenderTests
 
         Assert.Contains("id=\"cut-lab-section-constraints\"", html, StringComparison.Ordinal);
         Assert.Matches("data-cut-lab-constraints-locked-count[^>]*>2</span>", html);
-        Assert.Contains("Sol Ring", html, StringComparison.Ordinal);
+        Assert.Contains("Ramp · 9 cards", html, StringComparison.Ordinal);
+        Assert.Contains("Sol Ring ×9", System.Net.WebUtility.HtmlDecode(html), StringComparison.Ordinal);
         Assert.Contains("Fast mana", html, StringComparison.Ordinal);
         string packageChipHtml = Regex.Match(
             html,
