@@ -2018,7 +2018,7 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine(FormattableString.Invariant(
             $"The vocabulary was widened in Phase 9.1 from the four needles the classifier originally carried ({string.Join(", ", ProtectionHistoricalNarrowNeedles.Select(needle => $"`{needle}`"))}). Runs produced before that widening used only those four needles, so their reported `protection` and `interaction-targeted` counts are lower bounds, not true counts; runs produced after it use the corpus-derived table above."));
         builder.AppendLine(
-            "`interaction-targeted` now derives only from targeted-removal oracle, counterspell oracle, and targeted-interaction category-tag signals. Historically, the nine-fixture reference sample moved from 68 to 77 cards after protection-category widening.");
+            "`interaction-targeted` now derives only from targeted-removal oracle, counterspell oracle, and targeted-interaction category-tag signals. The nine-fixture Cut Lab reference sample measures 53 cards after ll8 removed inherited any-instant and protection signals.");
         builder.AppendLine("Cards previously missed under the narrow four-needle set, now detected, with evidence grade stated rather than flattened:");
         foreach (ProtectionMissedCardDisclosure card in ProtectionKnownMissedCards)
         {

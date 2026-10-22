@@ -156,14 +156,13 @@ public static class CutLabRoleAssigner
             assigned.Add(TutorRole);
         }
 
-        // Why: targeted/mass are mutually exclusive -- IsTargetedRemovalCard already opens with
-        // !IsBoardWipeCard (DeckStatClassifier.cs:185); the !isMass gate makes that structural
+        // Why: targeted/mass are mutually exclusive; the !isMass gate makes that structural
         // rather than emergent, and also covers the category-tag path.
         bool isMass = DeckStatClassifier.IsBoardWipeCard(oracle) || (!isLand && HasWipeCategoryTag(categories));
         // Why: Casual drops pure counterspells from oracle roles; a crowd interaction tag
         // restores a land face only when its own oracle text actually counters a spell.
         if (!isMass
-            && (DeckStatClassifier.IsTargetedRemovalCard(typeLine, oracle)
+            && ((!isLand && IsTargetedRemovalOracle(oracle))
                 || (!isLand && HasTargetedInteractionCategoryTag(categories))
                 || (!isLand && PlanRoleClassifier.CountersASpell(oracle))
                 || (isLand && PlanRoleClassifier.CountersASpell(oracle)
@@ -243,6 +242,39 @@ public static class CutLabRoleAssigner
         }
 
         return false;
+    }
+
+    private static bool IsTargetedRemovalOracle(string oracle)
+    {
+        bool hasNonSelfTarget = false;
+        foreach (string clause in oracle.Split('.'))
+        {
+            if (clause.Contains("counter target", StringComparison.OrdinalIgnoreCase)
+                || clause.Contains("counter that spell", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (clause.Contains("target", StringComparison.OrdinalIgnoreCase)
+                && !clause.Contains("graveyard", StringComparison.OrdinalIgnoreCase)
+                && !clause.Contains("you control", StringComparison.OrdinalIgnoreCase))
+            {
+                hasNonSelfTarget = true;
+
+                if (clause.Contains("destroy", StringComparison.OrdinalIgnoreCase)
+                    || clause.Contains("exile", StringComparison.OrdinalIgnoreCase)
+                    || (clause.Contains("return target", StringComparison.OrdinalIgnoreCase)
+                        && clause.Contains("hand", StringComparison.OrdinalIgnoreCase))
+                    || (clause.Contains("target creature", StringComparison.OrdinalIgnoreCase)
+                        && clause.Contains("gets -", StringComparison.OrdinalIgnoreCase))
+                    || clause.Contains("counter target", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return hasNonSelfTarget && oracle.Contains("exile that", StringComparison.OrdinalIgnoreCase);
     }
 }
 

@@ -61,6 +61,31 @@ public sealed class CutLabRoleAssignerTests
         Assert.Contains("interaction-targeted", roles);
     }
 
+    [Theory]
+    [InlineData("Deadly Rollick", "If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.")]
+    [InlineData("Get Lost", "Destroy target creature, enchantment, or planeswalker. Its controller creates two Map tokens. (They're artifacts with \"{1}, {T}, Sacrifice this token: Target creature you control explores. Activate only as a sorcery.\")")]
+    public void AssignRoles_TargetedRemovalOracleInCasual_MapsToTargetedInteraction(string name, string oracle)
+    {
+        CardFact fact = Fact(name, "Instant", oracle: oracle);
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_RegrowthOracleInCasual_DoesNotMapToTargetedInteraction()
+    {
+        CardFact fact = Fact(
+            "Regrowth",
+            "Sorcery",
+            oracle: "Return target card from your graveyard to your hand.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.DoesNotContain("interaction-targeted", roles);
+    }
+
     [Fact]
     public void AssignRoles_InteractionCategoryWithoutRemovalOracle_MapsToTargetedInteraction()
     {
