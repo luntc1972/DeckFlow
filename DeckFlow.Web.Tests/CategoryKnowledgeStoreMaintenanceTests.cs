@@ -10,6 +10,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -54,8 +55,14 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
     {
         var store = CreateStore();
         var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
-        await SeedStoredDeckAsync(repository, "refresh-one", "Gamma", 3, metadataLess: true);
-        await SeedStoredDeckAsync(repository, "refresh-two", "Gamma", 3, metadataLess: true);
+        await SeedStoredDeckAsync(repository, "refresh-oldest", "Gamma", 3, metadataLess: true, insertedUtc: DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+        await SeedStoredDeckAsync(repository, "refresh-middle", "Gamma", 3, metadataLess: true, insertedUtc: DateTimeOffset.Parse("2026-01-02T00:00:00Z"));
+        await SeedStoredDeckAsync(repository, "refresh-newest", "Gamma", 3, metadataLess: true, insertedUtc: DateTimeOffset.Parse("2026-01-03T00:00:00Z"));
+
+        var drain = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain);
+        Assert.Equal(1, drain.DecksAffected);
+        Assert.Equal(DeckPruningStopReason.Completed, drain.StopReason);
+        Assert.Equal(new DeckState(1, 1, "retention", null), await ReadDeckStateAsync(store, "refresh-oldest"));
 
         var progress = new List<int>();
         var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, new Progress<int>(progress.Add));
@@ -64,41 +71,80 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         Assert.Equal(0, outcome.Batches);
         Assert.Null(outcome.StopReason);
         Assert.Equal([2], progress);
-        Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
+        var middle = await ReadDeckStateAsync(store, "refresh-middle");
+        var newest = await ReadDeckStateAsync(store, "refresh-newest");
+        var oldest = await ReadDeckStateAsync(store, "refresh-oldest");
+        Assert.Equal(0, middle.Processed);
+        Assert.NotNull(middle.RefreshRequestedUtc);
+        Assert.Equal(0, newest.Processed);
+        Assert.NotNull(newest.RefreshRequestedUtc);
+        Assert.Equal(new DeckState(1, 1, "retention", null), oldest);
     }
 
     [Fact]
     public async Task RunMaintenanceAsync_Refetch_WaitsForSweepGate()
     {
         var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "gate-one", "Delta", 3, metadataLess: true);
+        await SeedStoredDeckAsync(repository, "gate-two", "Delta", 3, metadataLess: true);
         Task<HarvestMaintenanceOutcome>? refetch = null;
         await store.SweepGate.WaitAsync();
+        var gateHeld = true;
         try
         {
             refetch = Task.Run(() => store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch));
-            await Task.Delay(100);
-            Assert.False(refetch.IsCompleted);
+            var delay = Task.Delay(TimeSpan.FromSeconds(2));
+            Assert.Same(delay, await Task.WhenAny(refetch, delay));
+            Assert.Null((await ReadDeckStateAsync(store, "gate-one")).RefreshRequestedUtc);
+            Assert.Null((await ReadDeckStateAsync(store, "gate-two")).RefreshRequestedUtc);
+            store.SweepGate.Release();
+            gateHeld = false;
+            var outcome = await refetch.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Equal(2, outcome.DecksAffected);
+            Assert.NotNull((await ReadDeckStateAsync(store, "gate-one")).RefreshRequestedUtc);
+            Assert.NotNull((await ReadDeckStateAsync(store, "gate-two")).RefreshRequestedUtc);
         }
         finally
         {
-            store.SweepGate.Release();
-        }
+            if (gateHeld)
+            {
+                store.SweepGate.Release();
+            }
 
-        await refetch!;
+            if (refetch is not null)
+            {
+                await refetch.WaitAsync(TimeSpan.FromSeconds(30));
+            }
+        }
     }
 
     [Fact]
-    public async Task GetMaintenancePreviewAsync_ReturnsAllCandidateCounts()
+    public async Task GetMaintenancePreviewAsync_ReturnsAllThreeCounts()
     {
         var store = CreateStore();
-        await SeedTracerAsync(store);
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "retention-one", "Alpha", 3, insertedUtc: DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+        await SeedStoredDeckAsync(repository, "retention-two", "Alpha", 3, insertedUtc: DateTimeOffset.Parse("2026-01-02T00:00:00Z"));
+        await SeedStoredDeckAsync(repository, "retention-three", "Alpha", 3, insertedUtc: DateTimeOffset.Parse("2026-01-03T00:00:00Z"));
+        await SeedStoredDeckAsync(repository, "purge-one", null, 7);
+        await SeedStoredDeckAsync(repository, "purge-two", null, 3);
+        await SeedStoredDeckAsync(repository, "metadata-less", "Beta", 3, metadataLess: true);
 
         var preview = await store.GetMaintenancePreviewAsync();
 
         Assert.NotNull(preview);
-        Assert.Equal(5, preview.RetentionExcessDecks);
-        Assert.Equal(0, preview.PurgeCandidates);
-        Assert.Equal(0, preview.RefetchCandidates);
+        Assert.Equal(1, preview.RetentionExcessDecks);
+        Assert.Equal(2, preview.PurgeCandidates);
+        Assert.Equal(1, preview.RefetchCandidates);
+
+        var firstPurge = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge);
+        Assert.Equal(2, firstPurge.DecksAffected);
+        Assert.Equal(0, (await store.GetMaintenancePreviewAsync()).PurgeCandidates);
+
+        var secondPurge = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge);
+        Assert.Equal(0, secondPurge.DecksAffected);
+        Assert.Equal(DeckPruningStopReason.Completed, secondPurge.StopReason);
     }
 
     [Fact]
@@ -158,10 +204,16 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
     }
 
     private static CategoryKnowledgeStore CreateStore(HarvestRetentionOptions? options = null)
-        => new(
-            new FakeWebHostEnvironment(Path.Combine(Path.GetTempPath(), "deckflow-maintenance-" + Guid.NewGuid().ToString("N"))),
-            new MemoryCache(new MemoryCacheOptions()),
-            retentionOptions: Options.Create(options ?? new HarvestRetentionOptions
+    {
+        var dataDirectory = Path.Combine(Path.GetTempPath(), "deckflow-maintenance-" + Guid.NewGuid().ToString("N"));
+        var previousDataDirectory = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        Environment.SetEnvironmentVariable("MTG_DATA_DIR", dataDirectory);
+        try
+        {
+            return new CategoryKnowledgeStore(
+                new FakeWebHostEnvironment(dataDirectory),
+                new MemoryCache(new MemoryCacheOptions()),
+                retentionOptions: Options.Create(options ?? new HarvestRetentionOptions
             {
                 PerCommanderCap = 2,
                 BatchSize = 2,
@@ -169,6 +221,12 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
                 PauseMilliseconds = 0,
                 MinFreeDiskBytes = 0
             }));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", previousDataDirectory);
+        }
+    }
 
     private static async Task SeedTracerAsync(CategoryKnowledgeStore store)
     {
@@ -188,12 +246,36 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         }
     }
 
-    private static async Task SeedStoredDeckAsync(CategoryKnowledgeRepository repository, string deckId, string? commander, int? deckFormat, bool metadataLess = false)
+    private static async Task<DeckState> ReadDeckStateAsync(CategoryKnowledgeStore store, string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={Assert.IsType<string>(store.DatabasePath)}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT processed, skipped, skip_reason, refresh_requested_utc FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        return new DeckState(reader.GetInt32(0), reader.GetInt32(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3));
+    }
+
+    private static async Task SeedStoredDeckAsync(CategoryKnowledgeRepository repository, string deckId, string? commander, int? deckFormat, bool metadataLess = false, DateTimeOffset? insertedUtc = null)
     {
         await repository.AddDeckIdsAsync([deckId]);
         await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId, [new DeckEntry { Name = "Sol Ring", NormalizedName = CardNormalizer.Normalize("Sol Ring"), Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
         await repository.MarkDeckProcessedAsync(deckId, commander, false, metadataLess ? null : new ArchidektDeckMetadata(null, deckFormat, false, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        if (insertedUtc is not null)
+        {
+            await using var connection = new SqliteConnection($"Data Source={Assert.IsType<string>(repository.DatabasePath)}");
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE deck_queue SET inserted_utc = $insertedUtc WHERE deck_id = $deckId;";
+            command.Parameters.AddWithValue("$insertedUtc", insertedUtc.Value.ToString("O"));
+            command.Parameters.AddWithValue("$deckId", deckId);
+            await command.ExecuteNonQueryAsync();
+        }
     }
+
+    private sealed record DeckState(int Processed, int Skipped, string? SkipReason, string? RefreshRequestedUtc);
 
     private sealed class PausingProgress(TaskCompletionSource firstReport, TaskCompletionSource resume) : IProgress<int>
     {
