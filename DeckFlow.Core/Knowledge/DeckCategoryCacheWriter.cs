@@ -123,6 +123,38 @@ internal static class DeckCategoryCacheWriter
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
+    // Why: RET-04 and D-RE retain only category-free commander and mainboard deck identity.
+    internal static string ComputeCoreFingerprint(IEnumerable<DeckEntry>? entries)
+    {
+        var batch = BuildCanonicalBatch(entries);
+        return ComputeCoreFingerprint(
+            batch.Observations.Select(row => (row.CardName, row.Category, row.Board, row.Quantity)),
+            batch.Totals);
+    }
+
+    // Why: RET-04 and D-RE compare stored row identity without category labels or non-core boards.
+    internal static string ComputeCoreFingerprint(
+        IEnumerable<(string CardName, string Category, string Board, int Quantity)> observations,
+        IEnumerable<(string CardName, string Board)> totals)
+    {
+        var quantities = observations
+            .Where(row => NormalizeBoard(row.Board) is "commander" or "mainboard")
+            .GroupBy(row => (Card: CardNormalizer.Normalize(row.CardName), Board: NormalizeBoard(row.Board), Category: row.Category.Trim().ToLowerInvariant()))
+            .Select(group => (group.Key.Card, group.Key.Board, Quantity: group.Sum(row => row.Quantity)))
+            .GroupBy(row => (row.Card, row.Board))
+            .ToDictionary(group => group.Key, group => group.Max(row => row.Quantity));
+        var keys = totals
+            .Where(row => NormalizeBoard(row.Board) is "commander" or "mainboard")
+            .Select(row => (Card: CardNormalizer.Normalize(row.CardName), Board: NormalizeBoard(row.Board)))
+            .Concat(quantities.Keys)
+            .Distinct();
+        var records = keys
+            .Select(key => EncodeRecord("core", key.Card, key.Board, (quantities.TryGetValue(key, out var quantity) ? quantity : 0).ToString(CultureInfo.InvariantCulture)))
+            .OrderBy(record => record, StringComparer.Ordinal);
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', records)));
+        return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
     private static string EncodeRecord(params string[] fields)
     {
         var builder = new StringBuilder();

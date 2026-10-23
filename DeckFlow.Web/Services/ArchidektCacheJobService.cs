@@ -330,6 +330,21 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                 _activeJobCts = jobCts;
             }
 
+            var queuedJob = await _runStore.GetByIdAsync(signal.JobId, jobCts.Token).ConfigureAwait(false);
+            if (queuedJob?.State == HarvestRunState.Stopping)
+            {
+                await _runStore.UpdateStateAsync(
+                    signal.JobId,
+                    HarvestRunState.Cancelled,
+                    startedUtc: null,
+                    completedUtc: DateTimeOffset.UtcNow,
+                    decksProcessed: queuedJob.DecksProcessed,
+                    additionalDecksFound: queuedJob.AdditionalDecksFound,
+                    errorMessage: null,
+                    CancellationToken.None).ConfigureAwait(false);
+                continue;
+            }
+
             try
             {
                 _logger.LogInformation(
@@ -370,6 +385,14 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     additionalDecksFound: signal.Kind == HarvestRunKind.Bulk ? Math.Max(finalDeckCount - initialDeckCount, 0) : 0,
                     errorMessage: null,
                     CancellationToken.None).ConfigureAwait(false);
+
+                // Why: a cancel for the next queued job must not target this completed job.
+                lock (_ctsLock)
+                {
+                    _activeJobCts = null;
+                }
+
+                await RunPostHarvestRetentionSafelyAsync(signal.JobId, stoppingToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -487,6 +510,31 @@ public sealed class ArchidektCacheJobService : BackgroundService, IArchidektCach
                     _activeJobCts = null;
                 }
             }
+        }
+    }
+
+    private async Task RunPostHarvestRetentionSafelyAsync(Guid jobId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _knowledgeStore.RunPostHarvestRetentionAsync(cancellationToken).ConfigureAwait(false);
+            if (result is not null)
+            {
+                _logger.LogInformation(
+                    "Harvest.Retention.Completed jobId={JobId} decksRemoved={DecksRemoved} batches={Batches} stopReason={StopReason}",
+                    jobId,
+                    result.DecksRemoved,
+                    result.Batches,
+                    result.StopReason);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Harvest.Retention.Cancelled jobId={JobId}", jobId);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Harvest.Retention.Failed jobId={JobId}", jobId);
         }
     }
 

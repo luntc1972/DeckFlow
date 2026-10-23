@@ -145,6 +145,43 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.GetCommanderDeckCountAsync(commanderName, cancellationToken);
 
     /// <summary>
+    /// Gets stored decks eligible for retention for one commander.
+    /// </summary>
+    internal Task<IReadOnlyList<RetentionCandidate>> GetRetentionCandidatesAsync(string commanderName, CancellationToken cancellationToken = default)
+        => _deckQueue.GetRetentionCandidatesAsync(commanderName, cancellationToken);
+
+    internal Task<IReadOnlyList<(long DeckQueueId, string SkipReason)>> GetPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.GetPurgeCandidatesAsync(cancellationToken);
+
+    internal Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.CountPurgeCandidatesAsync(cancellationToken);
+
+    internal Task<int> CountRetentionExcessAsync(int perCommanderCap, CancellationToken cancellationToken = default)
+        => _deckQueue.CountRetentionExcessAsync(perCommanderCap, cancellationToken);
+
+    /// <summary>
+    /// Marks stored decks without captured metadata for refresh.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of marked decks.</returns>
+    public Task<int> MarkMetadataLessDecksForRefreshAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.MarkMetadataLessDecksForRefreshAsync(cancellationToken);
+
+    /// <summary>
+    /// Counts stored decks without captured metadata eligible for refresh.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of eligible decks.</returns>
+    public Task<int> CountRefetchCandidatesAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.CountRefetchCandidatesAsync(cancellationToken);
+
+    /// <summary>
+    /// Gets normalized commander keys with more retained candidates than the supplied minimum.
+    /// </summary>
+    internal Task<IReadOnlyList<string>> GetRetentionCommanderKeysAsync(int minimum, CancellationToken cancellationToken = default)
+        => _deckQueue.GetRetentionCommanderKeysAsync(minimum, cancellationToken);
+
+    /// <summary>
     /// Returns a paged slice of processed commander aggregates for the harvested-commanders admin grid.
     /// </summary>
     /// <param name="page">One-based page number.</param>
@@ -392,6 +429,20 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task SetContentHashAsync(string deckId, string? hash, CancellationToken cancellationToken = default)
         => _deckQueue.SetContentHashAsync(deckId, hash, cancellationToken);
+
+    /// <summary>Gets the retention fingerprint stored for a pruned deck.</summary>
+    public Task<string?> GetRetentionCoreHashAsync(string deckId, CancellationToken cancellationToken = default)
+        => _deckQueue.GetRetentionCoreHashAsync(deckId, cancellationToken);
+
+    /// <summary>Clears the retention fingerprint after a deck's core changes.</summary>
+    public Task ClearRetentionCoreHashAsync(string deckId, CancellationToken cancellationToken = default)
+        => _deckQueue.ClearRetentionCoreHashAsync(deckId, cancellationToken);
+
+    /// <summary>
+    /// Removes stored live-deck rows and records their retention state.
+    /// </summary>
+    public Task<int> RemoveStoredDecksAsync(IReadOnlyList<(long DeckQueueId, string SkipReason)> removals, CancellationToken cancellationToken = default)
+        => _cardCategory.RemoveStoredDecksAsync(removals, cancellationToken);
 
     /// <summary>
     /// B2 / D-17: idempotently records a URL-imported deck as processed with its commander name.

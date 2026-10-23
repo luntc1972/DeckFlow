@@ -24,6 +24,11 @@ internal sealed class DeckQueueRepository
             LIMIT @count;
             """;
     internal const string UnprocessedCountSql = "SELECT COUNT(1) FROM deck_queue WHERE processed = 0 AND skipped = 0;";
+    // Why: `_` in the live-source prefix is a LIKE wildcard; SUBSTR compares it literally on both providers.
+    internal const string StoredLiveRowsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
+    private const string RetentionCandidateSql = "q.processed = 1 AND q.skipped = 0 AND q.commander_name IS NOT NULL AND " + StoredLiveRowsSql;
+    private const string PurgeCandidateSql = "NOT (q.processed = 0 AND q.skipped = 0) AND q.archidekt_metadata_captured_utc IS NOT NULL AND (q.archidekt_deck_format IS NULL OR q.archidekt_deck_format <> 3 OR q.commander_name IS NULL) AND " + StoredLiveRowsSql;
+    private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND " + StoredLiveRowsSql;
     // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
@@ -96,9 +101,122 @@ internal sealed class DeckQueueRepository
     }
 
     /// <summary>
-    /// Counts distinct processed commanders in the deck queue.
+    /// Gets the stored decks eligible for retention for one commander.
     /// </summary>
+    /// <param name="commanderName">Commander whose stored decks are requested.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Eligible stored deck candidates.</returns>
+    internal async Task<IReadOnlyList<RetentionCandidate>> GetRetentionCandidatesAsync(string commanderName, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commanderName);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<RetentionCandidateRow>(new CommandDefinition(
+            $"SELECT q.id AS DeckQueueId, q.deck_id AS DeckId, q.commander_name AS CommanderName, q.archidekt_updated_utc AS UpdatedUtc, q.inserted_utc AS InsertedUtc FROM deck_queue q WHERE LOWER(q.commander_name) = LOWER(@commanderName) AND {RetentionCandidateSql};",
+            new { commanderName, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Select(row => new RetentionCandidate(row.DeckQueueId, row.DeckId, row.CommanderName, RetentionRanking.RankUtcFor(row.UpdatedUtc, row.InsertedUtc))).ToArray();
+    }
+
+    internal async Task<IReadOnlyList<(long DeckQueueId, string SkipReason)>> GetPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<PurgeCandidateRow>(new CommandDefinition(
+            $"SELECT q.id AS DeckQueueId, q.archidekt_deck_format AS DeckFormat, q.commander_name AS CommanderName FROM deck_queue q WHERE {PurgeCandidateSql} ORDER BY q.id;",
+            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Select(row => (row.DeckQueueId, row.DeckFormat != 3 ? DeckSkipReasons.NotCommanderFormat : DeckSkipReasons.NoCommander)).ToArray();
+    }
+
+    internal async Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(1) FROM deck_queue q WHERE {PurgeCandidateSql};",
+            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    internal async Task<int> CountRetentionExcessAsync(int perCommanderCap, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(perCommanderCap);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        // Why: Postgres SUM over bigint returns numeric; the cast keeps one scalar type on both providers.
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT CAST(COALESCE(SUM(deck_count - @cap), 0) AS INTEGER) FROM (SELECT COUNT(1) AS deck_count FROM deck_queue q WHERE {RetentionCandidateSql} GROUP BY LOWER(q.commander_name) HAVING COUNT(1) > @cap) AS retention_excess;",
+            new { cap = perCommanderCap, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    internal async Task<int> MarkMetadataLessDecksForRefreshAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        var affectedCommanderNames = await connection.QueryAsync<string?>(new CommandDefinition(
+            $"SELECT q.commander_name FROM deck_queue q WHERE {RefetchCandidateSql};",
+            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var marked = await connection.ExecuteAsync(new CommandDefinition(
+            $"""
+            UPDATE deck_queue
+            SET processed = 0,
+                skipped = 0,
+                transient_failure_count = 0,
+                skip_reason = NULL,
+                refresh_requested_utc = @refreshRequestedUtc
+            WHERE id IN (SELECT q.id FROM deck_queue q WHERE {RefetchCandidateSql});
+            """,
+            new { refreshRequestedUtc = DateTime.UtcNow, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            transaction: transaction,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await RefreshCommanderSummaryAsync(connection, transaction, affectedCommanderNames, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken);
+        return marked;
+    }
+
+    internal async Task<int> CountRefetchCandidatesAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(1) FROM deck_queue q WHERE {RefetchCandidateSql};",
+            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Gets normalized commander keys with more stored candidates than the supplied minimum.
+    /// </summary>
+    /// <param name="minimum">Exclusive minimum candidate count.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Normalized commander keys in ascending order.</returns>
+    internal async Task<IReadOnlyList<string>> GetRetentionCommanderKeysAsync(int minimum, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(minimum);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var keys = await connection.QueryAsync<string>(new CommandDefinition(
+            $"SELECT LOWER(q.commander_name) FROM deck_queue q WHERE {RetentionCandidateSql} GROUP BY LOWER(q.commander_name) HAVING COUNT(1) > @minimum ORDER BY LOWER(q.commander_name);",
+            new { minimum, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return keys.ToArray();
+    }
+
     internal async Task<int> GetDistinctProcessedCommanderCountAsync(CancellationToken cancellationToken = default)
     {
         await _schema.EnsureSchemaAsync(cancellationToken);
@@ -638,6 +756,28 @@ internal sealed class DeckQueueRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    internal async Task<string?> GetRetentionCoreHashAsync(string deckId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+            "SELECT retention_core_hash FROM deck_queue WHERE deck_id = @deckId;",
+            new { deckId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    internal async Task ClearRetentionCoreHashAsync(string deckId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE deck_queue SET retention_core_hash = NULL WHERE deck_id = @deckId;",
+            new { deckId }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Gets stored canonical content hashes for queued Archidekt decks keyed by <c>deck_queue.id</c>.
     /// </summary>
@@ -744,6 +884,7 @@ internal sealed class DeckQueueRepository
                 skip_reason = excluded.skip_reason,
                 last_checked_utc = excluded.last_checked_utc,
                 refresh_requested_utc = NULL,
+                retention_core_hash = NULL,
                 commander_name = COALESCE(excluded.commander_name, deck_queue.commander_name),
                 archidekt_edh_bracket = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_edh_bracket ELSE excluded.archidekt_edh_bracket END,
                 archidekt_deck_format = CASE WHEN excluded.archidekt_metadata_captured_utc IS NULL THEN deck_queue.archidekt_deck_format ELSE excluded.archidekt_deck_format END,
@@ -847,7 +988,7 @@ internal sealed class DeckQueueRepository
         return new string(characters);
     }
 
-    private static async Task RefreshCommanderSummaryAsync(
+    internal static async Task RefreshCommanderSummaryAsync(
         DbConnection connection,
         DbTransaction? transaction,
         IEnumerable<string?> commanderNames,
@@ -975,6 +1116,22 @@ internal sealed class DeckQueueRepository
         public string DeckId { get; init; } = string.Empty;
         public string? ArchidektUpdatedUtc { get; init; }
         public string? ListingUpdatedSeenUtc { get; init; }
+    }
+
+    private sealed class RetentionCandidateRow
+    {
+        public long DeckQueueId { get; init; }
+        public string DeckId { get; init; } = string.Empty;
+        public string CommanderName { get; init; } = string.Empty;
+        public string? UpdatedUtc { get; init; }
+        public DateTimeOffset InsertedUtc { get; init; }
+    }
+
+    private sealed class PurgeCandidateRow
+    {
+        public long DeckQueueId { get; init; }
+        public int? DeckFormat { get; init; }
+        public string? CommanderName { get; init; }
     }
 
     /// <summary>Maps processed-deck aggregates used to refresh each commander's queue summary.</summary>

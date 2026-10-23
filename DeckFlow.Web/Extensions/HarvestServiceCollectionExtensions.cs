@@ -35,6 +35,10 @@ public static class HarvestServiceCollectionExtensions
         services.AddSingleton<IHarvestUpdateScheduleStore, HarvestUpdateScheduleStore>();
         services.AddSingleton<IHarvestThrottleStore, HarvestThrottleStore>();
 
+        services.AddSingleton<HarvestMaintenanceRunner>();
+        services.AddSingleton<IHarvestMaintenanceRunner>(sp => sp.GetRequiredService<HarvestMaintenanceRunner>());
+        services.AddHostedService(sp => sp.GetRequiredService<HarvestMaintenanceRunner>());
+
         services.AddSingleton<HarvestScheduleCache>();
         services.AddSingleton<IHarvestScheduleCache>(sp => sp.GetRequiredService<HarvestScheduleCache>());
         services.AddHostedService(sp => sp.GetRequiredService<HarvestScheduleCache>());

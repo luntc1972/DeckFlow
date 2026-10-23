@@ -12,6 +12,14 @@ namespace DeckFlow.Web.Services;
 /// </summary>
 public interface ICategoryKnowledgeStore
 {
+    /// <summary>Gets the currently eligible maintenance work, when supported by the store.</summary>
+    Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<HarvestMaintenancePreview?>(null);
+    /// <summary>Runs an operator-requested harvest maintenance operation.</summary>
+    Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+        // Why: a double that cannot run maintenance must not report a completed run.
+        => Task.FromException<HarvestMaintenanceOutcome>(new NotSupportedException());
+
     /// <summary>
     /// Returns stored category observations for a card, optionally narrowed to one board.
     /// </summary>
@@ -112,6 +120,9 @@ public interface ICategoryKnowledgeStore
     /// <param name="cancellationToken">Token used to cancel the query.</param>
     Task<IReadOnlyDictionary<string, int>> GetSkipReasonCountsAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyDictionary<string, int>>(new ReadOnlyDictionary<string, int>(new Dictionary<string, int>()));
+    /// <summary>Runs configured retention after a completed harvest.</summary>
+    Task<DeckPruningResult?> RunPostHarvestRetentionAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<DeckPruningResult?>(null);
     /// <summary>
     /// Returns the total number of stored card-category observations.
     /// </summary>
