@@ -190,14 +190,14 @@ public sealed class AdminHarvestController : Controller
     {
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
-        var preview = await _categoryStore.GetMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
+        var preview = await ReadMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
         SetBanner(preview is null ? "Maintenance counts are unavailable." : $"Retention excess: {preview.RetentionExcessDecks}; purge candidates: {preview.PurgeCandidates}; refetch candidates: {preview.RefetchCandidates}.", preview is null);
         return RedirectToAction(nameof(Index));
     }
 
     private async Task<bool> CheckRolloutOrderAsync(HarvestMaintenanceOperation operation, CancellationToken cancellationToken)
     {
-        var preview = await _categoryStore.GetMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
+        var preview = await ReadMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
         if (preview is null)
         {
             RefuseMaintenance(operation, "preview_unavailable", "Maintenance counts are unavailable. Nothing was started.");
@@ -214,6 +214,23 @@ public sealed class AdminHarvestController : Controller
             return false;
         }
         return true;
+    }
+
+    private async Task<HarvestMaintenancePreview?> ReadMaintenancePreviewAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _categoryStore.GetMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Harvest.Maintenance.PreviewUnavailable");
+            return null;
+        }
     }
 
     private IActionResult StartMaintenance(HarvestMaintenanceOperation operation, string label)
