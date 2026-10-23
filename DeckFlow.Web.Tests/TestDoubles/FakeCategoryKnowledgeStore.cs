@@ -29,6 +29,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int MaintenancePreviewCalls { get; private set; }
 
+    public Exception? MaintenancePreviewException { get; set; }
+
     public int RunCacheSweepCalls { get; private set; }
 
     public ArchidektCacheRunResult RunCacheSweepResult { get; set; } = new(0, 0, 0, 0, 0, TimeSpan.Zero);
@@ -330,6 +332,7 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     public Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
     {
         MaintenancePreviewCalls++;
+        if (MaintenancePreviewException is not null) throw MaintenancePreviewException;
         return Task.FromResult(MaintenancePreview);
     }
 }
