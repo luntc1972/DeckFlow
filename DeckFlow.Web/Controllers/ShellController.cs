@@ -32,6 +32,8 @@ public sealed class ShellController : Controller
     /// Renders the landing hub listing every tool in the app.
     /// </summary>
     [HttpGet("/")]
+    // Why: Render and uptime probes send HEAD /, which returned 405 and re-executed the error page.
+    [HttpHead("/")]
     public IActionResult Home()
     {
         return View("Home", DeckPageTab.Home);
