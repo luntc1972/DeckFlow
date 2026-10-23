@@ -187,7 +187,8 @@ public sealed class ProdContentReaderTests
     }
 
     /// <summary>
-    /// Marks a Fact that runs only when DECKFLOW_POSTGRES_TESTS=1 is set — mirrors
+    /// Marks a Fact that runs only when DECKFLOW_POSTGRES_TESTS=1 and
+    /// DECKFLOW_STUDIO_POSTGRES_TEST_CONNECTION_STRING are set — mirrors
     /// DeckFlow.Web.Tests/Integration/PostgresFactAttribute.cs. Duplicated locally rather than
     /// cross-referenced (DeckFlow.Studio.Tests does not reference DeckFlow.Web.Tests, and this
     /// project carries no Testcontainers dependency — these gated tests target a developer-supplied
@@ -202,6 +203,10 @@ public sealed class ProdContentReaderTests
             {
                 Skip = "Postgres integration tests are disabled. Set DECKFLOW_POSTGRES_TESTS=1 and " +
                        $"{TestConnectionStringEnvVar} (a local/throwaway Postgres — never prod) to enable.";
+            }
+            else if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(TestConnectionStringEnvVar)))
+            {
+                Skip = $"{TestConnectionStringEnvVar} must point at a local/throwaway SSL-enabled Postgres (never prod).";
             }
         }
     }

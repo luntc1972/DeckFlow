@@ -667,38 +667,35 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
-  const attachAnchorNavHandler = (): void => {
-    const anchorNav = document.querySelector<HTMLElement>('.cutlab-anchor-nav');
-    if (!anchorNav) {
+  const handleAnchorJump = (link: HTMLAnchorElement, event: Event): void => {
+    const hash = link.getAttribute('href');
+    if (!hash || hash === '#') {
       return;
     }
 
-    anchorNav.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach(link => {
-      link.addEventListener('click', event => {
-        const hash = link.getAttribute('href');
-        if (!hash || hash === '#') {
-          return;
-        }
+    const target = document.getElementById(hash.slice(1));
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
 
-        const target = document.getElementById(hash.slice(1));
-        if (!(target instanceof HTMLElement)) {
-          return;
-        }
+    event.preventDefault();
+    const targetPanel = target.closest<HTMLElement>('[role="tabpanel"]');
+    const targetTabId = targetPanel?.getAttribute('aria-labelledby');
+    const targetTab = targetTabId ? document.getElementById(targetTabId) : null;
+    if (targetTab instanceof HTMLButtonElement) {
+      activateStepTab(targetTab, false);
+    }
+    expandJumpTarget(target);
+    scrollJumpTargetIntoView(target);
+    focusJumpTarget(target);
+    if (window.location.hash !== hash) {
+      history.pushState(null, '', hash);
+    }
+  };
 
-        event.preventDefault();
-        const targetPanel = target.closest<HTMLElement>('[role="tabpanel"]');
-        const targetTabId = targetPanel?.getAttribute('aria-labelledby');
-        const targetTab = targetTabId ? document.getElementById(targetTabId) : null;
-        if (targetTab instanceof HTMLButtonElement) {
-          activateStepTab(targetTab, false);
-        }
-        expandJumpTarget(target);
-        scrollJumpTargetIntoView(target);
-        focusJumpTarget(target);
-        if (window.location.hash !== hash) {
-          history.pushState(null, '', hash);
-        }
-      });
+  const attachAnchorNavHandler = (): void => {
+    document.querySelectorAll<HTMLAnchorElement>('.cutlab-anchor-nav a[href^="#"], [data-cut-lab-jump-link][href^="#"]').forEach(link => {
+      link.addEventListener('click', event => handleAnchorJump(link, event));
     });
   };
 
@@ -1092,8 +1089,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getRoleLockButtons = (): HTMLButtonElement[] =>
     Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
 
-  const getRoleGroupLockedCount = (roleKey: string): HTMLElement | null =>
-    document.querySelector<HTMLElement>(`[data-cut-lab-group-locked="${cssEscape(roleKey)}"]`);
+  const getTypeGroupLockedCounts = (): HTMLElement[] =>
+    Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-type-locked]'));
 
   const getRoleGroupChips = (cardName: string): HTMLElement[] =>
     Array.from(document.querySelectorAll<HTMLElement>(`[data-cut-lab-chip-card="${cssEscape(cardName)}"]`));
@@ -1484,7 +1481,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const syncRoleGroupLockState = (): void => {
-    const lockedCounts = new Map<string, number>();
+    const lockedQuantityByRole = new Map<string, number>();
 
     getPoolRows().forEach(row => {
       const cardName = row.dataset.cutLabCard ?? '';
@@ -1503,21 +1500,36 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         .map(token => token.trim())
         .filter(token => token !== '')
         .forEach(roleKey => {
-          const previous = lockedCounts.get(roleKey) ?? 0;
-          lockedCounts.set(roleKey, previous + (isLocked ? parseRowQuantity(row) : 0));
+          if (isLocked) {
+            lockedQuantityByRole.set(roleKey, (lockedQuantityByRole.get(roleKey) ?? 0) + parseRowQuantity(row));
+          }
         });
     });
 
-    getRoleLockButtons().forEach(button => {
-      const roleKey = button.dataset.cutLabLockRole ?? '';
+    document.querySelectorAll<HTMLElement>('[data-cut-lab-group-locked]').forEach(count => {
+      const roleKey = count.dataset.cutLabGroupLocked ?? '';
       if (roleKey === '') {
         return;
       }
 
-      const count = getRoleGroupLockedCount(roleKey);
-      if (count) {
-        count.textContent = `${lockedCounts.get(roleKey) ?? 0}`;
+      count.textContent = `${lockedQuantityByRole.get(roleKey) ?? 0}`;
+    });
+
+    getTypeGroupLockedCounts().forEach(count => {
+      const group = count.closest('details.cutlab-role-group');
+      if (!group) {
+        return;
       }
+
+      const cardNames = new Set(
+        Array.from(group.querySelectorAll<HTMLElement>('[data-cut-lab-chip-card]'))
+          .map(chip => chip.dataset.cutLabChipCard ?? '')
+          .filter(cardName => cardName !== ''),
+      );
+      const lockedQuantity = getPoolRows()
+        .filter(row => cardNames.has(row.dataset.cutLabCard ?? '') && getLockCheckbox(row)?.checked)
+        .reduce((total, row) => total + parseRowQuantity(row), 0);
+      count.textContent = `${lockedQuantity}`;
     });
   };
 
@@ -4484,6 +4496,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const packageChips = document.querySelector<HTMLElement>('[data-cut-lab-constraints-package-chips]');
     const roleCount = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-count]');
     const roleChips = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-chips]');
+    const roleCaption = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-caption]');
+    const roleMore = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-more]');
+    const roleHint = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-hint]');
     const packages = getPackageContainers();
     const roleButtons = getRoleLockButtons();
     const lockedRows = getPoolRows().filter(row => getLockCheckbox(row)?.checked);
@@ -4524,6 +4539,20 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     if (roleCount) {
       roleCount.textContent = `${roleButtons.length - unprotectedRoles.length}/${roleButtons.length}`;
+    }
+
+    if (roleCaption) {
+      roleCaption.hidden = unprotectedRoles.length === 0;
+    }
+
+    if (roleHint) {
+      roleHint.hidden = unprotectedRoles.length === 0;
+    }
+
+    if (roleMore) {
+      const remainingRoleCount = Math.max(0, unprotectedRoles.length - 3);
+      roleMore.textContent = `+${remainingRoleCount} more`;
+      roleMore.hidden = remainingRoleCount === 0;
     }
 
     if (roleChips) {

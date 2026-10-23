@@ -296,6 +296,30 @@ public sealed class CutLabViewRenderTests
     }
 
     [Fact]
+    public async Task ResultView_RendersTuneQuantityJumpLinksForLands()
+    {
+        var model = BuildTwinBadgeModel() with
+        {
+            RoleGroups =
+            [
+                new CutLabRoleGroupView
+                {
+                    RoleKey = "lands",
+                    DisplayLabel = "Lands",
+                    Members = [new CutLabRoleMemberView { Name = "Forest", Quantity = 10 }],
+                },
+            ],
+            CurrentActualLands = 10,
+            CurrentTargetLands = 12,
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains("Change how many copies of each basic land you run in <a href=\"#cut-lab-section-tune\" data-cut-lab-jump-link>Tune quantities</a>.", html, StringComparison.Ordinal);
+        Assert.Contains("Adjust basic land copies in <a href=\"#cut-lab-section-tune\" data-cut-lab-jump-link>Tune quantities</a>.", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ResultView_RendersConstraintsSummaryFromPoolPackagesAndRoleGroups()
     {
         var model = BuildTwinBadgeModel() with
@@ -318,7 +342,8 @@ public sealed class CutLabViewRenderTests
                 {
                     RoleKey = "ramp",
                     DisplayLabel = "Ramp",
-                    Members = [new CutLabRoleMemberView { Name = "Sol Ring", IsLocked = true }],
+                    CardCount = 9,
+                    Members = [new CutLabRoleMemberView { Name = "Sol Ring", Quantity = 9, IsLocked = true }],
                 },
                 new CutLabRoleGroupView
                 {
@@ -334,7 +359,8 @@ public sealed class CutLabViewRenderTests
 
         Assert.Contains("id=\"cut-lab-section-constraints\"", html, StringComparison.Ordinal);
         Assert.Matches("data-cut-lab-constraints-locked-count[^>]*>2</span>", html);
-        Assert.Contains("Sol Ring", html, StringComparison.Ordinal);
+        Assert.Contains("Ramp · 9 cards", html, StringComparison.Ordinal);
+        Assert.Contains("Sol Ring ×9", System.Net.WebUtility.HtmlDecode(html), StringComparison.Ordinal);
         Assert.Contains("Fast mana", html, StringComparison.Ordinal);
         string packageChipHtml = Regex.Match(
             html,

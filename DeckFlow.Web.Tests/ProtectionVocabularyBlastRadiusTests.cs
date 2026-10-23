@@ -72,9 +72,10 @@ public sealed class ProtectionVocabularyBlastRadiusTests
     private static readonly string[] ExpectedCutLabInteractionTargetedNames =
     [
         "Abrupt Decay",
-        "Akroma's Will",
-        "Amalia Benavides Aguirre",
+        "An Offer You Can't Refuse",
+        "Angel of the Ruins",
         "Anguished Unmaking",
+        "Arcane Denial",
         "Artifact Mutation",
         "Assassin's Trophy",
         "Beast Within",
@@ -82,72 +83,47 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         "Bone Shards",
         "Boromir, Warden of the Tower",
         "Bounty Agent",
-        "Brave the Elements",
-        "Cabal Ritual",
         "Casualties of War",
-        "Corrupted Conviction",
-        "Crop Rotation",
-        "Culling the Weak",
+        "Charming Prince",
         "Cyclonic Rift",
         "Damn",
-        "Dark Ritual",
         "Dawnbringer Cleric",
-        "Deadly Dispute",
         "Deadly Rollick",
-        "Deduce",
-        "Deflecting Swat",
+        "Disdainful Stroke",
         "Dispatch",
-        "Displace",
+        "Dovin's Veto",
+        "Eldrazi Displacer",
         "Elspeth Conquers Death",
-        "Entomb",
-        "Ephemerate",
         "Erode",
         "Fell the Profane // Fell Mire",
-        "Flare of Fortitude",
-        "Flawless Maneuver",
+        "Flare of Denial",
         "Generous Gift",
         "Get Lost",
-        "Ghostly Flicker",
-        "Ghostway",
-        "Giver of Runes",
         "Go for the Throat",
-        "Grisly Salvage",
-        "Harrow",
         "Heliod's Intervention",
-        "Heroic Intervention",
         "Hide on the Ceiling",
         "Infernal Grasp",
-        "Kytheon, Hero of Akros // Gideon, Battle-Forged",
-        "Lightning Greaves",
-        "Loran's Escape",
-        "Mother of Runes",
-        "Nasty End",
+        "Mana Tithe",
+        "Negate",
         "Path to Exile",
+        "Permission Denied",
         "Plaza of Heroes",
         "Putrefy",
         "Ravenous Chupacabra",
+        "Reflector Mage",
         "Revitalizing Repast // Old-Growth Grove",
-        "Seasoned Dungeoneer",
-        "Songs of the Damned",
+        "Skyclave Apparition",
         "Strip Mine",
-        "Swiftfoot Boots",
+        "Swan Song",
         "Swords to Plowshares",
-        "Sylvan Safekeeper",
-        "Teferi's Protection",
         "Teferi, Hero of Dominaria",
         "Terminate",
-        "The One Ring",
-        "Thrill of Possibility",
         "Umezawa's Jitte",
-        "Vampiric Tutor",
         "Venser, Shaper Savant",
         "Venser, the Sojourner",
-        "Village Rites",
         "Wasteland",
-        "Whispersilk Cloak",
         "Witch Enchanter // Witch-Blessed Meadow",
         "Wither and Bloom",
-        "Y'shtola Rhul",
     ];
 
     private static readonly string[] ExpectedInteractionTargetedWideningNames =
@@ -239,10 +215,11 @@ public sealed class ProtectionVocabularyBlastRadiusTests
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(77, afterNames.Length);
+        // Cut Lab targeted removal no longer inherits any-instant or protection signals (ll8).
+        Assert.Equal(53, afterNames.Length);
         Assert.Equal(ExpectedCutLabInteractionTargetedNames, afterNames);
-        Assert.Equal(9, afterNames.Intersect(ExpectedInteractionTargetedWideningNames).Count());
-        Assert.Equal(68, afterNames.Except(ExpectedInteractionTargetedWideningNames).Count());
+        Assert.Single(afterNames.Intersect(ExpectedInteractionTargetedWideningNames));
+        Assert.Equal(52, afterNames.Except(ExpectedInteractionTargetedWideningNames).Count());
     }
 
     [Fact]

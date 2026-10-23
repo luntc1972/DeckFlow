@@ -157,6 +157,7 @@ public static class CutLabCutRoundEngine
         "wincons",
         "payoffs",
         "engines",
+        "tutor",
         "protection",
         "interaction-mass",
         "interaction-targeted",
