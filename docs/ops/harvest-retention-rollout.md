@@ -38,7 +38,7 @@ Deploy the per-deck table compaction while both schedules remain paused. Check b
 
 Deploy the Retention maintenance card, then press Preview. Planning estimates are 341,656 total decks, about 187,000 decks over the cap, about 11,000 purge candidates, and about 16,000 refetch candidates; the live Preview counts are authoritative. Stop and report a difference of an order of magnitude.
 
-Tick the confirmation box and run Purge. Wait for completion, then Preview again until purge candidates are 0. Next, tick the confirmation box and run Drain. The server refuses Drain while purge candidates remain. Repeat Preview and Drain after recoverable stops until the status shows completed and Preview shows 0 decks over the cap. If a completed drain leaves the over-cap count above 0, stop the rollout and report that it made no progress.
+Tick the confirmation box and run Purge. Wait for completion, then Preview again until purge candidates are 0. Next, tick the confirmation box and run Drain. The server refuses Drain while purge candidates remain. Repeat Preview and Drain after recoverable stops until the status shows completed and Preview shows 0 decks over the cap. If a Drain stopped with `Completed` and the over-cap count remains above 0, stop the rollout and report that it made no progress. For `DiskFloor`, `DiskProbeUnavailable`, or `MaxDecksReached`, resolve the displayed stop reason, press Preview, and run Drain again before Refetch.
 
 ## Step 4 — Refetch
 

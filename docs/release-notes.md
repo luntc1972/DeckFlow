@@ -432,9 +432,3 @@ Follow-up accuracy fixes (always on):
 - **Test hardening and semantic guards (Phase 999.5):** Four pre-existing test failures were fixed, `DeckComparisonService.ParseComparisonResponse` and `MetaGapService.ParseResponse` now reject valid JSON with no meaningful Deck Comparison or Meta-Gap content, and redundant ChatGPT `<result>` prompt directives were removed from five ChatGPT prompt variants.
 - **Harvest job lookup fix (Phase 999.6):** `IHarvestRunStore.GetByIdAsync(Guid id, CancellationToken ct = default)` lets `ArchidektCacheJobService.GetJob(jobId)` return completed and terminal harvest job states using provider-specific Guid binding for SQLite and Postgres.
 
----
-### Unreleased — Legal-Commander harvest
-
-- Admin/Harvest now provides Retention maintenance Preview, Purge, Retention drain, Refetch, and Stop controls. Operators set `RENDER_API_KEY` and `RENDER_POSTGRES_ID` in the Render dashboard before Postgres maintenance; values are never documented.
-- Pruned decks re-enter retention only after a commander or main-deck change; quantity-only changes remain a known limit.
-
