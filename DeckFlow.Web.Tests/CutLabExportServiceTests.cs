@@ -10,6 +10,20 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabExportServiceTests
 {
     [Fact]
+    public async Task BuildExportAsync_RoleOverride_PreservesSerializedView()
+    {
+        var service = CreateService();
+        var state = CreateState();
+        var baseline = await service.BuildExportAsync(state, "Focused", ["Zur the Enchanter"], CancellationToken.None);
+        var overridden = await service.BuildExportAsync(state with
+        {
+            RoleOverrides = [new CutLabRoleOverride { Name = "Arcane Signet", Added = ["draw"], Removed = ["ramp"] }],
+        }, "Focused", ["Zur the Enchanter"], CancellationToken.None);
+
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(baseline), System.Text.Json.JsonSerializer.Serialize(overridden));
+    }
+
+    [Fact]
     public async Task BuildExportAsync_ReconstructsMissingOriginalEntryAsMainboardAndWarns()
     {
         var service = CreateService(
