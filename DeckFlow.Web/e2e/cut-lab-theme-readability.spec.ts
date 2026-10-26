@@ -173,7 +173,7 @@ const assertContrastFloor = async (
 
 const resolveFocusIndicator = async (page: Page, locator: Locator): Promise<FocusIndicatorSnapshot> => {
   await page.keyboard.press('Tab');
-  return locator.evaluate((element) => {
+  return locator.evaluate(async (element) => {
     type BrowserRgbColor = { r: number; g: number; b: number };
     type BrowserRgbaColor = BrowserRgbColor & { a: number };
 
@@ -324,6 +324,9 @@ const resolveFocusIndicator = async (page: Page, locator: Locator): Promise<Focu
     const backgroundColorBefore = parseColor(backgroundColorBeforeValue);
     target.focus();
     const focusVisible = target.matches(':focus-visible');
+    // Why: Reduced motion in site-common.css gives every property a 0.01ms transition (transition-property defaults to all).
+    // A synchronous read after focus() sees the transition-start outline (initial medium/currentColor/offset 0), not the settled focus ring.
+    await Promise.all(target.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
     const afterStyle = getComputedStyle(target);
     const backgroundColorAfter = parseColor(afterStyle.backgroundColor);
 
@@ -401,6 +404,8 @@ test.afterEach(async () => {
 });
 
 test('keeps the Cut Lab named elements readable across every supported theme', async ({ page }) => {
+  // Why: Reduced motion makes Cut Lab tab scrolls instant and the focus-ring reads deterministic.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   for (const theme of themes) {
     await page.context().clearCookies();
     await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
