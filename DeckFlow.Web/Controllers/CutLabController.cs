@@ -212,6 +212,38 @@ public sealed class CutLabController : Controller
         }
     }
 
+    /// <summary>Applies a user-selected role override to one pool card.</summary>
+    /// <param name="request">Posted Cut Lab form fields.</param>
+    /// <param name="cardName">Card to update.</param>
+    /// <param name="role">Role key to add or remove.</param>
+    /// <param name="operation">Requested role-override operation.</param>
+    [HttpPost("/cut-lab/role-override")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> RoleOverride(CutLabRequest request, string cardName, string? role, CutLabRoleOverrideOperation operation)
+    {
+        request ??= new CutLabRequest();
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName)) return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            CutLabRoleOverrideRules.TryApplyEdit(state, cardName, role, operation, out CutLabState updated, out string? error);
+            RehydrateIntakeRequestFromState(request, updated);
+            request.CutLabStateJson = CutLabStateSerializer.Serialize(updated);
+            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+            CutLabViewModel model = CutLabViewModel.From(request, result);
+            return View("CutLab", error is null ? model : model with { ErrorMessage = error });
+        }
+        catch (InvalidOperationException exception) { return CutLabView(request, error: exception.Message); }
+        catch (OperationCanceledException) { return CutLabView(request, error: "The request timed out. Try again."); }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cut Lab role-override fallback failed.");
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+    }
+
     /// <summary>Re-surfaces prior round 1 and round 2 rejects/defers without undoing accepted cuts.</summary>
     /// <param name="request">Posted Cut Lab form fields.</param>
     [HttpPost("/cut-lab/restart-rounds")]

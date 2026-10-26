@@ -33,6 +33,9 @@ public sealed record CutLabState
     /// </summary>
     public IReadOnlyList<CutLabQuantityAdjustment> QuantityAdjustments { get; init; } = [];
 
+    /// <summary>Per-card role edits; missing JSON deserializes to empty, which is expected.</summary>
+    public IReadOnlyList<CutLabRoleOverride> RoleOverrides { get; init; } = [];
+
     /// <summary>
     /// Original imported deck entries captured once at intake and preserved as the immutable
     /// baseline for builder-compatible add/cut export.
@@ -110,6 +113,19 @@ public sealed record CutLabQuantityAdjustment
 
     /// <summary>True when this adjustment can materialize a basic land not present in the imported pool.</summary>
     public bool IsAddedBasic { get; init; }
+}
+
+/// <summary>Persisted added and removed role keys for one pool card.</summary>
+public sealed record CutLabRoleOverride
+{
+    /// <summary>Display name of the overridden card.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Role keys added to classifier output.</summary>
+    public IReadOnlyList<string> Added { get; init; } = [];
+
+    /// <summary>Role keys removed from classifier output.</summary>
+    public IReadOnlyList<string> Removed { get; init; } = [];
 }
 
 /// <summary>Serializable light snapshot of one original imported deck entry.</summary>
