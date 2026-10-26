@@ -132,6 +132,7 @@ public sealed class RenderDiskHeadroomProbeTests
 
     [Theory]
     [InlineData("B", 13_500_000_000d, 15_000_000_000L, 1_500_000_000L)]
+    [InlineData("bytes", 13_500_000_000d, 15_000_000_000L, 1_500_000_000L)]
     [InlineData("KB", 13_500_000d, 15_000_000_000L, 1_500_000_000L)]
     [InlineData("MB", 13_500d, 15_000_000_000L, 1_500_000_000L)]
     [InlineData("GB", 13.5d, 15_000_000_000L, 1_500_000_000L)]

@@ -244,6 +244,7 @@ public sealed class RenderDiskHeadroomProbe
         var multiplier = unit switch
         {
             "B" => 1d,
+            "bytes" => 1d,
             "KB" => 1_000d,
             "MB" => 1_000_000d,
             "GB" => 1_000_000_000d,
