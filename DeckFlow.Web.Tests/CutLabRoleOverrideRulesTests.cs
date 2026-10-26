@@ -7,6 +7,29 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabRoleOverrideRulesTests
 {
     [Fact]
+    public void RoleOverrideSanitize_ExcessInput_IgnoresEntriesAfterCap()
+    {
+        var overrides = Enumerable.Range(0, 5000)
+            .Select(index => new CutLabRoleOverride { Name = "Card", Added = [index < CutLabRoleOverrideRules.MaxRoleOverrides ? "draw" : "tutor"] })
+            .ToArray();
+
+        var result = CutLabRoleOverrideRules.Sanitize(overrides, Pool(), []);
+
+        Assert.True(result.Count <= CutLabRoleOverrideRules.MaxRoleOverrides);
+        Assert.Equal(["draw"], Assert.Single(result).Added);
+    }
+
+    [Fact]
+    public void RoleOverrideSanitize_DuplicatePoolNames_UsesLastCard()
+    {
+        var result = CutLabRoleOverrideRules.Sanitize(
+            [new CutLabRoleOverride { Name = "Card", Added = ["draw"] }],
+            [new() { Name = "CARD", IsCommander = true }, new() { Name = "Card" }], []);
+
+        Assert.Equal("Card", Assert.Single(result).Name);
+    }
+
+    [Fact]
     public void RoleOverrideSanitize_NullList_ReturnsEmpty()
     {
         Assert.Empty(CutLabRoleOverrideRules.Sanitize(null, Pool(), []));

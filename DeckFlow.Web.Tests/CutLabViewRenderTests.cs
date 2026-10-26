@@ -536,7 +536,7 @@ public sealed class CutLabViewRenderTests
         var state = new CutLabState
         {
             RoleOverrides = edited ? [new() { Name = "Plains", Added = ["draw"] }] : [],
-            Pool = [new() { Name = "Commander", IsCommander = true }, new() { Name = "Plains" }, new() { Name = "Unknown" }],
+            Pool = [new() { Name = "Commander", IsCommander = true }, new() { Name = "Plains" }, new() { Name = "Plains" }, new() { Name = "Unknown" }],
         };
         var model = CutLabViewModel.From(new CutLabRequest(), new CutLabProcessResult
         {

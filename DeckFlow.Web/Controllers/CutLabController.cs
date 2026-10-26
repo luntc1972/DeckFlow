@@ -224,7 +224,10 @@ public sealed class CutLabController : Controller
     public async Task<IActionResult> RoleOverride(CutLabRequest request, string cardName, string? role, CutLabRoleOverrideOperation operation)
     {
         request ??= new CutLabRequest();
-        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName)) return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName))
+        {
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
         try
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
@@ -235,8 +238,14 @@ public sealed class CutLabController : Controller
             CutLabViewModel model = CutLabViewModel.From(request, result);
             return View("CutLab", error is null ? model : model with { ErrorMessage = error });
         }
-        catch (InvalidOperationException exception) { return CutLabView(request, error: exception.Message); }
-        catch (OperationCanceledException) { return CutLabView(request, error: "The request timed out. Try again."); }
+        catch (InvalidOperationException exception)
+        {
+            return CutLabView(request, error: exception.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            return CutLabView(request, error: "The request timed out. Try again.");
+        }
         catch (Exception exception)
         {
             _logger.LogError(exception, "Cut Lab role-override fallback failed.");

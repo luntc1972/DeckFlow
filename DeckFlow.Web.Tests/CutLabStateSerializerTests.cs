@@ -9,6 +9,30 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabStateSerializerTests
 {
     [Theory]
+    [InlineData("added", "removed")]
+    [InlineData("removed", "added")]
+    public void Deserialize_NullRoleOverrideList_TreatsAsEmpty(string nullProperty, string populatedProperty)
+    {
+        string json = "{\"pool\":[{\"name\":\"Card\"}],\"roleOverrides\":[{\"name\":\"Card\",\""
+            + nullProperty + "\":null,\"" + populatedProperty + "\":[\"draw\"]}]}";
+
+        var item = Assert.Single(CutLabStateSerializer.Deserialize(json).RoleOverrides);
+
+        Assert.Empty(nullProperty == "added" ? item.Added : item.Removed);
+        Assert.Equal(["draw"], populatedProperty == "added" ? item.Added : item.Removed);
+    }
+
+    [Fact]
+    public void Deserialize_DuplicatePoolNames_PreservesPool()
+    {
+        CutLabState state = CutLabStateSerializer.Deserialize(
+            """{"pool":[{"name":"Card"},{"name":"CARD"}]}""");
+
+        Assert.Equal(2, state.Pool.Count);
+        Assert.Empty(state.RoleOverrides);
+    }
+
+    [Theory]
     [InlineData("pool")]
     [InlineData("packages")]
     [InlineData("decisions")]

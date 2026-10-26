@@ -55,21 +55,26 @@ public static class CutLabRoleOverrideRules
         IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyList<string> commanderNames)
     {
-        Dictionary<string, CutLabPoolCard> cards = pool
-            .Where(card => !string.IsNullOrWhiteSpace(card.Name))
-            .ToDictionary(card => CutLabCardNames.Normalize(card.Name), CutLabCardNames.Comparer);
+        // Why: A card may occur in multiple boards; match Cut Lab's last-wins lookup semantics.
+        Dictionary<string, CutLabPoolCard> cards = CutLabCardNames.ToLastWinsDictionary(
+            pool.Where(card => !string.IsNullOrWhiteSpace(card.Name)), card => card.Name, card => card);
         HashSet<string> commanders = commanderNames
             .Select(CutLabCardNames.Normalize)
             .ToHashSet(CutLabCardNames.Comparer);
-        List<CutLabRoleOverride> result = [];
+        Dictionary<string, (int Order, CutLabRoleOverride Override)> result = new(CutLabCardNames.Comparer);
+        int order = 0;
 
-        foreach (CutLabRoleOverride? item in overrides ?? [])
+        foreach (CutLabRoleOverride? item in (overrides ?? []).Take(MaxRoleOverrides))
         {
-            if (item is null
-                || string.IsNullOrWhiteSpace(item.Name)
-                || !cards.TryGetValue(CutLabCardNames.Normalize(item.Name), out CutLabPoolCard? card)
+            if (item is null || string.IsNullOrWhiteSpace(item.Name))
+            {
+                continue;
+            }
+
+            string normalizedName = CutLabCardNames.Normalize(item.Name);
+            if (!cards.TryGetValue(normalizedName, out CutLabPoolCard? card)
                 || card.IsCommander
-                || commanders.Contains(CutLabCardNames.Normalize(card.Name)))
+                || commanders.Contains(normalizedName))
             {
                 continue;
             }
@@ -103,12 +108,11 @@ public static class CutLabRoleOverrideRules
                 continue;
             }
 
-            string normalizedName = CutLabCardNames.Normalize(card.Name);
-            result.RemoveAll(existing => CutLabCardNames.Normalize(existing.Name) == normalizedName);
-            result.Add(new CutLabRoleOverride { Name = card.Name, Added = added, Removed = removed });
+            // Why: The last valid edit wins and retains its last-occurrence position.
+            result[normalizedName] = (order++, new CutLabRoleOverride { Name = card.Name, Added = added, Removed = removed });
         }
 
-        return result.Take(MaxRoleOverrides).ToArray();
+        return result.Values.OrderBy(item => item.Order).Select(item => item.Override).ToArray();
     }
 
     /// <summary>Applies one override to classifier roles.</summary>
@@ -271,6 +275,8 @@ public static class CutLabRoleOverrideRules
     {
         return left.Count == right.Count && left.Zip(right).All(pair =>
             string.Equals(pair.First.Name, pair.Second.Name, StringComparison.Ordinal)
+            && pair.Second.Added is not null
+            && pair.Second.Removed is not null
             && pair.First.Added.SequenceEqual(pair.Second.Added, StringComparer.Ordinal)
             && pair.First.Removed.SequenceEqual(pair.Second.Removed, StringComparer.Ordinal));
     }

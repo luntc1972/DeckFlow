@@ -367,6 +367,7 @@ public sealed record CutLabViewModel
 
         CutLabRoleOverrideCardView[] roleOverrideCards = pool
             .Where(card => !card.IsCommander && result.RoleAssignmentsByCardName.TryGetValue(card.Name, out var roles) && roles.Count > 0)
+            .DistinctBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(card => new CutLabRoleOverrideCardView(
                 card.Name,
                 result.RoleAssignmentsByCardName[card.Name].Contains("lands"),
