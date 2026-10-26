@@ -86,6 +86,7 @@ public static class CutLabStateSerializer
                 RoleFloors = (state.RoleFloors ?? [])
                     .Where(floor => floor is not null && !string.IsNullOrWhiteSpace(floor.Role))
                     .ToArray(),
+                RoleOverrides = state.RoleOverrides ?? [],
                 Goals = state.Goals ?? new CutLabGoalSettings(),
                 Intent = (state.Intent ?? new CutLabIntent()) with
                 {

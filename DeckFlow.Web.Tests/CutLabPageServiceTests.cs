@@ -2033,6 +2033,66 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_RoleOverride_AppliesEffectiveRolesToAssignments()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Card 001" }],
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card 001", Added = ["ramp"], Removed = ["draw"] }],
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames)));
+
+        var result = await service.ProcessAsync(new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        });
+
+        IReadOnlyList<string> roles = result.RoleAssignmentsByCardName["Card 001"];
+        Assert.Contains("ramp", roles);
+        Assert.DoesNotContain("draw", roles);
+        Assert.Contains("engines", roles);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_RoleOverride_PersistsSanitizedOverrideInState()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Card 001" }],
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card 001", Added = ["ramp"] }],
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames)));
+
+        var result = await service.ProcessAsync(new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        });
+
+        CutLabRoleOverride stateOverride = Assert.Single(result.State!.RoleOverrides);
+        CutLabRoleOverride serializedOverride = Assert.Single(CutLabStateSerializer.Deserialize(result.SerializedStateJson).RoleOverrides);
+        Assert.Equal("Card 001", stateOverride.Name);
+        Assert.Equal(["ramp"], stateOverride.Added);
+        Assert.Equal(stateOverride.Name, serializedOverride.Name);
+        Assert.Equal(stateOverride.Added, serializedOverride.Added);
+    }
+
+    [Fact]
     public async Task ProcessAsync_PersistsBaselineSnapshotAndReusesItAsCurrentSnapshotAtIntake()
     {
         const int expectedActualLands = 37;

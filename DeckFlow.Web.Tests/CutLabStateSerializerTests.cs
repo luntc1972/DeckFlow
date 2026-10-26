@@ -15,6 +15,7 @@ public sealed class CutLabStateSerializerTests
     [InlineData("quantityAdjustments")]
     [InlineData("originalEntries")]
     [InlineData("roleFloors")]
+    [InlineData("roleOverrides")]
     public void Deserialize_ExplicitNullCollection_ReturnsEmptyCollection(string propertyName)
     {
         var state = CutLabStateSerializer.Deserialize($"{{\"{propertyName}\":null}}");
@@ -65,6 +66,7 @@ public sealed class CutLabStateSerializerTests
             "quantityAdjustments" => state.QuantityAdjustments,
             "originalEntries" => state.OriginalEntries,
             "roleFloors" => state.RoleFloors,
+            "roleOverrides" => state.RoleOverrides,
             _ => throw new ArgumentOutOfRangeException(nameof(propertyName)),
         };
 
@@ -185,6 +187,54 @@ public sealed class CutLabStateSerializerTests
 
         Assert.Empty(state.RoleFloors);
         Assert.True(Assert.Single(state.Pool, card => card.IsCommander).IsLocked);
+    }
+
+    [Fact]
+    public void SerializeDeserialize_RoleOverrides_RoundTripUnchanged()
+    {
+        var state = new CutLabState
+        {
+            Commander = "Atraxa, Praetors' Voice",
+            Pool =
+            [
+                new CutLabPoolCard { Name = "Atraxa, Praetors' Voice", IsCommander = true },
+                new CutLabPoolCard { Name = "Arcane Signet" },
+            ],
+            RoleOverrides =
+            [
+                new CutLabRoleOverride { Name = "Arcane Signet", Added = ["draw"], Removed = ["ramp"] },
+            ],
+        };
+
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(state));
+
+        CutLabRoleOverride roleOverride = Assert.Single(roundTripped.RoleOverrides);
+        Assert.Equal("Arcane Signet", roleOverride.Name);
+        Assert.Equal(["draw"], roleOverride.Added);
+        Assert.Equal(["ramp"], roleOverride.Removed);
+    }
+
+    [Fact]
+    public void Deserialize_PreFeatureJson_ReturnsEmptyRoleOverrides()
+    {
+        CutLabState state = CutLabStateSerializer.Deserialize("{\"pool\":[{\"name\":\"Arcane Signet\"}]}");
+
+        Assert.Empty(state.RoleOverrides);
+    }
+
+    [Fact]
+    public void Deserialize_TamperedRoleOverrides_DropsInvalidEntries()
+    {
+        const string json = """
+            {"commander":"Atraxa, Praetors' Voice","pool":[{"name":"Atraxa, Praetors' Voice","isCommander":true},{"name":"Arcane Signet"}],"roleOverrides":[{"name":"Atraxa, Praetors' Voice","added":["draw"]},{"name":"Missing Card","added":["draw"]},{"name":"Arcane Signet","added":["draw"],"removed":["ramp"]}]}
+            """;
+
+        CutLabState state = CutLabStateSerializer.Deserialize(json);
+
+        CutLabRoleOverride roleOverride = Assert.Single(state.RoleOverrides);
+        Assert.Equal("Arcane Signet", roleOverride.Name);
+        Assert.Equal(["draw"], roleOverride.Added);
+        Assert.Equal(["ramp"], roleOverride.Removed);
     }
 
     [Fact]
@@ -810,11 +860,21 @@ public sealed class CutLabStateSerializerTests
             });
         }
 
+        var roleOverrides = Enumerable.Range(1, CutLabRoleOverrideRules.MaxRoleOverrides)
+            .Select(index => new CutLabRoleOverride
+            {
+                Name = $"Card {index + 1}",
+                Added = ["draw"],
+                Removed = ["ramp"],
+            })
+            .ToArray();
+
         var state = new CutLabState
         {
             Commander = "Card 1",
             Pool = pool,
             Decisions = decisions,
+            RoleOverrides = roleOverrides,
             BaselineSnapshot = CreateBaselineSnapshot(),
         };
 
