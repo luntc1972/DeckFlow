@@ -391,6 +391,37 @@ public sealed class AdminHarvestController : Controller
         {
             var result = await _deckImporter.ImportWithMetadataAsync(url, cancellationToken).ConfigureAwait(false);
             var entries = result.Entries;
+            var legality = DeckLegality.Evaluate(entries, result.Metadata);
+            if (!legality.IsLegal)
+            {
+                var rejectedCommanderName = DeckCommanderResolver.ResolveCommanderName(entries);
+                var skipReason = legality.SkipReason!;
+                await _categoryStore.RejectUrlDeckAsync(
+                    UrlSourceFor(url),
+                    deckId,
+                    rejectedCommanderName,
+                    result.Metadata,
+                    skipReason,
+                    cancellationToken).ConfigureAwait(false);
+                _logger.LogInformation(
+                    "Rejected URL deck {DeckId} because it is {SkipReason}.",
+                    deckId,
+                    skipReason);
+
+                await _runStore.UpdateStateAsync(
+                    runId,
+                    HarvestRunState.Failed,
+                    startedUtc: null,
+                    completedUtc: DateTimeOffset.UtcNow,
+                    decksProcessed: null,
+                    additionalDecksFound: null,
+                    errorMessage: $"Rejected: {skipReason}",
+                    cancellationToken).ConfigureAwait(false);
+
+                SetBanner($"Deck rejected ({skipReason}): only legal Commander decks are harvested.", isError: true);
+                return RedirectToAction(nameof(Index));
+            }
+
             await PersistImportedDeckEntriesAsync(url, entries, cancellationToken).ConfigureAwait(false);
 
             var commanderName = DeckCommanderResolver.ResolveCommanderName(entries);
@@ -584,7 +615,7 @@ public sealed class AdminHarvestController : Controller
 
     private async Task PersistImportedDeckEntriesAsync(string url, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
     {
-        var source = $"archidekt_url:{url}";
+        var source = UrlSourceFor(url);
         var counts = new Dictionary<(string CardName, string Category, string Board), int>();
 
         foreach (var entry in entries)
@@ -611,6 +642,8 @@ public sealed class AdminHarvestController : Controller
                 cancellationToken).ConfigureAwait(false);
         }
     }
+
+    private static string UrlSourceFor(string url) => $"archidekt_url:{url}";
 
     private static string NormalizeBoard(string? board)
     {

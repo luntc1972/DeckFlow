@@ -182,6 +182,19 @@ else
         <p>Last scheduled update run: @(Model.Stats.LastUpdateScheduledSuccessUtc?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Never")</p>
         <p>Next scheduled update run: @NextRunLabel(Model.Stats.NextUpdateScheduledUtc, Model.UpdateSchedule.IntervalMinutes.HasValue, Model.UpdateSchedule.Paused)</p>
         <p class="admin-meta">Decks Processed counts written decks (added + updated); unchanged cache hits are skipped to reduce write churn.</p>
+        <div id="harvest-skip-reasons">
+            @if (Model.Stats.SkipReasonCounts.Count == 0)
+            {
+                <p>Skipped decks: none recorded</p>
+            }
+            else
+            {
+                foreach (var skipReason in Model.Stats.SkipReasonCounts.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+                {
+                    <p>@skipReason.Key: @skipReason.Value</p>
+                }
+            }
+        </div>
     }
 
     @await Html.PartialAsync("_HarvestRunLog", Model.Stats?.RecentRuns ?? Model.RecentRuns)

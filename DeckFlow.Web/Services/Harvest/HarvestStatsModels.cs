@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace DeckFlow.Web.Services.Harvest;
 
@@ -34,7 +35,11 @@ public sealed record HarvestStatsPayload(
     DateTimeOffset? NextBulkScheduledUtc,
     DateTimeOffset? LastUpdateScheduledSuccessUtc,
     DateTimeOffset? NextUpdateScheduledUtc,
-    HarvestHealthSignals Health);
+    HarvestHealthSignals Health)
+{
+    /// <summary>Counts from skipped deck_queue rows; unrecorded covers skips older than the skip_reason column.</summary>
+    public IReadOnlyDictionary<string, int> SkipReasonCounts { get; init; } = ReadOnlyDictionary<string, int>.Empty;
+}
 
 /// <summary>Reasons that the harvest backlog requires operator attention.</summary>
 public enum HarvestBacklogReason

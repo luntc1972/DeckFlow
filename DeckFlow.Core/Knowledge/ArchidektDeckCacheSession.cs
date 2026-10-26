@@ -274,7 +274,15 @@ public sealed class ArchidektDeckCacheSession
     {
         try
         {
-            var (cacheResult, commanderName, metadata) = await PersistDeckAsync(deckId, cancellationToken);
+            var (cacheResult, commanderName, metadata, skipReason) = await PersistDeckAsync(deckId, cancellationToken);
+            if (cacheResult == DeckCacheWriteResult.Rejected)
+            {
+                tally.Skipped++;
+                await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: true, metadata: metadata, skipReason: skipReason, cancellationToken: cancellationToken);
+                progress?.Report(tally.Added + tally.Updated);
+                return;
+            }
+
             if (cacheResult == DeckCacheWriteResult.Added)
             {
                 tally.Added++;
@@ -355,8 +363,8 @@ public sealed class ArchidektDeckCacheSession
 
     private async Task SkipDeckAsync(string deckId, int added, int updated, IProgress<int>? progress, CancellationToken cancellationToken)
     {
-        // Skip path passes null commander — top-N query filters commander_name IS NOT NULL.
-        await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, cancellationToken: cancellationToken);
+        // Skip path passes an explicit fetch-failure reason and null commander — top-N query filters commander_name IS NOT NULL.
+        await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, skipReason: DeckSkipReasons.FetchFailure, cancellationToken: cancellationToken);
         progress?.Report(added + updated);
     }
 
@@ -378,14 +386,13 @@ public sealed class ArchidektDeckCacheSession
     /// commander entry from the imported deck (most decks have exactly one Commander; partner
     /// pairs return the first deterministically) and returns it alongside the write result so
     /// <see cref="RunAsync"/> can persist <c>deck_queue.commander_name</c> in the same UPDATE
-    /// that flips <c>processed=1</c>. Because <see cref="DeckCategoryCacheWriter.ReplaceDeckEntriesAsync"/>
-    /// deletes and persists in separate repository transactions, the hash is cleared before
-    /// replacement and set only after replacement succeeds.
+    /// that flips <c>processed=1</c>. Category replacement and the hash update share one
+    /// transaction, preserving the prior cached deck if the replacement fails.
     /// </summary>
     /// <param name="deckId">Deck ID to process.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Tuple of cache write result and the commander name (or null when none was found).</returns>
-    private async Task<(DeckCacheWriteResult Result, string? CommanderName, ArchidektDeckMetadata? Metadata)> PersistDeckAsync(string deckId, CancellationToken cancellationToken)
+    /// <returns>Tuple of cache write result, commander name, metadata, and skip reason; legality is checked before the hash and rejected decks remove rows and hash atomically.</returns>
+    private async Task<(DeckCacheWriteResult Result, string? CommanderName, ArchidektDeckMetadata? Metadata, string? SkipReason)> PersistDeckAsync(string deckId, CancellationToken cancellationToken)
     {
         var source = $"archidekt_live:{deckId}";
         var alreadyCached = await _repository.HasSourceDataAsync(source, cancellationToken);
@@ -397,17 +404,24 @@ public sealed class ArchidektDeckCacheSession
         // Archidekt's array order is not itself guaranteed.
         var commanderName = DeckCommanderResolver.ResolveCommanderName(entries);
 
+        var legality = DeckLegality.Evaluate(entries, import.Metadata);
+        if (!legality.IsLegal)
+        {
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(
+                _repository, source, Array.Empty<DeckEntry>(), new DeckContentHashWrite(deckId, null), cancellationToken);
+            return (DeckCacheWriteResult.Rejected, commanderName, import.Metadata, legality.SkipReason);
+        }
+
         var newHash = DeckCategoryCacheWriter.ComputeCanonicalHash(entries);
         var storedHash = await _repository.GetContentHashAsync(deckId, cancellationToken);
         if (storedHash is not null && string.Equals(storedHash, newHash, StringComparison.Ordinal))
         {
-            return (DeckCacheWriteResult.Unchanged, commanderName, import.Metadata);
+            return (DeckCacheWriteResult.Unchanged, commanderName, import.Metadata, null);
         }
 
-        await _repository.SetContentHashAsync(deckId, null, cancellationToken);
-        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(_repository, source, entries, cancellationToken);
-        await _repository.SetContentHashAsync(deckId, newHash, cancellationToken);
-        return (alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added, commanderName, import.Metadata);
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(
+            _repository, source, entries, new DeckContentHashWrite(deckId, newHash), cancellationToken);
+        return (alreadyCached ? DeckCacheWriteResult.Updated : DeckCacheWriteResult.Added, commanderName, import.Metadata, null);
     }
 
     private sealed class DeckDrainTally
@@ -432,6 +446,9 @@ internal enum DeckCacheWriteResult
     Added,
     Updated,
     Unchanged,
+
+    /// <summary>The imported deck failed Commander legality and was removed.</summary>
+    Rejected,
 }
 
 /// <summary>

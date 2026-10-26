@@ -54,6 +54,10 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public ArchidektDeckMetadata? LastUrlMetadata { get; private set; }
 
+    public int PersistObservedCategoriesCalls { get; private set; }
+
+    public List<(string Source, string DeckId, string? CommanderName, ArchidektDeckMetadata? Metadata, string SkipReason)> RejectedUrlDecks { get; } = new();
+
     public int DistinctProcessedCommanderCount { get; set; }
 
     public int GetDistinctProcessedCommanderCountCalls { get; private set; }
@@ -181,7 +185,16 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
+    {
+        PersistObservedCategoriesCalls++;
+        return Task.CompletedTask;
+    }
+
+    public Task RejectUrlDeckAsync(string urlSource, string deckId, string? commanderName, ArchidektDeckMetadata? metadata, string skipReason, CancellationToken cancellationToken = default)
+    {
+        RejectedUrlDecks.Add((urlSource, deckId, commanderName, metadata, skipReason));
+        return Task.CompletedTask;
+    }
 
     public Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, CancellationToken cancellationToken = default)
     {

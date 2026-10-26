@@ -94,7 +94,8 @@ internal sealed class CategoryCacheSchema
                 archidekt_updated_utc TEXT NULL,
                 archidekt_metadata_captured_utc TEXT NULL,
                 refresh_requested_utc TEXT NULL,
-                listing_updated_seen_utc TEXT NULL
+                listing_updated_seen_utc TEXT NULL,
+                skip_reason TEXT NULL
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -110,6 +111,7 @@ internal sealed class CategoryCacheSchema
                      ("archidekt_metadata_captured_utc", "TEXT NULL"),
                      ("refresh_requested_utc", "TEXT NULL"),
                      ("listing_updated_seen_utc", "TEXT NULL"),
+                     ("skip_reason", "TEXT NULL"),
                      ("transient_failure_count", "INTEGER NOT NULL DEFAULT 0"),
                  }, cancellationToken);
 
@@ -152,30 +154,35 @@ internal sealed class CategoryCacheSchema
             ("commander_name_search_key", "TEXT NULL")
         }, cancellationToken);
 
-        // Why: one-time backfill of pre-existing processed rows; can legitimately take a while
-        // over a large deck_queue, so it gets its own generous timeout and swallows failures
-        // separately from table creation — a failed backfill just leaves historical commanders
-        // out of the grid until reprocessed, rather than taking the table down with it.
+        // Why: summary rows can predate skipped-deck filtering, so reconcile every schema initialization.
         var backfillCommand = connection.CreateCommand();
         backfillCommand.CommandText = """
+            UPDATE processed_commander_summary
+            SET deck_count = (SELECT g.deck_count FROM (SELECT LOWER(commander_name) AS name_key, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc FROM deck_queue WHERE processed = 1 AND skipped = 0 AND commander_name IS NOT NULL GROUP BY LOWER(commander_name)) g WHERE g.name_key = LOWER(processed_commander_summary.commander_name)),
+                last_processed_utc = (SELECT g.last_processed_utc FROM (SELECT LOWER(commander_name) AS name_key, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc FROM deck_queue WHERE processed = 1 AND skipped = 0 AND commander_name IS NOT NULL GROUP BY LOWER(commander_name)) g WHERE g.name_key = LOWER(processed_commander_summary.commander_name))
+            WHERE EXISTS (SELECT 1 FROM (SELECT LOWER(commander_name) AS name_key, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc FROM deck_queue WHERE processed = 1 AND skipped = 0 AND commander_name IS NOT NULL GROUP BY LOWER(commander_name)) g WHERE g.name_key = LOWER(processed_commander_summary.commander_name));
+            DELETE FROM processed_commander_summary
+            WHERE EXISTS (SELECT 1 FROM deck_queue WHERE processed = 1 AND skipped = 0)
+              AND NOT EXISTS (SELECT 1 FROM deck_queue WHERE processed = 1 AND skipped = 0 AND commander_name IS NOT NULL AND LOWER(commander_name) = LOWER(processed_commander_summary.commander_name));
             INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc)
-            SELECT MAX(commander_name), COUNT(1), MAX(last_checked_utc)
-            FROM deck_queue
-            WHERE processed = 1 AND commander_name IS NOT NULL
-              AND NOT EXISTS (SELECT 1 FROM processed_commander_summary)
-            GROUP BY LOWER(commander_name)
-            ON CONFLICT (commander_name) DO NOTHING;
+            SELECT g.commander_name, g.deck_count, g.last_processed_utc
+            FROM (SELECT LOWER(commander_name) AS name_key, MAX(commander_name) AS commander_name, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc FROM deck_queue WHERE processed = 1 AND skipped = 0 AND commander_name IS NOT NULL GROUP BY LOWER(commander_name)) g
+            WHERE NOT EXISTS (SELECT 1 FROM processed_commander_summary s WHERE LOWER(s.commander_name) = g.name_key)
+            ON CONFLICT DO NOTHING;
             """;
         backfillCommand.CommandTimeout = 60;
         try
         {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            backfillCommand.Transaction = transaction;
             await backfillCommand.ExecuteNonQueryAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
         catch (Exception exception) when (exception is DbException or OperationCanceledException or TimeoutException)
         {
             _logger?.LogWarning(
                 exception,
-                "processed_commander_summary one-time backfill failed; table exists but pre-existing commanders are missing until reprocessed.");
+                "processed_commander_summary reconciliation failed; table exists but historical commanders are refreshed when reprocessed.");
         }
 
         var searchKeyBackfillKey = $"{_connectionInfo.Provider}:{_connectionInfo.ConnectionString}";

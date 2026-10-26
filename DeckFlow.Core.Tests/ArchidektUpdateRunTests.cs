@@ -53,13 +53,49 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         Assert.Equal(0, result.DecksSkipped);
         Assert.True(result.Duration < TimeSpan.FromSeconds(30));
         Assert.Equal(Enumerable.Range(1, 10), handler.RequestPages);
-        Assert.All(handler.RequestPaths, path => Assert.StartsWith("/api/decks/v3/?orderBy=-updatedAt&page=", path, StringComparison.Ordinal));
+        Assert.All(handler.RequestPaths, path => Assert.StartsWith("/api/decks/v3/?orderBy=-updatedAt&deckFormat=3&page=", path, StringComparison.Ordinal));
         Assert.Equal(7, await repository.GetRecentDeckCrawlPageAsync());
         Assert.True(await IsProcessedAsync("101"));
         Assert.Null(await GetRefreshRequestedUtcAsync("101"));
         Assert.Empty(await repository.GetNextRefreshDeckIdsAsync(10));
         Assert.Equal(["pending-1", "303", "505"], await repository.GetNextUnprocessedDeckIdsAsync(10));
         Assert.Equal(1, progressValues.Last());
+    }
+
+    [Fact]
+    public async Task RunUpdateAsync_CommanderListing_RequestsFormatThreeAndSkipsSmallNewDecks()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var handler = new UpdateListingFixtureHandler
+        {
+            PageOneBody = "{\"results\":[{\"id\":701,\"size\":60},{\"id\":702,\"size\":100},{\"id\":703}]}"
+        };
+        var client = new RestClient(new RestClientOptions { BaseUrl = new Uri("https://archidekt.com"), UserAgent = null, ConfigureMessageHandler = _ => handler });
+        var session = new ArchidektDeckCacheSession(repository, new ScriptedDeckImporter(), new ArchidektRecentDecksImporter(client), idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal("/api/decks/v3/?orderBy=-updatedAt&deckFormat=3&page=1", handler.RequestPaths[0]);
+        Assert.Equal(2, result.NewIdsSeen);
+        Assert.Equal(["702", "703"], await repository.GetNextUnprocessedDeckIdsAsync(10));
+    }
+
+    [Fact]
+    public async Task RunUpdateAsync_KnownDeckShrankBelowListingSize_IsStillRequeued()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddListingRowsAsync([new ArchidektListingDeck("704", DateTimeOffset.Parse("2026-01-01T00:00:00Z"))]);
+        await repository.MarkDeckProcessedAsync("704", commanderName: null, metadata: new ArchidektDeckMetadata(null, null, null, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.UtcNow));
+        var handler = new UpdateListingFixtureHandler
+        {
+            PageOneBody = "{\"results\":[{\"id\":704,\"size\":40,\"updatedAt\":\"2026-01-02T00:00:00Z\"}]}"
+        };
+        var client = new RestClient(new RestClientOptions { BaseUrl = new Uri("https://archidekt.com"), UserAgent = null, ConfigureMessageHandler = _ => handler });
+        var session = new ArchidektDeckCacheSession(repository, new ScriptedDeckImporter(), new ArchidektRecentDecksImporter(client), idlePollDelay: TimeSpan.FromMilliseconds(1));
+
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(1, result.RefreshesRequeued);
     }
 
     [Fact]
@@ -271,6 +307,59 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         if (Directory.Exists(_tempDirectory)) Directory.Delete(_tempDirectory, recursive: true);
     }
 
+    [Fact]
+    public async Task ScriptedDeckImporter_SuccessPaths_ReturnLegalCommanderDecks()
+    {
+        var importer = new ScriptedDeckImporter();
+        var entries = await importer.ImportAsync("legal-fake");
+        var result = await importer.ImportWithMetadataAsync("legal-fake-metadata");
+
+        Assert.True(DeckLegality.Evaluate(entries, LegalCommanderDeck.Metadata()).IsLegal);
+        Assert.True(DeckLegality.Evaluate(result.Entries, result.Metadata).IsLegal);
+    }
+
+    [Fact]
+    public async Task RunUpdateAsync_RefreshedDeckBecameIllegal_RemovesRowsAndCountsSkipped()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        var importer = new ScriptedDeckImporter();
+        var session = new ArchidektDeckCacheSession(repository, importer, new ScriptedListingImporter(_ => []), idlePollDelay: TimeSpan.FromMilliseconds(1));
+        var updatedUtc = DateTimeOffset.Parse("2026-01-03T00:00:00Z");
+        await repository.AddDeckIdsAsync(["refresh-illegal"]);
+        await session.RunAsync(TimeSpan.FromSeconds(1));
+        importer.ResultOverride = _ => new(
+            LegalCommanderDeck.Complete([]).Where(entry => entry.Board != "commander").ToList(),
+            LegalCommanderDeck.Metadata(updatedUtc.AddHours(1)));
+        await repository.AddListingRowsAsync([new ArchidektListingDeck("refresh-illegal", updatedUtc.AddHours(1))]);
+
+        var result = await session.RunUpdateAsync(TimeSpan.FromSeconds(1));
+
+        Assert.Equal(1, result.DecksSkipped);
+        Assert.Equal(1, result.RefreshesDrained);
+        Assert.Equal(DeckSkipReasons.NoCommander, await ReadSkipReasonAsync("refresh-illegal"));
+        Assert.Equal(0, await ReadScalarAsync("SELECT COUNT(1) FROM card_category_observations WHERE source_id = (SELECT id FROM sources WHERE source = 'archidekt_live:refresh-illegal');"));
+        Assert.Equal(0, await ReadScalarAsync("SELECT COUNT(1) FROM card_deck_totals WHERE source_id = (SELECT id FROM sources WHERE source = 'archidekt_live:refresh-illegal');"));
+    }
+
+    private async Task<string?> ReadSkipReasonAsync(string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT skip_reason FROM deck_queue WHERE deck_id = $deckId;";
+        command.Parameters.AddWithValue("$deckId", deckId);
+        return await command.ExecuteScalarAsync() as string;
+    }
+
+    private async Task<long> ReadScalarAsync(string sql)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return Convert.ToInt64(await command.ExecuteScalarAsync());
+    }
+
     private async Task<bool> IsProcessedAsync(string deckId)
     {
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
@@ -320,13 +409,17 @@ public sealed class ArchidektUpdateRunTests : IDisposable
         public List<string> RequestPaths { get; } = [];
         public List<int> RequestPages { get; } = [];
 
+        public string? PageOneBody { get; set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.PathAndQuery;
             RequestPaths.Add(path);
             var page = int.Parse(request.RequestUri.Query.Split("page=")[1], System.Globalization.CultureInfo.InvariantCulture);
             RequestPages.Add(page);
-            var body = "{\"results\":[{\"id\":101,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"},{\"id\":303,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"},{\"id\":505,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"}]}";
+            var body = PageOneBody is null
+                ? "{\"results\":[{\"id\":101,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"},{\"id\":303,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"},{\"id\":505,\"updatedAt\":\"2026-01-02T00:00:00.123456Z\"}]}"
+                : page == 1 ? PageOneBody : "{\"results\":[]}";
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
         }
     }
@@ -388,6 +481,8 @@ public sealed class ArchidektUpdateRunTests : IDisposable
 
         public IReadOnlyList<string> AttemptedDeckIds => ImportedDeckIds;
 
+        public Func<string, ArchidektDeckImportResult?>? ResultOverride { get; set; }
+
         public Task<List<DeckEntry>> ImportAsync(string deckId, CancellationToken cancellationToken = default)
         {
             ImportedDeckIds.Add(deckId);
@@ -406,10 +501,26 @@ public sealed class ArchidektUpdateRunTests : IDisposable
                 throw new HttpRequestException("fixture failure");
             }
 
-            return Task.FromResult(new List<DeckEntry> { new() { Name = $"Card {deckId}", NormalizedName = CardNormalizer.Normalize($"Card {deckId}"), Quantity = 1, Board = "mainboard", Category = "Ramp" } });
+            var entries = LegalCommanderDeck.Complete([new() { Name = $"Card {deckId}", NormalizedName = CardNormalizer.Normalize($"Card {deckId}"), Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
+            LegalCommanderDeck.AssertLegal(entries, Metadata());
+            return Task.FromResult(entries);
         }
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string deckId, CancellationToken cancellationToken = default)
-            => new(await ImportAsync(deckId, cancellationToken), new ArchidektDeckMetadata(null, null, null, null, DateTimeOffset.Parse("2026-01-02T00:00:00Z"), DateTimeOffset.UtcNow));
+        {
+            var entries = await ImportAsync(deckId, cancellationToken);
+            var overrideResult = ResultOverride?.Invoke(deckId);
+            if (overrideResult is not null)
+            {
+                return overrideResult;
+            }
+
+            var metadata = Metadata();
+            LegalCommanderDeck.AssertLegal(entries, metadata);
+            return new(entries, metadata);
+        }
+
+        private static ArchidektDeckMetadata Metadata()
+            => LegalCommanderDeck.ForceCommanderFormat(new ArchidektDeckMetadata(null, null, null, null, DateTimeOffset.Parse("2026-01-02T00:00:00Z"), DateTimeOffset.UtcNow));
     }
 }

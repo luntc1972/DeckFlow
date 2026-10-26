@@ -191,6 +191,29 @@ public sealed class CategoryKnowledgeRepository
         => _cardCategory.DeleteSourceDataAsync(source, cancellationToken);
 
     /// <summary>
+    /// Removes stored rows for an illegal URL deck and records its rejection (RET-01, OQ4).
+    /// </summary>
+    public async Task RejectUrlDeckAsync(string urlSource, string deckId, string? commanderName, ArchidektDeckMetadata? metadata, string skipReason, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(urlSource) || !urlSource.StartsWith("archidekt_url:", StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(deckId) || !ArchidektApiUrl.TryGetDeckId(urlSource["archidekt_url:".Length..], out var sourceDeckId) ||
+            !string.Equals(sourceDeckId, deckId, StringComparison.Ordinal) ||
+            skipReason is not (DeckSkipReasons.NotCommanderFormat or DeckSkipReasons.NoCommander or DeckSkipReasons.WrongSize))
+        {
+            throw new ArgumentException("The URL source, deck ID, and skip reason must describe an illegal Commander deck.");
+        }
+
+        var storedSources = await _cardCategory.GetSourceLabelsByPrefixAsync("archidekt_url:", cancellationToken).ConfigureAwait(false);
+        var sources = storedSources.Where(source => ArchidektApiUrl.TryGetDeckId(source["archidekt_url:".Length..], out var storedDeckId) && string.Equals(storedDeckId, deckId, StringComparison.Ordinal))
+            .Append(urlSource)
+            .Append("archidekt_live:" + deckId)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        await _cardCategory.RemoveDeckSourcesAsync(sources, new DeckContentHashWrite(deckId, null), cancellationToken).ConfigureAwait(false);
+        await _deckQueue.MarkUrlDeckRejectedAsync(deckId, commanderName, metadata, skipReason, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Persists observed categories for a specific card occurrence.
     /// </summary>
     /// <param name="source">Data source label.</param>
@@ -215,6 +238,14 @@ public sealed class CategoryKnowledgeRepository
         IReadOnlyList<(string CardName, string Board)> cardBoardTotals,
         CancellationToken cancellationToken = default)
         => _cardCategory.PersistDeckCategoryBatchAsync(source, observations, cardBoardTotals, cancellationToken);
+
+    internal Task ReplaceDeckCategoryBatchAsync(
+        string source,
+        IReadOnlyList<(string CardName, string Category, string Board, int Quantity, int DeckCountIncrement)> observations,
+        IReadOnlyList<(string CardName, string Board)> cardBoardTotals,
+        DeckContentHashWrite? contentHashWrite,
+        CancellationToken cancellationToken = default)
+        => _cardCategory.ReplaceDeckCategoryBatchAsync(source, observations, cardBoardTotals, contentHashWrite, cancellationToken);
 
     /// <summary>
     /// Retrieves deck totals for the card, optionally filtered by board.
@@ -319,14 +350,22 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="commanderName">Commander card name extracted from the imported deck, or null on skip / unknown.</param>
     /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
     /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
+    /// <param name="skipReason">Reason recorded when the deck is skipped.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task MarkDeckProcessedAsync(
         string deckId,
         string? commanderName,
         bool skip = false,
         ArchidektDeckMetadata? metadata = null,
+        string? skipReason = null,
         CancellationToken cancellationToken = default)
-        => _deckQueue.MarkDeckProcessedAsync(deckId, commanderName, skip, metadata, cancellationToken);
+        => _deckQueue.MarkDeckProcessedAsync(
+            deckId,
+            commanderName,
+            skip: skip,
+            metadata: metadata,
+            skipReason: skipReason,
+            cancellationToken: cancellationToken);
 
     /// <summary>
     /// Gets the stored canonical content hash for a queued Archidekt deck.
@@ -378,8 +417,9 @@ public sealed class CategoryKnowledgeRepository
     /// </summary>
     /// <param name="deckIds">Deck IDs to update.</param>
     /// <param name="skip">Whether the decks should be skipped after failure.</param>
+    /// <param name="skipReason">Reason recorded when the decks are skipped.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, CancellationToken cancellationToken = default)
-        => _deckQueue.MarkDecksProcessedAsync(deckIds, skip, cancellationToken);
+    public Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, string? skipReason = null, CancellationToken cancellationToken = default)
+        => _deckQueue.MarkDecksProcessedAsync(deckIds, skip, skipReason, cancellationToken);
 
 }

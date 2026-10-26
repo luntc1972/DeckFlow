@@ -54,7 +54,7 @@ internal sealed class DeckQueueRepository
             """
             SELECT COUNT(1) FROM deck_queue
             WHERE LOWER(commander_name) = LOWER(@commanderName)
-              AND processed = 1;
+              AND processed = 1 AND skipped = 0;
             """,
             new { commanderName },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
@@ -265,13 +265,14 @@ internal sealed class DeckQueueRepository
             transaction: transaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         var existingById = existingRows.ToDictionary(row => row.DeckId, StringComparer.Ordinal);
+        var rowsToInsert = unique.Where(row => !existingById.ContainsKey(row.DeckId) && (!row.Size.HasValue || row.Size >= 100)).ToList();
 
         var insertParameters = new DynamicParameters();
         insertParameters.Add("insertedUtc", insertedUtc);
         var insertValues = new StringBuilder();
-        for (var index = 0; index < unique.Count; index++)
+        for (var index = 0; index < rowsToInsert.Count; index++)
         {
-            var row = unique[index];
+            var row = rowsToInsert[index];
             if (index > 0)
             {
                 insertValues.Append(", ");
@@ -282,7 +283,7 @@ internal sealed class DeckQueueRepository
             insertParameters.Add($"listingSeenUtc{index}", row.UpdatedUtc.HasValue ? FormatUtc(FloorToSecond(row.UpdatedUtc.Value)) : null);
         }
 
-        var newIds = await connection.ExecuteAsync(new CommandDefinition(
+        var newIds = rowsToInsert.Count == 0 ? 0 : await connection.ExecuteAsync(new CommandDefinition(
             $"""
             INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, listing_updated_seen_utc)
             VALUES {insertValues}
@@ -323,6 +324,7 @@ internal sealed class DeckQueueRepository
                 UPDATE deck_queue
                 SET processed = 0,
                     skipped = 0,
+                    skip_reason = NULL,
                     transient_failure_count = 0,
                     inserted_utc = @insertedUtc,
                     refresh_requested_utc = @refreshRequestedUtc,
@@ -381,11 +383,12 @@ internal sealed class DeckQueueRepository
             """
             UPDATE deck_queue
             SET transient_failure_count = transient_failure_count + 1,
-                skipped = CASE WHEN transient_failure_count + 1 >= 3 THEN 1 ELSE skipped END
+                skipped = CASE WHEN transient_failure_count + 1 >= 3 THEN 1 ELSE skipped END,
+                skip_reason = CASE WHEN transient_failure_count + 1 >= 3 THEN @fetchFailure ELSE skip_reason END
             WHERE deck_id = @deckId AND processed = 0 AND skipped = 0
             RETURNING CASE WHEN transient_failure_count >= 3 THEN 1 ELSE 0 END;
             """,
-            new { deckId },
+            new { deckId, fetchFailure = DeckSkipReasons.FetchFailure },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return skipped == 1;
     }
@@ -460,7 +463,7 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
 
         var result = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1;",
+            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND skipped = 0;",
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return checked((int)result);
     }
@@ -526,15 +529,24 @@ internal sealed class DeckQueueRepository
     /// <param name="commanderName">Commander card name extracted from the imported deck, or null on skip / unknown.</param>
     /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
     /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
+    /// <param name="skipReason">Reason recorded when the deck is skipped.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     internal async Task MarkDeckProcessedAsync(
         string deckId,
         string? commanderName,
         bool skip = false,
         ArchidektDeckMetadata? metadata = null,
+        string? skipReason = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
+        if (!skip && skipReason is not null)
+        {
+            throw new ArgumentException("A skip reason requires a skipped deck.", nameof(skipReason));
+        }
+
+        // Why: existing skip callers represent fetch or import failures.
+        skipReason = skip ? skipReason ?? DeckSkipReasons.FetchFailure : null;
 
         await _schema.EnsureSchemaAsync(cancellationToken);
         await using var connection = CreateConnection();
@@ -556,6 +568,7 @@ internal sealed class DeckQueueRepository
                    transient_failure_count = CASE WHEN @skipped = 0 THEN 0 ELSE transient_failure_count END,
                    last_checked_utc = @now,
                    refresh_requested_utc = NULL,
+                   skip_reason = @skipReason,
                    commander_name = COALESCE(@commanderName, deck_queue.commander_name)
              WHERE deck_id = @deckId;
             """
@@ -566,6 +579,7 @@ internal sealed class DeckQueueRepository
                    transient_failure_count = CASE WHEN @skipped = 0 THEN 0 ELSE transient_failure_count END,
                    last_checked_utc = @now,
                    refresh_requested_utc = NULL,
+                   skip_reason = @skipReason,
                    commander_name = @commanderName,
                    archidekt_edh_bracket = @EdhBracket,
                    archidekt_deck_format = @DeckFormat,
@@ -580,6 +594,7 @@ internal sealed class DeckQueueRepository
             deckId,
             now = DateTime.UtcNow,
             skipped = skip ? 1 : 0,
+            skipReason,
             commanderName,
             // Why: These member names must match the SQL parameter names exactly for Dapper binding.
             EdhBracket = metadataParameters?.EdhBracket,
@@ -706,6 +721,8 @@ internal sealed class DeckQueueRepository
             deckId,
             now,
             commanderName,
+            Skipped = 0,
+            SkipReason = (string?)null,
             // Why: These member names must match the SQL parameter names exactly for Dapper binding.
             EdhBracket = metadataParameters?.EdhBracket,
             DeckFormat = metadataParameters?.DeckFormat,
@@ -716,14 +733,15 @@ internal sealed class DeckQueueRepository
         };
         await connection.ExecuteAsync(new CommandDefinition(
             """
-            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name,
+            INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, skip_reason, last_checked_utc, commander_name,
                 archidekt_edh_bracket, archidekt_deck_format, archidekt_theorycrafted, archidekt_created_utc,
                 archidekt_updated_utc, archidekt_metadata_captured_utc)
-            VALUES (@deckId, @now, 1, 0, @now, @commanderName, @EdhBracket, @DeckFormat, @Theorycrafted,
+            VALUES (@deckId, @now, 1, @Skipped, @SkipReason, @now, @commanderName, @EdhBracket, @DeckFormat, @Theorycrafted,
                 @CreatedUtc, @UpdatedUtc, @CapturedUtc)
             ON CONFLICT(deck_id) DO UPDATE
             SET processed = 1,
-                skipped = 0,
+                skipped = excluded.skipped,
+                skip_reason = excluded.skip_reason,
                 last_checked_utc = excluded.last_checked_utc,
                 refresh_requested_utc = NULL,
                 commander_name = COALESCE(excluded.commander_name, deck_queue.commander_name),
@@ -746,14 +764,25 @@ internal sealed class DeckQueueRepository
         await summaryTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    internal Task MarkUrlDeckRejectedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, string skipReason, CancellationToken cancellationToken = default)
+        => MarkDecksProcessedAsync([deckId], skip: true, skipReason, cancellationToken);
+
     /// <summary>
     /// Marks the provided deck IDs as processed, optionally skipping them.
     /// </summary>
     /// <param name="deckIds">Deck IDs to update.</param>
     /// <param name="skip">Whether the decks should be skipped after failure.</param>
+    /// <param name="skipReason">Reason recorded when the decks are skipped.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    internal async Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, CancellationToken cancellationToken = default)
+    internal async Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, string? skipReason = null, CancellationToken cancellationToken = default)
     {
+        if (!skip && skipReason is not null)
+        {
+            throw new ArgumentException("A skip reason requires a skipped deck.", nameof(skipReason));
+        }
+
+        // Why: existing skip callers represent fetch or import failures.
+        skipReason = skip ? skipReason ?? DeckSkipReasons.FetchFailure : null;
         var unique = deckIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Distinct(StringComparer.Ordinal)
@@ -776,6 +805,7 @@ internal sealed class DeckQueueRepository
                 UPDATE deck_queue
                 SET processed = 1,
                     skipped = @skipped,
+                    skip_reason = @skipReason,
                     last_checked_utc = @now,
                     refresh_requested_utc = NULL
                 WHERE deck_id = @deckId;
@@ -784,7 +814,8 @@ internal sealed class DeckQueueRepository
                 {
                     deckId,
                     now = DateTime.UtcNow,
-                    skipped = skip ? 1 : 0
+                    skipped = skip ? 1 : 0,
+                    skipReason
                 },
                 transaction: transaction,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
@@ -858,7 +889,7 @@ internal sealed class DeckQueueRepository
             $"""
             SELECT MAX(commander_name) AS commander_name, COUNT(1) AS deck_count, MAX(last_checked_utc) AS last_processed_utc
             FROM deck_queue
-            WHERE processed = 1 AND commander_name IS NOT NULL AND LOWER(commander_name) {membershipOperator}
+            WHERE processed = 1 AND skipped = 0 AND commander_name IS NOT NULL AND LOWER(commander_name) {membershipOperator}
             GROUP BY LOWER(commander_name);
             """,
             new { normalizedNames },

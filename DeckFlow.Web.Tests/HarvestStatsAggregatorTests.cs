@@ -34,7 +34,7 @@ public sealed class HarvestStatsAggregatorTests
         runStore.Release();
         var payload = await statsTask;
 
-        Assert.Equal(10, startedBeforeRelease);
+        Assert.Equal(11, startedBeforeRelease);
         Assert.Equal(42, payload.TotalDecks);
         Assert.Equal(7, payload.TotalDecks30d);
         Assert.Equal(99, payload.TotalObservations);
@@ -43,6 +43,38 @@ public sealed class HarvestStatsAggregatorTests
         Assert.Equal(runStore.LastSuccessUtc, payload.LastUpdateScheduledSuccessUtc);
         Assert.Equal(runStore.LastSuccessUtc + TimeSpan.FromHours(4), payload.NextBulkScheduledUtc);
         Assert.Null(payload.NextUpdateScheduledUtc);
+        Assert.Equal(5, payload.SkipReasonCounts["wrong_size"]);
+    }
+
+    [Fact]
+    public async Task GetAsync_SkipReasonCounts_FlowIntoPayload()
+    {
+        var categoryStore = new ImmediateCategoryKnowledgeStore
+        {
+            SkipReasonCounts = new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["not_commander_format"] = 3,
+                ["fetch_failure"] = 1,
+            },
+        };
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+
+        var payload = await CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache).GetAsync();
+
+        Assert.Equal(3, payload.SkipReasonCounts["not_commander_format"]);
+        Assert.Equal(1, payload.SkipReasonCounts["fetch_failure"]);
+    }
+
+    [Fact]
+    public async Task GetAsync_SkipReasonReadFails_OtherCountsStillReturned()
+    {
+        var categoryStore = new ImmediateCategoryKnowledgeStore { ThrowOnSkipReasonCounts = true };
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+
+        var payload = await CreateAggregator(new ImmediateHarvestRunStore(), categoryStore, cache).GetAsync();
+
+        Assert.Equal(42, payload.TotalDecks);
+        Assert.Empty(payload.SkipReasonCounts);
     }
 
     [Fact]
@@ -745,6 +777,13 @@ public sealed class HarvestStatsAggregatorTests
 
         public void Release() => _release.TrySetResult();
 
+        public async Task<IReadOnlyDictionary<string, int>> GetSkipReasonCountsAsync(CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _startedCalls);
+            await _release.Task.WaitAsync(cancellationToken);
+            return new Dictionary<string, int>(StringComparer.Ordinal) { ["wrong_size"] = 5 };
+        }
+
         public Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<CategoryKnowledgeRow>>(Array.Empty<CategoryKnowledgeRow>());
 
@@ -834,9 +873,18 @@ public sealed class HarvestStatsAggregatorTests
         private int _buildCount;
         private int _throwNextBuild;
 
+        public IReadOnlyDictionary<string, int> SkipReasonCounts { get; set; } = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        public bool ThrowOnSkipReasonCounts { get; set; }
+
         public ImmediateCategoryKnowledgeStore(int queuedDeckCount = 12) => _queuedDeckCount = queuedDeckCount;
 
         public int BuildCount => Volatile.Read(ref _buildCount);
+
+        public Task<IReadOnlyDictionary<string, int>> GetSkipReasonCountsAsync(CancellationToken cancellationToken = default)
+            => ThrowOnSkipReasonCounts
+                ? throw new InvalidOperationException("Skip reason counts failed.")
+                : Task.FromResult(SkipReasonCounts);
 
         public CancellationToken BlockedBuildToken => _blockedBuildToken;
 

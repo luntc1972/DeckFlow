@@ -14,8 +14,15 @@ public static class DeckCommanderResolver
     /// <returns>A stable commander name, or null.</returns>
     public static string? ResolveCommanderName(IEnumerable<DeckEntry> entries)
         => entries
-            .Where(entry => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase))
+            .Where(IsCommanderEntry)
             .OrderBy(entry => entry.Name, StringComparer.Ordinal)
             .Select(entry => entry.Name)
             .FirstOrDefault();
+
+    /// <summary>
+    /// Determines whether an entry is an eligible Commander-board card.
+    /// </summary>
+    public static bool IsCommanderEntry(DeckEntry entry)
+        => string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)
+            && entry.Quantity > 0;
 }

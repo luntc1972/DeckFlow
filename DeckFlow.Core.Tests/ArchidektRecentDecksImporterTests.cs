@@ -45,7 +45,7 @@ public sealed class ArchidektRecentDecksImporterTests : IDisposable
         var result = await importer.ImportRecentDeckIdsPageAsync(3);
 
         Assert.Equal(["123", "456"], result);
-        Assert.Equal("/api/decks/v3/?orderBy=-updatedAt&page=3", handler.RequestUri?.PathAndQuery);
+        Assert.Equal("/api/decks/v3/?orderBy=-updatedAt&deckFormat=3&page=3", handler.RequestUri?.PathAndQuery);
     }
 
     [Fact]
@@ -70,7 +70,18 @@ public sealed class ArchidektRecentDecksImporterTests : IDisposable
                 Assert.Equal(TimeSpan.Zero, row.UpdatedUtc?.Offset);
             });
         Assert.Equal(1, handler.RequestCount);
-        Assert.Equal("/api/decks/v3/?orderBy=-updatedAt&page=4", handler.RequestUri?.PathAndQuery);
+        Assert.Equal("/api/decks/v3/?orderBy=-updatedAt&deckFormat=3&page=4", handler.RequestUri?.PathAndQuery);
+    }
+
+    [Fact]
+    public async Task ImportRecentListingPageAsync_SizeField_ParsedOrNull()
+    {
+        var handler = new FixtureMessageHandler("{\"results\":[{\"id\":100,\"size\":100},{\"id\":101}]} ");
+
+        var result = await CreateImporter(handler).ImportRecentListingPageAsync(1);
+
+        Assert.Equal(100, result[0].Size);
+        Assert.Null(result[1].Size);
     }
 
     [Fact]
@@ -165,6 +176,46 @@ public sealed class ArchidektRecentDecksImporterTests : IDisposable
     }
 
     [Fact]
+    public async Task ImportRecentDeckIdsPageAsync_SmallDeck_IsDropped()
+    {
+        var handler = new FixtureMessageHandler("{\"results\":[{\"id\":99,\"size\":99},{\"id\":100,\"size\":100}]}");
+
+        var ids = await CreateImporter(handler).ImportRecentDeckIdsPageAsync(1);
+
+        Assert.Equal(["100"], ids);
+    }
+
+    [Fact]
+    public async Task ImportRecentDeckIdsAsync_AllUndersizedPageThenLegalPage_ContinuesPaging()
+    {
+        var handler = new PagedFixtureMessageHandler(new Dictionary<int, string>
+        {
+            [1] = "{\"results\":[{\"id\":99,\"size\":99}]}",
+            [2] = "{\"results\":[{\"id\":100,\"size\":100}]}",
+            [3] = "{\"results\":[]}"
+        });
+
+        var ids = await CreateImporter(handler).ImportRecentDeckIdsAsync(1);
+
+        Assert.Equal(["100"], ids);
+    }
+
+    [Fact]
+    public async Task ImportRecentDeckIdsAsync_EmptySourcePage_Stops()
+    {
+        var handler = new PagedFixtureMessageHandler(new Dictionary<int, string>
+        {
+            [1] = "{\"results\":[]}",
+            [2] = "{\"results\":[{\"id\":100,\"size\":100}]}"
+        });
+
+        var ids = await CreateImporter(handler).ImportRecentDeckIdsAsync(1);
+
+        Assert.Empty(ids);
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
     public async Task ImportRecentDeckIdsPageAsync_RateLimitedThenOk_HonoursRetryAfterThroughTheGate()
     {
         var handler = new QueuedResponseHandler([
@@ -254,6 +305,19 @@ public sealed class ArchidektRecentDecksImporterTests : IDisposable
             {
                 Content = new StringContent(content)
             });
+        }
+    }
+
+    private sealed class PagedFixtureMessageHandler(IReadOnlyDictionary<int, string> contentByPage) : HttpMessageHandler
+    {
+        public int RequestCount { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestCount++;
+            var page = int.Parse(request.RequestUri!.Query.Split("page=")[1], System.Globalization.CultureInfo.InvariantCulture);
+            var content = contentByPage.TryGetValue(page, out var pageContent) ? pageContent : "{\"results\":[]}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(content) });
         }
     }
 

@@ -246,7 +246,7 @@ public sealed class ContentHashDedupTests : IDisposable
     }
 
     [Fact]
-    public async Task ChangedPath_PartialFailureLeavesNullHash()
+    public async Task ChangedPath_PartialFailureLeavesPriorRowsHashAndSummariesUnchanged()
     {
         var deckId = "202";
         var repository = new CategoryKnowledgeRepository(_databasePath);
@@ -255,14 +255,21 @@ public sealed class ContentHashDedupTests : IDisposable
         var session = CreateSession(repository, deckImporter, new FakeRecentDecksImporter(deckId));
 
         await session.RunAsync(TimeSpan.FromMilliseconds(150), fetchBatchSize: 1);
-        Assert.NotNull(await repository.GetContentHashAsync(deckId));
+        var h1 = await repository.GetContentHashAsync(deckId);
+        Assert.NotNull(h1);
         await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck(deckId, DateTimeOffset.Parse("2026-01-02T00:00:00Z")) });
         deckImporter.SetEntries(deckId, new[] { CreateEntry("Arcane Signet", "Ramp") });
+        var factsBefore = await ReadFactSnapshotAsync();
+        var summariesBefore = await ReadCategoryRowsAsync("card_category_summary");
+        var qualifiedBefore = await ReadCategoryRowsAsync("card_category_qualified");
         await CreateFailingObservationInsertTriggerAsync();
 
         await Assert.ThrowsAsync<SqliteException>(() => session.RunAsync(TimeSpan.FromMilliseconds(150), fetchBatchSize: 1));
 
-        Assert.Null(await repository.GetContentHashAsync(deckId));
+        Assert.Equal(h1, await repository.GetContentHashAsync(deckId));
+        Assert.Equal(factsBefore, await ReadFactSnapshotAsync());
+        Assert.Equal(summariesBefore, await ReadCategoryRowsAsync("card_category_summary"));
+        Assert.Equal(qualifiedBefore, await ReadCategoryRowsAsync("card_category_qualified"));
     }
 
     [Fact]
@@ -313,6 +320,19 @@ public sealed class ContentHashDedupTests : IDisposable
         Assert.Equal(1, result.RefreshesRequeued);
         Assert.Equal(0, afterListing.Processed);
         Assert.Equal(0, afterListing.Skipped);
+    }
+
+    [Fact]
+    public async Task FakeDeckImporter_SuccessPaths_ReturnLegalCommanderDecks()
+    {
+        var importer = new FakeDeckImporter();
+        importer.SetEntries("legal-fake", [CreateEntry("Legal Fake", null, 1, "Ramp")]);
+        importer.SetEntries("legal-fake-metadata", [CreateEntry("Legal Fake Metadata", null, 1, "Ramp")]);
+        var entries = await importer.ImportAsync("legal-fake");
+        var result = await importer.ImportWithMetadataAsync("legal-fake-metadata");
+
+        Assert.True(DeckLegality.Evaluate(entries, LegalCommanderDeck.Metadata()).IsLegal);
+        Assert.True(DeckLegality.Evaluate(result.Entries, result.Metadata).IsLegal);
     }
 
     private static DeckEntry CreateEntry(
@@ -387,6 +407,13 @@ public sealed class ContentHashDedupTests : IDisposable
                 """)));
     }
 
+    private async Task<IReadOnlyList<string>> ReadCategoryRowsAsync(string tableName)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        return await ReadRowsAsync(connection, $"SELECT * FROM {tableName} ORDER BY 1, 2;");
+    }
+
     private static async Task<IReadOnlyList<string>> ReadRowsAsync(SqliteConnection connection, string sql)
     {
         var command = connection.CreateCommand();
@@ -436,15 +463,27 @@ public sealed class ContentHashDedupTests : IDisposable
         private readonly Dictionary<string, List<DeckEntry>> _entriesByDeckId = new(StringComparer.Ordinal);
 
         public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => Task.FromResult(_entriesByDeckId[urlOrDeckId].ToList());
+        {
+            var entries = LegalCommanderDeck.Complete(_entriesByDeckId[urlOrDeckId]);
+            LegalCommanderDeck.AssertLegal(entries, Metadata());
+            return Task.FromResult(entries);
+        }
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
-            => new(await ImportAsync(urlOrDeckId, cancellationToken), new ArchidektDeckMetadata(3, 1, false, null, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z")));
+        {
+            var entries = await ImportAsync(urlOrDeckId, cancellationToken);
+            var metadata = Metadata();
+            LegalCommanderDeck.AssertLegal(entries, metadata);
+            return new(entries, metadata);
+        }
 
         public void SetEntries(string deckId, IReadOnlyList<DeckEntry> entries)
         {
             _entriesByDeckId[deckId] = entries.ToList();
         }
+
+        private static ArchidektDeckMetadata Metadata()
+            => LegalCommanderDeck.ForceCommanderFormat(new ArchidektDeckMetadata(3, DeckLegality.CommanderDeckFormat, false, null, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z")));
     }
 
     private sealed class FakeRecentDecksImporter : IArchidektRecentDecksImporter

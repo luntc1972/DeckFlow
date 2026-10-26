@@ -86,13 +86,13 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
 
         while (deckIds.Count < count)
         {
-            var pageIds = await ImportRecentDeckIdsPageAsync(page, cancellationToken);
-            if (pageIds.Count == 0)
+            var listingRows = await FetchListingPageAsync(page, cancellationToken);
+            if (listingRows.Count == 0)
             {
                 break;
             }
 
-            foreach (var deckId in pageIds)
+            foreach (var deckId in listingRows.Where(static row => !row.Size.HasValue || row.Size >= 100).Select(static row => row.DeckId))
             {
                 if (seen.Add(deckId))
                 {
@@ -130,7 +130,7 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
     private async Task<IReadOnlyList<string>> ImportRecentDeckIdsPageCoreAsync(int page, CancellationToken cancellationToken)
     {
         var listingRows = await FetchListingPageAsync(page, cancellationToken);
-        return listingRows.Select(static row => row.DeckId).ToList();
+        return listingRows.Where(static row => !row.Size.HasValue || row.Size >= 100).Select(static row => row.DeckId).ToList();
     }
 
     private async Task<IReadOnlyList<ArchidektListingDeck>> FetchListingPageAsync(int page, CancellationToken cancellationToken)
@@ -149,7 +149,7 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
             var deckId = deck.Id.ToString(CultureInfo.InvariantCulture);
             if (seen.Add(deckId))
             {
-                rows.Add(new ArchidektListingDeck(deckId, ParseListingTimestamp(deck.UpdatedAt)));
+                rows.Add(new ArchidektListingDeck(deckId, ParseListingTimestamp(deck.UpdatedAt), deck.Size));
             }
         }
 
@@ -165,7 +165,7 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
     /// <param name="page">Page index to request.</param>
     private static RestRequest CreatePageRequest(int page)
     {
-        return new RestRequest($"/api/decks/v3/?orderBy=-updatedAt&page={page}", Method.Get)
+        return new RestRequest($"/api/decks/v3/?orderBy=-updatedAt&deckFormat=3&page={page}", Method.Get)
             .AddHeader("User-Agent", ArchidektUserAgent.Value);
     }
 
@@ -176,5 +176,6 @@ public sealed class ArchidektRecentDecksImporter : IArchidektRecentDecksImporter
     /// <summary>Extracts the deck ID needed to enqueue an Archidekt recent-deck result.</summary>
     private sealed record ArchidektRecentDeck(
         [property: JsonPropertyName("id")] int Id,
-        [property: JsonPropertyName("updatedAt")] JsonElement UpdatedAt);
+        [property: JsonPropertyName("updatedAt")] JsonElement UpdatedAt,
+        [property: JsonPropertyName("size")] int? Size);
 }

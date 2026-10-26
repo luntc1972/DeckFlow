@@ -95,4 +95,105 @@ public sealed class DeckQueueRepositoryTests : IDisposable
             File.Delete(_databasePath);
         }
     }
+
+    [Fact]
+    public async Task MarkDeckProcessedAsync_SkipWithReason_StoresReason()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(["one"]);
+        await repository.MarkDeckProcessedAsync("one", null, skip: true, metadata: null, skipReason: DeckSkipReasons.WrongSize);
+        Assert.Equal(DeckSkipReasons.WrongSize, await GetSkipReasonAsync("one"));
+    }
+
+    [Fact]
+    public async Task MarkDeckProcessedAsync_SkipWithoutReason_StoresFetchFailure()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(["one"]);
+        await repository.MarkDeckProcessedAsync("one", null, skip: true, metadata: null);
+        Assert.Equal(DeckSkipReasons.FetchFailure, await GetSkipReasonAsync("one"));
+    }
+
+    [Fact]
+    public async Task MarkDeckProcessedAsync_SuccessAfterSkip_ClearsReason()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(["one"]);
+        await repository.MarkDeckProcessedAsync("one", null, skip: true, metadata: null, skipReason: DeckSkipReasons.WrongSize);
+        await repository.MarkDeckProcessedAsync("one", null, metadata: null);
+        Assert.Null(await GetSkipReasonAsync("one"));
+    }
+
+    [Fact]
+    public async Task MarkDeckProcessedAsync_SuccessWithReason_ThrowsAndWritesNothing()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(["one"]);
+        await Assert.ThrowsAsync<ArgumentException>(() => repository.MarkDeckProcessedAsync("one", null, metadata: null, skipReason: DeckSkipReasons.WrongSize));
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        Assert.Equal(0L, await connection.ExecuteScalarAsync<long>("SELECT processed FROM deck_queue WHERE deck_id = 'one';"));
+    }
+
+    [Fact]
+    public async Task MarkDecksProcessedAsync_SkipWithReason_StoresReasonOnEveryDeck()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(["one", "two"]);
+        await repository.MarkDecksProcessedAsync(["one", "two"], skip: true, skipReason: DeckSkipReasons.WrongSize);
+        Assert.Equal(DeckSkipReasons.WrongSize, await GetSkipReasonAsync("one"));
+        Assert.Equal(DeckSkipReasons.WrongSize, await GetSkipReasonAsync("two"));
+    }
+
+    [Fact]
+    public async Task MarkDecksProcessedAsync_SkipWithoutReason_StoresFetchFailureOnEveryDeck()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(["one", "two"]);
+        await repository.MarkDecksProcessedAsync(["one", "two"], skip: true);
+        Assert.Equal(DeckSkipReasons.FetchFailure, await GetSkipReasonAsync("one"));
+        Assert.Equal(DeckSkipReasons.FetchFailure, await GetSkipReasonAsync("two"));
+    }
+
+    [Fact]
+    public async Task MarkDecksProcessedAsync_SuccessAfterSkip_ClearsReasonOnEveryDeck()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(["one", "two"]);
+        await repository.MarkDecksProcessedAsync(["one", "two"], skip: true, skipReason: DeckSkipReasons.WrongSize);
+        await repository.MarkDecksProcessedAsync(["one", "two"]);
+        Assert.Null(await GetSkipReasonAsync("one"));
+        Assert.Null(await GetSkipReasonAsync("two"));
+    }
+
+    [Fact]
+    public async Task MarkDecksProcessedAsync_SuccessWithReason_ThrowsAndWritesNothing()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.AddDeckIdsAsync(["one", "two"]);
+        await Assert.ThrowsAsync<ArgumentException>(() => repository.MarkDecksProcessedAsync(["one", "two"], skipReason: DeckSkipReasons.WrongSize));
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        Assert.Equal(0L, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM deck_queue WHERE processed = 1;"));
+    }
+
+    [Fact]
+    public async Task EnsureSchema_ExistingDeckQueueWithoutSkipReason_AddsColumn()
+    {
+        await using (var connection = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync("CREATE TABLE deck_queue (id INTEGER, deck_id TEXT NOT NULL, inserted_utc TEXT NOT NULL, processed INTEGER NOT NULL DEFAULT 0, skipped INTEGER NOT NULL DEFAULT 0, transient_failure_count INTEGER NOT NULL DEFAULT 0, last_checked_utc TEXT, commander_name TEXT NULL, content_hash TEXT NULL, archidekt_edh_bracket INTEGER NULL, archidekt_deck_format INTEGER NULL, archidekt_theorycrafted INTEGER NULL, archidekt_created_utc TEXT NULL, archidekt_updated_utc TEXT NULL, archidekt_metadata_captured_utc TEXT NULL, refresh_requested_utc TEXT NULL, listing_updated_seen_utc TEXT NULL);");
+        }
+
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await repository.EnsureSchemaAsync();
+        await using var verifyConnection = new SqliteConnection($"Data Source={_databasePath}");
+        var columns = await verifyConnection.QueryAsync<string>("SELECT name FROM pragma_table_info('deck_queue');");
+        Assert.Contains("skip_reason", columns);
+    }
+
+    private async Task<string?> GetSkipReasonAsync(string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        return await connection.ExecuteScalarAsync<string?>("SELECT skip_reason FROM deck_queue WHERE deck_id = @deckId;", new { deckId });
+    }
 }

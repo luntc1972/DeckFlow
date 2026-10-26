@@ -40,7 +40,7 @@ public sealed class ArchidektBulkListingRefreshTests : IDisposable
 
         Assert.Equal(2, deckImporter.ImportCalls);
         Assert.Equal(0, result.DecksEnqueued);
-        Assert.All(handler.RequestPaths, path => Assert.StartsWith("/api/decks/v3/?orderBy=-updatedAt&page=", path, StringComparison.Ordinal));
+        Assert.All(handler.RequestPaths, path => Assert.StartsWith("/api/decks/v3/?orderBy=-updatedAt&deckFormat=3&page=", path, StringComparison.Ordinal));
         await using var connection = new SqliteConnection($"Data Source={_databasePath}");
         await connection.OpenAsync();
         var command = connection.CreateCommand();
@@ -56,6 +56,17 @@ public sealed class ArchidektBulkListingRefreshTests : IDisposable
         ArchidektThrottle.ResetForTests();
         SqliteConnection.ClearAllPools();
         if (Directory.Exists(_tempDirectory)) Directory.Delete(_tempDirectory, recursive: true);
+    }
+
+    [Fact]
+    public async Task FakeDeckImporter_SuccessPaths_ReturnLegalCommanderDecks()
+    {
+        var importer = new FakeDeckImporter();
+        var entries = await importer.ImportAsync("legal-fake");
+        var result = await importer.ImportWithMetadataAsync("legal-fake-metadata");
+
+        Assert.True(DeckLegality.Evaluate(entries, LegalCommanderDeck.Metadata()).IsLegal);
+        Assert.True(DeckLegality.Evaluate(result.Entries, result.Metadata).IsLegal);
     }
 
     private sealed class ListingFixtureHandler : HttpMessageHandler
@@ -77,10 +88,20 @@ public sealed class ArchidektBulkListingRefreshTests : IDisposable
         public Task<List<DeckEntry>> ImportAsync(string deckId, CancellationToken cancellationToken = default)
         {
             ImportCalls++;
-            return Task.FromResult(new List<DeckEntry> { new() { Name = $"Card {deckId}", NormalizedName = CardNormalizer.Normalize($"Card {deckId}"), Quantity = 1, Board = "mainboard", Category = "Ramp" } });
+            var entries = LegalCommanderDeck.Complete([new() { Name = $"Card {deckId}", NormalizedName = CardNormalizer.Normalize($"Card {deckId}"), Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
+            LegalCommanderDeck.AssertLegal(entries, Metadata());
+            return Task.FromResult(entries);
         }
 
         public async Task<ArchidektDeckImportResult> ImportWithMetadataAsync(string deckId, CancellationToken cancellationToken = default)
-            => new(await ImportAsync(deckId, cancellationToken), new ArchidektDeckMetadata(null, null, null, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.UtcNow));
+        {
+            var entries = await ImportAsync(deckId, cancellationToken);
+            var metadata = Metadata();
+            LegalCommanderDeck.AssertLegal(entries, metadata);
+            return new(entries, metadata);
+        }
+
+        private static ArchidektDeckMetadata Metadata()
+            => LegalCommanderDeck.ForceCommanderFormat(new ArchidektDeckMetadata(null, null, null, null, DateTimeOffset.Parse("2026-01-01T00:00:00Z"), DateTimeOffset.UtcNow));
     }
 }

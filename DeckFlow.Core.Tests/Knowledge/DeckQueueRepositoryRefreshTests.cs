@@ -141,6 +141,52 @@ public sealed class DeckQueueRepositoryRefreshTests : IDisposable
     }
 
     [Fact]
+    public async Task RecordTransientDeckFailureAsync_ThirdFailure_SetsFetchFailureReason()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        await repository.AddDeckIdsAsync(new[] { "transient-failure" });
+
+        Assert.False(await repository.RecordTransientDeckFailureAsync("transient-failure"));
+        Assert.False(await repository.RecordTransientDeckFailureAsync("transient-failure"));
+        Assert.Null((await ReadQueueRowAsync(databasePath, "transient-failure")).SkipReason);
+
+        Assert.True(await repository.RecordTransientDeckFailureAsync("transient-failure"));
+        Assert.Equal(DeckSkipReasons.FetchFailure, (await ReadQueueRowAsync(databasePath, "transient-failure")).SkipReason);
+    }
+
+    [Fact]
+    public async Task AddListingRowsAsync_RequeueOfSkippedDeck_ClearsSkipReason()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        var original = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        await repository.AddDeckIdsAsync(new[] { "skipped-requeue" });
+        await repository.MarkDeckProcessedAsync("skipped-requeue", null, skip: true, metadata: Metadata(original), skipReason: DeckSkipReasons.WrongSize);
+
+        await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck("skipped-requeue", original.AddSeconds(1)) });
+
+        var row = await ReadQueueRowAsync(databasePath, "skipped-requeue");
+        Assert.False(row.Processed);
+        Assert.False(row.Skipped);
+        Assert.Null(row.SkipReason);
+    }
+
+    [Fact]
+    public async Task AddListingRowsAsync_RequeueOfProcessedDeck_LeavesReasonNull()
+    {
+        var (repository, databasePath) = await CreateRepositoryAsync();
+        var original = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        await repository.AddDeckIdsAsync(new[] { "processed-requeue" });
+        await repository.MarkDeckProcessedAsync("processed-requeue", null, metadata: Metadata(original));
+
+        await repository.AddListingRowsAsync(new[] { new ArchidektListingDeck("processed-requeue", original.AddSeconds(1)) });
+
+        var row = await ReadQueueRowAsync(databasePath, "processed-requeue");
+        Assert.False(row.Processed);
+        Assert.False(row.Skipped);
+        Assert.Null(row.SkipReason);
+    }
+
+    [Fact]
     public async Task AddListingRowsAsync_NullUpdatedUtc_InsertsUnseenIdButNeverRequeuesKnownDeck()
     {
         var (repository, _) = await CreateRepositoryAsync();
@@ -263,11 +309,11 @@ public sealed class DeckQueueRepositoryRefreshTests : IDisposable
         await using var connection = new SqliteConnection($"Data Source={databasePath}");
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
-        command.CommandText = "SELECT processed, skipped, refresh_requested_utc, listing_updated_seen_utc FROM deck_queue WHERE deck_id = $deckId;";
+        command.CommandText = "SELECT processed, skipped, refresh_requested_utc, listing_updated_seen_utc, skip_reason FROM deck_queue WHERE deck_id = $deckId;";
         command.Parameters.AddWithValue("$deckId", deckId);
         await using var reader = await command.ExecuteReaderAsync();
         Assert.True(await reader.ReadAsync());
-        return new(reader.GetBoolean(0), reader.GetBoolean(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3));
+        return new(reader.GetBoolean(0), reader.GetBoolean(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3), reader.IsDBNull(4) ? null : reader.GetString(4));
     }
 
     public void Dispose()
@@ -284,5 +330,5 @@ public sealed class DeckQueueRepositoryRefreshTests : IDisposable
         }
     }
 
-    private sealed record QueueRow(bool Processed, bool Skipped, string? RefreshRequestedUtc, string? ListingUpdatedSeenUtc);
+    private sealed record QueueRow(bool Processed, bool Skipped, string? RefreshRequestedUtc, string? ListingUpdatedSeenUtc, string? SkipReason);
 }

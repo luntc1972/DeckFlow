@@ -19,12 +19,17 @@ internal static class DeckCategoryCacheWriter
     /// <param name="entries">Deck entries to write.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async Task ReplaceDeckEntriesAsync(CategoryKnowledgeRepository repository, string source, IEnumerable<DeckEntry> entries, CancellationToken cancellationToken = default)
+        => await ReplaceDeckEntriesAsync(repository, source, entries, contentHashWrite: null, cancellationToken);
+
+    /// <summary>
+    /// Replaces the cached category rows for a single deck source and optionally writes its hash atomically.
+    /// </summary>
+    public static async Task ReplaceDeckEntriesAsync(CategoryKnowledgeRepository repository, string source, IEnumerable<DeckEntry> entries, DeckContentHashWrite? contentHashWrite, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ArgumentException.ThrowIfNullOrEmpty(source);
-
-        await repository.DeleteSourceDataAsync(source, cancellationToken);
-        await PersistDeckEntriesAsync(repository, source, entries, cancellationToken);
+        var batch = BuildCanonicalBatch(entries);
+        await repository.ReplaceDeckCategoryBatchAsync(source, batch.Observations, batch.Totals, contentHashWrite, cancellationToken);
     }
 
     /// <summary>

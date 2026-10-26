@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Dapper;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Reporting;
@@ -77,7 +78,7 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
         var metadata = new ArchidektDeckMetadata(3, 1, true, capturedUtc, capturedUtc, capturedUtc);
 
         await repository.AddDeckIdsAsync(new[] { deckId });
-        await repository.MarkDeckProcessedAsync(deckId, "Commander", false, metadata, CancellationToken.None);
+        await repository.MarkDeckProcessedAsync(deckId, "Commander", false, metadata, cancellationToken: CancellationToken.None);
 
         var row = await ReadArchidektMetadataRowAsync(deckId);
 
@@ -466,6 +467,120 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
 
         await repo.SetRecentDeckCrawlPageAsync(7);
         Assert.Equal(7, await repo.GetRecentDeckCrawlPageAsync());
+    }
+
+    [PostgresFact]
+    public async Task DeckQueue_SkipReason_RoundTripsOnPostgres()
+    {
+        var repository = await CreateRepositoryAsync();
+        var deckId = $"skip-reason-{Guid.NewGuid():N}";
+
+        await repository.AddDeckIdsAsync(new[] { deckId });
+        await repository.MarkDeckProcessedAsync(
+            deckId,
+            commanderName: null,
+            skip: true,
+            skipReason: DeckSkipReasons.WrongSize);
+
+        await using var connection = CreateConnection(await _fixture.GetConnectionStringOrSkipAsync()).CreateConnection();
+        var skipReason = await connection.QuerySingleAsync<string?>(
+            "SELECT skip_reason FROM deck_queue WHERE deck_id = @deckId;",
+            new { deckId });
+
+        Assert.Equal(DeckSkipReasons.WrongSize, skipReason);
+    }
+
+    [PostgresFact]
+    public async Task DeckQueue_ExistingTableWithoutSkipReason_GainsColumnOnPostgres()
+    {
+        var schema = $"df_skipmig_{Guid.NewGuid():N}";
+        Assert.Matches("^[a-z0-9_]{1,63}$", schema);
+        var quotedSchema = $"\"{schema}\"";
+        var fixtureConnectionString = await _fixture.GetConnectionStringOrSkipAsync();
+
+        await using var adminConnection = CreateConnection(fixtureConnectionString).CreateConnection();
+        await adminConnection.OpenAsync();
+        try
+        {
+            await adminConnection.ExecuteAsync($"CREATE SCHEMA {quotedSchema};");
+            var connectionStringA = new Npgsql.NpgsqlConnectionStringBuilder(fixtureConnectionString)
+            {
+                SearchPath = schema,
+            }.ConnectionString;
+            var repositoryA = new CategoryKnowledgeRepository(CreateConnection(connectionStringA));
+            await repositoryA.EnsureSchemaAsync();
+            await adminConnection.ExecuteAsync($"ALTER TABLE {quotedSchema}.deck_queue DROP COLUMN skip_reason;");
+
+            var connectionStringB = new Npgsql.NpgsqlConnectionStringBuilder(connectionStringA)
+            {
+                ApplicationName = $"skipmig-{Guid.NewGuid():N}",
+            }.ConnectionString;
+            var repositoryB = new CategoryKnowledgeRepository(CreateConnection(connectionStringB));
+            await repositoryB.EnsureSchemaAsync();
+
+            var columnCount = await adminConnection.QuerySingleAsync<long>(
+                """
+                SELECT COUNT(1)
+                FROM information_schema.columns
+                WHERE table_schema = @schema AND table_name = 'deck_queue' AND column_name = 'skip_reason';
+                """,
+                new { schema });
+            Assert.Equal(1L, columnCount);
+        }
+        finally
+        {
+            await adminConnection.ExecuteAsync($"DROP SCHEMA IF EXISTS {quotedSchema} CASCADE;");
+        }
+    }
+
+    [PostgresFact]
+    public async Task ProcessedCommanderSummary_ReconciliationInsertsMissingCommander_OnPostgres()
+    {
+        var schema = $"df_recon_{Guid.NewGuid():N}";
+        Assert.Matches("^[a-z0-9_]{1,63}$", schema);
+        var quotedSchema = $"\"{schema}\"";
+        var fixtureConnectionString = await _fixture.GetConnectionStringOrSkipAsync();
+
+        await using var adminConnection = CreateConnection(fixtureConnectionString).CreateConnection();
+        await adminConnection.OpenAsync();
+        try
+        {
+            await adminConnection.ExecuteAsync($"CREATE SCHEMA {quotedSchema};");
+            var connectionStringA = new Npgsql.NpgsqlConnectionStringBuilder(fixtureConnectionString)
+            {
+                SearchPath = schema,
+            }.ConnectionString;
+            var repositoryA = new CategoryKnowledgeRepository(CreateConnection(connectionStringA));
+            await repositoryA.EnsureSchemaAsync();
+            await repositoryA.AddDeckIdsAsync(new[] { "d1", "d2", "d3", "d4" });
+
+            await using var schemaConnection = CreateConnection(connectionStringA).CreateConnection();
+            await schemaConnection.OpenAsync();
+            await schemaConnection.ExecuteAsync("UPDATE deck_queue SET processed = 1, skipped = 0, commander_name = 'Atraxa, Praetors'' Voice' WHERE deck_id = 'd1';");
+            await schemaConnection.ExecuteAsync("UPDATE deck_queue SET processed = 1, skipped = 0, commander_name = 'atraxa, praetors'' voice' WHERE deck_id = 'd2';");
+            await schemaConnection.ExecuteAsync("UPDATE deck_queue SET processed = 1, skipped = 0, commander_name = 'Kenrith, the Returned King' WHERE deck_id = 'd3';");
+            await schemaConnection.ExecuteAsync("UPDATE deck_queue SET processed = 1, skipped = 1, commander_name = 'Skippy' WHERE deck_id = 'd4';");
+            await schemaConnection.ExecuteAsync("DELETE FROM processed_commander_summary;");
+            await schemaConnection.ExecuteAsync("INSERT INTO processed_commander_summary (commander_name, deck_count, last_processed_utc, commander_name_search_key) VALUES ('atraxa, praetors'' voice', 5, NULL, 'seeded-key');");
+
+            var connectionStringB = new Npgsql.NpgsqlConnectionStringBuilder(connectionStringA)
+            {
+                ApplicationName = $"recon-{Guid.NewGuid():N}",
+            }.ConnectionString;
+            var repositoryB = new CategoryKnowledgeRepository(CreateConnection(connectionStringB));
+            await repositoryB.EnsureSchemaAsync();
+
+            var rows = (await schemaConnection.QueryAsync<(string CommanderName, int DeckCount, string? SearchKey)>(
+                "SELECT commander_name AS CommanderName, deck_count AS DeckCount, commander_name_search_key AS SearchKey FROM processed_commander_summary ORDER BY commander_name;")).ToList();
+
+            Assert.Equal(2, rows.Count);
+            Assert.Contains(rows, row => row == ("atraxa, praetors' voice", 2, "seeded-key"));
+            Assert.Contains(rows, row => row.CommanderName == "Kenrith, the Returned King" && row.DeckCount == 1);
+        }
+        finally
+        {
+            await adminConnection.ExecuteAsync($"DROP SCHEMA IF EXISTS {quotedSchema} CASCADE;");
+        }
     }
 
     private static async Task AssertCategorySummaryMatchesObservationsAsync(DbConnection connection)

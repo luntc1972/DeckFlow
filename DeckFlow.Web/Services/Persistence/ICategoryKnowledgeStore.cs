@@ -3,6 +3,7 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Logging;
+using System.Collections.ObjectModel;
 
 namespace DeckFlow.Web.Services;
 
@@ -94,6 +95,9 @@ public interface ICategoryKnowledgeStore
     /// Marks a URL-imported deck as processed while preserving importer-captured metadata.
     /// </summary>
     Task MarkUrlDeckProcessedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, CancellationToken cancellationToken = default);
+    /// <summary>Removes persisted rows for a rejected URL deck.</summary>
+    Task RejectUrlDeckAsync(string urlSource, string deckId, string? commanderName, ArchidektDeckMetadata? metadata, string skipReason, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
     /// <summary>
     /// Returns the total number of processed decks across the category cache.
     /// </summary>
@@ -104,6 +108,10 @@ public interface ICategoryKnowledgeStore
     /// <param name="cutoffUtc">UTC cutoff used to filter processed deck rows.</param>
     /// <param name="cancellationToken">Token used to cancel the count query.</param>
     Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default);
+    /// <summary>Returns skipped deck counts grouped by their recorded reason.</summary>
+    /// <param name="cancellationToken">Token used to cancel the query.</param>
+    Task<IReadOnlyDictionary<string, int>> GetSkipReasonCountsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyDictionary<string, int>>(new ReadOnlyDictionary<string, int>(new Dictionary<string, int>()));
     /// <summary>
     /// Returns the total number of stored card-category observations.
     /// </summary>
