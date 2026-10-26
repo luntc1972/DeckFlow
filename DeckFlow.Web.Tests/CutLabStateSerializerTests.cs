@@ -247,7 +247,7 @@ public sealed class CutLabStateSerializerTests
     }
 
     [Fact]
-    public void Deserialize_TamperedRoleOverrides_DropsInvalidEntries()
+    public void Deserialize_TamperedRoleOverrides_DropsCommanderKeepsAbsentCard()
     {
         const string json = """
             {"commander":"Atraxa, Praetors' Voice","pool":[{"name":"Atraxa, Praetors' Voice","isCommander":true},{"name":"Arcane Signet"}],"roleOverrides":[{"name":"Atraxa, Praetors' Voice","added":["draw"]},{"name":"Missing Card","added":["draw"]},{"name":"Arcane Signet","added":["draw"],"removed":["ramp"]}]}
@@ -255,7 +255,10 @@ public sealed class CutLabStateSerializerTests
 
         CutLabState state = CutLabStateSerializer.Deserialize(json);
 
-        CutLabRoleOverride roleOverride = Assert.Single(state.RoleOverrides);
+        // Why: Entries for cards outside the pool are kept so they reapply when the card returns (IN-03).
+        Assert.Equal(2, state.RoleOverrides.Count);
+        Assert.Equal("Missing Card", state.RoleOverrides[0].Name);
+        CutLabRoleOverride roleOverride = state.RoleOverrides[1];
         Assert.Equal("Arcane Signet", roleOverride.Name);
         Assert.Equal(["draw"], roleOverride.Added);
         Assert.Equal(["ramp"], roleOverride.Removed);
