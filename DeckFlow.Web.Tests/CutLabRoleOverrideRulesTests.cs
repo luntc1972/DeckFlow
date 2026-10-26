@@ -214,6 +214,38 @@ public sealed class CutLabRoleOverrideRulesTests
         Assert.Equal(CutLabRoleOverrideRules.Fingerprint([new CutLabRoleOverride { Name = "Card", Added = ["draw", "ramp"] }]), CutLabRoleOverrideRules.Fingerprint([new CutLabRoleOverride { Name = "card", Added = ["ramp", "draw"] }]));
     }
 
+    [Theory]
+    [InlineData(CutLabRoleOverrideOperation.Add)]
+    [InlineData(CutLabRoleOverrideOperation.Remove)]
+    public void RoleOverrideTryApplyEdit_AtCapNewCard_RefusesWithLimitMessage(CutLabRoleOverrideOperation operation)
+    {
+        CutLabState state = AtCapState();
+
+        AssertRefusal(state, "Card 201", "draw", operation, "Role edits are limited to 200 cards.");
+    }
+
+    [Fact]
+    public void RoleOverrideTryApplyEdit_AtCapExistingCard_Applies()
+    {
+        CutLabState state = AtCapState();
+
+        Assert.True(CutLabRoleOverrideRules.TryApplyEdit(state, "Card 1", "tutor", CutLabRoleOverrideOperation.Add, out CutLabState updated, out string? error));
+        Assert.Null(error);
+        Assert.Contains("tutor", CutLabRoleOverrideRules.Find(updated.RoleOverrides, "Card 1")!.Added);
+        Assert.Equal(200, updated.RoleOverrides.Count);
+        Assert.True(CutLabRoleOverrideRules.TryApplyEdit(updated, "Card 1", "", CutLabRoleOverrideOperation.Reset, out CutLabState reset, out error));
+        Assert.Null(error);
+        Assert.Equal(199, reset.RoleOverrides.Count);
+        Assert.Null(CutLabRoleOverrideRules.Find(reset.RoleOverrides, "Card 1"));
+    }
+
+    private static CutLabState AtCapState()
+        => new()
+        {
+            Pool = Enumerable.Range(1, 201).Select(index => new CutLabPoolCard { Name = $"Card {index}" }).ToArray(),
+            RoleOverrides = Enumerable.Range(1, 200).Select(index => new CutLabRoleOverride { Name = $"Card {index}", Added = ["draw"] }).ToArray()
+        };
+
     private static IReadOnlyList<CutLabPoolCard> Pool()
         => [new CutLabPoolCard { Name = "Card" }, new CutLabPoolCard { Name = "Land", TypeLine = "Basic Land — Forest" }, new CutLabPoolCard { Name = "Commander", IsCommander = true }];
 

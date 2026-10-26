@@ -210,6 +210,11 @@ public static class CutLabRoleOverrideRules
                 return Refuse(CutLabMessages.RoleOverrideRampOnLandMessage, out error);
             }
 
+            if (Find(state.RoleOverrides, card.Name) is null && entries.Count >= MaxRoleOverrides)
+            {
+                return Refuse(CutLabMessages.RoleOverrideLimitMessage, out error);
+            }
+
             CutLabRoleOverride current = Find(entries, card.Name) ?? new CutLabRoleOverride { Name = card.Name };
             entries.RemoveAll(item => CutLabCardNames.Normalize(item.Name) == CutLabCardNames.Normalize(card.Name));
             List<string> added = (current.Added ?? []).ToList();
