@@ -26,6 +26,8 @@ public sealed partial class CommanderBanListService : ICommanderBanListService
 {
     private const string BannedListUrl = "https://mtgcommander.net/index.php/banned-list/";
     private const string CacheKey = "commander-banned-cards";
+    private const string UnavailableCacheKey = "commander-banned-cards-unavailable";
+    private static readonly TimeSpan UnavailableCacheDuration = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan CacheDuration = TimeSpan.FromHours(6);
     private static readonly Regex SummaryRegex = SummaryPattern();
     private readonly IHttpClientFactory _httpClientFactory;
@@ -49,7 +51,8 @@ public sealed partial class CommanderBanListService : ICommanderBanListService
     }
 
     /// <summary>
-    /// Returns the official banned-card names, newest fetch cached in memory.
+    /// Returns official banned-card names, caching non-empty results and briefly caching HTTP failures
+    /// so repeated imports do not repeatedly wait for an unavailable upstream.
     /// </summary>
     public async Task<IReadOnlyList<string>> GetBannedCardsAsync(CancellationToken cancellationToken = default)
     {
@@ -58,11 +61,38 @@ public sealed partial class CommanderBanListService : ICommanderBanListService
             return cached;
         }
 
-        var html = await _fetchPageAsync(cancellationToken).ConfigureAwait(false);
+        // Why: Pay for a down upstream once per negative-cache window, not once per import.
+        if (_memoryCache.TryGetValue<BanListFailure>(UnavailableCacheKey, out var failure) && failure is not null)
+        {
+            throw new HttpRequestException(failure.Message, null, failure.StatusCode);
+        }
+
+        string html;
+        try
+        {
+            html = await _fetchPageAsync(cancellationToken).ConfigureAwait(false);
+        }
+        // Why: Caller cancellation must not become a shared upstream outage.
+        catch (HttpRequestException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            _memoryCache.Set(
+                UnavailableCacheKey,
+                new BanListFailure(exception.Message, exception.StatusCode),
+                UnavailableCacheDuration);
+            throw;
+        }
+
         var cards = ParseBannedCards(html);
-        _memoryCache.Set(CacheKey, cards, CacheDuration);
+        // A challenge page can return HTTP 200 without any banned-card summaries.
+        if (cards.Count > 0)
+        {
+            _memoryCache.Set(CacheKey, cards, CacheDuration);
+        }
+
         return cards;
     }
+
+    private sealed record BanListFailure(string Message, HttpStatusCode? StatusCode);
 
     internal static IReadOnlyList<string> ParseBannedCards(string html)
     {
