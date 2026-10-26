@@ -39,6 +39,7 @@ public sealed class ResiliencePipelineFactoryTests
     [InlineData("tagger")]
     [InlineData("tagger-post")]
     [InlineData("scryfall")]
+    [InlineData("render")]
     public void EveryNamedPipeline_Resolves(string name)
     {
         var pipeline = Provider.GetPipeline<RestResponse>(name);

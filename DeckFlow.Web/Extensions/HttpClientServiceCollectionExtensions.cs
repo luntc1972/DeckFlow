@@ -13,7 +13,7 @@ public static class HttpClientServiceCollectionExtensions
 {
     /// <summary>
     /// Registers all named HttpClients (commander-banlist, commander-spellbook, scryfall-rest,
-    /// scryfall-tagger, youtube-metadata), the <see cref="System.Net.CookieContainer"/> singleton,
+    /// scryfall-tagger, youtube-metadata, render-api), the <see cref="System.Net.CookieContainer"/> singleton,
     /// and the <see cref="ScryfallTaggerHttpClient"/> typed-client singletons.
     /// </summary>
     /// <remarks>
@@ -31,6 +31,13 @@ public static class HttpClientServiceCollectionExtensions
             c.BaseAddress = new Uri("https://mtgcommander.net/");
             c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
         });
+
+        services.AddHttpClient("render-api", c =>
+        {
+            c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
+            c.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+            c.Timeout = TimeSpan.FromSeconds(15);
+        }).RemoveAllLoggers();
 
         services.AddHttpClient("edhrec", c =>
         {

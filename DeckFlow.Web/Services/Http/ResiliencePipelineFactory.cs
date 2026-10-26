@@ -42,6 +42,7 @@ namespace DeckFlow.Web.Services.Http
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "tagger-post", builder => BuildTaggerPost(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "scryfall", builder => BuildScryfall(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "archidekt", builder => BuildArchidekt(builder));
+            DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "render", builder => BuildRenderApi(builder));
             return services;
         }
 
@@ -57,6 +58,8 @@ namespace DeckFlow.Web.Services.Http
                     .Handle<Exception>(static ex => IsTransientException(ex)),
             })
             .AddTimeout(TimeSpan.FromSeconds(5));
+
+        private static void BuildRenderApi(ResiliencePipelineBuilder<RestResponse> builder) => BuildBanList(builder);
 
         /// <summary>EDHREC static CDN: retry transient failures only, no shared circuit breaker.</summary>
         internal static void BuildEdhrec(

@@ -1,12 +1,20 @@
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
+using DeckFlow.Core.Storage;
+using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
+using DeckFlow.Web.Services.Http;
+using DeckFlow.Web.Extensions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
+using Polly.Registry;
 using Xunit;
 
 namespace DeckFlow.Web.Tests;
@@ -792,10 +800,166 @@ public sealed class CategoryKnowledgeStoreTests
         Assert.Equal(expected, count);
     }
 
+    [Fact]
+    public async Task RunPostHarvestRetentionAsync_CommanderWith101Decks_RemovesOldest()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-retention-" + Guid.NewGuid().ToString("N"));
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+        try
+        {
+            var store = CreateStore(Path.Combine(tempRoot, "content"), new HarvestRetentionOptions { MinFreeDiskBytes = 0, PauseMilliseconds = 0 });
+            var repository = await SeedStoredDecksAsync(store, 101, "Commander", DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+
+            var result = await store.RunPostHarvestRetentionAsync();
+
+            Assert.Equal(1, result!.DecksRemoved);
+            Assert.Equal(DeckPruningStopReason.Completed, result.StopReason);
+            Assert.Equal(DeckSkipReasons.Retention, await GetSkipReasonAsync(store, "deck-000"));
+            Assert.Equal(100, await repository.GetCommanderDeckCountAsync("Commander"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+            ClearPool(Path.Combine(tempRoot, "artifacts", "category-knowledge.db"));
+            if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RunPostHarvestRetentionAsync_PostHarvestMaxDecksZero_ReturnsNullWithoutRemoving()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-retention-" + Guid.NewGuid().ToString("N"));
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+        try
+        {
+            var store = CreateStore(Path.Combine(tempRoot, "content"), new HarvestRetentionOptions { PostHarvestMaxDecks = 0 });
+            var repository = await SeedStoredDecksAsync(store, 101, "Commander", DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+
+            Assert.Null(await store.RunPostHarvestRetentionAsync());
+            Assert.Equal(101, await repository.GetCommanderDeckCountAsync("Commander"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+            ClearPool(Path.Combine(tempRoot, "artifacts", "category-knowledge.db"));
+            if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RunPostHarvestRetentionAsync_PostHarvestMaxDecksZero_TouchesNoDatabase()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-retention-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        await File.WriteAllTextAsync(Path.Combine(tempRoot, "artifacts"), "not-a-directory");
+        var contentRoot = Path.Combine(tempRoot, "root");
+        var disabled = CreateStore(contentRoot, new HarvestRetentionOptions { PostHarvestMaxDecks = 0 });
+        var enabled = CreateStore(contentRoot, new HarvestRetentionOptions { PostHarvestMaxDecks = 1 });
+
+        try
+        {
+            Assert.Null(await disabled.RunPostHarvestRetentionAsync());
+            await Assert.ThrowsAnyAsync<Exception>(() => enabled.RunPostHarvestRetentionAsync());
+        }
+        finally
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RunPostHarvestRetentionAsync_MaxDecksBound_StopsWithMaxDecksReached()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-retention-" + Guid.NewGuid().ToString("N"));
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+        try
+        {
+            var store = CreateStore(Path.Combine(tempRoot, "content"), new HarvestRetentionOptions { PerCommanderCap = 1, PostHarvestMaxDecks = 2, MinFreeDiskBytes = 0, PauseMilliseconds = 0 });
+            await SeedStoredDecksAsync(store, 4, "Commander", DateTimeOffset.Parse("2026-01-01T00:00:00Z"));
+
+            var result = await store.RunPostHarvestRetentionAsync();
+
+            Assert.Equal(2, result!.DecksRemoved);
+            Assert.Equal(DeckPruningStopReason.MaxDecksReached, result.StopReason);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+            ClearPool(Path.Combine(tempRoot, "artifacts", "category-knowledge.db"));
+            if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SelectFreeDiskProbe_Sqlite_UsesDriveProbe()
+    {
+        var probe = CategoryKnowledgeStore.SelectFreeDiskProbe(RelationalDatabaseConnection.FromSqlitePath(Path.GetTempFileName()), CreateRenderProbe(), null);
+
+        Assert.IsType<DeckPruningDiskProbe>(probe.Target);
+    }
+
+    [Fact]
+    public void SelectFreeDiskProbe_PostgresWithRenderProbe_UsesRenderProbe()
+    {
+        var renderProbe = CreateRenderProbe();
+        var probe = CategoryKnowledgeStore.SelectFreeDiskProbe(new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, "Host=192.0.2.1"), renderProbe, null);
+
+        Assert.Same(renderProbe, probe.Target);
+    }
+
+    [Fact]
+    public async Task SelectFreeDiskProbe_PostgresWithoutRenderProbe_ReturnsNull()
+    {
+        var probe = CategoryKnowledgeStore.SelectFreeDiskProbe(new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, "Host=192.0.2.1"), null, null);
+
+        Assert.Null(await probe(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(2)));
+    }
+
     private static CategoryKnowledgeStore CreateStore(string? contentRootPath = null)
         => new(
             new FakeWebHostEnvironment(contentRootPath ?? Path.Combine(Path.GetTempPath(), "deckflow-content-root")),
             new MemoryCache(new MemoryCacheOptions()));
+
+    private static CategoryKnowledgeStore CreateStore(string? contentRootPath, HarvestRetentionOptions retentionOptions)
+        => new(
+            new FakeWebHostEnvironment(contentRootPath ?? Path.Combine(Path.GetTempPath(), "deckflow-content-root")),
+            new MemoryCache(new MemoryCacheOptions()),
+            retentionOptions: Options.Create(retentionOptions));
+
+    private static RenderDiskHeadroomProbe CreateRenderProbe()
+    {
+        var services = new ServiceCollection();
+        services.AddDeckFlowResiliencePipelines();
+        var pipeline = services.BuildServiceProvider().GetRequiredService<ResiliencePipelineProvider<string>>();
+        return new RenderDiskHeadroomProbe(new FakeHttpClientFactory([]), pipeline, null, "fake-key", "fake-id", TimeProvider.System, Task.Delay);
+    }
+
+    private static async Task<CategoryKnowledgeRepository> SeedStoredDecksAsync(CategoryKnowledgeStore store, int count, string commander, DateTimeOffset firstUpdatedUtc)
+    {
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        for (var index = 0; index < count; index++)
+        {
+            var deckId = $"deck-{index:D3}";
+            await repository.AddDeckIdsAsync([deckId]);
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId, [new DeckEntry { Name = "Sol Ring", NormalizedName = CardNormalizer.Normalize("Sol Ring"), Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
+            await repository.MarkDeckProcessedAsync(deckId, commander, skip: false, new ArchidektDeckMetadata(null, 3, false, null, firstUpdatedUtc.AddDays(index), DateTimeOffset.UtcNow));
+        }
+
+        return repository;
+    }
+
+    private static async Task<string?> GetSkipReasonAsync(CategoryKnowledgeStore store, string deckId)
+    {
+        await using var connection = new SqliteConnection($"Data Source={store.DatabasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT skip_reason FROM deck_queue WHERE deck_id = @deckId";
+        command.Parameters.AddWithValue("@deckId", deckId);
+        return await command.ExecuteScalarAsync() as string;
+    }
 
     private static async Task WithSqliteConnectionAsync(string connectionString, Func<Task> action)
     {

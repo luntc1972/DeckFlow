@@ -25,11 +25,27 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public int GetCommanderDeckCountCalls { get; private set; }
 
+    public HarvestMaintenancePreview? MaintenancePreview { get; set; }
+
+    public int MaintenancePreviewCalls { get; private set; }
+
+    public Exception? MaintenancePreviewException { get; set; }
+
     public int RunCacheSweepCalls { get; private set; }
 
     public ArchidektCacheRunResult RunCacheSweepResult { get; set; } = new(0, 0, 0, 0, 0, TimeSpan.Zero);
 
     public Exception? RunCacheSweepException { get; set; }
+
+    public int RunPostHarvestRetentionCalls { get; private set; }
+
+    public Exception? RunPostHarvestRetentionException { get; set; }
+
+    public DeckPruningResult? RunPostHarvestRetentionResult { get; set; }
+
+    public TaskCompletionSource? RunPostHarvestRetentionGate { get; set; }
+
+    public CancellationToken RunPostHarvestRetentionToken { get; private set; }
 
     /// <summary>Number of update sweeps requested.</summary>
     public int RunUpdateSweepCalls { get; private set; }
@@ -42,6 +58,18 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     /// <summary>When true, update sweeps wait until cancelled.</summary>
     public bool RunUpdateSweepBlocksUntilCancelled { get; set; }
+
+    public int RunMaintenanceCalls { get; private set; }
+
+    public HarvestMaintenanceOperation? LastMaintenanceOperation { get; private set; }
+
+    public HarvestMaintenanceOutcome RunMaintenanceOutcome { get; set; } = new(HarvestMaintenanceOperation.Drain, 0, 0, DeckPruningStopReason.Completed);
+
+    public Exception? RunMaintenanceException { get; set; }
+
+    public int? RunMaintenanceProgress { get; set; }
+
+    public bool RunMaintenanceBlocksUntilCancelled { get; set; }
 
     /// <summary>Duration passed to the latest update sweep.</summary>
     public int? LastRunUpdateSweepDurationSeconds { get; private set; }
@@ -127,6 +155,24 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(RunCacheSweepResult);
     }
 
+    public async Task<DeckPruningResult?> RunPostHarvestRetentionAsync(CancellationToken cancellationToken = default)
+    {
+        RunPostHarvestRetentionCalls++;
+        RunPostHarvestRetentionToken = cancellationToken;
+
+        if (RunPostHarvestRetentionGate is not null)
+        {
+            await RunPostHarvestRetentionGate.Task.ConfigureAwait(false);
+        }
+
+        if (RunPostHarvestRetentionException is not null)
+        {
+            throw RunPostHarvestRetentionException;
+        }
+
+        return RunPostHarvestRetentionResult;
+    }
+
     public async Task<ArchidektUpdateRunResult> RunUpdateSweepAsync(ILogger logger, int durationSeconds, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         RunUpdateSweepCalls++;
@@ -143,6 +189,16 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         }
 
         return RunUpdateSweepResult;
+    }
+
+    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    {
+        RunMaintenanceCalls++;
+        LastMaintenanceOperation = operation;
+        if (RunMaintenanceProgress is not null) progress?.Report(RunMaintenanceProgress.Value);
+        if (RunMaintenanceBlocksUntilCancelled) await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        if (RunMaintenanceException is not null) throw RunMaintenanceException;
+        return RunMaintenanceOutcome;
     }
 
     /// <summary>Configurable per-card categories; empty by default so unset cards resolve to no roles.</summary>
@@ -271,5 +327,12 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         GetCommanderDeckCountCalls++;
         return Task.FromResult(CommanderDeckCount);
+    }
+
+    public Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
+    {
+        MaintenancePreviewCalls++;
+        if (MaintenancePreviewException is not null) throw MaintenancePreviewException;
+        return Task.FromResult(MaintenancePreview);
     }
 }

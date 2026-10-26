@@ -56,6 +56,26 @@ public sealed class HarvestServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public void AddDeckFlowHarvest_RegistersMaintenanceRunnerAsHostedSingleton()
+    {
+        var environment = new FakeWebHostEnvironment(Path.Combine(Path.GetTempPath(), $"deckflow-harvest-maintenance-di-{Guid.NewGuid():N}"));
+        var services = new ServiceCollection();
+        services.AddSingleton<IWebHostEnvironment>(environment);
+        services.AddSingleton<ICategoryKnowledgeStore, FakeCategoryKnowledgeStore>();
+        services.AddSingleton<IFeatureFlagCache, FakeFeatureFlagCache>();
+        services.AddSingleton<IArchidektCacheJobService, FakeArchidektCacheJobService>();
+        services.AddMemoryCache();
+        services.AddLogging();
+        services.AddDeckFlowHarvest(environment);
+
+        using var provider = services.BuildServiceProvider();
+        var runner = provider.GetRequiredService<IHarvestMaintenanceRunner>();
+
+        Assert.IsType<HarvestMaintenanceRunner>(runner);
+        Assert.Same(runner, provider.GetServices<IHostedService>().Single(service => service is HarvestMaintenanceRunner));
+    }
+
+    [Fact]
     public void AddDeckFlowHarvest_RealJobServiceResolvesWithThrottleStoreAndBothScheduleCaches()
     {
         var environment = new FakeWebHostEnvironment(Path.Combine(Path.GetTempPath(), $"deckflow-harvest-di-{Guid.NewGuid():N}"));

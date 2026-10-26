@@ -6,6 +6,13 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Legal-Commander harvest and per-commander retention
+
+- **Legal-Commander harvest:** bulk, update, and admin URL harvests keep only legal Commander decks, record skip reasons, and use Commander-only discovery filters.
+- **Per-commander retention:** each completed harvest retains the newest decks per commander up to the configured cap. A pruned deck returns only after its commander or main deck changes; sideboard or maybeboard edits leave it pruned.
+- **Retention maintenance:** Admin/Harvest previews the rollout counts and enforces Purge, Drain, then Refetch, with confirmations, stoppable paced batches, and a free-disk floor.
+- **Operator notes:** boot-time compaction removes the per-deck surrogate keys before maintenance. Review the `HarvestRetention__` settings and follow `docs/ops/harvest-retention-rollout.md`. The Postgres disk probe requires `RENDER_API_KEY` and `RENDER_POSTGRES_ID` to be set on the Web service in the Render dashboard.
+
 ### Unreleased — cEDH Meta Gap results readability (2026-10-15)
 
 - **Aligned readable results:** this page now uses one 1360px-wide shell on large screens, keeping header, steps, results, and footer aligned while retaining the bounded stat-label column. Section jump links and a visible Deck vs. field heading make long reports easier to scan.
@@ -425,4 +432,3 @@ Follow-up accuracy fixes (always on):
 - **Test hardening and semantic guards (Phase 999.5):** Four pre-existing test failures were fixed, `DeckComparisonService.ParseComparisonResponse` and `MetaGapService.ParseResponse` now reject valid JSON with no meaningful Deck Comparison or Meta-Gap content, and redundant ChatGPT `<result>` prompt directives were removed from five ChatGPT prompt variants.
 - **Harvest job lookup fix (Phase 999.6):** `IHarvestRunStore.GetByIdAsync(Guid id, CancellationToken ct = default)` lets `ArchidektCacheJobService.GetJob(jobId)` return completed and terminal harvest job states using provider-specific Guid binding for SQLite and Postgres.
 
----

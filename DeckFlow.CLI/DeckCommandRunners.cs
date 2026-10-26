@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Data.Common;
 using System.Net;
 using System.Text.Json.Serialization;
 using DeckFlow.Core.Diffing;
@@ -9,6 +10,7 @@ using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
+using DeckFlow.Core.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
 using Serilog;
@@ -385,7 +387,8 @@ internal static class DeckCommandRunners
         {
             var durationSeconds = Math.Max(5, seconds);
             var artifactsPath = Path.Combine(Directory.GetCurrentDirectory(), "artifacts");
-            var repository = new CategoryKnowledgeRepository(Path.Combine(artifactsPath, "category-knowledge.db"));
+            var databasePath = Path.Combine(artifactsPath, "category-knowledge.db");
+            var repository = new CategoryKnowledgeRepository(databasePath);
             var duration = TimeSpan.FromSeconds(durationSeconds);
 
             logger.Information("Starting Archidekt cache sweep for {DurationSeconds}s (artifacts: {ArtifactsPath}).", durationSeconds, artifactsPath);
@@ -408,6 +411,16 @@ internal static class DeckCommandRunners
             Console.WriteLine($"New decks cached: {result.DecksAdded}");
             Console.WriteLine($"Existing decks updated: {result.DecksUpdated}");
             Console.WriteLine($"Decks skipped: {result.DecksSkipped}");
+            if (ShouldRunPostHarvestRetention(result))
+            {
+                var retentionResult = await RunPostHarvestRetentionAsync(repository, databasePath);
+                if (retentionResult is not null)
+                {
+                    logger.Information("Post-harvest retention removed {DecksRemoved} decks with stop reason {StopReason}.", retentionResult.DecksRemoved, retentionResult.StopReason);
+                    Console.WriteLine($"Post-harvest retention removed {retentionResult.DecksRemoved} decks ({retentionResult.StopReason}).");
+                }
+            }
+
             return 0;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or HttpRequestException)
@@ -417,6 +430,29 @@ internal static class DeckCommandRunners
             return 1;
         }
     }
+
+    /// <summary>Runs the CLI's default retention sweep after a completed cache harvest.</summary>
+    internal static async Task<DeckPruningResult?> RunPostHarvestRetentionAsync(CategoryKnowledgeRepository repository, string databasePath, Serilog.ILogger? logger = null, DeckPruningOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        logger ??= Log.Logger;
+        options ??= new DeckPruningOptions();
+        try
+        {
+            var connection = RelationalDatabaseConnection.FromSqlitePath(databasePath);
+            var diskProbe = new DeckPruningDiskProbe(connection, logger: null);
+            var pruningService = new DeckPruningService(repository, options, diskProbe.GetFreeBytesAsync);
+            return await pruningService.RunRetentionAsync(DeckPruningOptions.DefaultPostHarvestMaxDecks, cancellationToken);
+        }
+        catch (Exception exception) when (exception is DbException or IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            logger.Warning(exception, "Post-harvest retention failed for {DatabasePath}.", databasePath);
+            return null;
+        }
+    }
+
+    /// <summary>Determines whether a completed cache sweep is eligible for retention.</summary>
+    internal static bool ShouldRunPostHarvestRetention(ArchidektCacheRunResult result)
+        => !result.RateLimited && !result.EndedEarly;
 
     public static async Task<int> RunCategoryFindAsync(string cardName, int cacheSeconds, int timeoutSeconds)
     {

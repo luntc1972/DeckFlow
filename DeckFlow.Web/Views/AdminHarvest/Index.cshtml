@@ -5,6 +5,7 @@
     var activeState = Model.ActiveRun?.State.ToString() ?? "Idle";
     static string NextRunLabel(DateTimeOffset? nextRun, bool enabled, bool paused)
         => !enabled ? "Off" : paused ? "Paused" : nextRun?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Pending";
+    var maintenanceState = Model.Maintenance.IsRunning ? "running" : Model.Maintenance.Failed ? "failed" : Model.Maintenance.CompletedUtc.HasValue ? (Model.Maintenance.StopRequested ? "stopped" : Model.Maintenance.StopReason == DeckFlow.Core.Knowledge.DeckPruningStopReason.Completed ? "completed" : Model.Maintenance.StopReason?.ToString() ?? "completed") : "idle";
 }
 
 <noscript>
@@ -199,6 +200,33 @@ else
 
     @await Html.PartialAsync("_HarvestRunLog", Model.Stats?.RecentRuns ?? Model.RecentRuns)
 
+</section>
+
+<section id="harvest-maintenance" class="admin-card" data-maintenance-state="@maintenanceState">
+    <h2 class="admin-card__title">Retention maintenance</h2>
+    @if (Model.Maintenance.IsRunning)
+    {
+        <p data-maintenance-state="running">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks so far; started @Model.Maintenance.StartedUtc?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture)</p>
+        <form method="post" asp-action="MaintenanceStop" class="admin-action-form" data-maintenance-operation="stop">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Stop</button></form>
+    }
+    else if (Model.Maintenance.CompletedUtc.HasValue)
+    {
+        <p data-maintenance-state="@maintenanceState">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks; @(Model.Maintenance.Failed ? "see the logs" : Model.Maintenance.StopRequested ? "stopped" : Model.Maintenance.StopReason == DeckFlow.Core.Knowledge.DeckPruningStopReason.Completed ? "completed (Completed)" : Model.Maintenance.StopReason?.ToString()) @Model.Maintenance.CompletedUtc.Value.ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture)</p>
+    }
+    else
+    {
+        <p data-maintenance-state="idle">Preview counts before each rollout step.</p>
+    }
+    <form method="post" asp-action="MaintenancePreview" class="admin-action-form" data-maintenance-operation="preview">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Preview</button></form>
+    <form method="post" asp-action="MaintenancePurge" class="admin-action-form" data-maintenance-operation="purge">
+        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Purge</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Purge</button>
+    </form>
+    <form method="post" asp-action="MaintenanceDrain" class="admin-action-form" data-maintenance-operation="drain">
+        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Retention drain</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Retention drain</button>
+    </form>
+    <form method="post" asp-action="MaintenanceRefetch" class="admin-action-form" data-maintenance-operation="refetch">
+        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Refetch</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Refetch</button>
+    </form>
 </section>
 
 <details id="harvest-import-panel" class="admin-card">

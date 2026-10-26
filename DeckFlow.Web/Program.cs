@@ -238,6 +238,8 @@ public partial class Program
         builder.Services.AddOptions<HarvestHealthOptions>()
             .Bind(builder.Configuration.GetSection(HarvestHealthOptions.SectionName))
             .ValidateDataAnnotations();
+        HarvestRetentionOptions.AddTo(builder.Services, builder.Configuration);
+        RenderDiskHeadroomProbe.AddTo(builder.Services);
         builder.Services.Configure<Microsoft.AspNetCore.Mvc.Razor.RazorViewEngineOptions>(options => options.ViewLocationExpanders.Add(new DeckFlow.Web.Controllers.DeckViewLocationExpander()));
         builder.Services.AddMemoryCache();
 
