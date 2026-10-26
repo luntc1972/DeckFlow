@@ -124,10 +124,10 @@ internal sealed class CategoryCacheSchema
             """;
         await crawlStateCommand.ExecuteNonQueryAsync(cancellationToken);
 
-        await CreateCardCategoryObservationsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
+        await CreateCardCategoryObservationsTableAsync(connection, _connectionInfo.IsPostgres, cancellationToken);
         await CreateCardCategorySummaryTableAsync(connection, cancellationToken);
         await CreateCardCategoryQualifiedTableAsync(connection, cancellationToken);
-        await CreateCardDeckTotalsTableAsync(connection, _connectionInfo.Dialect.SurrogateIdColumnType, cancellationToken);
+        await CreateCardDeckTotalsTableAsync(connection, _connectionInfo.IsPostgres, cancellationToken);
         if (_connectionInfo.IsSqlite)
         {
             await BackfillCardCategorySummaryAsync(connection, cancellationToken);
@@ -236,6 +236,11 @@ internal sealed class CategoryCacheSchema
                 exception,
                 "Category knowledge required index creation failed during schema startup; retrying on the next ensure.");
             throw;
+        }
+
+        if (_connectionInfo.IsPostgres)
+        {
+            await CompactLegacyPerDeckTablesAsync(connection, cancellationToken);
         }
 
         var secondaryIndexCommand = connection.CreateCommand();
@@ -411,14 +416,58 @@ internal sealed class CategoryCacheSchema
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static async Task CreateCardCategoryObservationsTableAsync(DbConnection connection, string surrogateIdColumnType, CancellationToken cancellationToken)
+    private async Task CompactLegacyPerDeckTablesAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        await CompactLegacyPerDeckTableAsync(connection, "card_category_observations", "ux_obs_grain", cancellationToken);
+        await CompactLegacyPerDeckTableAsync(connection, "card_deck_totals", "ux_totals_grain", cancellationToken);
+    }
+
+    private async Task CompactLegacyPerDeckTableAsync(DbConnection connection, string tableName, string grainIndexName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            var hasId = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = @tableName AND column_name = 'id');",
+                new { tableName }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (!hasId)
+            {
+                await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            var primaryKeyName = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+                "SELECT con.conname FROM pg_constraint con INNER JOIN pg_class rel ON rel.oid = con.conrelid INNER JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace WHERE rel.relname = @tableName AND nsp.nspname = current_schema() AND con.contype = 'p';",
+                new { tableName }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            var dropConstraint = primaryKeyName is not null && primaryKeyName != grainIndexName
+                ? $"ALTER TABLE {QuotePostgresIdentifier(tableName)} DROP CONSTRAINT {QuotePostgresIdentifier(primaryKeyName)};"
+                : string.Empty;
+            command.CommandText = $"""
+                SET LOCAL lock_timeout = '5s';
+                {dropConstraint}
+                ALTER TABLE {QuotePostgresIdentifier(tableName)} DROP COLUMN id;
+                ALTER TABLE {QuotePostgresIdentifier(tableName)} ADD CONSTRAINT {QuotePostgresIdentifier(grainIndexName)} PRIMARY KEY USING INDEX {QuotePostgresIdentifier(grainIndexName)};
+                """;
+            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is DbException or TimeoutException || exception is OperationCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            _logger?.LogWarning(exception, "Per-deck schema compaction failed for {TableName}; retrying on the next ensure.", tableName);
+        }
+    }
+
+    private static string QuotePostgresIdentifier(string identifier) => $"\"{identifier.Replace("\"", "\"\"")}\"";
+
+    private static async Task CreateCardCategoryObservationsTableAsync(DbConnection connection, bool isPostgres, CancellationToken cancellationToken)
     {
         var command = connection.CreateCommand();
         // Why: the write path owns fact/dimension integrity uniformly across dialects;
         // hard DB constraints would behave differently across SQLite and Postgres.
         command.CommandText = $"""
             CREATE TABLE IF NOT EXISTS card_category_observations (
-                id {surrogateIdColumnType},
                 source_id INTEGER NOT NULL,
                 card_id INTEGER NOT NULL,
                 card_name TEXT NOT NULL,
@@ -426,23 +475,22 @@ internal sealed class CategoryCacheSchema
                 board TEXT NOT NULL DEFAULT 'mainboard',
                 deck_count INTEGER NOT NULL DEFAULT 0,
                 count INTEGER NOT NULL,
-                last_seen_utc TEXT NOT NULL
+                last_seen_utc TEXT NOT NULL{(isPostgres ? ",\n                CONSTRAINT ux_obs_grain PRIMARY KEY (source_id, card_id, category, board)" : string.Empty)}
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static async Task CreateCardDeckTotalsTableAsync(DbConnection connection, string surrogateIdColumnType, CancellationToken cancellationToken)
+    private static async Task CreateCardDeckTotalsTableAsync(DbConnection connection, bool isPostgres, CancellationToken cancellationToken)
     {
         var command = connection.CreateCommand();
         command.CommandText = $"""
             CREATE TABLE IF NOT EXISTS card_deck_totals (
-                id {surrogateIdColumnType},
                 source_id INTEGER NOT NULL,
                 card_id INTEGER NOT NULL,
                 board TEXT NOT NULL DEFAULT 'mainboard',
                 deck_count INTEGER NOT NULL DEFAULT 0,
-                last_seen_utc TEXT NOT NULL
+                last_seen_utc TEXT NOT NULL{(isPostgres ? ",\n                CONSTRAINT ux_totals_grain PRIMARY KEY (source_id, card_id, board)" : string.Empty)}
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
