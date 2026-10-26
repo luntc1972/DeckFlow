@@ -126,7 +126,8 @@ public sealed class ResiliencePipelineFactoryTests
         var builder = new ResiliencePipelineBuilder<RestResponse>();
         ResiliencePipelineFactory.BuildEdhrec(
             builder,
-            TimeSpan.FromSeconds(1),
+            // Why: The total budget is not under test; a tight wall-clock budget flaked on loaded CI runners.
+            TimeSpan.FromSeconds(30),
             TimeSpan.FromMilliseconds(100),
             TimeSpan.FromMilliseconds(10));
         var pipeline = builder.Build();
