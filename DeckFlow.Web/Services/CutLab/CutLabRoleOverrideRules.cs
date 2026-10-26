@@ -246,7 +246,7 @@ public static class CutLabRoleOverrideRules
         }
 
         IReadOnlyList<CutLabRoleOverride> sanitized = Sanitize(entries, state.Pool, CutLabCommanderNames.Resolve(state));
-        if (StructuralEquals(sanitized, state.RoleOverrides ?? []))
+        if (Fingerprint(sanitized) == Fingerprint(state.RoleOverrides))
         {
             return true;
         }

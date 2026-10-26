@@ -239,6 +239,46 @@ public sealed class CutLabRoleOverrideRulesTests
         Assert.Null(CutLabRoleOverrideRules.Find(reset.RoleOverrides, "Card 1"));
     }
 
+    [Fact]
+    public void RoleOverrideTryApplyEdit_RepeatedAdd_KeepsStateAndBaseline()
+    {
+        CutLabState state = new()
+        {
+            Pool = [new CutLabPoolCard { Name = "A" }, new CutLabPoolCard { Name = "B" }],
+            RoleOverrides = [new CutLabRoleOverride { Name = "A", Added = ["draw"] }, new CutLabRoleOverride { Name = "B", Added = ["ramp"] }],
+            BaselineSnapshot = new CutLabMetricSnapshot(),
+            BaselineActualLands = 1,
+            BaselineTargetLands = 2
+        };
+
+        Assert.True(CutLabRoleOverrideRules.TryApplyEdit(state, "A", "draw", CutLabRoleOverrideOperation.Add, out CutLabState updated, out string? error));
+        Assert.Null(error);
+        Assert.Same(state, updated);
+        Assert.Same(state.BaselineSnapshot, updated.BaselineSnapshot);
+        Assert.Equal(state.BaselineActualLands, updated.BaselineActualLands);
+        Assert.Equal(state.BaselineTargetLands, updated.BaselineTargetLands);
+    }
+
+    [Fact]
+    public void RoleOverrideTryApplyEdit_RepeatedRemove_KeepsStateAndBaseline()
+    {
+        CutLabState state = new()
+        {
+            Pool = [new CutLabPoolCard { Name = "A" }, new CutLabPoolCard { Name = "B" }],
+            RoleOverrides = [new CutLabRoleOverride { Name = "A", Removed = ["tutor"] }, new CutLabRoleOverride { Name = "B", Added = ["ramp"] }],
+            BaselineSnapshot = new CutLabMetricSnapshot(),
+            BaselineActualLands = 1,
+            BaselineTargetLands = 2
+        };
+
+        Assert.True(CutLabRoleOverrideRules.TryApplyEdit(state, "A", "tutor", CutLabRoleOverrideOperation.Remove, out CutLabState updated, out string? error));
+        Assert.Null(error);
+        Assert.Same(state, updated);
+        Assert.Same(state.BaselineSnapshot, updated.BaselineSnapshot);
+        Assert.Equal(state.BaselineActualLands, updated.BaselineActualLands);
+        Assert.Equal(state.BaselineTargetLands, updated.BaselineTargetLands);
+    }
+
     private static CutLabState AtCapState()
         => new()
         {
