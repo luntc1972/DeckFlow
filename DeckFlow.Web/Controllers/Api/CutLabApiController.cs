@@ -109,6 +109,7 @@ public sealed class CutLabApiController : ControllerBase
                 commanderNames,
                 poolKey: beforePoolKey,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
+            beforeContext = CutLabRoleOverrideApplier.Apply(beforeContext, state.RoleOverrides);
             IReadOnlyDictionary<string, int> floorByRole = _floorResolver.Resolve(state, beforeContext.CommanderManaValue, commanderNames)
                 .ToDictionary(
                     floor => floor.Role,
@@ -149,6 +150,7 @@ public sealed class CutLabApiController : ControllerBase
                     afterPreResolvedCards,
                     afterPoolKey,
                     cancellationToken).ConfigureAwait(false);
+                afterContext = CutLabRoleOverrideApplier.Apply(afterContext, state.RoleOverrides);
                 planAffinityResult = await _planAffinityFactory.BuildAsync(
                     state.Intent.PlanProfile,
                     afterContext.AnalyzedCards,

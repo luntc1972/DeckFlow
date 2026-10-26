@@ -132,6 +132,7 @@ public sealed class CutLabWhatifService : ICutLabWhatifService
             ICutLabSimulationService.InLoopTrials,
             beforePoolKey,
             state.Goals,
+            roleOverrides: state.RoleOverrides,
             cancellationToken: cancellationToken).ConfigureAwait(false);
         CutLabMetricSnapshot after = await _simulationService.BuildSnapshot(
             afterWorkingList,
@@ -139,6 +140,7 @@ public sealed class CutLabWhatifService : ICutLabWhatifService
             ICutLabSimulationService.InLoopTrials,
             afterPoolKey,
             state.Goals,
+            roleOverrides: state.RoleOverrides,
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
         CutLabMetricDeltaSet metricDeltaSet = CutLabMetricDeltaSet.From(before.Metrics, after.Metrics);

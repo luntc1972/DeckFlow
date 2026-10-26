@@ -538,6 +538,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     trialsOverride: null,
                     poolKey: null,
                     goals: state.Goals,
+                    roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
                 state = state with
                 {
@@ -588,6 +589,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     trialsOverride: ICutLabSimulationService.InLoopTrials,
                     poolKey: null,
                     goals: state.Goals,
+                    roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
                 currentSnapshot = currentResult.Snapshot;
                 currentActualLands = currentResult.ActualLands;
@@ -620,6 +622,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     trialsOverride: ICutLabSimulationService.InLoopTrials,
                     poolKey: null,
                     goals: state.Goals,
+                    roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)

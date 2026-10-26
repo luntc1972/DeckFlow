@@ -27,6 +27,35 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabPageServiceTests
 {
     [Fact]
+    public async Task ProcessAsync_RoleOverride_ForwardsToSimulation()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Card 001" }],
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card 001", Added = ["ramp"], Removed = ["draw"] }],
+        };
+        var simulation = new FakeSimulationService();
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            simulationService: simulation,
+            analysisContextBuilder: new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames)));
+
+        var result = await service.ProcessAsync(new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        });
+
+        Assert.NotNull(simulation.RoleOverrides);
+        Assert.Same(result.State!.RoleOverrides, simulation.RoleOverrides);
+    }
+
+    [Fact]
     public async Task ProcessAsync_HappyPath_ReturnsCountLegalityIntentAndLockedCommander()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
