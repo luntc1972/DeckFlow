@@ -52,6 +52,61 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
+    public void AssignRoles_CounterspellInCasual_MapsToTargetedInteraction()
+    {
+        CardFact fact = Fact("Counterspell", "Instant", oracle: "Counter target spell.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Theory]
+    [InlineData("Deadly Rollick", "If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.")]
+    [InlineData("Get Lost", "Destroy target creature, enchantment, or planeswalker. Its controller creates two Map tokens. (They're artifacts with \"{1}, {T}, Sacrifice this token: Target creature you control explores. Activate only as a sorcery.\")")]
+    public void AssignRoles_TargetedRemovalOracleInCasual_MapsToTargetedInteraction(string name, string oracle)
+    {
+        CardFact fact = Fact(name, "Instant", oracle: oracle);
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_RegrowthOracleInCasual_DoesNotMapToTargetedInteraction()
+    {
+        CardFact fact = Fact(
+            "Regrowth",
+            "Sorcery",
+            oracle: "Return target card from your graveyard to your hand.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.DoesNotContain("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_InteractionCategoryWithoutRemovalOracle_MapsToTargetedInteraction()
+    {
+        CardFact fact = Fact("Category Interaction", "Creature");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Casual);
+
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_ProtectionCategory_DoesNotMapToTargetedInteraction()
+    {
+        CardFact fact = Fact("Mother of Runes", "Creature", oracle: "{T}: Target creature you control gains protection from the color of your choice until end of turn.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Protection"], false, ManabaseMode.Casual);
+
+        Assert.DoesNotContain("interaction-targeted", roles);
+    }
+
+    [Fact]
     public void AssignRoles_LandFaceWithOracleCounterspellAndNoCategories_RetainsInteraction()
     {
         CardFact fact = Fact("Jwari Disruption // Jwari Ruins", "Instant // Land", oracle: "Counter target spell unless its controller pays {1}.") with { HasLandFace = true };
@@ -202,7 +257,7 @@ public sealed class CutLabRoleAssignerTests
     // legitimately earn other roles beyond protection and pinning the whole list would make this
     // test fail for reasons unrelated to protection.
     [Fact]
-    public void AssignRoles_MotherOfRunes_IncludesProtection()
+    public void AssignRoles_MotherOfRunes_MapsToProtectionOnly()
     {
         CardFact fact = Fact(
             "Mother of Runes",
@@ -215,7 +270,30 @@ public sealed class CutLabRoleAssignerTests
             isComboPiece: false,
             ManabaseMode.Casual);
 
-        Assert.Contains("protection", roles);
+        Assert.Equal(["protection"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_DarkRitual_MapsToRampOnly()
+    {
+        CardFact fact = Fact("Dark Ritual", "Instant", oracle: "Add {B}{B}{B}.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.Equal(["ramp"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_WishclawTalisman_MapsToTutorOnly()
+    {
+        CardFact fact = Fact(
+            "Wishclaw Talisman",
+            "Artifact",
+            oracle: "{1}, {T}, Remove a wish counter from Wishclaw Talisman: Search your library for a card, put it into your hand, then shuffle. An opponent gains control of Wishclaw Talisman. Activate only during your turn.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.Equal(["tutor"], roles);
     }
 
     [Fact]
@@ -368,10 +446,23 @@ public sealed class CutLabRoleAssignerTests
         Assert.Equal(["interaction-targeted"], roles);
     }
 
+    [Fact]
+    public void AssignRoles_Pongify_MapsToTargetedRemovalOnly()
+    {
+        CardFact fact = Fact(
+            "Pongify",
+            "Instant",
+            oracle: "Destroy target creature. It can't be regenerated. That creature's controller creates a 3/3 green Ape creature token.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+
+        Assert.Equal(["interaction-targeted"], roles);
+    }
+
     [Theory]
-    [InlineData(ManabaseMode.Cedh, new[] { "interaction-targeted" })]
-    [InlineData(ManabaseMode.Casual, new[] { "other" })]
-    public void AssignRoles_Counterspell_RespectsModeGate(ManabaseMode mode, string[] expected)
+    [InlineData(ManabaseMode.Cedh)]
+    [InlineData(ManabaseMode.Casual)]
+    public void AssignRoles_Counterspell_MapsToTargetedInteractionInEveryMode(ManabaseMode mode)
     {
         CardFact fact = Fact(
             "Counterspell",
@@ -384,11 +475,11 @@ public sealed class CutLabRoleAssignerTests
             isComboPiece: false,
             mode);
 
-        Assert.Equal(expected, roles);
+        Assert.Equal(["interaction-targeted"], roles);
     }
 
     [Fact]
-    public void AssignRoles_GenericInteractionCategoryWithoutPredicate_IsTargetedOnly()
+    public void AssignRoles_GenericInteractionCategoryWithoutPredicate_MapsToTargetedInteraction()
     {
         CardFact fact = Fact(
             "Flexible Answer",
@@ -440,7 +531,7 @@ public sealed class CutLabRoleAssignerTests
             isComboPiece: true,
             ManabaseMode.Casual);
 
-        Assert.Equal(["interaction-targeted", "wincons"], roles);
+        Assert.Equal(["tutor", "interaction-targeted", "wincons"], roles);
     }
 
     [Fact]
@@ -508,7 +599,7 @@ public sealed class CutLabRoleAssignerTests
             isComboPiece: true,
             ManabaseMode.Casual);
 
-        Assert.Equal(["wincons"], roles);
+        Assert.Equal(["tutor", "wincons"], roles);
     }
 
     [Fact]

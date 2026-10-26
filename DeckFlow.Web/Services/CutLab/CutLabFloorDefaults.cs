@@ -240,6 +240,8 @@ public static class CutLabFloorDefaults
             "interaction-targeted" => GetDefaultInteractionTargetedFloor(normalizedBracket),
             // Why: sweepers matter at every bracket, but the default demand flattens once decks optimize around narrower answers.
             "interaction-mass" => GetDefaultInteractionMassFloor(normalizedBracket),
+            // Why: tutors are user-configurable but have no default demand.
+            "tutor" => 0,
             // Why: protection scales with combo pressure but stays below interaction because it is narrower.
             "protection" => normalizedBracket switch { 2 => 2, 3 => 3, 4 => 4, _ => 5 },
             // Why: engine density rises through optimized play, then flattens because engines self-sustain.

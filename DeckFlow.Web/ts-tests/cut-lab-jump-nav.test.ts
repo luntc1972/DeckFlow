@@ -16,11 +16,12 @@ const stubMatchMedia = (options: { mobile: boolean; reducedMotion: boolean }): v
   } satisfies MediaQueryList)));
 };
 
-const renderFixture = (): void => {
+const renderFixture = (includeRoleLink = false): void => {
   document.body.innerHTML = `
     <nav class="cutlab-anchor-nav" aria-label="Jump to section">
       <a href="#cut-lab-section-lock-pool">Lock your pool</a>
     </nav>
+    ${includeRoleLink ? '<p><a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a></p>' : ''}
     <div class="prompt-step-nav" role="tablist" aria-label="Cut Lab workflow steps">
       <button type="button" id="cut-lab-step-tab-1" data-cut-lab-step="1">Process</button>
       <button type="submit" id="cut-lab-step-tab-5" form="cut-lab-export-form" data-cut-lab-step="5">Export</button>
@@ -31,6 +32,7 @@ const renderFixture = (): void => {
       <summary>Lock your pool</summary>
       <div>Body</div>
     </details>
+    ${includeRoleLink ? '<details id="cut-lab-section-competes" data-cutlab-mobile-collapse><summary>How your pool competes</summary><div>Body</div></details>' : ''}
   `;
 };
 
@@ -83,6 +85,23 @@ describe('cut-lab jump nav', () => {
     document.querySelector<HTMLAnchorElement>('.cutlab-anchor-nav a')?.click();
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
+  });
+
+  it('uses the shared jump handler for role protection links', () => {
+    renderFixture(true);
+    stubMatchMedia({ mobile: false, reducedMotion: false });
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, writable: true, value: scrollIntoView });
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    const target = document.getElementById('cut-lab-section-competes') as HTMLDetailsElement;
+    const focusSpy = vi.spyOn(target, 'focus');
+    document.querySelector<HTMLAnchorElement>('[data-cut-lab-jump-link]')?.click();
+
+    expect(target.open).toBe(true);
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    expect(window.location.hash).toBe('#cut-lab-section-competes');
   });
 
   it('does not alter submit-driven step tabs', () => {

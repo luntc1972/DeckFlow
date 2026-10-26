@@ -153,7 +153,7 @@ test.afterEach(async () => {
   heldLock = null;
 });
 
-test('renders the three structure sections with 10 collapsed role groups and 9 floor inputs', async ({ page }) => {
+test('renders the three structure sections with 11 collapsed role groups and 10 floor inputs', async ({ page }) => {
   await importPool(page);
 
   await expect(page.getByRole('heading', { name: 'How your pool competes' })).toBeVisible();
@@ -161,9 +161,9 @@ test('renders the three structure sections with 10 collapsed role groups and 9 f
   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
 
   const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
-  await expect(roleGroups).toHaveCount(10);
+  await expect(roleGroups).toHaveCount(11);
   await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
-  await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(9);
+  await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(10);
   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
 });

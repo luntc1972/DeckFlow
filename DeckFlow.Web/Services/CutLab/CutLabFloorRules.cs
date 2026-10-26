@@ -21,6 +21,7 @@ public static class CutLabFloorRules
         "engines",
         "payoffs",
         "wincons",
+        "tutor",
     ];
 
     /// <summary>Maximum supported role floor after clamping untrusted persisted values.</summary>

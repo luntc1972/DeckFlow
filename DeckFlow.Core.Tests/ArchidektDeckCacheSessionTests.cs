@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
@@ -37,17 +36,17 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await repository.EnsureSchemaAsync();
 
+        var timeProvider = new AdvancingTimeProvider();
         var session = new ArchidektDeckCacheSession(
             repository,
             new FakeDeckImporter(),
             new FakeRecentDecksImporter(),
-            idlePollDelay: TimeSpan.FromMilliseconds(20));
+            idlePollDelay: TimeSpan.FromMilliseconds(20),
+            timeProvider: timeProvider);
 
-        var stopwatch = Stopwatch.StartNew();
-        await session.RunAsync(TimeSpan.FromMilliseconds(70), cancellationToken: CancellationToken.None);
-        stopwatch.Stop();
+        var result = await session.RunAsync(TimeSpan.FromMilliseconds(70), cancellationToken: CancellationToken.None);
 
-        Assert.True(stopwatch.ElapsedMilliseconds >= 60, $"Expected the session to stay alive near the requested duration, but it completed in {stopwatch.ElapsedMilliseconds}ms.");
+        Assert.Equal(TimeSpan.FromMilliseconds(70), result.Duration);
     }
 
     [Fact]
@@ -56,17 +55,17 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await repository.EnsureSchemaAsync();
 
+        var timeProvider = new AdvancingTimeProvider();
         var session = new ArchidektDeckCacheSession(
             repository,
             new FakeDeckImporter(),
             new ThrowingRecentDecksImporter(),
-            idlePollDelay: TimeSpan.FromMilliseconds(20));
+            idlePollDelay: TimeSpan.FromMilliseconds(20),
+            timeProvider: timeProvider);
 
-        var stopwatch = Stopwatch.StartNew();
-        await session.RunAsync(TimeSpan.FromMilliseconds(70), cancellationToken: CancellationToken.None);
-        stopwatch.Stop();
+        var result = await session.RunAsync(TimeSpan.FromMilliseconds(70), cancellationToken: CancellationToken.None);
 
-        Assert.True(stopwatch.ElapsedMilliseconds >= 60, $"Expected the session to keep retrying near the requested duration after recent-deck fetch errors, but it completed in {stopwatch.ElapsedMilliseconds}ms.");
+        Assert.Equal(TimeSpan.FromMilliseconds(70), result.Duration);
     }
 
     [Fact]
@@ -136,16 +135,20 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         await repository.AddDeckIdsAsync(["transient-1"]);
         var importer = new ThrowingTransientDeckImporter();
         var recentImporter = new FakeRecentDecksImporter();
-        var session = new ArchidektDeckCacheSession(repository, importer, recentImporter, idlePollDelay: TimeSpan.FromMilliseconds(250));
+        var timeProvider = new AdvancingTimeProvider();
+        var session = new ArchidektDeckCacheSession(
+            repository,
+            importer,
+            recentImporter,
+            idlePollDelay: TimeSpan.FromMilliseconds(250),
+            timeProvider: timeProvider);
 
-        var stopwatch = Stopwatch.StartNew();
         var result = await session.RunAsync(TimeSpan.FromSeconds(1), fetchBatchSize: 1);
-        stopwatch.Stop();
 
         Assert.Equal(["transient-1"], importer.AttemptedDeckIds);
-        Assert.True(stopwatch.Elapsed >= TimeSpan.FromMilliseconds(900), $"Expected the bulk run to idle until its window ended; elapsed {stopwatch.ElapsedMilliseconds} ms.");
-        // Why: each idle iteration makes two listing calls, so a hot loop would far exceed 30.
-        Assert.InRange(recentImporter.Calls, 2, 30);
+        Assert.Equal(TimeSpan.FromSeconds(1), result.Duration);
+        // Why: five loop passes (one drain attempt, four idle polls) each make two listing calls.
+        Assert.Equal(10, recentImporter.Calls);
         Assert.False(result.EndedEarly);
         Assert.False(await IsDeckProcessedAsync("transient-1"));
         Assert.False(await IsDeckSkippedAsync("transient-1"));
@@ -161,11 +164,15 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var importer = new ThrowingTransientOnMarkedDeckImporter();
         using var cancellation = new CancellationTokenSource();
         var progress = new SynchronousProgress<int>(processed => { if (processed >= 1) cancellation.Cancel(); });
-        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(100));
+        var timeProvider = new AdvancingTimeProvider();
+        var session = new ArchidektDeckCacheSession(
+            repository,
+            importer,
+            new FakeRecentDecksImporter(),
+            idlePollDelay: TimeSpan.FromMilliseconds(100),
+            timeProvider: timeProvider);
 
-        var stopwatch = Stopwatch.StartNew();
         var result = await session.RunAsync(TimeSpan.FromSeconds(10), fetchBatchSize: 1, cancellationToken: cancellation.Token, progress: progress);
-        stopwatch.Stop();
 
         Assert.Equal(["transient-1", "good-1"], importer.AttemptedDeckIds);
         Assert.True(await IsDeckProcessedAsync("good-1"));
@@ -173,7 +180,8 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         Assert.False(await IsDeckSkippedAsync("transient-1"));
         Assert.Equal(1, result.DecksProcessed);
         Assert.False(result.EndedEarly);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5));
+        // Why: cancellation ends the run before any idle delay advances the fake clock.
+        Assert.Equal(TimeSpan.Zero, result.Duration);
     }
 
     [Fact]
@@ -187,12 +195,16 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         var importer = new ThrowingTransientOnMarkedDeckImporter();
         using var cancellation = new CancellationTokenSource();
         var progress = new SynchronousProgress<int>(processed => { if (processed >= 21) cancellation.Cancel(); });
-        var session = new ArchidektDeckCacheSession(repository, importer, new FakeRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(100));
+        var timeProvider = new AdvancingTimeProvider();
+        var session = new ArchidektDeckCacheSession(
+            repository,
+            importer,
+            new FakeRecentDecksImporter(),
+            idlePollDelay: TimeSpan.FromMilliseconds(100),
+            timeProvider: timeProvider);
 
-        var stopwatch = Stopwatch.StartNew();
         // Why: 20 is CategoryKnowledgeStore.HarvestDeckCount, the production batch for both run kinds.
         var result = await session.RunAsync(TimeSpan.FromSeconds(10), fetchBatchSize: 20, cancellationToken: cancellation.Token, progress: progress);
-        stopwatch.Stop();
 
         var goodIds = deckIds.Where(id => id.StartsWith("good", StringComparison.Ordinal)).ToList();
         var processedGoodIds = new List<string>();
@@ -214,7 +226,8 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         Assert.Equal(41, importer.AttemptedDeckIds.Count);
         Assert.Equal(21, result.DecksProcessed);
         Assert.False(result.EndedEarly);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(9));
+        // Why: cancellation ends the run before any idle delay advances the fake clock.
+        Assert.Equal(TimeSpan.Zero, result.Duration);
     }
 
     [Fact]
@@ -823,6 +836,75 @@ public sealed class ArchidektDeckCacheSessionTests : IDisposable
         {
             Calls++;
             return Task.FromResult<IReadOnlyList<ArchidektListingDeck>>(Array.Empty<ArchidektListingDeck>());
+        }
+    }
+
+    private sealed class AdvancingTimeProvider : TimeProvider
+    {
+        private long _timestamp;
+        private int _timestampReadsSinceAdvance;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp()
+        {
+            var reads = Interlocked.Increment(ref _timestampReadsSinceAdvance);
+            // Why: a tight idle loop must fail instead of hanging when no timer advances fake time.
+            if (reads > 10_000)
+            {
+                throw new InvalidOperationException($"tight loop: time read {reads} times without advancing");
+            }
+
+            return Interlocked.Read(ref _timestamp);
+        }
+
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.UnixEpoch + TimeSpan.FromTicks(GetTimestamp());
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = new FakeTimer(this, callback, state);
+            timer.Change(dueTime, period);
+            return timer;
+        }
+
+        private void Advance(TimeSpan delay)
+        {
+            if (delay != Timeout.InfiniteTimeSpan)
+            {
+                Interlocked.Add(ref _timestamp, delay.Ticks);
+                Interlocked.Exchange(ref _timestampReadsSinceAdvance, 0);
+            }
+        }
+
+        private sealed class FakeTimer : ITimer
+        {
+            private readonly TimerCallback _callback;
+            private readonly AdvancingTimeProvider _timeProvider;
+            private readonly object? _state;
+
+            public FakeTimer(AdvancingTimeProvider timeProvider, TimerCallback callback, object? state)
+            {
+                _timeProvider = timeProvider;
+                _callback = callback;
+                _state = state;
+            }
+
+            public bool Change(TimeSpan dueTime, TimeSpan period)
+            {
+                _timeProvider.Advance(dueTime);
+                if (dueTime != Timeout.InfiniteTimeSpan)
+                {
+                    ThreadPool.QueueUserWorkItem(_ => _callback(_state));
+                }
+
+                return true;
+            }
+
+            public void Dispose()
+            {
+            }
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }
 

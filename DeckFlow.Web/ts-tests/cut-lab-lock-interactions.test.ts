@@ -397,7 +397,7 @@ describe('DeckFlowCutLab', () => {
         </details>
         <table>
           <tbody>
-            <tr data-cut-lab-card="Command Tower" data-cut-lab-type-line="Land" data-cut-lab-role="lands ramp" data-cut-lab-quantity="1" data-cut-lab-commander="false">
+            <tr data-cut-lab-card="Command Tower" data-cut-lab-type-line="Land" data-cut-lab-role="lands ramp" data-cut-lab-quantity="10" data-cut-lab-commander="false">
               <td data-label="Select"><input type="checkbox" data-cut-lab-lock-card="Command Tower" /></td>
               <td data-label="Card"><strong>1 × Command Tower</strong></td>
               <td data-label="Package assignment">
@@ -444,7 +444,7 @@ describe('DeckFlowCutLab', () => {
 
     expect(firstChip?.classList.contains('cutlab-role-chip--locked')).toBe(true);
     expect(secondChip?.classList.contains('cutlab-role-chip--locked')).toBe(true);
-    expect(lockedCount?.textContent).toBe('4');
+    expect(lockedCount?.textContent).toBe('13');
   });
 
   it('opens an individual card pill in the modal and toggles through the canonical pool checkbox', () => {
@@ -586,6 +586,40 @@ describe('DeckFlowCutLab', () => {
     expect(checkbox?.checked).toBe(false);
     expect(pill?.getAttribute('aria-pressed')).toBe('false');
     expect(pill?.classList.contains('cutlab-role-chip--locked')).toBe(false);
+  });
+
+  it('updates type-group locked count with quantity-weighted pool locks', () => {
+    document.body.innerHTML = `<form data-cache-key="cut-lab">
+      <details class="cutlab-role-group" data-cutlab-group-kind="type">
+        <summary>Artifact · 2 cards · <span data-cut-lab-type-locked="Artifact">0</span> locked</summary>
+        <button type="button" data-cut-lab-chip-card="Sol Ring">Sol Ring</button>
+        <button type="button" data-cut-lab-chip-card="Mana Vault">Mana Vault</button>
+      </details>
+      <table><tbody>
+        <tr data-cut-lab-card="Sol Ring" data-cut-lab-role="ramp" data-cut-lab-quantity="1"><td><input type="checkbox" data-cut-lab-lock-card="Sol Ring"></td></tr>
+        <tr data-cut-lab-card="Mana Vault" data-cut-lab-role="ramp" data-cut-lab-quantity="2"><td><input type="checkbox" data-cut-lab-lock-card="Mana Vault"></td></tr>
+      </tbody></table></form>`;
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const count = document.querySelector('[data-cut-lab-type-locked="Artifact"]');
+    const checkboxes = [...document.querySelectorAll<HTMLInputElement>('[data-cut-lab-lock-card]')];
+    checkboxes.forEach(checkbox => { checkbox.checked = true; checkbox.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(count?.textContent).toBe('3');
+    checkboxes.forEach(checkbox => { checkbox.checked = false; checkbox.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(count?.textContent).toBe('0');
+  });
+
+  it('updates locked count for a non-lockable other role group', () => {
+    document.body.innerHTML = `<form data-cache-key="cut-lab">
+      <details class="cutlab-role-group">
+        <summary>Other · 1 card · <span data-cut-lab-group-locked="other">0</span> locked</summary>
+      </details>
+      <table><tbody><tr data-cut-lab-card="Mystery Card" data-cut-lab-role="other" data-cut-lab-quantity="2"><td><input type="checkbox" data-cut-lab-lock-card="Mystery Card"></td></tr></tbody></table></form>`;
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    const checkbox = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Mystery Card"]');
+    checkbox!.checked = true;
+    checkbox!.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(document.querySelector('[data-cut-lab-group-locked="other"]')?.textContent).toBe('2');
   });
 
   it('syncs every CutLabStateJson input when a pool lock changes', () => {

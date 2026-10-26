@@ -188,6 +188,22 @@ public sealed class CutLabFloorDefaultsTests
     }
 
     [Fact]
+    public void ResolveDefaults_TutorHasZeroDefaultFloor()
+    {
+        var resolved = CutLabFloorDefaults.ResolveDefaults(
+            declaredBracket: 4,
+            playExperience: "Focused",
+            commanderManaValue: 3.0,
+            commanderNames: ["Atraxa, Praetors' Voice"],
+            baseline: new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = 4, AvgLands = 36.4, DeckCount = 1000 }),
+            cedhBaseline: null,
+            roleFloorBaseline: null,
+            priorFloors: []);
+
+        Assert.Equal(0, resolved.Single(floor => floor.Role == "tutor").DefaultValue);
+    }
+
+    [Fact]
     public void ResolveDefaults_CommanderFloorAboveBracket_RaisesTheDefault()
     {
         var resolved = CutLabFloorDefaults.ResolveDefaults(

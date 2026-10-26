@@ -218,7 +218,10 @@
 
     <div class="toolbar">
         <button type="submit" class="run-button">Import pool</button>
-        <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
+        @if (!Model.HasResult)
+        {
+            <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
+        }
     </div>
 </form>
 }
@@ -282,6 +285,10 @@
     <section class="deck-history-results" data-scroll-on-load>
         <script type="application/json" id="cutlab-card-text-data">@Html.Raw(JsonSerializer.Serialize(cardTextData))</script>
         @await Html.PartialAsync("_WorkflowStepTabs", exportTabs)
+        <div class="toolbar">
+            <button type="button" class="run-button" data-cut-lab-session-download>Download session</button>
+            <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
+        </div>
 
         @if (Model.Warnings.Count > 0)
         {
@@ -357,13 +364,15 @@
                             <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-role-count>@Model.RoleGroups.Count(group => group.IsLockable && group.AllLockableMembersLocked)/@Model.RoleGroups.Count(group => group.IsLockable)</span>
                             <span class="cutlab-constraints-summary__label">roles protected</span>
                         </div>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-caption hidden="@(Model.RoleGroups.Any(group => group.IsLockable && !group.AllLockableMembersLocked) ? null : "hidden")">Not yet protected:</p>
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-role-chips>
                             @foreach (var group in Model.RoleGroups.Where(group => group.IsLockable && !group.AllLockableMembersLocked).Take(3))
                             {
                                 <span class="kb-chip">@group.DisplayLabel</span>
                             }
                         </div>
-                        <p class="cutlab-constraints-summary__note">not yet protected</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-more hidden="@(Model.RoleGroups.Count(group => group.IsLockable && !group.AllLockableMembersLocked) > 3 ? null : "hidden")">+@Math.Max(0, Model.RoleGroups.Count(group => group.IsLockable && !group.AllLockableMembersLocked) - 3) more</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-hint hidden="@(Model.RoleGroups.Any(group => group.IsLockable && !group.AllLockableMembersLocked) ? null : "hidden")">Protect a role with its "Lock all" button in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
                     </div>
                 </div>
             </details>
@@ -597,7 +606,7 @@
                     var memberCount = group.Members.Count;
                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
                     <details class="cutlab-role-group" data-cutlab-group-kind="role">
-                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @memberCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                         <div class="cutlab-role-group__body">
                             @if (group.IsLockable)
                             {
@@ -617,7 +626,7 @@
                                         {
                                             <span class="kb-chip cutlab-lock-badge--commander"
                                                   data-cutlab-card-open="@member.Name"
-                                                  data-cut-lab-chip-card="@member.Name">@member.Name</span>
+                                                  data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
                                         }
                                         else
                                         {
@@ -626,7 +635,7 @@
                                                     class="@chipClasses"
                                                     data-cutlab-card-open="@member.Name"
                                                     data-cut-lab-chip-card="@member.Name"
-                                                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
+                                                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
                                         }
                                     }
                                 </div>
@@ -639,6 +648,11 @@
                             @if (string.Equals(group.RoleKey, "interaction-targeted", StringComparison.Ordinal))
                             {
                                 <p class="cutlab-role-group__help">One-shot removal aimed at a single permanent or spell. Counterspells count here only for a cEDH play experience.</p>
+                            }
+
+                            @if (string.Equals(group.RoleKey, "lands", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <p class="cutlab-role-group__help">Change how many copies of each basic land you run in <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a>.</p>
                             }
 
                             @if (string.Equals(group.RoleKey, "interaction-mass", StringComparison.Ordinal))
@@ -663,7 +677,7 @@
                 @foreach (var group in Model.TypeGroups)
                 {
                     <details class="cutlab-role-group" data-cutlab-group-kind="type">
-                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span>@group.LockedCount</span> locked</summary>
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span data-cut-lab-type-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                         <div class="cutlab-role-group__body">
                             <div class="kb-chip-area__chips">
                                 @foreach (var member in group.Members)
@@ -672,7 +686,7 @@
                                     {
                                         <span class="kb-chip cutlab-lock-badge--commander"
                                               data-cutlab-card-open="@member.Name"
-                                              data-cut-lab-chip-card="@member.Name">@member.Name</span>
+                                              data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
                                     }
                                     else
                                     {
@@ -681,7 +695,7 @@
                                                 class="@chipClasses"
                                                 data-cutlab-card-open="@member.Name"
                                                 data-cut-lab-chip-card="@member.Name"
-                                                aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name</button>
+                                                aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
                                     }
                                 }
                             </div>
@@ -953,6 +967,7 @@
                 <details class="cutlab-collapsible" data-cut-lab-lands-disclosure id="cut-lab-section-lands-now">
                     <summary class="cutlab-collapsible__summary">Lands right now</summary>
                     <p data-cut-lab-lands-text>Lands: @actualLands/@roundedTargetLands (@landPercent%) as your pool stands now (@Model.CurrentCount cards).</p>
+                    <p>Adjust basic land copies in <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a>.</p>
                 </details>
             }
 
@@ -1044,7 +1059,7 @@
             {
                 <div class="cutlab-proposal">
                     <p class="cutlab-proposal__heading">You're under 100 cards</p>
-                    <p>Add copies or a basic land in the Tune quantities section below to reach exactly 100.</p>
+                    <p>Add copies or a basic land in the <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a> section below to reach exactly 100.</p>
                 </div>
             }
             else if (Model.Proposal.IsAtTarget)
@@ -1659,6 +1674,18 @@ else if (string.IsNullOrWhiteSpace(Model.ErrorMessage))
     <section class="result-panel">
         <h2>No pool imported yet</h2>
         <p>Paste a Moxfield or Archidekt URL, or paste your decklist text, then choose Import pool. Cut Lab is for an oversized pool — 101 to 150 cards plus your commander.</p>
+        <div class="cutlab-scenarios__portable-row">
+            <h3>Resume a saved session</h3>
+            <div class="cutlab-scenarios__portable-actions">
+                <label class="copy-button cutlab-scenarios__file-label" for="cut-lab-session-file-start">Load session file</label>
+                <input id="cut-lab-session-file-start"
+                       class="cutlab-scenarios__file-input"
+                       type="file"
+                       accept=".json,application/json"
+                       data-cut-lab-session-file />
+            </div>
+            <p class="prompt-size-note cutlab-scenarios__status" role="status" data-cut-lab-scenario-status></p>
+        </div>
     </section>
 }
 </div>

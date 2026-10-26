@@ -472,6 +472,7 @@ public sealed record CutLabViewModel
                     .Select(card => new CutLabRoleMemberView
                     {
                         Name = card.Name,
+                        Quantity = card.Quantity,
                         IsLocked = card.IsLocked,
                         IsCommander = card.IsCommander,
                     })
@@ -483,6 +484,10 @@ public sealed record CutLabViewModel
                     DisplayLabel = DisplayLabelFor(roleKey),
                     IsLockable = !string.Equals(roleKey, "other", StringComparison.Ordinal),
                     Members = members,
+                    CardCount = pool
+                        .Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
+                            && roles.Contains(roleKey, StringComparer.Ordinal))
+                        .Sum(card => card.Quantity),
                     LockedCount = pool
                         .Where(card => card.IsLocked
                             && roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
@@ -523,6 +528,7 @@ public sealed record CutLabViewModel
                         .Select(card => new CutLabRoleMemberView
                         {
                             Name = card.Name,
+                            Quantity = card.Quantity,
                             IsLocked = card.IsLocked,
                             IsCommander = card.IsCommander,
                         })
@@ -1206,6 +1212,9 @@ public sealed record CutLabRoleMemberView
 {
     /// <summary>Display card name.</summary>
     public string Name { get; init; } = string.Empty;
+
+    /// <summary>Number of copies represented by this pool member.</summary>
+    public int Quantity { get; init; }
 
     /// <summary>True when the card is currently locked in the working session.</summary>
     public bool IsLocked { get; init; }
