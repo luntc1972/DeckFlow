@@ -532,7 +532,7 @@
             </div>
             @if (Model.RoleOverrideCards.Count > 0)
             {
-                <form id="cut-lab-role-editor" method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
+                <form id="cut-lab-role-editor" class="cutlab-role-editor" method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
                     <label for="cut-lab-role-override-card">Card</label>

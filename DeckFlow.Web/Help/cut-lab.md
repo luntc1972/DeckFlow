@@ -45,6 +45,12 @@ You can also set configurable minimums per role. Those floors become hard guardr
 
 Role counts are deliberately generous, since they are a decision aid rather than a verdict: ramp includes mana-symbol producers (rocks and dorks, not just "add one mana" text), draw counts you-anchored card draw of any size plus clue/connive card-advantage, and the engines role is limited to repeatable permanents so a one-shot "draw two" spell is not mistaken for an engine. These Cut Lab role tallies are intentionally separate from the Commander Mana Base Analyzer tool's mana-source math, which is tuned for castability rather than counting.
 
+## Correct a card's roles
+
+Use **Edit roles** beside a card to select it in the role editor, then add or remove a role from the fixed list. The commander is excluded. Lands is fixed, and Ramp cannot be added to a land. Targeted removal and mass removal are mutually exclusive; a card with no remaining roles is shown as Other.
+
+Choose **Reset card roles** to restore that card's inferred roles. Edits stay with saved scenarios and affect role floors, cut rounds, and simulation. They do not change exports.
+
 ## Inspect any card
 
 Anywhere a card appears in the workspace — a role pill, a structural findings chip, a pool-row name, or a cut proposal — you can click it to open a card popup. The popup shows the card's oracle text so you can check what it actually does without leaving Cut Lab, and it carries **Lock / Unlock** and **Close** so you can protect or release the card on the spot. Card text is served from the page itself, so opening a card is instant and needs no extra lookup.

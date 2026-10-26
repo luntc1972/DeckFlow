@@ -328,6 +328,19 @@ const adjust = async (newBasic: boolean): Promise<void> => {
 };
 
 describe('role overrides', () => {
+  it('disables Ramp on initialization when the first card is a land', () => {
+    buildFixture();
+    editor();
+    const cardSelect = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-card]')!;
+    cardSelect.prepend(cardSelect.options[1]);
+    cardSelect.selectedIndex = 0;
+
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+
+    const roleSelect = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')!;
+    expect(roleSelect.querySelector<HTMLOptionElement>('option[value="ramp"]')!.disabled).toBe(true);
+    expect(roleSelect.value).toBe('draw');
+  });
   it('serializes only non-empty overrides', () => {
     const state = JSON.parse(buildStateJson(98));
     expect(JSON.parse(api().buildCutLabStateJson(state))).not.toHaveProperty('roleOverrides');
