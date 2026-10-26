@@ -36,12 +36,12 @@ public sealed class CutLabRoleOverrideRulesTests
     }
 
     [Fact]
-    public void RoleOverrideSanitize_BlankAndUnknownNames_DropsEntries()
+    public void RoleOverrideSanitize_BlankNameDropped_AbsentCardKept()
     {
         IReadOnlyList<CutLabRoleOverride> result = CutLabRoleOverrideRules.Sanitize(
             [new CutLabRoleOverride { Name = " " }, new CutLabRoleOverride { Name = "Missing", Added = ["draw"] }], Pool(), []);
 
-        Assert.Empty(result);
+        Assert.Equal("Missing", Assert.Single(result).Name);
     }
 
     [Fact]
@@ -277,6 +277,60 @@ public sealed class CutLabRoleOverrideRulesTests
         Assert.Same(state.BaselineSnapshot, updated.BaselineSnapshot);
         Assert.Equal(state.BaselineActualLands, updated.BaselineActualLands);
         Assert.Equal(state.BaselineTargetLands, updated.BaselineTargetLands);
+    }
+
+    [Fact]
+    public void RoleOverrideSanitize_AbsentCard_CanonicalizesKeys()
+    {
+        IReadOnlyList<CutLabRoleOverride> result = CutLabRoleOverrideRules.Sanitize(
+            [new CutLabRoleOverride { Name = " Missing ", Added = ["Draw", "lands", "bogus", "other", "tutor", "interaction-targeted", "interaction-mass"], Removed = ["tutor"] }], Pool(), []);
+
+        CutLabRoleOverride entry = Assert.Single(result);
+        Assert.Equal("Missing", entry.Name);
+        Assert.Equal(["draw"], entry.Added);
+        Assert.Empty(entry.Removed);
+    }
+
+    [Fact]
+    public void RoleOverrideSanitize_AbsentCardOnlyInvalidKeys_DropsEntry()
+    {
+        Assert.Empty(CutLabRoleOverrideRules.Sanitize(
+            [new CutLabRoleOverride { Name = "Missing", Added = ["lands", "other", "bogus"] }], Pool(), []));
+    }
+
+    [Fact]
+    public void RoleOverrideSanitize_AbsentCommanderName_DropsEntry()
+    {
+        Assert.Empty(CutLabRoleOverrideRules.Sanitize(
+            [new CutLabRoleOverride { Name = "Missing", Added = ["draw"] }], Pool(), ["missing"]));
+    }
+
+    [Fact]
+    public void RoleOverrideSanitize_CardLeavesAndReturns_KeepsKeys()
+    {
+        IReadOnlyList<CutLabRoleOverride> initial = CutLabRoleOverrideRules.Sanitize(
+            [new CutLabRoleOverride { Name = "Card", Added = ["draw"], Removed = ["tutor"] }], Pool(), []);
+        IReadOnlyList<CutLabRoleOverride> absent = CutLabRoleOverrideRules.Sanitize(initial, [], []);
+        CutLabRoleOverride retained = Assert.Single(absent);
+        Assert.Equal("Card", retained.Name);
+        Assert.Equal(["draw"], retained.Added);
+        Assert.Equal(["tutor"], retained.Removed);
+
+        CutLabRoleOverride restored = Assert.Single(CutLabRoleOverrideRules.Sanitize(absent, Pool(), []));
+        Assert.Equal(retained.Name, restored.Name);
+        Assert.Equal(retained.Added, restored.Added);
+        Assert.Equal(retained.Removed, restored.Removed);
+    }
+
+    [Fact]
+    public void RoleOverrideSanitize_AbsentLandReturns_ReappliesRampRule()
+    {
+        IReadOnlyList<CutLabRoleOverride> absent = CutLabRoleOverrideRules.Sanitize(
+            [new CutLabRoleOverride { Name = "Land", Added = ["ramp", "draw"] }], [], []);
+        Assert.Equal(["ramp", "draw"], Assert.Single(absent).Added);
+
+        CutLabRoleOverride restored = Assert.Single(CutLabRoleOverrideRules.Sanitize(absent, Pool(), []));
+        Assert.Equal(["draw"], restored.Added);
     }
 
     private static CutLabState AtCapState()

@@ -47,7 +47,7 @@ Role counts are deliberately generous, since they are a decision aid rather than
 
 ## Correct a card's roles
 
-Use **Edit roles** beside a card to select it in the role editor, then add or remove a role from the fixed list. The commander is excluded. Lands is fixed, and Ramp cannot be added to a land. Targeted removal and mass removal are mutually exclusive; a card with no remaining roles is shown as Other.
+Use **Edit roles** beside a card to select it in the role editor, then add or remove a role from the fixed list. The commander is excluded. Lands is fixed, and Ramp cannot be added to a land. Targeted removal and mass removal are mutually exclusive; a card with no remaining roles is shown as Other. Role edits are limited to 200 cards. Edits on a card that leaves the pool (for example when **Include maybeboard** is unticked) are kept and apply again when the card returns.
 
 Choose **Reset card roles** to restore that card's inferred roles. Edits stay with saved scenarios and affect role floors, cut rounds, and simulation. They do not change exports.
 

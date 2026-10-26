@@ -72,9 +72,8 @@ public static class CutLabRoleOverrideRules
             }
 
             string normalizedName = CutLabCardNames.Normalize(item.Name);
-            if (!cards.TryGetValue(normalizedName, out CutLabPoolCard? card)
-                || card.IsCommander
-                || commanders.Contains(normalizedName))
+            cards.TryGetValue(normalizedName, out CutLabPoolCard? card);
+            if (card?.IsCommander == true || commanders.Contains(normalizedName))
             {
                 continue;
             }
@@ -98,7 +97,7 @@ public static class CutLabRoleOverrideRules
                 removed = Canonicalize(removed.Concat(["interaction-targeted"]));
             }
 
-            if (IsLand(card) && added.Contains("ramp"))
+            if (card is not null && IsLand(card) && added.Contains("ramp"))
             {
                 added = added.Where(role => role != "ramp").ToArray();
             }
@@ -109,7 +108,7 @@ public static class CutLabRoleOverrideRules
             }
 
             // Why: The last valid edit wins and retains its last-occurrence position.
-            result[normalizedName] = (order++, new CutLabRoleOverride { Name = card.Name, Added = added, Removed = removed });
+            result[normalizedName] = (order++, new CutLabRoleOverride { Name = card?.Name ?? item.Name.Trim(), Added = added, Removed = removed });
         }
 
         return result.Values.OrderBy(item => item.Order).Select(item => item.Override).ToArray();
@@ -210,7 +209,7 @@ public static class CutLabRoleOverrideRules
                 return Refuse(CutLabMessages.RoleOverrideRampOnLandMessage, out error);
             }
 
-            if (Find(state.RoleOverrides, card.Name) is null && entries.Count >= MaxRoleOverrides)
+            if (Find(entries, card.Name) is null && entries.Count >= MaxRoleOverrides)
             {
                 return Refuse(CutLabMessages.RoleOverrideLimitMessage, out error);
             }
