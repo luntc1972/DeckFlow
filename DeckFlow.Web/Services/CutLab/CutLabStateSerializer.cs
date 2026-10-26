@@ -109,7 +109,7 @@ public static class CutLabStateSerializer
             };
 
             state = CutLabGoalRules.ClampGoals(CutLabFloorRules.ClampFloors(CutLabLockRules.EnforceCommanderLock(state), bracketOverride));
-            return state with { RoleOverrides = CutLabRoleOverrideRules.Sanitize(state.RoleOverrides, state.Pool, CutLabCommanderNames.Resolve(state)) };
+            return CutLabRoleOverrideRules.Sanitize(state);
         }
         catch (JsonException)
         {
