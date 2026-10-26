@@ -10,12 +10,20 @@ namespace DeckFlow.Web.Services.CutLab;
 public interface ICutLabSimulationService
 {
     /// <summary>Builds the metric snapshot plus ancillary per-card and land-summary details for the current working list.</summary>
+    /// <param name="workingList">Current working pool cards.</param>
+    /// <param name="playExperience">Cut Lab play-experience label used to resolve the shared manabase mode.</param>
+    /// <param name="trialsOverride">Optional simulation trial count override; null keeps the engine default.</param>
+    /// <param name="poolKey">Optional precomputed pool key for the working list.</param>
+    /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
+    /// <param name="roleOverrides">Optional per-card role overrides for simulation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<CutLabSimulationResult> BuildSnapshotResult(
         IReadOnlyList<CutLabPoolCard> workingList,
         string? playExperience,
         int? trialsOverride = InLoopTrials,
         string? poolKey = null,
         CutLabGoalSettings? goals = null,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Builds the metric snapshot for the current working list.</summary>
@@ -26,12 +34,14 @@ public interface ICutLabSimulationService
     /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The projected seven-family metric snapshot.</returns>
+    /// <param name="roleOverrides">Optional per-card role overrides for simulation.</param>
     Task<CutLabMetricSnapshot> BuildSnapshot(
         IReadOnlyList<CutLabPoolCard> workingList,
         string? playExperience,
         int? trialsOverride = InLoopTrials,
         string? poolKey = null,
         CutLabGoalSettings? goals = null,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Builds proposal deltas for removing a candidate card from the current working list.</summary>
@@ -43,6 +53,7 @@ public interface ICutLabSimulationService
     /// <param name="goals">Optional by-turn goal overrides; null keeps the seeded defaults.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The noise-floored proposal deltas keyed to the current working list.</returns>
+    /// <param name="roleOverrides">Optional per-card role overrides for simulation.</param>
     Task<CutLabProposalDeltas> ComputeProposalDeltas(
         IReadOnlyList<CutLabPoolCard> currentWorkingList,
         string candidateCardName,
@@ -50,6 +61,7 @@ public interface ICutLabSimulationService
         int? trialsOverride = InLoopTrials,
         string? poolKey = null,
         CutLabGoalSettings? goals = null,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>Default in-loop trial count for Task 103-05 delta snapshots.</summary>
@@ -109,8 +121,8 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     private readonly CutLabDeltaCache _deltaCache;
     private readonly IScryfallCardResolver _resolver;
     private readonly ILogger<CutLabSimulationService> _logger;
-    private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot> _snapshotBuilder;
-    private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabSimulationResult> _simulationResultBuilder;
+    private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, IReadOnlyList<CutLabRoleOverride>?, CutLabMetricSnapshot> _snapshotBuilder;
+    private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, IReadOnlyList<CutLabRoleOverride>?, CutLabSimulationResult> _simulationResultBuilder;
 
     /// <summary>Creates a new <see cref="CutLabSimulationService"/>.</summary>
     /// <param name="resolvedCardCache">Resolved-card cache for working pools.</param>
@@ -131,8 +143,8 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         CutLabDeltaCache deltaCache,
         IScryfallCardResolver resolver,
         ILogger<CutLabSimulationService> logger,
-        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot> snapshotBuilder,
-        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, CutLabSimulationResult>? simulationResultBuilder = null)
+        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, IReadOnlyList<CutLabRoleOverride>?, CutLabMetricSnapshot> snapshotBuilder,
+        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, IReadOnlyList<CutLabRoleOverride>?, CutLabSimulationResult>? simulationResultBuilder = null)
     {
         _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
         _deltaCache = deltaCache ?? throw new ArgumentNullException(nameof(deltaCache));
@@ -149,19 +161,21 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         int? trialsOverride = ICutLabSimulationService.InLoopTrials,
         string? poolKey = null,
         CutLabGoalSettings? goals = null,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workingList);
 
-        return await GetOrBuildSnapshot(workingList, playExperience, trialsOverride, goals, cancellationToken, poolKey).ConfigureAwait(false);
+        return await GetOrBuildSnapshot(workingList, playExperience, trialsOverride, goals, roleOverrides, cancellationToken, poolKey).ConfigureAwait(false);
     }
 
     private static CutLabMetricSnapshot BuildSnapshot(
         IReadOnlyList<DeckCardEntry> deckEntries,
         string? playExperience,
         int? trialsOverride,
-        CutLabGoalSettings? goals)
-        => BuildSnapshotResult(deckEntries, playExperience, trialsOverride, goals).Snapshot;
+        CutLabGoalSettings? goals,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides)
+        => BuildSnapshotResult(deckEntries, playExperience, trialsOverride, goals, roleOverrides).Snapshot;
 
     /// <inheritdoc />
     public async Task<CutLabSimulationResult> BuildSnapshotResult(
@@ -170,19 +184,20 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         int? trialsOverride = ICutLabSimulationService.InLoopTrials,
         string? poolKey = null,
         CutLabGoalSettings? goals = null,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workingList);
 
         string resolvedPoolKey = poolKey ?? CutLabResolvedCardCache.ComputePoolKey(workingList);
-        if (_deltaCache.TryGetResult(resolvedPoolKey, playExperience, trialsOverride, out CutLabSimulationResult? cached, goals) && cached is not null)
+        if (_deltaCache.TryGetResult(resolvedPoolKey, playExperience, trialsOverride, out CutLabSimulationResult? cached, goals, roleOverrides: roleOverrides) && cached is not null)
         {
             return cached;
         }
 
         IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, resolvedPoolKey, cancellationToken).ConfigureAwait(false);
-        CutLabSimulationResult result = _simulationResultBuilder(deckEntries, playExperience, trialsOverride, goals);
-        _deltaCache.SetResult(resolvedPoolKey, playExperience, trialsOverride, result, goals);
+        CutLabSimulationResult result = _simulationResultBuilder(deckEntries, playExperience, trialsOverride, goals, roleOverrides);
+        _deltaCache.SetResult(resolvedPoolKey, playExperience, trialsOverride, result, goals, roleOverrides: roleOverrides);
         return result;
     }
 
@@ -190,7 +205,8 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         IReadOnlyList<DeckCardEntry> deckEntries,
         string? playExperience,
         int? trialsOverride,
-        CutLabGoalSettings? goals)
+        CutLabGoalSettings? goals,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides)
     {
         ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
         IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(deckEntries);
@@ -202,7 +218,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             payLifeUntapped: true,
             checkLandUntapped: true,
             restrictedLands: true);
-        deck = TagPlanRoles(deck, facts, mode);
+        deck = TagPlanRoles(deck, facts, mode, roleOverrides);
         CedhLandContext cedhContext = mode == ManabaseMode.Cedh
             ? new CedhLandContext(null, 0, Enabled: true)
             : CedhLandContext.Disabled;
@@ -251,22 +267,23 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         int? trialsOverride = ICutLabSimulationService.InLoopTrials,
         string? poolKey = null,
         CutLabGoalSettings? goals = null,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(currentWorkingList);
         ArgumentException.ThrowIfNullOrWhiteSpace(candidateCardName);
 
         string currentPoolKey = poolKey ?? CutLabResolvedCardCache.ComputePoolKey(currentWorkingList);
-        if (_deltaCache.TryGet(currentPoolKey, candidateCardName, out CutLabProposalDeltas? cached, trialsOverride, goals) && cached is not null)
+        if (_deltaCache.TryGet(currentPoolKey, candidateCardName, out CutLabProposalDeltas? cached, trialsOverride, goals, roleOverrides: roleOverrides) && cached is not null)
         {
             return cached;
         }
 
         IReadOnlyList<DeckCardEntry> beforeEntries = await ResolveDeckEntries(currentWorkingList, currentPoolKey, cancellationToken).ConfigureAwait(false);
-        CutLabMetricSnapshot before = GetOrBuildSnapshot(beforeEntries, currentPoolKey, playExperience, trialsOverride, goals);
+        CutLabMetricSnapshot before = GetOrBuildSnapshot(beforeEntries, currentPoolKey, playExperience, trialsOverride, goals, roleOverrides);
         IReadOnlyList<DeckCardEntry> afterEntries = RemoveCandidate(beforeEntries, candidateCardName);
         string afterPoolKey = CutLabResolvedCardCache.ComputePoolKey(afterEntries.Select(entry => (entry.Card.Name, entry.Quantity)).ToArray());
-        CutLabMetricSnapshot after = GetOrBuildSnapshot(afterEntries, afterPoolKey, playExperience, trialsOverride, goals);
+        CutLabMetricSnapshot after = GetOrBuildSnapshot(afterEntries, afterPoolKey, playExperience, trialsOverride, goals, roleOverrides);
 
         CutLabMetricDeltaSet metricDeltaSet = CutLabMetricDeltaSet.From(before.Metrics, after.Metrics);
 
@@ -277,7 +294,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             ChangedFamilyCount = metricDeltaSet.ChangedFamilyCount,
         };
 
-        _deltaCache.Set(currentPoolKey, candidateCardName, computed, trialsOverride, goals);
+        _deltaCache.Set(currentPoolKey, candidateCardName, computed, trialsOverride, goals, roleOverrides: roleOverrides);
         return computed;
     }
 
@@ -286,15 +303,16 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         string poolKey,
         string? playExperience,
         int? trialsOverride,
-        CutLabGoalSettings? goals)
+        CutLabGoalSettings? goals,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides)
     {
-        if (_deltaCache.TryGetSnapshot(poolKey, playExperience, trialsOverride, out CutLabMetricSnapshot? cached, goals) && cached is not null)
+        if (_deltaCache.TryGetSnapshot(poolKey, playExperience, trialsOverride, out CutLabMetricSnapshot? cached, goals, roleOverrides: roleOverrides) && cached is not null)
         {
             return cached;
         }
 
-        CutLabMetricSnapshot snapshot = _snapshotBuilder(deckEntries, playExperience, trialsOverride, goals);
-        _deltaCache.SetSnapshot(poolKey, playExperience, trialsOverride, snapshot, goals);
+        CutLabMetricSnapshot snapshot = _snapshotBuilder(deckEntries, playExperience, trialsOverride, goals, roleOverrides);
+        _deltaCache.SetSnapshot(poolKey, playExperience, trialsOverride, snapshot, goals, roleOverrides: roleOverrides);
         return snapshot;
     }
 
@@ -303,12 +321,13 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         string? playExperience,
         int? trialsOverride,
         CutLabGoalSettings? goals,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides,
         CancellationToken cancellationToken,
         string? poolKeyOverride = null)
     {
         string poolKey = poolKeyOverride ?? CutLabResolvedCardCache.ComputePoolKey(workingList);
         IReadOnlyList<DeckCardEntry> deckEntries = await ResolveDeckEntries(workingList, poolKey, cancellationToken).ConfigureAwait(false);
-        return GetOrBuildSnapshot(deckEntries, poolKey, playExperience, trialsOverride, goals);
+        return GetOrBuildSnapshot(deckEntries, poolKey, playExperience, trialsOverride, goals, roleOverrides);
     }
 
     private async Task<IReadOnlyList<DeckCardEntry>> ResolveDeckEntries(
@@ -432,7 +451,8 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     private static ManabaseDeck TagPlanRoles(
         ManabaseDeck deck,
         IReadOnlyList<CardFact> facts,
-        ManabaseMode mode)
+        ManabaseMode mode,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides)
     {
         IReadOnlyDictionary<string, CardFact> factsByName = CutLabCardNames.ToLastWinsDictionary(
             facts,
@@ -452,7 +472,11 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
                     // With no category or Spellbook sources available, mirror ManabaseAnalysisService's
                     // heuristic fallback tier and leave the richer upstream sources fail-open.
                     PlanRole roles = PlanRoleClassifier.Classify(fact, [], false, mode, out bool interactionMeritPreGate);
-                    return spell with { PlanRoles = roles, IsInteractionSpell = interactionMeritPreGate };
+                    SpellRequirement classifiedSpell = spell with { PlanRoles = roles, IsInteractionSpell = interactionMeritPreGate };
+                    CutLabRoleOverride? roleOverride = CutLabRoleOverrideRules.Find(roleOverrides ?? [], CutLabCardNames.Normalize(fact.Name));
+                    return roleOverride is null
+                        ? classifiedSpell
+                        : CutLabRoleOverridePlanRoles.Apply(classifiedSpell, fact, mode, roleOverride);
                 })
                 .ToArray(),
         };

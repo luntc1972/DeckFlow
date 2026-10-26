@@ -132,14 +132,14 @@ public sealed class CutLabWhatifService : ICutLabWhatifService
             ICutLabSimulationService.InLoopTrials,
             beforePoolKey,
             state.Goals,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
         CutLabMetricSnapshot after = await _simulationService.BuildSnapshot(
             afterWorkingList,
             state.Intent.PlayExperience,
             ICutLabSimulationService.InLoopTrials,
             afterPoolKey,
             state.Goals,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken: cancellationToken).ConfigureAwait(false);
 
         CutLabMetricDeltaSet metricDeltaSet = CutLabMetricDeltaSet.From(before.Metrics, after.Metrics);
 

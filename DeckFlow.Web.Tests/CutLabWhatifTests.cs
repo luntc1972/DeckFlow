@@ -673,7 +673,8 @@ public sealed class CutLabWhatifTests
         IReadOnlyList<DeckCardEntry> deckEntries,
         string? playExperience,
         int? trialsOverride,
-        CutLabGoalSettings? goals)
+        CutLabGoalSettings? goals,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides)
     {
         double before = deckEntries.Any(entry => entry.Card.Name == "Working Card")
             ? 3

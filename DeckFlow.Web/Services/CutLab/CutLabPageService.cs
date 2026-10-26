@@ -1263,6 +1263,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabSimulationResult());
 
@@ -1272,6 +1273,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabMetricSnapshot());
 
@@ -1282,6 +1284,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabProposalDeltas
             {

@@ -3700,6 +3700,8 @@ public sealed class CutLabPageServiceTests
 
     private sealed class FakeSimulationService : ICutLabSimulationService
     {
+        public IReadOnlyList<CutLabRoleOverride>? RoleOverrides { get; private set; }
+
         public Func<IReadOnlyList<CutLabPoolCard>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot>? SnapshotFactory { get; set; }
 
         public Func<IReadOnlyList<CutLabPoolCard>, string?, int?, CutLabGoalSettings?, CutLabSimulationResult>? SnapshotResultFactory { get; set; }
@@ -3716,8 +3718,10 @@ public sealed class CutLabPageServiceTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            RoleOverrides = roleOverrides;
             if (BuildSnapshotException is not null)
             {
                 return Task.FromException<CutLabSimulationResult>(BuildSnapshotException);
@@ -3738,8 +3742,10 @@ public sealed class CutLabPageServiceTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            RoleOverrides = roleOverrides;
             if (BuildSnapshotException is not null)
             {
                 return Task.FromException<CutLabMetricSnapshot>(BuildSnapshotException);
@@ -3755,8 +3761,10 @@ public sealed class CutLabPageServiceTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            RoleOverrides = roleOverrides;
             if (ComputeProposalDeltasException is not null)
             {
                 return Task.FromException<CutLabProposalDeltas>(ComputeProposalDeltasException);

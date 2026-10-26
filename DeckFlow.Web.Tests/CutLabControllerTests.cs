@@ -1596,7 +1596,8 @@ public sealed class CutLabControllerTests
         IReadOnlyList<DeckCardEntry> deckEntries,
         string? playExperience,
         int? trialsOverride,
-        CutLabGoalSettings? goals)
+        CutLabGoalSettings? goals,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides)
     {
         double commander = deckEntries.Any(entry => entry.Card.Name == "Arcane Signet") ? 3 : 7;
         int goalTurn = goals?.CommanderByTurn ?? 3;
