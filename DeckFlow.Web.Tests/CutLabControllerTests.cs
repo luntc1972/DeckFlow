@@ -758,6 +758,73 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public void RoleOverride_RequiresFeatureGateAndAntiforgery()
+    {
+        var method = typeof(CutLabController).GetMethod(nameof(CutLabController.RoleOverride));
+
+        Assert.NotNull(method);
+        Assert.NotNull(method!.GetCustomAttributes(typeof(FeatureFlagGateAttribute), inherit: true).SingleOrDefault());
+        Assert.NotNull(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true).SingleOrDefault());
+    }
+
+    [Fact]
+    public async Task RoleOverride_BlankState_ReturnsNoChangeMessage()
+    {
+        var controller = CreateController(new FakeCutLabPageService());
+
+        var result = await controller.RoleOverride(new CutLabRequest(), "Arcane Signet", "draw", CutLabRoleOverrideOperation.Add);
+
+        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.Equal(CutLabMessages.NoChangeMessage, model.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task RoleOverride_Add_RehydratesStateAndRerenders()
+    {
+        var service = new FakeCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
+
+        var result = await controller.RoleOverride(request, "Arcane Signet", "draw", CutLabRoleOverrideOperation.Add);
+
+        Assert.Equal("CutLab", Assert.IsType<ViewResult>(result).ViewName);
+        CutLabRoleOverride roleOverride = Assert.Single(CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson).RoleOverrides);
+        Assert.Equal("Arcane Signet", roleOverride.Name);
+        Assert.Equal(["draw"], roleOverride.Added);
+    }
+
+    [Fact]
+    public async Task RoleOverride_CommanderRefusal_RerendersErrorWithoutOverride()
+    {
+        var service = new FakeCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
+
+        var result = await controller.RoleOverride(request, "Atraxa, Praetors' Voice", "draw", CutLabRoleOverrideOperation.Add);
+
+        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
+        Assert.NotNull(model.ErrorMessage);
+        Assert.Empty(CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson).RoleOverrides);
+    }
+
+    [Fact]
+    public async Task RestartRounds_PreservesRoleOverrides()
+    {
+        var service = new StateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var state = CreateState() with
+        {
+            RoleOverrides = [new CutLabRoleOverride { Name = "Arcane Signet", Added = ["draw"] }],
+        };
+
+        await controller.RestartRounds(new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) });
+
+        CutLabRoleOverride roleOverride = Assert.Single(CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson).RoleOverrides);
+        Assert.Equal("Arcane Signet", roleOverride.Name);
+        Assert.Equal(["draw"], roleOverride.Added);
+    }
+
+    [Fact]
     public async Task Adjust_RequiresFeatureGateAndAntiforgery_AndReturnsErrorViewForMissingState()
     {
         var method = typeof(CutLabController).GetMethod(nameof(CutLabController.Adjust));
@@ -1529,7 +1596,8 @@ public sealed class CutLabControllerTests
         IReadOnlyList<DeckCardEntry> deckEntries,
         string? playExperience,
         int? trialsOverride,
-        CutLabGoalSettings? goals)
+        CutLabGoalSettings? goals,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides)
     {
         double commander = deckEntries.Any(entry => entry.Card.Name == "Arcane Signet") ? 3 : 7;
         int goalTurn = goals?.CommanderByTurn ?? 3;

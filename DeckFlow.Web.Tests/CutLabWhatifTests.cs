@@ -21,6 +21,26 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabWhatifTests
 {
     [Fact]
+    public async Task PreviewSwapAsync_RoleOverride_ForwardsToBothSnapshots()
+    {
+        CutLabState state = CreateState() with { RoleOverrides = [new CutLabRoleOverride { Name = "Working Card", Added = ["draw"] }] };
+        List<IReadOnlyList<CutLabRoleOverride>?> received = [];
+        CutLabResolvedCardCache cache = new();
+        FakeAnalysisContextBuilder contextBuilder = new();
+        contextBuilder.SeedFullPool(state.Pool);
+        CutLabSimulationService simulation = new(cache, new CutLabDeltaCache(), new ThrowingResolver(), NullLogger<CutLabSimulationService>.Instance,
+            (entries, experience, trials, goals, overrides) =>
+            {
+                received.Add(overrides);
+                return BuildSnapshotForWhatifTests(entries, experience, trials, goals, overrides);
+            });
+        CutLabWhatifService service = new(simulation, contextBuilder, cache);
+        await service.PreviewSwapAsync(state, "Working Card", "Cut Card", CancellationToken.None);
+        Assert.Equal(2, received.Count);
+        Assert.All(received, overrides => Assert.Same(state.RoleOverrides, overrides));
+    }
+
+    [Fact]
     public void PostWhatifAsync_UsesCutLabFeatureFlagGate()
     {
         MethodInfo? method = typeof(CutLabApiController).GetMethod(nameof(CutLabApiController.PostWhatifAsync), BindingFlags.Public | BindingFlags.Instance);
@@ -673,7 +693,8 @@ public sealed class CutLabWhatifTests
         IReadOnlyList<DeckCardEntry> deckEntries,
         string? playExperience,
         int? trialsOverride,
-        CutLabGoalSettings? goals)
+        CutLabGoalSettings? goals,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides)
     {
         double before = deckEntries.Any(entry => entry.Card.Name == "Working Card")
             ? 3

@@ -501,6 +501,14 @@
                                     {
                                         <div class="cutlab-role-list">@roleList</div>
                                     }
+                                    @if (!card.IsCommander && Model.RoleOverrideCardsByName.TryGetValue(card.Name, out var roleOverrideCard))
+                                    {
+                                        @if (roleOverrideCard.IsEdited)
+                                        {
+                                            <span class="cutlab-role-edited-chip">Edited</span>
+                                        }
+                                        <a href="#cut-lab-role-editor" class="cutlab-role-edit-link" aria-label="Edit roles for @card.Name" data-cut-lab-role-edit-card="@card.Name">Edit roles</a>
+                                    }
                                 </td>
                                 <td data-label="Package">
                                     <select name="Package_@card.Name" data-df-select data-cut-lab-package-card="@card.Name">
@@ -522,6 +530,32 @@
                     </tbody>
                 </table>
             </div>
+            @if (Model.RoleOverrideCards.Count > 0)
+            {
+                <form id="cut-lab-role-editor" class="cutlab-role-editor" method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                    <label for="cut-lab-role-override-card">Card</label>
+                    <select id="cut-lab-role-override-card" name="CardName" data-df-select data-cut-lab-role-override-card>
+                        @foreach (var editableCard in Model.RoleOverrideCards)
+                        {
+                            <option value="@editableCard.Name" data-cut-lab-role-override-land="@(editableCard.IsLand ? "true" : "false")">@editableCard.Name</option>
+                        }
+                    </select>
+                    <label for="cut-lab-role-override-role">Role</label>
+                    <select id="cut-lab-role-override-role" name="Role" data-df-select data-cut-lab-role-override-role>
+                        @foreach (var roleOption in Model.RoleOverrideRoleOptions)
+                        {
+                            <option value="@roleOption.Key">@roleOption.Label</option>
+                        }
+                    </select>
+                    <button type="submit" name="Operation" value="Add">Add role</button>
+                    <button type="submit" name="Operation" value="Remove">Remove role</button>
+                    <button type="submit" name="Operation" value="Reset">Reset card roles</button>
+                    <p>Lands are fixed, and the commander is excluded.</p>
+                </form>
+            }
+
 
             <section class="result-panel nested-panel">
                 <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-packages">

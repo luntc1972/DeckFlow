@@ -528,6 +528,56 @@ public sealed class CutLabViewRenderTests
 
     private static readonly string HeliodNormalizedName = CutLabCardNames.Normalize(HeliodRawName);
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RoleOverride_From_ExcludesCommanderAndUnresolvedCards(bool edited)
+    {
+        var state = new CutLabState
+        {
+            RoleOverrides = edited ? [new() { Name = "Plains", Added = ["draw"] }] : [],
+            Pool = [new() { Name = "Commander", IsCommander = true }, new() { Name = "Plains" }, new() { Name = "Plains" }, new() { Name = "Unknown" }],
+        };
+        var model = CutLabViewModel.From(new CutLabRequest(), new CutLabProcessResult
+        {
+            State = state,
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>
+            {
+                ["Commander"] = ["draw"],
+                ["Plains"] = ["lands"],
+            },
+        });
+        var card = Assert.Single(model.RoleOverrideCards);
+        Assert.Equal("Plains", card.Name);
+        Assert.True(card.IsLand);
+        Assert.Equal(edited, card.IsEdited);
+        Assert.Same(card, model.RoleOverrideCardsByName["PLAINS"]);
+        Assert.Equal(CutLabRoleOverrideRules.EditableRoleKeys.Count, model.RoleOverrideRoleOptions.Count);
+        Assert.DoesNotContain(model.RoleOverrideRoleOptions, option => option.Key == "lands");
+        Assert.All(model.RoleOverrideRoleOptions, option => Assert.Equal(CutLabRoleAssigner.DisplayLabelFor(option.Key), option.Label));
+    }
+
+    [Fact]
+    public async Task RoleOverride_Render_SharedFormAndEditedChipExcludeCommander()
+    {
+        var card = new CutLabRoleOverrideCardView(HeliodRawName, false, true);
+        var model = BuildTwinBadgeModel() with
+        {
+            Pool = [new() { Name = "Commander", IsCommander = true }, new() { Name = HeliodRawName }],
+            RoleOverrideCards = [card],
+            RoleOverrideCardsByName = new Dictionary<string, CutLabRoleOverrideCardView>(StringComparer.OrdinalIgnoreCase) { [card.Name] = card },
+            RoleOverrideRoleOptions = [new("draw", "Card draw")],
+        };
+        string html = await RenderAsync(model);
+        Assert.DoesNotContain("data-cut-lab-role-edit-card=\"Commander\"", html);
+        Assert.Single(Regex.Matches(html, "action=\"/cut-lab/role-override\""));
+        string form = Regex.Match(html, "<form[^>]*id=\"cut-lab-role-editor\"[\\s\\S]*?</form>").Value;
+        Assert.Contains("__RequestVerificationToken", form);
+        Assert.Contains("name=\"CutLabStateJson\"", form);
+        Assert.Contains("cutlab-role-edited-chip", html);
+        Assert.Contains(">Edited</span>", html);
+    }
+
     private static CutLabViewModel BuildTwinBadgeModel(IReadOnlyDictionary<string, CutLabCardTextView>? cardTextByCardName = null)
     {
         var twinFinding = new CutLabFindingView

@@ -17,6 +17,45 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabUiPatchBuilderTests
 {
     [Fact]
+    public void AssignRoles_RoleOverride_BasicPlainsStaysLandsOnly()
+    {
+        CardFact fact = new() { Name = "Plains", Quantity = 1, TypeLine = "Basic Land — Plains", OracleText = "({T}: Add {W}.)", ManaValue = 0 };
+        Assert.Equal(["lands"], CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public async Task BuildAsync_RoleOverride_ForwardsToSimulation()
+    {
+        CutLabState state = CreateState() with { RoleOverrides = [new CutLabRoleOverride { Name = "Arcane Signet", Added = ["draw"] }] };
+        FakeSimulationService simulation = new();
+        var builder = CreateBuilder(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), simulation);
+        await builder.BuildAsync(state, "cEDH", ["Commander"], false);
+        Assert.NotNull(simulation.RoleOverrides);
+        Assert.Same(state.RoleOverrides, simulation.RoleOverrides);
+    }
+
+    [Fact]
+    public async Task BuildAsync_RoleOverride_RoleDataReflectsOverride()
+    {
+        CutLabState state = CreateState(pool: [Card("Commander", 1, isCommander: true, isLocked: true), Card("Forest", 1, typeLine: "Basic Land — Forest")]) with { RoleOverrides = [new CutLabRoleOverride { Name = "Forest", Added = ["draw"] }] };
+        var builder = CreateBuilder(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)));
+        var patch = await builder.BuildAsync(state, "cEDH", ["Commander"], false);
+        Assert.Equal("Lands · Card draw", Assert.Single(patch.QuantityTuners, row => row.CardName == "Forest").RoleLabel);
+    }
+
+    [Fact]
+    public void BuildAdjustPatch_RoleOverride_LandTunerIncludesAddedDraw()
+    {
+        CutLabState state = CreateState(pool: [Card("Commander", 1, isCommander: true, isLocked: true), Card("Plains", 1, typeLine: "Basic Land — Plains")]) with
+        {
+            RoleOverrides = [new CutLabRoleOverride { Name = "Plains", Added = ["draw"] }],
+        };
+        var builder = CreateBuilder(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)));
+        var patch = builder.BuildAdjustPatch(state, ["Commander"]);
+        Assert.Equal("Lands · Card draw", Assert.Single(patch.QuantityTuners, row => row.CardName == "Plains").RoleLabel);
+    }
+
+    [Fact]
     public async Task BuildAsync_ReturnsServerAuthoredCountsAndExportEligibility()
     {
         CutLabState state = CreateState(
@@ -1308,6 +1347,8 @@ public sealed class CutLabUiPatchBuilderTests
 
     private sealed class FakeSimulationService : ICutLabSimulationService
     {
+        public IReadOnlyList<CutLabRoleOverride>? RoleOverrides { get; private set; }
+
         public int ComputeProposalDeltasCalls { get; private set; }
 
         public bool ThrowOnComputeProposalDeltas { get; init; }
@@ -1318,8 +1359,12 @@ public sealed class CutLabUiPatchBuilderTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new CutLabSimulationResult());
+        {
+            RoleOverrides = roleOverrides;
+            return Task.FromResult(new CutLabSimulationResult());
+        }
 
         public Task<CutLabMetricSnapshot> BuildSnapshot(
             IReadOnlyList<CutLabPoolCard> workingList,
@@ -1327,8 +1372,12 @@ public sealed class CutLabUiPatchBuilderTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new CutLabMetricSnapshot());
+        {
+            RoleOverrides = roleOverrides;
+            return Task.FromResult(new CutLabMetricSnapshot());
+        }
 
         public Task<CutLabProposalDeltas> ComputeProposalDeltas(
             IReadOnlyList<CutLabPoolCard> currentWorkingList,
@@ -1337,8 +1386,10 @@ public sealed class CutLabUiPatchBuilderTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            RoleOverrides = roleOverrides;
             ComputeProposalDeltasCalls++;
             if (ThrowOnComputeProposalDeltas)
             {

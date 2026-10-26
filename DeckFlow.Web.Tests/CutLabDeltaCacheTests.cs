@@ -7,6 +7,99 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Coverage for the Cut Lab proposal-delta cache.</summary>
 public sealed class CutLabDeltaCacheTests
 {
+    [Fact]
+    public void Snapshot_RoleOverride_AbsentThenPresent_Misses()
+    {
+        var cache = new CutLabDeltaCache();
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "Card", Added = ["draw"], Removed = ["ramp"] },
+            new() { Name = "Other", Added = ["payoffs"] },
+        ];
+        var value = new CutLabMetricSnapshot();
+        cache.SetSnapshot("pool", "Focused", 10, value);
+
+        Assert.False(cache.TryGetSnapshot("pool", "Focused", 10, out var actual, roleOverrides: overrides));
+    }
+
+    [Fact]
+    public void Snapshot_RoleOverride_PermutedOrder_Hits()
+    {
+        var cache = new CutLabDeltaCache();
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "Card", Added = ["draw"], Removed = ["ramp"] },
+            new() { Name = "Other", Added = ["payoffs"] },
+        ];
+        var value = new CutLabMetricSnapshot();
+        cache.SetSnapshot("pool", "Focused", 10, value, roleOverrides: overrides);
+
+        Assert.True(cache.TryGetSnapshot("pool", "Focused", 10, out var actual, roleOverrides: overrides.Reverse().ToArray()));
+        Assert.Same(value, actual);
+    }
+
+    [Fact]
+    public void Result_RoleOverride_AbsentThenPresent_Misses()
+    {
+        var cache = new CutLabDeltaCache();
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "Card", Added = ["draw"], Removed = ["ramp"] },
+            new() { Name = "Other", Added = ["payoffs"] },
+        ];
+        var value = new CutLabSimulationResult();
+        cache.SetResult("pool", "Focused", 10, value);
+
+        Assert.False(cache.TryGetResult("pool", "Focused", 10, out var actual, roleOverrides: overrides));
+    }
+
+    [Fact]
+    public void Result_RoleOverride_PermutedOrder_Hits()
+    {
+        var cache = new CutLabDeltaCache();
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "Card", Added = ["draw"], Removed = ["ramp"] },
+            new() { Name = "Other", Added = ["payoffs"] },
+        ];
+        var value = new CutLabSimulationResult();
+        cache.SetResult("pool", "Focused", 10, value, roleOverrides: overrides);
+
+        Assert.True(cache.TryGetResult("pool", "Focused", 10, out var actual, roleOverrides: overrides.Reverse().ToArray()));
+        Assert.Same(value, actual);
+    }
+
+    [Fact]
+    public void Delta_RoleOverride_AbsentThenPresent_Misses()
+    {
+        var cache = new CutLabDeltaCache();
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "Card", Added = ["draw"], Removed = ["ramp"] },
+            new() { Name = "Other", Added = ["payoffs"] },
+        ];
+        var value = new CutLabProposalDeltas { CardName = "Card" };
+        cache.Set("pool", "Card", value);
+
+        Assert.False(cache.TryGet("pool", "Card", out var actual, roleOverrides: overrides));
+    }
+
+    [Fact]
+    public void Delta_RoleOverride_PermutedOrder_Hits()
+    {
+        var cache = new CutLabDeltaCache();
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "Card", Added = ["draw"], Removed = ["ramp"] },
+            new() { Name = "Other", Added = ["payoffs"] },
+        ];
+        var value = new CutLabProposalDeltas { CardName = "Card" };
+        cache.Set("pool", "Card", value, roleOverrides: overrides);
+
+        Assert.True(cache.TryGet("pool", "Card", out var actual, roleOverrides: overrides.Reverse().ToArray()));
+        Assert.Same(value, actual);
+    }
+
     /// <summary>Stored proposal deltas round-trip by pool key and card name.</summary>
     [Fact]
     public void TryGet_AfterSet_ReturnsStoredDeltas()

@@ -179,9 +179,23 @@ public sealed class CutLabStaplesParityTests
 
     private sealed class FakeSimulationService : ICutLabSimulationService
     {
-        public Task<CutLabSimulationResult> BuildSnapshotResult(IReadOnlyList<CutLabPoolCard> workingList, string? playExperience, int? trialsOverride = ICutLabSimulationService.InLoopTrials, string? poolKey = null, CutLabGoalSettings? goals = null, CancellationToken cancellationToken = default) => Task.FromResult(new CutLabSimulationResult());
-        public Task<CutLabMetricSnapshot> BuildSnapshot(IReadOnlyList<CutLabPoolCard> workingList, string? playExperience, int? trialsOverride = ICutLabSimulationService.InLoopTrials, string? poolKey = null, CutLabGoalSettings? goals = null, CancellationToken cancellationToken = default) => Task.FromResult(new CutLabMetricSnapshot());
-        public Task<CutLabProposalDeltas> ComputeProposalDeltas(IReadOnlyList<CutLabPoolCard> currentWorkingList, string candidateCardName, string? playExperience, int? trialsOverride = ICutLabSimulationService.InLoopTrials, string? poolKey = null, CutLabGoalSettings? goals = null, CancellationToken cancellationToken = default) => Task.FromResult(new CutLabProposalDeltas { CardName = candidateCardName });
+        public IReadOnlyList<CutLabRoleOverride>? RoleOverrides { get; private set; }
+
+        public Task<CutLabSimulationResult> BuildSnapshotResult(IReadOnlyList<CutLabPoolCard> workingList, string? playExperience, int? trialsOverride = ICutLabSimulationService.InLoopTrials, string? poolKey = null, CutLabGoalSettings? goals = null, IReadOnlyList<CutLabRoleOverride>? roleOverrides = null, CancellationToken cancellationToken = default)
+        {
+            RoleOverrides = roleOverrides;
+            return Task.FromResult(new CutLabSimulationResult());
+        }
+        public Task<CutLabMetricSnapshot> BuildSnapshot(IReadOnlyList<CutLabPoolCard> workingList, string? playExperience, int? trialsOverride = ICutLabSimulationService.InLoopTrials, string? poolKey = null, CutLabGoalSettings? goals = null, IReadOnlyList<CutLabRoleOverride>? roleOverrides = null, CancellationToken cancellationToken = default)
+        {
+            RoleOverrides = roleOverrides;
+            return Task.FromResult(new CutLabMetricSnapshot());
+        }
+        public Task<CutLabProposalDeltas> ComputeProposalDeltas(IReadOnlyList<CutLabPoolCard> currentWorkingList, string candidateCardName, string? playExperience, int? trialsOverride = ICutLabSimulationService.InLoopTrials, string? poolKey = null, CutLabGoalSettings? goals = null, IReadOnlyList<CutLabRoleOverride>? roleOverrides = null, CancellationToken cancellationToken = default)
+        {
+            RoleOverrides = roleOverrides;
+            return Task.FromResult(new CutLabProposalDeltas { CardName = candidateCardName });
+        }
     }
 
     private sealed class FakeLoader(IReadOnlyList<DeckEntry> entries) : IDeckEntryLoader

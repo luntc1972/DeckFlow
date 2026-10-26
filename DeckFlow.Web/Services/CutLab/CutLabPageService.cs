@@ -375,6 +375,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             preAnalysisState.Decisions.Count == 0 ? null : preResolvedCards,
             poolKey: null,
             cancellationToken).ConfigureAwait(false);
+        analysisContext = CutLabRoleOverrideApplier.Apply(analysisContext, preAnalysisState.RoleOverrides);
 
         // Why the union, and why this sits AFTER BuildAsync rather than before it:
         // B-1 deliberately leaves a swallowed 429's casualties re-attemptable, so BuildAsync retries
@@ -453,6 +454,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                 preAnalysisState.Decisions.Count == 0 ? null : preResolvedCards,
                 poolKey: null,
                 cancellationToken).ConfigureAwait(false);
+            analysisContext = CutLabRoleOverrideApplier.Apply(analysisContext, preAnalysisState.RoleOverrides);
             finalResolvedCards = preResolvedCards
                 .Concat(analysisContext.ResolvedCards)
                 .ToArray();
@@ -536,6 +538,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     trialsOverride: null,
                     poolKey: null,
                     goals: state.Goals,
+                    roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
                 state = state with
                 {
@@ -586,6 +589,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     trialsOverride: ICutLabSimulationService.InLoopTrials,
                     poolKey: null,
                     goals: state.Goals,
+                    roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
                 currentSnapshot = currentResult.Snapshot;
                 currentActualLands = currentResult.ActualLands;
@@ -618,6 +622,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     trialsOverride: ICutLabSimulationService.InLoopTrials,
                     poolKey: null,
                     goals: state.Goals,
+                    roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -981,6 +986,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             Packages = priorState.Packages,
             Decisions = priorState.Decisions,
             QuantityAdjustments = priorState.QuantityAdjustments,
+            // Why: This is the only production state construction; without this ProcessAsync drops overrides.
+            RoleOverrides = CutLabRoleOverrideRules.Sanitize(priorState.RoleOverrides, pool, commanderNames),
             OriginalEntries = priorState.OriginalEntries,
             Goals = goals,
             BaselineSnapshot = priorState.BaselineSnapshot,
@@ -1259,6 +1266,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabSimulationResult());
 
@@ -1268,6 +1276,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabMetricSnapshot());
 
@@ -1278,6 +1287,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
             => Task.FromResult(new CutLabProposalDeltas
             {

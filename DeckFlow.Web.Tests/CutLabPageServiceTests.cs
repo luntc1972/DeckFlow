@@ -27,6 +27,35 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabPageServiceTests
 {
     [Fact]
+    public async Task ProcessAsync_RoleOverride_ForwardsToSimulation()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Card 001" }],
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card 001", Added = ["ramp"], Removed = ["draw"] }],
+        };
+        var simulation = new FakeSimulationService();
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            simulationService: simulation,
+            analysisContextBuilder: new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames)));
+
+        var result = await service.ProcessAsync(new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        });
+
+        Assert.NotNull(simulation.RoleOverrides);
+        Assert.Same(result.State!.RoleOverrides, simulation.RoleOverrides);
+    }
+
+    [Fact]
     public async Task ProcessAsync_HappyPath_ReturnsCountLegalityIntentAndLockedCommander()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
@@ -2033,6 +2062,66 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task ProcessAsync_RoleOverride_AppliesEffectiveRolesToAssignments()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Card 001" }],
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card 001", Added = ["ramp"], Removed = ["draw"] }],
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames)));
+
+        var result = await service.ProcessAsync(new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        });
+
+        IReadOnlyList<string> roles = result.RoleAssignmentsByCardName["Card 001"];
+        Assert.Contains("ramp", roles);
+        Assert.DoesNotContain("draw", roles);
+        Assert.Contains("engines", roles);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_RoleOverride_PersistsSanitizedOverrideInState()
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var cards = BuildResolvedCards(entries);
+        var priorState = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Card 001" }],
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card 001", Added = ["ramp"] }],
+        };
+        var service = new CutLabPageService(
+            new FakeLoader(entries),
+            new FakeResolver(cards),
+            new FakeBanListService([]),
+            analysisContextBuilder: new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames)));
+
+        var result = await service.ProcessAsync(new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        });
+
+        CutLabRoleOverride stateOverride = Assert.Single(result.State!.RoleOverrides);
+        CutLabRoleOverride serializedOverride = Assert.Single(CutLabStateSerializer.Deserialize(result.SerializedStateJson).RoleOverrides);
+        Assert.Equal("Card 001", stateOverride.Name);
+        Assert.Equal(["ramp"], stateOverride.Added);
+        Assert.Equal(stateOverride.Name, serializedOverride.Name);
+        Assert.Equal(stateOverride.Added, serializedOverride.Added);
+    }
+
+    [Fact]
     public async Task ProcessAsync_PersistsBaselineSnapshotAndReusesItAsCurrentSnapshotAtIntake()
     {
         const int expectedActualLands = 37;
@@ -3640,6 +3729,8 @@ public sealed class CutLabPageServiceTests
 
     private sealed class FakeSimulationService : ICutLabSimulationService
     {
+        public IReadOnlyList<CutLabRoleOverride>? RoleOverrides { get; private set; }
+
         public Func<IReadOnlyList<CutLabPoolCard>, string?, int?, CutLabGoalSettings?, CutLabMetricSnapshot>? SnapshotFactory { get; set; }
 
         public Func<IReadOnlyList<CutLabPoolCard>, string?, int?, CutLabGoalSettings?, CutLabSimulationResult>? SnapshotResultFactory { get; set; }
@@ -3656,8 +3747,10 @@ public sealed class CutLabPageServiceTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            RoleOverrides = roleOverrides;
             if (BuildSnapshotException is not null)
             {
                 return Task.FromException<CutLabSimulationResult>(BuildSnapshotException);
@@ -3678,8 +3771,10 @@ public sealed class CutLabPageServiceTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            RoleOverrides = roleOverrides;
             if (BuildSnapshotException is not null)
             {
                 return Task.FromException<CutLabMetricSnapshot>(BuildSnapshotException);
@@ -3695,8 +3790,10 @@ public sealed class CutLabPageServiceTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            RoleOverrides = roleOverrides;
             if (ComputeProposalDeltasException is not null)
             {
                 return Task.FromException<CutLabProposalDeltas>(ComputeProposalDeltasException);

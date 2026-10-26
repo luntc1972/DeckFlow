@@ -149,6 +149,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             preResolvedCards,
             resolvedPoolKey,
             cancellationToken).ConfigureAwait(false);
+        context = CutLabRoleOverrideApplier.Apply(context, state.RoleOverrides);
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors = _floorResolver.Resolve(state, context.CommanderManaValue, commanderNames);
         IReadOnlyDictionary<string, int> floorByRole = resolvedFloors
             .ToDictionary(
@@ -170,6 +171,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                 trialsOverride: ICutLabSimulationService.InLoopTrials,
                 poolKey: resolvedPoolKey,
                 goals: state.Goals,
+                roleOverrides: state.RoleOverrides,
                 cancellationToken: cancellationToken);
             CutLabPlanAffinityFactoryResult planAffinityResult = await planAffinitiesTask.ConfigureAwait(false);
             planAffinities = planAffinityResult.Affinities;
@@ -190,6 +192,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             trialsOverride: ICutLabSimulationService.InLoopTrials,
             poolKey: resolvedPoolKey,
             goals: state.Goals,
+            roleOverrides: state.RoleOverrides,
             cancellationToken: cancellationToken);
         CutLabSimulationResult snapshotResult = await snapshotResultTask.ConfigureAwait(false);
         state = state with
@@ -207,6 +210,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                 trialsOverride: ICutLabSimulationService.InLoopTrials,
                 poolKey: resolvedPoolKey,
                 goals: state.Goals,
+                roleOverrides: state.RoleOverrides,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             proposalDeltas = BuildProposalDeltas(deltas);
         }
@@ -247,7 +251,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         ArgumentNullException.ThrowIfNull(commanderNames);
 
         WorkingListProjection projection = BuildWorkingListProjection(state);
-        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName = BuildAdjustRoleAssignments(projection.WorkingList);
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName = BuildAdjustRoleAssignments(projection.WorkingList, state.RoleOverrides);
 
         return new CutLabUiPatchDto
         {
@@ -511,7 +515,9 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             .ToArray();
     }
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildAdjustRoleAssignments(IReadOnlyList<CutLabPoolCard> workingList)
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildAdjustRoleAssignments(
+        IReadOnlyList<CutLabPoolCard> workingList,
+        IReadOnlyList<CutLabRoleOverride> overrides)
     {
         Dictionary<string, IReadOnlyList<string>> result = new(StringComparer.OrdinalIgnoreCase);
         foreach (CutLabPoolCard card in workingList)
@@ -519,7 +525,9 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             if (CutLabBasicLands.Contains(card.Name)
                 || card.TypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase))
             {
-                result[card.Name] = ["lands"];
+                // Why: this bypass skips the analysis context, so it applies overrides itself to land rows.
+                // Nonland rows stay blank for the I-8 client carry-forward (D-02).
+                result[card.Name] = CutLabRoleOverrideRules.ApplyToRoles(["lands"], CutLabRoleOverrideRules.Find(overrides, card.Name));
                 continue;
             }
 

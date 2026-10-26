@@ -308,6 +308,32 @@ public sealed class CutLabSimulationServiceTests
     }
 
     [Fact]
+    public async Task BuildSnapshotResult_RoleOverrideResimulatesWithSharedCache()
+    {
+        TestPool pool = BuildCedhPool();
+        var sharedDeltaCache = new CutLabDeltaCache();
+        var warmService = new CutLabSimulationService(
+            new CutLabResolvedCardCache(), sharedDeltaCache, new FakeResolver(pool.Cards),
+            NullLogger<CutLabSimulationService>.Instance);
+        await warmService.BuildSnapshotResult(pool.WorkingList, "cEDH");
+
+        var coldResolver = new FakeResolver(pool.Cards);
+        var coldService = new CutLabSimulationService(
+            new CutLabResolvedCardCache(), sharedDeltaCache, coldResolver,
+            NullLogger<CutLabSimulationService>.Instance);
+        await coldService.BuildSnapshotResult(pool.WorkingList, "cEDH");
+        Assert.Equal(0, coldResolver.ResolveSingleCalls);
+
+        CutLabRoleOverride[] roleOverrides =
+        [
+            new() { Name = "Value Engine", Removed = ["engines", "draw"] },
+        ];
+        await coldService.BuildSnapshotResult(pool.WorkingList, "cEDH", roleOverrides: roleOverrides);
+
+        Assert.True(coldResolver.ResolveSingleCalls > 0);
+    }
+
+    [Fact]
     public async Task BuildSnapshotResult_ReusesCachedFullResultAcrossScopedServiceInstances()
     {
         TestPool pool = BuildCedhPool();
@@ -746,7 +772,8 @@ public sealed class CutLabSimulationServiceTests
             IReadOnlyList<DeckCardEntry> deckEntries,
             string? playExperience,
             int? trialsOverride,
-            CutLabGoalSettings? goals)
+            CutLabGoalSettings? goals,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides)
         {
             ArgumentNullException.ThrowIfNull(deckEntries);
 
@@ -789,10 +816,11 @@ public sealed class CutLabSimulationServiceTests
             IReadOnlyList<DeckCardEntry> deckEntries,
             string? playExperience,
             int? trialsOverride,
-            CutLabGoalSettings? goals)
+            CutLabGoalSettings? goals,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides)
         {
             CallCount++;
-            CutLabMetricSnapshot snapshot = BuildCountingSnapshot(deckEntries, playExperience, trialsOverride, goals);
+            CutLabMetricSnapshot snapshot = BuildCountingSnapshot(deckEntries, playExperience, trialsOverride, goals, roleOverrides);
             return new CutLabSimulationResult
             {
                 Snapshot = snapshot,
@@ -814,7 +842,8 @@ public sealed class CutLabSimulationServiceTests
         IReadOnlyList<DeckCardEntry> deckEntries,
         string? playExperience,
         int? trialsOverride,
-        CutLabGoalSettings? goals)
+        CutLabGoalSettings? goals,
+        IReadOnlyList<CutLabRoleOverride>? roleOverrides)
     {
         _ = playExperience;
         return new CutLabMetricSnapshot

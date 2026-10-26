@@ -19,6 +19,41 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabApiControllerTests
 {
     [Fact]
+    public async Task PostDecideAsync_RoleOverride_EffectiveRoleDeterminesFloorWarning()
+    {
+        CutLabState state = CreateState(
+            pool:
+            [
+                Card("Commander", quantity: 1, isCommander: true, isLocked: true),
+                Card("Arcane Signet", quantity: 1),
+                Card("Basic Filler", quantity: 99, isLocked: true),
+            ],
+            roleFloors: []) with
+        {
+            RoleOverrides = [new CutLabRoleOverride { Name = "Arcane Signet", Removed = ["ramp"], Added = ["draw"] }],
+        };
+        FakeAnalysisContextBuilder builder = new(workingList => CreateAnalysisContext(workingList));
+        FakeSimulationService simulation = new();
+        ICutLabFloorResolver floorResolver = new CutLabFloorResolver(null, null, null, null);
+        CutLabApiController controller = CreateController(builder, simulation, floorResolver: floorResolver);
+
+        ActionResult<CutLabDecideApiResponse> response = await controller.PostDecideAsync(
+            new CutLabDecideApiRequest
+            {
+                CutLabStateJson = CutLabStateSerializer.Serialize(state),
+                CardName = "Arcane Signet",
+                Decision = CutLabDecideAction.Accept,
+            },
+            CancellationToken.None);
+
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
+        CutLabDecideFloorWarningDto warning = Assert.Single(payload.Patch.FloorWarnings);
+        Assert.Equal("draw", warning.Role);
+        Assert.True(warning.Floor > 0);
+    }
+
+    [Fact]
     public void PostDecideAsync_UsesCutLabFeatureFlagGate()
     {
         MethodInfo? method = typeof(CutLabApiController).GetMethod(nameof(CutLabApiController.PostDecideAsync), BindingFlags.Public | BindingFlags.Instance);
@@ -1870,6 +1905,8 @@ public sealed class CutLabApiControllerTests
 
     private sealed class FakeSimulationService : ICutLabSimulationService
     {
+        public IReadOnlyList<CutLabRoleOverride>? RoleOverrides { get; private set; }
+
         public int DeltaCalls { get; private set; }
 
         public Task<CutLabSimulationResult> BuildSnapshotResult(
@@ -1878,8 +1915,12 @@ public sealed class CutLabApiControllerTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new CutLabSimulationResult());
+        {
+            RoleOverrides = roleOverrides;
+            return Task.FromResult(new CutLabSimulationResult());
+        }
 
         public Task<CutLabMetricSnapshot> BuildSnapshot(
             IReadOnlyList<CutLabPoolCard> workingList,
@@ -1887,8 +1928,12 @@ public sealed class CutLabApiControllerTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new CutLabMetricSnapshot());
+        {
+            RoleOverrides = roleOverrides;
+            return Task.FromResult(new CutLabMetricSnapshot());
+        }
 
         public Task<CutLabProposalDeltas> ComputeProposalDeltas(
             IReadOnlyList<CutLabPoolCard> currentWorkingList,
@@ -1897,8 +1942,10 @@ public sealed class CutLabApiControllerTests
             int? trialsOverride = ICutLabSimulationService.InLoopTrials,
             string? poolKey = null,
             CutLabGoalSettings? goals = null,
+            IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            RoleOverrides = roleOverrides;
             DeltaCalls++;
             return Task.FromResult(new CutLabProposalDeltas
             {

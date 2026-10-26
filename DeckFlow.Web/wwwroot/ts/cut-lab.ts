@@ -51,7 +51,14 @@ interface CutLabQuantityAdjustmentSnapshot {
   isAddedBasic?: boolean;
 }
 
+interface CutLabRoleOverrideSnapshot {
+  name: string;
+  added?: string[];
+  removed?: string[];
+}
+
 interface CutLabStateSnapshot {
+  roleOverrides?: CutLabRoleOverrideSnapshot[];
   commander: string;
   pool: CutLabPoolSnapshotCard[];
   packages: CutLabPackageSnapshot[];
@@ -824,6 +831,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         normalizedSnapshot.quantityAdjustments = snapshot.quantityAdjustments ?? [];
       }
 
+      if ((snapshot.roleOverrides ?? []).length > 0) {
+        normalizedSnapshot.roleOverrides = snapshot.roleOverrides;
+      }
+
       return JSON.stringify(normalizedSnapshot);
     },
 
@@ -1577,6 +1588,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }),
       decisions: Array.isArray(persistedState?.decisions) ? persistedState.decisions : [],
       quantityAdjustments: Array.isArray(persistedState?.quantityAdjustments) ? persistedState.quantityAdjustments : [],
+      roleOverrides: Array.isArray(persistedState?.roleOverrides) ? persistedState.roleOverrides : [],
       baselineSnapshot: persistedState?.baselineSnapshot,
       intent: {
         primaryPlan,
@@ -3355,15 +3367,25 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     quantityTuners: CutLabQuantityTunerRow[],
     antiForgeryToken: string,
     serializedState: string,
+    carryRoleLabels: boolean,
   ): void => {
     const tunerBody = getQuantityTunerBody();
     if (!tunerBody) {
       return;
     }
 
+    const carriedLabels = new Map<string, string>();
+    if (carryRoleLabels) {
+      tunerBody.querySelectorAll<HTMLElement>('[data-cut-lab-tuner-row]').forEach(row => {
+        carriedLabels.set(normalizeAsciiCase(row.dataset.cutLabTunerRow ?? ''), row.querySelector('td[data-label="Role"]')?.textContent?.trim() ?? '');
+      });
+    }
     const visibleRows = quantityTuners
       .filter(row => row.isVisible && row.isLegalMultiple)
-      .map(row => createQuantityTunerRow(row, antiForgeryToken, serializedState));
+      .map(row => createQuantityTunerRow({
+        ...row,
+        roleLabel: row.roleLabel.trim() === '' ? carriedLabels.get(normalizeAsciiCase(row.cardName)) ?? row.roleLabel : row.roleLabel,
+      }, antiForgeryToken, serializedState));
     replaceChildren(tunerBody, visibleRows);
   };
 
@@ -3470,7 +3492,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     antiForgeryToken: string,
     options: { preserveCutsSection?: boolean; preserveProposal?: boolean; preserveFindings?: boolean; adjustedCardName?: string } = {},
   ): void => {
-    void options.adjustedCardName;
     const shouldRenderProposal = patch.nextProposal !== null && (!options.preserveProposal || patch.nextProposal.isTerminal);
     writeDecisionStateToHiddenInputs(patch.cutLabStateJson);
     setExportEnabled(patch.canBuildExport);
@@ -3490,7 +3511,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (!options.preserveFindings) {
       renderStructuralFindings(patch);
     }
-    reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson);
+    reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson, options.adjustedCardName !== undefined);
     reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
     refreshResolvedFloors(patch.resolvedFloors ?? []);
     updateLockedCountChip();
@@ -5088,7 +5109,48 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  document.addEventListener('click', event => {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+    const link = event.target.closest<HTMLElement>('[data-cut-lab-role-edit-card]');
+    const cardSelect = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-card]');
+    if (!link || !cardSelect) {
+      return;
+    }
+    cardSelect.value = link.dataset.cutLabRoleEditCard ?? '';
+    cardSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    window.DeckFlow?.refreshDfSelect?.(cardSelect);
+    document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')?.focus();
+  });
+
+  const updateRoleOverrideRamp = (cardSelect: HTMLSelectElement): void => {
+    const roleSelect = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
+    if (!roleSelect) {
+      return;
+    }
+    const ramp = roleSelect.querySelector<HTMLOptionElement>('option[value="ramp"]');
+    if (ramp) {
+      ramp.disabled = cardSelect.selectedOptions[0]?.dataset.cutLabRoleOverrideLand === 'true';
+      if (ramp.disabled && roleSelect.value === 'ramp') {
+        roleSelect.value = Array.from(roleSelect.options).find(option => !option.disabled)?.value ?? '';
+      }
+    }
+    window.DeckFlow?.refreshDfSelect?.(roleSelect);
+  };
+
+  document.addEventListener('change', event => {
+    const cardSelect = event.target;
+    if (cardSelect instanceof HTMLSelectElement && cardSelect.matches('[data-cut-lab-role-override-card]')) {
+      updateRoleOverrideRamp(cardSelect);
+    }
+  });
+
   const initializeCutLab = (): void => {
+    const roleOverrideCard = document.querySelector<HTMLSelectElement>('#cut-lab-role-editor [data-cut-lab-role-override-card]');
+    if (roleOverrideCard) {
+      updateRoleOverrideRamp(roleOverrideCard);
+    }
     applyInitialSectionCollapseState();
     attachSectionCollapsePersistence();
     relocateScenarioSection();
