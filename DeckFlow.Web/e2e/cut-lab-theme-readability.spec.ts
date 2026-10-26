@@ -481,7 +481,9 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
 });
 
 test('keeps intake and progress components readable at workflow viewports', async ({ page }) => {
-  // Measured 50.1s for 24 themes × 2 viewports; 120s leaves rounded-up twofold headroom.
+  // Why: Smooth scrollIntoView makes section summaries unstable; Playwright's actionability back-off roughly doubled runtime.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  // Measured ~30s for 24 themes × 2 viewports with reduced motion (2026-10-26); 120s leaves CI headroom.
   test.setTimeout(120_000);
 
   for (const viewport of workflowViewports) {
