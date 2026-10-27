@@ -10,6 +10,37 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabExportServiceTests
 {
     [Fact]
+    public async Task CategoryOverride_MultiRowPatchKeepsSecondaryTokens()
+    {
+        var state = CreateState() with
+        {
+            Pool = [CreatePoolCard("Zur the Enchanter", "Legendary Creature", isCommander: true, isLocked: true), CreatePoolCard("Sol Ring", "Artifact", quantity: 98), CreatePoolCard("Arcane Signet", "Artifact")],
+            OriginalEntries = [CreateOriginalEntry("Zur the Enchanter", 1, "commander"), .. CutLabCategoryRulesTests.CategoryOverrideMultiRowEntries(), CreateOriginalEntry("Arcane Signet", 1, "mainboard", category: "Artifact")],
+            CategoryOverrides = [new() { Name = "Sol Ring", Category = "FastMana" }],
+        };
+        var result = await CreateService().BuildExportAsync(state, "Focused", ["Zur the Enchanter"], CancellationToken.None);
+        var sections = result.MoxfieldPatchText.Split("# ADD (add these)");
+        Assert.Single(sections[0].Split('\n'), line => line.Contains("Sol Ring", StringComparison.Ordinal) && line.TrimEnd().EndsWith("#Ramp", StringComparison.Ordinal));
+        Assert.Single(sections[0].Split('\n'), line => line.Contains("Sol Ring", StringComparison.Ordinal) && line.TrimEnd().EndsWith("#Draw", StringComparison.Ordinal));
+        Assert.Equal(2, sections[1].Split('\n').Count(line => line.Contains("Sol Ring", StringComparison.Ordinal) && line.TrimEnd().EndsWith("#FastMana #Draw", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task CategoryOverride_PatchCarriesImportedAndEffectiveCategories()
+    {
+        var state = CreateState() with
+        {
+            OriginalEntries = [CreateOriginalEntry("Arcane Signet", 99, "mainboard", category: "Ramp")],
+            CategoryOverrides = [new() { Name = "Arcane Signet", Category = "FastMana" }],
+        };
+        var result = await CreateService().BuildExportAsync(state, "Focused", ["Zur the Enchanter"], CancellationToken.None);
+        Assert.Contains("99 Arcane Signet #Ramp", result.MoxfieldPatchText, StringComparison.Ordinal);
+        Assert.Contains("99 Arcane Signet #FastMana", result.MoxfieldPatchText, StringComparison.Ordinal);
+        Assert.Contains("99 Arcane Signet [Ramp]", result.ArchidektPatchText, StringComparison.Ordinal);
+        Assert.Contains("99 Arcane Signet [FastMana]", result.ArchidektPatchText, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task BuildExportAsync_RoleOverride_PreservesSerializedView()
     {
         var service = CreateService();

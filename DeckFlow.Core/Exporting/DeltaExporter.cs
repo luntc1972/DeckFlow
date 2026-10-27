@@ -44,6 +44,10 @@ public static class DeltaExporter
     /// <param name="targetSystem">Target import system that controls the output format.</param>
     /// <returns>The formatted add-delta text.</returns>
     public static string ToText(List<DeckEntry> toAdd, string targetSystem)
+        => ToText(toAdd, targetSystem, false);
+
+    /// <summary>Formats patch entries, optionally including Archidekt mainboard categories.</summary>
+    public static string ToText(List<DeckEntry> toAdd, string targetSystem, bool includeArchidektCategories)
     {
         ArgumentNullException.ThrowIfNull(toAdd);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetSystem);
@@ -72,7 +76,7 @@ public static class DeltaExporter
                 }
             }
 
-            builder.AppendLine(FormatLine(entry, targetSystem));
+            builder.AppendLine(FormatLine(entry, targetSystem, includeArchidektCategories));
         }
 
         return builder.ToString().TrimEnd();
@@ -95,7 +99,7 @@ public static class DeltaExporter
         _ => "Mainboard",
     };
 
-    private static string FormatLine(DeckEntry entry, string targetSystem)
+    private static string FormatLine(DeckEntry entry, string targetSystem, bool includeArchidektCategories)
     {
         var line = new StringBuilder();
         line.Append($"{entry.Quantity} {FormatCardName(entry.Name, targetSystem)}");
@@ -105,7 +109,7 @@ public static class DeltaExporter
             line.Append($" ({entry.SetCode}) {entry.CollectorNumber}");
         }
 
-        var categorySuffix = BuildArchidektCategorySuffix(entry, targetSystem);
+        var categorySuffix = BuildArchidektCategorySuffix(entry, targetSystem, includeArchidektCategories);
         if (!string.IsNullOrWhiteSpace(categorySuffix))
         {
             line.Append($" [{categorySuffix}]");
@@ -130,7 +134,7 @@ public static class DeltaExporter
         return name.Replace(" / ", " // ", StringComparison.Ordinal);
     }
 
-    private static string? BuildArchidektCategorySuffix(DeckEntry entry, string targetSystem)
+    private static string? BuildArchidektCategorySuffix(DeckEntry entry, string targetSystem, bool includeArchidektCategories)
     {
         if (!string.Equals(targetSystem, "Archidekt", StringComparison.OrdinalIgnoreCase))
         {
@@ -145,7 +149,10 @@ public static class DeltaExporter
                 : $"Commander,{normalizedCategory}";
         }
 
-        return null;
+        // Why: only Cut Lab patches opt into categories on ordinary deck rows.
+        return includeArchidektCategories && string.Equals(entry.Board, "mainboard", StringComparison.OrdinalIgnoreCase)
+            ? CategoryNormalization.NormalizeSourceCategoriesForTarget(entry.Category, targetSystem)
+            : null;
     }
 
     private static string? BuildMoxfieldTags(DeckEntry entry, string targetSystem)

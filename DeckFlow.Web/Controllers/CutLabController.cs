@@ -60,6 +60,12 @@ public sealed class CutLabController : Controller
             {
                 CutLabState priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
                 BackfillMissingPlanFieldsFromState(request, priorState);
+                if (priorState.OriginalEntries.Count > 0 && !IsRehydratedTextResubmission(request, priorState))
+                {
+                    // Why: a new import must not inherit old printings; migrate floors using the posted bracket.
+                    request.CutLabStateJson = CutLabStateSerializer.Serialize(
+                        CutLabStateSerializer.Deserialize(request.CutLabStateJson, request.Bracket) with { OriginalEntries = [] });
+                }
             }
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
@@ -612,6 +618,16 @@ public sealed class CutLabController : Controller
         => string.IsNullOrWhiteSpace(request.DeckText)
             && string.IsNullOrWhiteSpace(request.DeckUrl)
             && state.Pool.Count > 0;
+
+    private static bool IsRehydratedTextResubmission(CutLabRequest request, CutLabState state)
+    {
+        static string NormalizeText(string text)
+            => string.Join("\n", text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n')
+                .Split('\n').Select(line => line.Trim())).TrimEnd('\n');
+
+        return string.IsNullOrWhiteSpace(request.DeckUrl)
+            && string.Equals(NormalizeText(request.DeckText ?? string.Empty), NormalizeText(BuildDeckText(state)), StringComparison.Ordinal);
+    }
 
     private static string BuildDeckText(CutLabState state)
     {

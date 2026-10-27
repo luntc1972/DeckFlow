@@ -20,6 +20,100 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabControllerTests
 {
     [Fact]
+    public async Task Process_StaleOriginalEntries_RehydratedTextPreservesAllFields()
+    {
+        var state = CreateState() with
+        {
+            OriginalEntries =
+            [
+                new() { Name = "Sol Ring", Quantity = 1, Board = "mainboard", SetCode = "sa", CollectorNumber = "1", Category = "Ramp" },
+                new() { Name = "Counterspell", Quantity = 2, Board = "sideboard", SetCode = "sb", CollectorNumber = "2", Category = "Draw" },
+            ],
+        };
+        var service = new FakeCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) };
+        await controller.Process(request);
+        request.DeckText = request.DeckText.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal) + "\r\n\r\n";
+        await controller.Process(request);
+        var actual = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        Assert.Equal(state.OriginalEntries.Count, actual.OriginalEntries.Count);
+        for (var i = 0; i < state.OriginalEntries.Count; i++)
+        {
+            var expected = state.OriginalEntries[i];
+            var entry = actual.OriginalEntries[i];
+            Assert.Equal(expected.Name, entry.Name);
+            Assert.Equal(expected.Quantity, entry.Quantity);
+            Assert.Equal(expected.Board, entry.Board);
+            Assert.Equal(expected.SetCode, entry.SetCode);
+            Assert.Equal(expected.CollectorNumber, entry.CollectorNumber);
+            Assert.Equal(expected.Category, entry.Category);
+        }
+    }
+
+    [Fact]
+    public async Task Process_StaleOriginalEntries_PostedBracketMigratesLegacyFloorsOnce()
+    {
+        var state = CreateState();
+        state = state with
+        {
+            Intent = state.Intent with { Bracket = 2 },
+            RoleFloors = [new() { Role = "interaction", Floor = 12, IsUserSet = true }],
+            OriginalEntries =
+            [
+                new() { Name = "Sol Ring", Quantity = 1, Board = "mainboard", SetCode = "sa", CollectorNumber = "1", Category = "Ramp" },
+                new() { Name = "Counterspell", Quantity = 1, Board = "sideboard", SetCode = "sb", CollectorNumber = "2", Category = "Draw" },
+            ],
+        };
+        var service = new FakeCutLabPageService();
+        await CreateController(service).Process(new CutLabRequest
+        {
+            DeckText = "1 Plains",
+            Bracket = 5,
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+        });
+        var actual = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson, 5);
+        Assert.Empty(actual.OriginalEntries);
+        Assert.Equal(9, Assert.Single(actual.RoleFloors, floor => floor.Role == "interaction-targeted").Floor);
+        Assert.Equal(3, Assert.Single(actual.RoleFloors, floor => floor.Role == "interaction-mass").Floor);
+    }
+
+    [Fact]
+    public async Task Process_StaleOriginalEntries_NoOriginalsPassesJsonUnchanged()
+    {
+        var json = CutLabStateSerializer.Serialize(CreateState() with { OriginalEntries = [] });
+        var service = new FakeCutLabPageService();
+        await CreateController(service).Process(new CutLabRequest { DeckText = "1 Plains", CutLabStateJson = json });
+        Assert.Equal(json, service.LastRequest!.CutLabStateJson);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Process_StaleOriginalEntries_NewImportClearsOriginals(bool url)
+    {
+        var state = new CutLabState
+        {
+            OriginalEntries =
+            [
+                new() { Name = "Sol Ring", Quantity = 1, Board = "mainboard", SetCode = "sa", CollectorNumber = "1", Category = "Ramp" },
+                new() { Name = "Counterspell", Quantity = 1, Board = "sideboard", SetCode = "sb", CollectorNumber = "2", Category = "Draw" },
+            ],
+            CategoryOverrides = [new() { Name = "Sol Ring", Category = "FastMana" }],
+        };
+        var service = new FakeCutLabPageService();
+        await CreateController(service).Process(new CutLabRequest
+        {
+            DeckText = url ? "" : "1 Plains",
+            DeckUrl = url ? "https://archidekt.com/decks/123" : "",
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+        });
+        var actual = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        Assert.Empty(actual.OriginalEntries);
+        Assert.Equal(state.CategoryOverrides, actual.CategoryOverrides);
+    }
+
+    [Fact]
     public void Index_ReturnsViewWithCutLabTabActive()
     {
         var controller = CreateController(new FakeCutLabPageService());

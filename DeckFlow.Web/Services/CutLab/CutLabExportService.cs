@@ -130,7 +130,8 @@ public sealed class CutLabExportService : ICutLabExportService
             commanderIdentity,
             cardIdentitiesByName,
             unverifiedCardNames,
-            bannedCardNamesPresent);
+            bannedCardNamesPresent,
+            state.CategoryOverrides.Select(entry => entry.Name).ToHashSet(StringComparer.OrdinalIgnoreCase));
 
         return new CutLabExportView
         {
