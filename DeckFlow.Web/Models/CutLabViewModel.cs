@@ -150,6 +150,15 @@ public sealed record CutLabViewModel
     /// <summary>Type-group views in the fixed Cut Lab primary-type order.</summary>
     public IReadOnlyList<CutLabRoleGroupView> TypeGroups { get; init; } = [];
 
+    /// <summary>Pool groups ordered by primary imported or edited category.</summary>
+    public IReadOnlyList<CutLabRoleGroupView> CategoryGroups { get; init; } = [];
+
+    /// <summary>Effective primary and secondary categories for each pool card.</summary>
+    public IReadOnlyDictionary<string, CutLabCardCategoryView> CardCategoryByName { get; init; } = new Dictionary<string, CutLabCardCategoryView>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Existing effective categories offered by the card editor.</summary>
+    public IReadOnlyList<string> CategoryOptions { get; init; } = [];
+
     /// <summary>Structural findings rendered for the current pool.</summary>
     public IReadOnlyList<CutLabFindingView> Findings { get; init; } = [];
 
@@ -332,6 +341,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<string> addableBasics = BuildAddableBasics(workingListRows);
         IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabRoleGroupView> typeGroups = BuildTypeGroups(pool);
+        IReadOnlyDictionary<string, CutLabCardCategoryView> cardCategoryByName = BuildCardCategoryByName(result.State);
         IReadOnlyList<CutLabFindingView> findings = CutLabFindingPresenter.BuildFindings(result.Findings.Findings);
         IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
@@ -402,6 +412,9 @@ public sealed record CutLabViewModel
             Packages = result.State?.Packages ?? [],
             RoleGroups = roleGroups,
             TypeGroups = typeGroups,
+            CategoryGroups = BuildCategoryGroups(result.State, cardCategoryByName),
+            CardCategoryByName = cardCategoryByName,
+            CategoryOptions = result.State is null ? [] : CutLabCategoryRules.CategoryOptions(result.State),
             Findings = findings,
             FindingGroups = findingGroups,
             ComboDataUnavailable = result.HasResult && !result.Findings.ComboDataAvailable,
@@ -518,6 +531,51 @@ public sealed record CutLabViewModel
                 };
             })
             .ToArray();
+    }
+
+    private static IReadOnlyDictionary<string, CutLabCardCategoryView> BuildCardCategoryByName(CutLabState? state)
+    {
+        Dictionary<string, CutLabCardCategoryView> categories = new(StringComparer.OrdinalIgnoreCase);
+        foreach (CutLabPoolCard card in state?.Pool ?? [])
+        {
+            IReadOnlyList<string> tokens = CutLabCategoryRules.EffectiveCategoryTokens(state!.OriginalEntries, state.CategoryOverrides, card.Name);
+            categories[card.Name] = new CutLabCardCategoryView
+            {
+                Primary = tokens.FirstOrDefault(),
+                AlsoTagged = tokens.Skip(1).ToArray(),
+                IsEdited = CutLabCategoryRules.Find(state.CategoryOverrides, card.Name) is not null,
+            };
+        }
+
+        return categories;
+    }
+
+    private static IReadOnlyList<CutLabRoleGroupView> BuildCategoryGroups(CutLabState? state, IReadOnlyDictionary<string, CutLabCardCategoryView> categories)
+    {
+        if (state is null)
+        {
+            return [];
+        }
+
+        // Why: group only by the primary token; secondary tags remain available in the modal.
+        return state.Pool
+            .GroupBy(card => categories[card.Name].Primary, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.Key is null)
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new CutLabRoleGroupView
+            {
+                RoleKey = group.Key ?? "uncategorized",
+                DisplayLabel = group.Key ?? "Uncategorized",
+                Members = group.Select(card => new CutLabRoleMemberView
+                {
+                    Name = card.Name,
+                    Quantity = card.Quantity,
+                    IsLocked = card.IsLocked,
+                    IsCommander = card.IsCommander,
+                }).ToArray(),
+                CardCount = group.Sum(card => card.Quantity),
+                LockedCount = group.Where(card => card.IsLocked).Sum(card => card.Quantity),
+            }).ToArray();
     }
 
     private static IReadOnlyList<CutLabRoleGroupView> BuildTypeGroups(IReadOnlyList<CutLabPoolCard> pool)
