@@ -255,6 +255,54 @@ public sealed class CutLabExportServiceTests
         Assert.Contains("3 Island", result.ArchidektPatchText, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("Ramp", "FastMana")]
+    [InlineData("Ramp,Artifact", "FastMana,Artifact")]
+    [InlineData("Maybeboard,Ramp", "FastMana")]
+    public async Task CategoryOverride_BuildExportAsync_ReplacesPrimary(string original, string expected)
+    {
+        var state = CreateState();
+        state = state with
+        {
+            OriginalEntries = state.OriginalEntries.Select(entry => entry.Name == "Arcane Signet" ? entry with { Category = original, Board = original.StartsWith("Maybeboard", StringComparison.Ordinal) ? "maybeboard" : entry.Board } : entry).ToArray(),
+            CategoryOverrides = [new() { Name = "Arcane Signet", Category = "FastMana" }],
+        };
+        var result = await CreateService().BuildExportAsync(state, "Focused", ["Zur the Enchanter"], CancellationToken.None);
+        Assert.Contains($"[{expected}]", result.ArchidektFullListText, StringComparison.Ordinal);
+        Assert.Contains("#" + expected.Replace(",", " #"), result.MoxfieldFullListText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CategoryOverride_BuildExportAsync_MultiRowCarriesSecondaryCategory()
+    {
+        var state = CreateState() with
+        {
+            Pool = [CreatePoolCard("Zur the Enchanter", "Legendary Creature", isCommander: true, isLocked: true), CreatePoolCard("Sol Ring", "Artifact", quantity: 98), CreatePoolCard("Arcane Signet", "Artifact")],
+            OriginalEntries = [CreateOriginalEntry("Zur the Enchanter", 1, "commander"), .. CutLabCategoryRulesTests.CategoryOverrideMultiRowEntries(), CreateOriginalEntry("Arcane Signet", 1, "mainboard", category: "Artifact")],
+            CategoryOverrides = [new() { Name = "Sol Ring", Category = "FastMana" }],
+        };
+        var result = await CreateService().BuildExportAsync(state, "Focused", ["Zur the Enchanter"], CancellationToken.None);
+        Assert.Equal(2, result.ArchidektFullListText.Split('\n').Count(line => line.Contains("[FastMana,Draw]", StringComparison.Ordinal)));
+        Assert.Equal(2, result.MoxfieldFullListText.Split('\n').Count(line => line.Contains("#FastMana #Draw", StringComparison.Ordinal)));
+        Assert.Contains("1 Arcane Signet [Artifact]", result.ArchidektFullListText, StringComparison.Ordinal);
+        Assert.Contains("1 Arcane Signet #Artifact", result.MoxfieldFullListText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CategoryOverride_BuildExportAsync_CommanderAndFallbackCarryOverrides()
+    {
+        var state = CreateState();
+        state = state with
+        {
+            OriginalEntries = state.OriginalEntries.Where(entry => entry.Name != "Arcane Signet").ToArray(),
+            CategoryOverrides = [new() { Name = "Zur the Enchanter", Category = "Leader" }, new() { Name = "Arcane Signet", Category = "FastMana" }],
+        };
+        var result = await CreateService().BuildExportAsync(state, "Focused", ["Zur the Enchanter"], CancellationToken.None);
+        Assert.Contains("[Commander,Leader]", result.ArchidektFullListText, StringComparison.Ordinal);
+        Assert.Contains("[FastMana]", result.ArchidektFullListText, StringComparison.Ordinal);
+        Assert.Contains("#FastMana", result.MoxfieldFullListText, StringComparison.Ordinal);
+    }
+
     private static CutLabExportService CreateService(
         FakeAnalysisContextBuilder? contextBuilder = null,
         ICommanderBanListService? banListService = null)

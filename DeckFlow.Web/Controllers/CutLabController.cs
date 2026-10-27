@@ -253,6 +253,47 @@ public sealed class CutLabController : Controller
         }
     }
 
+    /// <summary>Applies a persisted primary category edit.</summary>
+    /// <param name="request">Posted Cut Lab form fields.</param>
+    /// <param name="cardName">Card display name.</param>
+    /// <param name="category">Replacement category text.</param>
+    /// <param name="operation">Explicit set or reset operation.</param>
+    [HttpPost("/cut-lab/category-override")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [ValidateAntiForgeryToken]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    public async Task<IActionResult> CategoryOverride(CutLabRequest request, string cardName, string? category, CutLabCategoryOverrideOperation operation)
+    {
+        request ??= new CutLabRequest();
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName))
+        {
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+        try
+        {
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            CutLabCategoryRules.TryApplyEdit(state, cardName, category, operation, out CutLabState updated, out string? error);
+            RehydrateIntakeRequestFromState(request, updated);
+            request.CutLabStateJson = CutLabStateSerializer.Serialize(updated);
+            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+            CutLabViewModel model = CutLabViewModel.From(request, result);
+            return View("CutLab", error is null ? model : model with { ErrorMessage = error });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return CutLabView(request, error: exception.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            return CutLabView(request, error: "The request timed out. Try again.");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Cut Lab category-override fallback failed.");
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+        }
+    }
+
     /// <summary>Re-surfaces prior round 1 and round 2 rejects/defers without undoing accepted cuts.</summary>
     /// <param name="request">Posted Cut Lab form fields.</param>
     [HttpPost("/cut-lab/restart-rounds")]

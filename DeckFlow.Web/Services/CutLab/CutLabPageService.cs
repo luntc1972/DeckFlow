@@ -988,6 +988,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             QuantityAdjustments = priorState.QuantityAdjustments,
             // Why: This is the only production state construction; without this ProcessAsync drops overrides.
             RoleOverrides = CutLabRoleOverrideRules.Sanitize(priorState.RoleOverrides, pool, commanderNames),
+            // Why: ProcessAsync rebuilds state, so category edits must be explicitly carried forward.
+            CategoryOverrides = CutLabCategoryRules.Sanitize(priorState.CategoryOverrides, pool),
             OriginalEntries = priorState.OriginalEntries,
             Goals = goals,
             BaselineSnapshot = priorState.BaselineSnapshot,

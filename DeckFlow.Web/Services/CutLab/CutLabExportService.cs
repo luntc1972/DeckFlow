@@ -53,7 +53,7 @@ public sealed class CutLabExportService : ICutLabExportService
         ArgumentNullException.ThrowIfNull(commanderNames);
 
         IReadOnlyList<CutLabPoolCard> keptWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
-        IReadOnlyList<DeckEntry> finalEntries = ReconstructFinalEntries(keptWorkingList, state.OriginalEntries, out IReadOnlyList<string> reconstructionWarnings);
+        IReadOnlyList<DeckEntry> finalEntries = ReconstructFinalEntries(keptWorkingList, state.OriginalEntries, state.CategoryOverrides, out IReadOnlyList<string> reconstructionWarnings);
         IReadOnlyList<DeckEntry> originalEntries = ToDeckEntries(state.OriginalEntries);
 
         string poolKey = CutLabResolvedCardCache.ComputePoolKey(keptWorkingList);
@@ -182,6 +182,7 @@ public sealed class CutLabExportService : ICutLabExportService
     private static IReadOnlyList<DeckEntry> ReconstructFinalEntries(
         IReadOnlyList<CutLabPoolCard> keptWorkingList,
         IReadOnlyList<CutLabOriginalEntry> originalEntries,
+        IReadOnlyList<CutLabCategoryOverride> categoryOverrides,
         out IReadOnlyList<string> reconstructionWarnings)
     {
         List<string> warnings = [];
@@ -193,6 +194,9 @@ public sealed class CutLabExportService : ICutLabExportService
             List<CutLabOriginalEntry> matches = originalEntries
                 .Where(entry => string.Equals(CardNormalizer.Normalize(entry.Name), normalizedName, StringComparison.Ordinal))
                 .ToList();
+            IReadOnlyList<string>? effective = CutLabCategoryRules.Find(categoryOverrides, keptCard.Name) is null
+                ? null
+                : CutLabCategoryRules.EffectiveCategoryTokens(originalEntries, categoryOverrides, keptCard.Name);
             int remaining = keptCard.Quantity;
 
             foreach (CutLabOriginalEntry match in matches)
@@ -211,7 +215,7 @@ public sealed class CutLabExportService : ICutLabExportService
                     Board = keptCard.IsCommander ? "commander" : "mainboard",
                     SetCode = match.SetCode,
                     CollectorNumber = match.CollectorNumber,
-                    Category = NormalizePromotedCategory(match.Category, match.Board, keptCard.IsCommander),
+                    Category = CutLabCategoryRules.ApplyToCategory(NormalizePromotedCategory(match.Category, match.Board, keptCard.IsCommander), effective),
                 });
                 remaining -= matchedQuantity;
             }
@@ -227,6 +231,7 @@ public sealed class CutLabExportService : ICutLabExportService
                 NormalizedName = normalizedName,
                 Quantity = remaining,
                 Board = keptCard.IsCommander ? "commander" : "mainboard",
+                Category = CutLabCategoryRules.ApplyToCategory(null, effective),
             });
 
             if (!keptCard.IsCommander

@@ -4,6 +4,12 @@ namespace DeckFlow.Web.Services.CutLab;
 internal static class CutLabMessages
 {
     internal const string NoChangeMessage = "Couldn't recalculate this cut — nothing changed. Try again.";
+    internal const string CategoryOverrideCardNotInPoolMessage = "That card isn't in this pool.";
+    internal const string CategoryOverrideRefusedMessage = "That category change couldn't be applied.";
+    internal const string CategoryOverrideBlankMessage = "Type a category name, or use the imported category.";
+    internal const string CategoryOverrideInvalidMessage = "Category names can be up to 64 characters and can't use , # [ ] { } or ^.";
+    internal const string CategoryOverrideReservedMessage = "Commander, Sideboard, Maybeboard, Considering and Uncategorized are reserved and can't be used as categories.";
+    internal const string CategoryOverrideLimitMessage = "Category edits are limited to 200 cards.";
     internal const string RoleOverrideLimitMessage = "Role edits are limited to 200 cards.";
     internal const string RoleOverrideRefusedMessage = "That role can't be changed for this card.";
     internal const string RoleOverrideCardNotInPoolMessage = "That card isn't in this pool.";
