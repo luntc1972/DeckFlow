@@ -298,7 +298,6 @@ interface CutLabApi {
   isLandRole(roleList: string | null | undefined): boolean;
   filterPoolBySubtype(entries: CutLabSubtypeEntry[], query: string): CutLabSubtypeEntry[];
   buildCutLabStateJson(snapshot: CutLabStateSnapshot): string;
-  syncDecisionState(serializedState: string): void;
   saveScenario(name: string, stateJson: string): SaveScenarioResult;
   listScenarios(): ScenarioIndexEntry[];
   loadScenario(id: string): string | null;
@@ -319,12 +318,14 @@ interface PendingNewPackageTarget {
 const newPackageOptionValue = '__new__';
 const unlockedPoolOptionValue = '';
 const cutLabAntiForgeryFieldName = '__RequestVerificationToken';
+const cutLabAdjustAction = '/cut-lab/adjust';
 const cutLabAdjustApiEndpoint = '/api/cut-lab/adjust';
 const cutLabRestartRoundsApiEndpoint = '/api/cut-lab/restart-rounds';
 const cutLabWhatifApiEndpoint = '/api/cut-lab/whatif';
 const cutLabWhatifCommitApiEndpoint = '/api/cut-lab/whatif/commit';
 const cutLabPlanApplyApiEndpoint = '/api/cut-lab/plan-apply';
 const cutLabDecisionTimeoutMs = 20000;
+const cutLabNothingToCutCopy = 'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.';
 const cutLabDecisionBusyCopy = 'Recalculating…';
 const cutLabDecisionErrorCopy = "Couldn't recalculate this cut — nothing changed. Try again.";
 const cutLabArchetypeApplyErrorCopy = "Couldn't apply the archetype. Your previous choice is restored — try again.";
@@ -493,12 +494,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
-  const restoreSectionCollapseState = (): void => {
-    const collapsedIds = readCollapsedSectionIds();
-    if (collapsedIds === null) {
-      return;
-    }
-
+  const restoreSectionCollapseState = (collapsedIds: string[]): void => {
     const collapsedIdSet = new Set(collapsedIds);
     getSectionCollapsibles().forEach(details => {
       if (collapsedIdSet.has(details.id)) {
@@ -511,18 +507,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   // Why: F-5-SIDE-EFFECT distinguishes genuine absence from malformed JSON and unavailable localStorage; only absence is a no-op.
-  const isCollapsedSectionStorageKeyAbsent = (): boolean => {
-    return readCollapsedSectionStorage().kind === 'absent';
-  };
-
   const applyInitialSectionCollapseState = (): void => {
-    if (readCollapsedSectionIds() !== null) {
-      restoreSectionCollapseState();
+    const storage = readCollapsedSectionStorage();
+    if (storage.kind === 'ids') {
+      restoreSectionCollapseState(storage.ids);
       return;
     }
 
     const selectedStep = getStepTabs().find(tab => tab.getAttribute('aria-selected') === 'true');
-    if (selectedStep && isCollapsedSectionStorageKeyAbsent()) {
+    if (selectedStep && storage.kind === 'absent') {
       return;
     }
     applyDefaultSectionCollapseState(Number(selectedStep?.dataset.cutLabStep));
@@ -863,10 +856,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       return JSON.stringify(normalizedSnapshot);
-    },
-
-    syncDecisionState(serializedState: string): void {
-      writeDecisionStateToHiddenInputs(serializedState);
     },
 
     saveScenario(name: string, stateJson: string): SaveScenarioResult {
@@ -1294,12 +1283,43 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return Number.isNaN(parsed) ? 1 : parsed;
   };
 
-  const updateLockedCountChip = (): void => {
+  const buildPoolIndex = () => {
     const rows = getPoolRows();
-    const poolCount = rows.reduce((total, row) => total + parseRowQuantity(row), 0);
-    const lockedCount = rows.reduce((total, row) => {
+    const entries = new Map(rows.map(row => {
       const checkbox = getLockCheckbox(row);
-      return checkbox?.checked ? total + parseRowQuantity(row) : total;
+      return [row, {
+        name: row.dataset.cutLabCard ?? '',
+        checkbox,
+        isLocked: checkbox?.checked ?? false,
+        quantity: parseRowQuantity(row),
+        packageId: getPackageSelect(row)?.value,
+      }] as const;
+    }));
+    const chipsByCardName = new Map<string, HTMLElement[]>();
+    document.querySelectorAll<HTMLElement>('[data-cut-lab-chip-card]').forEach(chip => {
+      const name = chip.dataset.cutLabChipCard ?? '';
+      const chips = chipsByCardName.get(name) ?? [];
+      chips.push(chip);
+      chipsByCardName.set(name, chips);
+    });
+    const lockedQuantityByCard = new Map<string, number>();
+    const lockedQuantityByRole = new Map<string, number>();
+    entries.forEach((entry, row) => {
+      if (!entry.isLocked) return;
+      lockedQuantityByCard.set(entry.name, (lockedQuantityByCard.get(entry.name) ?? 0) + entry.quantity);
+      (row.dataset.cutLabRole ?? '').split(/\s+/).map(token => token.trim()).filter(token => token !== '').forEach(role => {
+        lockedQuantityByRole.set(role, (lockedQuantityByRole.get(role) ?? 0) + entry.quantity);
+      });
+    });
+    return { rows, entries, chipsByCardName, lockedQuantityByCard, lockedQuantityByRole };
+  };
+
+  const updateLockedCountChip = (index = buildPoolIndex()): void => {
+    const rows = index.rows;
+    const poolCount = rows.reduce((total, row) => total + index.entries.get(row)!.quantity, 0);
+    const lockedCount = rows.reduce((total, row) => {
+      const checkbox = index.entries.get(row)!.checkbox;
+      return checkbox?.checked ? total + index.entries.get(row)!.quantity : total;
     }, 0);
     const summaryText = `${poolCount} cards in pool · ${lockedCount} locked`;
     const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
@@ -1333,19 +1353,19 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return selected === 'locked' || selected === 'unlocked' ? selected : 'all';
   };
 
-  const updatePoolFilterState = (): void => {
+  const updatePoolFilterState = (index = buildPoolIndex()): void => {
     const filterContainer = getPoolFilterContainer();
     if (!filterContainer) {
       return;
     }
 
-    const rows = getPoolFilterRows();
+    const rows = index.rows.filter(row => row.closest('#cut-lab-section-lock-pool'));
     const selectedFilter = getSelectedPoolFilter();
     const searchTerm = normalizeAsciiCase(getPoolSearchInput()?.value.trim() ?? '');
     let visibleCount = 0;
 
     rows.forEach(row => {
-      const checkbox = getLockCheckbox(row);
+      const checkbox = index.entries.get(row)!.checkbox;
       const cardName = normalizeAsciiCase(row.dataset.cutLabCard ?? '');
       const matchesLockedState = selectedFilter === 'all'
         || (selectedFilter === 'locked' && (checkbox?.checked ?? false))
@@ -1502,46 +1522,43 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     button.setAttribute('aria-pressed', isPressed ? 'true' : 'false');
   };
 
-  const syncRoleLockButtons = (): void => {
+  const getLockableRoleCheckboxes = (roleKey: string, rows = getPoolRows()): HTMLInputElement[] =>
+    rows.filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey))
+      .map(row => getLockCheckbox(row))
+      .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
+
+  const areAllLocked = (checkboxes: HTMLInputElement[]): boolean =>
+    checkboxes.length > 0 && checkboxes.every(checkbox => checkbox.checked);
+
+  const syncRoleLockButtons = (index = buildPoolIndex()): void => {
     getRoleLockButtons().forEach(button => {
       const roleKey = button.dataset.cutLabLockRole ?? '';
       if (roleKey === '') {
         return;
       }
 
-      const memberRows = getPoolRows().filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey));
-      const lockableMembers = memberRows
-        .map(row => getLockCheckbox(row))
-        .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
-      const allLocked = lockableMembers.length > 0 && lockableMembers.every(checkbox => checkbox.checked);
+      const lockableMembers = getLockableRoleCheckboxes(roleKey, index.rows);
+      const allLocked = areAllLocked(lockableMembers);
       setRoleLockButtonState(button, allLocked);
     });
   };
 
-  const syncRoleGroupLockState = (): void => {
-    const lockedQuantityByRole = new Map<string, number>();
+  const syncRoleGroupLockState = (index = buildPoolIndex()): void => {
+    const lockedQuantityByRole = index.lockedQuantityByRole;
 
-    getPoolRows().forEach(row => {
+    index.rows.forEach(row => {
       const cardName = row.dataset.cutLabCard ?? '';
-      const checkbox = getLockCheckbox(row);
+      const checkbox = index.entries.get(row)!.checkbox;
       const isLocked = checkbox?.checked ?? false;
 
-      getRoleGroupChips(cardName).forEach(chip => {
+      (index.chipsByCardName.get(cardName) ?? []).forEach(chip => {
         chip.classList.toggle('cutlab-role-chip--locked', isLocked);
         if (chip instanceof HTMLButtonElement) {
           chip.setAttribute('aria-pressed', isLocked ? 'true' : 'false');
         }
       });
 
-      (row.dataset.cutLabRole ?? '')
-        .split(/\s+/)
-        .map(token => token.trim())
-        .filter(token => token !== '')
-        .forEach(roleKey => {
-          if (isLocked) {
-            lockedQuantityByRole.set(roleKey, (lockedQuantityByRole.get(roleKey) ?? 0) + parseRowQuantity(row));
-          }
-        });
+
     });
 
     document.querySelectorAll<HTMLElement>('[data-cut-lab-group-locked]').forEach(count => {
@@ -1564,15 +1581,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
           .map(chip => chip.dataset.cutLabChipCard ?? '')
           .filter(cardName => cardName !== ''),
       );
-      const lockedQuantity = getPoolRows()
-        .filter(row => cardNames.has(row.dataset.cutLabCard ?? '') && getLockCheckbox(row)?.checked)
-        .reduce((total, row) => total + parseRowQuantity(row), 0);
+      const lockedQuantity = Array.from(cardNames)
+        .reduce((total, name) => total + (index.lockedQuantityByCard.get(name) ?? 0), 0);
       count.textContent = `${lockedQuantity}`;
     });
   };
 
-  const buildSnapshotFromDom = (): CutLabStateSnapshot => {
-    const rows = getPoolRows();
+  const buildSnapshotFromDom = (index = buildPoolIndex()): CutLabStateSnapshot => {
+    const rows = index.rows;
     const persistedState = tryReadSerializedState();
     const selectedCommander = document.querySelector<HTMLSelectElement>('select[name="SelectedCommander"]');
     const commanderFromRow = rows.find(row => row.dataset.cutLabCommander === 'true')?.dataset.cutLabCard ?? '';
@@ -1593,12 +1609,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return {
       commander: commanderFromRow || selectedCommander?.value.trim() || '',
       pool: rows.map(row => {
-        const checkbox = getLockCheckbox(row);
+        const checkbox = index.entries.get(row)!.checkbox;
         const select = getPackageSelect(row);
 
         return {
           name: row.dataset.cutLabCard ?? '',
-          quantity: parseRowQuantity(row),
+          quantity: index.entries.get(row)!.quantity,
           typeLine: row.dataset.cutLabTypeLine ?? '',
           isCommander: row.dataset.cutLabCommander === 'true',
           isLocked: checkbox?.checked ?? false,
@@ -1752,10 +1768,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const formatMetricValue = (value: number, unit: CutLabMetricUnit): string =>
     unit === 'Cards' ? formatCardValue(value) : `${value.toFixed(1)}%`;
 
-  const formatDeltaToken = (delta: number, unit: CutLabMetricUnit): string => {
-    const magnitude = Math.abs(delta);
-    return unit === 'Cards' ? formatCardValue(magnitude) : `${magnitude.toFixed(1)}%`;
-  };
+  const formatDeltaToken = (delta: number, unit: CutLabMetricUnit): string =>
+    formatMetricValue(Math.abs(delta), unit);
 
   const directionVerbFor = (direction: CutLabMetricDirection): string =>
     direction === 'Down' ? 'lowers' : 'raises';
@@ -1804,19 +1818,22 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return index === value.length && fractionalDigits >= 1 && fractionalDigits <= 2;
   };
 
-  const findLockablePoolCardForEvidence = (evidence: string): { cardName: string; checkbox: HTMLInputElement } | null => {
-    const normalizedEvidence = normalizeAsciiCase(evidence);
-    const matches = getPoolRows()
+  const getEvidenceCandidates = () =>
+    getPoolRows()
       .map(row => {
         const cardName = row.dataset.cutLabCard?.trim() ?? '';
         const checkbox = getLockCheckbox(row);
-        return cardName !== '' && checkbox && !checkbox.disabled ? { cardName, checkbox } : null;
+        return cardName !== '' && checkbox && !checkbox.disabled ? { cardName, normalizedName: normalizeAsciiCase(cardName), checkbox } : null;
       })
-      .filter((match): match is { cardName: string; checkbox: HTMLInputElement } => match !== null)
+      .filter((match): match is { cardName: string; normalizedName: string; checkbox: HTMLInputElement } => match !== null)
       .sort((left, right) => right.cardName.length - left.cardName.length);
 
-    return matches.find(({ cardName }) => {
-      const normalizedCardName = normalizeAsciiCase(cardName);
+  const findLockablePoolCardForEvidence = (
+    evidence: string,
+    matches: ReturnType<typeof getEvidenceCandidates>,
+  ): { cardName: string; checkbox: HTMLInputElement } | null => {
+    const normalizedEvidence = normalizeAsciiCase(evidence);
+    return matches.find(({ normalizedName: normalizedCardName }) => {
       if (normalizedEvidence === normalizedCardName) {
         return true;
       }
@@ -1848,19 +1865,25 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     button.appendChild(createTextElement('span', getComboBadgeClassName(comboBadge), getComboBadgeText(comboBadge)));
   };
 
+  const createLockableCardChip = (label: string, cardName: string, isLocked: boolean): HTMLButtonElement => {
+    const className = `kb-chip cutlab-role-chip${isLocked ? ' cutlab-role-chip--locked' : ''}`;
+    const chip = createTextElement('button', className, label);
+    chip.type = 'button';
+    chip.dataset.cutlabCardOpen = cardName;
+    chip.dataset.cutLabChipCard = cardName;
+    chip.setAttribute('aria-pressed', isLocked ? 'true' : 'false');
+    return chip;
+  };
+
   const createStructuralEvidenceChip = (
     evidence: string,
+    matches: ReturnType<typeof getEvidenceCandidates>,
     comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>,
   ): HTMLElement => {
-    const match = findLockablePoolCardForEvidence(evidence);
+    const match = findLockablePoolCardForEvidence(evidence, matches);
     if (!match) return createTextElement('span', 'kb-chip', evidence);
 
-    const button = createTextElement('button', 'kb-chip cutlab-role-chip', evidence);
-    button.type = 'button';
-    button.dataset.cutLabChipCard = match.cardName;
-    button.dataset.cutlabCardOpen = match.cardName;
-    button.setAttribute('aria-pressed', match.checkbox.checked ? 'true' : 'false');
-    button.classList.toggle('cutlab-role-chip--locked', match.checkbox.checked);
+    const button = createLockableCardChip(evidence, match.cardName, match.checkbox.checked);
     appendComboBadge(button, comboBadgeByCardName, match.cardName);
     return button;
   };
@@ -2082,16 +2105,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return button;
   };
 
-  const replaceChildren = (element: Element, children: Node[]): void => {
-    while (element.firstChild) {
-      element.removeChild(element.firstChild);
-    }
-
-    children.forEach(child => {
-      element.appendChild(child);
-    });
-  };
-
   const createPoolCardChip = (entry: CutLabSubtypeEntry): HTMLElement => {
     if (entry.isCommander) {
       const chip = createTextElement('span', 'kb-chip cutlab-lock-badge--commander', entry.name);
@@ -2100,13 +2113,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return chip;
     }
 
-    const className = `kb-chip cutlab-role-chip${entry.isLocked ? ' cutlab-role-chip--locked' : ''}`;
-    const chip = createTextElement('button', className, entry.name);
-    chip.type = 'button';
-    chip.dataset.cutlabCardOpen = entry.name;
-    chip.dataset.cutLabChipCard = entry.name;
-    chip.setAttribute('aria-pressed', entry.isLocked ? 'true' : 'false');
-    return chip;
+    return createLockableCardChip(entry.name, entry.name, entry.isLocked);
   };
 
   const getPoolSubtypeEntries = (): CutLabSubtypeEntry[] =>
@@ -2138,13 +2145,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     const query = searchInput.value.trim();
     if (query === '') {
-      replaceChildren(results, []);
+      results.replaceChildren();
       return;
     }
 
     const matches = api.filterPoolBySubtype(getPoolSubtypeEntries(), query);
     if (matches.length === 0) {
-      replaceChildren(results, [
+      results.replaceChildren(...[
         createTextElement('p', 'cutlab-subtype-results__empty', `No cards match '${query}'.`),
       ]);
       return;
@@ -2157,7 +2164,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       chips.appendChild(createPoolCardChip(entry));
     });
 
-    replaceChildren(results, [summary, chips]);
+    results.replaceChildren(...[summary, chips]);
   };
 
   const formatScenarioSavedAt = (savedAt: string): string => {
@@ -2182,13 +2189,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     const scenarios = api.listScenarios();
     if (scenarios.length === 0) {
-      replaceChildren(list, [
+      list.replaceChildren(...[
         createTextElement('p', 'cutlab-scenarios__empty prompt-size-note', 'No saved scenarios yet.'),
       ]);
       return;
     }
 
-    replaceChildren(list, scenarios.map(scenario => {
+    list.replaceChildren(...scenarios.map(scenario => {
       const row = document.createElement('div');
       row.className = 'cutlab-scenarios__item';
 
@@ -2436,7 +2443,31 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    replaceChildren(banner, [createTextElement('p', '', nextProposal.roundBannerBody)]);
+    banner.replaceChildren(...[createTextElement('p', '', nextProposal.roundBannerBody)]);
+  };
+
+  const createDeltaValue = (
+    delta: CutLabDecisionMetricDelta,
+    tokenText: string,
+    tokenClassName?: string,
+  ): HTMLSpanElement => {
+    const value = document.createElement('span');
+    value.className = `cutlab-delta__value ${deltaClassFor(delta.direction)}`;
+    if (delta.direction !== 'None') {
+      const glyph = document.createElement('span');
+      glyph.setAttribute('aria-hidden', 'true');
+      glyph.textContent = glyphFor(delta.direction);
+      value.appendChild(glyph);
+    }
+
+    const token = document.createElement('span');
+    if (tokenClassName !== undefined) {
+      token.className = tokenClassName;
+    }
+    token.textContent = tokenText;
+    value.appendChild(token);
+
+    return value;
   };
 
   const appendDeltaLine = (
@@ -2453,23 +2484,38 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       ? `cutting ${cardName} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.unit)}.`
       : `${delta.label}: no meaningful change`;
 
-    const value = document.createElement('span');
-    value.className = `cutlab-delta__value ${deltaClassFor(delta.direction)}`;
-    if (delta.direction !== 'None') {
-      const glyph = document.createElement('span');
-      glyph.setAttribute('aria-hidden', 'true');
-      glyph.textContent = glyphFor(delta.direction);
-      value.appendChild(glyph);
-    }
-
-    const token = document.createElement('span');
-    token.className = deltaClassFor(delta.direction);
-    token.textContent = delta.isMeaningful ? formatDeltaToken(delta.delta, delta.unit) : formatDeltaToken(0, delta.unit);
-    value.appendChild(token);
+    const value = createDeltaValue(
+      delta,
+      delta.isMeaningful ? formatDeltaToken(delta.delta, delta.unit) : formatDeltaToken(0, delta.unit),
+      deltaClassFor(delta.direction),
+    );
 
     line.appendChild(sentence);
     line.appendChild(value);
     container.appendChild(line);
+  };
+
+  const createHiddenInput = (name: string, value: string): HTMLInputElement => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = value;
+    return input;
+  };
+
+  const createStatefulPostForm = (
+    action: string,
+    antiForgeryToken: string,
+    serializedState: string,
+  ): HTMLFormElement => {
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = action;
+    if (antiForgeryToken !== '') {
+      form.appendChild(createHiddenInput(cutLabAntiForgeryFieldName, antiForgeryToken));
+    }
+    form.appendChild(createHiddenInput('CutLabStateJson', serializedState));
+    return form;
   };
 
   const buildDecisionFormBase = (
@@ -2479,27 +2525,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     serializedState: string,
     antiForgeryToken: string,
   ): HTMLFormElement => {
-    const form = document.createElement('form');
-    form.method = 'post';
-    form.action = getCutLabDecideAction();
+    const form = createStatefulPostForm(getCutLabDecideAction(), antiForgeryToken, serializedState);
     form.dataset.cutLabDecideForm = 'true';
 
-    const appendHiddenInput = (name: string, value: string): void => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = name;
-      input.value = value;
-      form.appendChild(input);
-    };
-
-    if (antiForgeryToken !== '') {
-      appendHiddenInput(cutLabAntiForgeryFieldName, antiForgeryToken);
-    }
-
-    appendHiddenInput('CutLabStateJson', serializedState);
-    appendHiddenInput('CardName', cardName);
-    appendHiddenInput('RoundKey', roundKey);
-    appendHiddenInput('Decision', decisionValue);
+    form.appendChild(createHiddenInput('CardName', cardName));
+    form.appendChild(createHiddenInput('RoundKey', roundKey));
+    form.appendChild(createHiddenInput('Decision', decisionValue));
 
     return form;
   };
@@ -2648,12 +2679,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     cutsMade.forEach(cut => {
       const row = document.createElement('div');
       row.className = 'cutlab-cuts-made__row';
-      const trigger = document.createElement('button');
-      trigger.type = 'button';
-      trigger.className = 'cutlab-card-link';
-      trigger.dataset.cutlabCardOpen = cut.cardName;
+      const trigger = createCardOpenButton(cut.cardName, 'cutlab-card-link');
       trigger.dataset.cutlabCardViewOnly = 'true';
-      trigger.textContent = cut.cardName;
       row.appendChild(trigger);
       row.appendChild(createTextElement('span', 'prompt-size-note', `cut in ${cut.roundLabel}`));
       row.appendChild(createRestoreForm(cut, serializedState, antiForgeryToken));
@@ -2709,6 +2736,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     syncCardTextData(patch.cardTextByCardName);
     syncCardTextComboContexts(comboBadgeByCardName);
 
+    const evidenceCandidates = getEvidenceCandidates();
     const totalFindings = patch.structuralFindings.reduce((count, group) => count + group.items.length, 0);
     const countBadge = section.querySelector<HTMLElement>('[data-cut-lab-findings-count-slot] .cutlab-findings-count');
     if (countBadge) {
@@ -2717,11 +2745,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     if (totalFindings === 0) {
-      replaceChildren(body, [
+      body.replaceChildren(...[
         createTextElement('p', '', "No structural issues found. Your pool's curve, themes, finishers, and role coverage all look self-supporting at the current floors."),
       ]);
     } else {
-      replaceChildren(body, patch.structuralFindings.map(group => {
+      body.replaceChildren(...patch.structuralFindings.map(group => {
         const groupElement = document.createElement('div');
         groupElement.className = 'cutlab-finding';
         groupElement.appendChild(createTextElement('p', 'cutlab-finding__heading', group.heading));
@@ -2754,7 +2782,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
             const chips = document.createElement('div');
             chips.className = 'kb-chip-area__chips';
             item.evidence.forEach(evidence => {
-              chips.appendChild(createStructuralEvidenceChip(evidence, comboBadgeByCardName));
+              chips.appendChild(createStructuralEvidenceChip(evidence, evidenceCandidates, comboBadgeByCardName));
             });
             itemElement.appendChild(chips);
           }
@@ -2830,7 +2858,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       children.push(createTextElement('p', 'prompt-size-note', `+${advisoryPatch.hiddenCount} more locked cards ranked below these.`));
     }
 
-    replaceChildren(advisory, children);
+    advisory.replaceChildren(...children);
   };
 
   const renderProposalTerminalState = (
@@ -2840,7 +2868,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   ): void => {
     proposal.removeAttribute('data-cut-lab-card');
     proposal.removeAttribute('data-cut-lab-round');
-    replaceChildren(proposal, [
+    proposal.replaceChildren(...[
       createTextElement('p', 'cutlab-proposal__heading', heading),
       createTextElement('p', '', body),
     ]);
@@ -2861,7 +2889,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       renderProposalTerminalState(
         proposal,
         'Nothing to cut',
-        'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.',
+        cutLabNothingToCutCopy,
       );
       renderFloorWarnings(proposal, []);
       return;
@@ -2872,7 +2900,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         nextProposal.isAtTarget ? "You're at 100 cards" : 'Nothing to cut',
         nextProposal.isAtTarget
           ? 'Review the cuts you made below, or reopen a card from the Cuts made list if you want to reconsider.'
-          : 'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.',
+          : cutLabNothingToCutCopy,
       );
       renderFloorWarnings(proposal, []);
       return;
@@ -3091,18 +3119,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     const deltaCell = document.createElement('td');
     deltaCell.setAttribute('data-label', 'Delta');
-    const value = document.createElement('span');
-    value.className = `cutlab-delta__value ${deltaClassFor(delta.direction)}`;
-    if (delta.direction !== 'None') {
-      const glyph = document.createElement('span');
-      glyph.setAttribute('aria-hidden', 'true');
-      glyph.textContent = glyphFor(delta.direction);
-      value.appendChild(glyph);
-    }
-
-    const token = document.createElement('span');
-    token.textContent = formatDeltaToken(delta.delta, delta.unit);
-    value.appendChild(token);
+    const value = createDeltaValue(delta, formatDeltaToken(delta.delta, delta.unit));
     deltaCell.appendChild(value);
 
     row.append(metricCell, beforeCell, afterCell, deltaCell);
@@ -3119,11 +3136,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     clearWhatifError();
     selection.classList.remove('hidden');
-    selection.innerHTML =
-      `Previewing: cut <strong>${escapeHtml(response.cardOut)}</strong>, restore <strong>${escapeHtml(response.cardIn)}</strong>. ` +
-      `${response.changedFamilyCount} ${cutLabWhatifPreviewSummaryCopy}`;
+    selection.replaceChildren(
+      document.createTextNode('Previewing: cut '),
+      createTextElement('strong', '', response.cardOut),
+      document.createTextNode(', restore '),
+      createTextElement('strong', '', response.cardIn),
+      document.createTextNode(`. ${response.changedFamilyCount} ${cutLabWhatifPreviewSummaryCopy}`),
+    );
 
-    replaceChildren(deltaBody, response.deltas.map(createWhatifDeltaRow));
+    deltaBody.replaceChildren(...response.deltas.map(createWhatifDeltaRow));
     setWhatifControlsVisible(true);
   };
 
@@ -3137,41 +3158,37 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     if (deltaBody) {
-      replaceChildren(deltaBody, []);
+      deltaBody.replaceChildren();
     }
 
     setWhatifControlsVisible(false);
   };
 
+  const disableUntilRestored = (controls: Array<HTMLButtonElement | HTMLSelectElement | HTMLInputElement>): (() => void) => {
+    const states = controls.map(control => ({ control, wasDisabled: control.disabled }));
+    states.forEach(({ control }) => { control.disabled = true; });
+    return () => {
+      states.forEach(({ control, wasDisabled }) => { control.disabled = wasDisabled; });
+    };
+  };
+
   const setWhatifBusyState = (form: HTMLFormElement, submitter: HTMLButtonElement | null): (() => void) => {
-    const originalButtonStates = [
+    const buttons = [
       getWhatifPreviewButton(),
       getWhatifKeepButton(),
       getWhatifDiscardButton(),
-    ].filter((button): button is HTMLButtonElement => button !== null)
-      .map(button => ({ button, wasDisabled: button.disabled }));
-    const originalSelectStates = [
+    ].filter((button): button is HTMLButtonElement => button !== null);
+    const selects = [
       getWhatifCardOutSelect(),
       getWhatifCardInSelect(),
-    ].filter((select): select is HTMLSelectElement => select !== null)
-      .map(select => ({ select, wasDisabled: select.disabled }));
+    ].filter((select): select is HTMLSelectElement => select !== null);
 
-    originalButtonStates.forEach(({ button }) => {
-      button.disabled = true;
-    });
-    originalSelectStates.forEach(({ select }) => {
-      select.disabled = true;
-    });
+    const restoreControls = disableUntilRestored([...buttons, ...selects]);
     form.setAttribute('aria-busy', 'true');
 
     const restoreSubmitter = submitter ? setSubmitterBusyState(submitter) : () => undefined;
     return () => {
-      originalButtonStates.forEach(({ button, wasDisabled }) => {
-        button.disabled = wasDisabled;
-      });
-      originalSelectStates.forEach(({ select, wasDisabled }) => {
-        select.disabled = wasDisabled;
-      });
+      restoreControls();
       form.removeAttribute('aria-busy');
       restoreSubmitter();
     };
@@ -3182,7 +3199,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const replaceWhatifSelectOptions = (select: HTMLSelectElement, cardNames: string[]): void => {
     const emptyOptionLabel = Array.from(select.options).find(option => option.value === '')?.text ?? '';
-    replaceChildren(select, [
+    select.replaceChildren(...[
       new Option(emptyOptionLabel, ''),
       ...cardNames.map(cardName => new Option(cardName, cardName)),
     ]);
@@ -3230,15 +3247,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       children.push(helper);
     }
 
-    replaceChildren(exportCountStatus, children);
-  };
-
-  const createAdjustHiddenInput = (name: string, value: string): HTMLInputElement => {
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = name;
-    input.value = value;
-    return input;
+    exportCountStatus.replaceChildren(...children);
   };
 
   const createAdjustSubmitButton = (
@@ -3274,19 +3283,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     serializedState: string,
     disabled: boolean,
   ): HTMLFormElement => {
-    const form = document.createElement('form');
-    form.method = 'post';
-    form.action = '/cut-lab/adjust';
+    const form = createStatefulPostForm(cutLabAdjustAction, antiForgeryToken, serializedState);
     form.dataset.cutLabAdjustForm = '';
 
-    if (antiForgeryToken !== '') {
-      form.appendChild(createAdjustHiddenInput(cutLabAntiForgeryFieldName, antiForgeryToken));
-    }
-
-    form.appendChild(createAdjustHiddenInput('CutLabStateJson', serializedState));
-    form.appendChild(createAdjustHiddenInput('CardName', row.cardName));
-    form.appendChild(createAdjustHiddenInput('Delta', `${delta}`));
-    form.appendChild(createAdjustHiddenInput('IsAddedBasic', row.isAddedBasic ? 'true' : 'false'));
+    form.appendChild(createHiddenInput('CardName', row.cardName));
+    form.appendChild(createHiddenInput('Delta', `${delta}`));
+    form.appendChild(createHiddenInput('IsAddedBasic', row.isAddedBasic ? 'true' : 'false'));
     const adjustGuidance = row.isLockedOrCommander
       ? `${row.cardName} is locked - unlock it to adjust quantity`
       : null;
@@ -3363,19 +3365,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return null;
     }
 
-    const form = document.createElement('form');
-    form.method = 'post';
-    form.action = '/cut-lab/adjust';
+    const form = createStatefulPostForm(cutLabAdjustAction, antiForgeryToken, serializedState);
     form.dataset.cutLabAdjustForm = '';
     form.className = 'toolbar cutlab-tuner__add-basic';
 
-    if (antiForgeryToken !== '') {
-      form.appendChild(createAdjustHiddenInput(cutLabAntiForgeryFieldName, antiForgeryToken));
-    }
-
-    form.appendChild(createAdjustHiddenInput('CutLabStateJson', serializedState));
-    form.appendChild(createAdjustHiddenInput('Delta', '1'));
-    form.appendChild(createAdjustHiddenInput('IsAddedBasic', 'true'));
+    form.appendChild(createHiddenInput('Delta', '1'));
+    form.appendChild(createHiddenInput('IsAddedBasic', 'true'));
 
     const label = document.createElement('label');
     label.htmlFor = 'cut-lab-add-basic-select';
@@ -3433,7 +3428,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         ...row,
         roleLabel: row.roleLabel.trim() === '' ? carriedLabels.get(normalizeAsciiCase(row.cardName)) ?? row.roleLabel : row.roleLabel,
       }, antiForgeryToken, serializedState));
-    replaceChildren(tunerBody, visibleRows);
+    tunerBody.replaceChildren(...visibleRows);
   };
 
   const reconcileAddableBasics = (
@@ -3474,7 +3469,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    replaceChildren(select, [
+    select.replaceChildren(...[
       new Option('Choose a basic…', ''),
       ...addableBasics.map(cardName => new Option(cardName, cardName)),
     ]);
@@ -3720,14 +3715,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         candidate.dataset.cutLabDecideForm = 'true';
       });
     const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('form[data-cut-lab-decide-form] button[type="submit"]'));
-    const originalStates = buttons.map(button => ({
-      button,
-      wasDisabled: button.disabled,
-    }));
-
-    originalStates.forEach(({ button }) => {
-      button.disabled = true;
-    });
+    const restoreControls = disableUntilRestored(buttons);
 
     if (proposal) {
       proposal.setAttribute('aria-busy', 'true');
@@ -3735,9 +3723,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     const restoreSubmitter = submitter ? setSubmitterBusyState(submitter) : () => undefined;
     return () => {
-      originalStates.forEach(({ button, wasDisabled }) => {
-        button.disabled = wasDisabled;
-      });
+      restoreControls();
 
       restoreSubmitter();
       proposal?.removeAttribute('aria-busy');
@@ -3988,14 +3974,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const setPlanPanelBusyState = (root: HTMLElement, archetype: HTMLInputElement | null): (() => void) => {
     root.setAttribute('aria-busy', 'true');
     const checkboxes = [...getPlanPanelCheckboxes('PlanStrategies'), ...getPlanPanelCheckboxes('PlanThemes')];
-    const originallyDisabled = checkboxes.map(checkbox => checkbox.disabled);
-    checkboxes.forEach(checkbox => {
-      checkbox.disabled = true;
-    });
-    const archetypeWasDisabled = archetype?.disabled ?? false;
+    const restoreCheckboxes = disableUntilRestored(checkboxes);
+    const restoreArchetype = disableUntilRestored(archetype ? [archetype] : []);
     const applying = archetype ? document.createElement('span') : null;
     if (archetype && applying) {
-      archetype.disabled = true;
       applying.className = 'cut-lab-plan-panel__applying';
       applying.textContent = 'Applying…';
       const rowName = archetype.closest('label')?.querySelector<HTMLElement>('.cut-lab-plan-panel__row-name');
@@ -4006,10 +3988,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     return () => {
       root.removeAttribute('aria-busy');
-      checkboxes.forEach((checkbox, index) => {
-        checkbox.disabled = originallyDisabled[index];
-      });
-      if (archetype) archetype.disabled = archetypeWasDisabled;
+      restoreCheckboxes();
+      restoreArchetype();
       applying?.previousSibling?.remove();
       applying?.remove();
     };
@@ -4171,21 +4151,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const buttons = row
       ? Array.from(row.querySelectorAll<HTMLButtonElement>('button[type="submit"]'))
       : Array.from(form.querySelectorAll<HTMLButtonElement>('button[type="submit"]'));
-    const originalStates = buttons.map(button => ({
-      button,
-      wasDisabled: button.disabled,
-    }));
-
-    originalStates.forEach(({ button }) => {
-      button.disabled = true;
-    });
+    const restoreControls = disableUntilRestored(buttons);
 
     const restoreSubmitter = submitter ? setSubmitterBusyState(submitter) : () => undefined;
     row?.setAttribute('aria-busy', 'true');
     return () => {
-      originalStates.forEach(({ button, wasDisabled }) => {
-        button.disabled = wasDisabled;
-      });
+      restoreControls();
 
       restoreSubmitter();
       row?.removeAttribute('aria-busy');
@@ -4271,13 +4242,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getPackageMemberRows = (packageId: string): HTMLTableRowElement[] =>
     getPoolRows().filter(row => getPackageSelect(row)?.value === packageId);
 
-  const syncPackageState = (packageId: string): void => {
+  const syncPackageState = (packageId: string, index = buildPoolIndex()): void => {
     const container = findPackageContainer(packageId);
     if (!container) {
       return;
     }
 
-    const memberRows = getPackageMemberRows(packageId);
+    const memberRows = index.rows.filter(row => index.entries.get(row)!.packageId === packageId);
     const memberLocked = memberRows
       .map(row => getLockCheckbox(row))
       .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null)
@@ -4289,13 +4260,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     renderPackageMembers(container, memberRows);
   };
 
-  const syncAllPackageStates = (): void => {
+  const syncAllPackageStates = (index = buildPoolIndex()): void => {
     getPackageContainers().forEach(container => {
       const packageId = container.dataset.cutLabPackageId;
       if (packageId) {
-        syncPackageState(packageId);
+        syncPackageState(packageId, index);
       }
     });
+  };
+
+  const setKbChips = (container: HTMLElement, labels: string[]): void => {
+    container.replaceChildren(...labels.map(label => createTextElement('span', 'kb-chip', label)));
   };
 
   const renderPackageMembers = (container: HTMLDivElement, rows: HTMLTableRowElement[]): void => {
@@ -4304,7 +4279,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     if (rows.length === 0) {
       if (chipArea) {
-        chipArea.innerHTML = '';
+        chipArea.replaceChildren();
       }
 
       if (emptyHint) {
@@ -4315,12 +4290,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    const chipsMarkup = rows
-      .map(row => `<span class="kb-chip">${escapeHtml(row.dataset.cutLabCard ?? '')}</span>`)
-      .join('');
-
     if (chipArea) {
-      chipArea.innerHTML = chipsMarkup;
+      setKbChips(chipArea, rows.map(row => row.dataset.cutLabCard ?? ''));
     }
 
     if (emptyHint) {
@@ -4357,16 +4328,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       checkbox.checked = locked;
     });
 
-    syncPackageState(packageId);
     refreshAndSerialize();
   };
 
   const toggleRoleLock = (roleKey: string): void => {
-    const roleRows = getPoolRows().filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey));
-    const lockableMembers = roleRows
-      .map(row => getLockCheckbox(row))
-      .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
-    const nextLockedState = !(lockableMembers.length > 0 && lockableMembers.every(checkbox => checkbox.checked));
+    const lockableMembers = getLockableRoleCheckboxes(roleKey);
+    const nextLockedState = !areAllLocked(lockableMembers);
 
     lockableMembers.forEach(checkbox => {
       checkbox.checked = nextLockedState;
@@ -4486,11 +4453,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const packageId = buildPackageId(packageName);
     addPackageOptionToSelects(packageId, packageName);
     pendingNewPackageTarget.select.value = packageId;
-    const container = createPackageContainer(packageId, packageName);
+    createPackageContainer(packageId, packageName);
     clearPendingNewPackageUi();
-    if (container) {
-      syncPackageState(packageId);
-    }
 
     refreshAndSerialize();
   };
@@ -4536,28 +4500,16 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    const previousPackageId = Array.from(getPackageContainers())
-      .find(container => getPackageMemberRows(container.dataset.cutLabPackageId ?? '').some(member => member === row))
-      ?.dataset.cutLabPackageId;
-
     if (select.value === newPackageOptionValue) {
       showNewPackageUi(select);
       return;
-    }
-
-    if (previousPackageId) {
-      syncPackageState(previousPackageId);
-    }
-
-    if (select.value !== '') {
-      syncPackageState(select.value);
     }
 
     clearPendingNewPackageUi();
     refreshAndSerialize();
   };
 
-  const updateConstraintsSummary = (): void => {
+  const updateConstraintsSummary = (index = buildPoolIndex()): void => {
     const lockedChips = document.querySelector<HTMLElement>('[data-cut-lab-constraints-locked-chips]');
     const lockedMore = document.querySelector<HTMLElement>('[data-cut-lab-constraints-locked-more]');
     const packageCount = document.querySelector<HTMLElement>('[data-cut-lab-constraints-package-count]');
@@ -4569,24 +4521,21 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const roleHint = document.querySelector<HTMLElement>('[data-cut-lab-constraints-role-hint]');
     const packages = getPackageContainers();
     const roleButtons = getRoleLockButtons();
-    const lockedRows = getPoolRows().filter(row => getLockCheckbox(row)?.checked);
+    const lockedRows = index.rows.filter(row => index.entries.get(row)!.checkbox?.checked);
     const unprotectedRoles = roleButtons
       .filter(button => button.getAttribute('aria-pressed') !== 'true');
     const unprotectedRoleChips = unprotectedRoles
       .slice(0, 3);
 
     if (lockedChips) {
-      lockedChips.innerHTML = lockedRows
-        .slice(0, 3)
-        .map(row => `<span class="kb-chip">${escapeHtml(row.dataset.cutLabCard ?? '')}</span>`)
-        .join('');
+      setKbChips(lockedChips, lockedRows.slice(0, 3).map(row => row.dataset.cutLabCard ?? ''));
     }
 
     if (lockedMore) {
-      const lockedCardCount = lockedRows.reduce((total, row) => total + parseRowQuantity(row), 0);
+      const lockedCardCount = lockedRows.reduce((total, row) => total + index.entries.get(row)!.quantity, 0);
       const shownLockedCardCount = lockedRows
         .slice(0, 3)
-        .reduce((total, row) => total + parseRowQuantity(row), 0);
+        .reduce((total, row) => total + index.entries.get(row)!.quantity, 0);
       const remainingLockedCards = Math.max(0, lockedCardCount - shownLockedCardCount);
       lockedMore.textContent = `+${remainingLockedCards} more`;
       lockedMore.hidden = remainingLockedCards === 0;
@@ -4599,10 +4548,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     if (packageChips) {
-      packageChips.innerHTML = lockedPackages
-        .slice(0, 3)
-        .map(container => `<span class="kb-chip">${escapeHtml(container.dataset.cutLabPackageName ?? '')}</span>`)
-        .join('');
+      setKbChips(packageChips, lockedPackages.slice(0, 3).map(container => container.dataset.cutLabPackageName ?? ''));
     }
 
     if (roleCount) {
@@ -4624,21 +4570,20 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     if (roleChips) {
-      roleChips.innerHTML = unprotectedRoleChips
-        .map(button => escapeHtml(button.closest<HTMLElement>('.cutlab-role-group')?.querySelector('summary')?.textContent?.split('·')[0]?.trim() ?? ''))
-        .map(label => `<span class="kb-chip">${label}</span>`)
-        .join('');
+      setKbChips(roleChips, unprotectedRoleChips
+        .map(button => button.closest<HTMLElement>('.cutlab-role-group')?.querySelector('summary')?.textContent?.split('·')[0]?.trim() ?? ''));
     }
   };
 
   const refreshAndSerialize = (syncDecisionForms = true): void => {
-    updateLockedCountChip();
-    updatePoolFilterState();
-    syncAllPackageStates();
-    syncRoleGroupLockState();
-    syncRoleLockButtons();
-    updateConstraintsSummary();
-    const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom());
+    const index = buildPoolIndex();
+    updateLockedCountChip(index);
+    updatePoolFilterState(index);
+    syncAllPackageStates(index);
+    syncRoleGroupLockState(index);
+    syncRoleLockButtons(index);
+    updateConstraintsSummary(index);
+    const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom(index));
     writeStateToHiddenInput(serializedState);
     if (syncDecisionForms) {
       writeDecisionStateToHiddenInputs(serializedState);
@@ -5235,7 +5180,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     attachCopyHandlers();
     attachCardModalHandlers();
     attachSubmitHandler();
-    syncCardTextComboContexts({});
     refreshAndSerialize(false);
     renderSubtypeSearchResults();
     renderScenarioList();
