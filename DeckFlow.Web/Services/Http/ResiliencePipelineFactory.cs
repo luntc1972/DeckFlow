@@ -42,6 +42,7 @@ namespace DeckFlow.Web.Services.Http
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "tagger-post", builder => BuildTaggerPost(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "scryfall", builder => BuildScryfall(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "archidekt", builder => BuildArchidekt(builder));
+            DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "moxfield", builder => BuildMoxfield(builder));
             DeckFlowResiliencePipelineRegistry.AddResiliencePipeline<string, RestResponse>(services, "render", builder => BuildRenderApi(builder));
             return services;
         }
@@ -103,6 +104,24 @@ namespace DeckFlow.Web.Services.Http
                     .HandleResult(static r => r.StatusCode >= HttpStatusCode.InternalServerError)
                     // Why: a trip must end the call instead of spending budget during a 429 storm (D-12).
                     .Handle<Exception>(static ex => IsTransientException(ex) && ex is not ArchidektRateLimitedException),
+            });
+
+        /// <summary>Moxfield: bounded total time and retries only for server and transient failures.</summary>
+        private static void BuildMoxfield(ResiliencePipelineBuilder<RestResponse> builder) => builder
+            .AddTimeout(new TimeoutStrategyOptions
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+                Name = "moxfield-total",
+            })
+            .AddRetry(new RetryStrategyOptions<RestResponse>
+            {
+                MaxRetryAttempts = 2,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                // Why: retrying Cloudflare 403 or 429 blocks deepens the shared egress block.
+                ShouldHandle = new PredicateBuilder<RestResponse>()
+                    .HandleResult(static r => r.StatusCode >= HttpStatusCode.InternalServerError)
+                    .Handle<Exception>(static ex => IsTransientException(ex)),
             });
 
         /// <summary>Spellbook: Retry(3, exponential+jitter), AttemptTimeout(10s), CB(50% / 30s).</summary>

@@ -40,10 +40,28 @@ public sealed class ResiliencePipelineFactoryTests
     [InlineData("tagger-post")]
     [InlineData("scryfall")]
     [InlineData("render")]
+    [InlineData("moxfield")]
     public void EveryNamedPipeline_Resolves(string name)
     {
         var pipeline = Provider.GetPipeline<RestResponse>(name);
         Assert.NotNull(pipeline);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData((HttpStatusCode)429)]
+    public async Task MoxfieldPipeline_CloudflareBlockStatus_IsNotRetried(HttpStatusCode statusCode)
+    {
+        var attempts = 0;
+        var pipeline = Provider.GetPipeline<RestResponse>("moxfield");
+
+        _ = await pipeline.ExecuteAsync(_ =>
+        {
+            attempts++;
+            return ValueTask.FromResult(new RestResponse { StatusCode = statusCode });
+        });
+
+        Assert.Equal(1, attempts);
     }
 
     [Fact]

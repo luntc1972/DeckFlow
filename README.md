@@ -45,6 +45,7 @@ These rules exist because breaking them produced silent, hard-to-report bugs. Th
 - `DeckComparisonService` parses two decklists, resolves cards via Scryfall, queries Commander Spellbook for both decks, derives comparison context (role counts, mana curves, combo gaps), and generates structured AI prompts with a JSON output schema.
 - `CommanderSpellbookService` caches results for 30 minutes and degrades gracefully on API failure.
 - `CategoryKnowledgeStore` persists observations through the configured relational provider. SQLite stores `artifacts/category-knowledge.db` by default; Postgres can be selected with `DECKFLOW_DATABASE_PROVIDER=Postgres`.
+- **Deck Tendencies creator crawl:** `CreatorProfileDeckCrawler` routes on the profile platform (Archidekt owner client or the new Moxfield owner client, which shares one process-wide 500 ms pacer with Moxfield deck imports); a failed listing, an invalid page, or a deck fetch served by the Commander Spellbook fallback serves the cached decks without restamping the crawl time; any other platform is skipped with a warning.
 
 ---
 

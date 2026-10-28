@@ -6,6 +6,12 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Deck Tendencies Moxfield crawl (2026-10-27)
+
+- **The fix:** Moxfield profiles now crawl Moxfield instead of being looked up on Archidekt.
+- **The bounds:** listing and imports share one 500 ms spacing gate; listing stops at 10 pages of 50 decks; a failed, oversized, malformed or unexpectedly shaped page, or a deck fetch Moxfield blocks, keeps the cached decks and the previous crawl time.
+- **Unsupported platform values:** skip the crawl with a logged warning.
+
 ### Unreleased — Legal-Commander harvest and per-commander retention
 
 - **Legal-Commander harvest:** bulk, update, and admin URL harvests keep only legal Commander decks, record skip reasons, and use Commander-only discovery filters.

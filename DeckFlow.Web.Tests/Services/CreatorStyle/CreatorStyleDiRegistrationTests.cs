@@ -50,6 +50,8 @@ public sealed class CreatorStyleDiRegistrationTests
         typeof(CreatorWhitelistPoolBuilder),
         typeof(ICreatorStyleSeedLoader),
         typeof(IArchidektOwnerClient),
+        typeof(IMoxfieldOwnerClient),
+        typeof(MoxfieldRequestPacer),
         typeof(CreatorProfileDeckCrawler),
         typeof(CreatorDeckCategoryResolver),
         typeof(MeasuredStyleProfileBuilder),
@@ -60,6 +62,7 @@ public sealed class CreatorStyleDiRegistrationTests
     private static readonly HashSet<Type> ScopedCreatorStyleServices =
     [
         typeof(IArchidektOwnerClient),
+        typeof(IMoxfieldOwnerClient),
         typeof(CreatorProfileDeckCrawler),
         typeof(CreatorDeckCategoryResolver),
         typeof(MeasuredStyleProfileBuilder),
@@ -175,6 +178,58 @@ public sealed class CreatorStyleDiRegistrationTests
         }
     }
 
+    [Fact]
+    public void Resolve_RealMoxfieldOwnerClient_DoesNotThrow_WhenMoxfieldPipelineRegistered()
+    {
+        using var testRoot = CreatorStyleTestRoot.Create();
+        using var providerScope = EnvScope.Clear("DECKFLOW_DATABASE_PROVIDER", "DECKFLOW_DATABASE_CONNECTION_STRING");
+        using var dataDirScope = EnvScope.Set("MTG_DATA_DIR", Path.Combine(testRoot.Environment.ContentRootPath, "..", "artifacts"));
+        var services = CreateCreatorStyleServiceCollection(testRoot.Environment);
+        services.AddDeckFlowResiliencePipelines();
+        services.AddDeckFlowCreatorStyle(testRoot.Environment);
+        using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        using IServiceScope scope = provider.CreateScope();
+        Assert.IsType<MoxfieldOwnerClient>(scope.ServiceProvider.GetRequiredService<IMoxfieldOwnerClient>());
+        Assert.IsType<CreatorProfileDeckCrawler>(scope.ServiceProvider.GetRequiredService<CreatorProfileDeckCrawler>());
+    }
+
+    [Fact]
+    public async Task MoxfieldOwnerNamedClient_SendsBrowserHeadersToMoxfieldApi()
+    {
+        using var testRoot = CreatorStyleTestRoot.Create();
+        using var providerScope = EnvScope.Clear("DECKFLOW_DATABASE_PROVIDER", "DECKFLOW_DATABASE_CONNECTION_STRING");
+        using var dataDirScope = EnvScope.Set("MTG_DATA_DIR", Path.Combine(testRoot.Environment.ContentRootPath, "..", "artifacts"));
+        var handler = new HeaderCapturingHandler();
+        var services = CreateCreatorStyleServiceCollection(testRoot.Environment);
+        services.AddDeckFlowResiliencePipelines();
+        services.AddDeckFlowCreatorStyle(testRoot.Environment);
+        services.AddHttpClient("moxfield-owner").ConfigurePrimaryHttpMessageHandler(() => handler);
+        using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope scope = provider.CreateScope();
+        _ = await scope.ServiceProvider.GetRequiredService<IMoxfieldOwnerClient>().ListDeckSummariesAsync("snail");
+        Assert.Single(handler.Requests);
+        Assert.Equal("https://api2.moxfield.com/v2/decks/search?authorUserNames=snail&pageNumber=1&pageSize=50", handler.Requests[0].RequestUri?.ToString());
+        Assert.Equal(MoxfieldOwnerClient.BrowserUserAgent, handler.Requests[0].UserAgent);
+        Assert.True(handler.Requests[0].HasReferer);
+    }
+
+    [Fact]
+    public void AddDeckFlowCreatorStyle_MoxfieldRequestPacer_IsOneSingletonAcrossScopes()
+    {
+        using var testRoot = CreatorStyleTestRoot.Create();
+        using var providerScope = EnvScope.Clear("DECKFLOW_DATABASE_PROVIDER", "DECKFLOW_DATABASE_CONNECTION_STRING");
+        using var dataDirScope = EnvScope.Set("MTG_DATA_DIR", Path.Combine(testRoot.Environment.ContentRootPath, "..", "artifacts"));
+        var services = CreateCreatorStyleServiceCollection(testRoot.Environment);
+        services.AddDeckFlowResiliencePipelines();
+        services.AddDeckFlowCreatorStyle(testRoot.Environment);
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(MoxfieldRequestPacer));
+        Assert.Equal(ServiceLifetime.Singleton, services.Single(descriptor => descriptor.ServiceType == typeof(MoxfieldRequestPacer)).Lifetime);
+        using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        using IServiceScope first = provider.CreateScope();
+        using IServiceScope second = provider.CreateScope();
+        Assert.Same(first.ServiceProvider.GetRequiredService<MoxfieldRequestPacer>(), second.ServiceProvider.GetRequiredService<MoxfieldRequestPacer>());
+    }
+
     private static ServiceCollection CreateCreatorStyleServiceCollection(IWebHostEnvironment environment)
     {
         var services = new ServiceCollection();
@@ -191,6 +246,7 @@ public sealed class CreatorStyleDiRegistrationTests
         services.AddSingleton<ContentKbArtifactPathResolver>();
         services.AddSingleton<PacketSessionCache>();
         services.AddSingleton<IArchidektDeckImporter, ArchidektApiDeckImporter>();
+        services.AddSingleton<IMoxfieldDeckImporter, MoxfieldApiDeckImporter>();
         services.AddScoped<IDeckEntryLoader, FakeDeckEntryLoader>();
 
         services.AddDeckFlowHttpClients();
@@ -296,7 +352,7 @@ public sealed class CreatorStyleDiRegistrationTests
             Requests.Add((request.RequestUri, string.Join(" ", values ?? []), request.Headers.Referrer is not null));
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("""{ "results": [] }""", System.Text.Encoding.UTF8, "application/json"),
+                Content = new StringContent("""{ "totalPages": 1, "data": [] }""", System.Text.Encoding.UTF8, "application/json"),
             });
         }
     }

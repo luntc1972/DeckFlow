@@ -564,9 +564,15 @@ public sealed class MeasuredStyleProfileBuilderTests
         {
             var ownerClient = new FakeOwnerClient(_deckSummariesByUsername);
             var importer = new FakeDeckImporter(_decksById);
+            var moxfieldOwnerClient = new ThrowingMoxfieldOwnerClient();
+            var moxfieldImporter = new ThrowingMoxfieldDeckImporter();
+            var moxfieldPacer = new MoxfieldRequestPacer(TimeSpan.Zero);
             var crawler = new CreatorProfileDeckCrawler(
                 ownerClient,
                 importer,
+                moxfieldOwnerClient,
+                moxfieldImporter,
+                moxfieldPacer,
                 SourceStore,
                 CacheStore,
                 freshnessWindow: TimeSpan.Zero,
@@ -730,6 +736,21 @@ public sealed class MeasuredStyleProfileBuilderTests
     private static double CountManaValue(string manaCost)
     {
         return manaCost.Count(character => character == '{');
+    }
+
+    private sealed class ThrowingMoxfieldOwnerClient : IMoxfieldOwnerClient
+    {
+        public Task<MoxfieldDeckListResult> ListDeckSummariesAsync(string username, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Moxfield must not be called for the Archidekt fixture.");
+    }
+
+    private sealed class ThrowingMoxfieldDeckImporter : IMoxfieldDeckImporter
+    {
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Moxfield must not be called for the Archidekt fixture.");
+
+        public Task<MoxfieldImportResult> ImportWithSourceAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Moxfield must not be called for the Archidekt fixture.");
     }
 
     private sealed class FakeOwnerClient(IReadOnlyDictionary<string, IReadOnlyList<ArchidektDeckSummary>> summariesByUsername) : IArchidektOwnerClient

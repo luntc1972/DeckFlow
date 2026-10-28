@@ -37,6 +37,17 @@ public static class CreatorStyleServiceCollectionExtensions
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         });
 
+        services.AddHttpClient("moxfield-owner", client =>
+        {
+            client.BaseAddress = new Uri("https://api2.moxfield.com/");
+            client.MaxResponseContentBufferSize = MoxfieldOwnerClient.MaxResponseBytes;
+            // Why: Moxfield's Cloudflare front rejects non-browser agents; match MoxfieldApiDeckImporter.
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", MoxfieldOwnerClient.BrowserUserAgent);
+            client.DefaultRequestHeaders.Referrer = new Uri("https://moxfield.com/");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
+        });
+
         services.AddSingleton<ICardNameGrounder, ScryfallCardNameGrounder>();
         services.AddSingleton<ICardGroundingGuard, CardGroundingGuard>();
 
@@ -62,6 +73,8 @@ public static class CreatorStyleServiceCollectionExtensions
         services.AddSingleton<CreatorWhitelistPoolBuilder>();
         services.AddSingleton<ICreatorStyleSeedLoader, CreatorStyleSeedLoader>();
         services.AddScoped<IArchidektOwnerClient, ArchidektOwnerClient>();
+        services.AddSingleton<MoxfieldRequestPacer>();
+        services.AddScoped<IMoxfieldOwnerClient, MoxfieldOwnerClient>();
 
         services.AddScoped<CreatorProfileDeckCrawler>();
         services.AddScoped<CreatorDeckCategoryResolver>();
