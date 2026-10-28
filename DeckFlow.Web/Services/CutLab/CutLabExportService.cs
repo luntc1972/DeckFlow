@@ -58,18 +58,16 @@ public sealed class CutLabExportService : ICutLabExportService
 
         string poolKey = CutLabResolvedCardCache.ComputePoolKey(keptWorkingList);
         IReadOnlyList<ScryfallCardData>? preResolvedCards = TryGetPreResolvedCards(state.Pool, keptWorkingList, poolKey);
-        CutLabAnalysisContext context = await _contextBuilder
-            .BuildAsync(
+        IReadOnlyList<ScryfallCardData> resolvedCards = await _contextBuilder
+            .ResolvePoolCardsAsync(
                 keptWorkingList,
-                playExperience,
-                commanderNames,
                 preResolvedCards,
                 preResolvedCards is null ? null : poolKey,
-                cancellationToken)
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-        _resolvedCardCache.Set(poolKey, context.ResolvedCards);
+        _resolvedCardCache.Set(poolKey, resolvedCards);
 
-        IReadOnlyDictionary<string, ScryfallCardData> resolvedByName = context.ResolvedCards
+        IReadOnlyDictionary<string, ScryfallCardData> resolvedByName = resolvedCards
             .GroupBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
         Dictionary<string, IReadOnlyList<string>?> cardIdentitiesByName = new(StringComparer.OrdinalIgnoreCase);
@@ -188,13 +186,13 @@ public sealed class CutLabExportService : ICutLabExportService
     {
         List<string> warnings = [];
         List<DeckEntry> finalEntries = [];
+        ILookup<string, CutLabOriginalEntry> originalsByName = originalEntries
+            .ToLookup(entry => CardNormalizer.Normalize(entry.Name), StringComparer.Ordinal);
 
         foreach (CutLabPoolCard keptCard in keptWorkingList)
         {
             string normalizedName = CardNormalizer.Normalize(keptCard.Name);
-            List<CutLabOriginalEntry> matches = originalEntries
-                .Where(entry => string.Equals(CardNormalizer.Normalize(entry.Name), normalizedName, StringComparison.Ordinal))
-                .ToList();
+            IEnumerable<CutLabOriginalEntry> matches = originalsByName[normalizedName];
             IReadOnlyList<string>? effective = CutLabCategoryRules.Find(categoryOverrides, keptCard.Name) is null
                 ? null
                 : CutLabCategoryRules.EffectiveCategoryTokens(originalEntries, categoryOverrides, keptCard.Name);

@@ -86,10 +86,9 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
-            if (state.Pool.Count == 0)
+            if (!TryLoadState(request.CutLabStateJson, out CutLabState state, out ActionResult? error))
             {
-                return BadRequest(new { Message = InvalidStateMessage });
+                return error!;
             }
 
             if (CutLabDecisionApplier.IsLockedDecision(state, request.CardName, request.Decision))
@@ -141,22 +140,6 @@ public sealed class CutLabApiController : ControllerBase
                 fullPool,
                 afterWorkingList,
                 beforeContext.ResolvedCards);
-            if (request.Decision == CutLabDecideAction.Restore)
-            {
-                CutLabAnalysisContext afterContext = await _contextBuilder.BuildAsync(
-                    afterWorkingList,
-                    state.Intent.PlayExperience,
-                    commanderNames,
-                    afterPreResolvedCards,
-                    afterPoolKey,
-                    cancellationToken).ConfigureAwait(false);
-                afterContext = CutLabRoleOverrideApplier.Apply(afterContext, state.RoleOverrides);
-                planAffinityResult = await _planAffinityFactory.BuildAsync(
-                    state.Intent.PlanProfile,
-                    afterContext.AnalyzedCards,
-                    commanderNames,
-                    cancellationToken).ConfigureAwait(false);
-            }
             CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
                 state,
                 state.Intent.PlayExperience,
@@ -165,7 +148,7 @@ public sealed class CutLabApiController : ControllerBase
                 afterPreResolvedCards,
                 afterPoolKey,
                 floorWarnings,
-                planAffinityResult.Affinities,
+                request.Decision == CutLabDecideAction.Restore ? null : planAffinityResult.Affinities,
                 planAffinityResult.CheckedCommanderThemesAvailable,
                 cancellationToken).ConfigureAwait(false);
             return Ok(BuildDecideApiResponse(patch));
@@ -208,20 +191,14 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
-            if (state.Pool.Count == 0)
+            if (!TryLoadState(request.CutLabStateJson, out CutLabState state, out ActionResult? error))
             {
-                return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(BadRequest(new { Message = InvalidStateMessage }));
+                return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(error!);
             }
 
             IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
             state = CutLabAdjustmentApplier.Apply(state, request.CardName, request.Delta, request.IsAddedBasic);
-            if (_patchBuilder is not CutLabUiPatchBuilder adjustPatchBuilder)
-            {
-                throw new InvalidOperationException("Cut Lab adjust requests require the default UI patch builder.");
-            }
-
-            CutLabUiPatchDto patch = adjustPatchBuilder.BuildAdjustPatch(state, commanderNames);
+            CutLabUiPatchDto patch = _patchBuilder.BuildAdjustPatch(state, commanderNames);
 
             return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(Ok(new CutLabAdjustApiResponse
             {
@@ -266,10 +243,9 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
-            if (state.Pool.Count == 0)
+            if (!TryLoadState(request.CutLabStateJson, out CutLabState state, out ActionResult? error))
             {
-                return BadRequest(new { Message = InvalidStateMessage });
+                return error!;
             }
 
             IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
@@ -321,10 +297,9 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
-            if (state.Pool.Count == 0)
+            if (!TryLoadState(request.CutLabStateJson, out CutLabState state, out ActionResult? error))
             {
-                return BadRequest(new { Message = InvalidStateMessage });
+                return error!;
             }
 
             if (!_whatifService.TryValidateSwap(state, request.CardOut, request.CardIn, out string? validationError))
@@ -382,10 +357,9 @@ public sealed class CutLabApiController : ControllerBase
         CutLabWhatifCommitResult result;
         try
         {
-            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
-            if (state.Pool.Count == 0)
+            if (!TryLoadState(request.CutLabStateJson, out CutLabState state, out ActionResult? error))
             {
-                return BadRequest(new { Message = InvalidStateMessage });
+                return error!;
             }
 
             result = await _whatifService
@@ -452,10 +426,9 @@ public sealed class CutLabApiController : ControllerBase
 
         try
         {
-            CutLabState state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(request.CutLabStateJson));
-            if (state.Pool.Count == 0)
+            if (!TryLoadState(request.CutLabStateJson, out CutLabState state, out ActionResult? error))
             {
-                return BadRequest(new { Message = InvalidStateMessage });
+                return error!;
             }
 
             IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
@@ -511,7 +484,7 @@ public sealed class CutLabApiController : ControllerBase
 
     // Why: IsEnabled defaults a missing key ON; dark launch requires missing keys to land OFF.
     private bool IsFlagOn(string key)
-        => _featureFlags.Snapshot().TryGetValue(key, out bool enabled) && enabled;
+        => _featureFlags.IsExplicitlyEnabled(key);
 
     private IReadOnlyList<ScryfallCardData>? TryBuildAfterPreResolvedCards(
         IReadOnlyList<CutLabPoolCard> fullPool,
@@ -532,7 +505,7 @@ public sealed class CutLabApiController : ControllerBase
             return seededCards;
         }
 
-        return BuildPartialResolvedSubset(afterWorkingList, fullPoolCards ?? beforeResolvedCards);
+        return CutLabAnalysisContextBuilder.BuildPartialResolvedSubset(afterWorkingList, fullPoolCards ?? beforeResolvedCards);
     }
 
     private static CutLabDecideApiResponse BuildDecideApiResponse(CutLabUiPatchDto patch)
@@ -576,6 +549,13 @@ public sealed class CutLabApiController : ControllerBase
                     },
                 CutLabMessages.NoChangeMessage),
             };
+
+    private bool TryLoadState(string? json, out CutLabState state, out ActionResult? error)
+    {
+        state = SanitizePlanProfile(CutLabStateSerializer.Deserialize(json));
+        error = state.Pool.Count == 0 ? BadRequest(new { Message = InvalidStateMessage }) : null;
+        return error is null;
+    }
 
     private static CutLabState SanitizePlanProfile(CutLabState state)
     {
@@ -621,35 +601,9 @@ public sealed class CutLabApiController : ControllerBase
             ?? CutLabDecisionApplier.LatestRoundForCard(state, request.CardName);
     }
 
-    private static IReadOnlyList<ScryfallCardData>? BuildPartialResolvedSubset(
-        IReadOnlyList<CutLabPoolCard> targetPool,
-        IReadOnlyList<ScryfallCardData> sourceCards)
-    {
-        IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
-            sourceCards,
-            card => card.Name,
-            card => card);
-        return targetPool
-            .Select(card => sourceByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out ScryfallCardData? resolvedCard) ? resolvedCard : null)
-            .Where(card => card is not null)
-            .Cast<ScryfallCardData>()
-            .DistinctBy(card => CutLabCardNames.Normalize(card.Name))
-            .ToArray();
-    }
-
     private static IReadOnlyList<CutLabDecideMetricDeltaDto> BuildMetricDeltas(IReadOnlyList<CutLabMetricDelta> deltas)
         => deltas
-            .Select(delta => new CutLabDecideMetricDeltaDto
-            {
-                Kind = delta.Kind,
-                Label = delta.Label,
-                Before = delta.Before,
-                After = delta.After,
-                Delta = delta.Delta,
-                Unit = delta.Unit,
-                Direction = delta.Direction,
-                IsMeaningful = delta.IsMeaningful,
-            })
+            .Select(CutLabSharedHelpers.MapMetricDelta)
             .ToArray();
 
 }

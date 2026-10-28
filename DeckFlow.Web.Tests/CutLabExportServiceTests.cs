@@ -153,7 +153,8 @@ public sealed class CutLabExportServiceTests
         CutLabExportView result = await service.BuildExportAsync(CreateState(), "Focused", ["Zur the Enchanter"], CancellationToken.None);
 
         Assert.True(result.HasExport);
-        Assert.Equal(1, contextBuilder.BuildAsyncCallCount);
+        Assert.Equal(1, contextBuilder.ResolvePoolCardsAsyncCallCount);
+        Assert.Equal(0, contextBuilder.BuildAsyncCallCount);
     }
 
     [Fact]
@@ -415,6 +416,8 @@ public sealed class CutLabExportServiceTests
 
         public int BuildAsyncCallCount { get; private set; }
 
+        public int ResolvePoolCardsAsyncCallCount { get; private set; }
+
         public Task<CutLabAnalysisContext> BuildAsync(
             IReadOnlyList<CutLabPoolCard> workingList,
             string playExperience,
@@ -439,7 +442,10 @@ public sealed class CutLabExportServiceTests
             string? poolKey = null,
             bool failOpenOnLookupErrors = true,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(Result.ResolvedCards);
+        {
+            ResolvePoolCardsAsyncCallCount++;
+            return Task.FromResult(Result.ResolvedCards);
+        }
 
         public void PrimeResolvedCardsCache(
             IReadOnlyList<CutLabPoolCard> workingList,

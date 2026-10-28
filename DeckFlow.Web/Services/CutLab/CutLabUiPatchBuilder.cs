@@ -32,11 +32,47 @@ public interface ICutLabUiPatchBuilder
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities = null,
         bool checkedCommanderThemesAvailable = false,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Projects a quantity adjustment into the live UI patch contract.</summary>
+    CutLabUiPatchDto BuildAdjustPatch(CutLabState state, IReadOnlyList<string> commanderNames);
 }
 
 /// <summary>Builds shared role warnings, labels, and EDHREC theme results for Cut Lab UI patches.</summary>
 internal static class CutLabSharedHelpers
 {
+    internal static (ComboBadgeState State, string Context)? DescribeComboBadge(CutLabCardComboMembership membership)
+    {
+        if (membership.CompleteCombos.Count > 0)
+        {
+            return (ComboBadgeState.CompletePiece, CutLabSharedHelpers.JoinCardNames(
+                    membership.CompleteCombos
+                        .SelectMany(combo => combo.Results)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
+                        .ToArray()));
+        }
+
+        if (membership.NearCombos.Count > 0)
+        {
+            return (ComboBadgeState.NeedsPartner, $"Needs {CutLabSharedHelpers.JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}");
+        }
+
+        return null;
+    }
+
+    internal static CutLabDecideMetricDeltaDto MapMetricDelta(CutLabMetricDelta delta)
+        => new()
+        {
+            Kind = delta.Kind,
+            Label = delta.Label,
+            Before = delta.Before,
+            After = delta.After,
+            Delta = delta.Delta,
+            Unit = delta.Unit,
+            Direction = delta.Direction,
+            IsMeaningful = delta.IsMeaningful,
+        };
+
     internal static IReadOnlyList<CutLabDecideFloorWarningDto> BuildFloorWarnings(
         IReadOnlyList<CutLabPoolCard> workingList,
         CutLabAnalysisContext context,
@@ -348,17 +384,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             CardName = proposalDeltas.CardName,
             ChangedFamilyCount = proposalDeltas.ChangedFamilyCount,
             Deltas = proposalDeltas.Deltas
-                .Select(delta => new CutLabDecideMetricDeltaDto
-                {
-                    Kind = delta.Kind,
-                    Label = delta.Label,
-                    Before = delta.Before,
-                    After = delta.After,
-                    Delta = delta.Delta,
-                    Unit = delta.Unit,
-                    Direction = delta.Direction,
-                    IsMeaningful = delta.IsMeaningful,
-                })
+                .Select(CutLabSharedHelpers.MapMetricDelta)
                 .ToArray(),
         };
 
@@ -424,32 +450,9 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
     }
 
     private static CutLabDecideComboBadgeDto? BuildComboBadge(CutLabCardComboMembership membership)
-    {
-        if (membership.CompleteCombos.Count > 0)
-        {
-            return new CutLabDecideComboBadgeDto
-            {
-                BadgeState = ComboBadgeState.CompletePiece,
-                Context = CutLabSharedHelpers.JoinCardNames(
-                    membership.CompleteCombos
-                        .SelectMany(combo => combo.Results)
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
-                        .ToArray()),
-            };
-        }
-
-        if (membership.NearCombos.Count > 0)
-        {
-            return new CutLabDecideComboBadgeDto
-            {
-                BadgeState = ComboBadgeState.NeedsPartner,
-                Context = $"Needs {CutLabSharedHelpers.JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
-            };
-        }
-
-        return null;
-    }
+        => CutLabSharedHelpers.DescribeComboBadge(membership) is { } badge
+            ? new CutLabDecideComboBadgeDto { BadgeState = badge.State, Context = badge.Context }
+            : null;
 
     private static WorkingListProjection BuildWorkingListProjection(CutLabState state)
     {

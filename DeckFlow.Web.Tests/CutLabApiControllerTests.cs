@@ -591,10 +591,14 @@ public sealed class CutLabApiControllerTests
                     Ordinal = 3,
                 },
         ]);
-        TrackingPatchBuilder patchBuilder = new();
+        state = state with
+        {
+            Pool = [.. state.Pool, Card("Package A", 1), Card("Package B", 1), Card("Package C", 1), Card("Package D", 1)],
+        };
         FakeAnalysisContextBuilder builder = new(workingList => CreateAnalysisContext(workingList));
         builder.SeedCachedResolvedCards(state.Pool);
-        PerCardPlanAffinityFactory planAffinityFactory = new();
+        PerCardPlanAffinityFactory planAffinityFactory = new(includeOffPlanPackage: true);
+        CutLabUiPatchBuilder patchBuilder = new(builder, new FakeSimulationService(), new PassThroughFloorResolver(), planAffinityFactory);
         CutLabApiController controller = CreateController(
             builder,
             new FakeSimulationService(),
@@ -610,10 +614,12 @@ public sealed class CutLabApiControllerTests
             },
             CancellationToken.None);
 
-        Assert.IsType<OkObjectResult>(response.Result);
-        Assert.NotNull(patchBuilder.LastPlanAffinities);
+        OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
+        CutLabDecideApiResponse payload = Assert.IsType<CutLabDecideApiResponse>(ok.Value);
+        Assert.Contains(payload.Patch.StructuralFindings, group => group.Kind == CutLabFindingKind.StrandedOffPlanPackage);
+        Assert.NotNull(planAffinityFactory.LastAffinities);
         Assert.Contains("Arcane Signet", planAffinityFactory.LastAnalyzedCardNames);
-        CutLabPlanAffinity affinity = Assert.Single(patchBuilder.LastPlanAffinities, pair => pair.Key == "Arcane Signet").Value;
+        CutLabPlanAffinity affinity = Assert.Single(planAffinityFactory.LastAffinities, pair => pair.Key == "Arcane Signet").Value;
         Assert.True(affinity.IsOnPlan);
         Assert.Equal(2, affinity.Score);
     }
@@ -1970,9 +1976,11 @@ public sealed class CutLabApiControllerTests
         }
     }
 
-    private sealed class PerCardPlanAffinityFactory(bool checkedCommanderThemesAvailable = false) : ICutLabPlanAffinityFactory
+    private sealed class PerCardPlanAffinityFactory(bool checkedCommanderThemesAvailable = false, bool includeOffPlanPackage = false) : ICutLabPlanAffinityFactory
     {
         private int _buildCalls;
+
+        public IReadOnlyDictionary<string, CutLabPlanAffinity>? LastAffinities { get; private set; }
 
         public IReadOnlyList<string> LastAnalyzedCardNames { get; private set; } = [];
 
@@ -1988,11 +1996,18 @@ public sealed class CutLabApiControllerTests
                 return Task.FromResult(new CutLabPlanAffinityFactoryResult(null, checkedCommanderThemesAvailable));
             }
 
+            CutLabPlanAffinity offPlan = includeOffPlanPackage
+                ? new CutLabPlanAffinity([new CutLabPlanAffinityTheme("tokens", "Tokens")], 0)
+                : CutLabPlanAffinity.Neutral;
             LastAnalyzedCardNames = analyzedCards.Select(card => card.Name).ToArray();
             return Task.FromResult(new CutLabPlanAffinityFactoryResult(
-                new Dictionary<string, CutLabPlanAffinity>(StringComparer.OrdinalIgnoreCase)
+                LastAffinities = new Dictionary<string, CutLabPlanAffinity>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["Arcane Signet"] = new([], 2),
+                    ["Package A"] = offPlan,
+                    ["Package B"] = offPlan,
+                    ["Package C"] = offPlan,
+                    ["Package D"] = offPlan,
                 },
                 checkedCommanderThemesAvailable));
         }
@@ -2000,6 +2015,12 @@ public sealed class CutLabApiControllerTests
 
     private sealed class TrackingPatchBuilder : ICutLabUiPatchBuilder
     {
+        public CutLabUiPatchDto BuildAdjustPatch(CutLabState state, IReadOnlyList<string> commanderNames)
+        {
+            LastState = state;
+            return CreatePatch(state);
+        }
+
         public CutLabState? LastState { get; private set; }
 
         public IReadOnlyDictionary<string, CutLabPlanAffinity>? LastPlanAffinities { get; private set; }
@@ -2046,6 +2067,9 @@ public sealed class CutLabApiControllerTests
 
     private sealed class ProposalPatchBuilder : ICutLabUiPatchBuilder
     {
+        public CutLabUiPatchDto BuildAdjustPatch(CutLabState state, IReadOnlyList<string> commanderNames)
+            => Patch;
+
         public CutLabUiPatchDto Patch { get; init; } = new();
 
         public Task<CutLabUiPatchDto> BuildAsync(
@@ -2064,6 +2088,9 @@ public sealed class CutLabApiControllerTests
 
     private sealed class ThrowingPatchBuilder : ICutLabUiPatchBuilder
     {
+        public CutLabUiPatchDto BuildAdjustPatch(CutLabState state, IReadOnlyList<string> commanderNames)
+            => throw new InvalidOperationException("boom");
+
         public Task<CutLabUiPatchDto> BuildAsync(
             CutLabState state,
             string playExperience,

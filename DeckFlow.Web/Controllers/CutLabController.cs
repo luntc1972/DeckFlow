@@ -71,18 +71,9 @@ public sealed class CutLabController : Controller
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
             return View("CutLab", CutLabViewModel.From(request, result));
         }
-        catch (InvalidOperationException exception)
-        {
-            return CutLabView(request, error: exception.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            return CutLabView(request, error: "The request timed out. Try again.");
-        }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Cut Lab processing failed.");
-            return CutLabView(request, error: "Something went wrong processing the pool. Try again.");
+            return HandleFallbackException(exception, request, "Cut Lab processing failed.", "Something went wrong processing the pool. Try again.");
         }
     }
 
@@ -110,18 +101,9 @@ public sealed class CutLabController : Controller
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
             return View("CutLab", CutLabViewModel.From(request, result, currentStepOverride: 3));
         }
-        catch (InvalidOperationException exception)
-        {
-            return CutLabView(request, error: exception.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            return CutLabView(request, error: "The request timed out. Try again.");
-        }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Cut Lab plan apply fallback failed.");
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return HandleFallbackException(exception, request, "Cut Lab plan apply fallback failed.", CutLabMessages.NoChangeMessage);
         }
     }
 
@@ -160,18 +142,9 @@ public sealed class CutLabController : Controller
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
             return View("CutLab", CutLabViewModel.From(request, result));
         }
-        catch (InvalidOperationException exception)
-        {
-            return CutLabView(request, error: exception.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            return CutLabView(request, error: "The request timed out. Try again.");
-        }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Cut Lab decision fallback failed.");
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return HandleFallbackException(exception, request, "Cut Lab decision fallback failed.", CutLabMessages.NoChangeMessage);
         }
     }
 
@@ -193,29 +166,11 @@ public sealed class CutLabController : Controller
             return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
 
-        try
+        return await RunStateMutationAsync(request, "Cut Lab adjustment fallback failed.", state =>
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             state = CutLabAdjustmentApplier.Apply(state, cardName, delta, isAddedBasic);
-            RehydrateIntakeRequestFromState(request, state);
-            request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
-
-            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            return View("CutLab", CutLabViewModel.From(request, result));
-        }
-        catch (InvalidOperationException exception)
-        {
-            return CutLabView(request, error: exception.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            return CutLabView(request, error: "The request timed out. Try again.");
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Cut Lab adjustment fallback failed.");
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
-        }
+            return (state, null);
+        });
     }
 
     /// <summary>Applies a user-selected role override to one pool card.</summary>
@@ -234,29 +189,11 @@ public sealed class CutLabController : Controller
         {
             return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
-        try
+        return await RunStateMutationAsync(request, "Cut Lab role-override fallback failed.", state =>
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             CutLabRoleOverrideRules.TryApplyEdit(state, cardName, role, operation, out CutLabState updated, out string? error);
-            RehydrateIntakeRequestFromState(request, updated);
-            request.CutLabStateJson = CutLabStateSerializer.Serialize(updated);
-            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            CutLabViewModel model = CutLabViewModel.From(request, result);
-            return View("CutLab", error is null ? model : model with { ErrorMessage = error });
-        }
-        catch (InvalidOperationException exception)
-        {
-            return CutLabView(request, error: exception.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            return CutLabView(request, error: "The request timed out. Try again.");
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Cut Lab role-override fallback failed.");
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
-        }
+            return (updated, error);
+        });
     }
 
     /// <summary>Applies a persisted primary category edit.</summary>
@@ -275,29 +212,11 @@ public sealed class CutLabController : Controller
         {
             return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
-        try
+        return await RunStateMutationAsync(request, "Cut Lab category-override fallback failed.", state =>
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             CutLabCategoryRules.TryApplyEdit(state, cardName, category, operation, out CutLabState updated, out string? error);
-            RehydrateIntakeRequestFromState(request, updated);
-            request.CutLabStateJson = CutLabStateSerializer.Serialize(updated);
-            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            CutLabViewModel model = CutLabViewModel.From(request, result);
-            return View("CutLab", error is null ? model : model with { ErrorMessage = error });
-        }
-        catch (InvalidOperationException exception)
-        {
-            return CutLabView(request, error: exception.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            return CutLabView(request, error: "The request timed out. Try again.");
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Cut Lab category-override fallback failed.");
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
-        }
+            return (updated, error);
+        });
     }
 
     /// <summary>Re-surfaces prior round 1 and round 2 rejects/defers without undoing accepted cuts.</summary>
@@ -315,29 +234,11 @@ public sealed class CutLabController : Controller
             return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
 
-        try
+        return await RunStateMutationAsync(request, "Cut Lab restart rounds fallback failed.", state =>
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             state = CutLabDecisionApplier.RestartRounds(state, [CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round2Key]);
-            RehydrateIntakeRequestFromState(request, state);
-            request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
-
-            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            return View("CutLab", CutLabViewModel.From(request, result));
-        }
-        catch (InvalidOperationException exception)
-        {
-            return CutLabView(request, error: exception.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            return CutLabView(request, error: "The request timed out. Try again.");
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Cut Lab restart rounds fallback failed.");
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
-        }
+            return (state, null);
+        });
     }
 
     /// <summary>Applies posted goal turns and re-renders the full page for the no-JS fallback.</summary>
@@ -355,9 +256,8 @@ public sealed class CutLabController : Controller
             return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
 
-        try
+        return await RunStateMutationAsync(request, "Cut Lab goals fallback failed.", state =>
         {
-            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             state = state with
             {
                 Goals = new CutLabGoalSettings
@@ -368,25 +268,8 @@ public sealed class CutLabController : Controller
                 },
             };
             state = CutLabGoalRules.ClampGoals(state);
-            RehydrateIntakeRequestFromState(request, state);
-            request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
-
-            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            return View("CutLab", CutLabViewModel.From(request, result, currentStepOverride: 4));
-        }
-        catch (InvalidOperationException exception)
-        {
-            return CutLabView(request, error: exception.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            return CutLabView(request, error: "The request timed out. Try again.");
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(exception, "Cut Lab goals fallback failed.");
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
-        }
+            return (state, null);
+        }, step: 4);
     }
 
     /// <summary>Builds the export surface and re-renders the full page for the no-JS fallback.</summary>
@@ -419,18 +302,9 @@ public sealed class CutLabController : Controller
                 HttpContext.RequestAborted).ConfigureAwait(false);
             return View("CutLab", CutLabViewModel.From(request, result, export: export, currentStepOverride: 5));
         }
-        catch (InvalidOperationException exception)
-        {
-            return CutLabView(request, error: exception.Message);
-        }
-        catch (OperationCanceledException)
-        {
-            return CutLabView(request, error: "The request timed out. Try again.");
-        }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Cut Lab export fallback failed.");
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return HandleFallbackException(exception, request, "Cut Lab export fallback failed.", CutLabMessages.NoChangeMessage);
         }
     }
 
@@ -485,19 +359,46 @@ public sealed class CutLabController : Controller
             var pageResult = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
             return View("CutLab", CutLabViewModel.From(request, pageResult));
         }
-        catch (InvalidOperationException exception)
+        catch (Exception exception)
         {
-            return CutLabView(request, error: exception.Message);
+            return HandleFallbackException(exception, request, "Cut Lab what-if fallback failed.", CutLabMessages.NoChangeMessage);
         }
-        catch (OperationCanceledException)
+    }
+
+    private async Task<IActionResult> RunStateMutationAsync(
+        CutLabRequest request,
+        string failureLog,
+        Func<CutLabState, (CutLabState State, string? Error)> mutate,
+        int? step = null)
+    {
+        try
         {
-            return CutLabView(request, error: "The request timed out. Try again.");
+            CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
+            (state, string? error) = mutate(state);
+            RehydrateIntakeRequestFromState(request, state);
+            request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
+            var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
+            CutLabViewModel model = CutLabViewModel.From(request, result, currentStepOverride: step);
+            return View("CutLab", error is null ? model : model with { ErrorMessage = error });
         }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Cut Lab what-if fallback failed.");
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return HandleFallbackException(exception, request, failureLog, CutLabMessages.NoChangeMessage);
         }
+    }
+
+    private IActionResult HandleFallbackException(Exception exception, CutLabRequest request, string failureLog, string genericMessage)
+    {
+        if (exception is InvalidOperationException)
+        {
+            return CutLabView(request, error: exception.Message);
+        }
+        if (exception is OperationCanceledException)
+        {
+            return CutLabView(request, error: "The request timed out. Try again.");
+        }
+        _logger.LogError(exception, failureLog);
+        return CutLabView(request, error: genericMessage);
     }
 
     private static string DetermineRoundKey(CutLabState state, string cardName, CutLabDecideAction decision, string? postedRoundKey)
