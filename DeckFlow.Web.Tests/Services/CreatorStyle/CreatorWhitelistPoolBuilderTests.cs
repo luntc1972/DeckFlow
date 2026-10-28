@@ -363,6 +363,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
     private sealed class GatedCreatorDeckCacheStore(params CreatorDeckCacheEntry[] entries) : ICreatorDeckCacheStore
     {
         public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> DeleteExceptAsync(string creatorSlug, IReadOnlyCollection<string> keepDeckIds, CancellationToken cancellationToken = default) => Task.FromResult(0);
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public TaskCompletionSource EnteredGetByCreator { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -396,6 +397,7 @@ public sealed class CreatorWhitelistPoolBuilderTests
     private sealed class FakeCreatorDeckCacheStore(params CreatorDeckCacheEntry[] entries) : ICreatorDeckCacheStore
     {
         public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> DeleteExceptAsync(string creatorSlug, IReadOnlyCollection<string> keepDeckIds, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public int GetByCreatorCallCount { get; private set; }
 
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default)

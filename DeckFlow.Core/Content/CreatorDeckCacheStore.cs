@@ -199,6 +199,25 @@ public sealed class CreatorDeckCacheStore : ICreatorDeckCacheStore
         return count;
     }
 
+    /// <inheritdoc />
+    public async Task<int> DeleteExceptAsync(string creatorSlug, IReadOnlyCollection<string> keepDeckIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
+        ArgumentNullException.ThrowIfNull(keepDeckIds);
+        await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        var deckIds = keepDeckIds.Distinct(StringComparer.Ordinal).ToArray();
+        await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        var sql = deckIds.Length == 0
+            ? "DELETE FROM creator_deck_cache WHERE creator_slug = @creatorSlug;"
+            : _connectionInfo.IsPostgres
+                ? "DELETE FROM creator_deck_cache WHERE creator_slug = @creatorSlug AND NOT (deck_id = ANY(@deckIds));"
+                : "DELETE FROM creator_deck_cache WHERE creator_slug = @creatorSlug AND deck_id NOT IN @deckIds;";
+        var count = await connection.ExecuteAsync(new CommandDefinition(sql, new { creatorSlug, deckIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return count;
+    }
+
     private async Task<DbConnection> OpenConnectionAsync(CancellationToken cancellationToken)
     {
         if (_connectionFactoryOverride is not null)

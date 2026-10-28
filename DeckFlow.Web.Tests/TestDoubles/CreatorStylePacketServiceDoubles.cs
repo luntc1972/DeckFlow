@@ -22,6 +22,7 @@ internal sealed class CountingCreatorStyleProfileStore : ICreatorStyleProfileSto
 internal sealed class ThrowingCreatorDeckCacheStore : ICreatorDeckCacheStore
 {
     public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    public Task<int> DeleteExceptAsync(string creatorSlug, IReadOnlyCollection<string> keepDeckIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task UpsertAsync(CreatorDeckCacheEntry entry, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<IReadOnlyList<CreatorDeckCacheEntry>> GetByCreatorAsync(string creatorSlug, CancellationToken cancellationToken = default) => throw new NotSupportedException();

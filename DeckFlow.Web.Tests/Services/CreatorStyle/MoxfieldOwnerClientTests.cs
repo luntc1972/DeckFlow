@@ -24,9 +24,24 @@ public sealed class MoxfieldOwnerClientTests
         stub.Enqueue(JsonResponse("{\"totalPages\":2,\"data\":[{\"publicId\":\"deck-3\",\"name\":\"Three\",\"format\":\"Commander\"},{\"publicId\":\"private\",\"name\":\"Private\",\"format\":\"commander\",\"visibility\":\"private\"},null]}"));
         var result = await CreateClient(stub).ListDeckSummariesAsync("snail");
         Assert.False(result.HasUpstreamFailure);
+        Assert.False(result.IsTruncated);
         Assert.Equal(["deck-1", "deck-3"], result.Decks.Select(deck => deck.PublicId));
         Assert.Equal(2, stub.CallCount);
         Assert.Equal("https://api2.moxfield.com/v2/decks/search?authorUserNames=snail&pageNumber=1&pageSize=50", stub.RecordedRequests[0].RequestUri?.ToString());
+    }
+
+    [Fact]
+    public async Task ListDeckSummariesAsync_MaxPagesReached_ReportsTruncatedListing()
+    {
+        var stub = new StubHttpMessageHandler();
+        for (var page = 1; page <= MoxfieldOwnerClient.MaxPages; page++)
+        {
+            stub.Enqueue(JsonResponse("{\"totalPages\":11,\"data\":[]}"));
+        }
+
+        var result = await CreateClient(stub).ListDeckSummariesAsync("snail");
+
+        Assert.True(result.IsTruncated);
     }
 
     [Theory]
@@ -171,12 +186,16 @@ public sealed class MoxfieldOwnerClientTests
     public async Task ListDeckSummariesAsync_CallerCancellationAfterSend_Propagates()
     {
         using var cancellation = new CancellationTokenSource();
-        var handler = new CancelBeforeResponseHandler(cancellation);
+        var handler = new StallingCancellationHandler();
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api2.moxfield.com/") };
         var client = new MoxfieldOwnerClient(new FakeResiliencePipelineProvider(), new RestClient(httpClient), new MoxfieldRequestPacer(TimeSpan.Zero));
 
+        var listing = client.ListDeckSummariesAsync("snail", cancellation.Token);
+        await handler.SendStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => client.ListDeckSummariesAsync("snail", cancellation.Token).WaitAsync(TimeSpan.FromSeconds(5)));
+            () => listing.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
     [Fact]
@@ -235,6 +254,7 @@ public sealed class MoxfieldOwnerClientTests
             return Task.FromResult(2);
         });
 
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
         releaseFirst.SetResult();
         await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -264,15 +284,15 @@ public sealed class MoxfieldOwnerClientTests
         }
     }
 
-    private sealed class CancelBeforeResponseHandler(CancellationTokenSource cancellation) : HttpMessageHandler
+    private sealed class StallingCancellationHandler : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        public TaskCompletionSource SendStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            cancellation.Cancel();
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{\"totalPages\":1,\"data\":[]}"),
-            });
+            SendStarted.SetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new InvalidOperationException("The cancellation-aware delay should not complete.");
         }
     }
 

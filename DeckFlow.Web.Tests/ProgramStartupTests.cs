@@ -217,6 +217,7 @@ public sealed class ProgramStartupTests
     private sealed class NoOpCreatorDeckCacheStore : ICreatorDeckCacheStore
     {
         public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> DeleteExceptAsync(string creatorSlug, IReadOnlyCollection<string> keepDeckIds, CancellationToken cancellationToken = default) => Task.FromResult(0);
         public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<string?> GetContentHashAsync(string creatorSlug, string deckId, CancellationToken cancellationToken = default)

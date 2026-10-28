@@ -7,4 +7,6 @@ public sealed record MoxfieldDeckListResult
     public required IReadOnlyList<MoxfieldDeckSummary> Decks { get; init; }
     /// <summary>Whether upstream listing did not complete.</summary>
     public required bool HasUpstreamFailure { get; init; }
+    /// <summary>Whether the listing reached the configured page limit before its last page.</summary>
+    public bool IsTruncated { get; init; }
 }

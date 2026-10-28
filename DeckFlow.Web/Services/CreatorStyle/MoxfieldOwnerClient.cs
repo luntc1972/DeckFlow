@@ -51,6 +51,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
         ArgumentException.ThrowIfNullOrWhiteSpace(username);
         var decks = new List<MoxfieldDeckSummary>();
         var publicIds = new HashSet<string>(StringComparer.Ordinal);
+        var isTruncated = false;
         for (var page = 1; page <= MaxPages; page++)
         {
             var request = new RestRequest("v2/decks/search", Method.Get);
@@ -104,6 +105,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                     if (publicIds.Add(summary.PublicId)) { decks.Add(summary); }
                 }
                 if (page >= totalPages) { break; }
+                isTruncated = page == MaxPages;
             }
             catch (JsonException exception)
             {
@@ -111,7 +113,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                 return Failed(decks);
             }
         }
-        return new MoxfieldDeckListResult { Decks = decks, HasUpstreamFailure = false };
+        return new MoxfieldDeckListResult { Decks = decks, HasUpstreamFailure = false, IsTruncated = isTruncated };
     }
 
     private static MoxfieldDeckListResult Failed(IReadOnlyList<MoxfieldDeckSummary> decks) => new() { Decks = decks, HasUpstreamFailure = true };

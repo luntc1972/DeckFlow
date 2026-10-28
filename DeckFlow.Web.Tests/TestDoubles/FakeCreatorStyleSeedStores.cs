@@ -15,6 +15,7 @@ internal sealed class FakeCreatorStyleProfileSeedStore : ICreatorStyleProfileSto
 internal sealed class FakeCreatorDeckCacheSeedStore : ICreatorDeckCacheStore
 {
     public Task<int> DeleteByCreatorAsync(CreatorIdentity identity, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    public Task<int> DeleteExceptAsync(string creatorSlug, IReadOnlyCollection<string> keepDeckIds, CancellationToken cancellationToken = default) => Task.FromResult(0);
     public List<CreatorDeckCacheEntry> Upserts { get; } = [];
     public Task EnsureSchemaAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public Task<string?> GetContentHashAsync(string creatorSlug, string deckId, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);

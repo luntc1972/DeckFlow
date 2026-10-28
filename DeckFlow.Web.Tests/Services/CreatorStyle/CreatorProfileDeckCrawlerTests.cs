@@ -436,7 +436,8 @@ public sealed class CreatorProfileDeckCrawlerTests
         var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
         await using var harness = await CreateHarnessAsync();
         await SeedSourceAsync(harness.ProfileStore, now, "deckstats", now.AddMinutes(-5));
-        await SeedCacheAsync(harness, "cached-1", now);
+        await SeedCacheAsync(harness, "mox-timeout", now);
+        await SeedCacheAsync(harness, "stale", now);
         var logger = new CapturingLogger<CreatorProfileDeckCrawler>();
         var ownerClient = new CountingOwnerClient { ResolvedUsername = "snail" };
         var importer = new CountingDeckImporter();
@@ -540,7 +541,8 @@ public sealed class CreatorProfileDeckCrawlerTests
         var lastCrawledUtc = now.AddDays(-2);
         await using var harness = await CreateHarnessAsync();
         await SeedSourceAsync(harness.ProfileStore, now, "moxfield", lastCrawledUtc);
-        await SeedCacheAsync(harness, "cached-1", now);
+        await SeedCacheAsync(harness, "mox-timeout", now);
+        await SeedCacheAsync(harness, "stale", now);
         var moxfieldOwnerClient = new CountingMoxfieldOwnerClient { Decks = [MoxfieldSummary("mox-timeout")] };
         var samples = await CreateCrawler(
                 harness,
@@ -550,10 +552,64 @@ public sealed class CreatorProfileDeckCrawlerTests
                 moxfieldOwnerClient,
                 new NeverCompletingMoxfieldDeckImporter(),
                 moxfieldImportTimeout: TimeSpan.FromMilliseconds(20))
-            .CrawlAsync("snail")
+            .CrawlAsync("snail", forceRefresh: true)
             .WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.Equal("cached-1", Assert.Single(samples).DeckId);
+        Assert.Equal("mox-timeout", Assert.Single(samples).DeckId);
+        Assert.Equal(2, (await harness.CacheStore.GetByCreatorAsync("snail")).Count);
+        Assert.Equal(lastCrawledUtc, (await harness.ProfileStore.GetBySlugAsync("snail"))!.LastCrawledUtc);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_MoxfieldSpellbookFallback_ServesFilteredCacheAndDoesNotRestampFreshness()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        var lastCrawledUtc = now.AddDays(-2);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now, "moxfield", lastCrawledUtc);
+        await SeedCacheAsync(harness, "mox-fallback", now);
+        await SeedCacheAsync(harness, "stale", now);
+        var moxfieldImporter = new CountingMoxfieldDeckImporter();
+        moxfieldImporter.Decks["mox-fallback"] = [MainboardEntry("Sol Ring")];
+        moxfieldImporter.FallbackDeckIds.Add("mox-fallback");
+        var samples = await CreateCrawler(
+                harness,
+                new CountingOwnerClient(),
+                new CountingDeckImporter(),
+                now,
+                new CountingMoxfieldOwnerClient { Decks = [MoxfieldSummary("mox-fallback")] },
+                moxfieldImporter)
+            .CrawlAsync("snail", forceRefresh: true);
+
+        Assert.Equal("mox-fallback", Assert.Single(samples).DeckId);
+        Assert.Equal(2, (await harness.CacheStore.GetByCreatorAsync("snail")).Count);
+        Assert.Equal(lastCrawledUtc, (await harness.ProfileStore.GetBySlugAsync("snail"))!.LastCrawledUtc);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_MoxfieldHttpCancellationAfterImportTimeout_ServesFilteredCacheWithoutRestamp()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        var lastCrawledUtc = now.AddDays(-2);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now, "moxfield", lastCrawledUtc);
+        await SeedCacheAsync(harness, "mox-timeout", now);
+        await SeedCacheAsync(harness, "stale", now);
+        var ownerClient = new CountingMoxfieldOwnerClient { Decks = [MoxfieldSummary("mox-timeout")] };
+
+        var samples = await CreateCrawler(
+                harness,
+                new CountingOwnerClient(),
+                new CountingDeckImporter(),
+                now,
+                ownerClient,
+                new HttpCancellationMoxfieldDeckImporter(),
+                moxfieldImportTimeout: TimeSpan.FromMilliseconds(20))
+            .CrawlAsync("snail", forceRefresh: true)
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("mox-timeout", Assert.Single(samples).DeckId);
+        Assert.Equal(2, (await harness.CacheStore.GetByCreatorAsync("snail")).Count);
         Assert.Equal(lastCrawledUtc, (await harness.ProfileStore.GetBySlugAsync("snail"))!.LastCrawledUtc);
     }
 
@@ -563,6 +619,7 @@ public sealed class CreatorProfileDeckCrawlerTests
         var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
         await using var harness = await CreateHarnessAsync();
         await SeedSourceAsync(harness.ProfileStore, now, "moxfield");
+        await SeedCacheAsync(harness, "mox-big", now);
         var moxfieldOwnerClient = new CountingMoxfieldOwnerClient { Decks = [MoxfieldSummary("mox-big"), MoxfieldSummary("mox-1")] };
         var moxfieldImporter = new CountingMoxfieldDeckImporter();
         moxfieldImporter.Decks["mox-big"] = [new DeckEntry { Name = "Rat Colony", NormalizedName = "rat colony", Quantity = 106, Board = "mainboard" }];
@@ -570,7 +627,7 @@ public sealed class CreatorProfileDeckCrawlerTests
         var ownerClient = new CountingOwnerClient();
         var importer = new CountingDeckImporter();
 
-        var samples = await CreateCrawler(harness, ownerClient, importer, now, moxfieldOwnerClient, moxfieldImporter).CrawlAsync("snail");
+        var samples = await CreateCrawler(harness, ownerClient, importer, now, moxfieldOwnerClient, moxfieldImporter).CrawlAsync("snail", forceRefresh: true);
 
         Assert.Equal(1, moxfieldOwnerClient.ListCalls);
         Assert.Equal(["mox-big", "mox-1"], moxfieldImporter.ImportedDeckIds);
@@ -580,6 +637,45 @@ public sealed class CreatorProfileDeckCrawlerTests
         Assert.DoesNotContain(cacheEntries, entry => entry.DeckId == "mox-big");
         Assert.Contains(cacheEntries, entry => entry.DeckId == "mox-1");
         Assert.Equal(now, (await harness.ProfileStore.GetBySlugAsync("snail"))!.LastCrawledUtc);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_MoxfieldCompleteListing_PrunesUnlistedCacheRows()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now, "moxfield");
+        await SeedCacheAsync(harness, "mox-1", now);
+        await SeedCacheAsync(harness, "stale", now);
+        var ownerClient = new CountingOwnerClient();
+        var importer = new CountingDeckImporter();
+        var moxfieldOwnerClient = new CountingMoxfieldOwnerClient { Decks = [MoxfieldSummary("mox-1")] };
+        var moxfieldImporter = new CountingMoxfieldDeckImporter();
+
+        var samples = await CreateCrawler(harness, ownerClient, importer, now, moxfieldOwnerClient, moxfieldImporter).CrawlAsync("snail");
+
+        Assert.Equal(["mox-1"], samples.Select(sample => sample.DeckId));
+        Assert.Equal(["mox-1"], (await harness.CacheStore.GetByCreatorAsync("snail")).Select(entry => entry.DeckId));
+    }
+
+    [Fact]
+    public async Task CrawlAsync_MoxfieldTruncatedListing_DoesNotPruneUnlistedCacheRows()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now, "moxfield");
+        await SeedCacheAsync(harness, "mox-1", now);
+        await SeedCacheAsync(harness, "stale", now);
+        var moxfieldOwnerClient = new CountingMoxfieldOwnerClient
+        {
+            Result = new MoxfieldDeckListResult { Decks = [MoxfieldSummary("mox-1")], HasUpstreamFailure = false, IsTruncated = true },
+        };
+
+        var samples = await CreateCrawler(harness, new CountingOwnerClient(), new CountingDeckImporter(), now, moxfieldOwnerClient, new CountingMoxfieldDeckImporter())
+            .CrawlAsync("snail");
+
+        Assert.Equal(["mox-1"], samples.Select(sample => sample.DeckId));
+        Assert.Equal(["mox-1", "stale"], (await harness.CacheStore.GetByCreatorAsync("snail")).Select(entry => entry.DeckId).Order());
     }
 
     [Fact]
@@ -600,9 +696,10 @@ public sealed class CreatorProfileDeckCrawlerTests
         var samples = await CreateCrawler(harness, ownerClient, importer, now, moxfieldOwnerClient, moxfieldImporter).CrawlAsync("snail");
 
         Assert.Equal(["mox-1", "mox-2"], moxfieldImporter.ImportedDeckIds);
-        Assert.Equal(new[] { "mox-1", "old-1" }, samples.Select(sample => sample.DeckId).OrderBy(id => id));
+        Assert.Equal(["mox-1"], samples.Select(sample => sample.DeckId));
         var cacheEntries = await harness.CacheStore.GetByCreatorAsync("snail");
         Assert.Contains(cacheEntries, entry => entry.DeckId == "mox-1");
+        Assert.Contains(cacheEntries, entry => entry.DeckId == "old-1");
         Assert.DoesNotContain(cacheEntries, entry => entry.DeckId is "mox-2" or "mox-3");
         Assert.Equal(0, ownerClient.ResolveUsernameCalls + ownerClient.ListDeckSummariesCalls + importer.ImportCalls);
         Assert.Null((await harness.ProfileStore.GetBySlugAsync("snail"))!.LastCrawledUtc);
@@ -840,6 +937,24 @@ public sealed class CreatorProfileDeckCrawlerTests
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             throw new InvalidOperationException("Cancellation must interrupt the import.");
+        }
+    }
+
+    private sealed class HttpCancellationMoxfieldDeckImporter : IMoxfieldDeckImporter
+    {
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default) => Task.FromResult<List<DeckEntry>>([]);
+
+        public async Task<MoxfieldImportResult> ImportWithSourceAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                // The real RestSharp transport surfaces header-stall cancellation as HttpRequestException.
+            }
+            throw new HttpRequestException("Moxfield request cancelled after a header stall.");
         }
     }
 

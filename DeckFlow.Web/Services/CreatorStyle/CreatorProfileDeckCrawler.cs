@@ -227,17 +227,19 @@ public sealed class CreatorProfileDeckCrawler
                 imported = await _moxfieldPacer.RunAsync(
                     ct => _moxfieldDeckImporter.ImportWithSourceAsync(summary.PublicId, ct), importCancellation.Token).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && importTimeout.IsCancellationRequested)
+            catch (Exception) when (!cancellationToken.IsCancellationRequested && importTimeout.IsCancellationRequested)
             {
                 _logger.LogWarning("Moxfield deck {DeckId} import timed out for {CreatorSlug}; stopping crawl and leaving freshness stamp untouched.", summary.PublicId, creatorSlug);
                 var currentCacheEntries = await _deckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
-                return RebuildSamplesFromCache(currentCacheEntries, source);
+                // Why: a complete listing is authoritative even when importing a deck fails.
+                return RebuildSamplesFromCache(FilterCacheForListing(currentCacheEntries, listing), source);
             }
             if (imported.Source == MoxfieldImportSource.CommanderSpellbookFallback)
             {
                 _logger.LogWarning("Moxfield deck {DeckId} for {CreatorSlug} came from the Spellbook fallback; stopping crawl and leaving freshness stamp untouched.", summary.PublicId, creatorSlug);
                 var currentCacheEntries = await _deckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
-                return RebuildSamplesFromCache(currentCacheEntries, source);
+                // Why: a complete listing is authoritative even when importing a deck fails.
+                return RebuildSamplesFromCache(FilterCacheForListing(currentCacheEntries, listing), source);
             }
 
             var size = imported.Entries.Sum(entry => entry.Quantity);
@@ -272,8 +274,30 @@ public sealed class CreatorProfileDeckCrawler
             samples.Add(RebuildSampleFromCache(cacheEntry, source));
         }
 
+        if (listing.IsTruncated)
+        {
+            _logger.LogWarning("Moxfield listing for {CreatorSlug} was truncated; preserving cache rows not returned by the listing.", creatorSlug);
+        }
+        else
+        {
+            // Why: a complete Moxfield listing is authoritative for this creator's cache membership.
+            await _deckCacheStore.DeleteExceptAsync(creatorSlug, samples.Select(sample => sample.DeckId).ToArray(), cancellationToken).ConfigureAwait(false);
+        }
         await _profileSourceStore.SetLastCrawledAsync(creatorSlug, _nowUtc(), cancellationToken).ConfigureAwait(false);
         return samples;
+    }
+
+    private static IReadOnlyList<CreatorDeckCacheEntry> FilterCacheForListing(
+        IReadOnlyList<CreatorDeckCacheEntry> cacheEntries,
+        MoxfieldDeckListResult listing)
+    {
+        if (listing.IsTruncated)
+        {
+            return cacheEntries;
+        }
+
+        var publicIds = listing.Decks.Select(summary => summary.PublicId).ToHashSet(StringComparer.Ordinal);
+        return cacheEntries.Where(entry => publicIds.Contains(entry.DeckId)).ToArray();
     }
 
     private static IReadOnlyList<CreatorDeckSample> RebuildSamplesFromCache(

@@ -144,6 +144,25 @@ public sealed class CreatorDeckCacheStoreTests : IDisposable
         Assert.Single(await store.GetByCreatorAsync("control"));
     }
 
+    [Fact]
+    public async Task DeleteExceptAsync_DeletesUnlistedRowsForOnlySpecifiedCreator()
+    {
+        await _store.UpsertAsync(CreateEntry("creator-a", "listed", "hash-a", null, null, 100, "measured", CachedUtc, CreateEntries()));
+        await _store.UpsertAsync(CreateEntry("creator-a", "stale", "hash-b", null, null, 100, "measured", CachedUtc, CreateEntries()));
+        await _store.UpsertAsync(CreateEntry("creator-b", "other", "hash-c", null, null, 100, "measured", CachedUtc, CreateEntries()));
+
+        var deleted = await _store.DeleteExceptAsync("creator-a", ["listed"]);
+
+        Assert.Equal(1, deleted);
+        Assert.Equal(["listed"], (await _store.GetByCreatorAsync("creator-a")).Select(entry => entry.DeckId));
+        Assert.Equal(["other"], (await _store.GetByCreatorAsync("creator-b")).Select(entry => entry.DeckId));
+
+        deleted = await _store.DeleteExceptAsync("creator-a", []);
+
+        Assert.Equal(1, deleted);
+        Assert.Empty(await _store.GetByCreatorAsync("creator-a"));
+    }
+
     private static List<CreatorDeckCacheEntry> CreateDeckSet(string creatorSlug)
         =>
         [
