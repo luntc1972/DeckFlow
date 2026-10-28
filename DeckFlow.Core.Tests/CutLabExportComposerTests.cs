@@ -7,6 +7,73 @@ namespace DeckFlow.Core.Tests;
 
 public sealed class CutLabExportComposerTests
 {
+    [Theory]
+    [InlineData("mainboard", 10, 8)]
+    [InlineData("commander", 1, 1)]
+    [InlineData("sideboard", 1, 1)]
+    public void Compose_CategoryChange_QuantityCommanderAndPromotion(string board, int originalCount, int finalCount)
+    {
+        var finalBoard = board == "sideboard" ? "mainboard" : board;
+        var result = Compose([Entry("Plains", finalCount, finalBoard, category: "Basics")],
+            [Entry("Plains", originalCount, board, category: "Lands")], Set<string>(),
+            new Dictionary<string, IReadOnlyList<string>?>(), Set<string>(), Set<string>(), Set("Plains"));
+        var patch = (string)result.GetType().GetProperty("ArchidektPatchText")!.GetValue(result)!;
+        var sections = patch.Split("# ADD (add these)");
+        Assert.Single(sections[0].Split('\n'), line => line.Contains(" Plains", StringComparison.Ordinal));
+        Assert.Single(sections[1].Split('\n'), line => line.Contains(" Plains", StringComparison.Ordinal));
+        Assert.Contains($"{originalCount} Plains", sections[0], StringComparison.Ordinal);
+        Assert.Contains($"{finalCount} Plains", sections[1], StringComparison.Ordinal);
+        if (board == "commander")
+        {
+            Assert.All(sections, section => Assert.Contains("// Commander", section, StringComparison.Ordinal));
+        }
+        if (board == "sideboard")
+        {
+            Assert.Contains("// Sideboard", sections[0], StringComparison.Ordinal);
+            Assert.Contains("1 Plains [Basics]", sections[1], StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Compose_CategoryChange_MultiRowKeepsEveryPrinting()
+    {
+        var result = Compose(
+            [Entry("Sol Ring", 1, "mainboard", "sa", "1", "FastMana,Draw"), Entry("Sol Ring", 1, "mainboard", "sb", "2", "FastMana,Draw")],
+            [Entry("Sol Ring", 1, "mainboard", "sa", "1", "Ramp"), Entry("Sol Ring", 1, "mainboard", "sb", "2", "Draw")],
+            Set<string>(), new Dictionary<string, IReadOnlyList<string>?>(), Set<string>(), Set<string>(), Set("Sol Ring"));
+        var moxfield = (string)result.GetType().GetProperty("MoxfieldPatchText")!.GetValue(result)!;
+        Assert.Contains("1 Sol Ring (sa) 1 #Ramp", moxfield, StringComparison.Ordinal);
+        Assert.Contains("1 Sol Ring (sb) 2 #Draw", moxfield, StringComparison.Ordinal);
+        Assert.Contains("1 Sol Ring (sa) 1 #FastMana #Draw", moxfield, StringComparison.Ordinal);
+        Assert.Contains("1 Sol Ring (sb) 2 #FastMana #Draw", moxfield, StringComparison.Ordinal);
+        var archidekt = (string)result.GetType().GetProperty("ArchidektPatchText")!.GetValue(result)!;
+        Assert.Contains("1 Sol Ring (sa) 1 [FastMana,Draw]", archidekt, StringComparison.Ordinal);
+        Assert.Contains("1 Sol Ring (sb) 2 [FastMana,Draw]", archidekt, StringComparison.Ordinal);
+        Assert.All(moxfield.Split("# ADD (add these)"), section =>
+            Assert.Equal(2, section.Split('\n').Count(line => line.Contains("Sol Ring", StringComparison.Ordinal))));
+    }
+
+    [Theory]
+    [InlineData("Ramp", "FastMana", true, true)]
+    [InlineData("Ramp,Draw", "draw,ramp", true, false)]
+    [InlineData("Ramp", "FastMana", false, false)]
+    public void Compose_CategoryChange_PairsOnlyEditedDifferentTokens(string original, string final, bool edited, bool pair)
+    {
+        var result = Compose([Entry("Sol Ring", 1, "mainboard", category: final)],
+            [Entry("Sol Ring", 1, "mainboard", category: original)], new HashSet<string>(),
+            new Dictionary<string, IReadOnlyList<string>?>(), new HashSet<string>(), new HashSet<string>(),
+            edited ? new HashSet<string> { "Sol Ring" } : null);
+        var patch = (string)result.GetType().GetProperty("MoxfieldPatchText")!.GetValue(result)!;
+        Assert.Equal(pair, patch.Contains("1 Sol Ring #Ramp", StringComparison.Ordinal));
+        if (pair)
+        {
+            Assert.Contains("1 Sol Ring #FastMana", patch, StringComparison.Ordinal);
+            var archidekt = (string)result.GetType().GetProperty("ArchidektPatchText")!.GetValue(result)!;
+            Assert.Contains("1 Sol Ring [Ramp]", archidekt, StringComparison.Ordinal);
+            Assert.Contains("1 Sol Ring [FastMana]", archidekt, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public void CommanderIdentityCheck_ReturnsLegalForSubsetAndColorlessCards()
     {
@@ -210,7 +277,7 @@ public sealed class CutLabExportComposerTests
         IReadOnlySet<string> commanderIdentity,
         IReadOnlyDictionary<string, IReadOnlyList<string>?> cardIdentitiesByName,
         IReadOnlySet<string> unverifiedCardNames,
-        IReadOnlySet<string> bannedCardNamesPresent)
+        IReadOnlySet<string> bannedCardNamesPresent, IReadOnlySet<string>? categoryEditedNames = null)
     {
         var composerType = GetRequiredType("DeckFlow.Core.Exporting.CutLabExportComposer");
         var composeMethod = composerType.GetMethod(
@@ -221,7 +288,7 @@ public sealed class CutLabExportComposerTests
         var instance = composeMethod.IsStatic ? null : Activator.CreateInstance(composerType);
         return composeMethod.Invoke(
             instance,
-            [finalEntries, originalEntries, commanderIdentity, cardIdentitiesByName, unverifiedCardNames, bannedCardNamesPresent])
+            [finalEntries, originalEntries, commanderIdentity, cardIdentitiesByName, unverifiedCardNames, bannedCardNamesPresent, categoryEditedNames])
             ?? throw new Xunit.Sdk.XunitException("CutLabExportComposer.Compose returned null.");
     }
 

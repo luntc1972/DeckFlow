@@ -39,7 +39,7 @@ If a pool card is part of a known Commander Spellbook combo, Cut Lab also marks 
 
 Once the pool is loaded and protected, Cut Lab reads the deck's functional composition. It surfaces structural findings such as role and slot competition, plus weak or unmet role floors that would make later cuts risky.
 
-The pool view is also explorable in two lighter-weight ways: a **By type** section groups every card into one primary card-type bucket, and a **By subtype** search lets you ask "how many Allies / Lessons / Legendary cards do I have?" from the rendered pool itself.
+The pool view is also explorable in several lighter-weight ways: a **By type** section groups every card into one primary card-type bucket, a **By category** section groups cards by their imported deck-builder category, and a **By subtype** search lets you ask "how many Allies / Lessons / Legendary cards do I have?" from the rendered pool itself.
 
 You can also set configurable minimums per role. Those floors become hard guardrails for the trimming process, so the deck does not accidentally cut below the baseline you want to preserve for lands, ramp, targeted removal, mass removal, tutors, or any other tracked role.
 
@@ -50,6 +50,14 @@ Role counts are deliberately generous, since they are a decision aid rather than
 Use **Edit roles** beside a card to select it in the role editor, then add or remove a role from the fixed list. The commander is excluded. Lands is fixed, and Ramp cannot be added to a land. Targeted removal and mass removal are mutually exclusive; a card with no remaining roles is shown as Other. Role edits are limited to 200 cards. Edits on a card that leaves the pool (for example when **Include maybeboard** is unticked) are kept and apply again when the card returns.
 
 Choose **Reset card roles** to restore that card's inferred roles. Edits stay with saved scenarios and affect role floors, cut rounds, and simulation. They do not change exports.
+
+## Change a card's category
+
+Each card is grouped under its first category imported from Moxfield or Archidekt. Cards with no category appear under **Uncategorized**, shown last.
+
+Open a card to see its category, then type a category and choose **Save category**. Suggestions come from the deck's existing categories; typing a new name creates a group. Only the first category changes. Other categories are kept and shown as **Also tagged**.
+
+Choose **Use imported category** to restore the import. Edits stay with saved scenarios and session files. Finished lists export the edited category, and CUT/ADD patches remove the imported category line and add the edited one.
 
 ## Inspect any card
 

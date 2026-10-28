@@ -36,6 +36,9 @@ public sealed record CutLabState
     /// <summary>Per-card role edits; missing JSON deserializes to empty, which is expected.</summary>
     public IReadOnlyList<CutLabRoleOverride> RoleOverrides { get; init; } = [];
 
+    /// <summary>Persisted primary category edits for pool cards.</summary>
+    public IReadOnlyList<CutLabCategoryOverride> CategoryOverrides { get; init; } = [];
+
     /// <summary>
     /// Original imported deck entries captured once at intake and preserved as the immutable
     /// baseline for builder-compatible add/cut export.
@@ -126,6 +129,16 @@ public sealed record CutLabRoleOverride
 
     /// <summary>Role keys removed from classifier output.</summary>
     public IReadOnlyList<string> Removed { get; init; } = [];
+}
+
+/// <summary>Persisted primary category for one card.</summary>
+public sealed record CutLabCategoryOverride
+{
+    /// <summary>Display name of the overridden card.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Replacement primary category.</summary>
+    public string Category { get; init; } = string.Empty;
 }
 
 /// <summary>Serializable light snapshot of one original imported deck entry.</summary>

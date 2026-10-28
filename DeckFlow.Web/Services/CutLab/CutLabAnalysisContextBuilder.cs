@@ -307,6 +307,22 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             && unattemptedNames.Count > 0;
     }
 
+    internal static IReadOnlyList<ScryfallCardData>? BuildPartialResolvedSubset(
+        IReadOnlyList<CutLabPoolCard> targetPool,
+        IReadOnlyList<ScryfallCardData> sourceCards)
+    {
+        IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
+            sourceCards,
+            card => card.Name,
+            card => card);
+        return targetPool
+            .Select(card => sourceByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out ScryfallCardData? resolvedCard) ? resolvedCard : null)
+            .Where(card => card is not null)
+            .Cast<ScryfallCardData>()
+            .DistinctBy(card => CutLabCardNames.Normalize(card.Name))
+            .ToArray();
+    }
+
     /// <inheritdoc />
     public bool TrySeedDerivedPool(
         IReadOnlyList<CutLabPoolCard> workingList,
@@ -632,9 +648,6 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
         return orderedCards;
     }
 
-    private static IReadOnlyList<(string Name, int Quantity)> ToPoolKeyEntries(IReadOnlyList<CutLabPoolCard> workingList)
-        => workingList.Select(card => (card.Name, card.Quantity)).ToArray();
-
     private async Task<CutLabClassificationContext> LoadClassificationContextAsync(
         IReadOnlyList<CutLabPoolCard> workingList,
         IReadOnlyList<string> commanderNames,
@@ -674,6 +687,18 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
     {
         Dictionary<string, (List<SpellbookCombo> CompleteCombos, List<SpellbookAlmostCombo> NearCombos)> comboMembershipBuilder =
             new(CutLabCardNames.Comparer);
+        (List<SpellbookCombo> CompleteCombos, List<SpellbookAlmostCombo> NearCombos) GetOrAddMembership(string cardName)
+        {
+            string normalizedCardName = CutLabCardNames.Normalize(cardName);
+            if (!comboMembershipBuilder.TryGetValue(normalizedCardName, out var membership))
+            {
+                membership = ([], []);
+                comboMembershipBuilder[normalizedCardName] = membership;
+            }
+
+            return membership;
+        }
+
         IReadOnlyList<SpellbookAlmostCombo> almostIncludedCombos = [];
         bool comboDataAvailable = false;
 
@@ -698,12 +723,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 {
                     foreach (string cardName in combo.CardNames)
                     {
-                        string normalizedCardName = CutLabCardNames.Normalize(cardName);
-                        if (!comboMembershipBuilder.TryGetValue(normalizedCardName, out (List<SpellbookCombo> CompleteCombos, List<SpellbookAlmostCombo> NearCombos) membership))
-                        {
-                            membership = ([], []);
-                            comboMembershipBuilder[normalizedCardName] = membership;
-                        }
+                        var membership = GetOrAddMembership(cardName);
 
                         membership.CompleteCombos.Add(combo);
                     }
@@ -713,12 +733,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 {
                     foreach (string cardName in almostCombo.CardsInDeck)
                     {
-                        string normalizedCardName = CutLabCardNames.Normalize(cardName);
-                        if (!comboMembershipBuilder.TryGetValue(normalizedCardName, out (List<SpellbookCombo> CompleteCombos, List<SpellbookAlmostCombo> NearCombos) membership))
-                        {
-                            membership = ([], []);
-                            comboMembershipBuilder[normalizedCardName] = membership;
-                        }
+                        var membership = GetOrAddMembership(cardName);
 
                         membership.NearCombos.Add(almostCombo);
                     }

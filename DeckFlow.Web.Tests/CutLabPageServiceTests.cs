@@ -934,9 +934,9 @@ public sealed class CutLabPageServiceTests
         Assert.DoesNotContain(result.State.Pool, card => card.Name == "Maybeboard Card");
         Assert.False(result.State.Intent.IncludeSideboard);
         Assert.False(result.State.Intent.IncludeMaybeboard);
-        Assert.Equal(101, result.MainboardCardCount);
-        Assert.Equal(2, result.SideboardCardCount);
-        Assert.Equal(1, result.MaybeboardCardCount);
+        Assert.Equal(101, result.BoardCounts.MainboardCount);
+        Assert.Equal(2, result.BoardCounts.SideboardCount);
+        Assert.Equal(1, result.BoardCounts.MaybeboardCount);
     }
 
     [Fact]
@@ -1079,12 +1079,12 @@ public sealed class CutLabPageServiceTests
         var model = CutLabViewModel.From(request, result);
 
         Assert.True(result.HasResult);
-        Assert.Equal(101, result.MainboardCardCount);
-        Assert.Equal(3, result.SideboardCardCount);
-        Assert.Equal(4, result.MaybeboardCardCount);
-        Assert.Equal(101, model.MainboardCardCount);
-        Assert.Equal(3, model.SideboardCardCount);
-        Assert.Equal(4, model.MaybeboardCardCount);
+        Assert.Equal(101, result.BoardCounts.MainboardCount);
+        Assert.Equal(3, result.BoardCounts.SideboardCount);
+        Assert.Equal(4, result.BoardCounts.MaybeboardCount);
+        Assert.Equal(101, model.BoardCounts.MainboardCount);
+        Assert.Equal(3, model.BoardCounts.SideboardCount);
+        Assert.Equal(4, model.BoardCounts.MaybeboardCount);
     }
 
     [Fact]

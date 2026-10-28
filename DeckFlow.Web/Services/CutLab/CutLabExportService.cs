@@ -53,23 +53,21 @@ public sealed class CutLabExportService : ICutLabExportService
         ArgumentNullException.ThrowIfNull(commanderNames);
 
         IReadOnlyList<CutLabPoolCard> keptWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
-        IReadOnlyList<DeckEntry> finalEntries = ReconstructFinalEntries(keptWorkingList, state.OriginalEntries, out IReadOnlyList<string> reconstructionWarnings);
+        IReadOnlyList<DeckEntry> finalEntries = ReconstructFinalEntries(keptWorkingList, state.OriginalEntries, state.CategoryOverrides, out IReadOnlyList<string> reconstructionWarnings);
         IReadOnlyList<DeckEntry> originalEntries = ToDeckEntries(state.OriginalEntries);
 
         string poolKey = CutLabResolvedCardCache.ComputePoolKey(keptWorkingList);
         IReadOnlyList<ScryfallCardData>? preResolvedCards = TryGetPreResolvedCards(state.Pool, keptWorkingList, poolKey);
-        CutLabAnalysisContext context = await _contextBuilder
-            .BuildAsync(
+        IReadOnlyList<ScryfallCardData> resolvedCards = await _contextBuilder
+            .ResolvePoolCardsAsync(
                 keptWorkingList,
-                playExperience,
-                commanderNames,
                 preResolvedCards,
                 preResolvedCards is null ? null : poolKey,
-                cancellationToken)
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-        _resolvedCardCache.Set(poolKey, context.ResolvedCards);
+        _resolvedCardCache.Set(poolKey, resolvedCards);
 
-        IReadOnlyDictionary<string, ScryfallCardData> resolvedByName = context.ResolvedCards
+        IReadOnlyDictionary<string, ScryfallCardData> resolvedByName = resolvedCards
             .GroupBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
         Dictionary<string, IReadOnlyList<string>?> cardIdentitiesByName = new(StringComparer.OrdinalIgnoreCase);
@@ -130,7 +128,8 @@ public sealed class CutLabExportService : ICutLabExportService
             commanderIdentity,
             cardIdentitiesByName,
             unverifiedCardNames,
-            bannedCardNamesPresent);
+            bannedCardNamesPresent,
+            state.CategoryOverrides.Select(entry => entry.Name).ToHashSet(StringComparer.OrdinalIgnoreCase));
 
         return new CutLabExportView
         {
@@ -182,17 +181,21 @@ public sealed class CutLabExportService : ICutLabExportService
     private static IReadOnlyList<DeckEntry> ReconstructFinalEntries(
         IReadOnlyList<CutLabPoolCard> keptWorkingList,
         IReadOnlyList<CutLabOriginalEntry> originalEntries,
+        IReadOnlyList<CutLabCategoryOverride> categoryOverrides,
         out IReadOnlyList<string> reconstructionWarnings)
     {
         List<string> warnings = [];
         List<DeckEntry> finalEntries = [];
+        ILookup<string, CutLabOriginalEntry> originalsByName = originalEntries
+            .ToLookup(entry => CardNormalizer.Normalize(entry.Name), StringComparer.Ordinal);
 
         foreach (CutLabPoolCard keptCard in keptWorkingList)
         {
             string normalizedName = CardNormalizer.Normalize(keptCard.Name);
-            List<CutLabOriginalEntry> matches = originalEntries
-                .Where(entry => string.Equals(CardNormalizer.Normalize(entry.Name), normalizedName, StringComparison.Ordinal))
-                .ToList();
+            IEnumerable<CutLabOriginalEntry> matches = originalsByName[normalizedName];
+            IReadOnlyList<string>? effective = CutLabCategoryRules.Find(categoryOverrides, keptCard.Name) is null
+                ? null
+                : CutLabCategoryRules.EffectiveCategoryTokens(originalEntries, categoryOverrides, keptCard.Name);
             int remaining = keptCard.Quantity;
 
             foreach (CutLabOriginalEntry match in matches)
@@ -211,7 +214,7 @@ public sealed class CutLabExportService : ICutLabExportService
                     Board = keptCard.IsCommander ? "commander" : "mainboard",
                     SetCode = match.SetCode,
                     CollectorNumber = match.CollectorNumber,
-                    Category = NormalizePromotedCategory(match.Category, match.Board, keptCard.IsCommander),
+                    Category = CutLabCategoryRules.ApplyToCategory(NormalizePromotedCategory(match.Category, match.Board, keptCard.IsCommander), effective),
                 });
                 remaining -= matchedQuantity;
             }
@@ -227,6 +230,7 @@ public sealed class CutLabExportService : ICutLabExportService
                 NormalizedName = normalizedName,
                 Quantity = remaining,
                 Board = keptCard.IsCommander ? "commander" : "mainboard",
+                Category = CutLabCategoryRules.ApplyToCategory(null, effective),
             });
 
             if (!keptCard.IsCommander

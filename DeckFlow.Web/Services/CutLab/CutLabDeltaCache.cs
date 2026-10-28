@@ -51,16 +51,7 @@ public sealed class CutLabDeltaCache
         ArgumentNullException.ThrowIfNull(cardName);
 
         string key = ComputeDeltaEntryKey(poolKey, cardName, trialsOverride, goals, roleOverrides);
-        if (!_cache.TryGetValue(key, out var raw) || raw is not CachedEntry<CutLabProposalDeltas> entry)
-        {
-            deltas = null;
-            LogCacheEvent("miss", key, 0);
-            return false;
-        }
-
-        deltas = entry.Value;
-        LogCacheEvent("hit", key, entry.SizeBytes);
-        return true;
+        return TryGetEntry(key, out deltas);
     }
 
     /// <summary>
@@ -79,18 +70,7 @@ public sealed class CutLabDeltaCache
         ArgumentNullException.ThrowIfNull(deltas);
 
         string key = ComputeDeltaEntryKey(poolKey, cardName, trialsOverride, goals, roleOverrides);
-        int sizeBytes = EstimateSizeBytes(deltas);
-        var entry = new CachedEntry<CutLabProposalDeltas>(deltas, sizeBytes);
-        var options = new MemoryCacheEntryOptions
-        {
-            // Why: delta payloads are disposable and only need to survive short-term re-renders of the same proposal.
-            AbsoluteExpirationRelativeToNow = EntryTtl,
-            Size = sizeBytes,
-        };
-        RegisterEvictionLogging<CutLabProposalDeltas>(options);
-
-        _cache.Set(key, entry, options);
-        LogCacheEvent("write", key, sizeBytes);
+        SetEntry(key, deltas, EstimateSizeBytes(deltas));
     }
 
     /// <summary>
@@ -108,16 +88,7 @@ public sealed class CutLabDeltaCache
         ArgumentNullException.ThrowIfNull(poolKey);
 
         string key = ComputeSnapshotEntryKey(poolKey, playExperience, trialsOverride, goals, roleOverrides);
-        if (!_cache.TryGetValue(key, out var raw) || raw is not CachedEntry<CutLabMetricSnapshot> entry)
-        {
-            snapshot = null;
-            LogCacheEvent("miss", key, 0);
-            return false;
-        }
-
-        snapshot = entry.Value;
-        LogCacheEvent("hit", key, entry.SizeBytes);
-        return true;
+        return TryGetEntry(key, out snapshot);
     }
 
     /// <summary>
@@ -135,17 +106,7 @@ public sealed class CutLabDeltaCache
         ArgumentNullException.ThrowIfNull(snapshot);
 
         string key = ComputeSnapshotEntryKey(poolKey, playExperience, trialsOverride, goals, roleOverrides);
-        int sizeBytes = EstimateSizeBytes(snapshot);
-        var entry = new CachedEntry<CutLabMetricSnapshot>(snapshot, sizeBytes);
-        var options = new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = EntryTtl,
-            Size = sizeBytes,
-        };
-        RegisterEvictionLogging<CutLabMetricSnapshot>(options);
-
-        _cache.Set(key, entry, options);
-        LogCacheEvent("write", key, sizeBytes);
+        SetEntry(key, snapshot, EstimateSizeBytes(snapshot));
     }
 
     /// <summary>
@@ -163,16 +124,7 @@ public sealed class CutLabDeltaCache
         ArgumentNullException.ThrowIfNull(poolKey);
 
         string key = ComputeResultEntryKey(poolKey, playExperience, trialsOverride, goals, roleOverrides);
-        if (!_cache.TryGetValue(key, out var raw) || raw is not CachedEntry<CutLabSimulationResult> entry)
-        {
-            result = null;
-            LogCacheEvent("miss", key, 0);
-            return false;
-        }
-
-        result = entry.Value;
-        LogCacheEvent("hit", key, entry.SizeBytes);
-        return true;
+        return TryGetEntry(key, out result);
     }
 
     /// <summary>
@@ -190,18 +142,37 @@ public sealed class CutLabDeltaCache
         ArgumentNullException.ThrowIfNull(result);
 
         string key = ComputeResultEntryKey(poolKey, playExperience, trialsOverride, goals, roleOverrides);
-        int sizeBytes = EstimateSizeBytes(result);
-        var entry = new CachedEntry<CutLabSimulationResult>(result, sizeBytes);
+        SetEntry(key, result, EstimateSizeBytes(result));
+        SetSnapshot(poolKey, playExperience, trialsOverride, result.Snapshot, goals, roleOverrides);
+    }
+
+    private bool TryGetEntry<T>(string key, out T? value) where T : class
+    {
+        if (!_cache.TryGetValue(key, out var raw) || raw is not CachedEntry<T> entry)
+        {
+            value = null;
+            LogCacheEvent("miss", key, 0);
+            return false;
+        }
+
+        value = entry.Value;
+        LogCacheEvent("hit", key, entry.SizeBytes);
+        return true;
+    }
+
+    private void SetEntry<T>(string key, T value, int sizeBytes) where T : class
+    {
+        var entry = new CachedEntry<T>(value, sizeBytes);
         var options = new MemoryCacheEntryOptions
         {
+            // Why: delta payloads are disposable and only need to survive short-term re-renders of the same proposal.
             AbsoluteExpirationRelativeToNow = EntryTtl,
             Size = sizeBytes,
         };
-        RegisterEvictionLogging<CutLabSimulationResult>(options);
+        RegisterEvictionLogging<T>(options);
 
         _cache.Set(key, entry, options);
         LogCacheEvent("write", key, sizeBytes);
-        SetSnapshot(poolKey, playExperience, trialsOverride, result.Snapshot, goals, roleOverrides);
     }
 
     private static string ComputeDeltaEntryKey(string poolKey, string cardName, int? trialsOverride, CutLabGoalSettings? goals, IReadOnlyList<CutLabRoleOverride>? roleOverrides)

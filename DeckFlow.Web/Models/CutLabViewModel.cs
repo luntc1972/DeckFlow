@@ -57,6 +57,16 @@ public sealed record CutLabComboBadgeView
 
     /// <summary>Short combo-context string for the disclosure body.</summary>
     public string Context { get; init; } = string.Empty;
+
+    /// <summary>Text shown on the evidence chip's combo badge.</summary>
+    [JsonIgnore]
+    public string BadgeText => BadgeState == ComboBadgeState.CompletePiece ? "Combo piece" : Context;
+
+    /// <summary>CSS classes used by the evidence chip's combo badge.</summary>
+    [JsonIgnore]
+    public string BadgeCssClass => BadgeState == ComboBadgeState.CompletePiece
+        ? "cutlab-combo-badge cutlab-combo-badge--complete"
+        : "cutlab-combo-badge cutlab-combo-badge--near";
 }
 
 /// <summary>View model for the Cut Lab page.</summary>
@@ -95,15 +105,6 @@ public sealed record CutLabViewModel
 
     /// <summary>Non-commander pool count returned by the service.</summary>
     public int CardCount { get; init; }
-
-    /// <summary>Mainboard-only quantity loaded from the source deck.</summary>
-    public int MainboardCardCount { get; init; }
-
-    /// <summary>Sideboard quantity loaded from the source deck.</summary>
-    public int SideboardCardCount { get; init; }
-
-    /// <summary>Considering or maybeboard quantity loaded from the source deck.</summary>
-    public int MaybeboardCardCount { get; init; }
 
     /// <summary>Per-board counts used for the shared pool breakdown display.</summary>
     public BoardCounts BoardCounts { get; init; } = new();
@@ -149,6 +150,15 @@ public sealed record CutLabViewModel
 
     /// <summary>Type-group views in the fixed Cut Lab primary-type order.</summary>
     public IReadOnlyList<CutLabRoleGroupView> TypeGroups { get; init; } = [];
+
+    /// <summary>Pool groups ordered by primary imported or edited category.</summary>
+    public IReadOnlyList<CutLabRoleGroupView> CategoryGroups { get; init; } = [];
+
+    /// <summary>Effective primary and secondary categories for each pool card.</summary>
+    public IReadOnlyDictionary<string, CutLabCardCategoryView> CardCategoryByName { get; init; } = new Dictionary<string, CutLabCardCategoryView>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Existing effective categories offered by the card editor.</summary>
+    public IReadOnlyList<string> CategoryOptions { get; init; } = [];
 
     /// <summary>Structural findings rendered for the current pool.</summary>
     public IReadOnlyList<CutLabFindingView> Findings { get; init; } = [];
@@ -238,76 +248,74 @@ public sealed record CutLabViewModel
     public IReadOnlyDictionary<string, CutLabComboBadgeView> ComboBadgeByCardName { get; init; } =
         new Dictionary<string, CutLabComboBadgeView>(CutLabCardNames.Comparer);
 
-    /// <summary>Finds the lockable pool card identified by a rendered Structural evidence label.</summary>
-    public CutLabPoolCard? FindLockableEvidenceCard(string evidence)
+    /// <summary>Builds the ordered card metadata embedded in the Cut Lab modal JSON.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> BuildCardModalData()
     {
-        ArgumentNullException.ThrowIfNull(evidence);
-        string normalizedEvidence = NormalizeAsciiCase(evidence);
-
-        return Pool
-            .Where(card => !card.IsCommander)
-            .OrderByDescending(card => card.Name.Length)
-            .FirstOrDefault(card =>
+        var cardTextData = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+        foreach (var cardName in Pool.Select(card => card.Name).Concat(CardTextByCardName.Keys).Distinct(StringComparer.Ordinal))
+        {
+            var entry = new Dictionary<string, string>(StringComparer.Ordinal);
+            void Add(string key, string? value)
             {
-                string normalizedCardName = NormalizeAsciiCase(card.Name);
-                if (normalizedEvidence.Equals(normalizedCardName, StringComparison.Ordinal))
+                if (!string.IsNullOrWhiteSpace(value))
                 {
-                    return true;
+                    entry[key] = value;
+                }
+            }
+
+            if (CardTextByCardName.TryGetValue(cardName, out var cardText))
+            {
+                Add("typeLine", cardText.TypeLine);
+
+                Add("manaCost", cardText.ManaCost);
+
+                Add("power", cardText.Power);
+
+                Add("toughness", cardText.Toughness);
+
+                Add("setCode", cardText.SetCode);
+
+                Add("collectorNumber", cardText.CollectorNumber);
+
+                Add("oracleText", cardText.OracleText);
+            }
+
+            if (ComboBadgeByCardName.TryGetValue(CutLabCardNames.Normalize(cardName), out var comboBadge)
+                && !string.IsNullOrWhiteSpace(comboBadge.Context))
+            {
+                entry["comboContext"] = comboBadge.Context;
+            }
+
+            if (CardCategoryByName.TryGetValue(cardName, out var category))
+            {
+                if (category.Primary is not null)
+                {
+                    entry["category"] = category.Primary;
                 }
 
-                string manaValuePrefix = $"{normalizedCardName} · mv ";
-                return normalizedEvidence.StartsWith(manaValuePrefix, StringComparison.Ordinal)
-                    && IsValidManaValueSuffix(normalizedEvidence.AsSpan(manaValuePrefix.Length));
-            });
-    }
+                if (category.AlsoTagged.Count > 0)
+                {
+                    entry["alsoTagged"] = string.Join(", ", category.AlsoTagged);
+                }
 
-    private static string NormalizeAsciiCase(string value) =>
-        string.Create(value.Length, value, static (characters, source) =>
-        {
-            for (int index = 0; index < source.Length; index++)
-            {
-                char character = source[index];
-                characters[index] = character is >= 'A' and <= 'Z'
-                    ? (char)(character + ('a' - 'A'))
-                    : character;
+                if (category.IsEdited)
+                {
+                    entry["categoryEdited"] = "true";
+                }
             }
-        });
 
-    private static bool IsValidManaValueSuffix(ReadOnlySpan<char> value)
-    {
-        int index = 0;
-        while (index < value.Length && IsAsciiDigit(value[index]))
-        {
-            index++;
+            if (entry.Count > 0)
+            {
+                cardTextData[cardName] = entry;
+            }
         }
 
-        if (index == 0)
-        {
-            return false;
-        }
-
-        if (index == value.Length)
-        {
-            return true;
-        }
-
-        if (value[index] != '.')
-        {
-            return false;
-        }
-
-        int fractionalStart = ++index;
-        while (index < value.Length && IsAsciiDigit(value[index]))
-        {
-            index++;
-        }
-
-        int fractionalDigits = index - fractionalStart;
-        return index == value.Length && fractionalDigits is >= 1 and <= 2;
+        return cardTextData;
     }
 
-    private static bool IsAsciiDigit(char character) =>
-        character is >= '0' and <= '9';
+    /// <summary>Finds the lockable pool card identified by a rendered Structural evidence label.</summary>
+    public CutLabPoolCard? FindLockableEvidenceCard(string evidence)
+        => new CutLabEvidenceCardIndex(Pool).Find(evidence);
 
     /// <summary>Builds the page model from the request and service result.</summary>
     /// <param name="request">Current request values.</param>
@@ -329,9 +337,10 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabQuantityAdjustment> adjustments = result.State?.QuantityAdjustments ?? [];
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(pool, result.State?.Decisions ?? [], adjustments);
         IReadOnlyList<CutLabTunableRowView> workingListRows = BuildWorkingListRows(derivedWorkingList, pool, result.RoleAssignmentsByCardName);
-        IReadOnlyList<string> addableBasics = BuildAddableBasics(workingListRows);
+        IReadOnlyList<string> addableBasics = CutLabSharedHelpers.BuildAddableBasics(workingListRows.Select(row => row.Name));
         IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabRoleGroupView> typeGroups = BuildTypeGroups(pool);
+        IReadOnlyDictionary<string, CutLabCardCategoryView> cardCategoryByName = BuildCardCategoryByName(result.State);
         IReadOnlyList<CutLabFindingView> findings = CutLabFindingPresenter.BuildFindings(result.Findings.Findings);
         IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
@@ -347,8 +356,8 @@ public sealed record CutLabViewModel
         int baselineCount = pool.Sum(card => card.Quantity);
         int currentCount = derivedWorkingList.Sum(card => card.Quantity);
         int lockedCount = pool.Where(card => card.IsLocked).Sum(card => card.Quantity);
-        IReadOnlyList<string> whatifCardOutOptions = BuildWhatifCardOutOptions(derivedWorkingList);
-        IReadOnlyList<string> whatifCardInOptions = BuildWhatifCardInOptions(pool, result.State?.Decisions);
+        IReadOnlyList<string> whatifCardOutOptions = CutLabSharedHelpers.BuildWhatifCardOutOptions(derivedWorkingList);
+        IReadOnlyList<string> whatifCardInOptions = CutLabSharedHelpers.BuildWhatifCardInOptions(pool, result.State?.Decisions);
         IReadOnlyList<CutLabGoalRowView> goalRows = BuildGoalRows(
             result.State?.Goals ?? new(),
             result.CurrentSnapshot,
@@ -385,9 +394,6 @@ public sealed record CutLabViewModel
             Request = request,
             ErrorMessage = result.ErrorMessage,
             CardCount = result.CardCount,
-            MainboardCardCount = result.MainboardCardCount,
-            SideboardCardCount = result.SideboardCardCount,
-            MaybeboardCardCount = result.MaybeboardCardCount,
             BoardCounts = result.BoardCounts,
             IntakeSummaryText = BuildIntakeSummary(request, result.State, result.BoardCounts, baselineCount),
             BannedCardsPresent = result.BannedCardsPresent,
@@ -402,6 +408,14 @@ public sealed record CutLabViewModel
             Packages = result.State?.Packages ?? [],
             RoleGroups = roleGroups,
             TypeGroups = typeGroups,
+            CategoryGroups = BuildCategoryGroups(result.State, cardCategoryByName),
+            CardCategoryByName = cardCategoryByName,
+            CategoryOptions = cardCategoryByName.Values
+                .SelectMany(category => category.AlsoTagged.Prepend(category.Primary!))
+                .Where(token => token is not null)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(token => token, StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
             Findings = findings,
             FindingGroups = findingGroups,
             ComboDataUnavailable = result.HasResult && !result.Findings.ComboDataAvailable,
@@ -481,42 +495,73 @@ public sealed record CutLabViewModel
             honestySentence);
     }
 
+    private static CutLabRoleGroupView BuildGroup(
+        string key,
+        string label,
+        IEnumerable<CutLabPoolCard> cards,
+        bool isLockable = true)
+    {
+        CutLabRoleMemberView[] members = cards.Select(card => new CutLabRoleMemberView
+        {
+            Name = card.Name,
+            Quantity = card.Quantity,
+            IsLocked = card.IsLocked,
+            IsCommander = card.IsCommander,
+        }).ToArray();
+
+        return new CutLabRoleGroupView
+        {
+            RoleKey = key,
+            DisplayLabel = label,
+            IsLockable = isLockable,
+            Members = members,
+            CardCount = members.Sum(member => member.Quantity),
+            LockedCount = members.Where(member => member.IsLocked).Sum(member => member.Quantity),
+        };
+    }
+
     private static IReadOnlyList<CutLabRoleGroupView> BuildRoleGroups(
         IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
     {
         return RoleGroupDisplayOrder
-            .Select(roleKey =>
-            {
-                IReadOnlyList<CutLabRoleMemberView> members = pool
-                    .Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
-                        && roles.Contains(roleKey, StringComparer.Ordinal))
-                    .Select(card => new CutLabRoleMemberView
-                    {
-                        Name = card.Name,
-                        Quantity = card.Quantity,
-                        IsLocked = card.IsLocked,
-                        IsCommander = card.IsCommander,
-                    })
-                    .ToArray();
+            .Select(roleKey => BuildGroup(roleKey, DisplayLabelFor(roleKey),
+                pool.Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
+                    && roles.Contains(roleKey, StringComparer.Ordinal)),
+                !string.Equals(roleKey, "other", StringComparison.Ordinal)))
+            .ToArray();
+    }
 
-                return new CutLabRoleGroupView
-                {
-                    RoleKey = roleKey,
-                    DisplayLabel = DisplayLabelFor(roleKey),
-                    IsLockable = !string.Equals(roleKey, "other", StringComparison.Ordinal),
-                    Members = members,
-                    CardCount = pool
-                        .Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
-                            && roles.Contains(roleKey, StringComparer.Ordinal))
-                        .Sum(card => card.Quantity),
-                    LockedCount = pool
-                        .Where(card => card.IsLocked
-                            && roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
-                            && roles.Contains(roleKey, StringComparer.Ordinal))
-                        .Sum(card => card.Quantity),
-                };
-            })
+    private static IReadOnlyDictionary<string, CutLabCardCategoryView> BuildCardCategoryByName(CutLabState? state)
+    {
+        Dictionary<string, CutLabCardCategoryView> categories = new(StringComparer.OrdinalIgnoreCase);
+        foreach (CutLabPoolCard card in state?.Pool ?? [])
+        {
+            IReadOnlyList<string> tokens = CutLabCategoryRules.EffectiveCategoryTokens(state!.OriginalEntries, state.CategoryOverrides, card.Name);
+            categories[card.Name] = new CutLabCardCategoryView
+            {
+                Primary = tokens.FirstOrDefault(),
+                AlsoTagged = tokens.Skip(1).ToArray(),
+                IsEdited = CutLabCategoryRules.Find(state.CategoryOverrides, card.Name) is not null,
+            };
+        }
+
+        return categories;
+    }
+
+    private static IReadOnlyList<CutLabRoleGroupView> BuildCategoryGroups(CutLabState? state, IReadOnlyDictionary<string, CutLabCardCategoryView> categories)
+    {
+        if (state is null)
+        {
+            return [];
+        }
+
+        // Why: group only by the primary token; secondary tags remain available in the modal.
+        return state.Pool
+            .GroupBy(card => categories[card.Name].Primary, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.Key is null)
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => BuildGroup(group.Key ?? "uncategorized", group.Key ?? "Uncategorized", group))
             .ToArray();
     }
 
@@ -539,26 +584,7 @@ public sealed record CutLabViewModel
 
         return TypeGroupOrder
             .Where(byPrimaryType.ContainsKey)
-            .Select(typeLabel =>
-            {
-                List<CutLabPoolCard> cards = byPrimaryType[typeLabel];
-                return new CutLabRoleGroupView
-                {
-                    RoleKey = typeLabel,
-                    DisplayLabel = typeLabel,
-                    Members = cards
-                        .Select(card => new CutLabRoleMemberView
-                        {
-                            Name = card.Name,
-                            Quantity = card.Quantity,
-                            IsLocked = card.IsLocked,
-                            IsCommander = card.IsCommander,
-                        })
-                        .ToArray(),
-                    CardCount = cards.Sum(card => card.Quantity),
-                    LockedCount = cards.Where(card => card.IsLocked).Sum(card => card.Quantity),
-                };
-            })
+            .Select(typeLabel => BuildGroup(typeLabel, typeLabel, byPrimaryType[typeLabel]))
             .ToArray();
     }
 
@@ -718,19 +744,11 @@ public sealed record CutLabViewModel
         Dictionary<string, string> result = new(StringComparer.OrdinalIgnoreCase);
         foreach (CutLabPoolCard card in pool)
         {
-            result[card.Name] = RoleLabelFor(card.Name, roleAssignmentsByCardName);
+            result[card.Name] = CutLabSharedHelpers.RoleLabelFor(card.Name, roleAssignmentsByCardName);
         }
 
         return result;
     }
-
-    /// <summary>Formats a card's assigned roles into the shared " · "-joined display label.</summary>
-    private static string RoleLabelFor(
-        string cardName,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
-        => roleAssignmentsByCardName.TryGetValue(cardName, out IReadOnlyList<string>? roles)
-            ? string.Join(" · ", roles.Select(DisplayLabelFor))
-            : string.Empty;
 
     private static IReadOnlyDictionary<string, string> BuildRoleKeysByCardName(
         IReadOnlyList<CutLabPoolCard> pool,
@@ -779,6 +797,20 @@ public sealed record CutLabViewModel
         };
     }
 
+    /// <summary>Ordered bracket values and labels used throughout Cut Lab intake.</summary>
+    internal static IReadOnlyList<(int Value, string Label)> BracketOptions { get; } =
+    [
+        (1, "B1 Exhibition"),
+        (2, "B2 Core"),
+        (3, "B3 Upgraded"),
+        (4, "B4 Optimized"),
+        (5, "B5 cEDH"),
+    ];
+
+    /// <summary>Returns the intake label, or null for an unset or unsupported bracket.</summary>
+    internal static string? BracketLabel(int? bracket)
+        => BracketOptions.FirstOrDefault(option => option.Value == bracket).Label;
+
     private static string BuildIntakeSummary(
         CutLabRequest request,
         CutLabState? state,
@@ -788,15 +820,7 @@ public sealed record CutLabViewModel
         string commander = !string.IsNullOrWhiteSpace(request.SelectedCommander)
             ? request.SelectedCommander
             : state?.Commander ?? string.Empty;
-        string bracketLabel = request.Bracket switch
-        {
-            1 => "B1 Exhibition",
-            2 => "B2 Core",
-            3 => "B3 Upgraded",
-            4 => "B4 Optimized",
-            5 => "B5 cEDH",
-            _ => "Bracket not set",
-        };
+        string bracketLabel = BracketLabel(request.Bracket) ?? "Bracket not set";
 
         return $"{commander} · {baselineCount} cards · {bracketLabel} · {request.PlayExperience} · {boardCounts.ToBreakdown()}";
     }
@@ -1035,7 +1059,7 @@ public sealed record CutLabViewModel
                 bool isLegalMultiple = CutLabLegality.IsLegalMultiple(card.Name);
                 bool isAddedBasic = CutLabBasicLands.Contains(card.Name)
                     && !originalPoolNames.Contains(CutLabCardNames.Normalize(card.Name));
-                string roleLabel = RoleLabelFor(card.Name, roleAssignmentsByCardName);
+                string roleLabel = CutLabSharedHelpers.RoleLabelFor(card.Name, roleAssignmentsByCardName);
 
                 return new CutLabTunableRowView
                 {
@@ -1048,17 +1072,6 @@ public sealed record CutLabViewModel
                     IsAddedBasic = isAddedBasic,
                 };
             })
-            .ToArray();
-    }
-
-    private static IReadOnlyList<string> BuildAddableBasics(IReadOnlyList<CutLabTunableRowView> workingListRows)
-    {
-        HashSet<string> presentBasicNames = workingListRows
-            .Select(row => CutLabCardNames.Normalize(row.Name))
-            .ToHashSet(CutLabCardNames.Comparer);
-
-        return CutLabBasicLands.Names
-            .Where(name => !presentBasicNames.Contains(CutLabCardNames.Normalize(name)))
             .ToArray();
     }
 
@@ -1075,35 +1088,6 @@ public sealed record CutLabViewModel
                 DeltaValueToken = FormatDeltaToken(delta.Delta, delta.Unit),
                 Direction = delta.Direction,
             })
-            .ToArray();
-    }
-
-    private static IReadOnlyList<string> BuildWhatifCardOutOptions(
-        IReadOnlyList<CutLabPoolCard> derivedWorkingList)
-    {
-        return derivedWorkingList
-            .Where(card => !card.IsLocked && !card.IsCommander)
-            .Select(card => card.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    private static IReadOnlyList<string> BuildWhatifCardInOptions(
-        IReadOnlyList<CutLabPoolCard> pool,
-        IReadOnlyList<CutLabDecision>? decisions)
-    {
-        if (pool.Count == 0)
-        {
-            return [];
-        }
-
-        IReadOnlySet<string> accepted = CutLabWorkingList.AcceptedCardNames(decisions ?? []);
-        return pool
-            .Where(card => accepted.Contains(card.Name))
-            .Select(card => card.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
 

@@ -9,6 +9,75 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabViewModelTests
 {
     [Fact]
+    public void From_CategoryGroups_UsePrimaryPoolOrderFirstSpellingAndQuantityCounts()
+    {
+        var state = new CutLabState
+        {
+            Pool =
+            [
+                new() { Name = "Ring", Quantity = 2, IsLocked = true },
+                new() { Name = "Rock", Quantity = 1, IsCommander = true },
+                new() { Name = "Study", Quantity = 1 },
+                new() { Name = "Unknown", Quantity = 1 },
+            ],
+            OriginalEntries =
+            [
+                new() { Name = "Ring", Category = "Ramp" },
+                new() { Name = "Ring", Category = "Draw" },
+                new() { Name = "Rock", Category = "ramp" },
+                new() { Name = "Study", Category = "draw" },
+            ],
+        };
+        var model = CategoryModel(state);
+
+        Assert.Equal(["draw", "Ramp", "Uncategorized"], model.CategoryGroups.Select(group => group.DisplayLabel));
+        var ramp = Assert.Single(model.CategoryGroups, group => group.RoleKey == "Ramp");
+        Assert.Equal(["Ring", "Rock"], ramp.Members.Select(member => member.Name));
+        Assert.Equal(3, ramp.CardCount);
+        Assert.Equal(2, ramp.LockedCount);
+        Assert.True(ramp.Members[0].IsLocked);
+        Assert.True(ramp.Members[1].IsCommander);
+        Assert.Equal("uncategorized", model.CategoryGroups[^1].RoleKey);
+        Assert.Equal("Ramp", model.CardCategoryByName["ring"].Primary);
+        Assert.Equal(["Draw"], model.CardCategoryByName["Ring"].AlsoTagged);
+        Assert.False(model.CardCategoryByName["Ring"].IsEdited);
+        Assert.Null(model.CardCategoryByName["Unknown"].Primary);
+        Assert.Equal(["Draw", "Ramp"], model.CategoryOptions);
+    }
+
+    [Fact]
+    public void From_CategoryOverride_MovesPrimaryAndKeepsSecondaryWithoutDuplicateMembership()
+    {
+        var state = new CutLabState
+        {
+            Pool = [new() { Name = "Ring", Quantity = 1 }],
+            OriginalEntries = [new() { Name = "Ring", Category = "Ramp" }, new() { Name = "Ring", Category = "Draw" }],
+            CategoryOverrides = [new() { Name = "Ring", Category = "FastMana" }],
+        };
+        var model = CategoryModel(state);
+
+        Assert.Equal("FastMana", Assert.Single(model.CategoryGroups).RoleKey);
+        Assert.Equal("Ring", Assert.Single(model.CategoryGroups[0].Members).Name);
+        Assert.Equal("FastMana", model.CardCategoryByName["Ring"].Primary);
+        Assert.Equal(["Draw"], model.CardCategoryByName["Ring"].AlsoTagged);
+        Assert.True(model.CardCategoryByName["Ring"].IsEdited);
+        Assert.Equal(["Draw", "FastMana"], model.CategoryOptions);
+    }
+
+    [Fact]
+    public void From_CategoryWithoutState_HasEmptyProjections()
+    {
+        var model = CategoryModel(null);
+        Assert.Empty(model.CategoryGroups);
+        Assert.Empty(model.CardCategoryByName);
+        Assert.Empty(model.CategoryOptions);
+    }
+
+    private static CutLabViewModel CategoryModel(CutLabState? state) => CutLabViewModel.From(
+        new CutLabRequest(),
+        new CutLabProcessResult { State = state, Findings = new CutLabStructuralFindingsResult([], true, true) });
+
+    [Fact]
     public void From_InfrastructureProposal_RendersInfrastructureRoundCopy()
     {
         var result = new CutLabProcessResult

@@ -37,15 +37,6 @@ public sealed record CutLabProcessResult
     /// <summary>Non-commander pool count used by the 101-150 validation gate.</summary>
     public int CardCount { get; init; }
 
-    /// <summary>Mainboard-only quantity loaded from the source before any Cut Lab board filtering.</summary>
-    public int MainboardCardCount { get; init; }
-
-    /// <summary>Sideboard quantity loaded from the source before any Cut Lab board filtering.</summary>
-    public int SideboardCardCount { get; init; }
-
-    /// <summary>Considering or maybeboard quantity loaded from the source before any Cut Lab board filtering.</summary>
-    public int MaybeboardCardCount { get; init; }
-
     /// <summary>Per-board counts used for shared breakdown rendering and validation.</summary>
     public BoardCounts BoardCounts { get; init; } = new();
 
@@ -349,52 +340,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson, request.Bracket);
         EdhrecThemeResult planThemeResult = await CutLabSharedHelpers.FetchPlanThemeResultAsync(_themeService, _logger, commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<string> initialCommanderNames = commanderResolution.CommanderNames;
-        var preAnalysisState = CutLabLockRules.EnforceCommanderLock(
-            BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult));
-        IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
-        IReadOnlyList<ScryfallCardData> preResolvedCards = resolvedEntries
-            .Select(entry => entry.Card)
-            .Where(card => card is not null)
-            .Cast<ScryfallCardData>()
-            .ToArray();
-        IReadOnlyList<string> unresolvedEntryNames = resolvedEntries
-            .Where(entry => entry.Card is null)
-            .Select(entry => entry.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        _analysisContextBuilder.PrimeResolvedCardsCache(
-            derivedWorkingList,
-            preResolvedCards,
-            unresolvedEntryNames,
-            resolutionPool);
-
-        CutLabAnalysisContext analysisContext = await _analysisContextBuilder.BuildAsync(
-            derivedWorkingList,
-            request.PlayExperience,
-            commanderResolution.CommanderNames,
-            preAnalysisState.Decisions.Count == 0 ? null : preResolvedCards,
-            poolKey: null,
-            cancellationToken).ConfigureAwait(false);
-        analysisContext = CutLabRoleOverrideApplier.Apply(analysisContext, preAnalysisState.RoleOverrides);
-
-        // Why the union, and why this sits AFTER BuildAsync rather than before it:
-        // B-1 deliberately leaves a swallowed 429's casualties re-attemptable, so BuildAsync retries
-        // them inside this same request -- and at the 500ms pacing floor a transient 429 has usually
-        // cleared by then, making recovery the EXPECTED path rather than a corner case. Deriving the
-        // warning and the card text from the first-pass snapshot alone therefore tells the user a
-        // card could not be looked up, and drops its card text, for a card that resolved seconds ago.
-        // The union (not a swap) is required because BuildAsync resolves derivedWorkingList, which
-        // excludes already-cut cards, while the card-text map covers the FULL pool -- swapping would
-        // lose text for every cut card. ToLastWinsDictionary gives the fresher entry precedence.
-        IReadOnlyList<ScryfallCardData> finalResolvedCards = preResolvedCards
-            .Concat(analysisContext.ResolvedCards)
-            .ToArray();
-        HashSet<string> resolvedAfterBuild = analysisContext.ResolvedCards
-            .Select(card => CutLabCardNames.Normalize(card.Name))
-            .ToHashSet(CutLabCardNames.Comparer);
-        IReadOnlyList<string> stillUnresolvedNames = unresolvedEntryNames
-            .Where(name => !resolvedAfterBuild.Contains(CutLabCardNames.Normalize(name)))
-            .ToArray();
+        var (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
 
         List<ResolvedCutLabEntry> finalResolvedEntries = ReconcileResolvedEntries(resolvedEntries, finalResolvedCards);
         bool recoveredDuringBuild = resolvedEntries.Zip(finalResolvedEntries, (before, after) => before.Card is null && after.Card is not null).Any(static recovered => recovered);
@@ -429,41 +375,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             // commander-dependent value retained from the earlier resolution snapshot.
             resolvedEntries = finalResolvedEntries;
 
-            preAnalysisState = CutLabLockRules.EnforceCommanderLock(
-                BuildState(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult));
-            derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
-            preResolvedCards = resolvedEntries
-                .Select(entry => entry.Card)
-                .Where(card => card is not null)
-                .Cast<ScryfallCardData>()
-                .ToArray();
-            unresolvedEntryNames = resolvedEntries
-                .Where(entry => entry.Card is null)
-                .Select(entry => entry.Name)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            _analysisContextBuilder.PrimeResolvedCardsCache(
-                derivedWorkingList,
-                preResolvedCards,
-                unresolvedEntryNames,
-                resolutionPool);
-            analysisContext = await _analysisContextBuilder.BuildAsync(
-                derivedWorkingList,
-                request.PlayExperience,
-                commanderResolution.CommanderNames,
-                preAnalysisState.Decisions.Count == 0 ? null : preResolvedCards,
-                poolKey: null,
-                cancellationToken).ConfigureAwait(false);
-            analysisContext = CutLabRoleOverrideApplier.Apply(analysisContext, preAnalysisState.RoleOverrides);
-            finalResolvedCards = preResolvedCards
-                .Concat(analysisContext.ResolvedCards)
-                .ToArray();
-            resolvedAfterBuild = analysisContext.ResolvedCards
-                .Select(card => CutLabCardNames.Normalize(card.Name))
-                .ToHashSet(CutLabCardNames.Comparer);
-            stillUnresolvedNames = unresolvedEntryNames
-                .Where(name => !resolvedAfterBuild.Contains(CutLabCardNames.Normalize(name)))
-                .ToArray();
+            (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
         }
 
         // W-1 (round-1 review): a swallowed transient lookup failure leaves a card with no facts --
@@ -587,7 +499,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     derivedWorkingList,
                     request.PlayExperience,
                     trialsOverride: ICutLabSimulationService.InLoopTrials,
-                    poolKey: null,
+                    poolKey: poolKey,
                     goals: state.Goals,
                     roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -620,7 +532,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     roundPlan.NextProposal.CardName,
                     request.PlayExperience,
                     trialsOverride: ICutLabSimulationService.InLoopTrials,
-                    poolKey: null,
+                    poolKey: poolKey,
                     goals: state.Goals,
                     roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -665,9 +577,6 @@ internal sealed class CutLabPageService : ICutLabPageService
             State = state,
             SerializedStateJson = serializedStateJson,
             CardCount = nonCommanderCardCount,
-            MainboardCardCount = boardCounts.MainboardCount,
-            SideboardCardCount = boardCounts.SideboardCount,
-            MaybeboardCardCount = boardCounts.MaybeboardCount,
             BoardCounts = boardCounts,
             BannedCardsPresent = bannedCardsPresent,
             IsLegal = bannedCardsPresent.Count == 0,
@@ -696,10 +605,68 @@ internal sealed class CutLabPageService : ICutLabPageService
 
     // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
     // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
+    private async Task<(CutLabState PreAnalysisState, IReadOnlyList<CutLabPoolCard> DerivedWorkingList, IReadOnlyList<ScryfallCardData> PreResolvedCards, CutLabAnalysisContext AnalysisContext, IReadOnlyList<ScryfallCardData> FinalResolvedCards, IReadOnlyList<string> StillUnresolvedNames, string PoolKey)> RunAnalysisPassAsync(
+        CutLabState priorState,
+        IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
+        IReadOnlyList<string> commanderNames,
+        CutLabRequest request,
+        EdhrecThemeResult planThemeResult,
+        IReadOnlyList<CutLabPoolCard> resolutionPool,
+        CancellationToken cancellationToken)
+    {
+        CutLabState preAnalysisState = CutLabLockRules.EnforceCommanderLock(
+            BuildState(priorState, resolvedEntries, commanderNames, request, planThemeResult));
+        IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(preAnalysisState.Pool, preAnalysisState.Decisions, preAnalysisState.QuantityAdjustments);
+        IReadOnlyList<ScryfallCardData> preResolvedCards = resolvedEntries
+            .Select(entry => entry.Card)
+            .Where(card => card is not null)
+            .Cast<ScryfallCardData>()
+            .ToArray();
+        IReadOnlyList<string> unresolvedEntryNames = resolvedEntries
+            .Where(entry => entry.Card is null)
+            .Select(entry => entry.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        _analysisContextBuilder.PrimeResolvedCardsCache(
+            derivedWorkingList,
+            preResolvedCards,
+            unresolvedEntryNames,
+            resolutionPool);
+
+        string poolKey = CutLabResolvedCardCache.ComputePoolKey(derivedWorkingList);
+        CutLabAnalysisContext analysisContext = await _analysisContextBuilder.BuildAsync(
+            derivedWorkingList,
+            request.PlayExperience,
+            commanderNames,
+            preAnalysisState.Decisions.Count == 0 ? null : preResolvedCards,
+            poolKey: poolKey,
+            cancellationToken).ConfigureAwait(false);
+        analysisContext = CutLabRoleOverrideApplier.Apply(analysisContext, preAnalysisState.RoleOverrides);
+
+        // Why the union, and why this sits AFTER BuildAsync rather than before it:
+        // B-1 deliberately leaves a swallowed 429's casualties re-attemptable, so BuildAsync retries
+        // them inside this same request -- and at the 500ms pacing floor a transient 429 has usually
+        // cleared by then, making recovery the EXPECTED path rather than a corner case. Deriving the
+        // warning and the card text from the first-pass snapshot alone therefore tells the user a
+        // card could not be looked up, and drops its card text, for a card that resolved seconds ago.
+        // The union (not a swap) is required because BuildAsync resolves derivedWorkingList, which
+        // excludes already-cut cards, while the card-text map covers the FULL pool -- swapping would
+        // lose text for every cut card. ToLastWinsDictionary gives the fresher entry precedence.
+        IReadOnlyList<ScryfallCardData> finalResolvedCards = preResolvedCards
+            .Concat(analysisContext.ResolvedCards)
+            .ToArray();
+        HashSet<string> resolvedAfterBuild = analysisContext.ResolvedCards
+            .Select(card => CutLabCardNames.Normalize(card.Name))
+            .ToHashSet(CutLabCardNames.Comparer);
+        IReadOnlyList<string> stillUnresolvedNames = unresolvedEntryNames
+            .Where(name => !resolvedAfterBuild.Contains(CutLabCardNames.Normalize(name)))
+            .ToArray();
+
+        return (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey);
+    }
+
     private bool IsFlagOn(string key)
-        => _featureFlags is { } flags
-            && flags.Snapshot().TryGetValue(key, out bool enabled)
-            && enabled;
+        => _featureFlags.IsExplicitlyEnabled(key);
 
     private async Task<List<ResolvedCutLabEntry>> ResolveEntriesAsync(
         IReadOnlyList<DeckEntry> entries,
@@ -988,6 +955,8 @@ internal sealed class CutLabPageService : ICutLabPageService
             QuantityAdjustments = priorState.QuantityAdjustments,
             // Why: This is the only production state construction; without this ProcessAsync drops overrides.
             RoleOverrides = CutLabRoleOverrideRules.Sanitize(priorState.RoleOverrides, pool, commanderNames),
+            // Why: ProcessAsync rebuilds state, so category edits must be explicitly carried forward.
+            CategoryOverrides = CutLabCategoryRules.Sanitize(priorState.CategoryOverrides, pool),
             OriginalEntries = priorState.OriginalEntries,
             Goals = goals,
             BaselineSnapshot = priorState.BaselineSnapshot,
@@ -1057,14 +1026,14 @@ internal sealed class CutLabPageService : ICutLabPageService
             // Why: the theme fieldset was suppressed on the render that produced this post, so an empty
             // post means nothing was shown to check, not that the user cleared their selection. EDHREC has
             // recovered, so re-validate prior slugs and re-attach the authoritative display metadata.
-            Dictionary<string, CutLabCommanderTheme> recoveredKnownThemesBySlug = planThemeResult.Themes
+            Dictionary<string, CutLabCommanderTheme> knownThemesBySlug = planThemeResult.Themes
                 .GroupBy(theme => theme.Slug, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
             checkedThemes = (priorProfile.CommanderThemes ?? [])
                 .Select(theme => theme.Slug)
-                .Where(slug => recoveredKnownThemesBySlug.ContainsKey(slug))
+                .Where(slug => knownThemesBySlug.ContainsKey(slug))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select(slug => recoveredKnownThemesBySlug[slug])
+                .Select(slug => knownThemesBySlug[slug])
                 .ToArray();
         }
         else if (isFirstPresentation && requestedThemeSlugs.Count == 0)
@@ -1177,27 +1146,12 @@ internal sealed class CutLabPageService : ICutLabPageService
 
         foreach ((string normalizedCardName, CutLabCardComboMembership membership) in cardComboMembership)
         {
-            if (membership.CompleteCombos.Count > 0)
+            if (CutLabSharedHelpers.DescribeComboBadge(membership) is { } badge)
             {
                 comboBadgeByCardName[normalizedCardName] = new CutLabComboBadgeView
                 {
-                    BadgeState = ComboBadgeState.CompletePiece,
-                    Context = CutLabSharedHelpers.JoinCardNames(
-                        membership.CompleteCombos
-                            .SelectMany(combo => combo.Results)
-                            .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
-                            .ToArray()),
-                };
-                continue;
-            }
-
-            if (membership.NearCombos.Count > 0)
-            {
-                comboBadgeByCardName[normalizedCardName] = new CutLabComboBadgeView
-                {
-                    BadgeState = ComboBadgeState.NeedsPartner,
-                    Context = $"Needs {CutLabSharedHelpers.JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}",
+                    BadgeState = badge.State,
+                    Context = badge.Context,
                 };
             }
         }
