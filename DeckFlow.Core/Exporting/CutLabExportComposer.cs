@@ -63,10 +63,16 @@ public static class CutLabExportComposer
         var illegalColorIdentity = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var unresolvedColorIdentity = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        var banlistOffenders = new List<string>();
         foreach (var cardName in finalEntries
             .Select(entry => entry.Name)
             .Distinct(StringComparer.OrdinalIgnoreCase))
         {
+            if (bannedNames.Contains(cardName))
+            {
+                banlistOffenders.Add(cardName);
+            }
+
             identityLookup.TryGetValue(cardName, out var cardIdentity);
             var result = CommanderIdentityCheck.IsWithinCommanderIdentity(cardIdentity, commanderIdentity);
             if (result == CommanderIdentityCheckResult.Illegal)
@@ -83,10 +89,7 @@ public static class CutLabExportComposer
 
         unresolvedColorIdentity.ExceptWith(illegalColorIdentity);
 
-        var banlistOffenders = finalEntries
-            .Select(entry => entry.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(cardName => bannedNames.Contains(cardName))
+        banlistOffenders = banlistOffenders
             .OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase)
             .ToList();
 

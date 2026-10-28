@@ -166,14 +166,7 @@
     <fieldset class="manabase-segmented" role="radiogroup">
         <legend>Target bracket</legend>
         <div class="manabase-pills">
-            @foreach (var bracket in new[]
-            {
-                new { Value = 1, Label = "B1 Exhibition" },
-                new { Value = 2, Label = "B2 Core" },
-                new { Value = 3, Label = "B3 Upgraded" },
-                new { Value = 4, Label = "B4 Optimized" },
-                new { Value = 5, Label = "B5 cEDH" },
-            })
+            @foreach (var bracket in CutLabViewModel.BracketOptions)
             {
                 <label class="manabase-pill @(Model.Request.Bracket == bracket.Value ? "is-selected" : null)">
                     <input type="radio" name="Bracket" value="@bracket.Value"
@@ -834,6 +827,7 @@
             <div data-cut-lab-structural-findings-body>
                 @if (totalStructuralFindings > 0)
                 {
+                    var evidenceCardIndex = new CutLabEvidenceCardIndex(Model.Pool);
                     @foreach (var findingGroup in Model.FindingGroups)
                     {
                         <div class="cutlab-finding">
@@ -859,7 +853,7 @@
                                         <div class="kb-chip-area__chips">
                                             @foreach (var evidence in finding.Evidence)
                                             {
-                                                var evidenceCard = Model.FindLockableEvidenceCard(evidence);
+                                                var evidenceCard = evidenceCardIndex.Find(evidence);
                                                 if (evidenceCard is null)
                                                 {
                                                     <span class="kb-chip">@evidence</span>
@@ -922,15 +916,7 @@
                 <div class="panel-heading">
                     <div>
                         @{
-                            var roleFloorsBracketLabel = Model.Request.Bracket switch
-                            {
-                                1 => "B1 Exhibition",
-                                2 => "B2 Core",
-                                3 => "B3 Upgraded",
-                                4 => "B4 Optimized",
-                                5 => "B5 cEDH",
-                                _ => null
-                            };
+                            var roleFloorsBracketLabel = CutLabViewModel.BracketLabel(Model.Request.Bracket);
                         }
                         <h2>Role floors</h2>
                         <p>Minimum counts the finished 100 should keep, derived from your bracket and play experience. Adjust any floor — later cut suggestions will warn you before breaking one, never silently.</p>

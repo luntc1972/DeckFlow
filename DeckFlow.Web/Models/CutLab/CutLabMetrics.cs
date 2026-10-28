@@ -209,16 +209,3 @@ public static class CutLabNoiseFloor
     /// <summary>Default display threshold for card-count deltas.</summary>
     public const int Cards = 1;
 }
-
-/// <summary>Fixed cEDH category-by-turn defaults reused across all Phase 103 metric projections.</summary>
-public static class CutLabCategoryByTurnDefaults
-{
-    /// <summary>Commander or explosive-start checkpoint for Phase 103.</summary>
-    public const int CommanderByTurn = CedhMulliganCalibration.TurnCapExplosive;
-
-    /// <summary>Early-engine checkpoint for Phase 103.</summary>
-    public const int EngineByTurn = CedhMulliganCalibration.TurnCapEngine;
-
-    /// <summary>Representative-line checkpoint for Phase 103.</summary>
-    public const int RepresentativeLineByTurn = CedhMulliganCalibration.RepresentativeLineTurnCap;
-}

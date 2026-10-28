@@ -29,9 +29,13 @@ public static class CutLabCategoryRules
         .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     /// <summary>Unions imported categories across every row for a card.</summary>
-    public static IReadOnlyList<string> ImportedCategoryTokens(IReadOnlyList<CutLabOriginalEntry> originalEntries, string cardName) => originalEntries
-        .Where(entry => CutLabCardNames.Normalize(entry.Name) == CutLabCardNames.Normalize(cardName))
-        .SelectMany(entry => SplitTokens(entry.Category)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    public static IReadOnlyList<string> ImportedCategoryTokens(IReadOnlyList<CutLabOriginalEntry> originalEntries, string cardName)
+    {
+        string normalizedName = CutLabCardNames.Normalize(cardName);
+        return originalEntries
+            .Where(entry => CutLabCardNames.Normalize(entry.Name) == normalizedName)
+            .SelectMany(entry => SplitTokens(entry.Category)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
 
     /// <summary>Finds the last edit for a normalized card name.</summary>
     public static CutLabCategoryOverride? Find(IReadOnlyList<CutLabCategoryOverride>? overrides, string cardName) => (overrides ?? [])

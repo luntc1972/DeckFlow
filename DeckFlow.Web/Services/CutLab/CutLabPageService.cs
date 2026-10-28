@@ -37,15 +37,6 @@ public sealed record CutLabProcessResult
     /// <summary>Non-commander pool count used by the 101-150 validation gate.</summary>
     public int CardCount { get; init; }
 
-    /// <summary>Mainboard-only quantity loaded from the source before any Cut Lab board filtering.</summary>
-    public int MainboardCardCount { get; init; }
-
-    /// <summary>Sideboard quantity loaded from the source before any Cut Lab board filtering.</summary>
-    public int SideboardCardCount { get; init; }
-
-    /// <summary>Considering or maybeboard quantity loaded from the source before any Cut Lab board filtering.</summary>
-    public int MaybeboardCardCount { get; init; }
-
     /// <summary>Per-board counts used for shared breakdown rendering and validation.</summary>
     public BoardCounts BoardCounts { get; init; } = new();
 
@@ -586,9 +577,6 @@ internal sealed class CutLabPageService : ICutLabPageService
             State = state,
             SerializedStateJson = serializedStateJson,
             CardCount = nonCommanderCardCount,
-            MainboardCardCount = boardCounts.MainboardCount,
-            SideboardCardCount = boardCounts.SideboardCount,
-            MaybeboardCardCount = boardCounts.MaybeboardCount,
             BoardCounts = boardCounts,
             BannedCardsPresent = bannedCardsPresent,
             IsLegal = bannedCardsPresent.Count == 0,

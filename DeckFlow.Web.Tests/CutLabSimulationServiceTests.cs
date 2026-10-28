@@ -88,7 +88,7 @@ public sealed class CutLabSimulationServiceTests
             .Where(spell => (spell.PlanRoles & lineRoles) != 0)
             .Select(spell => report.Castability.Single(row => string.Equals(row.Name, spell.Name, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
-        double expected = expectedRows.Max(row => PercentByTurn(row, CutLabCategoryByTurnDefaults.RepresentativeLineByTurn));
+        double expected = expectedRows.Max(row => PercentByTurn(row, CutLabGoalDefaults.RepresentativeLineByTurn));
 
         CutLabMetricValue representativeLine = Assert.Single(snapshot.Metrics, metric => metric.Kind == CutLabMetricKind.RepresentativeLineByTurn);
         Assert.NotEmpty(expectedRows);

@@ -40,6 +40,45 @@ public interface ICutLabUiPatchBuilder
 /// <summary>Builds shared role warnings, labels, and EDHREC theme results for Cut Lab UI patches.</summary>
 internal static class CutLabSharedHelpers
 {
+    internal static string RoleLabelFor(
+        string cardName,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+        => roleAssignmentsByCardName.TryGetValue(cardName, out IReadOnlyList<string>? roles)
+            ? string.Join(" · ", roles.Select(CutLabRoleAssigner.DisplayLabelFor))
+            : string.Empty;
+
+    internal static IReadOnlyList<string> BuildAddableBasics(IEnumerable<string> names)
+    {
+        HashSet<string> presentBasicNames = names
+            .Select(name => CutLabCardNames.Normalize(name))
+            .ToHashSet(CutLabCardNames.Comparer);
+
+        return CutLabBasicLands.Names
+            .Where(name => !presentBasicNames.Contains(CutLabCardNames.Normalize(name)))
+            .ToArray();
+    }
+
+    internal static IReadOnlyList<string> BuildWhatifCardOutOptions(IReadOnlyList<CutLabPoolCard> workingList)
+        => workingList
+            .Where(card => !card.IsLocked && !card.IsCommander)
+            .Select(card => card.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    internal static IReadOnlyList<string> BuildWhatifCardInOptions(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyList<CutLabDecision>? decisions)
+    {
+        IReadOnlySet<string> accepted = CutLabWorkingList.AcceptedCardNames(decisions ?? []);
+        return pool
+            .Where(card => accepted.Contains(card.Name))
+            .Select(card => card.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
     internal static (ComboBadgeState State, string Context)? DescribeComboBadge(CutLabCardComboMembership membership)
     {
         if (membership.CompleteCombos.Count > 0)
@@ -460,10 +499,10 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         IReadOnlySet<string> originalPoolNames = state.Pool
             .Select(card => CutLabCardNames.Normalize(card.Name))
             .ToHashSet(CutLabCardNames.Comparer);
-        IReadOnlyList<string> whatifCardOutOptions = BuildWhatifCardOutOptions(workingList);
-        IReadOnlyList<string> whatifCardInOptions = BuildWhatifCardInOptions(state.Pool, state.Decisions);
+        IReadOnlyList<string> whatifCardOutOptions = CutLabSharedHelpers.BuildWhatifCardOutOptions(workingList);
+        IReadOnlyList<string> whatifCardInOptions = CutLabSharedHelpers.BuildWhatifCardInOptions(state.Pool, state.Decisions);
         int currentCount = workingList.Sum(card => card.Quantity);
-        IReadOnlyList<string> addableBasics = BuildAddableBasics(workingList);
+        IReadOnlyList<string> addableBasics = CutLabSharedHelpers.BuildAddableBasics(workingList.Select(card => card.Name));
 
         return new WorkingListProjection(
             workingList,
@@ -499,22 +538,11 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
                     AddDisabled = card.Quantity >= legalMax || isLockedOrCommander,
                     IsLockedOrCommander = isLockedOrCommander,
                     IsVisible = true,
-                    RoleLabel = RoleLabelFor(card.Name, roleAssignmentsByCardName),
+                    RoleLabel = CutLabSharedHelpers.RoleLabelFor(card.Name, roleAssignmentsByCardName),
                     IsLegalMultiple = isLegalMultiple,
                     IsAddedBasic = isAddedBasic,
                 };
             })
-            .ToArray();
-    }
-
-    private static IReadOnlyList<string> BuildAddableBasics(IReadOnlyList<CutLabPoolCard> workingList)
-    {
-        HashSet<string> presentBasicNames = workingList
-            .Select(card => CutLabCardNames.Normalize(card.Name))
-            .ToHashSet(CutLabCardNames.Comparer);
-
-        return CutLabBasicLands.Names
-            .Where(name => !presentBasicNames.Contains(CutLabCardNames.Normalize(name)))
             .ToArray();
     }
 
@@ -540,36 +568,8 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         return result;
     }
 
-    private static string RoleLabelFor(
-        string cardName,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
-        => roleAssignmentsByCardName.TryGetValue(cardName, out IReadOnlyList<string>? roles)
-            ? string.Join(" · ", roles.Select(DisplayLabelFor))
-            : string.Empty;
-
     private static string DisplayLabelFor(string roleKey)
         => CutLabRoleAssigner.DisplayLabelFor(roleKey);
-
-    private static IReadOnlyList<string> BuildWhatifCardOutOptions(IReadOnlyList<CutLabPoolCard> workingList)
-        => workingList
-            .Where(card => !card.IsLocked && !card.IsCommander)
-            .Select(card => card.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-    private static IReadOnlyList<string> BuildWhatifCardInOptions(
-        IReadOnlyList<CutLabPoolCard> pool,
-        IReadOnlyList<CutLabDecision> decisions)
-    {
-        IReadOnlySet<string> accepted = CutLabWorkingList.AcceptedCardNames(decisions);
-        return pool
-            .Where(card => accepted.Contains(card.Name))
-            .Select(card => card.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
 
     /// <summary>Collects derived deck counts and card options needed to render a Cut Lab working-list patch.</summary>
     private sealed record WorkingListProjection(
