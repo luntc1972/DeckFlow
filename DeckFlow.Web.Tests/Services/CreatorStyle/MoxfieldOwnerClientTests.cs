@@ -168,29 +168,77 @@ public sealed class MoxfieldOwnerClientTests
     }
 
     [Fact]
-    public async Task MoxfieldRequestPacer_DoesNotHoldGateWhileOperationRuns()
+    public async Task ListDeckSummariesAsync_CallerCancellationAfterSend_Propagates()
     {
-        var pacer = new MoxfieldRequestPacer(TimeSpan.Zero);
+        using var cancellation = new CancellationTokenSource();
+        var handler = new CancelBeforeResponseHandler(cancellation);
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api2.moxfield.com/") };
+        var client = new MoxfieldOwnerClient(new FakeResiliencePipelineProvider(), new RestClient(httpClient), new MoxfieldRequestPacer(TimeSpan.Zero));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => client.ListDeckSummariesAsync("snail", cancellation.Token).WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
+    public async Task MoxfieldRequestPacer_OverlappingCallers_DoNotRunOperationsConcurrently()
+    {
+        var pacer = new MoxfieldRequestPacer(TimeSpan.FromMilliseconds(20));
         var firstStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var secondStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var concurrentOperations = 0;
+        var maximumConcurrentOperations = 0;
 
         var first = pacer.RunAsync(async _ =>
         {
+            maximumConcurrentOperations = Math.Max(maximumConcurrentOperations, Interlocked.Increment(ref concurrentOperations));
             firstStarted.SetResult();
             await releaseFirst.Task;
+            Interlocked.Decrement(ref concurrentOperations);
             return 1;
         });
         await firstStarted.Task;
         var second = pacer.RunAsync(_ =>
         {
+            maximumConcurrentOperations = Math.Max(maximumConcurrentOperations, Interlocked.Increment(ref concurrentOperations));
             secondStarted.SetResult();
+            Interlocked.Decrement(ref concurrentOperations);
             return Task.FromResult(2);
         });
 
-        Assert.Same(secondStarted.Task, await Task.WhenAny(secondStarted.Task, Task.Delay(100)));
+        Assert.NotSame(secondStarted.Task, await Task.WhenAny(secondStarted.Task, Task.Delay(50)));
         releaseFirst.SetResult();
-        await Task.WhenAll(first, second);
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, maximumConcurrentOperations);
+    }
+
+    [Fact]
+    public async Task MoxfieldRequestPacer_SecondOperation_StartsAfterIntervalFromFirstCompletion()
+    {
+        var pacer = new MoxfieldRequestPacer(TimeSpan.FromMilliseconds(80));
+        var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completionTimestamp = 0L;
+        var secondStartTimestamp = 0L;
+
+        var first = pacer.RunAsync(async _ =>
+        {
+            firstStarted.SetResult();
+            await releaseFirst.Task;
+            completionTimestamp = Stopwatch.GetTimestamp();
+            return 1;
+        });
+        await firstStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var second = pacer.RunAsync(_ =>
+        {
+            secondStartTimestamp = Stopwatch.GetTimestamp();
+            return Task.FromResult(2);
+        });
+
+        releaseFirst.SetResult();
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.True(Stopwatch.GetElapsedTime(completionTimestamp, secondStartTimestamp) >= TimeSpan.FromMilliseconds(60));
     }
 
     private static MoxfieldOwnerClient CreateClient(StubHttpMessageHandler stub, MoxfieldRequestPacer? pacer = null)
@@ -213,6 +261,18 @@ public sealed class MoxfieldOwnerClientTests
         {
             await Task.Delay(delay);
             return JsonResponse("{\"totalPages\":1,\"data\":[]}");
+        }
+    }
+
+    private sealed class CancelBeforeResponseHandler(CancellationTokenSource cancellation) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            cancellation.Cancel();
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"totalPages\":1,\"data\":[]}"),
+            });
         }
     }
 

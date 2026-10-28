@@ -53,7 +53,7 @@ public sealed class ResiliencePipelineFactoryTests
     [InlineData(HttpStatusCode.ServiceUnavailable)]
     [InlineData(HttpStatusCode.InternalServerError)]
     [InlineData((HttpStatusCode)520)]
-    public async Task MoxfieldPipeline_CloudflareBlockStatus_IsNotRetried(HttpStatusCode statusCode)
+    public async Task MoxfieldPipeline_HttpStatus_IsNotRetried(HttpStatusCode statusCode)
     {
         var attempts = 0;
         var pipeline = Provider.GetPipeline<RestResponse>("moxfield");
@@ -65,6 +65,21 @@ public sealed class ResiliencePipelineFactoryTests
         });
 
         Assert.Equal(1, attempts);
+    }
+
+    [Fact]
+    public async Task MoxfieldPipeline_StatusZeroTransportFailure_IsRetried()
+    {
+        var attempts = 0;
+        var pipeline = Provider.GetPipeline<RestResponse>("moxfield");
+
+        _ = await pipeline.ExecuteAsync(_ =>
+        {
+            attempts++;
+            return ValueTask.FromResult(new RestResponse { ResponseStatus = ResponseStatus.Error });
+        });
+
+        Assert.Equal(3, attempts);
     }
 
     [Fact]

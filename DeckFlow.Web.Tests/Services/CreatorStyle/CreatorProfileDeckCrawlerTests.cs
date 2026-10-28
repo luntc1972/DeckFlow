@@ -534,6 +534,30 @@ public sealed class CreatorProfileDeckCrawlerTests
     }
 
     [Fact]
+    public async Task CrawlAsync_MoxfieldImportTimeout_ServesCacheAndDoesNotRestampFreshness()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        var lastCrawledUtc = now.AddDays(-2);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now, "moxfield", lastCrawledUtc);
+        await SeedCacheAsync(harness, "cached-1", now);
+        var moxfieldOwnerClient = new CountingMoxfieldOwnerClient { Decks = [MoxfieldSummary("mox-timeout")] };
+        var samples = await CreateCrawler(
+                harness,
+                new CountingOwnerClient(),
+                new CountingDeckImporter(),
+                now,
+                moxfieldOwnerClient,
+                new NeverCompletingMoxfieldDeckImporter(),
+                moxfieldImportTimeout: TimeSpan.FromMilliseconds(20))
+            .CrawlAsync("snail")
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("cached-1", Assert.Single(samples).DeckId);
+        Assert.Equal(lastCrawledUtc, (await harness.ProfileStore.GetBySlugAsync("snail"))!.LastCrawledUtc);
+    }
+
+    [Fact]
     public async Task CrawlAsync_MoxfieldOversizedDeck_IsSkippedAndNotCached()
     {
         var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
@@ -634,7 +658,8 @@ public sealed class CreatorProfileDeckCrawlerTests
         IMoxfieldOwnerClient? moxfieldOwnerClient = null,
         IMoxfieldDeckImporter? moxfieldImporter = null,
         MoxfieldRequestPacer? moxfieldPacer = null,
-        CapturingLogger<CreatorProfileDeckCrawler>? logger = null)
+        CapturingLogger<CreatorProfileDeckCrawler>? logger = null,
+        TimeSpan? moxfieldImportTimeout = null)
     {
         return new CreatorProfileDeckCrawler(
             ownerClient,
@@ -646,7 +671,8 @@ public sealed class CreatorProfileDeckCrawlerTests
             harness.CacheStore,
             logger,
             freshnessWindow: TimeSpan.FromHours(1),
-            nowUtc: () => now);
+            nowUtc: () => now,
+            moxfieldImportTimeout: moxfieldImportTimeout ?? TimeSpan.FromSeconds(60));
     }
 
     private static async Task SeedSourceAsync(
@@ -802,6 +828,18 @@ public sealed class CreatorProfileDeckCrawlerTests
             }
 
             return new MoxfieldImportResult(entries, FallbackDeckIds.Contains(deckId) ? MoxfieldImportSource.CommanderSpellbookFallback : MoxfieldImportSource.Direct);
+        }
+    }
+
+    private sealed class NeverCompletingMoxfieldDeckImporter : IMoxfieldDeckImporter
+    {
+        public Task<List<DeckEntry>> ImportAsync(string urlOrDeckId, CancellationToken cancellationToken = default) =>
+            Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ContinueWith(_ => new List<DeckEntry>(), TaskScheduler.Default);
+
+        public async Task<MoxfieldImportResult> ImportWithSourceAsync(string urlOrDeckId, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new InvalidOperationException("Cancellation must interrupt the import.");
         }
     }
 

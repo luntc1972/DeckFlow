@@ -120,6 +120,8 @@ namespace DeckFlow.Web.Services.Http
                 UseJitter = true,
                 // Why: retrying any Cloud Edge block status deepens the shared egress block.
                 ShouldHandle = new PredicateBuilder<RestResponse>()
+                    .HandleResult(static response => response.StatusCode == 0
+                        && (response.ResponseStatus == ResponseStatus.Error || response.ResponseStatus == ResponseStatus.TimedOut))
                     .Handle<Exception>(static ex => IsTransientException(ex)),
             });
 

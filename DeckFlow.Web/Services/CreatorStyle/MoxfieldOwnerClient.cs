@@ -79,6 +79,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                 _logger.LogWarning(exception, "Moxfield listing was cancelled by the pipeline for {Username} page {Page}.", username, page);
                 return Failed(decks);
             }
+            cancellationToken.ThrowIfCancellationRequested();
             if (!response.IsSuccessful)
             {
                 _logger.LogWarning("Moxfield listing failed for {Username} page {Page}: HTTP {StatusCode}.", username, page, (int)response.StatusCode);

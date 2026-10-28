@@ -15,6 +15,8 @@ namespace DeckFlow.Web.Services.CreatorStyle;
 public sealed class CreatorProfileDeckCrawler
 {
     private const string ConfidenceMarker = "ok";
+    // Why: a tarpit must not indefinitely hold the process-wide Moxfield request gate.
+    private static readonly TimeSpan MoxfieldImportTimeout = TimeSpan.FromSeconds(60);
 
     private readonly IArchidektOwnerClient _archidektOwnerClient;
     private readonly IArchidektDeckImporter _archidektDeckImporter;
@@ -26,6 +28,7 @@ public sealed class CreatorProfileDeckCrawler
     private readonly ILogger<CreatorProfileDeckCrawler> _logger;
     private readonly TimeSpan _freshnessWindow;
     private readonly Func<DateTimeOffset> _nowUtc;
+    private readonly TimeSpan _moxfieldImportTimeout;
 
     /// <summary>
     /// Creates a creator-profile deck crawler.
@@ -41,6 +44,33 @@ public sealed class CreatorProfileDeckCrawler
         ILogger<CreatorProfileDeckCrawler>? logger = null,
         TimeSpan? freshnessWindow = null,
         Func<DateTimeOffset>? nowUtc = null)
+        : this(
+            archidektOwnerClient,
+            archidektDeckImporter,
+            moxfieldOwnerClient,
+            moxfieldDeckImporter,
+            moxfieldPacer,
+            profileSourceStore,
+            deckCacheStore,
+            logger,
+            freshnessWindow,
+            nowUtc,
+            MoxfieldImportTimeout)
+    {
+    }
+
+    internal CreatorProfileDeckCrawler(
+        IArchidektOwnerClient archidektOwnerClient,
+        IArchidektDeckImporter archidektDeckImporter,
+        IMoxfieldOwnerClient moxfieldOwnerClient,
+        IMoxfieldDeckImporter moxfieldDeckImporter,
+        MoxfieldRequestPacer moxfieldPacer,
+        ICreatorProfileSourceStore profileSourceStore,
+        ICreatorDeckCacheStore deckCacheStore,
+        ILogger<CreatorProfileDeckCrawler>? logger,
+        TimeSpan? freshnessWindow,
+        Func<DateTimeOffset>? nowUtc,
+        TimeSpan moxfieldImportTimeout)
     {
         ArgumentNullException.ThrowIfNull(archidektOwnerClient);
         ArgumentNullException.ThrowIfNull(archidektDeckImporter);
@@ -59,6 +89,7 @@ public sealed class CreatorProfileDeckCrawler
         _logger = logger ?? NullLogger<CreatorProfileDeckCrawler>.Instance;
         _freshnessWindow = freshnessWindow ?? TimeSpan.FromHours(24);
         _nowUtc = nowUtc ?? (() => DateTimeOffset.UtcNow);
+        _moxfieldImportTimeout = moxfieldImportTimeout;
     }
 
     /// <summary>
@@ -188,8 +219,20 @@ public sealed class CreatorProfileDeckCrawler
                 continue;
             }
 
-            var imported = await _moxfieldPacer.RunAsync(
-                ct => _moxfieldDeckImporter.ImportWithSourceAsync(summary.PublicId, ct), cancellationToken).ConfigureAwait(false);
+            using var importTimeout = new CancellationTokenSource(_moxfieldImportTimeout);
+            using var importCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, importTimeout.Token);
+            MoxfieldImportResult imported;
+            try
+            {
+                imported = await _moxfieldPacer.RunAsync(
+                    ct => _moxfieldDeckImporter.ImportWithSourceAsync(summary.PublicId, ct), importCancellation.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && importTimeout.IsCancellationRequested)
+            {
+                _logger.LogWarning("Moxfield deck {DeckId} import timed out for {CreatorSlug}; stopping crawl and leaving freshness stamp untouched.", summary.PublicId, creatorSlug);
+                var currentCacheEntries = await _deckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
+                return RebuildSamplesFromCache(currentCacheEntries, source);
+            }
             if (imported.Source == MoxfieldImportSource.CommanderSpellbookFallback)
             {
                 _logger.LogWarning("Moxfield deck {DeckId} for {CreatorSlug} came from the Spellbook fallback; stopping crawl and leaving freshness stamp untouched.", summary.PublicId, creatorSlug);
