@@ -9,6 +9,55 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Coverage for the Cut Lab resolved-card cache.</summary>
 public sealed class CutLabResolvedCardCacheTests
 {
+    /// <summary>Implicit updates retain misses for the same deterministic pool.</summary>
+    [Fact]
+    public void Set_NullMissingNames_PreservesKnownMissingNames()
+    {
+        var cache = new CutLabResolvedCardCache();
+        IReadOnlyList<ScryfallCardData> cards = [new() { Name = "Arcane Signet" }];
+        string key = CutLabResolvedCardCache.ComputePoolKey([("Arcane Signet", 1), ("Missing Card", 1)]);
+        cache.Set(key, cards, ["Missing Card"]);
+
+        cache.Set(key, cards);
+
+        Assert.True(cache.TryGetKnownMissingNames(key, out var missingNames));
+        Assert.NotNull(missingNames);
+        Assert.Contains(CutLabCardNames.Normalize("Missing Card"), missingNames);
+    }
+
+    /// <summary>Implicit updates remove normalized names that have since resolved.</summary>
+    [Fact]
+    public void Set_PreviouslyMissingCardNowResolved_RemovesOnlyResolvedMiss()
+    {
+        var cache = new CutLabResolvedCardCache();
+        IReadOnlyList<ScryfallCardData> cards = [new() { Name = "Arcane Signet" }];
+        string key = CutLabResolvedCardCache.ComputePoolKey([("Arcane Signet", 1), ("X", 1), ("Still Missing", 1)]);
+        cache.Set(key, cards, ["X", "Still Missing"]);
+
+        cache.Set(key, [.. cards, new ScryfallCardData { Name = " x " }]);
+
+        Assert.True(cache.TryGetKnownMissingNames(key, out var missingNames));
+        Assert.NotNull(missingNames);
+        Assert.DoesNotContain(CutLabCardNames.Normalize("X"), missingNames);
+        Assert.Contains(CutLabCardNames.Normalize("Still Missing"), missingNames);
+    }
+
+    /// <summary>An explicit empty collection replaces all previously cached misses.</summary>
+    [Fact]
+    public void Set_ExplicitEmptyMissingNames_ClearsKnownMissingNames()
+    {
+        var cache = new CutLabResolvedCardCache();
+        IReadOnlyList<ScryfallCardData> cards = [new() { Name = "Arcane Signet" }];
+        string key = CutLabResolvedCardCache.ComputePoolKey([("Arcane Signet", 1), ("X", 1)]);
+        cache.Set(key, cards, ["X"]);
+
+        cache.Set(key, cards, Array.Empty<string>());
+
+        Assert.True(cache.TryGetKnownMissingNames(key, out var missingNames));
+        Assert.NotNull(missingNames);
+        Assert.Empty(missingNames);
+    }
+
     /// <summary>Pool keys stay stable regardless of input ordering.</summary>
     [Fact]
     public void ComputePoolKey_SameCardsDifferentOrder_ReturnsSameKey()

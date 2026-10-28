@@ -576,6 +576,30 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Equal(["Focused Commander", "Counterspell"], context.ResolvedCards.Select(card => card.Name));
     }
 
+    /// <summary>Pre-resolved cards must not cause another lookup for a cached miss.</summary>
+    [Fact]
+    public async Task ResolvePoolCardsAsync_PreResolvedPoolWithKnownMiss_DoesNotRetryMissingName()
+    {
+        IReadOnlyList<CutLabPoolCard> workingList =
+        [
+            PoolCard("Arcane Signet", "Artifact"),
+            PoolCard("Typo Card", "Sorcery"),
+        ];
+        IReadOnlyList<ScryfallCardData> preResolvedCards = [new() { Name = "Arcane Signet" }];
+        var resolver = new CountingResolver([Spell("Arcane Signet", "Artifact", manaCost: "{2}", cmc: 2)]);
+        var cache = new CutLabResolvedCardCache();
+        string poolKey = CutLabResolvedCardCache.ComputePoolKey(workingList.Select(card => (card.Name, card.Quantity)).ToArray());
+        cache.Set(poolKey, preResolvedCards, ["Typo Card"]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache, new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+
+        IReadOnlyList<ScryfallCardData> result = await builder.ResolvePoolCardsAsync(workingList, preResolvedCards: preResolvedCards);
+
+        Assert.DoesNotContain("Typo Card", resolver.SearchFallbackCallsByName.Keys);
+        Assert.DoesNotContain("Typo Card", resolver.ResolveSingleCallsByName.Keys);
+        Assert.Equal(0, resolver.ExecuteCollectionCalls);
+        Assert.Equal(["Arcane Signet"], result.Select(card => card.Name));
+    }
+
     [Fact]
     public async Task BuildAsync_SamePoolWithOneUnresolvableCard_FallsBackOnceAndCachesKnownMissing()
     {

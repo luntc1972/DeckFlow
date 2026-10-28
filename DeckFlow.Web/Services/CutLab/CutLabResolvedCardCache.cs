@@ -108,7 +108,7 @@ public sealed class CutLabResolvedCardCache
     /// </summary>
     /// <param name="poolKey">The deterministic working-pool hash.</param>
     /// <param name="cards">The resolved cards to cache.</param>
-    /// <param name="missingCardNames">Optional normalized misses already attempted for this exact pool.</param>
+    /// <param name="missingCardNames">Misses for this exact pool; null keeps known misses except names now resolved.</param>
     public void Set(
         string poolKey,
         IReadOnlyList<ScryfallCardData> cards,
@@ -116,6 +116,13 @@ public sealed class CutLabResolvedCardCache
     {
         ArgumentNullException.ThrowIfNull(poolKey);
         ArgumentNullException.ThrowIfNull(cards);
+
+        if (missingCardNames is null && _cache.TryGetValue(poolKey, out CachedEntry? existingEntry) && existingEntry is not null)
+        {
+            // Why: the same deterministic pool retains valid misses until those names resolve.
+            var resolvedNames = cards.Select(card => CutLabCardNames.Normalize(card.Name)).ToHashSet(CutLabCardNames.Comparer);
+            missingCardNames = existingEntry.MissingCardNames.Where(name => !resolvedNames.Contains(name)).ToArray();
+        }
 
         int sizeBytes = EstimateSizeBytes(cards);
         IReadOnlySet<string> normalizedMissingCardNames = missingCardNames is null
