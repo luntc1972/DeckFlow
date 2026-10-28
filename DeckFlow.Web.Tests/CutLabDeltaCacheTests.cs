@@ -79,9 +79,9 @@ public sealed class CutLabDeltaCacheTests
             new() { Name = "Other", Added = ["payoffs"] },
         ];
         var value = new CutLabProposalDeltas { CardName = "Card" };
-        cache.Set("pool", "Card", value);
+        cache.Set("pool", "Card", "cEDH", value);
 
-        Assert.False(cache.TryGet("pool", "Card", out var actual, roleOverrides: overrides));
+        Assert.False(cache.TryGet("pool", "Card", "cEDH", out var actual, roleOverrides: overrides));
     }
 
     [Fact]
@@ -94,10 +94,24 @@ public sealed class CutLabDeltaCacheTests
             new() { Name = "Other", Added = ["payoffs"] },
         ];
         var value = new CutLabProposalDeltas { CardName = "Card" };
-        cache.Set("pool", "Card", value, roleOverrides: overrides);
+        cache.Set("pool", "Card", "cEDH", value, roleOverrides: overrides);
 
-        Assert.True(cache.TryGet("pool", "Card", out var actual, roleOverrides: overrides.Reverse().ToArray()));
+        Assert.True(cache.TryGet("pool", "Card", "cEDH", out var actual, roleOverrides: overrides.Reverse().ToArray()));
         Assert.Same(value, actual);
+    }
+
+    /// <summary>Different play experiences must not share proposal deltas.</summary>
+    [Fact]
+    public void TryGet_DifferentPlayExperience_Misses()
+    {
+        var cache = new CutLabDeltaCache();
+        var deltas = new CutLabProposalDeltas { CardName = "Mana Crypt" };
+        cache.Set("pool", "Mana Crypt", "Casual", deltas);
+
+        bool found = cache.TryGet("pool", "Mana Crypt", "cEDH", out var cachedDeltas);
+
+        Assert.False(found);
+        Assert.Null(cachedDeltas);
     }
 
     /// <summary>Stored proposal deltas round-trip by pool key and card name.</summary>
@@ -127,9 +141,9 @@ public sealed class CutLabDeltaCacheTests
             ],
         };
 
-        cache.Set(poolKey, "Mana Crypt", deltas);
+        cache.Set(poolKey, "Mana Crypt", "cEDH", deltas);
 
-        bool found = cache.TryGet(poolKey, "Mana Crypt", out var cachedDeltas);
+        bool found = cache.TryGet(poolKey, "Mana Crypt", "cEDH", out var cachedDeltas);
 
         Assert.True(found);
         Assert.Same(deltas, cachedDeltas);
@@ -145,12 +159,13 @@ public sealed class CutLabDeltaCacheTests
         cache.Set(
             poolKey,
             "Mana Crypt",
+            "cEDH",
             new CutLabProposalDeltas
             {
                 CardName = "Mana Crypt",
             });
 
-        bool found = cache.TryGet(poolKey, "Sol Ring", out var deltas);
+        bool found = cache.TryGet(poolKey, "Sol Ring", "cEDH", out var deltas);
 
         Assert.False(found);
         Assert.Null(deltas);
@@ -164,9 +179,9 @@ public sealed class CutLabDeltaCacheTests
         string poolKey = CutLabResolvedCardCache.ComputePoolKey([("Mana Crypt", 1), ("Island", 3)]);
         var deltas = CreateProposalDeltas("Mana Crypt", "short");
 
-        cache.Set(poolKey, "Mana Crypt", deltas);
+        cache.Set(poolKey, "Mana Crypt", "cEDH", deltas);
 
-        bool found = cache.TryGet(poolKey, "mana crypt", out var cachedDeltas);
+        bool found = cache.TryGet(poolKey, "mana crypt", "cEDH", out var cachedDeltas);
 
         Assert.True(found);
         Assert.Same(deltas, cachedDeltas);
@@ -199,9 +214,9 @@ public sealed class CutLabDeltaCacheTests
             ],
         };
 
-        cache.Set(poolKey, "Mana Crypt", deltas);
+        cache.Set(poolKey, "Mana Crypt", "cEDH", deltas);
 
-        bool found = cache.TryGet(poolKey, "Mana Crypt", out var cachedDeltas);
+        bool found = cache.TryGet(poolKey, "Mana Crypt", "cEDH", out var cachedDeltas);
 
         Assert.False(found);
         Assert.Null(cachedDeltas);
@@ -216,11 +231,11 @@ public sealed class CutLabDeltaCacheTests
         var firstDeltas = CreateProposalDeltas("A", "short");
         var secondDeltas = CreateProposalDeltas("B", new string('x', 25));
 
-        cache.Set(poolKey, "Mana Crypt", firstDeltas);
-        cache.Set(poolKey, "Sol Ring", secondDeltas);
+        cache.Set(poolKey, "Mana Crypt", "cEDH", firstDeltas);
+        cache.Set(poolKey, "Sol Ring", "cEDH", secondDeltas);
 
-        bool secondFound = cache.TryGet(poolKey, "Sol Ring", out var cachedSecondDeltas);
-        bool firstFound = cache.TryGet(poolKey, "Mana Crypt", out var cachedFirstDeltas);
+        bool secondFound = cache.TryGet(poolKey, "Sol Ring", "cEDH", out var cachedSecondDeltas);
+        bool firstFound = cache.TryGet(poolKey, "Mana Crypt", "cEDH", out var cachedFirstDeltas);
 
         Assert.False(secondFound);
         Assert.Null(cachedSecondDeltas);

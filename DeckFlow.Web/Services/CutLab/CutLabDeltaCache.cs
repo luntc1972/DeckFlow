@@ -40,17 +40,18 @@ public sealed class CutLabDeltaCache
     /// </summary>
     /// <param name="poolKey">The deterministic working-pool hash.</param>
     /// <param name="cardName">The proposed card name.</param>
+    /// <param name="playExperience">The selected play experience for mode-specific deltas.</param>
     /// <param name="deltas">The cached delta payload when present; otherwise <see langword="null"/>.</param>
     /// <param name="trialsOverride">The simulation trial override that produced the cached deltas.</param>
     /// <param name="goals">Optional by-turn goal overrides folded into the cache key.</param>
     /// <param name="roleOverrides">Optional per-card role edits folded into the cache key.</param>
     /// <returns><see langword="true"/> on cache hit; otherwise <see langword="false"/>.</returns>
-    public bool TryGet(string poolKey, string cardName, out CutLabProposalDeltas? deltas, int? trialsOverride = null, CutLabGoalSettings? goals = null, IReadOnlyList<CutLabRoleOverride>? roleOverrides = null)
+    public bool TryGet(string poolKey, string cardName, string? playExperience, out CutLabProposalDeltas? deltas, int? trialsOverride = null, CutLabGoalSettings? goals = null, IReadOnlyList<CutLabRoleOverride>? roleOverrides = null)
     {
         ArgumentNullException.ThrowIfNull(poolKey);
         ArgumentNullException.ThrowIfNull(cardName);
 
-        string key = ComputeDeltaEntryKey(poolKey, cardName, trialsOverride, goals, roleOverrides);
+        string key = ComputeDeltaEntryKey(poolKey, cardName, playExperience, trialsOverride, goals, roleOverrides);
         return TryGetEntry(key, out deltas);
     }
 
@@ -59,17 +60,18 @@ public sealed class CutLabDeltaCache
     /// </summary>
     /// <param name="poolKey">The deterministic working-pool hash.</param>
     /// <param name="cardName">The proposed card name.</param>
+    /// <param name="playExperience">The selected play experience for mode-specific deltas.</param>
     /// <param name="deltas">The delta payload to cache.</param>
     /// <param name="trialsOverride">The simulation trial override that produced the delta payload.</param>
     /// <param name="goals">Optional by-turn goal overrides folded into the cache key.</param>
     /// <param name="roleOverrides">Optional per-card role edits folded into the cache key.</param>
-    public void Set(string poolKey, string cardName, CutLabProposalDeltas deltas, int? trialsOverride = null, CutLabGoalSettings? goals = null, IReadOnlyList<CutLabRoleOverride>? roleOverrides = null)
+    public void Set(string poolKey, string cardName, string? playExperience, CutLabProposalDeltas deltas, int? trialsOverride = null, CutLabGoalSettings? goals = null, IReadOnlyList<CutLabRoleOverride>? roleOverrides = null)
     {
         ArgumentNullException.ThrowIfNull(poolKey);
         ArgumentNullException.ThrowIfNull(cardName);
         ArgumentNullException.ThrowIfNull(deltas);
 
-        string key = ComputeDeltaEntryKey(poolKey, cardName, trialsOverride, goals, roleOverrides);
+        string key = ComputeDeltaEntryKey(poolKey, cardName, playExperience, trialsOverride, goals, roleOverrides);
         SetEntry(key, deltas, EstimateSizeBytes(deltas));
     }
 
@@ -175,8 +177,8 @@ public sealed class CutLabDeltaCache
         LogCacheEvent("write", key, sizeBytes);
     }
 
-    private static string ComputeDeltaEntryKey(string poolKey, string cardName, int? trialsOverride, CutLabGoalSettings? goals, IReadOnlyList<CutLabRoleOverride>? roleOverrides)
-        => PacketSessionCache.ComputeKey(new DeltaCacheKey(poolKey, NormalizeCardName(cardName), trialsOverride, NormalizeGoalsKey(goals), CutLabRoleOverrideRules.Fingerprint(roleOverrides)));
+    private static string ComputeDeltaEntryKey(string poolKey, string cardName, string? playExperience, int? trialsOverride, CutLabGoalSettings? goals, IReadOnlyList<CutLabRoleOverride>? roleOverrides)
+        => PacketSessionCache.ComputeKey(new DeltaCacheKey(poolKey, NormalizeCardName(cardName), NormalizePlayExperience(playExperience), trialsOverride, NormalizeGoalsKey(goals), CutLabRoleOverrideRules.Fingerprint(roleOverrides)));
 
     private static string ComputeSnapshotEntryKey(string poolKey, string? playExperience, int? trialsOverride, CutLabGoalSettings? goals, IReadOnlyList<CutLabRoleOverride>? roleOverrides)
         => PacketSessionCache.ComputeKey(new SnapshotCacheKey(poolKey, NormalizePlayExperience(playExperience), trialsOverride, NormalizeGoalsKey(goals), CutLabRoleOverrideRules.Fingerprint(roleOverrides)));
@@ -258,8 +260,8 @@ public sealed class CutLabDeltaCache
         return Math.Max(total, 1);
     }
 
-    /// <summary>Keys proposal-delta simulations by pool, candidate card, trial count, and normalized goals.</summary>
-    private sealed record DeltaCacheKey(string PoolKey, string CardName, int? TrialsOverride, string GoalsKey, string RoleOverridesKey);
+    /// <summary>Keys proposal-delta simulations by pool, candidate card, play experience, trial count, and normalized goals.</summary>
+    private sealed record DeltaCacheKey(string PoolKey, string CardName, string PlayExperience, int? TrialsOverride, string GoalsKey, string RoleOverridesKey);
     /// <summary>Keys simulation snapshots by pool, play experience, trial count, and normalized goals.</summary>
     private sealed record SnapshotCacheKey(string PoolKey, string PlayExperience, int? TrialsOverride, string GoalsKey, string RoleOverridesKey);
     /// <summary>Keys complete Cut Lab simulation results while separating result entry kinds.</summary>
