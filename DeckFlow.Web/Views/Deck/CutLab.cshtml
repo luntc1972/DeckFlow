@@ -38,6 +38,39 @@
         CutLabMetricDirection.Down => "▼",
         _ => string.Empty,
     };
+    async Task RenderGroupChip(CutLabRoleMemberView member)
+    {
+        if (member.IsCommander)
+        {
+            <span class="kb-chip cutlab-lock-badge--commander"
+                  data-cutlab-card-open="@member.Name"
+                  data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
+        }
+        else
+        {
+            var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
+            <button type="button"
+                    class="@chipClasses"
+                    data-cutlab-card-open="@member.Name"
+                    data-cut-lab-chip-card="@member.Name"
+                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
+        }
+    }
+
+    async Task RenderExportBlock(string title, string help, string id, string text, bool copyDisabled)
+    {
+        <div class="cutlab-export__block">
+            <div class="panel-heading">
+                <div>
+                    <h3>@title</h3>
+                    <p>@help</p>
+                </div>
+                <button type="button" class="copy-button" data-copy-target="@id" @(copyDisabled ? "disabled" : null)>Copy</button>
+            </div>
+            <textarea id="@id" class="cutlab-export__textarea" rows="12" readonly>@text</textarea>
+        </div>
+    }
+
     async Task RenderDecisionForm(string cardName, string roundKey, string decisionValue, string buttonText, string classSuffix, string ariaLabel)
     {
         <form method="post" action="@Url.Content("~/cut-lab/decide")" data-cut-lab-decide-form>
@@ -221,80 +254,9 @@
 
 @if (Model.HasResult)
 {
-    var cardTextData = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
-    foreach (var cardName in Model.Pool.Select(card => card.Name).Concat(Model.CardTextByCardName.Keys).Distinct(StringComparer.Ordinal))
-    {
-        var entry = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (Model.CardTextByCardName.TryGetValue(cardName, out var cardText))
-        {
-            if (!string.IsNullOrWhiteSpace(cardText.TypeLine))
-            {
-                entry["typeLine"] = cardText.TypeLine;
-            }
-
-            if (!string.IsNullOrWhiteSpace(cardText.ManaCost))
-            {
-                entry["manaCost"] = cardText.ManaCost;
-            }
-
-            if (!string.IsNullOrWhiteSpace(cardText.Power))
-            {
-                entry["power"] = cardText.Power;
-            }
-
-            if (!string.IsNullOrWhiteSpace(cardText.Toughness))
-            {
-                entry["toughness"] = cardText.Toughness;
-            }
-
-            if (!string.IsNullOrWhiteSpace(cardText.SetCode))
-            {
-                entry["setCode"] = cardText.SetCode;
-            }
-
-            if (!string.IsNullOrWhiteSpace(cardText.CollectorNumber))
-            {
-                entry["collectorNumber"] = cardText.CollectorNumber;
-            }
-
-            if (!string.IsNullOrWhiteSpace(cardText.OracleText))
-            {
-                entry["oracleText"] = cardText.OracleText;
-            }
-        }
-
-        if (Model.ComboBadgeByCardName.TryGetValue(CutLabCardNames.Normalize(cardName), out var comboBadge)
-            && !string.IsNullOrWhiteSpace(comboBadge.Context))
-        {
-            entry["comboContext"] = comboBadge.Context;
-        }
-
-        if (Model.CardCategoryByName.TryGetValue(cardName, out var category))
-        {
-            if (category.Primary is not null)
-            {
-                entry["category"] = category.Primary;
-            }
-
-            if (category.AlsoTagged.Count > 0)
-            {
-                entry["alsoTagged"] = string.Join(", ", category.AlsoTagged);
-            }
-
-            if (category.IsEdited)
-            {
-                entry["categoryEdited"] = "true";
-            }
-        }
-
-        if (entry.Count > 0)
-        {
-            cardTextData[cardName] = entry;
-        }
-    }
 
     <section class="deck-history-results" data-scroll-on-load>
-        <script type="application/json" id="cutlab-card-text-data">@Html.Raw(JsonSerializer.Serialize(cardTextData))</script>
+        <script type="application/json" id="cutlab-card-text-data">@Html.Raw(JsonSerializer.Serialize(Model.BuildCardModalData()))</script>
         @await Html.PartialAsync("_WorkflowStepTabs", exportTabs)
         <div class="toolbar">
             <button type="button" class="run-button" data-cut-lab-session-download>Download session</button>
@@ -346,13 +308,16 @@
                 <div class="cutlab-constraints-summary" aria-live="polite" aria-atomic="true">
                     <div class="cutlab-constraints-summary__block cutlab-constraints-summary__block--locked">
                         @{ var lockedCards = Model.Pool.Where(card => card.IsLocked).ToArray();
-                           var shownLockedQuantity = lockedCards.Take(3).Sum(card => card.Quantity); }
+                           var shownLocked = lockedCards.Take(3).ToArray();
+                           var shownLockedQuantity = shownLocked.Sum(card => card.Quantity);
+                           var lockableRoles = Model.RoleGroups.Where(group => group.IsLockable).ToArray();
+                           var unprotectedRoles = lockableRoles.Where(group => !group.AllLockableMembersLocked).ToArray(); }
                         <div class="cutlab-constraints-summary__head">
                             <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-locked-count>@Model.StickyBar.LockedCount</span>
                             <span class="cutlab-constraints-summary__label">locked</span>
                         </div>
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-locked-chips>
-                            @foreach (var card in lockedCards.Take(3))
+                            @foreach (var card in shownLocked)
                             {
                                 <span class="kb-chip">@card.Name</span>
                             }
@@ -373,18 +338,18 @@
                     </div>
                     <div class="cutlab-constraints-summary__block cutlab-constraints-summary__block--roles">
                         <div class="cutlab-constraints-summary__head">
-                            <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-role-count>@Model.RoleGroups.Count(group => group.IsLockable && group.AllLockableMembersLocked)/@Model.RoleGroups.Count(group => group.IsLockable)</span>
+                            <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-role-count>@(lockableRoles.Length - unprotectedRoles.Length)/@lockableRoles.Length</span>
                             <span class="cutlab-constraints-summary__label">roles protected</span>
                         </div>
-                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-caption hidden="@(Model.RoleGroups.Any(group => group.IsLockable && !group.AllLockableMembersLocked) ? null : "hidden")">Not yet protected:</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-caption hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Not yet protected:</p>
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-role-chips>
-                            @foreach (var group in Model.RoleGroups.Where(group => group.IsLockable && !group.AllLockableMembersLocked).Take(3))
+                            @foreach (var group in unprotectedRoles.Take(3))
                             {
                                 <span class="kb-chip">@group.DisplayLabel</span>
                             }
                         </div>
-                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-more hidden="@(Model.RoleGroups.Count(group => group.IsLockable && !group.AllLockableMembersLocked) > 3 ? null : "hidden")">+@Math.Max(0, Model.RoleGroups.Count(group => group.IsLockable && !group.AllLockableMembersLocked) - 3) more</p>
-                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-hint hidden="@(Model.RoleGroups.Any(group => group.IsLockable && !group.AllLockableMembersLocked) ? null : "hidden")">Protect a role with its "Lock all" button in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-more hidden="@(unprotectedRoles.Length > 3 ? null : "hidden")">+@Math.Max(0, unprotectedRoles.Length - 3) more</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-hint hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Protect a role with its "Lock all" button in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
                     </div>
                 </div>
             </details>
@@ -668,21 +633,7 @@
                                 <div class="kb-chip-area__chips">
                                     @foreach (var member in group.Members)
                                     {
-                                        if (member.IsCommander)
-                                        {
-                                            <span class="kb-chip cutlab-lock-badge--commander"
-                                                  data-cutlab-card-open="@member.Name"
-                                                  data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
-                                        }
-                                        else
-                                        {
-                                            var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
-                                            <button type="button"
-                                                    class="@chipClasses"
-                                                    data-cutlab-card-open="@member.Name"
-                                                    data-cut-lab-chip-card="@member.Name"
-                                                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
-                                        }
+                                        await RenderGroupChip(member);
                                     }
                                 </div>
                             }
@@ -728,21 +679,7 @@
                             <div class="kb-chip-area__chips">
                                 @foreach (var member in group.Members)
                                 {
-                                    if (member.IsCommander)
-                                    {
-                                        <span class="kb-chip cutlab-lock-badge--commander"
-                                              data-cutlab-card-open="@member.Name"
-                                              data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
-                                    }
-                                    else
-                                    {
-                                        var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
-                                        <button type="button"
-                                                class="@chipClasses"
-                                                data-cutlab-card-open="@member.Name"
-                                                data-cut-lab-chip-card="@member.Name"
-                                                aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
-                                    }
+                                    await RenderGroupChip(member);
                                 }
                             </div>
                         </div>
@@ -768,21 +705,7 @@
                             <div class="kb-chip-area__chips">
                                 @foreach (var member in group.Members)
                                 {
-                                    if (member.IsCommander)
-                                    {
-                                        <span class="kb-chip cutlab-lock-badge--commander"
-                                              data-cutlab-card-open="@member.Name"
-                                              data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
-                                    }
-                                    else
-                                    {
-                                        var chipClasses = $"kb-chip cutlab-role-chip{(member.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
-                                        <button type="button"
-                                                class="@chipClasses"
-                                                data-cutlab-card-open="@member.Name"
-                                                data-cut-lab-chip-card="@member.Name"
-                                                aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
-                                    }
+                                    await RenderGroupChip(member);
                                 }
                             </div>
                         </div>
@@ -862,16 +785,8 @@
                                                 {
                                                     var chipClasses = $"kb-chip cutlab-role-chip{(evidenceCard.IsLocked ? " cutlab-role-chip--locked" : string.Empty)}";
                                                     var hasComboBadge = Model.ComboBadgeByCardName.TryGetValue(CutLabCardNames.Normalize(evidenceCard.Name), out var comboBadge);
-                                                    var comboBadgeText = hasComboBadge
-                                                        ? comboBadge!.BadgeState == ComboBadgeState.CompletePiece
-                                                            ? "Combo piece"
-                                                            : comboBadge.Context
-                                                        : null;
-                                                    var comboBadgeClass = hasComboBadge
-                                                        ? comboBadge!.BadgeState == ComboBadgeState.CompletePiece
-                                                            ? "cutlab-combo-badge cutlab-combo-badge--complete"
-                                                            : "cutlab-combo-badge cutlab-combo-badge--near"
-                                                        : null;
+                                                    var comboBadgeText = hasComboBadge ? comboBadge!.BadgeText : null;
+                                                    var comboBadgeClass = hasComboBadge ? comboBadge!.BadgeCssClass : null;
                                                     <button type="button"
                                                             class="@chipClasses"
                                                             data-cutlab-card-open="@evidenceCard.Name"
@@ -1272,7 +1187,7 @@
                     <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
                 <div class="panel-heading">
                     <div>
-                        <!-- Why: this duplication recurs across the file; a coordinated fix for all sections is separate, out-of-scope work. -->
+                        @* Why: this duplication recurs across the file; a coordinated fix for all sections is separate, out-of-scope work. *@
                         <h2 aria-hidden="true">Plan profile</h2>
                         <p>Check what this deck actually does. Every box changes how Cut Lab protects, reorders, and flags cards in your working list — nothing here is cosmetic.</p>
                     </div>
@@ -1466,10 +1381,9 @@
                             </select>
                         </div>
                     </div>
-                    @if (Model.Whatif.HasPreview)
-                    {
-                        <div class="cutlab-whatif__preview" data-cut-lab-whatif-preview>
-                            <p class="cutlab-whatif__selection" data-cut-lab-whatif-selection>Previewing: cut <strong>@Model.Whatif.CardOut</strong>, restore <strong>@Model.Whatif.CardIn</strong>.</p>
+                        <div class="@(Model.Whatif.HasPreview ? "cutlab-whatif__preview" : "cutlab-whatif__preview hidden")" data-cut-lab-whatif-preview>
+                            <p class="@(Model.Whatif.HasPreview ? "cutlab-whatif__selection" : "cutlab-whatif__selection hidden")" data-cut-lab-whatif-selection>@if (Model.Whatif.HasPreview)
+                                {<text>Previewing: cut <strong>@Model.Whatif.CardOut</strong>, restore <strong>@Model.Whatif.CardIn</strong>.</text>}</p>
                             <div class="history-timeline__wrap">
                                 <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
                                     <thead>
@@ -1481,6 +1395,8 @@
                                         </tr>
                                     </thead>
                                     <tbody data-cut-lab-whatif-delta-body>
+                                        @if (Model.Whatif.HasPreview)
+                                        {
                                         @foreach (var row in Model.Whatif.DeltaRows)
                                         {
                                             <tr>
@@ -1494,30 +1410,11 @@
                                                 </td>
                                             </tr>
                                         }
+                                        }
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-                    }
-                    else
-                    {
-                        <div class="cutlab-whatif__preview hidden" data-cut-lab-whatif-preview>
-                            <p class="cutlab-whatif__selection hidden" data-cut-lab-whatif-selection></p>
-                            <div class="history-timeline__wrap">
-                                <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
-                                    <thead>
-                                        <tr>
-                                            <th scope="col">Metric</th>
-                                            <th scope="col">Before</th>
-                                            <th scope="col">After</th>
-                                            <th scope="col">Delta</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody data-cut-lab-whatif-delta-body></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    }
                     <div class="toolbar cutlab-whatif__actions">
                         <button type="submit" class="run-button" name="intent" value="preview" data-cut-lab-whatif-preview-submit>Preview swap</button>
                         <button type="submit" class="run-button" name="intent" value="keep" data-cut-lab-whatif-keep-submit>Keep swap</button>
@@ -1680,47 +1577,11 @@
                     <div class="cutlab-export__copy-grid">
                         @if (!Model.Export.HardBlock && Model.Export.HasExport)
                         {
-                            <div class="cutlab-export__block">
-                                <div class="panel-heading">
-                                    <div>
-                                        <h3>Moxfield finished list</h3>
-                                        <p>Paste straight into the builder.</p>
-                                    </div>
-                                    <button type="button" class="copy-button" data-copy-target="cut-lab-export-moxfield-full">Copy</button>
-                                </div>
-                                <textarea id="cut-lab-export-moxfield-full" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.MoxfieldFullListText</textarea>
-                            </div>
-                            <div class="cutlab-export__block">
-                                <div class="panel-heading">
-                                    <div>
-                                        <h3>Archidekt finished list</h3>
-                                        <p>Paste straight into the builder.</p>
-                                    </div>
-                                    <button type="button" class="copy-button" data-copy-target="cut-lab-export-archidekt-full">Copy</button>
-                                </div>
-                                <textarea id="cut-lab-export-archidekt-full" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.ArchidektFullListText</textarea>
-                            </div>
+                            await RenderExportBlock("Moxfield finished list", "Paste straight into the builder.", "cut-lab-export-moxfield-full", Model.Export.MoxfieldFullListText, false);
+                            await RenderExportBlock("Archidekt finished list", "Paste straight into the builder.", "cut-lab-export-archidekt-full", Model.Export.ArchidektFullListText, false);
                         }
-                        <div class="cutlab-export__block">
-                            <div class="panel-heading">
-                                <div>
-                                    <h3>Moxfield CUT/ADD patch</h3>
-                                    <p>Diff against the original imported list.</p>
-                                </div>
-                                <button type="button" class="copy-button" data-copy-target="cut-lab-export-moxfield-patch" @(Model.Export.HasExport ? null : "disabled")>Copy</button>
-                            </div>
-                            <textarea id="cut-lab-export-moxfield-patch" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.MoxfieldPatchText</textarea>
-                        </div>
-                        <div class="cutlab-export__block">
-                            <div class="panel-heading">
-                                <div>
-                                    <h3>Archidekt CUT/ADD patch</h3>
-                                    <p>Diff against the original imported list.</p>
-                                </div>
-                                <button type="button" class="copy-button" data-copy-target="cut-lab-export-archidekt-patch" @(Model.Export.HasExport ? null : "disabled")>Copy</button>
-                            </div>
-                            <textarea id="cut-lab-export-archidekt-patch" class="cutlab-export__textarea" rows="12" readonly>@Model.Export.ArchidektPatchText</textarea>
-                        </div>
+                        @{ await RenderExportBlock("Moxfield CUT/ADD patch", "Diff against the original imported list.", "cut-lab-export-moxfield-patch", Model.Export.MoxfieldPatchText, !Model.Export.HasExport); }
+                        @{ await RenderExportBlock("Archidekt CUT/ADD patch", "Diff against the original imported list.", "cut-lab-export-archidekt-patch", Model.Export.ArchidektPatchText, !Model.Export.HasExport); }
                     </div>
 
                     <div class="toolbar cutlab-export__actions">

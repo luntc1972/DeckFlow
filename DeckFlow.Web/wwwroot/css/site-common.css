@@ -5347,12 +5347,7 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   min-height: 44px;
 }
 
-.cutlab-role-group__help {
-  margin: 0.75rem 0 0;
-  color: var(--muted, inherit);
-  font-size: var(--fs-base);
-}
-
+.cutlab-role-group__help,
 .cutlab-role-floors-context {
   margin: 0.75rem 0 0;
   color: var(--muted, inherit);
@@ -5512,7 +5507,8 @@ table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] td[d
 }
 }
 
-input[data-cut-lab-floor] {
+input[data-cut-lab-floor],
+input[data-cut-lab-goal] {
   width: 5.5rem;
   min-height: 44px;
   padding: 0.55rem 0.75rem;
@@ -5811,17 +5807,6 @@ input[data-cut-lab-floor] {
   margin-bottom: 0.75rem;
 }
 
-input[data-cut-lab-goal] {
-  width: 5.5rem;
-  min-height: 44px;
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel-soft-bg, var(--panel));
-  color: var(--ink);
-  font: inherit;
-}
-
 div.cutlab-pool-filter {
   display: flex;
   flex-wrap: wrap;
@@ -5886,7 +5871,7 @@ tr.cutlab-pool-empty-row td {
 }
 
 input[data-cut-lab-floor]:focus-visible {
-  outline: 2px solid var(--focus, var(--accent));
+  outline: 2px solid;
   outline-offset: 2px;
   border-color: var(--focus, var(--accent));
 }
@@ -5928,9 +5913,6 @@ input[data-cut-lab-floor]:focus-visible,
   padding: 0.55rem 1rem;
 }
 
-.cutlab-sticky-bar__round,
-.cutlab-sticky-bar__locked,
-.cutlab-sticky-bar__current,
 .cutlab-sticky-bar__count,
 .cutlab-sticky-bar__accepted {
   min-width: 0;
@@ -5940,22 +5922,12 @@ input[data-cut-lab-floor]:focus-visible,
   font-size: var(--fs-sm);
 }
 
-.cutlab-sticky-bar__round {
-  flex: 1 1 auto;
-  color: var(--accent);
-  font-weight: 600;
-}
 
 .cutlab-sticky-bar__count {
   flex: 0 0 auto;
   color: var(--ink, inherit);
 }
 
-.cutlab-sticky-bar__locked,
-.cutlab-sticky-bar__current {
-  flex: 0 0 auto;
-  color: var(--ink, inherit);
-}
 
 .cutlab-sticky-bar__accepted {
   flex: 0 0 auto;
@@ -6113,14 +6085,7 @@ input[data-cut-lab-floor]:focus-visible,
   font-weight: 600;
 }
 
-.cutlab-proposal__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
 
-.cutlab-proposal__actions form,
 .cutlab-cuts-made__row form {
   display: contents;
 }
@@ -6229,7 +6194,10 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
 }
 
 .cutlab-decision-btn--reject,
-.cutlab-decision-btn--defer,
+.cutlab-decision-btn--defer {
+  background: transparent;
+}
+
 .cutlab-restore-btn {
   border: 1px solid var(--line);
   background: transparent;
@@ -6406,9 +6374,6 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
     gap: 0.2rem;
   }
 
-  .cutlab-sticky-bar__round {
-    flex-basis: 100%;
-  }
 
   .cutlab-delta__line,
   .cutlab-cuts-made__row {
@@ -6435,11 +6400,7 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
     grid-template-columns: 1fr;
   }
 
-  .cutlab-proposal__actions {
-    flex-direction: column;
-  }
 
-  .cutlab-proposal__actions .cutlab-decision-btn,
   .cutlab-cuts-made__row .cutlab-restore-btn {
     width: 100%;
   }

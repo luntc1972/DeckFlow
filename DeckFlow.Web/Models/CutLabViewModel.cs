@@ -57,6 +57,16 @@ public sealed record CutLabComboBadgeView
 
     /// <summary>Short combo-context string for the disclosure body.</summary>
     public string Context { get; init; } = string.Empty;
+
+    /// <summary>Text shown on the evidence chip's combo badge.</summary>
+    [JsonIgnore]
+    public string BadgeText => BadgeState == ComboBadgeState.CompletePiece ? "Combo piece" : Context;
+
+    /// <summary>CSS classes used by the evidence chip's combo badge.</summary>
+    [JsonIgnore]
+    public string BadgeCssClass => BadgeState == ComboBadgeState.CompletePiece
+        ? "cutlab-combo-badge cutlab-combo-badge--complete"
+        : "cutlab-combo-badge cutlab-combo-badge--near";
 }
 
 /// <summary>View model for the Cut Lab page.</summary>
@@ -237,6 +247,71 @@ public sealed record CutLabViewModel
     /// <summary>Per-card combo badge state and context keyed by card name.</summary>
     public IReadOnlyDictionary<string, CutLabComboBadgeView> ComboBadgeByCardName { get; init; } =
         new Dictionary<string, CutLabComboBadgeView>(CutLabCardNames.Comparer);
+
+    /// <summary>Builds the ordered card metadata embedded in the Cut Lab modal JSON.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> BuildCardModalData()
+    {
+        var cardTextData = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+        foreach (var cardName in Pool.Select(card => card.Name).Concat(CardTextByCardName.Keys).Distinct(StringComparer.Ordinal))
+        {
+            var entry = new Dictionary<string, string>(StringComparer.Ordinal);
+            void Add(string key, string? value)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    entry[key] = value;
+                }
+            }
+
+            if (CardTextByCardName.TryGetValue(cardName, out var cardText))
+            {
+                Add("typeLine", cardText.TypeLine);
+
+                Add("manaCost", cardText.ManaCost);
+
+                Add("power", cardText.Power);
+
+                Add("toughness", cardText.Toughness);
+
+                Add("setCode", cardText.SetCode);
+
+                Add("collectorNumber", cardText.CollectorNumber);
+
+                Add("oracleText", cardText.OracleText);
+            }
+
+            if (ComboBadgeByCardName.TryGetValue(CutLabCardNames.Normalize(cardName), out var comboBadge)
+                && !string.IsNullOrWhiteSpace(comboBadge.Context))
+            {
+                entry["comboContext"] = comboBadge.Context;
+            }
+
+            if (CardCategoryByName.TryGetValue(cardName, out var category))
+            {
+                if (category.Primary is not null)
+                {
+                    entry["category"] = category.Primary;
+                }
+
+                if (category.AlsoTagged.Count > 0)
+                {
+                    entry["alsoTagged"] = string.Join(", ", category.AlsoTagged);
+                }
+
+                if (category.IsEdited)
+                {
+                    entry["categoryEdited"] = "true";
+                }
+            }
+
+            if (entry.Count > 0)
+            {
+                cardTextData[cardName] = entry;
+            }
+        }
+
+        return cardTextData;
+    }
 
     /// <summary>Finds the lockable pool card identified by a rendered Structural evidence label.</summary>
     public CutLabPoolCard? FindLockableEvidenceCard(string evidence)
