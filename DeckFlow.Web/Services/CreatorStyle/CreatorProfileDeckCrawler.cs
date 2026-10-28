@@ -18,6 +18,9 @@ public sealed class CreatorProfileDeckCrawler
     // Why: a tarpit must not indefinitely hold the process-wide Moxfield request gate.
     private static readonly TimeSpan MoxfieldImportTimeout = TimeSpan.FromSeconds(60);
 
+    // Why: these are the exact strings MoxfieldApiDeckImporter emits; maybeboard and sideboard are not part of the 100-card deck.
+    private static readonly HashSet<string> MoxfieldMainDeckBoards = new(StringComparer.Ordinal) { "commander", "mainboard" };
+
     private readonly IArchidektOwnerClient _archidektOwnerClient;
     private readonly IArchidektDeckImporter _archidektDeckImporter;
     private readonly IMoxfieldOwnerClient _moxfieldOwnerClient;
@@ -213,6 +216,13 @@ public sealed class CreatorProfileDeckCrawler
         var samples = new List<CreatorDeckSample>();
         foreach (var summary in listing.Decks)
         {
+            // Why: Mirror the Archidekt size check to avoid a paced request and let a complete listing prune stale rows.
+            if (summary.MainboardCount > StapleStripper.MaxDeckSize)
+            {
+                _logger.LogDebug("Skipping oversized Moxfield deck {DeckId} for {CreatorSlug} with listing count {MainboardCount}.", summary.PublicId, creatorSlug, summary.MainboardCount);
+                continue;
+            }
+
             if (!forceRefresh && cacheByDeckId.TryGetValue(summary.PublicId, out var cachedEntry) && !string.IsNullOrWhiteSpace(cachedEntry.ContentHash))
             {
                 samples.Add(RebuildSampleFromCache(cachedEntry, source));
@@ -242,7 +252,9 @@ public sealed class CreatorProfileDeckCrawler
                 return RebuildSamplesFromCache(FilterCacheForListing(currentCacheEntries, listing), source);
             }
 
-            var size = imported.Entries.Sum(entry => entry.Quantity);
+            // Why: StapleStripper.FilterOversized sums every board downstream, so the stored set must already be the main deck (l8z D-01).
+            var entries = imported.Entries.Where(entry => MoxfieldMainDeckBoards.Contains(entry.Board)).ToArray();
+            var size = entries.Sum(entry => entry.Quantity);
             if (size > StapleStripper.MaxDeckSize)
             {
                 // Why: warm reads return every cache row, so oversized decks must never be cached.
@@ -250,7 +262,7 @@ public sealed class CreatorProfileDeckCrawler
                 continue;
             }
 
-            var contentHash = ComputeCanonicalHash(imported.Entries);
+            var contentHash = ComputeCanonicalHash(entries);
             cacheByDeckId.TryGetValue(summary.PublicId, out var cachedEntryForHashCompare);
             if (cachedEntryForHashCompare is not null && string.Equals(cachedEntryForHashCompare.ContentHash, contentHash, StringComparison.Ordinal))
             {
@@ -267,7 +279,7 @@ public sealed class CreatorProfileDeckCrawler
                 FolderName = null,
                 Size = size,
                 ConfidenceMarker = ConfidenceMarker,
-                Entries = imported.Entries,
+                Entries = entries,
                 CachedUtc = _nowUtc()
             };
             await _deckCacheStore.UpsertAsync(cacheEntry, cancellationToken).ConfigureAwait(false);
@@ -291,13 +303,18 @@ public sealed class CreatorProfileDeckCrawler
         IReadOnlyList<CreatorDeckCacheEntry> cacheEntries,
         MoxfieldDeckListResult listing)
     {
+        // Why: timeout and Spellbook-fallback returns never prune, so a pre-skipped deck's stale row would otherwise be served.
+        var preSkippedIds = listing.Decks
+            .Where(summary => summary.MainboardCount > StapleStripper.MaxDeckSize)
+            .Select(summary => summary.PublicId)
+            .ToHashSet(StringComparer.Ordinal);
         if (listing.IsTruncated)
         {
-            return cacheEntries;
+            return cacheEntries.Where(entry => !preSkippedIds.Contains(entry.DeckId)).ToArray();
         }
 
         var publicIds = listing.Decks.Select(summary => summary.PublicId).ToHashSet(StringComparer.Ordinal);
-        return cacheEntries.Where(entry => publicIds.Contains(entry.DeckId)).ToArray();
+        return cacheEntries.Where(entry => publicIds.Contains(entry.DeckId) && !preSkippedIds.Contains(entry.DeckId)).ToArray();
     }
 
     private static IReadOnlyList<CreatorDeckSample> RebuildSamplesFromCache(

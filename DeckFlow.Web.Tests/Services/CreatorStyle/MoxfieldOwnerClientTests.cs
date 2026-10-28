@@ -44,6 +44,48 @@ public sealed class MoxfieldOwnerClientTests
         Assert.True(result.IsTruncated);
     }
 
+    [Fact]
+    public async Task ListDeckSummariesAsync_MainboardCountNumber_MapsToSummary()
+    {
+        var stub = new StubHttpMessageHandler();
+        stub.Enqueue(JsonResponse("""
+            {"totalPages":1,"data":[
+              {"publicId":"counted","name":"Counted","format":"commander","mainboardCount":100},
+              {"publicId":"absent","name":"Absent","format":"commander"}
+            ]}
+            """));
+
+        var result = await CreateClient(stub).ListDeckSummariesAsync("snail");
+
+        Assert.False(result.HasUpstreamFailure);
+        Assert.Equal(2, result.Decks.Count);
+        Assert.Equal(100, result.Decks[0].MainboardCount);
+        Assert.Null(result.Decks[1].MainboardCount);
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("\"100\"")]
+    [InlineData("100.5")]
+    [InlineData("-1")]
+    [InlineData("2147483648")]
+    [InlineData("{}")]
+    [InlineData("[]")]
+    public async Task ListDeckSummariesAsync_MainboardCountNotNonNegativeInt32_MapsToNullAndKeepsDeck(string mainboardCount)
+    {
+        var stub = new StubHttpMessageHandler();
+        stub.Enqueue(JsonResponse($$"""
+            {"totalPages":1,"data":[{"publicId":"invalid","name":"Invalid","format":"commander","mainboardCount":{{mainboardCount}}}]}
+            """));
+
+        var result = await CreateClient(stub).ListDeckSummariesAsync("snail");
+
+        Assert.False(result.HasUpstreamFailure);
+        var deck = Assert.Single(result.Decks);
+        Assert.Equal("invalid", deck.PublicId);
+        Assert.Null(deck.MainboardCount);
+    }
+
     [Theory]
     [InlineData("null")]
     [InlineData("12")]

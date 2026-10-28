@@ -132,7 +132,23 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                 if (value.ValueKind != JsonValueKind.String) { continue; }
                 visibility = value.GetString();
             }
-            if (string.Equals(format, "commander", StringComparison.OrdinalIgnoreCase) && (visibility is null || string.Equals(visibility, "public", StringComparison.OrdinalIgnoreCase))) { decks.Add(new MoxfieldDeckSummary { PublicId = id, Name = name, Format = format, Visibility = visibility }); }
+            if (string.Equals(format, "commander", StringComparison.OrdinalIgnoreCase) && (visibility is null || string.Equals(visibility, "public", StringComparison.OrdinalIgnoreCase)))
+            {
+                int? mainboardCount = item.TryGetProperty("mainboardCount", out var count)
+                    && count.ValueKind == JsonValueKind.Number
+                    && count.TryGetInt32(out var parsedCount)
+                    && parsedCount >= 0
+                    ? parsedCount
+                    : null;
+                decks.Add(new MoxfieldDeckSummary
+                {
+                    PublicId = id,
+                    Name = name,
+                    Format = format,
+                    Visibility = visibility,
+                    MainboardCount = mainboardCount
+                });
+            }
         }
         return true;
     }

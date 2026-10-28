@@ -11,4 +11,9 @@ public sealed record MoxfieldDeckSummary
     public required string Format { get; init; }
     /// <summary>Deck visibility when supplied by Moxfield.</summary>
     public string? Visibility { get; init; }
+    /// <summary>
+    /// Listing-reported main-deck card count from Moxfield mainboardCount (observed to include commanders).
+    /// Null when absent or not a non-negative 32-bit integer.
+    /// </summary>
+    public int? MainboardCount { get; init; }
 }
