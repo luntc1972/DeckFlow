@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace DeckFlow.Web.Services.CreatorStyle;
 
-/// <summary>Serializes Moxfield requests with a minimum interval between completions and starts.</summary>
+/// <summary>Serializes Moxfield request starts with a minimum interval between starts.</summary>
 public sealed class MoxfieldRequestPacer
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -18,7 +18,7 @@ public sealed class MoxfieldRequestPacer
         _minInterval = minInterval;
     }
 
-    /// <summary>Runs an operation after observing Moxfield pacing.</summary>
+    /// <summary>Reserves a paced Moxfield request start, then runs the operation outside the gate.</summary>
     public async Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
@@ -32,12 +32,12 @@ public sealed class MoxfieldRequestPacer
                 var delay = _minInterval - elapsed;
                 if (delay > TimeSpan.Zero) { await Task.Delay(delay, cancellationToken).ConfigureAwait(false); }
             }
-            return await operation(cancellationToken).ConfigureAwait(false);
+            Interlocked.Exchange(ref _lastCompletionTimestamp, Stopwatch.GetTimestamp());
         }
         finally
         {
-            Interlocked.Exchange(ref _lastCompletionTimestamp, Stopwatch.GetTimestamp());
             _gate.Release();
         }
+        return await operation(cancellationToken).ConfigureAwait(false);
     }
 }

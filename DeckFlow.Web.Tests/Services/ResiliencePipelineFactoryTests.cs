@@ -50,6 +50,9 @@ public sealed class ResiliencePipelineFactoryTests
     [Theory]
     [InlineData(HttpStatusCode.Forbidden)]
     [InlineData((HttpStatusCode)429)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData((HttpStatusCode)520)]
     public async Task MoxfieldPipeline_CloudflareBlockStatus_IsNotRetried(HttpStatusCode statusCode)
     {
         var attempts = 0;

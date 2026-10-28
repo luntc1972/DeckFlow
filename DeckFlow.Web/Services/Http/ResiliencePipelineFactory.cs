@@ -106,7 +106,7 @@ namespace DeckFlow.Web.Services.Http
                     .Handle<Exception>(static ex => IsTransientException(ex) && ex is not ArchidektRateLimitedException),
             });
 
-        /// <summary>Moxfield: bounded total time and retries only for server and transient failures.</summary>
+        /// <summary>Moxfield: bounded total time and retries only transient exceptions.</summary>
         private static void BuildMoxfield(ResiliencePipelineBuilder<RestResponse> builder) => builder
             .AddTimeout(new TimeoutStrategyOptions
             {
@@ -118,9 +118,8 @@ namespace DeckFlow.Web.Services.Http
                 MaxRetryAttempts = 2,
                 BackoffType = DelayBackoffType.Exponential,
                 UseJitter = true,
-                // Why: retrying Cloudflare 403 or 429 blocks deepens the shared egress block.
+                // Why: retrying any Cloud Edge block status deepens the shared egress block.
                 ShouldHandle = new PredicateBuilder<RestResponse>()
-                    .HandleResult(static r => r.StatusCode >= HttpStatusCode.InternalServerError)
                     .Handle<Exception>(static ex => IsTransientException(ex)),
             });
 

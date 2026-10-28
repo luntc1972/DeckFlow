@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Polly;
 using Polly.Registry;
+using Polly.Timeout;
 using RestSharp;
 
 namespace DeckFlow.Web.Services.CreatorStyle;
@@ -16,7 +17,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
     /// <summary>Maximum response payload accepted from Moxfield.</summary>
     public const int MaxResponseBytes = 5 * 1024 * 1024;
     /// <summary>Browser user agent accepted by Moxfield's Cloudflare front.</summary>
-    public const string BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36";
+    public const string BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
 
     private readonly RestClient _restClient;
     private readonly ResiliencePipeline<RestResponse> _pipeline;
@@ -49,6 +50,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(username);
         var decks = new List<MoxfieldDeckSummary>();
+        var publicIds = new HashSet<string>(StringComparer.Ordinal);
         for (var page = 1; page <= MaxPages; page++)
         {
             var request = new RestRequest("v2/decks/search", Method.Get);
@@ -65,6 +67,16 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
             catch (JsonException exception)
             {
                 _logger.LogWarning(exception, "Moxfield listing JSON failed for {Username} page {Page}.", username, page);
+                return Failed(decks);
+            }
+            catch (TimeoutRejectedException exception)
+            {
+                _logger.LogWarning(exception, "Moxfield listing timed out for {Username} page {Page}.", username, page);
+                return Failed(decks);
+            }
+            catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(exception, "Moxfield listing was cancelled by the pipeline for {Username} page {Page}.", username, page);
                 return Failed(decks);
             }
             if (!response.IsSuccessful)
@@ -86,7 +98,10 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                     _logger.LogWarning("Moxfield listing returned an invalid page shape for {Username} page {Page}.", username, page);
                     return Failed(decks);
                 }
-                decks.AddRange(summaries);
+                foreach (var summary in summaries)
+                {
+                    if (publicIds.Add(summary.PublicId)) { decks.Add(summary); }
+                }
                 if (page >= totalPages) { break; }
             }
             catch (JsonException exception)
@@ -104,11 +119,16 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
     {
         totalPages = 0;
         decks = [];
-        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("totalPages", out var pages) || pages.ValueKind != JsonValueKind.Number || !pages.TryGetInt32(out totalPages) || totalPages < 1 || !root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array) { return false; }
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("totalPages", out var pages) || pages.ValueKind != JsonValueKind.Number || !pages.TryGetInt32(out totalPages) || totalPages < 0 || !root.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array) { return false; }
         foreach (var item in data.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.Object || !TryGetString(item, "publicId", out var id) || !TryGetString(item, "name", out var name) || !TryGetString(item, "format", out var format)) { continue; }
-            var visibility = item.TryGetProperty("visibility", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+            string? visibility = null;
+            if (item.TryGetProperty("visibility", out var value))
+            {
+                if (value.ValueKind != JsonValueKind.String) { continue; }
+                visibility = value.GetString();
+            }
             if (string.Equals(format, "commander", StringComparison.OrdinalIgnoreCase) && (visibility is null || string.Equals(visibility, "public", StringComparison.OrdinalIgnoreCase))) { decks.Add(new MoxfieldDeckSummary { PublicId = id, Name = name, Format = format, Visibility = visibility }); }
         }
         return true;

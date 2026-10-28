@@ -30,6 +30,31 @@ public sealed class MoxfieldOwnerClientTests
     }
 
     [Theory]
+    [InlineData("null")]
+    [InlineData("12")]
+    public async Task ListDeckSummariesAsync_NonStringVisibility_SkipsDeck(string visibility)
+    {
+        var stub = new StubHttpMessageHandler();
+        stub.Enqueue(JsonResponse($"{{\"totalPages\":1,\"data\":[{{\"publicId\":\"invalid\",\"name\":\"Invalid\",\"format\":\"commander\",\"visibility\":{visibility}}},{{\"publicId\":\"absent\",\"name\":\"Absent\",\"format\":\"commander\"}}]}}"));
+
+        var result = await CreateClient(stub).ListDeckSummariesAsync("snail");
+
+        Assert.Equal(["absent"], result.Decks.Select(deck => deck.PublicId));
+    }
+
+    [Fact]
+    public async Task ListDeckSummariesAsync_DuplicatePublicId_KeepsFirstOccurrence()
+    {
+        var stub = new StubHttpMessageHandler();
+        stub.Enqueue(JsonResponse("{\"totalPages\":1,\"data\":[{\"publicId\":\"duplicate\",\"name\":\"First\",\"format\":\"commander\"},{\"publicId\":\"duplicate\",\"name\":\"Second\",\"format\":\"commander\"}]}"));
+
+        var result = await CreateClient(stub).ListDeckSummariesAsync("snail");
+
+        var deck = Assert.Single(result.Decks);
+        Assert.Equal("First", deck.Name);
+    }
+
+    [Theory]
     [InlineData("[]")]
     [InlineData("{\"totalPages\":2}")]
     [InlineData("{\"totalPages\":2,\"data\":{}}")]
@@ -49,10 +74,11 @@ public sealed class MoxfieldOwnerClientTests
     public async Task ListDeckSummariesAsync_EmptyDataArray_ReturnsSuccessWithNoDecks()
     {
         var stub = new StubHttpMessageHandler();
-        stub.Enqueue(JsonResponse("{\"totalPages\":1,\"data\":[]}"));
+        stub.Enqueue(JsonResponse("{\"totalPages\":0,\"data\":[]}"));
         var result = await CreateClient(stub).ListDeckSummariesAsync("snail");
         Assert.False(result.HasUpstreamFailure);
         Assert.Empty(result.Decks);
+        Assert.Equal(1, stub.CallCount);
     }
 
     [Fact]
@@ -126,6 +152,47 @@ public sealed class MoxfieldOwnerClientTests
         Assert.True(elapsed.Elapsed >= TimeSpan.FromMilliseconds(120));
     }
 
+    [Fact]
+    public async Task ListDeckSummariesAsync_PipelineTimeout_ReturnsUpstreamFailure()
+    {
+        var builder = new ResiliencePipelineBuilder<RestResponse>();
+        builder.AddTimeout(TimeSpan.FromMilliseconds(10));
+        var handler = new DelayingHttpMessageHandler(TimeSpan.FromMilliseconds(100));
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api2.moxfield.com/") };
+        var client = new MoxfieldOwnerClient(new TimeoutPipelineProvider(builder.Build()), new RestClient(httpClient), new MoxfieldRequestPacer(TimeSpan.Zero));
+
+        var result = await client.ListDeckSummariesAsync("snail");
+
+        Assert.True(result.HasUpstreamFailure);
+        Assert.Empty(result.Decks);
+    }
+
+    [Fact]
+    public async Task MoxfieldRequestPacer_DoesNotHoldGateWhileOperationRuns()
+    {
+        var pacer = new MoxfieldRequestPacer(TimeSpan.Zero);
+        var firstStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var first = pacer.RunAsync(async _ =>
+        {
+            firstStarted.SetResult();
+            await releaseFirst.Task;
+            return 1;
+        });
+        await firstStarted.Task;
+        var second = pacer.RunAsync(_ =>
+        {
+            secondStarted.SetResult();
+            return Task.FromResult(2);
+        });
+
+        Assert.Same(secondStarted.Task, await Task.WhenAny(secondStarted.Task, Task.Delay(100)));
+        releaseFirst.SetResult();
+        await Task.WhenAll(first, second);
+    }
+
     private static MoxfieldOwnerClient CreateClient(StubHttpMessageHandler stub, MoxfieldRequestPacer? pacer = null)
     {
         var httpClient = new HttpClient(stub, disposeHandler: false) { BaseAddress = new Uri("https://api2.moxfield.com/") };
@@ -138,6 +205,22 @@ public sealed class MoxfieldOwnerClientTests
     {
         public string? LastClientName { get; private set; }
         public HttpClient CreateClient(string name) { LastClientName = name; return client; }
+    }
+
+    private sealed class DelayingHttpMessageHandler(TimeSpan delay) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(delay);
+            return JsonResponse("{\"totalPages\":1,\"data\":[]}");
+        }
+    }
+
+    private sealed class TimeoutPipelineProvider(ResiliencePipeline<RestResponse> pipeline) : ResiliencePipelineProvider<string>
+    {
+        public override ResiliencePipeline<T> GetPipeline<T>(string key) => (ResiliencePipeline<T>)(object)pipeline;
+        public override bool TryGetPipeline<T>(string key, out ResiliencePipeline<T> resolved) { resolved = (ResiliencePipeline<T>)(object)pipeline; return true; }
+        public override bool TryGetPipeline(string key, out ResiliencePipeline resolved) { resolved = ResiliencePipeline.Empty; return true; }
     }
 
     private sealed class RecordingPipelineProvider : ResiliencePipelineProvider<string>
