@@ -244,6 +244,88 @@ public sealed class CreatorStylePacketServiceTests
         Assert.DoesNotContain("Jeska's Will", result.ArtifactText);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BuildAsync_LegacyCacheBoards_ExcludesNonMainDeckCards(bool checkValidationCandidates)
+    {
+        CreatorDeckCacheEntry cached = CreatorDeck("legacy", "trusted-folder", "high") with
+        {
+            Size = 103,
+            Entries =
+            [
+                DeckEntry("Commander One", 1, "commander"),
+                DeckEntry("Sol Ring", 99, "mainboard"),
+                DeckEntry("Maybe Card", 2, "maybeboard"),
+                DeckEntry("Side Card", 1, "sideboard"),
+            ],
+        };
+        List<IReadOnlyList<string>> validationBatches = [];
+        CreatorStylePacketService sut = CreateSut(
+            creatorDecks: [cached],
+            validateAdditionalCardsAsync: (candidateNames, _, _) =>
+            {
+                validationBatches.Add([.. candidateNames]);
+                return Task.FromResult(new CardGroundingBatchResult
+                {
+                    Verdicts = [.. candidateNames.Select(Accepted)],
+                    HasUpstreamFailure = false,
+                });
+            });
+
+        CreatorStylePacketResult result = await sut.BuildAsync(new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Commander One",
+        });
+
+        IReadOnlyList<string> names = checkValidationCandidates
+            ? Assert.Single(validationBatches)
+            : Assert.Single(result.Exemplars).CardNames;
+        Assert.DoesNotContain("Maybe Card", names);
+        Assert.DoesNotContain("Side Card", names);
+        Assert.Contains("Commander One", names);
+        Assert.Contains("Sol Ring", names);
+        Assert.Equal(103, cached.Size);
+        Assert.Equal(4, cached.Entries.Count);
+    }
+
+    [Fact]
+    public async Task BuildAsync_LegacyCacheSize_RanksByMainDeckQuantitySum()
+    {
+        CreatorDeckCacheEntry closest = CreatorDeck("closest", "trusted-folder", "high") with
+        {
+            Size = 500,
+            Entries =
+            [
+                DeckEntry("Commander One", 1, "commander"),
+                DeckEntry("Closest Card", 99, "mainboard"),
+                DeckEntry("Maybe Card", 400, "maybeboard"),
+            ],
+        };
+        CreatorDeckCacheEntry OtherDeck(string id, int quantity) => CreatorDeck(id, "trusted-folder", "high") with
+        {
+            Size = 100,
+            Entries = [DeckEntry(id, quantity, "mainboard")],
+        };
+        CreatorStylePacketService sut = CreateSut(
+            analysis: CreateAnalysis(100, [DeckEntry("Commander One", 1, "commander")]),
+            creatorDecks: [OtherDeck("far", 97), OtherDeck("middle", 98), OtherDeck("near", 99), closest]);
+
+        CreatorStylePacketResult result = await sut.BuildAsync(new CreatorStyleRequest
+        {
+            CreatorSlug = "alpha",
+            DeckText = "1 Commander One",
+        });
+
+        Assert.Equal(3, result.Exemplars.Count);
+        Assert.Contains("Closest Card", result.Exemplars[0].CardNames);
+        Assert.Contains("near", result.Exemplars[1].CardNames);
+        Assert.Contains("middle", result.Exemplars[2].CardNames);
+        Assert.Equal(500, closest.Size);
+        Assert.Equal(3, closest.Entries.Count);
+    }
+
     [Fact]
     public async Task BuildAsync_UsesOneDistinctValidationBatchMinusWhitelist()
     {

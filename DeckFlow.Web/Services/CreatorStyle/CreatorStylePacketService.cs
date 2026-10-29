@@ -215,7 +215,13 @@ public sealed class CreatorStylePacketService : ICreatorStylePacketService
         RubricScoreResult rubricScores = _scoreRubric(request.CreatorSlug, scoreableTargets, analysis.Stats);
 
         IReadOnlyList<CreatorDeckCacheEntry> creatorDecks = await creatorDecksTask.ConfigureAwait(false);
-        IReadOnlyList<CreatorDeckCacheEntry> selectedExemplars = CreatorDeckExemplarSelector.SelectExemplars(creatorDecks, analysis.Stats.DeckSize);
+        // Why: normalize legacy cache rows before ranking without rewriting their stored entries or size.
+        IReadOnlyList<CreatorDeckCacheEntry> mainDecks = creatorDecks.Select(deck =>
+        {
+            var entries = CreatorMainDeck.GetEntries(deck.Entries);
+            return deck with { Entries = entries, Size = entries.Sum(entry => entry.Quantity) };
+        }).ToArray();
+        IReadOnlyList<CreatorDeckCacheEntry> selectedExemplars = CreatorDeckExemplarSelector.SelectExemplars(mainDecks, analysis.Stats.DeckSize);
 
         CreatorWhitelistPoolBuildResult whitelist = await _buildWhitelistAsync(
             request.CreatorSlug,

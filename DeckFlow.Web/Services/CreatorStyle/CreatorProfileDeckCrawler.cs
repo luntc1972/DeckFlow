@@ -18,9 +18,6 @@ public sealed class CreatorProfileDeckCrawler
     // Why: a tarpit must not indefinitely hold the process-wide Moxfield request gate.
     private static readonly TimeSpan MoxfieldImportTimeout = TimeSpan.FromSeconds(60);
 
-    // Why: both importers emit these board names; maybeboard and sideboard are not part of the 100-card deck.
-    private static readonly HashSet<string> MainDeckBoards = new(StringComparer.Ordinal) { "commander", "mainboard" };
-
     private readonly IArchidektOwnerClient _archidektOwnerClient;
     private readonly IArchidektDeckImporter _archidektDeckImporter;
     private readonly IMoxfieldOwnerClient _moxfieldOwnerClient;
@@ -174,7 +171,7 @@ public sealed class CreatorProfileDeckCrawler
 
             var importedEntries = await _archidektDeckImporter.ImportAsync(summary.Id, cancellationToken).ConfigureAwait(false);
             // Why: StapleStripper.FilterOversized sums every board downstream, so cache only the main deck.
-            var entries = importedEntries.Where(entry => MainDeckBoards.Contains(entry.Board)).ToArray();
+            var entries = CreatorMainDeck.GetEntries(importedEntries);
             var size = entries.Sum(entry => entry.Quantity);
             if (size > StapleStripper.MaxDeckSize)
             {
@@ -263,7 +260,7 @@ public sealed class CreatorProfileDeckCrawler
             }
 
             // Why: StapleStripper.FilterOversized sums every board downstream, so the stored set must already be the main deck (l8z D-01).
-            var entries = imported.Entries.Where(entry => MainDeckBoards.Contains(entry.Board)).ToArray();
+            var entries = CreatorMainDeck.GetEntries(imported.Entries);
             var size = entries.Sum(entry => entry.Quantity);
             if (size > StapleStripper.MaxDeckSize)
             {
@@ -337,7 +334,7 @@ public sealed class CreatorProfileDeckCrawler
     private static CreatorDeckSample RebuildSampleFromCache(CreatorDeckCacheEntry entry, CreatorProfileSource source)
     {
         // Why: legacy rows cached before stripping at crawl contain all boards, and production has no force-refresh path.
-        var entries = entry.Entries.Where(deckEntry => MainDeckBoards.Contains(deckEntry.Board)).ToArray();
+        var entries = CreatorMainDeck.GetEntries(entry.Entries);
         return new CreatorDeckSample
         {
             DeckId = entry.DeckId,
