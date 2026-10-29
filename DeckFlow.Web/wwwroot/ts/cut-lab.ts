@@ -92,6 +92,10 @@ interface CutLabStateDecision {
 }
 
 interface CutLabCardTextEntry {
+  roleEditable?: string;
+  roleLand?: string;
+  roleEdited?: string;
+  roles?: string;
   typeLine?: string;
   manaCost?: string;
   power?: string;
@@ -2052,6 +2056,21 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (combo) {
       combo.textContent = comboText;
       combo.hidden = comboText === '';
+    }
+
+    const roleBlock = dialog.querySelector<HTMLElement>('[data-cut-lab-role-block]');
+    if (roleBlock) {
+      roleBlock.hidden = viewOnly || entry?.roleEditable !== 'true';
+      if (!roleBlock.hidden) {
+        const cardInput = roleBlock.querySelector<HTMLInputElement>('[data-cut-lab-role-override-card]');
+        const current = roleBlock.querySelector<HTMLElement>('[data-cut-lab-role-current]');
+        const reset = roleBlock.querySelector<HTMLButtonElement>('[data-cut-lab-role-reset]');
+        const roleSelect = roleBlock.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
+        if (cardInput) cardInput.value = cardName;
+        if (current) current.textContent = `Roles: ${entry?.roles ?? ''}`;
+        if (reset) reset.hidden = entry?.roleEdited !== 'true';
+        if (roleSelect) updateRoleOverrideRamp(roleSelect, entry?.roleLand === 'true');
+      }
     }
 
     syncCardModalLockButton(cardName, viewOnly);
@@ -5070,29 +5089,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
-  document.addEventListener('click', event => {
-    if (!(event.target instanceof Element)) {
-      return;
-    }
-    const link = event.target.closest<HTMLElement>('[data-cut-lab-role-edit-card]');
-    const cardSelect = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-card]');
-    if (!link || !cardSelect) {
-      return;
-    }
-    cardSelect.value = link.dataset.cutLabRoleEditCard ?? '';
-    cardSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    window.DeckFlow?.refreshDfSelect?.(cardSelect);
-    document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')?.focus();
-  });
-
-  const updateRoleOverrideRamp = (cardSelect: HTMLSelectElement): void => {
-    const roleSelect = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
-    if (!roleSelect) {
-      return;
-    }
+  const updateRoleOverrideRamp = (roleSelect: HTMLSelectElement, isLand: boolean): void => {
     const ramp = roleSelect.querySelector<HTMLOptionElement>('option[value="ramp"]');
     if (ramp) {
-      ramp.disabled = cardSelect.selectedOptions[0]?.dataset.cutLabRoleOverrideLand === 'true';
+      ramp.disabled = isLand;
       if (ramp.disabled && roleSelect.value === 'ramp') {
         roleSelect.value = Array.from(roleSelect.options).find(option => !option.disabled)?.value ?? '';
       }
@@ -5100,18 +5100,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     window.DeckFlow?.refreshDfSelect?.(roleSelect);
   };
 
-  document.addEventListener('change', event => {
-    const cardSelect = event.target;
-    if (cardSelect instanceof HTMLSelectElement && cardSelect.matches('[data-cut-lab-role-override-card]')) {
-      updateRoleOverrideRamp(cardSelect);
-    }
-  });
-
   const initializeCutLab = (): void => {
-    const roleOverrideCard = document.querySelector<HTMLSelectElement>('#cut-lab-role-editor [data-cut-lab-role-override-card]');
-    if (roleOverrideCard) {
-      updateRoleOverrideRamp(roleOverrideCard);
-    }
     applyInitialSectionCollapseState();
     attachSectionCollapsePersistence();
     relocateScenarioSection();

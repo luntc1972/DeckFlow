@@ -95,23 +95,27 @@ test('edits card roles, preserves them through locks, and resets inferred roles'
   const solRing = page.locator('tr[data-cut-lab-card="Sol Ring"]');
   const roleCell = solRing.locator('[data-label="Type / role"]');
   const mainState = page.locator('form[data-cache-key="cut-lab"] input[name="CutLabStateJson"]');
-  const editor = page.locator('#cut-lab-role-editor');
-  const cardSelect = editor.locator('[data-cut-lab-role-override-card]');
+  const editor = page.locator('#cutlab-card-modal');
+  const openSolRing = async (): Promise<void> => { await solRing.locator('[data-cutlab-card-open="Sol Ring"]').click(); };
+  const pickRole = async (label: string): Promise<void> => {
+    await editor.locator('.df-select__trigger').click();
+    await editor.getByRole('listbox').getByRole('option', { name: label, exact: true }).click();
+  };
   const roleSelect = editor.locator('[data-cut-lab-role-override-role]');
 
   await expect(roleCell).toContainText('Ramp');
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] [data-cut-lab-role-edit-card]')).toHaveCount(0);
-  await solRing.getByRole('link', { name: 'Edit roles for Sol Ring' }).click();
-  await expect(cardSelect).toHaveValue('Sol Ring');
-  await roleSelect.selectOption({ label: 'Card draw' }, { force: true });
+  await openSolRing();
+  await expect(editor.locator('[name="CardName"]')).toHaveValue('Sol Ring');
+  await pickRole('Card draw');
   await editor.getByRole('button', { name: 'Add role', exact: true }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(roleCell).toContainText('Card draw');
   await expect(solRing.locator('.cutlab-role-edited-chip')).toHaveText('Edited');
   await expect(mainState).toHaveValue(/"roleOverrides":\[\{"name":"Sol Ring"/);
 
-  await cardSelect.selectOption('Sol Ring', { force: true });
-  await roleSelect.selectOption({ label: 'Ramp' }, { force: true });
+  await openSolRing();
+  await pickRole('Ramp');
   await editor.getByRole('button', { name: 'Remove role', exact: true }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(roleCell).not.toContainText('Ramp');
@@ -120,13 +124,21 @@ test('edits card roles, preserves them through locks, and resets inferred roles'
   const lock = page.locator('[data-cut-lab-lock-card="Arcane Signet"]');
   await lock.setChecked(!(await lock.isChecked()));
   await expect(mainState).toHaveValue(/"roleOverrides":\[\{"name":"Sol Ring"/);
+  for (const input of await page.locator('input[name="CutLabStateJson"]').all()) {
+    await expect(input).toHaveValue(/"roleOverrides":\[\{"name":"Sol Ring"/);
+  }
 
-  await cardSelect.selectOption('Sol Ring', { force: true });
+  await openSolRing();
   await editor.getByRole('button', { name: 'Reset card roles', exact: true }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(solRing.locator('.cutlab-role-edited-chip')).toHaveCount(0);
   await expect(roleCell).toContainText('Ramp');
   await expect(roleCell).not.toContainText('Card draw');
-  await cardSelect.selectOption('Plains', { force: true });
+  await page.locator('tr[data-cut-lab-card="Plains"] [data-cutlab-card-open="Plains"]').click();
   await expect(roleSelect.locator('option[value="ramp"]')).toBeDisabled();
+  await editor.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('tr[data-cut-lab-card="Zur the Enchanter"] [data-cutlab-card-open]').click();
+  await expect(editor.locator('[data-cut-lab-role-block]')).toBeHidden();
+  await expect(page.locator('#cut-lab-role-editor')).toHaveCount(0);
+  await expect(page.locator('[data-cut-lab-role-edit-card]')).toHaveCount(0);
 });

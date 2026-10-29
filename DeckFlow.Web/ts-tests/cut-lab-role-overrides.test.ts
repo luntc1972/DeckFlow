@@ -298,12 +298,31 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
 const overrides = [{ name: 'Relentless Rats', added: ['draw'] }];
 const api = (): any => (window as any).DeckFlowCutLab;
 const editor = (): void => {
-  document.body.insertAdjacentHTML('beforeend', `<a href="#cut-lab-role-editor" data-cut-lab-role-edit-card="Plains">Edit roles</a>
-    <form id="cut-lab-role-editor" data-cut-lab-role-override-form>
-      <input name="CutLabStateJson" />
-      <select data-cut-lab-role-override-card><option value="Relentless Rats">Rats</option><option value="Plains" data-cut-lab-role-override-land="true">Plains</option></select>
-      <select data-cut-lab-role-override-role><option value="ramp">Ramp</option><option value="draw">Card draw</option></select>
-    </form>`);
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute('open', ''); } });
+  document.body.insertAdjacentHTML('beforeend', `
+    <button data-cutlab-card-open="Plains">Plains</button>
+    <button data-cutlab-card-open="Relentless Rats">Rats</button>
+    <button data-cutlab-card-open="Commander">Commander</button>
+    <button data-cutlab-card-open="Unknown">Unknown</button>
+    <button data-cutlab-card-open="Plains" data-cutlab-card-view-only="true">View only</button>
+    <script id="cutlab-card-text-data" type="application/json">${JSON.stringify({
+      Plains: { roleEditable: 'true', roleLand: 'true', roles: 'Lands' },
+      'Relentless Rats': { roleEditable: 'true', roleEdited: 'true', roles: '<b>Card draw</b>' },
+      Commander: { oracleText: 'Commander' },
+    })}</script>
+    <dialog id="cutlab-card-modal"><h2 id="cutlab-card-modal-title"></h2>
+      <p data-cutlab-modal-oracle></p>
+      <div data-cut-lab-role-block hidden><p data-cut-lab-role-current></p>
+        <form data-cut-lab-role-override-form><input name="CutLabStateJson" />
+          <input name="CardName" data-cut-lab-role-override-card />
+          <select data-cut-lab-role-override-role><option value="ramp">Ramp</option><option value="draw">Card draw</option></select>
+          <button data-cut-lab-role-reset hidden>Reset card roles</button>
+        </form>
+      </div>
+    </dialog>`);
+};
+const openRoleCard = (name: string, viewOnly = false): void => {
+  document.querySelector<HTMLButtonElement>(`[data-cutlab-card-open="${name}"]${viewOnly ? '[data-cutlab-card-view-only]' : ':not([data-cutlab-card-view-only])'}`)!.click();
 };
 const roleText = (name: string): string => document.querySelector(`[data-cut-lab-tuner-row="${name}"] td[data-label="Role"]`)?.textContent?.trim() ?? '';
 const setupTuners = (includePlains: boolean): void => {
@@ -328,18 +347,17 @@ const adjust = async (newBasic: boolean): Promise<void> => {
 };
 
 describe('role overrides', () => {
-  it('disables Ramp on initialization when the first card is a land', () => {
-    buildFixture();
-    editor();
-    const cardSelect = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-card]')!;
-    cardSelect.prepend(cardSelect.options[1]);
-    cardSelect.selectedIndex = 0;
-
-    document.dispatchEvent(new Event('DOMContentLoaded'));
-
-    const roleSelect = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')!;
-    expect(roleSelect.querySelector<HTMLOptionElement>('option[value="ramp"]')!.disabled).toBe(true);
-    expect(roleSelect.value).toBe('draw');
+  it('disables ramp for lands, refreshes the select, and re-enables ramp for nonlands', () => {
+    buildFixture(); editor();
+    const refresh = vi.fn();
+    (window as any).DeckFlow = { ...(window as any).DeckFlow, refreshDfSelect: refresh };
+    const role = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')!;
+    openRoleCard('Plains');
+    expect(role.options[0].disabled).toBe(true);
+    expect(role.value).toBe('draw');
+    expect(refresh).toHaveBeenCalledWith(role);
+    openRoleCard('Relentless Rats');
+    expect(role.options[0].disabled).toBe(false);
   });
   it('serializes only non-empty overrides', () => {
     const state = JSON.parse(buildStateJson(98));
@@ -354,17 +372,25 @@ describe('role overrides', () => {
     lock.disabled = false; lock.checked = false; lock.dispatchEvent(new Event('change', { bubbles: true }));
     document.querySelectorAll<HTMLInputElement>('[name="CutLabStateJson"]').forEach(input => expect(JSON.parse(input.value).roleOverrides).toEqual(overrides));
   });
-  it('preselects the card when an edit link is clicked', () => {
+  it('sets CardName, renders roles as text, and shows Reset only for edited cards', () => {
     buildFixture(); editor();
-    document.querySelector<HTMLElement>('[data-cut-lab-role-edit-card]')!.click();
-    expect(document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-card]')!.value).toBe('Plains');
+    openRoleCard('Relentless Rats');
+    expect(document.querySelector<HTMLInputElement>('[data-cut-lab-role-override-card]')!.value).toBe('Relentless Rats');
+    const current = document.querySelector('[data-cut-lab-role-current]')!;
+    expect(current.textContent).toBe('Roles: <b>Card draw</b>');
+    expect(current.querySelector('b')).toBeNull();
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-role-reset]')!.hidden).toBe(false);
+    openRoleCard('Plains');
+    expect(current.textContent).toBe('Roles: Lands');
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-role-reset]')!.hidden).toBe(true);
   });
-  it('disables ramp for lands and selects an enabled role', () => {
+  it.each(['Commander', 'Unknown', 'view-only'])('hides the role block for %s after an editable open', name => {
     buildFixture(); editor();
-    const card = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-card]')!;
-    card.value = 'Plains'; card.dispatchEvent(new Event('change', { bubbles: true }));
-    const role = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')!;
-    expect(role.options[0].disabled).toBe(true); expect(role.value).toBe('draw');
+    openRoleCard('Plains');
+    const block = document.querySelector<HTMLElement>('[data-cut-lab-role-block]')!;
+    expect(block.hidden).toBe(false);
+    openRoleCard(name === 'view-only' ? 'Plains' : name, name === 'view-only');
+    expect(block.hidden).toBe(true);
   });
   it('carries nonland labels through an adjust patch', async () => {
     setupTuners(true); await adjust(false);

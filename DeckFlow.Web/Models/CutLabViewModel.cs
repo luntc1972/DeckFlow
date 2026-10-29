@@ -72,9 +72,6 @@ public sealed record CutLabComboBadgeView
 /// <summary>View model for the Cut Lab page.</summary>
 public sealed record CutLabViewModel
 {
-    /// <summary>Editable pool cards in pool order.</summary>
-    public IReadOnlyList<CutLabRoleOverrideCardView> RoleOverrideCards { get; init; } = [];
-
     /// <summary>Editable cards indexed without case sensitivity.</summary>
     public IReadOnlyDictionary<string, CutLabRoleOverrideCardView> RoleOverrideCardsByName { get; init; } = new Dictionary<string, CutLabRoleOverrideCardView>(StringComparer.OrdinalIgnoreCase);
 
@@ -277,6 +274,20 @@ public sealed record CutLabViewModel
                 entry["comboContext"] = comboBadge.Context;
             }
 
+            if (RoleOverrideCardsByName.TryGetValue(cardName, out var roleCard))
+            {
+                entry["roleEditable"] = "true";
+                if (roleCard.IsLand)
+                {
+                    entry["roleLand"] = "true";
+                }
+                if (roleCard.IsEdited)
+                {
+                    entry["roleEdited"] = "true";
+                }
+                entry["roles"] = RoleListByCardName.GetValueOrDefault(cardName, string.Empty);
+            }
+
             if (entry.Count > 0)
             {
                 cardTextData[cardName] = entry;
@@ -346,19 +357,18 @@ public sealed record CutLabViewModel
             findingHeadingsByKind);
         IReadOnlyList<CutLabCompareRowView> compareRows = BuildCompareRows(result.State?.BaselineSnapshot, result.CurrentSnapshot);
 
-        CutLabRoleOverrideCardView[] roleOverrideCards = pool
+        var roleOverrideCardsByName = pool
             .Where(card => !card.IsCommander && result.RoleAssignmentsByCardName.TryGetValue(card.Name, out var roles) && roles.Count > 0)
             .DistinctBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(card => new CutLabRoleOverrideCardView(
                 card.Name,
                 result.RoleAssignmentsByCardName[card.Name].Contains("lands"),
                 CutLabRoleOverrideRules.Find(result.State?.RoleOverrides ?? [], card.Name) is not null))
-            .ToArray();
+            .ToDictionary(card => card.Name, StringComparer.OrdinalIgnoreCase);
 
         return new CutLabViewModel
         {
-            RoleOverrideCards = roleOverrideCards,
-            RoleOverrideCardsByName = roleOverrideCards.ToDictionary(card => card.Name, StringComparer.OrdinalIgnoreCase),
+            RoleOverrideCardsByName = roleOverrideCardsByName,
             RoleOverrideRoleOptions = CutLabRoleOverrideRules.EditableRoleKeys
                 .Select(key => new CutLabRoleOptionView(key, CutLabRoleAssigner.DisplayLabelFor(key))).ToArray(),
             ActiveTab = DeckPageTab.CutLab,

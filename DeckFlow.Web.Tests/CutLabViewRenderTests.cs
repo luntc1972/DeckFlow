@@ -547,35 +547,77 @@ public sealed class CutLabViewRenderTests
                 ["Plains"] = ["lands"],
             },
         });
-        var card = Assert.Single(model.RoleOverrideCards);
+        var card = Assert.Single(model.RoleOverrideCardsByName).Value;
         Assert.Equal("Plains", card.Name);
         Assert.True(card.IsLand);
         Assert.Equal(edited, card.IsEdited);
         Assert.Same(card, model.RoleOverrideCardsByName["PLAINS"]);
+        var data = model.BuildCardModalData();
+        Assert.Equal("true", data["Plains"]["roleEditable"]);
+        Assert.Equal("true", data["Plains"]["roleLand"]);
+        Assert.Equal(edited, data["Plains"].ContainsKey("roleEdited"));
+        Assert.Equal(model.RoleListByCardName["Plains"], data["Plains"]["roles"]);
+        Assert.False(data.TryGetValue("Commander", out var commander) && commander.Keys.Any(key => key.StartsWith("role", StringComparison.Ordinal)));
+        Assert.False(data.TryGetValue("Unknown", out var unknown) && unknown.Keys.Any(key => key.StartsWith("role", StringComparison.Ordinal)));
         Assert.Equal(CutLabRoleOverrideRules.EditableRoleKeys.Count, model.RoleOverrideRoleOptions.Count);
         Assert.DoesNotContain(model.RoleOverrideRoleOptions, option => option.Key == "lands");
         Assert.All(model.RoleOverrideRoleOptions, option => Assert.Equal(CutLabRoleAssigner.DisplayLabelFor(option.Key), option.Label));
     }
 
     [Fact]
-    public async Task RoleOverride_Render_SharedFormAndEditedChipExcludeCommander()
+    public async Task RoleOverride_Render_ModalFormAndEditedChipExcludeCommander()
     {
         var card = new CutLabRoleOverrideCardView(HeliodRawName, false, true);
         var model = BuildTwinBadgeModel() with
         {
             Pool = [new() { Name = "Commander", IsCommander = true }, new() { Name = HeliodRawName }],
-            RoleOverrideCards = [card],
             RoleOverrideCardsByName = new Dictionary<string, CutLabRoleOverrideCardView>(StringComparer.OrdinalIgnoreCase) { [card.Name] = card },
             RoleOverrideRoleOptions = [new("draw", "Card draw")],
         };
         string html = await RenderAsync(model);
-        Assert.DoesNotContain("data-cut-lab-role-edit-card=\"Commander\"", html);
         Assert.Single(Regex.Matches(html, "action=\"/cut-lab/role-override\""));
-        string form = Regex.Match(html, "<form[^>]*id=\"cut-lab-role-editor\"[\\s\\S]*?</form>").Value;
+        string dialog = Regex.Match(html, "<dialog id=\"cutlab-card-modal\"[\\s\\S]*?</dialog>").Value;
+        string form = Regex.Match(dialog, "<form[^>]*action=\"/cut-lab/role-override\"[\\s\\S]*?</form>").Value;
+        Assert.Contains("data-cut-lab-role-block", dialog);
         Assert.Contains("__RequestVerificationToken", form);
-        Assert.Contains("name=\"CutLabStateJson\"", form);
-        Assert.Contains("cutlab-role-edited-chip", html);
-        Assert.Contains(">Edited</span>", html);
+        foreach (string field in new[] { "CutLabStateJson", "CardName", "Role", "Operation" })
+        {
+            Assert.Contains($"name=\"{field}\"", form);
+        }
+        foreach (string operation in new[] { "Add", "Remove", "Reset" })
+        {
+            Assert.Contains($"value=\"{operation}\"", form);
+        }
+        Assert.Contains("value=\"draw\">Card draw</option>", form);
+        Assert.DoesNotContain("cut-lab-role-editor", html);
+        Assert.DoesNotContain("data-cut-lab-role-edit-card", html);
+        Assert.DoesNotContain("Edit roles", html);
+        Assert.Single(Regex.Matches(html, ">Edited</span>"));
+        string commanderRow = Regex.Match(html, "<tr[^>]*data-cut-lab-card=\"Commander\"[\\s\\S]*?</tr>").Value;
+        Assert.DoesNotContain("cutlab-role-edited-chip", commanderRow);
+    }
+
+    [Fact]
+    public async Task RoleOverride_Render_NoEditableCards_OmitsModalRoleBlock()
+    {
+        string html = await RenderAsync(BuildTwinBadgeModel());
+        Assert.DoesNotContain("data-cut-lab-role-block", html);
+    }
+
+    [Fact]
+    public async Task RoleOverride_ModalData_EncodesRolesJson()
+    {
+        const string roles = "</script><script>alert(1)</script>";
+        var card = new CutLabRoleOverrideCardView(HeliodRawName, false, true);
+        var model = BuildTwinBadgeModel() with
+        {
+            RoleOverrideCardsByName = new Dictionary<string, CutLabRoleOverrideCardView> { [card.Name] = card },
+            RoleListByCardName = new Dictionary<string, string> { [card.Name] = roles },
+        };
+        string html = await RenderAsync(model);
+        string script = Regex.Match(html, "<script[^>]*id=\"cutlab-card-text-data\"[\\s\\S]*?</script>").Value;
+        Assert.DoesNotContain(roles, html);
+        Assert.Contains("\\u003C/script\\u003E", script);
     }
 
     private static CutLabViewModel BuildTwinBadgeModel(IReadOnlyDictionary<string, CutLabCardTextView>? cardTextByCardName = null)

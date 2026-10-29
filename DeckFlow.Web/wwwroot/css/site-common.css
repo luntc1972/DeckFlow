@@ -5253,20 +5253,6 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   font-size: var(--fs-base);
 }
 
-.cutlab-role-editor {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  font-size: var(--fs-base);
-}
-
-.cutlab-role-editor p {
-  flex-basis: 100%;
-  color: var(--muted);
-}
-
 .cutlab-role-edited-chip {
   display: inline-block;
   padding: 0.125rem 0.5rem;
@@ -5276,18 +5262,30 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   font-size: var(--fs-base);
 }
 
-.cutlab-role-edit-link {
-  margin-inline-start: 0.5rem;
-  color: var(--accent);
-  font-size: var(--fs-base);
-  text-underline-offset: 0.2em;
+.cutlab-card-modal__roles {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
 }
 
-@media (max-width: 600px) {
-  .cutlab-role-editor {
-    flex-direction: column;
-    align-items: stretch;
-  }
+.cutlab-card-modal__roles form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cutlab-card-modal__roles label,
+.cutlab-card-modal__roles form p {
+  flex-basis: 100%;
+}
+
+.cutlab-card-modal__roles select,
+.cutlab-card-modal__roles .df-select {
+  flex: 1 1 14rem;
+}
+
+.cutlab-card-modal__roles button {
+  min-height: 44px;
 }
 
 .cutlab-role-group {
