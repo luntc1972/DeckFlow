@@ -3262,32 +3262,6 @@ dialog.cutlab-card-modal::backdrop {
   gap: 0.75rem;
 }
 
-.cutlab-card-modal__category {
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--line);
-}
-
-.cutlab-card-modal__category form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.cutlab-card-modal__category label {
-  flex-basis: 100%;
-}
-
-.cutlab-card-modal__category input[type="text"] {
-  flex: 1 1 14rem;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.cutlab-card-modal__category button {
-  min-height: 44px;
-}
-
 .cutlab-card-modal__actions {
   display: flex;
   flex-wrap: wrap;

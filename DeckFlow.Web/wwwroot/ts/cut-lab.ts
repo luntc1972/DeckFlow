@@ -66,14 +66,8 @@ interface CutLabOriginalEntrySnapshot {
   category?: string | null;
 }
 
-interface CutLabCategoryOverrideSnapshot {
-  name: string;
-  category: string;
-}
-
 interface CutLabStateSnapshot {
   originalEntries?: CutLabOriginalEntrySnapshot[];
-  categoryOverrides?: CutLabCategoryOverrideSnapshot[];
   roleOverrides?: CutLabRoleOverrideSnapshot[];
   commander: string;
   pool: CutLabPoolSnapshotCard[];
@@ -98,9 +92,6 @@ interface CutLabStateDecision {
 }
 
 interface CutLabCardTextEntry {
-  category?: string;
-  alsoTagged?: string;
-  categoryEdited?: string;
   typeLine?: string;
   manaCost?: string;
   power?: string;
@@ -851,9 +842,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       if ((snapshot.originalEntries ?? []).length > 0) {
         normalizedSnapshot.originalEntries = snapshot.originalEntries;
       }
-      if ((snapshot.categoryOverrides ?? []).length > 0) {
-        normalizedSnapshot.categoryOverrides = snapshot.categoryOverrides;
-      }
 
       return JSON.stringify(normalizedSnapshot);
     },
@@ -1117,7 +1105,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
 
   const getTypeGroupLockedCounts = (): HTMLElement[] =>
-    Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-type-locked], [data-cut-lab-category-locked]'));
+    Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-type-locked]'));
 
   const getRoleGroupChips = (cardName: string): HTMLElement[] =>
     Array.from(document.querySelectorAll<HTMLElement>(`[data-cut-lab-chip-card="${cssEscape(cardName)}"]`));
@@ -1632,7 +1620,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       decisions: Array.isArray(persistedState?.decisions) ? persistedState.decisions : [],
       quantityAdjustments: Array.isArray(persistedState?.quantityAdjustments) ? persistedState.quantityAdjustments : [],
       originalEntries: Array.isArray(persistedState?.originalEntries) ? persistedState.originalEntries : [],
-      categoryOverrides: Array.isArray(persistedState?.categoryOverrides) ? persistedState.categoryOverrides : [],
       roleOverrides: Array.isArray(persistedState?.roleOverrides) ? persistedState.roleOverrides : [],
       baselineSnapshot: persistedState?.baselineSnapshot,
       intent: {
@@ -2065,24 +2052,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (combo) {
       combo.textContent = comboText;
       combo.hidden = comboText === '';
-    }
-
-    const categoryBlock = dialog.querySelector<HTMLElement>('[data-cut-lab-category-block]');
-    if (categoryBlock) {
-      categoryBlock.hidden = viewOnly;
-      const card = categoryBlock.querySelector<HTMLInputElement>('[data-cut-lab-category-card]');
-      const input = categoryBlock.querySelector<HTMLInputElement>('[data-cut-lab-category-input]');
-      const current = categoryBlock.querySelector<HTMLElement>('[data-cut-lab-category-current]');
-      const also = categoryBlock.querySelector<HTMLElement>('[data-cut-lab-category-also]');
-      const reset = categoryBlock.querySelector<HTMLElement>('[data-cut-lab-category-reset]');
-      if (card) card.value = cardName;
-      if (input) input.value = entry?.category ?? '';
-      if (current) current.textContent = `Category: ${entry?.category || 'Uncategorized'}`;
-      if (also) {
-        also.textContent = `Also tagged: ${entry?.alsoTagged ?? ''}`;
-        also.hidden = !entry?.alsoTagged;
-      }
-      if (reset) reset.hidden = entry?.categoryEdited !== 'true';
     }
 
     syncCardModalLockButton(cardName, viewOnly);
