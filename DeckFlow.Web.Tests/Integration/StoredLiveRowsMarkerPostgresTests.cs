@@ -61,6 +61,27 @@ public sealed class StoredLiveRowsMarkerPostgresTests : IClassFixture<PostgresCo
     }
 
     [PostgresFact]
+    public async Task StoredLiveRowsSql_Postgres_PlanReadsNeitherTotalsNorSources()
+    {
+        var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
+        var sql = ("SELECT COUNT(1) FROM deck_queue q WHERE " + DeckQueueRepository.StoredLiveRowsSql)
+            .Replace("@livePrefixLength", "15", StringComparison.Ordinal)
+            .Replace("@livePrefix", "'archidekt_live:'", StringComparison.Ordinal);
+        var plan = new List<string>();
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand("EXPLAIN " + sql, connection);
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            plan.Add(reader.GetString(0));
+        }
+
+        Assert.DoesNotContain(plan, line => line.Contains("card_deck_totals", StringComparison.OrdinalIgnoreCase)
+            || line.Contains("sources", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [PostgresFact]
     public async Task StoredLiveIndex_Postgres_IsValidAndUsedForMarkerPredicate()
     {
         await CreateRepositoryAsync();

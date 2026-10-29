@@ -124,6 +124,41 @@ public sealed class StoredLiveRowsMarkerTests : IDisposable
         Assert.Equal(0L, await ScalarAsync<long>("SELECT skipped FROM deck_queue WHERE deck_id = 'stale';"));
         Assert.Null(await ScalarAsync<string?>("SELECT skip_reason FROM deck_queue WHERE deck_id = 'stale';"));
         await AssertMarkerAsync("stale", 0L);
+
+        await ExecuteAsync("UPDATE deck_queue SET has_stored_live_rows = 1 WHERE deck_id = 'stale';");
+        var skipped = await ScalarAsync<long>("SELECT skipped FROM deck_queue WHERE deck_id = 'stale';");
+        var skipReason = await ScalarAsync<string?>("SELECT skip_reason FROM deck_queue WHERE deck_id = 'stale';");
+        var service = new DeckPruningService(repository, new DeckPruningOptions { BatchSize = 25, Pause = TimeSpan.Zero }, _ => Task.FromResult<long?>(long.MaxValue));
+        var result = await service.RunPurgeAsync().WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.Equal(DeckPruningStopReason.Completed, result.StopReason);
+        await AssertMarkerAsync("stale", 0L);
+        Assert.Equal(before, await ScalarAsync<long>("SELECT processed FROM deck_queue WHERE deck_id = 'stale';"));
+        Assert.Equal(skipped, await ScalarAsync<long>("SELECT skipped FROM deck_queue WHERE deck_id = 'stale';"));
+        Assert.Equal(skipReason, await ScalarAsync<string?>("SELECT skip_reason FROM deck_queue WHERE deck_id = 'stale';"));
+    }
+
+    [Fact]
+    public async Task StoredLiveRowsSql_QueryPlan_ReadsNeitherTotalsNorSources()
+    {
+        await StoreAsync("query-plan");
+        var sql = ("EXPLAIN QUERY PLAN SELECT COUNT(1) FROM deck_queue q WHERE " + DeckQueueRepository.StoredLiveRowsSql)
+            .Replace("@livePrefixLength", "15", StringComparison.Ordinal)
+            .Replace("@livePrefix", "'archidekt_live:'", StringComparison.Ordinal);
+        var details = new List<string>();
+        await using var connection = new SqliteConnection("Data Source=" + _databasePath);
+        await connection.OpenAsync();
+        await using var command = new SqliteCommand(sql, connection);
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            details.Add(reader.GetString(3));
+        }
+
+        Assert.DoesNotContain(details, detail => detail.Contains("SUBQUERY", StringComparison.OrdinalIgnoreCase)
+            || detail.Contains("card_deck_totals", StringComparison.OrdinalIgnoreCase)
+            || detail.Contains("sources", StringComparison.OrdinalIgnoreCase)
+            || detail.Contains("ux_totals_grain", StringComparison.OrdinalIgnoreCase)
+            || detail.Contains("ix_sources_deck_queue", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

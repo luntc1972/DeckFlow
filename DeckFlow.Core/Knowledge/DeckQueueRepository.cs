@@ -24,9 +24,10 @@ internal sealed class DeckQueueRepository
             LIMIT @count;
             """;
     internal const string UnprocessedCountSql = "SELECT COUNT(1) FROM deck_queue WHERE processed = 0 AND skipped = 0;";
-    // Why: `_` in the live-source prefix is a LIKE wildcard; SUBSTR compares it literally on both providers.
-    internal const string StoredLiveRowsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
+    internal const string StoredLiveRowsSql = "q.has_stored_live_rows = 1";
     internal const string StoredLiveRowsExistsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
+    // Why: defense in depth on a cold cache, not the fix.
+    internal const int MaintenanceCommandTimeoutSeconds = 120;
     private const string RetentionCandidateSql = "q.processed = 1 AND q.skipped = 0 AND q.commander_name IS NOT NULL AND " + StoredLiveRowsSql;
     private const string PurgeCandidateSql = "NOT (q.processed = 0 AND q.skipped = 0) AND q.archidekt_metadata_captured_utc IS NOT NULL AND (q.archidekt_deck_format IS NULL OR q.archidekt_deck_format <> 3 OR q.commander_name IS NULL) AND " + StoredLiveRowsSql;
     private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND " + StoredLiveRowsSql;
@@ -116,7 +117,8 @@ internal sealed class DeckQueueRepository
 
         var rows = await connection.QueryAsync<RetentionCandidateRow>(new CommandDefinition(
             $"SELECT q.id AS DeckQueueId, q.deck_id AS DeckId, q.commander_name AS CommanderName, q.archidekt_updated_utc AS UpdatedUtc, q.inserted_utc AS InsertedUtc FROM deck_queue q WHERE LOWER(q.commander_name) = LOWER(@commanderName) AND {RetentionCandidateSql};",
-            new { commanderName, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            new { commanderName },
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return rows.Select(row => new RetentionCandidate(row.DeckQueueId, row.DeckId, row.CommanderName, RetentionRanking.RankUtcFor(row.UpdatedUtc, row.InsertedUtc))).ToArray();
     }
@@ -128,7 +130,7 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
         var rows = await connection.QueryAsync<PurgeCandidateRow>(new CommandDefinition(
             $"SELECT q.id AS DeckQueueId, q.archidekt_deck_format AS DeckFormat, q.commander_name AS CommanderName FROM deck_queue q WHERE {PurgeCandidateSql} ORDER BY q.id;",
-            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return rows.Select(row => (row.DeckQueueId, row.DeckFormat != 3 ? DeckSkipReasons.NotCommanderFormat : DeckSkipReasons.NoCommander)).ToArray();
     }
@@ -140,7 +142,7 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"SELECT COUNT(1) FROM deck_queue q WHERE {PurgeCandidateSql};",
-            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
@@ -153,7 +155,8 @@ internal sealed class DeckQueueRepository
         // Why: Postgres SUM over bigint returns numeric; the cast keeps one scalar type on both providers.
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"SELECT CAST(COALESCE(SUM(deck_count - @cap), 0) AS INTEGER) FROM (SELECT COUNT(1) AS deck_count FROM deck_queue q WHERE {RetentionCandidateSql} GROUP BY LOWER(q.commander_name) HAVING COUNT(1) > @cap) AS retention_excess;",
-            new { cap = perCommanderCap, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            new { cap = perCommanderCap },
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
@@ -166,7 +169,7 @@ internal sealed class DeckQueueRepository
 
         var affectedCommanderNames = await connection.QueryAsync<string?>(new CommandDefinition(
             $"SELECT q.commander_name FROM deck_queue q WHERE {RefetchCandidateSql};",
-            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
             transaction: transaction,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         var marked = await connection.ExecuteAsync(new CommandDefinition(
@@ -179,8 +182,9 @@ internal sealed class DeckQueueRepository
                 refresh_requested_utc = @refreshRequestedUtc
             WHERE id IN (SELECT q.id FROM deck_queue q WHERE {RefetchCandidateSql});
             """,
-            new { refreshRequestedUtc = DateTime.UtcNow, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            new { refreshRequestedUtc = DateTime.UtcNow },
             transaction: transaction,
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         await RefreshCommanderSummaryAsync(connection, transaction, affectedCommanderNames, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken);
@@ -194,7 +198,7 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"SELECT COUNT(1) FROM deck_queue q WHERE {RefetchCandidateSql};",
-            new { livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
@@ -213,7 +217,8 @@ internal sealed class DeckQueueRepository
 
         var keys = await connection.QueryAsync<string>(new CommandDefinition(
             $"SELECT LOWER(q.commander_name) FROM deck_queue q WHERE {RetentionCandidateSql} GROUP BY LOWER(q.commander_name) HAVING COUNT(1) > @minimum ORDER BY LOWER(q.commander_name);",
-            new { minimum, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            new { minimum },
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return keys.ToArray();
     }
