@@ -63,6 +63,7 @@ public sealed class StoredLiveRowsMarkerPostgresTests : IClassFixture<PostgresCo
     [PostgresFact]
     public async Task StoredLiveRowsSql_Postgres_PlanReadsNeitherTotalsNorSources()
     {
+        await CreateRepositoryAsync();
         var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
         var sql = ("SELECT COUNT(1) FROM deck_queue q WHERE " + DeckQueueRepository.StoredLiveRowsSql)
             .Replace("@livePrefixLength", "15", StringComparison.Ordinal)

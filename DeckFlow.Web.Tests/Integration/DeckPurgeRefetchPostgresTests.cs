@@ -111,11 +111,13 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
 
     private static async Task DeleteLiveRowsAsync(string connectionString, string deckId)
     {
-        const string sql = "DELETE FROM card_category_observations WHERE source_id IN (SELECT id FROM sources WHERE source = @source); DELETE FROM card_deck_totals WHERE source_id IN (SELECT id FROM sources WHERE source = @source);";
+        // Why: raw deletes bypass the writers that maintain the marker.
+        const string sql = "DELETE FROM card_category_observations WHERE source_id IN (SELECT id FROM sources WHERE source = @source); DELETE FROM card_deck_totals WHERE source_id IN (SELECT id FROM sources WHERE source = @source); UPDATE deck_queue SET has_stored_live_rows = 0 WHERE deck_id = @deckId;";
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(sql, connection);
         command.Parameters.AddWithValue("source", "archidekt_live:" + deckId);
+        command.Parameters.AddWithValue("deckId", deckId);
         await command.ExecuteNonQueryAsync();
     }
 
