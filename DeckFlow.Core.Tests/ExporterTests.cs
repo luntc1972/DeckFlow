@@ -11,28 +11,6 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ExporterTests
 {
-    [Theory]
-    [InlineData("Ramp", " [Ramp]")]
-    [InlineData("#Ramp,Commander", " [Ramp]")]
-    [InlineData("", "")]
-    public void ToText_ArchidektCategories_MainboardSuffix(string category, string suffix)
-    {
-        var entries = new List<DeckEntry> { new() { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = category } };
-        Assert.Equal("1 Sol Ring" + suffix, DeltaExporter.ToText(entries, "Archidekt", true));
-        Assert.Equal(DeltaExporter.ToText(entries, "Archidekt"), DeltaExporter.ToText(entries, "Archidekt", false));
-        Assert.Equal(DeltaExporter.ToText(entries, "Moxfield", false), DeltaExporter.ToText(entries, "Moxfield", true));
-    }
-
-    [Fact]
-    public void ToText_ArchidektCategories_OtherBoardsKeepExistingOutput()
-    {
-        foreach (var board in new[] { "commander", "sideboard", "maybeboard" })
-        {
-            var entries = new List<DeckEntry> { new() { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = board, Category = "Ramp" } };
-            Assert.Equal(DeltaExporter.ToText(entries, "Archidekt", false), DeltaExporter.ToText(entries, "Archidekt", true));
-        }
-    }
-
     [Fact]
     public void DeltaExporter_OutputsBoardHeadersForNonMainboard()
     {

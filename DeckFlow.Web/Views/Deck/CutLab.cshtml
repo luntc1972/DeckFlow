@@ -283,7 +283,6 @@
                 <li><a href="#cut-lab-section-lock-pool">Lock your pool</a></li>
                 <li><a href="#cut-lab-section-competes">How your pool competes</a></li>
                 <li><a href="#cut-lab-section-by-type">By type</a></li>
-                <li><a href="#cut-lab-section-by-category">By category</a></li>
                 <li><a href="#cut-lab-section-by-subtype">By subtype</a></li>
                 <li><a href="#cut-lab-section-structural">Structural findings</a></li>
                 <li><a href="#cut-lab-section-role-floors">Role floors</a></li>
@@ -688,31 +687,6 @@
             </details>
         </section>
 
-        <section class="result-panel">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-by-category">
-                <summary class="cutlab-collapsible__summary">By category</summary>
-                <div class="panel-heading">
-                    <div>
-                        <h2>By category</h2>
-                        <p>Your pool grouped by the deck-builder category imported from Moxfield or Archidekt. Open a card to see or change its category.</p>
-                    </div>
-                </div>
-                @foreach (var group in Model.CategoryGroups)
-                {
-                    <details class="cutlab-role-group" data-cutlab-group-kind="category">
-                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span data-cut-lab-category-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
-                        <div class="cutlab-role-group__body">
-                            <div class="kb-chip-area__chips">
-                                @foreach (var member in group.Members)
-                                {
-                                    await RenderGroupChip(member);
-                                }
-                            </div>
-                        </div>
-                    </details>
-                }
-            </details>
-        </section>
 
         <section class="result-panel">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-by-subtype">
@@ -1600,25 +1574,6 @@
                     <p class="cutlab-card-modal__meta" data-cutlab-modal-castability hidden title="Based on your current working pool, not a finished 100-card verdict."></p>
                     <p class="cutlab-card-modal__oracle" data-cutlab-modal-oracle></p>
                     <p class="cutlab-card-modal__combo" data-cutlab-modal-combo hidden></p>
-                    <div class="cutlab-card-modal__category" data-cut-lab-category-block hidden>
-                        <p data-cut-lab-category-current></p>
-                        <p data-cut-lab-category-also hidden></p>
-                        <form method="post" action="@Url.Content("~/cut-lab/category-override")" data-cut-lab-category-override-form>
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                            <input type="hidden" name="CardName" data-cut-lab-category-card />
-                            <label for="cutlab-category-input">Category</label>
-                            <input id="cutlab-category-input" type="text" name="Category" list="cutlab-category-options" maxlength="64" autocomplete="off" data-cut-lab-category-input />
-                            <datalist id="cutlab-category-options">
-                                @foreach (var option in Model.CategoryOptions)
-                                {
-                                    <option value="@option"></option>
-                                }
-                            </datalist>
-                            <button type="submit" name="Operation" value="Set">Save category</button>
-                            <button type="submit" name="Operation" value="Reset" data-cut-lab-category-reset hidden>Use imported category</button>
-                        </form>
-                    </div>
                 </div>
                 <div class="cutlab-card-modal__actions">
                     <button type="button" class="cutlab-card-modal__button cutlab-card-modal__button--lock" data-cutlab-modal-lock>Lock</button>

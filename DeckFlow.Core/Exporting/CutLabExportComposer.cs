@@ -1,7 +1,6 @@
 using System.Text;
 using DeckFlow.Core.Diffing;
 using DeckFlow.Core.Models;
-using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Core.Exporting;
 
@@ -19,8 +18,7 @@ public static class CutLabExportComposer
         IReadOnlySet<string> commanderIdentity,
         IReadOnlyDictionary<string, IReadOnlyList<string>?> cardIdentitiesByName,
         IReadOnlySet<string> unverifiedCardNames,
-        IReadOnlySet<string> bannedCardNamesPresent,
-        IReadOnlySet<string>? categoryEditedNames = null)
+        IReadOnlySet<string> bannedCardNamesPresent)
     {
         ArgumentNullException.ThrowIfNull(finalEntries);
         ArgumentNullException.ThrowIfNull(originalEntries);
@@ -36,23 +34,6 @@ public static class CutLabExportComposer
         var diff = new DiffEngine(MatchMode.Loose).Compare([.. finalEntries], [.. originalEntries]);
         var cutEntries = diff.OnlyInArchidekt.Concat(diff.CountMismatch).ToList();
         var addEntries = diff.ToAdd.ToList();
-
-        foreach (var editedName in categoryEditedNames ?? new HashSet<string>())
-        {
-            var normalizedName = CardNormalizer.Normalize(editedName);
-            var originals = originalEntries.Where(entry => entry.NormalizedName == normalizedName && IsDeckBoard(entry)).ToList();
-            var finals = finalEntries.Where(entry => entry.NormalizedName == normalizedName).ToList();
-            if (originals.Count == 0 || finals.Count == 0 || CategoryTokens(originals).SetEquals(CategoryTokens(finals)))
-            {
-                continue;
-            }
-
-            // Why: loose diff keys ignore categories; replace every imported row to carry the edit.
-            addEntries.RemoveAll(entry => entry.NormalizedName == normalizedName);
-            cutEntries.RemoveAll(entry => entry.NormalizedName == normalizedName && IsDeckBoard(entry) && diff.CountMismatch.Contains(entry));
-            cutEntries.AddRange(originals);
-            addEntries.AddRange(finals);
-        }
 
         var countTotal = finalEntries.Sum(entry => entry.Quantity);
         var countOk = countTotal == 100;
@@ -128,24 +109,14 @@ public static class CutLabExportComposer
             .ToList();
     }
 
-    private static bool IsDeckBoard(DeckEntry entry)
-        => string.Equals(entry.Board, "mainboard", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase);
-
-    private static HashSet<string> CategoryTokens(IEnumerable<DeckEntry> entries)
-        => entries.SelectMany(entry => (entry.Category ?? string.Empty).Split(','))
-            .Select(token => token.Trim())
-            .Where(token => token.Length > 0)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
     private static string BuildPatch(string targetSystem, List<DeckEntry> cutEntries, List<DeckEntry> addEntries)
     {
         var builder = new StringBuilder();
         builder.AppendLine("# CUT (remove these)");
-        AppendPatchBody(builder, DeltaExporter.ToText(cutEntries, targetSystem, includeArchidektCategories: true), "No cards to cut.");
+        AppendPatchBody(builder, DeltaExporter.ToText(cutEntries, targetSystem), "No cards to cut.");
         builder.AppendLine();
         builder.AppendLine("# ADD (add these)");
-        AppendPatchBody(builder, DeltaExporter.ToText(addEntries, targetSystem, includeArchidektCategories: true), "No cards to add.");
+        AppendPatchBody(builder, DeltaExporter.ToText(addEntries, targetSystem), "No cards to add.");
         return builder.ToString().TrimEnd();
     }
 

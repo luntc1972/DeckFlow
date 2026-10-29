@@ -151,15 +151,6 @@ public sealed record CutLabViewModel
     /// <summary>Type-group views in the fixed Cut Lab primary-type order.</summary>
     public IReadOnlyList<CutLabRoleGroupView> TypeGroups { get; init; } = [];
 
-    /// <summary>Pool groups ordered by primary imported or edited category.</summary>
-    public IReadOnlyList<CutLabRoleGroupView> CategoryGroups { get; init; } = [];
-
-    /// <summary>Effective primary and secondary categories for each pool card.</summary>
-    public IReadOnlyDictionary<string, CutLabCardCategoryView> CardCategoryByName { get; init; } = new Dictionary<string, CutLabCardCategoryView>(StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>Existing effective categories offered by the card editor.</summary>
-    public IReadOnlyList<string> CategoryOptions { get; init; } = [];
-
     /// <summary>Structural findings rendered for the current pool.</summary>
     public IReadOnlyList<CutLabFindingView> Findings { get; init; } = [];
 
@@ -286,24 +277,6 @@ public sealed record CutLabViewModel
                 entry["comboContext"] = comboBadge.Context;
             }
 
-            if (CardCategoryByName.TryGetValue(cardName, out var category))
-            {
-                if (category.Primary is not null)
-                {
-                    entry["category"] = category.Primary;
-                }
-
-                if (category.AlsoTagged.Count > 0)
-                {
-                    entry["alsoTagged"] = string.Join(", ", category.AlsoTagged);
-                }
-
-                if (category.IsEdited)
-                {
-                    entry["categoryEdited"] = "true";
-                }
-            }
-
             if (entry.Count > 0)
             {
                 cardTextData[cardName] = entry;
@@ -340,7 +313,6 @@ public sealed record CutLabViewModel
         IReadOnlyList<string> addableBasics = CutLabSharedHelpers.BuildAddableBasics(workingListRows.Select(row => row.Name));
         IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<CutLabRoleGroupView> typeGroups = BuildTypeGroups(pool);
-        IReadOnlyDictionary<string, CutLabCardCategoryView> cardCategoryByName = BuildCardCategoryByName(result.State);
         IReadOnlyList<CutLabFindingView> findings = CutLabFindingPresenter.BuildFindings(result.Findings.Findings);
         IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
@@ -408,14 +380,6 @@ public sealed record CutLabViewModel
             Packages = result.State?.Packages ?? [],
             RoleGroups = roleGroups,
             TypeGroups = typeGroups,
-            CategoryGroups = BuildCategoryGroups(result.State, cardCategoryByName),
-            CardCategoryByName = cardCategoryByName,
-            CategoryOptions = cardCategoryByName.Values
-                .SelectMany(category => category.AlsoTagged.Prepend(category.Primary!))
-                .Where(token => token is not null)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(token => token, StringComparer.OrdinalIgnoreCase)
-                .ToArray(),
             Findings = findings,
             FindingGroups = findingGroups,
             ComboDataUnavailable = result.HasResult && !result.Findings.ComboDataAvailable,
@@ -529,39 +493,6 @@ public sealed record CutLabViewModel
                 pool.Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
                     && roles.Contains(roleKey, StringComparer.Ordinal)),
                 !string.Equals(roleKey, "other", StringComparison.Ordinal)))
-            .ToArray();
-    }
-
-    private static IReadOnlyDictionary<string, CutLabCardCategoryView> BuildCardCategoryByName(CutLabState? state)
-    {
-        Dictionary<string, CutLabCardCategoryView> categories = new(StringComparer.OrdinalIgnoreCase);
-        foreach (CutLabPoolCard card in state?.Pool ?? [])
-        {
-            IReadOnlyList<string> tokens = CutLabCategoryRules.EffectiveCategoryTokens(state!.OriginalEntries, state.CategoryOverrides, card.Name);
-            categories[card.Name] = new CutLabCardCategoryView
-            {
-                Primary = tokens.FirstOrDefault(),
-                AlsoTagged = tokens.Skip(1).ToArray(),
-                IsEdited = CutLabCategoryRules.Find(state.CategoryOverrides, card.Name) is not null,
-            };
-        }
-
-        return categories;
-    }
-
-    private static IReadOnlyList<CutLabRoleGroupView> BuildCategoryGroups(CutLabState? state, IReadOnlyDictionary<string, CutLabCardCategoryView> categories)
-    {
-        if (state is null)
-        {
-            return [];
-        }
-
-        // Why: group only by the primary token; secondary tags remain available in the modal.
-        return state.Pool
-            .GroupBy(card => categories[card.Name].Primary, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(group => group.Key is null)
-            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(group => BuildGroup(group.Key ?? "uncategorized", group.Key ?? "Uncategorized", group))
             .ToArray();
     }
 

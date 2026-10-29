@@ -8,6 +8,25 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabStateSerializer"/> covering round-trip, tamper defense, and size/error handling.</summary>
 public sealed class CutLabStateSerializerTests
 {
+    [Fact]
+    public void Deserialize_LegacyCategoryOverridesJson_IgnoresFieldAndKeepsState()
+    {
+        var state = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Arcane Signet" }],
+            RoleOverrides = [new CutLabRoleOverride { Name = "Arcane Signet", Added = ["draw"] }],
+            OriginalEntries = [new CutLabOriginalEntry { Name = "Arcane Signet", Quantity = 1, Board = "mainboard", Category = "Ramp" }],
+        };
+        var root = System.Text.Json.Nodes.JsonNode.Parse(CutLabStateSerializer.Serialize(state))!.AsObject();
+        root["categoryOverrides"] = System.Text.Json.Nodes.JsonNode.Parse("[{\"name\":\"Arcane Signet\",\"category\":\"FastMana\"}]");
+
+        var actual = CutLabStateSerializer.Deserialize(root.ToJsonString());
+
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(state.RoleOverrides), System.Text.Json.JsonSerializer.Serialize(actual.RoleOverrides));
+        Assert.Equal(state.OriginalEntries, actual.OriginalEntries);
+        Assert.False(System.Text.Json.Nodes.JsonNode.Parse(CutLabStateSerializer.Serialize(actual))!.AsObject().ContainsKey("categoryOverrides"));
+    }
+
     [Theory]
     [InlineData("added", "removed")]
     [InlineData("removed", "added")]
@@ -40,7 +59,6 @@ public sealed class CutLabStateSerializerTests
     [InlineData("originalEntries")]
     [InlineData("roleFloors")]
     [InlineData("roleOverrides")]
-    [InlineData("categoryOverrides")]
     public void Deserialize_ExplicitNullCollection_ReturnsEmptyCollection(string propertyName)
     {
         var state = CutLabStateSerializer.Deserialize($"{{\"{propertyName}\":null}}");
@@ -92,7 +110,6 @@ public sealed class CutLabStateSerializerTests
             "originalEntries" => state.OriginalEntries,
             "roleFloors" => state.RoleFloors,
             "roleOverrides" => state.RoleOverrides,
-            "categoryOverrides" => state.CategoryOverrides,
             _ => throw new ArgumentOutOfRangeException(nameof(propertyName)),
         };
 
@@ -213,16 +230,6 @@ public sealed class CutLabStateSerializerTests
 
         Assert.Empty(state.RoleFloors);
         Assert.True(Assert.Single(state.Pool, card => card.IsCommander).IsLocked);
-    }
-
-    [Fact]
-    public void CategoryOverride_SerializeDeserialize_RoundTripsAndSanitizes()
-    {
-        var state = new CutLabState { CategoryOverrides = [new() { Name = "Sol Ring", Category = "FastMana" }] };
-        Assert.Equal(state.CategoryOverrides, CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(state)).CategoryOverrides);
-        Assert.Empty(CutLabStateSerializer.Deserialize("{}").CategoryOverrides);
-        var tampered = state with { CategoryOverrides = [new() { Name = "A", Category = "Commander" }, new() { Name = "B", Category = "#bad" }, new() { Name = "C", Category = " " }] };
-        Assert.Empty(CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(tampered)).CategoryOverrides);
     }
 
     [Fact]
@@ -914,26 +921,11 @@ public sealed class CutLabStateSerializerTests
             Pool = pool,
             Decisions = decisions,
             RoleOverrides = roleOverrides,
-            OriginalEntries = Enumerable.Range(1, 200).Select(index => new CutLabOriginalEntry
-            {
-                Name = $"A Realistically Long Legendary Card Name Number {index}",
-                Quantity = 1,
-                Board = "mainboard",
-                SetCode = "cmm",
-                CollectorNumber = index.ToString(),
-                Category = "Ramp,Artifacts,Card Advantage",
-            }).ToArray(),
-            CategoryOverrides = Enumerable.Range(1, 200).Select(index => new CutLabCategoryOverride
-            {
-                Name = $"A Realistically Long Legendary Card Name Number {index}",
-                Category = new string('C', 64),
-            }).ToArray(),
             BaselineSnapshot = CreateBaselineSnapshot(),
         };
 
         var json = CutLabStateSerializer.Serialize(state);
 
-        Console.WriteLine($"CategoryOverride worst-case serialized bytes: {Encoding.UTF8.GetByteCount(json)}");
         Assert.True(Encoding.UTF8.GetByteCount(json) < CutLabStateSerializer.MaxUploadBytes);
     }
 

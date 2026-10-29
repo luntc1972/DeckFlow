@@ -99,7 +99,6 @@ public sealed class CutLabControllerTests
                 new() { Name = "Sol Ring", Quantity = 1, Board = "mainboard", SetCode = "sa", CollectorNumber = "1", Category = "Ramp" },
                 new() { Name = "Counterspell", Quantity = 1, Board = "sideboard", SetCode = "sb", CollectorNumber = "2", Category = "Draw" },
             ],
-            CategoryOverrides = [new() { Name = "Sol Ring", Category = "FastMana" }],
         };
         var service = new FakeCutLabPageService();
         await CreateController(service).Process(new CutLabRequest
@@ -110,7 +109,6 @@ public sealed class CutLabControllerTests
         });
         var actual = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
         Assert.Empty(actual.OriginalEntries);
-        Assert.Equal(state.CategoryOverrides, actual.CategoryOverrides);
     }
 
     [Fact]
@@ -916,86 +914,6 @@ public sealed class CutLabControllerTests
         CutLabRoleOverride roleOverride = Assert.Single(CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson).RoleOverrides);
         Assert.Equal("Arcane Signet", roleOverride.Name);
         Assert.Equal(["draw"], roleOverride.Added);
-    }
-
-    [Fact]
-    public void CategoryOverride_RequiresFeatureGateAndAntiforgery()
-    {
-        var method = typeof(CutLabController).GetMethod(nameof(CutLabController.CategoryOverride));
-
-        Assert.NotNull(method);
-        Assert.Equal("/cut-lab/category-override", Assert.Single(method!.GetCustomAttributes(typeof(HttpPostAttribute), true).Cast<HttpPostAttribute>()).Template);
-        Assert.Equal(2L * 1024 * 1024, (long)Assert.Single(method.GetCustomAttributesData(), attribute => attribute.AttributeType == typeof(RequestSizeLimitAttribute)).ConstructorArguments[0].Value!);
-
-        Assert.Equal("tool.cut-lab.enabled", Assert.Single(method.GetCustomAttributes(typeof(FeatureFlagGateAttribute), inherit: true).Cast<FeatureFlagGateAttribute>()).Key);
-        Assert.NotNull(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true).SingleOrDefault());
-    }
-
-    [Fact]
-    public async Task CategoryOverride_BlankState_ReturnsNoChangeMessage()
-    {
-        var controller = CreateController(new FakeCutLabPageService());
-
-        var result = await controller.CategoryOverride(new CutLabRequest(), "Arcane Signet", "draw", CutLabCategoryOverrideOperation.Set);
-
-        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
-        Assert.Equal(CutLabMessages.NoChangeMessage, model.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task CategoryOverride_BlankCardName_ReturnsNoChangeMessage()
-    {
-        var controller = CreateController(new FakeCutLabPageService());
-        var result = await controller.CategoryOverride(new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) }, " ", "Draw", CutLabCategoryOverrideOperation.Set);
-        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
-        Assert.Equal(CutLabMessages.NoChangeMessage, model.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task CategoryOverride_Add_RehydratesStateAndRerenders()
-    {
-        var service = new FakeCutLabPageService();
-        var controller = CreateController(service);
-        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
-
-        var result = await controller.CategoryOverride(request, "Arcane Signet", "draw", CutLabCategoryOverrideOperation.Set);
-
-        Assert.Equal("CutLab", Assert.IsType<ViewResult>(result).ViewName);
-        CutLabCategoryOverride categoryOverride = Assert.Single(CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson).CategoryOverrides);
-        Assert.Equal("Arcane Signet", categoryOverride.Name);
-        Assert.Equal("draw", categoryOverride.Category);
-    }
-
-    [Fact]
-    public async Task CategoryOverride_ReservedRefusal_RerendersErrorWithoutOverride()
-    {
-        var service = new FakeCutLabPageService();
-        var controller = CreateController(service);
-        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
-
-        var result = await controller.CategoryOverride(request, "Arcane Signet", "Commander", CutLabCategoryOverrideOperation.Set);
-
-        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
-        Assert.Equal(CutLabMessages.CategoryOverrideReservedMessage, model.ErrorMessage);
-        Assert.Equal(1, service.CallCount);
-        Assert.Empty(CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson).CategoryOverrides);
-    }
-
-    [Fact]
-    public async Task RestartRounds_PreservesCategoryOverrides()
-    {
-        var service = new StateAwareCutLabPageService();
-        var controller = CreateController(service);
-        var state = CreateState() with
-        {
-            CategoryOverrides = [new CutLabCategoryOverride { Name = "Arcane Signet", Category = "draw" }],
-        };
-
-        await controller.RestartRounds(new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) });
-
-        CutLabCategoryOverride categoryOverride = Assert.Single(CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson).CategoryOverrides);
-        Assert.Equal("Arcane Signet", categoryOverride.Name);
-        Assert.Equal("draw", categoryOverride.Category);
     }
 
     [Fact]

@@ -196,29 +196,6 @@ public sealed class CutLabController : Controller
         });
     }
 
-    /// <summary>Applies a persisted primary category edit.</summary>
-    /// <param name="request">Posted Cut Lab form fields.</param>
-    /// <param name="cardName">Card display name.</param>
-    /// <param name="category">Replacement category text.</param>
-    /// <param name="operation">Explicit set or reset operation.</param>
-    [HttpPost("/cut-lab/category-override")]
-    [FeatureFlagGate("tool.cut-lab.enabled")]
-    [ValidateAntiForgeryToken]
-    [RequestSizeLimit(2 * 1024 * 1024)]
-    public async Task<IActionResult> CategoryOverride(CutLabRequest request, string cardName, string? category, CutLabCategoryOverrideOperation operation)
-    {
-        request ??= new CutLabRequest();
-        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName))
-        {
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
-        }
-        return await RunStateMutationAsync(request, "Cut Lab category-override fallback failed.", state =>
-        {
-            CutLabCategoryRules.TryApplyEdit(state, cardName, category, operation, out CutLabState updated, out string? error);
-            return (updated, error);
-        });
-    }
-
     /// <summary>Re-surfaces prior round 1 and round 2 rejects/defers without undoing accepted cuts.</summary>
     /// <param name="request">Posted Cut Lab form fields.</param>
     [HttpPost("/cut-lab/restart-rounds")]

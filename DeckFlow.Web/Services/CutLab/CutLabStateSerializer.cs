@@ -87,7 +87,6 @@ public static class CutLabStateSerializer
                     .Where(floor => floor is not null && !string.IsNullOrWhiteSpace(floor.Role))
                     .ToArray(),
                 RoleOverrides = state.RoleOverrides ?? [],
-                CategoryOverrides = state.CategoryOverrides ?? [],
                 Goals = state.Goals ?? new CutLabGoalSettings(),
                 Intent = (state.Intent ?? new CutLabIntent()) with
                 {
@@ -111,7 +110,7 @@ public static class CutLabStateSerializer
             };
 
             state = CutLabGoalRules.ClampGoals(CutLabFloorRules.ClampFloors(CutLabLockRules.EnforceCommanderLock(state), bracketOverride));
-            return CutLabCategoryRules.Sanitize(CutLabRoleOverrideRules.Sanitize(state));
+            return CutLabRoleOverrideRules.Sanitize(state);
         }
         catch (JsonException)
         {

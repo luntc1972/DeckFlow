@@ -191,37 +191,6 @@ public sealed class CutLabOriginalEntriesTests
     }
 
     [Fact]
-    public async Task ProcessAsync_CategoryOverride_PreservesPoolAndAbsentCards()
-    {
-        List<DeckEntry> entries =
-        [
-            Entry("Atraxa, Praetors' Voice", "commander", set: "2xm", collectorNumber: "190", category: "Commanders"),
-            Entry("Arcane Signet", "mainboard", set: "bro", collectorNumber: "12", category: "Ramp"),
-        ];
-        entries.AddRange(BuildMainboard(start: 1, count: 100));
-        var cards = BuildResolvedCards(entries);
-        var service = CreateService(entries, cards);
-        var request = new CutLabRequest
-        {
-            DeckInputSource = DeckInputSource.PasteText,
-            DeckText = "pool",
-            PlayExperience = "Focused",
-        };
-
-        CutLabProcessResult intake = await service.ProcessAsync(request);
-        CutLabOriginalEntry capturedEntry = Assert.Single(intake.State!.OriginalEntries, entry => entry.Name == "Arcane Signet");
-        CutLabState carriedState = CutLabStateSerializer.Deserialize(intake.SerializedStateJson);
-        carriedState = carriedState with { CategoryOverrides = [new() { Name = "Arcane Signet", Category = "FastMana" }, new() { Name = "Absent Card", Category = "Draw" }] };
-        request.CutLabStateJson = CutLabStateSerializer.Serialize(carriedState);
-
-        CutLabProcessResult afterDecision = await service.ProcessAsync(request);
-        CutLabOriginalEntry roundTrippedEntry = Assert.Single(afterDecision.State!.OriginalEntries, entry => entry.Name == "Arcane Signet");
-
-        Assert.Equal(capturedEntry, roundTrippedEntry);
-        Assert.Equal(carriedState.CategoryOverrides, afterDecision.State.CategoryOverrides);
-    }
-
-    [Fact]
     public async Task ProcessAsync_SavedScenarioReload_PreservesExistingOriginalEntries()
     {
         List<DeckEntry> entries =
