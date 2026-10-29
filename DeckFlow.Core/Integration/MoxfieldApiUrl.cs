@@ -5,6 +5,12 @@ namespace DeckFlow.Core.Integration;
 /// </summary>
 public static class MoxfieldApiUrl
 {
+    /// <summary>The base URL for Moxfield API requests.</summary>
+    public const string BaseUrl = "https://api2.moxfield.com/";
+
+    /// <summary>The browser User-Agent sent with Moxfield requests.</summary>
+    public const string BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
+
     /// <summary>
     /// Tries to extract a deck identifier from a Moxfield URL or raw identifier.
     /// </summary>
@@ -43,6 +49,6 @@ public static class MoxfieldApiUrl
     public static Uri BuildDeckApiUri(string deckId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
-        return new Uri($"https://api2.moxfield.com/v3/decks/all/{deckId}", UriKind.Absolute);
+        return new Uri($"{BaseUrl}v3/decks/all/{deckId}", UriKind.Absolute);
     }
 }

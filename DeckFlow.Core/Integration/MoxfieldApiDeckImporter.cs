@@ -71,7 +71,7 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
     private async Task<MoxfieldImportResult> FetchDirectAsync(string deckId, CancellationToken cancellationToken)
     {
         var request = new RestRequest(MoxfieldApiUrl.BuildDeckApiUri(deckId), Method.Get);
-        request.AddHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36");
+        request.AddHeader("User-Agent", MoxfieldApiUrl.BrowserUserAgent);
         request.AddHeader("Accept", "application/json, text/plain, */*");
         request.AddHeader("Referer", "https://moxfield.com/");
         request.AddHeader("Accept-Language", "en-US,en;q=0.9");

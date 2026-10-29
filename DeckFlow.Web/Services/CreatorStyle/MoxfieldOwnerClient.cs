@@ -1,5 +1,5 @@
-using System.Text;
 using System.Text.Json;
+using DeckFlow.Core.Integration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Polly;
@@ -17,7 +17,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
     /// <summary>Maximum response payload accepted from Moxfield.</summary>
     public const int MaxResponseBytes = 5 * 1024 * 1024;
     /// <summary>Browser user agent accepted by Moxfield's Cloudflare front.</summary>
-    public const string BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
+    public const string BrowserUserAgent = MoxfieldApiUrl.BrowserUserAgent;
 
     private readonly RestClient _restClient;
     private readonly ResiliencePipeline<RestResponse> _pipeline;
@@ -28,7 +28,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
     public MoxfieldOwnerClient(IHttpClientFactory httpClientFactory, ResiliencePipelineProvider<string> pipelineProvider, MoxfieldRequestPacer pacer, ILogger<MoxfieldOwnerClient>? logger = null)
         : this(pipelineProvider, new RestClient(httpClientFactory.CreateClient("moxfield-owner"), new RestClientOptions
         {
-            BaseUrl = new Uri("https://api2.moxfield.com/"),
+            BaseUrl = new Uri(MoxfieldApiUrl.BaseUrl),
             // Why: RestSharp's default agent overrides the named client's browser agent.
             UserAgent = null,
         }), pacer, logger)
@@ -51,7 +51,6 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
         ArgumentException.ThrowIfNullOrWhiteSpace(username);
         var decks = new List<MoxfieldDeckSummary>();
         var publicIds = new HashSet<string>(StringComparer.Ordinal);
-        var isTruncated = false;
         for (var page = 1; page <= MaxPages; page++)
         {
             var request = new RestRequest("v2/decks/search", Method.Get);
@@ -64,11 +63,6 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                 response = await _pipeline.ExecuteAsync(
                     async ct => await _pacer.RunAsync(innerCt => _restClient.ExecuteAsync(request, innerCt), ct).ConfigureAwait(false),
                     cancellationToken).ConfigureAwait(false);
-            }
-            catch (JsonException exception)
-            {
-                _logger.LogWarning(exception, "Moxfield listing JSON failed for {Username} page {Page}.", username, page);
-                return Failed(decks);
             }
             catch (TimeoutRejectedException exception)
             {
@@ -86,15 +80,16 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                 _logger.LogWarning("Moxfield listing failed for {Username} page {Page}: HTTP {StatusCode}.", username, page, (int)response.StatusCode);
                 return Failed(decks);
             }
-            var bytes = response.RawBytes ?? Encoding.UTF8.GetBytes(response.Content ?? string.Empty);
-            if (bytes.Length > MaxResponseBytes)
+            if (!ArchidektOwnerClient.TryGetResponseContent(response, out var content, out _))
             {
                 _logger.LogWarning("Moxfield listing response for {Username} page {Page} exceeded {MaxResponseBytes} bytes.", username, page, MaxResponseBytes);
                 return Failed(decks);
             }
             try
             {
-                using var document = JsonDocument.Parse(bytes);
+                using var document = response.RawBytes is { } bytes
+                    ? JsonDocument.Parse(bytes)
+                    : JsonDocument.Parse(content);
                 if (!TryReadPage(document.RootElement, out var totalPages, out var summaries))
                 {
                     _logger.LogWarning("Moxfield listing returned an invalid page shape for {Username} page {Page}.", username, page);
@@ -104,8 +99,10 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                 {
                     if (publicIds.Add(summary.PublicId)) { decks.Add(summary); }
                 }
-                if (page >= totalPages) { break; }
-                isTruncated = page == MaxPages;
+                if (page >= totalPages)
+                {
+                    return new MoxfieldDeckListResult { Decks = decks, HasUpstreamFailure = false, IsTruncated = false };
+                }
             }
             catch (JsonException exception)
             {
@@ -113,7 +110,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                 return Failed(decks);
             }
         }
-        return new MoxfieldDeckListResult { Decks = decks, HasUpstreamFailure = false, IsTruncated = isTruncated };
+        return new MoxfieldDeckListResult { Decks = decks, HasUpstreamFailure = false, IsTruncated = true };
     }
 
     private static MoxfieldDeckListResult Failed(IReadOnlyList<MoxfieldDeckSummary> decks) => new() { Decks = decks, HasUpstreamFailure = true };
