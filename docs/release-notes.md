@@ -6,10 +6,10 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
-### Unreleased — Cut Lab card categories (2026-10-28)
+### Unreleased — Cut Lab role editing in the card window (2026-10-28)
 
-- **Categories:** a By category pool view groups cards by their first imported category, with Uncategorized last; the card modal edits a card's category and offers Use imported category to reset.
-- **Persistence and export:** category edits persist in scenarios and session files and flow into finished lists and CUT/ADD patches.
+- **Roles:** a card's roles are edited from its card window; the separate role editor and Edit roles links are gone.
+- **Categories:** the By category view and category editing are removed; imported categories still export as imported.
 - **Fewer Scryfall lookups:** re-caching a pool no longer forgets cards already known to be missing, so they are not looked up again.
 
 ### Unreleased — Deck Tendencies profile crawls (2026-10-27)
