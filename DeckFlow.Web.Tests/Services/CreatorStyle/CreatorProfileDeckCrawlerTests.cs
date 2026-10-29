@@ -55,7 +55,7 @@ public sealed class CreatorProfileDeckCrawlerTests
 
         var sample = Assert.Single(samples);
         Assert.Equal("deck-1", sample.DeckId);
-        Assert.Equal(100, sample.CardCount);
+        Assert.Equal(2, sample.CardCount);
         Assert.Equal(42, sample.FolderId);
         Assert.Equal("Budget", sample.FolderName);
         Assert.Equal(0.25, sample.FolderWeight);
@@ -106,6 +106,56 @@ public sealed class CreatorProfileDeckCrawlerTests
         Assert.Equal("good", sample.DeckId);
         Assert.Equal(1, importer.ImportCalls);
         Assert.DoesNotContain("too-big", importer.ImportedDeckIds);
+    }
+
+    [Theory]
+    [InlineData("archidekt", 100)]
+    [InlineData("moxfield", 110)]
+    public async Task CrawlAsync_LegacyWarmCache_MeasuresOnlyCommanderAndMainboardWithoutRefresh(string platform, int cachedSize)
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now, platform, lastCrawledUtc: now.AddMinutes(-5));
+        var cachedUtc = now.AddMinutes(-10);
+        await harness.CacheStore.UpsertAsync(new CreatorDeckCacheEntry
+        {
+            CreatorSlug = "snail",
+            DeckId = "legacy-1",
+            ContentHash = "legacy-all-board-hash",
+            Size = cachedSize,
+            ConfidenceMarker = "cached",
+            Entries =
+            [
+                CommanderEntry("Atraxa"),
+                new DeckEntry { Name = "Rat Colony", NormalizedName = "rat colony", Quantity = 99, Board = "mainboard" },
+                new DeckEntry { Name = "Island", NormalizedName = "island", Quantity = 10, Board = "maybeboard" }
+            ],
+            CachedUtc = cachedUtc
+        });
+        var ownerClient = new CountingOwnerClient();
+        var importer = new CountingDeckImporter();
+        var moxfieldOwnerClient = new CountingMoxfieldOwnerClient();
+        var moxfieldImporter = new CountingMoxfieldDeckImporter();
+
+        var samples = await CreateCrawler(harness, ownerClient, importer, now, moxfieldOwnerClient, moxfieldImporter)
+            .CrawlAsync("snail");
+
+        var sample = Assert.Single(samples);
+        Assert.Equal(100, sample.CardCount);
+        Assert.Equal(100, sample.Entries.Sum(entry => entry.Quantity));
+        Assert.All(sample.Entries, entry => Assert.Contains(entry.Board, new[] { "commander", "mainboard" }));
+        Assert.Single(StapleStripper.FilterOversized(samples));
+        Assert.Equal(0, ownerClient.ResolveUsernameCalls);
+        Assert.Equal(0, ownerClient.ListDeckSummariesCalls);
+        Assert.Equal(0, importer.ImportCalls);
+        Assert.Equal(0, moxfieldOwnerClient.ListCalls);
+        Assert.Empty(moxfieldImporter.ImportedDeckIds);
+        var cached = Assert.Single(await harness.CacheStore.GetByCreatorAsync("snail"));
+        Assert.Equal(cachedSize, cached.Size);
+        Assert.Equal(cachedUtc, cached.CachedUtc);
+        Assert.Equal("legacy-all-board-hash", cached.ContentHash);
+        Assert.Equal(110, cached.Entries.Sum(entry => entry.Quantity));
+        Assert.Contains(cached.Entries, entry => entry.Board == "maybeboard");
     }
 
     [Fact]
@@ -651,6 +701,91 @@ public sealed class CreatorProfileDeckCrawlerTests
         Assert.Equal("mox-timeout", Assert.Single(samples).DeckId);
         Assert.Equal(2, (await harness.CacheStore.GetByCreatorAsync("snail")).Count);
         Assert.Equal(lastCrawledUtc, (await harness.ProfileStore.GetBySlugAsync("snail"))!.LastCrawledUtc);
+    }
+
+    [Fact]
+    public async Task CrawlAsync_ArchidektDeckWithMaybeboardAndSideboard_CachesOnlyCommanderAndMainboard()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now);
+        var ownerClient = new CountingOwnerClient { DeckSummaries = [new ArchidektDeckSummary { Id = "deck-1", Name = "Deck", Size = 100 }] };
+        var importer = new CountingDeckImporter();
+        importer.Decks["deck-1"] =
+        [
+            new DeckEntry { Name = "Rat Colony", NormalizedName = "rat colony", Quantity = 99, Board = "mainboard" },
+            CommanderEntry("Atraxa"),
+            new DeckEntry { Name = "Island", NormalizedName = "island", Quantity = 10, Board = "maybeboard" },
+            new DeckEntry { Name = "Swamp", NormalizedName = "swamp", Quantity = 2, Board = "sideboard" }
+        ];
+
+        var samples = await CreateCrawler(harness, ownerClient, importer, now)
+            .CrawlAsync("snail", forceRefresh: true);
+
+        var sample = Assert.Single(samples);
+        Assert.Equal(100, sample.CardCount);
+        Assert.Single(StapleStripper.FilterOversized(samples));
+        Assert.All(sample.Entries, entry => Assert.Contains(entry.Board, new[] { "commander", "mainboard" }));
+        Assert.Equal(sample.CardCount, sample.Entries.Sum(entry => entry.Quantity));
+        var cached = Assert.Single(await harness.CacheStore.GetByCreatorAsync("snail"));
+        Assert.Equal(sample.CardCount, cached.Size);
+        Assert.All(cached.Entries, entry => Assert.Contains(entry.Board, new[] { "commander", "mainboard" }));
+    }
+
+    [Fact]
+    public async Task CrawlAsync_ArchidektMaybeboardOnlyChange_ReusesCachedRowOnForceRefresh()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now);
+        var ownerClient = new CountingOwnerClient { DeckSummaries = [new ArchidektDeckSummary { Id = "deck-1", Name = "Deck", Size = 100 }] };
+        var importer = new CountingDeckImporter();
+        var mainboard = new DeckEntry { Name = "Rat Colony", NormalizedName = "rat colony", Quantity = 60, Board = "mainboard" };
+        importer.Decks["deck-1"] =
+        [
+            mainboard, CommanderEntry("Atraxa"),
+            new DeckEntry { Name = "Island", NormalizedName = "island", Quantity = 2, Board = "maybeboard" }
+        ];
+        await CreateCrawler(harness, ownerClient, importer, now)
+            .CrawlAsync("snail", forceRefresh: true);
+        importer.Decks["deck-1"] =
+        [
+            mainboard, CommanderEntry("Atraxa"),
+            new DeckEntry { Name = "Swamp", NormalizedName = "swamp", Quantity = 2, Board = "maybeboard" },
+            new DeckEntry { Name = "Forest", NormalizedName = "forest", Quantity = 1, Board = "sideboard" }
+        ];
+        await CreateCrawler(harness, ownerClient, importer, now.AddHours(1))
+            .CrawlAsync("snail", forceRefresh: true);
+
+        var cached = Assert.Single(await harness.CacheStore.GetByCreatorAsync("snail"));
+        Assert.Equal(2, importer.ImportedDeckIds.Count);
+        Assert.Equal(now, cached.CachedUtc);
+        Assert.All(cached.Entries, entry => Assert.Contains(entry.Board, new[] { "commander", "mainboard" }));
+    }
+
+    [Fact]
+    public async Task CrawlAsync_ArchidektOversizedDeck_IsSkippedAndNotCached()
+    {
+        var now = new DateTimeOffset(2026, 7, 11, 12, 0, 0, TimeSpan.Zero);
+        await using var harness = await CreateHarnessAsync();
+        await SeedSourceAsync(harness.ProfileStore, now);
+        var ownerClient = new CountingOwnerClient
+        {
+            DeckSummaries = [new ArchidektDeckSummary { Id = "deck-big", Name = "Deck", Size = 100 }]
+        };
+        var importer = new CountingDeckImporter();
+        importer.Decks["deck-big"] =
+        [
+            new DeckEntry { Name = "Rat Colony", NormalizedName = "rat colony", Quantity = 105, Board = "mainboard" },
+            CommanderEntry("Atraxa")
+        ];
+
+        var samples = await CreateCrawler(harness, ownerClient, importer, now)
+            .CrawlAsync("snail", forceRefresh: true);
+
+        Assert.Empty(samples);
+        Assert.Single(importer.ImportedDeckIds);
+        Assert.Empty(await harness.CacheStore.GetByCreatorAsync("snail"));
     }
 
     [Theory]

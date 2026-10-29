@@ -12,12 +12,13 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 - **Persistence and export:** category edits persist in scenarios and session files and flow into finished lists and CUT/ADD patches.
 - **Fewer Scryfall lookups:** re-caching a pool no longer forgets cards already known to be missing, so they are not looked up again.
 
-### Unreleased — Deck Tendencies Moxfield crawl (2026-10-27)
+### Unreleased — Deck Tendencies profile crawls (2026-10-27)
 
 - **The fix:** Moxfield profiles now crawl Moxfield instead of being looked up on Archidekt.
 - **The bounds:** listing and imports share one 500 ms spacing gate; listing stops at 10 pages of 50 decks; a failed, oversized, malformed or unexpectedly shaped page, or a deck fetch Moxfield blocks, keeps the cached decks and the previous crawl time.
 - **Unsupported platform values:** skip the crawl with a logged warning.
 - **Main-deck size:** Moxfield decks are measured on their commander and mainboard cards only, so maybeboard and sideboard cards no longer push a 100-card deck past the 105-card limit, and a deck the listing already reports above 105 main-deck cards is skipped without being fetched.
+- **Main-deck imports and cached decks:** Archidekt imports now measure, hash, and cache only commander and mainboard cards, so maybeboard and sideboard changes do not discard valid decks or replace unchanged cached rows; imported main decks above 105 cards are skipped. Already-cached Archidekt and Moxfield decks are also measured on commander and mainboard cards without a refresh or a stored-row rewrite.
 
 ### Unreleased — Legal-Commander harvest and per-commander retention
 
