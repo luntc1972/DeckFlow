@@ -205,16 +205,14 @@ public sealed class CreatorDeckCacheStore : ICreatorDeckCacheStore
         ArgumentException.ThrowIfNullOrWhiteSpace(creatorSlug);
         ArgumentNullException.ThrowIfNull(keepDeckIds);
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-        var deckIds = keepDeckIds.Distinct(StringComparer.Ordinal).ToArray();
+        var deckIds = keepDeckIds.ToArray();
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
         var sql = deckIds.Length == 0
             ? "DELETE FROM creator_deck_cache WHERE creator_slug = @creatorSlug;"
             : _connectionInfo.IsPostgres
                 ? "DELETE FROM creator_deck_cache WHERE creator_slug = @creatorSlug AND NOT (deck_id = ANY(@deckIds));"
                 : "DELETE FROM creator_deck_cache WHERE creator_slug = @creatorSlug AND deck_id NOT IN @deckIds;";
-        var count = await connection.ExecuteAsync(new CommandDefinition(sql, new { creatorSlug, deckIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        var count = await connection.ExecuteAsync(new CommandDefinition(sql, new { creatorSlug, deckIds }, cancellationToken: cancellationToken)).ConfigureAwait(false);
         return count;
     }
 

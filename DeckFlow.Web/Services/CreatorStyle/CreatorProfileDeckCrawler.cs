@@ -15,8 +15,6 @@ namespace DeckFlow.Web.Services.CreatorStyle;
 public sealed class CreatorProfileDeckCrawler
 {
     private const string ConfidenceMarker = "ok";
-    // Why: a tarpit must not indefinitely hold the process-wide Moxfield request gate.
-    private static readonly TimeSpan MoxfieldImportTimeout = TimeSpan.FromSeconds(60);
 
     private readonly IArchidektOwnerClient _archidektOwnerClient;
     private readonly IArchidektDeckImporter _archidektDeckImporter;
@@ -43,34 +41,8 @@ public sealed class CreatorProfileDeckCrawler
         ICreatorDeckCacheStore deckCacheStore,
         ILogger<CreatorProfileDeckCrawler>? logger = null,
         TimeSpan? freshnessWindow = null,
-        Func<DateTimeOffset>? nowUtc = null)
-        : this(
-            archidektOwnerClient,
-            archidektDeckImporter,
-            moxfieldOwnerClient,
-            moxfieldDeckImporter,
-            moxfieldPacer,
-            profileSourceStore,
-            deckCacheStore,
-            logger,
-            freshnessWindow,
-            nowUtc,
-            MoxfieldImportTimeout)
-    {
-    }
-
-    internal CreatorProfileDeckCrawler(
-        IArchidektOwnerClient archidektOwnerClient,
-        IArchidektDeckImporter archidektDeckImporter,
-        IMoxfieldOwnerClient moxfieldOwnerClient,
-        IMoxfieldDeckImporter moxfieldDeckImporter,
-        MoxfieldRequestPacer moxfieldPacer,
-        ICreatorProfileSourceStore profileSourceStore,
-        ICreatorDeckCacheStore deckCacheStore,
-        ILogger<CreatorProfileDeckCrawler>? logger,
-        TimeSpan? freshnessWindow,
-        Func<DateTimeOffset>? nowUtc,
-        TimeSpan moxfieldImportTimeout)
+        Func<DateTimeOffset>? nowUtc = null,
+        TimeSpan? moxfieldImportTimeout = null)
     {
         ArgumentNullException.ThrowIfNull(archidektOwnerClient);
         ArgumentNullException.ThrowIfNull(archidektDeckImporter);
@@ -89,7 +61,8 @@ public sealed class CreatorProfileDeckCrawler
         _logger = logger ?? NullLogger<CreatorProfileDeckCrawler>.Instance;
         _freshnessWindow = freshnessWindow ?? TimeSpan.FromHours(24);
         _nowUtc = nowUtc ?? (() => DateTimeOffset.UtcNow);
-        _moxfieldImportTimeout = moxfieldImportTimeout;
+        // Why: a tarpit must not indefinitely hold the process-wide Moxfield request gate.
+        _moxfieldImportTimeout = moxfieldImportTimeout ?? TimeSpan.FromSeconds(60);
     }
 
     /// <summary>
@@ -109,9 +82,13 @@ public sealed class CreatorProfileDeckCrawler
             return Array.Empty<CreatorDeckSample>();
         }
 
-        var platform = source.Platform.Trim();
-        if (!string.Equals(platform, "archidekt", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(platform, "moxfield", StringComparison.OrdinalIgnoreCase))
+        bool? isMoxfield = source.Platform.Trim() switch
+        {
+            var platform when string.Equals(platform, "archidekt", StringComparison.OrdinalIgnoreCase) => false,
+            var platform when string.Equals(platform, "moxfield", StringComparison.OrdinalIgnoreCase) => true,
+            _ => null
+        };
+        if (isMoxfield is null)
         {
             _logger.LogWarning("Creator {CreatorSlug} has unsupported platform {Platform}; skipping crawl.", creatorSlug, source.Platform);
             return Array.Empty<CreatorDeckSample>();
@@ -126,7 +103,7 @@ public sealed class CreatorProfileDeckCrawler
             return RebuildSamplesFromCache(warmEntries, source);
         }
 
-        return string.Equals(platform, "moxfield", StringComparison.OrdinalIgnoreCase)
+        return isMoxfield.Value
             ? await CrawlMoxfieldAsync(creatorSlug, source, forceRefresh, cancellationToken).ConfigureAwait(false)
             : await CrawlArchidektAsync(creatorSlug, source, forceRefresh, cancellationToken).ConfigureAwait(false);
     }
@@ -247,16 +224,12 @@ public sealed class CreatorProfileDeckCrawler
             catch (Exception) when (!cancellationToken.IsCancellationRequested && importTimeout.IsCancellationRequested)
             {
                 _logger.LogWarning("Moxfield deck {DeckId} import timed out for {CreatorSlug}; stopping crawl and leaving freshness stamp untouched.", summary.PublicId, creatorSlug);
-                var currentCacheEntries = await _deckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
-                // Why: a complete listing is authoritative even when importing a deck fails.
-                return RebuildSamplesFromCache(FilterCacheForListing(currentCacheEntries, listing), source);
+                return await ServeListedCacheAsync(creatorSlug, source, listing, cancellationToken).ConfigureAwait(false);
             }
             if (imported.Source == MoxfieldImportSource.CommanderSpellbookFallback)
             {
                 _logger.LogWarning("Moxfield deck {DeckId} for {CreatorSlug} came from the Spellbook fallback; stopping crawl and leaving freshness stamp untouched.", summary.PublicId, creatorSlug);
-                var currentCacheEntries = await _deckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
-                // Why: a complete listing is authoritative even when importing a deck fails.
-                return RebuildSamplesFromCache(FilterCacheForListing(currentCacheEntries, listing), source);
+                return await ServeListedCacheAsync(creatorSlug, source, listing, cancellationToken).ConfigureAwait(false);
             }
 
             // Why: StapleStripper.FilterOversized sums every board downstream, so the stored set must already be the main deck (l8z D-01).
@@ -304,6 +277,14 @@ public sealed class CreatorProfileDeckCrawler
         }
         await _profileSourceStore.SetLastCrawledAsync(creatorSlug, _nowUtc(), cancellationToken).ConfigureAwait(false);
         return samples;
+    }
+
+    private async Task<IReadOnlyList<CreatorDeckSample>> ServeListedCacheAsync(
+        string creatorSlug, CreatorProfileSource source, MoxfieldDeckListResult listing, CancellationToken cancellationToken)
+    {
+        var currentCacheEntries = await _deckCacheStore.GetByCreatorAsync(creatorSlug, cancellationToken).ConfigureAwait(false);
+        // Why: a complete listing is authoritative even when importing a deck fails.
+        return RebuildSamplesFromCache(FilterCacheForListing(currentCacheEntries, listing), source);
     }
 
     private static IReadOnlyList<CreatorDeckCacheEntry> FilterCacheForListing(

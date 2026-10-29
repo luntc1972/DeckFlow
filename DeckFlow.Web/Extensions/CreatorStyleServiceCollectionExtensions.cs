@@ -39,10 +39,10 @@ public static class CreatorStyleServiceCollectionExtensions
 
         services.AddHttpClient("moxfield-owner", client =>
         {
-            client.BaseAddress = new Uri("https://api2.moxfield.com/");
+            client.BaseAddress = new Uri(MoxfieldApiUrl.BaseUrl);
             client.MaxResponseContentBufferSize = MoxfieldOwnerClient.MaxResponseBytes;
             // Why: Moxfield's Cloudflare front rejects non-browser agents; match MoxfieldApiDeckImporter.
-            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", MoxfieldOwnerClient.BrowserUserAgent);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", MoxfieldApiUrl.BrowserUserAgent);
             client.DefaultRequestHeaders.Referrer = new Uri("https://moxfield.com/");
             client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
             client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
