@@ -257,10 +257,12 @@ public sealed class DeckRetentionRepositoryTests : IDisposable
         var repository = CreateRepository();
         await SeedStoredDeckAsync(repository, "empty", "Atraxa", null, ("Sol Ring", "Ramp"));
         await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:empty", []);
+        Assert.Equal(1, await CountSourcesAsync("archidekt_live:empty"));
         Assert.Equal(0, await CountSourceRowsAsync("archidekt_live:empty"));
 
         Assert.Empty(await repository.GetRetentionCandidatesAsync("Atraxa"));
         Assert.Empty(await repository.GetRetentionCommanderKeysAsync(0));
+        Assert.Equal(0, await repository.CountRetentionExcessAsync(0));
     }
 
     [Fact]
@@ -364,6 +366,16 @@ public sealed class DeckRetentionRepositoryTests : IDisposable
         await connection.OpenAsync();
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM card_category_observations WHERE source_id = (SELECT id FROM sources WHERE source = @source)";
+        command.Parameters.AddWithValue("@source", source);
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    private async Task<int> CountSourcesAsync(string source)
+    {
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM sources WHERE source = @source";
         command.Parameters.AddWithValue("@source", source);
         return Convert.ToInt32(await command.ExecuteScalarAsync());
     }
