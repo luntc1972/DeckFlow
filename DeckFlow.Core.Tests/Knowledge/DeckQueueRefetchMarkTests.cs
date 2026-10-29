@@ -43,7 +43,7 @@ public sealed class DeckQueueRefetchMarkTests : IDisposable
         await SeedStoredDeckAsync(repository, "pruned", "Delta", metadata: null, skipped: true);
         await SeedStoredDeckAsync(repository, "pending", "Delta", metadata: null, processed: false);
         await ExecuteAsync("UPDATE deck_queue SET skip_reason = 'retention', retention_core_hash = 'core' WHERE deck_id = 'pruned';");
-        await DeleteLiveRowsAsync("pruned");
+        await repository.DeleteSourceDataAsync("archidekt_live:pruned");
 
         var marked = await repository.MarkMetadataLessDecksForRefreshAsync();
 

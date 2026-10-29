@@ -487,6 +487,7 @@ internal sealed class CardCategoryRepository
             }
 
             await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId.Value }, _connectionInfo.IsPostgres, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
     }
@@ -523,6 +524,7 @@ internal sealed class CardCategoryRepository
                 "DELETE FROM card_deck_totals WHERE source_id = @sourceId;",
                 new { sourceId = sourceId.Value }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
             await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId.Value }, _connectionInfo.IsPostgres, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
     }
@@ -564,7 +566,7 @@ internal sealed class CardCategoryRepository
             var ids = reasons.Keys.ToArray();
             var membership = _connectionInfo.IsPostgres ? "= ANY(@ids)" : "IN @ids";
             var candidates = (await connection.QueryAsync<StoredDeckRemovalRow>(new CommandDefinition(
-                $"SELECT q.id AS Id, q.commander_name AS CommanderName, {IntegerProjection("q.processed", "Processed", _connectionInfo.IsPostgres)}, {IntegerProjection("q.skipped", "Skipped", _connectionInfo.IsPostgres)} FROM deck_queue q WHERE q.id {membership} AND {DeckQueueRepository.StoredLiveRowsSql};",
+                $"SELECT q.id AS Id, q.commander_name AS CommanderName, {IntegerProjection("q.processed", "Processed", _connectionInfo.IsPostgres)}, {IntegerProjection("q.skipped", "Skipped", _connectionInfo.IsPostgres)} FROM deck_queue q WHERE q.id {membership} AND {DeckQueueRepository.StoredLiveRowsExistsSql};",
                 new { ids, livePrefix = ArchidektLiveSourcePrefix, livePrefixLength = ArchidektLiveSourcePrefix.Length }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false))
                 .Where(row => reasons[row.Id] == DeckSkipReasons.Retention
                     ? row.Processed == 1 && row.Skipped == 0
@@ -573,6 +575,7 @@ internal sealed class CardCategoryRepository
                 .ToArray();
             if (candidates.Length == 0)
             {
+                await DeckQueueRepository.RecomputeStoredLiveRowsMarkerAsync(connection, transaction, ids, _connectionInfo.IsPostgres, cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
                 return;
             }
@@ -581,6 +584,18 @@ internal sealed class CardCategoryRepository
             var sourceRows = (await connection.QueryAsync<StoredLiveSourceRow>(new CommandDefinition(
                 $"SELECT s.id AS SourceId, {IntegerProjection("s.deck_queue_id", "DeckQueueId", _connectionInfo.IsPostgres)} FROM sources s WHERE s.deck_queue_id {membership} AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix ORDER BY s.id" + (_connectionInfo.IsPostgres ? " FOR UPDATE;" : ";"),
                 new { ids = candidateIds, livePrefix = ArchidektLiveSourcePrefix, livePrefixLength = ArchidektLiveSourcePrefix.Length }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+            // Why: under PostgreSQL READ COMMITTED this separate statement sees commits before the source lock was granted.
+            var confirmedCandidateIds = (await connection.QueryAsync<long>(new CommandDefinition(
+                $"SELECT q.id FROM deck_queue q WHERE q.id {membership} AND {DeckQueueRepository.StoredLiveRowsExistsSql};",
+                new { ids = candidateIds, livePrefix = ArchidektLiveSourcePrefix, livePrefixLength = ArchidektLiveSourcePrefix.Length }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToHashSet();
+            candidates = candidates.Where(candidate => confirmedCandidateIds.Contains(candidate.Id)).ToArray();
+            sourceRows = sourceRows.Where(sourceRow => confirmedCandidateIds.Contains(sourceRow.DeckQueueId)).ToArray();
+            if (candidates.Length == 0)
+            {
+                await DeckQueueRepository.RecomputeStoredLiveRowsMarkerAsync(connection, transaction, ids, _connectionInfo.IsPostgres, cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+                return;
+            }
             var sourcesByDeck = sourceRows.GroupBy(row => row.DeckQueueId).ToDictionary(group => group.Key, group => group.Select(row => row.SourceId).ToArray());
             var coreHashes = new Dictionary<long, string?>();
             foreach (var candidate in candidates.Where(row => reasons[row.Id] == DeckSkipReasons.Retention))
@@ -619,6 +634,7 @@ internal sealed class CardCategoryRepository
             }
 
             await DeckQueueRepository.RefreshCommanderSummaryAsync(connection, transaction, candidates.Select(row => row.CommanderName), _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+            await DeckQueueRepository.RecomputeStoredLiveRowsMarkerAsync(connection, transaction, ids, _connectionInfo.IsPostgres, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
         return markedCount;
@@ -661,6 +677,7 @@ internal sealed class CardCategoryRepository
             }
 
             await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId }, _connectionInfo.IsPostgres, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
     }
@@ -694,6 +711,7 @@ internal sealed class CardCategoryRepository
             DateTime.UtcNow,
             cancellationToken);
 
+        await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId }, _connectionInfo.IsPostgres, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -742,6 +760,7 @@ internal sealed class CardCategoryRepository
             }
 
             await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId }, _connectionInfo.IsPostgres, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
     }
@@ -802,6 +821,10 @@ internal sealed class CardCategoryRepository
                     new { deckId = contentHashWrite.DeckId, hash = contentHashWrite.Hash }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
             }
 
+            if (sourceId is not null)
+            {
+                await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId.Value }, _connectionInfo.IsPostgres, cancellationToken);
+            }
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
     }
@@ -830,6 +853,7 @@ internal sealed class CardCategoryRepository
             await connection.OpenAsync(cancellationToken);
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
             var deltas = new CategoryWriteOrder();
+            var sourceIds = new List<long>();
             foreach (var source in sources.Where(source => !string.IsNullOrWhiteSpace(source)).Distinct(StringComparer.Ordinal))
             {
                 var sourceId = await ResolveSourceIdForWriteAsync(connection, transaction, source, cancellationToken);
@@ -842,12 +866,14 @@ internal sealed class CardCategoryRepository
                 await connection.ExecuteAsync(new CommandDefinition(
                     "DELETE FROM card_deck_totals WHERE source_id = @sourceId;",
                     new { sourceId = sourceId.Value }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                sourceIds.Add(sourceId.Value);
             }
 
             await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
             await connection.ExecuteAsync(new CommandDefinition(
                 "UPDATE deck_queue SET content_hash = @hash WHERE deck_id = @deckId;",
                 new { deckId = contentHashWrite.DeckId, hash = contentHashWrite.Hash }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, sourceIds, _connectionInfo.IsPostgres, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
     }

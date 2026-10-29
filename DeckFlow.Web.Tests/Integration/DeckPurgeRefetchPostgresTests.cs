@@ -30,7 +30,7 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
         await SeedStoredDeckAsync(repository, database.ConnectionString, "legal", "Gamma", 3);
         await SeedStoredDeckAsync(repository, database.ConnectionString, "skipped", "Alpha", 7, skipped: true);
         await SeedStoredDeckAsync(repository, database.ConnectionString, "pruned", "Alpha", 3, skipped: true);
-        await DeleteLiveRowsAsync(database.ConnectionString, "pruned");
+        await repository.DeleteSourceDataAsync("archidekt_live:pruned");
         var service = new DeckPruningService(repository, new DeckPruningOptions { Pause = TimeSpan.Zero }, static _ => Task.FromResult<long?>(long.MaxValue));
 
         var result = await service.RunPurgeAsync();

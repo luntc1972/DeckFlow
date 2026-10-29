@@ -255,7 +255,9 @@ public sealed class DeckRetentionRepositoryTests : IDisposable
     public async Task GetRetentionCandidatesAsync_LinkedSourceWithoutRows_Excluded()
     {
         var repository = CreateRepository();
-        await SeedStoredDeckAsync(repository, "empty", "Atraxa", null, Array.Empty<(string Card, string? Category)>());
+        await SeedStoredDeckAsync(repository, "empty", "Atraxa", null, ("Sol Ring", "Ramp"));
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:empty", []);
+        Assert.Equal(0, await CountSourceRowsAsync("archidekt_live:empty"));
 
         Assert.Empty(await repository.GetRetentionCandidatesAsync("Atraxa"));
         Assert.Empty(await repository.GetRetentionCommanderKeysAsync(0));

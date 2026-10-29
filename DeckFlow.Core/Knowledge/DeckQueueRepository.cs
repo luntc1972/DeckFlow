@@ -26,6 +26,7 @@ internal sealed class DeckQueueRepository
     internal const string UnprocessedCountSql = "SELECT COUNT(1) FROM deck_queue WHERE processed = 0 AND skipped = 0;";
     // Why: `_` in the live-source prefix is a LIKE wildcard; SUBSTR compares it literally on both providers.
     internal const string StoredLiveRowsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
+    internal const string StoredLiveRowsExistsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
     private const string RetentionCandidateSql = "q.processed = 1 AND q.skipped = 0 AND q.commander_name IS NOT NULL AND " + StoredLiveRowsSql;
     private const string PurgeCandidateSql = "NOT (q.processed = 0 AND q.skipped = 0) AND q.archidekt_metadata_captured_utc IS NOT NULL AND (q.archidekt_deck_format IS NULL OR q.archidekt_deck_format <> 3 OR q.commander_name IS NULL) AND " + StoredLiveRowsSql;
     private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND " + StoredLiveRowsSql;
@@ -1057,6 +1058,53 @@ internal sealed class DeckQueueRepository
                 transaction: transaction,
                 cancellationToken: cancellationToken)).ConfigureAwait(false);
         }
+    }
+
+    internal static async Task<int> RecomputeStoredLiveRowsMarkerForSourcesAsync(
+        DbConnection connection,
+        DbTransaction? transaction,
+        IReadOnlyCollection<long> sourceIds,
+        bool isPostgres,
+        CancellationToken cancellationToken)
+    {
+        if (sourceIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var ids = sourceIds.Distinct().ToArray();
+        var membership = isPostgres ? "= ANY(@ids)" : "IN @ids";
+        var deckQueueIds = (await connection.QueryAsync<long>(new CommandDefinition(
+            $"SELECT DISTINCT deck_queue_id FROM sources WHERE id {membership} AND deck_queue_id IS NOT NULL;",
+            new { ids }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+        return await RecomputeStoredLiveRowsMarkerAsync(connection, transaction, deckQueueIds, isPostgres, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task<int> RecomputeStoredLiveRowsMarkerAsync(
+        DbConnection connection,
+        DbTransaction? transaction,
+        IReadOnlyCollection<long> deckQueueIds,
+        bool isPostgres,
+        CancellationToken cancellationToken)
+    {
+        if (deckQueueIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var ids = deckQueueIds.Distinct().OrderBy(id => id).ToArray();
+        var membership = isPostgres ? "= ANY(@ids)" : "IN @ids";
+        if (isPostgres)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                $"SELECT id FROM sources WHERE deck_queue_id {membership} ORDER BY id FOR UPDATE;",
+                new { ids }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        return await connection.ExecuteAsync(new CommandDefinition(
+            $"UPDATE deck_queue AS q SET has_stored_live_rows = CASE WHEN {StoredLiveRowsExistsSql} THEN 1 ELSE 0 END WHERE q.id {membership} AND q.has_stored_live_rows <> CASE WHEN {StoredLiveRowsExistsSql} THEN 1 ELSE 0 END;",
+            new { ids, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
+            transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>

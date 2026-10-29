@@ -84,6 +84,7 @@ internal sealed class CategoryCacheSchema
                 processed INTEGER NOT NULL DEFAULT 0,
                 skipped INTEGER NOT NULL DEFAULT 0,
                 transient_failure_count INTEGER NOT NULL DEFAULT 0,
+                has_stored_live_rows INTEGER NOT NULL DEFAULT 0,
                 last_checked_utc TEXT,
                 commander_name TEXT NULL,
                 content_hash TEXT NULL,
@@ -115,6 +116,7 @@ internal sealed class CategoryCacheSchema
                      ("skip_reason", "TEXT NULL"),
                      ("retention_core_hash", "TEXT NULL"),
                      ("transient_failure_count", "INTEGER NOT NULL DEFAULT 0"),
+                     ("has_stored_live_rows", "INTEGER NOT NULL DEFAULT 0"),
                  }, cancellationToken);
 
         var crawlStateCommand = connection.CreateCommand();
@@ -294,6 +296,18 @@ internal sealed class CategoryCacheSchema
         catch (Exception exception) when (exception is DbException or OperationCanceledException or TimeoutException)
         {
             _logger?.LogWarning(exception, "deck_queue refresh index creation failed; refresh drain continues without it.");
+        }
+
+        var storedLiveIndexCommand = connection.CreateCommand();
+        storedLiveIndexCommand.CommandText = "CREATE INDEX IF NOT EXISTS ix_deck_queue_stored_live ON deck_queue(LOWER(commander_name)) WHERE has_stored_live_rows = 1;";
+        storedLiveIndexCommand.CommandTimeout = 15;
+        try
+        {
+            await storedLiveIndexCommand.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (Exception exception) when (exception is DbException or OperationCanceledException or TimeoutException)
+        {
+            _logger?.LogWarning(exception, "deck_queue stored-live index creation failed; maintenance reads are slower until it is built.");
         }
     }
 
