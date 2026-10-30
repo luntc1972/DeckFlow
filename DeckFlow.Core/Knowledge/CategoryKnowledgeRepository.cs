@@ -51,6 +51,13 @@ public sealed class CategoryKnowledgeRepository
     /// </summary>
     public string? DatabasePath => _databasePath;
 
+    /// <summary>Reads whether the stored-live-row marker backfill has completed.</summary>
+    public Task<bool> IsStoredLiveRowsMarkerReadyAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.IsStoredLiveRowsMarkerReadyAsync(cancellationToken);
+
+    internal Task<StoredLiveRowsBackfillBatch> RunStoredLiveRowsBackfillBatchAsync(int maxDecks, CancellationToken cancellationToken = default)
+        => _deckQueue.RunStoredLiveRowsBackfillBatchAsync(maxDecks, cancellationToken);
+
     /// <summary>
     /// Ensures the database schema and required tables exist.
     /// </summary>

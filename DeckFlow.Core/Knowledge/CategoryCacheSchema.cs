@@ -128,6 +128,16 @@ internal sealed class CategoryCacheSchema
             """;
         await crawlStateCommand.ExecuteNonQueryAsync(cancellationToken);
 
+        await using var readinessSeedCommand = connection.CreateCommand();
+        readinessSeedCommand.CommandTimeout = DeckQueueRepository.MaintenanceCommandTimeoutSeconds;
+        readinessSeedCommand.CommandText = """
+            INSERT INTO crawl_state (key, value)
+            SELECT 'stored_live_rows_backfill_complete', '1'
+            WHERE NOT EXISTS (SELECT 1 FROM sources)
+            ON CONFLICT(key) DO NOTHING;
+            """;
+        await readinessSeedCommand.ExecuteNonQueryAsync(cancellationToken);
+
         await CreateCardCategoryObservationsTableAsync(connection, _connectionInfo.IsPostgres, cancellationToken);
         await CreateCardCategorySummaryTableAsync(connection, cancellationToken);
         await CreateCardCategoryQualifiedTableAsync(connection, cancellationToken);

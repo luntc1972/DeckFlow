@@ -111,6 +111,61 @@ public sealed class StoredLiveRowsMarkerPostgresTests : IClassFixture<PostgresCo
         Assert.Contains(plan, line => line.Contains("ix_deck_queue_stored_live", StringComparison.OrdinalIgnoreCase));
     }
 
+    [PostgresFact]
+    public async Task Backfill_Postgres_LegacyPendingCompletesExactAndRerunChangesNothing()
+    {
+        var repository = await CreateRepositoryAsync();
+        var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        var saved = new Dictionary<string, string>();
+        await using (var read = new NpgsqlCommand("SELECT key, value FROM crawl_state WHERE key IN ('stored_live_rows_backfill_complete', 'stored_live_rows_backfill_cursor');", connection))
+        await using (var reader = await read.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync()) saved.Add(reader.GetString(0), reader.GetString(1));
+        }
+
+        try
+        {
+            var deckId = "marker-backfill-" + Guid.NewGuid().ToString("N");
+            await StoreAsync(repository, deckId);
+            await StoreAsync(repository, deckId + "-empty");
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId + "-empty", []);
+            await repository.AddDeckIdsAsync([deckId + "-never"]);
+            await using (var reset = new NpgsqlCommand("UPDATE deck_queue SET has_stored_live_rows = 0; DELETE FROM crawl_state WHERE key IN ('stored_live_rows_backfill_complete', 'stored_live_rows_backfill_cursor');", connection))
+            {
+                await reset.ExecuteNonQueryAsync();
+            }
+
+            var service = new StoredLiveRowsBackfillService(repository, new DeckPruningOptions(), _ => Task.FromResult<long?>(long.MaxValue));
+            var result = await service.RunAsync();
+            Assert.Equal(DeckPruningStopReason.Completed, result.StopReason);
+            Assert.True(await repository.IsStoredLiveRowsMarkerReadyAsync());
+            Assert.Equal(0L, await ScalarAsync<long>("SELECT COUNT(*) FROM deck_queue q WHERE has_stored_live_rows <> CASE WHEN " + OracleExistsSql + " THEN 1 ELSE 0 END;"));
+            await using (var resetCursor = new NpgsqlCommand("DELETE FROM crawl_state WHERE key = 'stored_live_rows_backfill_cursor';", connection))
+            {
+                await resetCursor.ExecuteNonQueryAsync();
+            }
+
+            var rerun = await repository.RunStoredLiveRowsBackfillBatchAsync(int.MaxValue);
+            Assert.True(rerun.DecksRechecked > 0);
+            Assert.Equal(0, rerun.MarkersChanged);
+            Assert.True(rerun.Completed);
+        }
+        finally
+        {
+            await using var clear = new NpgsqlCommand("DELETE FROM crawl_state WHERE key IN ('stored_live_rows_backfill_complete', 'stored_live_rows_backfill_cursor');", connection);
+            await clear.ExecuteNonQueryAsync();
+            foreach (var (key, value) in saved)
+            {
+                await using var restore = new NpgsqlCommand("INSERT INTO crawl_state (key, value) VALUES (@key, @value);", connection);
+                restore.Parameters.AddWithValue("key", key);
+                restore.Parameters.AddWithValue("value", value);
+                await restore.ExecuteNonQueryAsync();
+            }
+        }
+    }
+
     private async Task<CategoryKnowledgeRepository> CreateRepositoryAsync()
     {
         var connectionString = await _fixture.GetConnectionStringOrSkipAsync();

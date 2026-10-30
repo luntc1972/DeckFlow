@@ -1065,6 +1065,53 @@ internal sealed class DeckQueueRepository
         }
     }
 
+    internal async Task<bool> IsStoredLiveRowsMarkerReadyAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        var value = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT value FROM crawl_state WHERE key = 'stored_live_rows_backfill_complete';",
+            commandTimeout: MaintenanceCommandTimeoutSeconds, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return value == "1";
+    }
+
+    internal async Task<StoredLiveRowsBackfillBatch> RunStoredLiveRowsBackfillBatchAsync(int maxDecks, CancellationToken cancellationToken = default)
+    {
+        if (maxDecks < 1) throw new ArgumentOutOfRangeException(nameof(maxDecks));
+        await _schema.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        var cursorValue = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT value FROM crawl_state WHERE key = 'stored_live_rows_backfill_cursor';",
+            transaction: transaction, commandTimeout: MaintenanceCommandTimeoutSeconds, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        var cursor = cursorValue is null ? 0L : long.Parse(cursorValue, System.Globalization.CultureInfo.InvariantCulture);
+        var ids = (await connection.QueryAsync<long>(new CommandDefinition(
+            "SELECT DISTINCT deck_queue_id FROM sources WHERE deck_queue_id IS NOT NULL AND deck_queue_id > @cursor ORDER BY deck_queue_id LIMIT @maxDecks;",
+            new { cursor, maxDecks }, transaction: transaction, commandTimeout: MaintenanceCommandTimeoutSeconds,
+            cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+        var changed = await RecomputeStoredLiveRowsMarkerAsync(connection, transaction, ids, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+        if (ids.Length > 0)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO crawl_state (key, value) VALUES ('stored_live_rows_backfill_cursor', @value) ON CONFLICT(key) DO UPDATE SET value = excluded.value;",
+                new { value = ids[^1].ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                transaction: transaction, commandTimeout: MaintenanceCommandTimeoutSeconds, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        var completed = ids.Length < maxDecks;
+        if (completed)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO crawl_state (key, value) VALUES ('stored_live_rows_backfill_complete', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value;",
+                transaction: transaction, commandTimeout: MaintenanceCommandTimeoutSeconds, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return new StoredLiveRowsBackfillBatch(ids.Length, changed, completed);
+    }
+
     internal static async Task<int> RecomputeStoredLiveRowsMarkerForSourcesAsync(
         DbConnection connection,
         DbTransaction? transaction,
@@ -1081,7 +1128,7 @@ internal sealed class DeckQueueRepository
         var membership = isPostgres ? "= ANY(@ids)" : "IN @ids";
         var deckQueueIds = (await connection.QueryAsync<long>(new CommandDefinition(
             $"SELECT DISTINCT deck_queue_id FROM sources WHERE id {membership} AND deck_queue_id IS NOT NULL;",
-            new { ids }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+            new { ids }, transaction: transaction, commandTimeout: MaintenanceCommandTimeoutSeconds, cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
         return await RecomputeStoredLiveRowsMarkerAsync(connection, transaction, deckQueueIds, isPostgres, cancellationToken).ConfigureAwait(false);
     }
 
@@ -1103,13 +1150,13 @@ internal sealed class DeckQueueRepository
         {
             await connection.ExecuteAsync(new CommandDefinition(
                 $"SELECT id FROM sources WHERE deck_queue_id {membership} ORDER BY id FOR UPDATE;",
-                new { ids }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                new { ids }, transaction: transaction, commandTimeout: MaintenanceCommandTimeoutSeconds, cancellationToken: cancellationToken)).ConfigureAwait(false);
         }
 
         return await connection.ExecuteAsync(new CommandDefinition(
             $"UPDATE deck_queue AS q SET has_stored_live_rows = CASE WHEN {StoredLiveRowsExistsSql} THEN 1 ELSE 0 END WHERE q.id {membership} AND q.has_stored_live_rows <> CASE WHEN {StoredLiveRowsExistsSql} THEN 1 ELSE 0 END;",
             new { ids, livePrefix = CardCategoryRepository.ArchidektLiveSourcePrefix, livePrefixLength = CardCategoryRepository.ArchidektLiveSourcePrefix.Length },
-            transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            transaction: transaction, commandTimeout: MaintenanceCommandTimeoutSeconds, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
