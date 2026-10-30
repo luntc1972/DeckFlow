@@ -13,6 +13,7 @@ public sealed class CutLabController : Controller
     private readonly ICutLabPageService _pageService;
     private readonly ICutLabWhatifService _whatifService;
     private readonly ICutLabExportService _exportService;
+    private readonly ICutLabRoleEditService _roleEditService;
     private readonly ILogger<CutLabController> _logger;
 
     /// <summary>Creates the controller with its page service and logger.</summary>
@@ -20,11 +21,14 @@ public sealed class CutLabController : Controller
         ICutLabPageService pageService,
         ICutLabWhatifService whatifService,
         ICutLabExportService exportService,
+        ICutLabRoleEditService roleEditService,
         ILogger<CutLabController> logger)
     {
         ArgumentNullException.ThrowIfNull(pageService);
         ArgumentNullException.ThrowIfNull(whatifService);
         ArgumentNullException.ThrowIfNull(exportService);
+        ArgumentNullException.ThrowIfNull(roleEditService);
+        _roleEditService = roleEditService;
         _pageService = pageService;
         _whatifService = whatifService;
         _exportService = exportService;
@@ -189,10 +193,10 @@ public sealed class CutLabController : Controller
         {
             return CutLabView(request, error: CutLabMessages.NoChangeMessage);
         }
-        return await RunStateMutationAsync(request, "Cut Lab role-override fallback failed.", state =>
+        return await RunStateMutationAsync(request, "Cut Lab role-override fallback failed.", async state =>
         {
-            CutLabRoleOverrideRules.TryApplyEdit(state, cardName, role, operation, out CutLabState updated, out string? error);
-            return (updated, error);
+            CutLabRoleEditResult result = await _roleEditService.ApplyAsync(state, cardName, role, operation, HttpContext.RequestAborted);
+            return (result.State, result.Error);
         });
     }
 
@@ -347,11 +351,18 @@ public sealed class CutLabController : Controller
         string failureLog,
         Func<CutLabState, (CutLabState State, string? Error)> mutate,
         int? step = null)
+        => await RunStateMutationAsync(request, failureLog, state => Task.FromResult(mutate(state)), step);
+
+    private async Task<IActionResult> RunStateMutationAsync(
+        CutLabRequest request,
+        string failureLog,
+        Func<CutLabState, Task<(CutLabState State, string? Error)>> mutate,
+        int? step = null)
     {
         try
         {
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
-            (state, string? error) = mutate(state);
+            (state, string? error) = await mutate(state);
             RehydrateIntakeRequestFromState(request, state);
             request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);

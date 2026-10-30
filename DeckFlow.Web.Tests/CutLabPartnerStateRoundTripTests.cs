@@ -66,7 +66,7 @@ public sealed class CutLabPartnerStateRoundTripTests
         return (new CutLabPageService(new FakeLoader(entries), new FakeResolver(cards), new FakeBanListService([])), new CutLabRequest { DeckInputSource = DeckInputSource.PasteText, DeckText = "pool", Bracket = 4, PlayExperience = "Focused" });
     }
 
-    private static CutLabController CreateController(ICutLabPageService service) => new(service, new FakeCutLabWhatifService(), new FakeExportService(), new FakeLogger<CutLabController>()) { ControllerContext = new() { HttpContext = new DefaultHttpContext() } };
+    private static CutLabController CreateController(ICutLabPageService service) => new(service, new FakeCutLabWhatifService(), new FakeExportService(), new UnusedCutLabRoleEditService(), new FakeLogger<CutLabController>()) { ControllerContext = new() { HttpContext = new DefaultHttpContext() } };
     private static DeckEntry Entry(string name, string board) => new() { Name = name, NormalizedName = name.ToLowerInvariant(), Quantity = 1, Board = board };
     private static ScryfallCard Spell(string name, string typeLine, string? manaCost = null, double cmc = 0) => new(name, manaCost, typeLine, null, null, null, null, null, null, null, null, Cmc: cmc);
 

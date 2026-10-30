@@ -18,6 +18,25 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabSimulationServiceTests
 {
     [Fact]
+    public async Task ComputeProposalDeltas_AfterBuildSnapshotResultWithSameKey_ReusesCurrentSnapshot()
+    {
+        TestPool pool = BuildCedhPool();
+        int resultCalls = 0;
+        var snapshotLists = new List<IReadOnlyList<DeckCardEntry>>();
+        var service = new CutLabSimulationService(
+            new CutLabResolvedCardCache(), new CutLabDeltaCache(), new FakeResolver(pool.Cards),
+            NullLogger<CutLabSimulationService>.Instance,
+            (entries, _, _, _, _) => { snapshotLists.Add(entries); return new(); },
+            (_, _, _, _, _) => { resultCalls++; return new(); });
+        string key = CutLabResolvedCardCache.ComputePoolKey(pool.WorkingList);
+        string candidate = pool.WorkingList.First(card => !card.IsCommander).Name;
+        await service.BuildSnapshotResult(pool.WorkingList, "cEDH", 4000, key);
+        await service.ComputeProposalDeltas(pool.WorkingList, candidate, "cEDH", 4000, key);
+        Assert.Equal(1, resultCalls);
+        Assert.DoesNotContain(Assert.Single(snapshotLists), entry => entry.Card.Name == candidate);
+    }
+
+    [Fact]
     public async Task BuildSnapshot_ProjectsKeepableHandFromUnderlyingReport()
     {
         TestPool pool = BuildCedhPool();

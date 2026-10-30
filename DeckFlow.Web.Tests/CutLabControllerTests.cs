@@ -1389,14 +1389,60 @@ public sealed class CutLabControllerTests
     private static CutLabController CreateController(
         ICutLabPageService service,
         ICutLabWhatifService? whatifService = null,
-        ICutLabExportService? exportService = null) =>
-        new(service, whatifService ?? new FakeCutLabWhatifService(), exportService ?? new FakeExportService(), new FakeLogger<CutLabController>())
+        ICutLabExportService? exportService = null,
+        ICutLabRoleEditService? roleEditService = null) =>
+        new(service, whatifService ?? new FakeCutLabWhatifService(), exportService ?? new FakeExportService(), roleEditService ?? new CutLabRoleEditService(new CutLabRoleEditServiceTests.CountingSimulationService(), Microsoft.Extensions.Logging.Abstractions.NullLogger<CutLabRoleEditService>.Instance), new FakeLogger<CutLabController>())
         {
             ControllerContext = new ControllerContext
             {
                 HttpContext = new DefaultHttpContext(),
             },
         };
+
+    [Fact]
+    public async Task RoleOverride_ChangedEdit_PostsInLoopBaselineToProcessAsync()
+    {
+        var page = new FakeCutLabPageService();
+        var simulation = new CutLabRoleEditServiceTests.CountingSimulationService();
+        var editor = new CutLabRoleEditService(simulation, Microsoft.Extensions.Logging.Abstractions.NullLogger<CutLabRoleEditService>.Instance);
+        var controller = CreateController(page, roleEditService: editor);
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
+        var response = await controller.RoleOverride(request, "Arcane Signet", "draw", CutLabRoleOverrideOperation.Add);
+        var state = CutLabStateSerializer.Deserialize(page.LastRequest!.CutLabStateJson);
+        Assert.Equal(4000, Assert.Single(simulation.Calls).Trials);
+        Assert.Equal(["draw"], Assert.Single(state.RoleOverrides).Added);
+        Assert.NotNull(state.BaselineSnapshot);
+    }
+
+    [Fact]
+    public async Task RoleOverride_CommanderRefusal_DoesNotSimulate()
+    {
+        var page = new FakeCutLabPageService();
+        var simulation = new CutLabRoleEditServiceTests.CountingSimulationService();
+        var editor = new CutLabRoleEditService(simulation, Microsoft.Extensions.Logging.Abstractions.NullLogger<CutLabRoleEditService>.Instance);
+        var controller = CreateController(page, roleEditService: editor);
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
+        var response = await controller.RoleOverride(request, "Zur the Enchanter", "draw", CutLabRoleOverrideOperation.Add);
+        var state = CutLabStateSerializer.Deserialize(page.LastRequest!.CutLabStateJson);
+        Assert.Empty(simulation.Calls);
+        Assert.Empty(state.RoleOverrides);
+    }
+
+    [Fact]
+    public async Task RoleOverride_BaselineRebuildThrows_SavesEditWithNullBaseline()
+    {
+        var page = new FakeCutLabPageService();
+        var simulation = new CutLabRoleEditServiceTests.CountingSimulationService { Failure = new InvalidOperationException() };
+        var editor = new CutLabRoleEditService(simulation, Microsoft.Extensions.Logging.Abstractions.NullLogger<CutLabRoleEditService>.Instance);
+        var controller = CreateController(page, roleEditService: editor);
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
+        var response = await controller.RoleOverride(request, "Arcane Signet", "draw", CutLabRoleOverrideOperation.Add);
+        var state = CutLabStateSerializer.Deserialize(page.LastRequest!.CutLabStateJson);
+        Assert.Equal(4000, Assert.Single(simulation.Calls).Trials);
+        Assert.Equal(["draw"], Assert.Single(state.RoleOverrides).Added);
+        Assert.Null(state.BaselineSnapshot);
+        Assert.Null(Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(response).Model).ErrorMessage);
+    }
 
     private sealed class FakeCutLabPageService : ICutLabPageService
     {
