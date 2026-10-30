@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using DeckFlow.Web.Controllers;
@@ -584,7 +585,8 @@ public sealed class CutLabViewRenderTests
         Assert.Equal(edited, data["Plains"].ContainsKey("roleEdited"));
         Assert.Equal(model.RoleListByCardName["Plains"], data["Plains"]["roles"]);
         Assert.Equal("lands", data["Plains"]["roleKeys"]);
-        Assert.False(data.TryGetValue("Commander", out var commander) && commander.Keys.Any(key => key.StartsWith("role", StringComparison.Ordinal)));
+        Assert.Equal("draw", data["Commander"]["roleKeys"]);
+        Assert.False(data["Commander"].ContainsKey("roleEditable"));
         Assert.False(data.TryGetValue("Unknown", out var unknown) && unknown.Keys.Any(key => key.StartsWith("role", StringComparison.Ordinal)));
         Assert.Equal(CutLabRoleOverrideRules.EditableRoleKeys.Count, model.RoleOverrideRoleOptions.Count);
         Assert.DoesNotContain(model.RoleOverrideRoleOptions, option => option.Key == "lands");
@@ -600,18 +602,23 @@ public sealed class CutLabViewRenderTests
             Pool = [new() { Name = "Commander", IsCommander = true }, new() { Name = HeliodRawName }],
             RoleOverrideCardsByName = new Dictionary<string, CutLabRoleOverrideCardView>(StringComparer.OrdinalIgnoreCase) { [card.Name] = card },
             RoleOverrideRoleOptions = [new("draw", "Card draw")],
+            RoleKeysByCardName = new Dictionary<string, string> { [card.Name] = "draw" },
         };
         string html = await RenderAsync(model);
         Assert.Single(Regex.Matches(html, "action=\"/cut-lab/role-override\""));
         string dialog = Regex.Match(html, "<dialog id=\"cutlab-card-modal\"[\\s\\S]*?</dialog>").Value;
         string form = Regex.Match(dialog, "<form[^>]*action=\"/cut-lab/role-override\"[\\s\\S]*?</form>").Value;
         Assert.Contains("data-cut-lab-role-block", dialog);
+        Assert.Contains("data-cut-lab-role-chips", dialog);
+        Assert.Contains("data-cut-lab-role-add", dialog);
+        Assert.Contains("data-cut-lab-role-labels", html);
+        Assert.DoesNotContain("value=\"Remove\"", form);
         Assert.Contains("__RequestVerificationToken", form);
         foreach (string field in new[] { "CutLabStateJson", "CardName", "Role", "Operation" })
         {
             Assert.Contains($"name=\"{field}\"", form);
         }
-        foreach (string operation in new[] { "Add", "Remove", "Reset" })
+        foreach (string operation in new[] { "Add", "Reset" })
         {
             Assert.Contains($"value=\"{operation}\"", form);
         }
@@ -625,10 +632,32 @@ public sealed class CutLabViewRenderTests
     }
 
     [Fact]
-    public async Task RoleOverride_Render_NoEditableCards_OmitsModalRoleBlock()
+    public async Task RoleOverride_Render_NoRoleKeys_OmitsModalRoleBlock()
     {
         string html = await RenderAsync(BuildTwinBadgeModel());
         Assert.DoesNotContain("data-cut-lab-role-block", html);
+    }
+
+    [Fact]
+    public async Task RoleOverride_Render_CommanderOnlyRoles_RendersRoleBlock()
+    {
+        var model = BuildTwinBadgeModel() with
+        {
+            RoleKeysByCardName = new Dictionary<string, string> { ["Commander"] = "draw" },
+        };
+        Assert.Contains("data-cut-lab-role-block", await RenderAsync(model));
+    }
+
+    [Fact]
+    public void RoleLabelsByKey_From_MapsEveryCanonicalKeyToDisplayLabel()
+    {
+        var property = typeof(CutLabViewModel).GetProperty("RoleLabelsByKey");
+        Assert.NotNull(property);
+        var labels = Assert.IsAssignableFrom<IReadOnlyDictionary<string, string>>(property.GetValue(BuildTwinBadgeModel()));
+        foreach (string key in CutLabRoleOverrideRules.EditableRoleKeys.Concat(new[] { "lands", "other" }))
+        {
+            Assert.Equal(CutLabRoleAssigner.DisplayLabelFor(key), labels[key]);
+        }
     }
 
     [Fact]
@@ -640,6 +669,7 @@ public sealed class CutLabViewRenderTests
         {
             RoleOverrideCardsByName = new Dictionary<string, CutLabRoleOverrideCardView> { [card.Name] = card },
             RoleListByCardName = new Dictionary<string, string> { [card.Name] = roles },
+            RoleKeysByCardName = new Dictionary<string, string> { [card.Name] = "draw" },
         };
         string html = await RenderAsync(model);
         string script = Regex.Match(html, "<script[^>]*id=\"cutlab-card-text-data\"[\\s\\S]*?</script>").Value;

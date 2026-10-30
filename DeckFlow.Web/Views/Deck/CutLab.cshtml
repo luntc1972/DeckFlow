@@ -1543,26 +1543,28 @@
                     <p class="cutlab-card-modal__meta" data-cutlab-modal-castability hidden title="Based on your current working pool, not a finished 100-card verdict."></p>
                     <p class="cutlab-card-modal__oracle" data-cutlab-modal-oracle></p>
                     <p class="cutlab-card-modal__combo" data-cutlab-modal-combo hidden></p>
-                    @if (Model.RoleOverrideCardsByName.Count > 0)
+                    @if (Model.RoleKeysByCardName.Values.Any(value => !string.IsNullOrWhiteSpace(value)))
                     {
+                        <script type="application/json" data-cut-lab-role-labels>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RoleLabelsByKey))</script>
                         <div class="cutlab-card-modal__roles" data-cut-lab-role-block hidden>
+                            <ul class="cutlab-role-chips" role="list" aria-label="Roles" data-cut-lab-role-chips></ul>
                             <p class="cutlab-card-modal__role-status" role="status" aria-live="polite" tabindex="-1" data-cut-lab-role-status></p>
-                            <p data-cut-lab-role-current></p>
                             <form method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
                                 <input type="hidden" name="CardName" data-cut-lab-role-override-card />
-                                <label for="cutlab-card-modal-role">Role</label>
+                                <details data-cut-lab-role-add>
+                                    <summary>Add a role</summary>
+                                    <label for="cutlab-card-modal-role">Role</label>
                                 <select id="cutlab-card-modal-role" name="Role" data-df-select data-cut-lab-role-override-role>
                                     @foreach (var roleOption in Model.RoleOverrideRoleOptions)
                                     {
                                         <option value="@roleOption.Key">@roleOption.Label</option>
                                     }
                                 </select>
-                                <button type="submit" name="Operation" value="Add">Add role</button>
-                                <button type="submit" name="Operation" value="Remove">Remove role</button>
+                                    <button type="submit" name="Operation" value="Add">Add</button>
+                                </details>
                                 <button type="submit" name="Operation" value="Reset" data-cut-lab-role-reset hidden>Reset card roles</button>
-                                <p>Lands are fixed, and the commander is excluded.</p>
                             </form>
                         </div>
                     }

@@ -5267,6 +5267,42 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   padding-top: 0.75rem;
 }
 
+.cutlab-role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+
+.cutlab-role-chips button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.cutlab-role-chips button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.cutlab-card-modal__roles form[hidden],
+.cutlab-card-modal__roles details[hidden] {
+  display: none;
+}
+
+.cutlab-card-modal__roles [data-cut-lab-role-reset] {
+  background: transparent;
+  color: var(--link, var(--accent-strong));
+  text-decoration: underline;
+  border: 0;
+}
+
+@media (max-width: 600px) {
+  .cutlab-card-modal__roles details {
+    flex-basis: 100%;
+  }
+}
+
 .cutlab-card-modal__roles form {
   display: flex;
   flex-wrap: wrap;

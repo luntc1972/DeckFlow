@@ -310,16 +310,16 @@ const editor = (): void => {
     <button data-cutlab-card-open="Unknown">Unknown</button>
     <button data-cutlab-card-open="Plains" data-cutlab-card-view-only="true">View only</button>
     <script id="cutlab-card-text-data" type="application/json">${JSON.stringify({
-      Plains: { roleEditable: 'true', roleLand: 'true', roles: 'Lands' },
-      'Relentless Rats': { roleEditable: 'true', roleEdited: 'true', roles: '<b>Card draw</b>' },
-      Commander: { oracleText: 'Commander' },
+      Plains: { roleEditable: 'true', roleLand: 'true', roles: 'Lands', roleKeys: 'lands' },
+      'Relentless Rats': { roleEditable: 'true', roleEdited: 'true', roles: '<b>Card draw</b>', roleKeys: 'draw' },
+      Commander: { oracleText: 'Commander', roleKeys: 'draw' },
     })}</script>
     <dialog id="cutlab-card-modal"><h2 id="cutlab-card-modal-title"></h2>
       <p data-cutlab-modal-oracle></p>
-      <div data-cut-lab-role-block hidden><p data-cut-lab-role-current></p>
+      <script type="application/json" data-cut-lab-role-labels>{"lands":"Lands","draw":"Card draw","ramp":"Ramp","other":"Other","interaction-targeted":"Targeted removal","interaction-mass":"Mass interaction"}</script><div data-cut-lab-role-block hidden><ul role="list" data-cut-lab-role-chips></ul>
         <form data-cut-lab-role-override-form><input name="CutLabStateJson" />
           <input name="CardName" data-cut-lab-role-override-card />
-          <select data-cut-lab-role-override-role><option value="ramp">Ramp</option><option value="draw">Card draw</option></select>
+          <details data-cut-lab-role-add><summary>Add a role</summary><select data-cut-lab-role-override-role><option value="ramp">Ramp</option><option value="draw">Card draw</option></select></details>
           <button data-cut-lab-role-reset hidden>Reset card roles</button>
         </form>
       </div>
@@ -351,17 +351,36 @@ const adjust = async (newBasic: boolean): Promise<void> => {
 };
 
 describe('role overrides', () => {
-  it('disables ramp for lands, refreshes the select, and re-enables ramp for nonlands', () => {
+  it('collapses Add and clears previous-card feedback when opening another card', () => {
+    buildFixture(); editor(); openRoleCard('Relentless Rats');
+    const add = document.querySelector<HTMLDetailsElement>('[data-cut-lab-role-add]')!;
+    const block = document.querySelector('[data-cut-lab-role-block]')!;
+    block.insertAdjacentHTML('afterbegin', '<p data-cut-lab-role-status role="status">Roles updated.</p>');
+    add.open = true;
+    openRoleCard('Plains');
+    expect(add.open).toBe(false);
+    expect(block.querySelector('[data-cut-lab-role-status]')!.textContent).toBe('');
+  });
+  it('offers only missing roles and never Ramp for a land', () => {
     buildFixture(); editor();
     const refresh = vi.fn();
     (window as any).DeckFlow = { ...(window as any).DeckFlow, refreshDfSelect: refresh };
     const role = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')!;
     openRoleCard('Plains');
-    expect(role.options[0].disabled).toBe(true);
-    expect(role.value).toBe('draw');
+    expect(Array.from(role.options, option => option.value)).toEqual(['draw']);
     expect(refresh).toHaveBeenCalledWith(role);
     openRoleCard('Relentless Rats');
-    expect(role.options[0].disabled).toBe(false);
+    expect(Array.from(role.options, option => option.value)).toEqual(['ramp']);
+  });
+  it.each(['lands draw', 'draw ramp'])('hides Add when no legal option remains: %s', keys => {
+    buildFixture(); editor();
+    const data = document.querySelector('#cutlab-card-text-data')!;
+    const entries = JSON.parse(data.textContent!);
+    entries.Plains.roleKeys = keys;
+    entries.Plains.roleLand = keys === 'lands draw' ? 'true' : 'false';
+    data.textContent = JSON.stringify(entries);
+    openRoleCard('Plains');
+    expect(document.querySelector<HTMLElement>('[data-cut-lab-role-add]')!.hidden).toBe(true);
   });
   it('serializes only non-empty overrides', () => {
     const state = JSON.parse(buildStateJson(98));
@@ -376,25 +395,26 @@ describe('role overrides', () => {
     lock.disabled = false; lock.checked = false; lock.dispatchEvent(new Event('change', { bubbles: true }));
     document.querySelectorAll<HTMLInputElement>('[name="CutLabStateJson"]').forEach(input => expect(JSON.parse(input.value).roleOverrides).toEqual(overrides));
   });
-  it('sets CardName, renders roles as text, and shows Reset only for edited cards', () => {
-    buildFixture(); editor();
-    openRoleCard('Relentless Rats');
-    expect(document.querySelector<HTMLInputElement>('[data-cut-lab-role-override-card]')!.value).toBe('Relentless Rats');
-    const current = document.querySelector('[data-cut-lab-role-current]')!;
-    expect(current.textContent).toBe('Roles: <b>Card draw</b>');
-    expect(current.querySelector('b')).toBeNull();
+  it('renders labelled li chips, remove controls, and Reset only for edited cards', () => {
+    buildFixture(); editor(); openRoleCard('Relentless Rats');
+    const chips = document.querySelector('[data-cut-lab-role-chips]')!;
+    expect(chips.children.length).toBe(1);
+    expect(chips.firstElementChild!.tagName).toBe('LI');
+    expect(chips.textContent).toContain('Card draw');
+    expect(chips.querySelector('button')!.getAttribute('aria-label')).toBe('Remove Card draw role');
     expect(document.querySelector<HTMLElement>('[data-cut-lab-role-reset]')!.hidden).toBe(false);
     openRoleCard('Plains');
-    expect(current.textContent).toBe('Roles: Lands');
+    expect(chips.textContent).toContain('(fixed)');
+    expect(chips.querySelector('button')).toBeNull();
     expect(document.querySelector<HTMLElement>('[data-cut-lab-role-reset]')!.hidden).toBe(true);
   });
-  it.each(['Commander', 'Unknown', 'view-only'])('hides the role block for %s after an editable open', name => {
-    buildFixture(); editor();
-    openRoleCard('Plains');
-    const block = document.querySelector<HTMLElement>('[data-cut-lab-role-block]')!;
-    expect(block.hidden).toBe(false);
+  it.each(['Commander', 'Unknown', 'view-only'])('renders read-only roles or hides an unknown card: %s', name => {
+    buildFixture(); editor(); openRoleCard('Relentless Rats');
     openRoleCard(name === 'view-only' ? 'Plains' : name, name === 'view-only');
-    expect(block.hidden).toBe(true);
+    const block = document.querySelector<HTMLElement>('[data-cut-lab-role-block]')!;
+    expect(block.hidden).toBe(name === 'Unknown');
+    expect(block.querySelector('form')!.hidden).toBe(true);
+    expect(block.querySelector('[data-cut-lab-role-chips] button')).toBeNull();
   });
   it('carries nonland labels through an adjust patch', async () => {
     setupTuners(true); await adjust(false);
@@ -425,6 +445,20 @@ describe('JSON role edits', () => {
   const submit = (form: HTMLFormElement): void => {
     form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: form.querySelector('[value="Add"]') }));
   };
+  it('posts Remove with the chip key and marks controls busy while pending', async () => {
+    setup();
+    let finish!: (value: unknown) => void;
+    fetchMock.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    const remove = document.querySelector<HTMLButtonElement>('[data-cut-lab-role-remove="draw"]')!;
+    remove.click(); remove.click();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ operation: 'Remove', role: 'draw' });
+    expect(document.querySelector('[data-cut-lab-role-block]')!.getAttribute('aria-busy')).toBe('true');
+    expect(remove.disabled).toBe(true);
+    finish({ ok: true, json: async () => ({ unchanged: true }) });
+    await flushAdjustSubmit();
+    expect(document.querySelector('dialog')!.hasAttribute('open')).toBe(true);
+  });
   it('posts an Add edit as JSON to the role-override endpoint', async () => {
     const form = setup();
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({ unchanged: true }) });
@@ -498,7 +532,7 @@ describe('JSON role edits', () => {
     expect(document.querySelector('[data-type-chip]')!.textContent).toBe('Type');
     expect(document.querySelector('[data-finding-chip]')!.textContent).toBe('Finding');
     expect(document.querySelector('dialog')!.hasAttribute('open')).toBe(true);
-    expect(document.querySelector('[data-cut-lab-role-current]')!.textContent).toContain(label);
+    expect(document.querySelector('[data-cut-lab-role-chips]')!.textContent).toContain(label);
   });
   it('does not start a role edit while an adjust mutation is pending', async () => {
     const form = setup();

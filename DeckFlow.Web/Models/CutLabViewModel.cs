@@ -224,6 +224,11 @@ public sealed record CutLabViewModel
     public IReadOnlyDictionary<string, string> RoleListByCardName { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Display labels for every canonical role, including fixed and fallback roles.</summary>
+    public IReadOnlyDictionary<string, string> RoleLabelsByKey { get; init; } =
+        CutLabRoleOverrideRules.EditableRoleKeys.Concat(new[] { "lands", "other" })
+            .ToDictionary(key => key, CutLabRoleAssigner.DisplayLabelFor, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Per-card raw role-key token strings for the pool table, keyed by card name.</summary>
     public IReadOnlyDictionary<string, string> RoleKeysByCardName { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -285,6 +290,10 @@ public sealed record CutLabViewModel
                 {
                     entry["roleEdited"] = "true";
                 }
+            }
+
+            if (!string.IsNullOrWhiteSpace(RoleKeysByCardName.GetValueOrDefault(cardName)))
+            {
                 entry["roles"] = RoleListByCardName.GetValueOrDefault(cardName, string.Empty);
                 entry["roleKeys"] = RoleKeysByCardName.GetValueOrDefault(cardName, string.Empty);
             }

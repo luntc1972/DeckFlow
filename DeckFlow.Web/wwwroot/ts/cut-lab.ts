@@ -2038,23 +2038,49 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return `CMC ${entry.cmc} · Cast by turn ${entry.cmc}: ${Math.round(entry.castPercent)}% at your current pool size`;
   };
 
+  let roleOptionTemplates: HTMLOptionElement[] | null = null;
+
   const renderModalRoleBlock = (cardName: string, viewOnly: boolean): void => {
     const entry = getCardTextData()[cardName];
-    const roleBlock = getCardModal()?.querySelector<HTMLElement>('[data-cut-lab-role-block]');
-    if (roleBlock) {
-      roleBlock.hidden = viewOnly || entry?.roleEditable !== 'true';
-      if (!roleBlock.hidden) {
-        const cardInput = roleBlock.querySelector<HTMLInputElement>('[data-cut-lab-role-override-card]');
-        const current = roleBlock.querySelector<HTMLElement>('[data-cut-lab-role-current]');
-        const reset = roleBlock.querySelector<HTMLButtonElement>('[data-cut-lab-role-reset]');
-        const roleSelect = roleBlock.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
-        if (cardInput) cardInput.value = cardName;
-        if (current) current.textContent = `Roles: ${entry?.roles ?? ''}`;
-        if (reset) reset.hidden = entry?.roleEdited !== 'true';
-        if (roleSelect) updateRoleOverrideRamp(roleSelect, entry?.roleLand === 'true');
+    const block = getCardModal()?.querySelector<HTMLElement>('[data-cut-lab-role-block]');
+    if (!block) return;
+    const keys = (entry?.roleKeys ?? '').split(/\s+/).filter(Boolean);
+    const editable = !viewOnly && entry?.roleEditable === 'true';
+    block.hidden = keys.length === 0;
+    const form = block.querySelector<HTMLFormElement>('form');
+    if (form) form.hidden = !editable || block.hidden;
+    const select = block.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
+    if (select && roleOptionTemplates === null) roleOptionTemplates = Array.from(select.options, option => option.cloneNode(true) as HTMLOptionElement);
+    const labels = JSON.parse(document.querySelector('[data-cut-lab-role-labels]')?.textContent ?? '{}') as Record<string, string>;
+    const chips = block.querySelector<HTMLElement>('[data-cut-lab-role-chips]');
+    chips?.replaceChildren();
+    keys.forEach(key => {
+      const chip = document.createElement('li');
+      chip.className = 'kb-chip';
+      const label = labels[key] ?? key;
+      chip.textContent = label;
+      if (key === 'lands') {
+        const fixed = document.createElement('span'); fixed.className = 'sr-only'; fixed.textContent = ' (fixed)'; chip.append(fixed);
       }
+      if (editable && roleOptionTemplates?.some(option => option.value === key)) {
+        const remove = document.createElement('button');
+        remove.type = 'button'; remove.dataset.cutLabRoleRemove = key;
+        remove.setAttribute('aria-label', `Remove ${label} role`); remove.textContent = '×';
+        remove.addEventListener('click', () => { void submitRoleEdit({ cardName, role: key, operation: 'Remove' }, remove); });
+        chip.append(remove);
+      }
+      chips?.append(chip);
+    });
+    const cardInput = block.querySelector<HTMLInputElement>('[data-cut-lab-role-override-card]');
+    if (cardInput) cardInput.value = cardName;
+    const reset = block.querySelector<HTMLButtonElement>('[data-cut-lab-role-reset]');
+    if (reset) reset.hidden = !editable || entry?.roleEdited !== 'true';
+    if (select) {
+      select.replaceChildren(...(roleOptionTemplates ?? []).filter(option => !keys.includes(option.value) && !(entry?.roleLand === 'true' && option.value === 'ramp')).map(option => option.cloneNode(true)));
+      window.DeckFlow?.refreshDfSelect?.(select);
+      const add = block.querySelector<HTMLElement>('[data-cut-lab-role-add]');
+      if (add) add.hidden = select.options.length === 0;
     }
-
   };
 
   const openCardModal = (cardName: string, viewOnly: boolean = false): void => {
@@ -2065,6 +2091,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    const roleBlock = dialog.querySelector<HTMLElement>('[data-cut-lab-role-block]');
+    const addRole = roleBlock?.querySelector<HTMLDetailsElement>('[data-cut-lab-role-add]');
+    if (addRole) addRole.open = false;
+    if (activeModalCardName !== cardName) {
+      const status = roleBlock?.querySelector<HTMLElement>('[data-cut-lab-role-status]');
+      if (status) status.textContent = '';
+    }
     activeModalCardName = cardName;
     const entry = getCardTextData()[cardName] ?? null;
     const metaLine = getCardMetaLine(entry);
@@ -5235,17 +5268,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     form.addEventListener('submit', () => {
       writeStateToHiddenInput();
     });
-  };
-
-  const updateRoleOverrideRamp = (roleSelect: HTMLSelectElement, isLand: boolean): void => {
-    const ramp = roleSelect.querySelector<HTMLOptionElement>('option[value="ramp"]');
-    if (ramp) {
-      ramp.disabled = isLand;
-      if (ramp.disabled && roleSelect.value === 'ramp') {
-        roleSelect.value = Array.from(roleSelect.options).find(option => !option.disabled)?.value ?? '';
-      }
-    }
-    window.DeckFlow?.refreshDfSelect?.(roleSelect);
   };
 
   const initializeCutLab = (): void => {
