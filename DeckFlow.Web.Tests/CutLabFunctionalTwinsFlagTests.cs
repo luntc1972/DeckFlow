@@ -221,7 +221,8 @@ public sealed class CutLabFunctionalTwinsFlagTests
             new CutLabUiPatchBuilder(contextBuilder, new FakeSimulationService(), floorResolver),
             new FakeCutLabWhatifService(),
             flagCache,
-            NullLogger<CutLabApiController>.Instance)
+            NullLogger<CutLabApiController>.Instance,
+            new UnusedCutLabRoleEditService())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };

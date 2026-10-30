@@ -11,6 +11,9 @@ public sealed record CutLabUiPatchDto
     /// <summary>Re-serialized working-session state after the latest server mutation.</summary>
     public string CutLabStateJson { get; init; } = string.Empty;
 
+    /// <summary>Effective role keys per working-list card after overrides.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> RoleKeysByCardName { get; init; } = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Total card count in the current derived working list.</summary>
     public int CurrentCount { get; init; }
 

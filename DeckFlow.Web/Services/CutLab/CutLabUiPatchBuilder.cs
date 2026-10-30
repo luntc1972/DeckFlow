@@ -293,6 +293,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         return new CutLabUiPatchDto
         {
             CutLabStateJson = CutLabStateSerializer.Serialize(state),
+            RoleKeysByCardName = new Dictionary<string, IReadOnlyList<string>>(context.RolesByCardName, StringComparer.OrdinalIgnoreCase),
             CurrentCount = projection.CurrentCount,
             CardsRemaining = projection.CardsRemaining,
             ActualLands = snapshotResult.ActualLands,

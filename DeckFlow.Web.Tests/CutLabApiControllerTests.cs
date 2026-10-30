@@ -105,7 +105,8 @@ public sealed class CutLabApiControllerTests
             {
                 [CutLabStructuralFindings.FunctionalTwinsFlagKey] = false,
             }),
-            NullLogger<CutLabApiController>.Instance));
+            NullLogger<CutLabApiController>.Instance,
+            new CutLabRoleEditService(new FakeSimulationService(), NullLogger<CutLabRoleEditService>.Instance)));
     }
 
     [Fact]
@@ -117,7 +118,8 @@ public sealed class CutLabApiControllerTests
             new TrackingPatchBuilder(),
             new FakeCutLabWhatifService(),
             null!,
-            NullLogger<CutLabApiController>.Instance));
+            NullLogger<CutLabApiController>.Instance,
+            new CutLabRoleEditService(new FakeSimulationService(), NullLogger<CutLabRoleEditService>.Instance)));
     }
 
     [Fact]
@@ -1652,6 +1654,131 @@ public sealed class CutLabApiControllerTests
         Assert.False(rebuilt.CommanderThemesUnavailable);
     }
 
+    [Fact]
+    public async Task PostRoleOverrideAsync_CrossSiteOrigin_ReturnsForbidden()
+    {
+        var controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), sameOrigin: false);
+        var result = await controller.PostRoleOverrideAsync(RoleRequest(), default);
+        Assert.Equal(403, Assert.IsType<ObjectResult>(result.Result).StatusCode);
+    }
+
+    [Fact]
+    public async Task PostRoleOverrideAsync_BlankCardName_ReturnsBadRequest()
+    {
+        var controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService());
+        var result = await controller.PostRoleOverrideAsync(RoleRequest() with { CardName = " " }, default);
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task PostRoleOverrideAsync_CommanderCard_ReturnsBadRequestWithoutSimulatingOrPatching()
+    {
+        var simulation = new FakeSimulationService();
+        var patchBuilder = new TrackingPatchBuilder();
+        var controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), simulation, patchBuilder);
+        var result = await controller.PostRoleOverrideAsync(RoleRequest() with { CardName = "Commander" }, default);
+        var body = Assert.IsType<BadRequestObjectResult>(result.Result).Value!;
+        Assert.Equal(CutLabMessages.RoleOverrideCommanderMessage, body.GetType().GetProperty("Message")!.GetValue(body));
+        Assert.Null(body.GetType().GetProperty("FormFallback"));
+        Assert.Equal(0, simulation.Calls);
+        Assert.Null(patchBuilder.LastState);
+    }
+
+    [Fact]
+    public async Task PostRoleOverrideAsync_NoOpEdit_ReturnsUnchangedWithoutPatch()
+    {
+        var simulation = new FakeSimulationService();
+        var patchBuilder = new TrackingPatchBuilder();
+        var controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), simulation, patchBuilder);
+        var result = await controller.PostRoleOverrideAsync(RoleRequest() with { Operation = CutLabRoleOverrideOperation.Reset }, default);
+        var body = Assert.IsType<CutLabRoleOverrideApiResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.True(body.Unchanged);
+        Assert.Null(body.Patch);
+        Assert.False(body.RoleEdited);
+        Assert.Equal("Arcane Signet", body.CardName);
+        Assert.Equal(0, simulation.Calls);
+        Assert.Null(patchBuilder.LastState);
+    }
+
+    [Fact]
+    public async Task PostRoleOverrideAsync_AddRole_ReturnsPatchRolesAndEditedFlag()
+    {
+        await AssertRolePatchAsync(false);
+    }
+
+    [Fact]
+    public async Task PostRoleOverrideAsync_BaselineRebuildThrows_ReturnsPatchWithNullBaseline()
+    {
+        await AssertRolePatchAsync(true);
+    }
+
+    private static async Task AssertRolePatchAsync(bool throwOnBaseline)
+    {
+        var simulation = new FakeSimulationService { ThrowOnBaseline = throwOnBaseline };
+        var controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), simulation);
+        var request = RoleRequest() with
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(CreateState(decisions:
+            [
+                new CutLabDecision
+                {
+                    CardName = "Counterspell",
+                    Kind = CutLabDecisionKind.Deferred,
+                    Round = CutLabCutRoundEngine.Round2Key,
+                    Ordinal = 1,
+                },
+            ])),
+        };
+        var result = await controller.PostRoleOverrideAsync(request, default);
+        var body = Assert.IsType<CutLabRoleOverrideApiResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.NotNull(body.Patch);
+        Assert.False(body.Unchanged);
+        Assert.Contains("draw", body.RoleKeys);
+        Assert.Contains("Card draw", body.RoleLabel);
+        Assert.True(body.RoleEdited);
+        var state = CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson)!;
+        Assert.Contains("draw", Assert.Single(state.RoleOverrides).Added);
+        Assert.Equal(throwOnBaseline, state.BaselineSnapshot is null);
+        Assert.Equal(CutLabStateSerializer.Deserialize(request.CutLabStateJson)!.Decisions, state.Decisions);
+    }
+
+    [Fact]
+    public async Task PostRoleOverrideAsync_PatchBuildThrows_ReturnsFormFallbackBadRequest()
+    {
+        var controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), new ThrowingPatchBuilder());
+        var result = await controller.PostRoleOverrideAsync(RoleRequest(), default);
+        var body = Assert.IsType<BadRequestObjectResult>(result.Result).Value!;
+        Assert.Equal(CutLabMessages.NoChangeMessage, body.GetType().GetProperty("Message")!.GetValue(body));
+        Assert.Equal(true, body.GetType().GetProperty("FormFallback")!.GetValue(body));
+    }
+
+    [Fact]
+    public void Constructor_NullRoleEditService_ThrowsArgumentNullException()
+    {
+        var error = Assert.Throws<ArgumentNullException>(() => new CutLabApiController(
+            new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new PassThroughFloorResolver(),
+            new TrackingPatchBuilder(), new FakeCutLabWhatifService(),
+            new FakeFeatureFlagCache(new Dictionary<string, bool>()), NullLogger<CutLabApiController>.Instance, null!));
+        Assert.Equal("roleEditService", error.ParamName);
+    }
+
+    [Fact]
+    public void PostRoleOverrideAsync_RequiresFeatureGateAndSizeLimit()
+    {
+        var method = typeof(CutLabApiController).GetMethod(nameof(CutLabApiController.PostRoleOverrideAsync))!;
+        Assert.Equal("tool.cut-lab.enabled", method.GetCustomAttribute<FeatureFlagGateAttribute>()!.Key);
+        Assert.Equal(2L * 1024 * 1024, method.CustomAttributes.Single(attribute => attribute.AttributeType == typeof(RequestSizeLimitAttribute)).ConstructorArguments[0].Value);
+        Assert.Equal("role-override", method.GetCustomAttribute<HttpPostAttribute>()!.Template);
+    }
+
+    private static CutLabRoleOverrideApiRequest RoleRequest() => new()
+    {
+        CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()),
+        CardName = "Arcane Signet",
+        Role = "draw",
+        Operation = CutLabRoleOverrideOperation.Add,
+    };
+
     private static CutLabApiController CreateController(
         FakeAnalysisContextBuilder builder,
         FakeSimulationService simulation,
@@ -1661,7 +1788,8 @@ public sealed class CutLabApiControllerTests
         ICutLabFloorResolver? floorResolver = null,
         IFeatureFlagCache? featureFlags = null,
         ICutLabPlanAffinityFactory? planAffinityFactory = null,
-        IEdhrecCommanderThemeService? themeService = null)
+        IEdhrecCommanderThemeService? themeService = null,
+        ICutLabRoleEditService? roleEditService = null)
     {
         ICutLabFloorResolver resolvedFloorResolver = floorResolver ?? new PassThroughFloorResolver();
         IFeatureFlagCache resolvedFeatureFlags = featureFlags ?? new FakeFeatureFlagCache(new Dictionary<string, bool>
@@ -1675,6 +1803,7 @@ public sealed class CutLabApiControllerTests
             whatifService ?? new FakeCutLabWhatifService(),
             resolvedFeatureFlags,
             NullLogger<CutLabApiController>.Instance,
+            roleEditService ?? new CutLabRoleEditService(simulation, NullLogger<CutLabRoleEditService>.Instance),
             planAffinityFactory: planAffinityFactory,
             themeService: themeService)
         {
@@ -1913,6 +2042,10 @@ public sealed class CutLabApiControllerTests
     {
         public IReadOnlyList<CutLabRoleOverride>? RoleOverrides { get; private set; }
 
+        public int Calls { get; private set; }
+
+        public bool ThrowOnBaseline { get; init; }
+
         public int DeltaCalls { get; private set; }
 
         public Task<CutLabSimulationResult> BuildSnapshotResult(
@@ -1924,7 +2057,13 @@ public sealed class CutLabApiControllerTests
             IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            Calls++;
             RoleOverrides = roleOverrides;
+            if (ThrowOnBaseline && trialsOverride == ICutLabSimulationService.InLoopTrials && poolKey is null)
+            {
+                throw new InvalidOperationException("Baseline rebuild failed.");
+            }
+
             return Task.FromResult(new CutLabSimulationResult());
         }
 
@@ -1937,6 +2076,7 @@ public sealed class CutLabApiControllerTests
             IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            Calls++;
             RoleOverrides = roleOverrides;
             return Task.FromResult(new CutLabMetricSnapshot());
         }
@@ -1951,6 +2091,7 @@ public sealed class CutLabApiControllerTests
             IReadOnlyList<CutLabRoleOverride>? roleOverrides = null,
             CancellationToken cancellationToken = default)
         {
+            Calls++;
             RoleOverrides = roleOverrides;
             DeltaCalls++;
             return Task.FromResult(new CutLabProposalDeltas

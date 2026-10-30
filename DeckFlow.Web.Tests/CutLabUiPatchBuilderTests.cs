@@ -17,6 +17,22 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabUiPatchBuilderTests
 {
     [Fact]
+    public async Task BuildAsync_RoleOverride_PopulatesRoleKeysByCardName()
+    {
+        var state = CreateState() with { RoleOverrides = [new CutLabRoleOverride { Name = "Arcane Signet", Added = ["draw"] }] };
+        var builder = CreateBuilder(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)));
+        var patch = await builder.BuildAsync(state, "cEDH", ["Commander"], false);
+        Assert.Contains("draw", patch.RoleKeysByCardName["arcane signet"]);
+    }
+
+    [Fact]
+    public void BuildAdjustPatch_Always_LeavesRoleKeysByCardNameEmpty()
+    {
+        var builder = CreateBuilder(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)));
+        Assert.Empty(builder.BuildAdjustPatch(CreateState(), ["Commander"]).RoleKeysByCardName);
+    }
+
+    [Fact]
     public void AssignRoles_RoleOverride_BasicPlainsStaysLandsOnly()
     {
         CardFact fact = new() { Name = "Plains", Quantity = 1, TypeLine = "Basic Land — Plains", OracleText = "({T}: Add {W}.)", ManaValue = 0 };

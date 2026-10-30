@@ -590,8 +590,8 @@
                 {
                     var memberCount = group.Members.Count;
                     var lowerDisplayLabel = group.DisplayLabel.ToLowerInvariant();
-                    <details class="cutlab-role-group" data-cutlab-group-kind="role">
-                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                    <details class="cutlab-role-group" data-cutlab-group-kind="role" data-cut-lab-group-role="@group.RoleKey">
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · <span data-cut-lab-group-count="@group.RoleKey">@group.CardCount</span> cards · <span data-cut-lab-group-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                         <div class="cutlab-role-group__body">
                             @if (group.IsLockable)
                             {
@@ -602,19 +602,13 @@
                                     <span>Lock all @lowerDisplayLabel</span>
                                 </button>
                             }
-                            @if (memberCount > 0)
-                            {
-                                <div class="kb-chip-area__chips">
-                                    @foreach (var member in group.Members)
-                                    {
-                                        await RenderGroupChip(member);
-                                    }
-                                </div>
-                            }
-                            else
-                            {
-                                <p class="kb-chip-area__empty-hint">No @lowerDisplayLabel cards detected in this pool.</p>
-                            }
+                            <div class="kb-chip-area__chips" hidden="@(memberCount == 0)">
+                                @foreach (var member in group.Members)
+                                {
+                                    await RenderGroupChip(member);
+                                }
+                            </div>
+                            <p class="kb-chip-area__empty-hint" hidden="@(memberCount > 0)">No @lowerDisplayLabel cards detected in this pool.</p>
 
                             @if (string.Equals(group.RoleKey, "interaction-targeted", StringComparison.Ordinal))
                             {
@@ -648,7 +642,7 @@
                 @foreach (var group in Model.TypeGroups)
                 {
                     <details class="cutlab-role-group" data-cutlab-group-kind="type">
-                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · @group.CardCount cards · <span data-cut-lab-type-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
+                        <summary class="cutlab-role-group__summary">@group.DisplayLabel · <span data-cut-lab-group-count="@group.RoleKey">@group.CardCount</span> cards · <span data-cut-lab-type-locked="@group.RoleKey">@group.LockedCount</span> locked</summary>
                         <div class="cutlab-role-group__body">
                             <div class="kb-chip-area__chips">
                                 @foreach (var member in group.Members)
@@ -1552,6 +1546,7 @@
                     @if (Model.RoleOverrideCardsByName.Count > 0)
                     {
                         <div class="cutlab-card-modal__roles" data-cut-lab-role-block hidden>
+                            <p class="cutlab-card-modal__role-status" role="status" aria-live="polite" tabindex="-1" data-cut-lab-role-status></p>
                             <p data-cut-lab-role-current></p>
                             <form method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
                                 @Html.AntiForgeryToken()

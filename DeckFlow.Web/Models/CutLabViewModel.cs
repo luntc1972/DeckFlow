@@ -286,6 +286,7 @@ public sealed record CutLabViewModel
                     entry["roleEdited"] = "true";
                 }
                 entry["roles"] = RoleListByCardName.GetValueOrDefault(cardName, string.Empty);
+                entry["roleKeys"] = RoleKeysByCardName.GetValueOrDefault(cardName, string.Empty);
             }
 
             if (entry.Count > 0)

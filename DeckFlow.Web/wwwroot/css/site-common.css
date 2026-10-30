@@ -8267,3 +8267,8 @@ pre {
     background: color-mix(in srgb, var(--panel) 94%, var(--accent));
   }
 }
+
+.kb-chip-area__chips[hidden],
+.kb-chip-area__empty-hint[hidden] {
+    display: none;
+}

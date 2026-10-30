@@ -130,7 +130,7 @@ const buildPatch = (
   ...overrides,
 });
 
-const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: string[] } = {}): void => {
+const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: string[]; stateWriters?: boolean } = {}): void => {
   const stateJson = buildStateJson(98);
   const addableBasics = options.addableBasics ?? ['Plains', 'Swamp'];
   const addBasicFormMarkup = addableBasics.length > 0
@@ -291,6 +291,10 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
     </section>
   `;
 
+  if (options.stateWriters) {
+    document.body.insertAdjacentHTML('beforeend', '<table><tbody><tr data-cut-lab-card="Test Writer" data-cut-lab-quantity="1"><td><select data-cut-lab-package-card><option value="">None</option><option value="test">Test</option></select></td></tr></tbody></table>');
+    document.body.insertAdjacentHTML('beforeend', '<table><tbody><tr data-cut-lab-floor-row="draw"><td><input data-cut-lab-floor type="number" value="0" /></td></tr></tbody></table>');
+  }
   document.dispatchEvent(new Event('DOMContentLoaded'));
 };
 
@@ -403,4 +407,122 @@ describe('role overrides', () => {
     expect.soft(roleText('Plains')).toBe('Lands');
     expect.soft(roleText('Relentless Rats')).toBe('Card draw · Payoffs');
   });
+});
+
+
+describe('JSON role edits', () => {
+  const setup = (stateWriters = false): HTMLFormElement => {
+    buildFixture({ stateWriters }); editor(); openRoleCard('Relentless Rats');
+    document.querySelector('form[data-cache-key="cut-lab"]')!.insertAdjacentHTML('beforeend', '<input name="__RequestVerificationToken" value="token-123" />');
+    document.querySelector('dialog')!.insertAdjacentHTML('beforeend', '<button data-cutlab-modal-lock>Lock</button><button data-cutlab-modal-close>Close</button>');
+    const block = document.querySelector('[data-cut-lab-role-block]')!;
+    block.insertAdjacentHTML('afterbegin', '<p data-cut-lab-role-status role="status" tabindex="-1"></p>');
+    const form = block.querySelector('form')!;
+    form.action = '/cut-lab/role-override';
+    form.insertAdjacentHTML('beforeend', '<button type="submit" name="Operation" value="Add">Add</button>');
+    return form;
+  };
+  const submit = (form: HTMLFormElement): void => {
+    form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: form.querySelector('[value="Add"]') }));
+  };
+  it('posts an Add edit as JSON to the role-override endpoint', async () => {
+    const form = setup();
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ unchanged: true }) });
+    submit(form); await flushAdjustSubmit();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/cut-lab/role-override');
+    expect(JSON.parse(init.body)).toMatchObject({ cardName: 'Relentless Rats', role: 'ramp', operation: 'Add' });
+    expect(JSON.parse(init.body).cutLabStateJson).toBe(document.querySelector<HTMLInputElement>('#cutlab-form input[name="CutLabStateJson"]')?.value ?? document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!.value);
+    expect(init.headers.RequestVerificationToken).toBe('token-123');
+    expect(document.querySelector('[data-cut-lab-role-status]')!.textContent).toBe('No change to roles.');
+  });
+  it('shows the server message and restores controls on a 400', async () => {
+    const form = setup();
+    fetchMock.mockResolvedValue({ ok: false, json: async () => ({ message: 'Refused edit' }) });
+    submit(form); await flushAdjustSubmit();
+    expect(document.querySelector('[data-cut-lab-role-status]')!.textContent).toBe('Refused edit');
+    expect(form.querySelector('select')!.disabled).toBe(false);
+  });
+  it('blocks state writers and a second role submit while pending', async () => {
+    const form = setup(true); let finish!: (value: unknown) => void; fetchMock.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    submit(form); submit(form);
+    const stateInput = document.querySelector<HTMLInputElement>('form[data-cache-key="cut-lab"] input[name="CutLabStateJson"]')!;
+    const priorState = stateInput.value;
+    const floor = document.querySelector<HTMLInputElement>('[data-cut-lab-floor]')!;
+    floor.value = '7'; floor.dispatchEvent(new Event('input', { bubbles: true })); floor.dispatchEvent(new Event('change', { bubbles: true }));
+    const packageSelect = document.querySelector<HTMLSelectElement>('[data-cut-lab-package-card]')!;
+    packageSelect.value = 'test'; packageSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(stateInput.value).toBe(priorState);
+    expect(document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]')!.disabled).toBe(true);
+    expect(document.querySelector<HTMLButtonElement>('[data-cutlab-modal-close]')!.disabled).toBe(true);
+    const cancel = new Event('cancel', { cancelable: true });
+    document.querySelector('dialog')!.dispatchEvent(cancel);
+    expect(cancel.defaultPrevented).toBe(true);
+    document.body.insertAdjacentHTML('beforeend', '<input type="checkbox" data-cut-lab-lock-card="Island"><form data-goals-test></form><form data-export-test></form>');
+    const lock = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Island"]')!;
+    const checked = lock.checked; lock.click(); expect(lock.checked).toBe(checked);
+    for (const selector of ['[data-goals-test]', '[data-export-test]']) {
+      const event = new Event('submit', { bubbles: true, cancelable: true });
+      document.querySelector(selector)!.dispatchEvent(event); expect(event.defaultPrevented).toBe(true);
+    }
+    const event = new Event('submit', { bubbles: true, cancelable: true });
+    document.querySelector('form')!.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    finish({ ok: true, json: async () => ({ unchanged: true }) });
+    await flushAdjustSubmit();
+  });
+  it.each([
+    { before: 'ramp', after: ['draw'], label: 'Card draw' },
+    { before: 'ramp', after: ['other'], label: 'Other' },
+    { before: 'interaction-targeted', after: ['interaction-mass'], label: 'Mass interaction' },
+  ])('patches roles, quantities, cache and groups from $before to $after', async ({ before, after, label }) => {
+    const form = setup();
+    document.body.insertAdjacentHTML('beforeend', `<table><tbody><tr data-cut-lab-card="Relentless Rats" data-cut-lab-quantity="2" data-cut-lab-role="${before}"><td data-label="Type / role"><span class="cutlab-role-list">Old</span></td></tr></tbody></table>
+      <div data-type-chip><span data-cut-lab-chip-card="Relentless Rats">Type</span></div><div data-finding-chip><span data-cut-lab-chip-card="Relentless Rats">Finding</span></div>
+      ${['ramp', 'draw', 'interaction-targeted', 'interaction-mass', 'other'].map(key => `<details data-cut-lab-group-role="${key}"><span data-cut-lab-group-count="${key}"></span><span data-cut-lab-group-locked="${key}"></span><div class="kb-chip-area__chips">${key === before ? '<span data-cut-lab-chip-card="Relentless Rats">Rats</span>' : ''}</div><p class="kb-chip-area__empty-hint"></p></details>`).join('')}`);
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ cardName: 'Relentless Rats', roleKeys: after, roleLabel: label, roleEdited: true, patch: buildPatch(buildStateJson(98), { nextProposal: null, quantityTuners: [] }) }) });
+    submit(form); await flushAdjustSubmit();
+    expect(document.querySelector('[data-cut-lab-role-status]')!.textContent).toBe('Roles updated.');
+    const row = document.querySelector<HTMLElement>('tr[data-cut-lab-card="Relentless Rats"]')!;
+    expect(row.dataset.cutLabRole).toBe(after.join(' '));
+    expect(row.querySelector('.cutlab-role-list')!.textContent).toBe(label);
+    expect(row.querySelector('.cutlab-role-edited-chip')!.textContent).toBe('Edited');
+    const target = document.querySelector(`[data-cut-lab-group-role="${after[0]}"]`)!;
+    expect(target.querySelector('[data-cut-lab-group-count]')!.textContent).toBe(after[0] === 'draw' ? '3' : '2');
+    expect(target.querySelectorAll('[data-cut-lab-chip-card]')).toHaveLength(1);
+    expect(target.querySelector('[data-cut-lab-group-locked]')!.textContent).toBe(after[0] === 'draw' ? '1' : '0');
+    expect(target.querySelector<HTMLElement>('.kb-chip-area__empty-hint')!.hidden).toBe(true);
+    expect(document.querySelector(`[data-cut-lab-group-role="${before}"] [data-cut-lab-chip-card]`)).toBeNull();
+    expect(document.querySelector('[data-type-chip]')!.textContent).toBe('Type');
+    expect(document.querySelector('[data-finding-chip]')!.textContent).toBe('Finding');
+    expect(document.querySelector('dialog')!.hasAttribute('open')).toBe(true);
+    expect(document.querySelector('[data-cut-lab-role-current]')!.textContent).toContain(label);
+  });
+  it('does not start a role edit while an adjust mutation is pending', async () => {
+    const form = setup();
+    let finish!: (value: unknown) => void;
+    fetchMock.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    document.querySelector<HTMLButtonElement>('button[data-cut-lab-adjust]')!.click();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    submit(form);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    finish({ ok: true, json: async () => ({ patch: buildPatch(buildStateJson(98)) }) });
+    await flushAdjustSubmit();
+  });
+  it('re-posts the edit through a native form on a formFallback 400', async () => {
+    const form = setup();
+    const native = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
+    fetchMock.mockResolvedValue({ ok: false, json: async () => ({ formFallback: true }) });
+    submit(form); await flushAdjustSubmit();
+    expect(native).toHaveBeenCalledTimes(1);
+    const posted = native.mock.instances[0] as HTMLFormElement;
+    expect(posted.action).toBe(form.action);
+    expect(new FormData(posted).get('Operation')).toBe('Add');
+    expect(new FormData(posted).get('CardName')).toBe('Relentless Rats');
+    expect(form.querySelector('select')!.disabled).toBe(true);
+    native.mockRestore();
+  });
+
 });

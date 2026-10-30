@@ -108,7 +108,18 @@ test('edits card roles, preserves them through locks, and resets inferred roles'
   await openSolRing();
   await expect(editor.locator('[name="CardName"]')).toHaveValue('Sol Ring');
   await pickRole('Card draw');
+  const marker = 'role-edit-navigation-marker';
+  await page.evaluate(value => { (window as any).__roleEditMarker = value; }, marker);
+  const scrollY = await page.evaluate(() => window.scrollY);
   await editor.getByRole('button', { name: 'Add role', exact: true }).click();
+  await expect(editor.locator('[data-cut-lab-role-status]')).toHaveText('Roles updated.');
+  expect(await page.evaluate(() => (window as any).__roleEditMarker)).toBe(marker);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
+  await expect(editor).toHaveAttribute('open', '');
+  await expect(editor.locator('[data-cut-lab-role-current]')).toContainText('Card draw');
+  await expect(editor.locator('[data-cut-lab-role-block]')).not.toHaveAttribute('aria-busy', 'true');
+  await expect(page.locator('details[data-cut-lab-group-role="draw"] [data-cut-lab-chip-card="Sol Ring"]')).toHaveCount(1);
+  await editor.getByRole('button', { name: 'Close', exact: true }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(roleCell).toContainText('Card draw');
   await expect(solRing.locator('.cutlab-role-edited-chip')).toHaveText('Edited');
@@ -117,6 +128,9 @@ test('edits card roles, preserves them through locks, and resets inferred roles'
   await openSolRing();
   await pickRole('Ramp');
   await editor.getByRole('button', { name: 'Remove role', exact: true }).click();
+  await expect(editor.locator('[data-cut-lab-role-status]')).toHaveText('Roles updated.');
+  await expect(roleCell).not.toContainText('Ramp');
+  await editor.getByRole('button', { name: 'Close', exact: true }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(roleCell).not.toContainText('Ramp');
   await expect(roleCell).toContainText('Card draw');
@@ -130,6 +144,8 @@ test('edits card roles, preserves them through locks, and resets inferred roles'
 
   await openSolRing();
   await editor.getByRole('button', { name: 'Reset card roles', exact: true }).click();
+  await expect(solRing.locator('.cutlab-role-edited-chip')).toHaveCount(0);
+  await editor.getByRole('button', { name: 'Close', exact: true }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(solRing.locator('.cutlab-role-edited-chip')).toHaveCount(0);
   await expect(roleCell).toContainText('Ramp');

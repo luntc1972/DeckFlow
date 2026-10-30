@@ -296,6 +296,32 @@ public sealed class CutLabViewRenderTests
     }
 
     [Fact]
+    public async Task RoleGroups_Render_CarryRoleKeyCountSpanAndHiddenEmptyState()
+    {
+        var model = BuildTwinBadgeModel() with
+        {
+            RoleGroups =
+            [
+                new CutLabRoleGroupView
+                {
+                    RoleKey = "draw",
+                    DisplayLabel = "Card draw",
+                    CardCount = 2,
+                    Members = [new CutLabRoleMemberView { Name = "Forest", Quantity = 2 }],
+                },
+                new CutLabRoleGroupView { RoleKey = "ramp", DisplayLabel = "Ramp", Members = [] },
+            ],
+        };
+        string html = await RenderAsync(model);
+        Assert.Contains("data-cut-lab-group-role=\"draw\"", html);
+        Assert.Contains("data-cut-lab-group-count=\"draw\">2</span>", html);
+        string empty = Regex.Match(html, "<details[^>]*data-cut-lab-group-role=\"ramp\"[\\s\\S]*?</details>").Value;
+        Assert.Matches("class=\"kb-chip-area__chips\" hidden(?:=\"[^\"]*\")?", empty);
+        Assert.Contains("No ramp cards detected", empty);
+        Assert.DoesNotContain("class=\"kb-chip-area__empty-hint\" hidden", empty);
+    }
+
+    [Fact]
     public async Task ResultView_RendersTuneQuantityJumpLinksForLands()
     {
         var model = BuildTwinBadgeModel() with
@@ -359,7 +385,7 @@ public sealed class CutLabViewRenderTests
 
         Assert.Contains("id=\"cut-lab-section-constraints\"", html, StringComparison.Ordinal);
         Assert.Matches("data-cut-lab-constraints-locked-count[^>]*>2</span>", html);
-        Assert.Contains("Ramp · 9 cards", html, StringComparison.Ordinal);
+        Assert.Contains("Ramp · <span data-cut-lab-group-count=\"ramp\">9</span> cards", html, StringComparison.Ordinal);
         Assert.Contains("Sol Ring ×9", System.Net.WebUtility.HtmlDecode(html), StringComparison.Ordinal);
         Assert.Contains("Fast mana", html, StringComparison.Ordinal);
         string packageChipHtml = Regex.Match(
@@ -557,6 +583,7 @@ public sealed class CutLabViewRenderTests
         Assert.Equal("true", data["Plains"]["roleLand"]);
         Assert.Equal(edited, data["Plains"].ContainsKey("roleEdited"));
         Assert.Equal(model.RoleListByCardName["Plains"], data["Plains"]["roles"]);
+        Assert.Equal("lands", data["Plains"]["roleKeys"]);
         Assert.False(data.TryGetValue("Commander", out var commander) && commander.Keys.Any(key => key.StartsWith("role", StringComparison.Ordinal)));
         Assert.False(data.TryGetValue("Unknown", out var unknown) && unknown.Keys.Any(key => key.StartsWith("role", StringComparison.Ordinal)));
         Assert.Equal(CutLabRoleOverrideRules.EditableRoleKeys.Count, model.RoleOverrideRoleOptions.Count);

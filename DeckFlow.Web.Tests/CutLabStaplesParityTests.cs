@@ -107,7 +107,8 @@ public sealed class CutLabStaplesParityTests
             builder,
             new FakeCutLabWhatifService(),
             flags,
-            NullLogger<CutLabApiController>.Instance)
+            NullLogger<CutLabApiController>.Instance,
+            new UnusedCutLabRoleEditService())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };

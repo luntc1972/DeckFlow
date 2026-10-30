@@ -96,6 +96,7 @@ interface CutLabCardTextEntry {
   roleLand?: string;
   roleEdited?: string;
   roles?: string;
+  roleKeys?: string;
   typeLine?: string;
   manaCost?: string;
   power?: string;
@@ -202,7 +203,19 @@ interface CutLabQuantityTunerRow {
   isAddedBasic: boolean;
 }
 
+interface CutLabRoleOverrideResponse {
+  patch?: CutLabUiPatch;
+  unchanged?: boolean;
+  formFallback?: boolean;
+  message?: string;
+  cardName: string;
+  roleKeys: string[];
+  roleLabel: string;
+  roleEdited: boolean;
+}
+
 interface CutLabUiPatch {
+  roleKeysByCardName?: Record<string, string>;
   cutLabStateJson: string;
   currentCount: number;
   cardsRemaining: number;
@@ -319,6 +332,7 @@ const cutLabRestartRoundsApiEndpoint = '/api/cut-lab/restart-rounds';
 const cutLabWhatifApiEndpoint = '/api/cut-lab/whatif';
 const cutLabWhatifCommitApiEndpoint = '/api/cut-lab/whatif/commit';
 const cutLabPlanApplyApiEndpoint = '/api/cut-lab/plan-apply';
+const cutLabRoleOverrideApiEndpoint = '/api/cut-lab/role-override';
 const cutLabDecisionTimeoutMs = 20000;
 const cutLabNothingToCutCopy = 'Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.';
 const cutLabDecisionBusyCopy = 'Recalculating…';
@@ -940,6 +954,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let adjustSubmitInFlight = false;
   let whatifSubmitInFlight = false;
   let planApplySubmitInFlight = false;
+  let roleOverrideSubmitInFlight = false;
+  const isAnyCutLabMutationInFlight = (): boolean => decisionSubmitInFlight || adjustSubmitInFlight || whatifSubmitInFlight || planApplySubmitInFlight || roleOverrideSubmitInFlight;
   let planApplyPendingChange = false;
   let hasPickedArchetype = false;
   let planApplyChainStartArchetype: string | null = null;
@@ -2022,6 +2038,25 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return `CMC ${entry.cmc} · Cast by turn ${entry.cmc}: ${Math.round(entry.castPercent)}% at your current pool size`;
   };
 
+  const renderModalRoleBlock = (cardName: string, viewOnly: boolean): void => {
+    const entry = getCardTextData()[cardName];
+    const roleBlock = getCardModal()?.querySelector<HTMLElement>('[data-cut-lab-role-block]');
+    if (roleBlock) {
+      roleBlock.hidden = viewOnly || entry?.roleEditable !== 'true';
+      if (!roleBlock.hidden) {
+        const cardInput = roleBlock.querySelector<HTMLInputElement>('[data-cut-lab-role-override-card]');
+        const current = roleBlock.querySelector<HTMLElement>('[data-cut-lab-role-current]');
+        const reset = roleBlock.querySelector<HTMLButtonElement>('[data-cut-lab-role-reset]');
+        const roleSelect = roleBlock.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
+        if (cardInput) cardInput.value = cardName;
+        if (current) current.textContent = `Roles: ${entry?.roles ?? ''}`;
+        if (reset) reset.hidden = entry?.roleEdited !== 'true';
+        if (roleSelect) updateRoleOverrideRamp(roleSelect, entry?.roleLand === 'true');
+      }
+    }
+
+  };
+
   const openCardModal = (cardName: string, viewOnly: boolean = false): void => {
     const dialog = getCardModal();
     const title = getCardModalTitle();
@@ -2058,20 +2093,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       combo.hidden = comboText === '';
     }
 
-    const roleBlock = dialog.querySelector<HTMLElement>('[data-cut-lab-role-block]');
-    if (roleBlock) {
-      roleBlock.hidden = viewOnly || entry?.roleEditable !== 'true';
-      if (!roleBlock.hidden) {
-        const cardInput = roleBlock.querySelector<HTMLInputElement>('[data-cut-lab-role-override-card]');
-        const current = roleBlock.querySelector<HTMLElement>('[data-cut-lab-role-current]');
-        const reset = roleBlock.querySelector<HTMLButtonElement>('[data-cut-lab-role-reset]');
-        const roleSelect = roleBlock.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
-        if (cardInput) cardInput.value = cardName;
-        if (current) current.textContent = `Roles: ${entry?.roles ?? ''}`;
-        if (reset) reset.hidden = entry?.roleEdited !== 'true';
-        if (roleSelect) updateRoleOverrideRamp(roleSelect, entry?.roleLand === 'true');
-      }
-    }
+    renderModalRoleBlock(cardName, viewOnly);
 
     syncCardModalLockButton(cardName, viewOnly);
 
@@ -3548,7 +3570,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const handleWhatifPreview = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
-    if (whatifSubmitInFlight) {
+    if (whatifSubmitInFlight || roleOverrideSubmitInFlight) {
       return;
     }
 
@@ -3599,7 +3621,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const handleWhatifKeep = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
-    if (whatifSubmitInFlight) {
+    if (whatifSubmitInFlight || roleOverrideSubmitInFlight) {
       return;
     }
 
@@ -3728,7 +3750,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const handleDecisionSubmit = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
-    if (decisionSubmitInFlight) {
+    if (decisionSubmitInFlight || roleOverrideSubmitInFlight) {
       return;
     }
 
@@ -3789,7 +3811,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const handleRestartRoundsSubmit = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
-    if (decisionSubmitInFlight) {
+    if (decisionSubmitInFlight || roleOverrideSubmitInFlight) {
       return;
     }
 
@@ -3993,7 +4015,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       hasPickedArchetype = true;
       document.querySelectorAll<HTMLElement>('[data-cut-lab-archetype-reason]').forEach(reason => reason.classList.add('hidden'));
     }
-    if (planApplySubmitInFlight) {
+    if (planApplySubmitInFlight || roleOverrideSubmitInFlight) {
       planApplyPendingChange = true;
       return;
     }
@@ -4152,7 +4174,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const handleAdjustSubmit = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
-    if (adjustSubmitInFlight) {
+    if (adjustSubmitInFlight || roleOverrideSubmitInFlight) {
       return;
     }
 
@@ -4616,6 +4638,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const select = getPackageSelect(row);
       if (select) {
         select.addEventListener('change', () => {
+          if (roleOverrideSubmitInFlight) return;
           handlePackageSelectChange(select);
         });
       }
@@ -4623,6 +4646,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     getFloorRows().forEach(({ row, input }) => {
       const handleFloorChange = (): void => {
+        if (roleOverrideSubmitInFlight) return;
         updateFloorRow(row, input, true);
         refreshAndSerialize();
       };
@@ -4631,6 +4655,130 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       input.addEventListener('change', handleFloorChange);
     });
   };
+
+  const applyRoleEditToPage = (cardName: string, roleKeys: string[], roleLabel: string, roleEdited: boolean): void => {
+    const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-card]'));
+    rows.filter(row => row.dataset.cutLabCard === cardName).forEach(row => {
+      row.dataset.cutLabRole = roleKeys.join(' ');
+      const cell = row.querySelector<HTMLElement>('[data-label="Type / role"]');
+      if (!cell) return;
+      let label = cell.querySelector<HTMLElement>('.cutlab-role-list');
+      if (roleLabel && !label) { label = document.createElement('span'); label.className = 'cutlab-role-list'; cell.append(label); }
+      if (label) { label.textContent = roleLabel; if (!roleLabel) label.remove(); }
+      let edited = cell.querySelector<HTMLElement>('.cutlab-role-edited-chip');
+      if (roleEdited && !edited) { edited = document.createElement('span'); edited.className = 'cutlab-role-edited-chip'; edited.textContent = 'Edited'; cell.append(edited); }
+      if (!roleEdited) edited?.remove();
+    });
+    const groups = Array.from(document.querySelectorAll<HTMLElement>('details[data-cut-lab-group-role]'));
+    const template = Array.from(document.querySelectorAll<HTMLElement>('details[data-cut-lab-group-role] [data-cut-lab-chip-card]')).find(chip => chip.dataset.cutLabChipCard === cardName)?.cloneNode(true) as HTMLElement | undefined;
+    groups.forEach(group => {
+      const key = group.dataset.cutLabGroupRole ?? '';
+      const container = group.querySelector<HTMLElement>('.kb-chip-area__chips');
+      const chips = Array.from(group.querySelectorAll<HTMLElement>('[data-cut-lab-chip-card]'));
+      const own = chips.filter(chip => chip.dataset.cutLabChipCard === cardName);
+      if (roleKeys.includes(key) && own.length === 0 && template && container) {
+        const order = rows.map(row => row.dataset.cutLabCard);
+        const next = chips.find(chip => order.indexOf(chip.dataset.cutLabChipCard) > order.indexOf(cardName));
+        container.insertBefore(template.cloneNode(true), next ?? null);
+      }
+      if (!roleKeys.includes(key)) own.forEach(chip => chip.remove());
+      const count = rows.filter(row => (row.dataset.cutLabRole ?? '').split(' ').includes(key)).reduce((sum, row) => sum + (Number(row.dataset.cutLabQuantity) || 1), 0);
+      const countSpan = group.querySelector<HTMLElement>('[data-cut-lab-group-count]');
+      if (countSpan) countSpan.textContent = String(count);
+      const hasChips = !!container?.querySelector('[data-cut-lab-chip-card]');
+      if (container) container.hidden = !hasChips;
+      const hint = group.querySelector<HTMLElement>('.kb-chip-area__empty-hint');
+      if (hint) hint.hidden = hasChips;
+    });
+    const index = buildPoolIndex();
+    syncRoleGroupLockState(index); syncRoleLockButtons(index); updateConstraintsSummary(index);
+    const entry = getCardTextData()[cardName] ?? {};
+    entry.roles = roleLabel; entry.roleKeys = roleKeys.join(' ');
+    if (roleEdited) entry.roleEdited = 'true'; else delete entry.roleEdited;
+    getCardTextData()[cardName] = entry;
+  };
+
+  type RoleEdit = { cardName: string; role: string; operation: string };
+  const submitRoleFormNatively = (edit: RoleEdit, stateJson: string): void => {
+    const source = document.querySelector<HTMLFormElement>('[data-cut-lab-role-override-form]');
+    const main = getForm();
+    if (!source || !main) return;
+    const form = document.createElement('form'); form.method = 'post'; form.action = source.action;
+    const token = main.querySelector<HTMLInputElement>(`input[name="${cutLabAntiForgeryFieldName}"]`);
+    const fields: Record<string, string> = { CutLabStateJson: stateJson, CardName: edit.cardName, Operation: edit.operation };
+    if (edit.role) fields.Role = edit.role;
+    if (token) fields[token.name] = token.value;
+    Object.entries(fields).forEach(([name, value]) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.append(input); });
+    document.body.append(form); form.submit();
+  };
+
+  const submitRoleEdit = async (edit: RoleEdit, submitter: HTMLButtonElement | null): Promise<void> => {
+    if (isAnyCutLabMutationInFlight()) return;
+    const form = getForm();
+    const block = document.querySelector<HTMLElement>('[data-cut-lab-role-block]');
+    if (!form || !block) return;
+    const stateJson = getStateInput(form)?.value ?? '';
+    const token = getAntiForgeryToken(form);
+    const status = block.querySelector<HTMLElement>('[data-cut-lab-role-status]');
+    const controls = Array.from(block.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('input, button, select'));
+    controls.push(...Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cutlab-modal-lock], [data-cutlab-modal-close]')));
+    const disabled = controls.map(control => control.disabled);
+    roleOverrideSubmitInFlight = true; block.setAttribute('aria-busy', 'true');
+    controls.forEach(control => { control.disabled = true; });
+    const restoreBusy = submitter ? setSubmitterBusyState(submitter) : () => {};
+    const dialog = getCardModal();
+    const blockCancel = (event: Event): void => { event.preventDefault(); };
+    dialog?.addEventListener('cancel', blockCancel);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
+    let fallback = false;
+    let updated = false;
+    try {
+      const response = await fetch(cutLabRoleOverrideApiEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', RequestVerificationToken: token }, body: JSON.stringify({ cutLabStateJson: stateJson, ...edit }), signal: controller.signal });
+      const data = await response.json() as CutLabRoleOverrideResponse;
+      if (!response.ok) {
+        if (data.formFallback) { fallback = true; submitRoleFormNatively(edit, stateJson); return; }
+        if (status) { status.textContent = data.message || 'Unable to update roles.'; status.focus(); }
+        return;
+      }
+      if (data.unchanged) { if (status) status.textContent = 'No change to roles.'; return; }
+      if (!data.patch) throw new Error('Missing role edit patch.');
+      applyServerPatch(data.patch, token);
+      syncCardTextData(data.patch.cardTextByCardName);
+      applyRoleEditToPage(data.cardName, data.roleKeys, data.roleLabel, data.roleEdited);
+      renderModalRoleBlock(data.cardName, false);
+      if (status) status.textContent = 'Roles updated.';
+      updated = true;
+    } catch (error) {
+      if (status) { status.textContent = error instanceof Error ? error.message : 'Unable to update roles.'; status.focus(); }
+    } finally {
+      window.clearTimeout(timeout);
+      if (!fallback) {
+        roleOverrideSubmitInFlight = false; restoreBusy();
+        controls.forEach((control, i) => { control.disabled = disabled[i]; });
+        block.removeAttribute('aria-busy'); dialog?.removeEventListener('cancel', blockCancel);
+        if (updated) {
+          if (submitter?.isConnected) submitter.focus(); else status?.focus();
+        }
+      }
+    }
+  };
+
+  const blockRoleStateWriter = (event: Event): void => {
+    if (roleOverrideSubmitInFlight && (!(event.target instanceof Element) || !event.target.closest('[data-cut-lab-role-block]'))) {
+      event.preventDefault(); event.stopImmediatePropagation();
+    }
+  };
+  document.addEventListener('click', blockRoleStateWriter, true);
+  document.addEventListener('submit', blockRoleStateWriter, true);
+  document.addEventListener('submit', event => {
+    if (!(event.target instanceof HTMLFormElement) || !event.target.matches('[data-cut-lab-role-override-form]')) return;
+    event.preventDefault();
+    const form = event.target;
+    const submitter = (event as SubmitEvent).submitter as HTMLButtonElement | null;
+    const operation = submitter?.value ?? '';
+    void submitRoleEdit({ cardName: form.querySelector<HTMLInputElement>('[name="CardName"]')?.value ?? '', role: operation === 'Reset' ? '' : form.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')?.value ?? '', operation }, submitter);
+  });
 
   const attachPoolFilterHandlers = (): void => {
     const filterContainer = getPoolFilterContainer();
@@ -4771,7 +4919,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       event.preventDefault();
-      if (decisionSubmitInFlight) {
+      if (decisionSubmitInFlight || roleOverrideSubmitInFlight) {
         return;
       }
 
@@ -4790,7 +4938,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       event.preventDefault();
-      if (adjustSubmitInFlight) {
+      if (adjustSubmitInFlight || roleOverrideSubmitInFlight) {
         return;
       }
 
@@ -4815,7 +4963,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       event.preventDefault();
-      if (decisionSubmitInFlight) {
+      if (decisionSubmitInFlight || roleOverrideSubmitInFlight) {
         return;
       }
 

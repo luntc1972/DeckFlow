@@ -553,7 +553,8 @@ public sealed class CutLabWhatifTests
             new CutLabUiPatchBuilder(contextBuilder, simulationService, floorResolver),
             whatifService,
             featureFlags,
-            NullLogger<CutLabApiController>.Instance)
+            NullLogger<CutLabApiController>.Instance,
+            new UnusedCutLabRoleEditService())
         {
             ControllerContext = new ControllerContext
             {

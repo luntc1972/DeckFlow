@@ -23,6 +23,7 @@ public sealed class CutLabApiController : ControllerBase
     private readonly ICutLabUiPatchBuilder _patchBuilder;
     private readonly ICutLabWhatifService _whatifService;
     private readonly IFeatureFlagCache _featureFlags;
+    private readonly ICutLabRoleEditService _roleEditService;
     private readonly ILogger<CutLabApiController> _logger;
     private readonly ICutLabPlanAffinityFactory _planAffinityFactory;
     private readonly IEdhrecCommanderThemeService _themeService;
@@ -36,6 +37,7 @@ public sealed class CutLabApiController : ControllerBase
     /// <param name="logger">Logger used for non-fatal API warnings.</param>
     /// <param name="planAffinityFactory">Optional shared plan-affinity factory used to resolve the checked plan profile against the pool.</param>
     /// <param name="themeService">Optional EDHREC commander-theme source used to re-validate the plan panel's checked theme slugs on apply.</param>
+    /// <param name="roleEditService">Shared role editor and baseline rebuilder.</param>
     public CutLabApiController(
         ICutLabAnalysisContextBuilder contextBuilder,
         ICutLabFloorResolver floorResolver,
@@ -43,6 +45,7 @@ public sealed class CutLabApiController : ControllerBase
         ICutLabWhatifService whatifService,
         IFeatureFlagCache featureFlags,
         ILogger<CutLabApiController> logger,
+        ICutLabRoleEditService roleEditService,
         ICutLabPlanAffinityFactory? planAffinityFactory = null,
         IEdhrecCommanderThemeService? themeService = null)
     {
@@ -52,6 +55,7 @@ public sealed class CutLabApiController : ControllerBase
         _whatifService = whatifService ?? throw new ArgumentNullException(nameof(whatifService));
         _featureFlags = featureFlags ?? throw new ArgumentNullException(nameof(featureFlags));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _roleEditService = roleEditService ?? throw new ArgumentNullException(nameof(roleEditService));
         _planAffinityFactory = planAffinityFactory ?? NullCutLabPlanAffinityFactory.Instance;
         _themeService = themeService ?? NullEdhrecCommanderThemeService.Instance;
     }
@@ -211,6 +215,84 @@ public sealed class CutLabApiController : ControllerBase
         {
             _logger.LogWarning(exception, "Cut Lab adjust API request failed.");
             return Task.FromResult<ActionResult<CutLabAdjustApiResponse>>(BadRequest(new { Message = CutLabMessages.NoChangeMessage }));
+        }
+    }
+
+    /// <summary>Applies a role edit and returns the refreshed workspace.</summary>
+    /// <param name="request">Role edit request.</param>
+    /// <param name="cancellationToken">Request cancellation token.</param>
+    [HttpPost("role-override")]
+    [FeatureFlagGate("tool.cut-lab.enabled")]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    [ProducesResponseType(typeof(CutLabRoleOverrideApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<CutLabRoleOverrideApiResponse>> PostRoleOverrideAsync([FromBody] CutLabRoleOverrideApiRequest request, CancellationToken cancellationToken)
+    {
+        if (!SameOriginRequestValidator.IsValid(Request))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = SameOriginRequestValidator.GetForbiddenMessage() });
+        }
+
+        if (request is null)
+        {
+            return BadRequest(new { Message = "Request body is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(request.CardName))
+        {
+            return BadRequest(new { Message = "Cut Lab state and card name are required." });
+        }
+
+        try
+        {
+            if (!TryLoadState(request.CutLabStateJson, out CutLabState state, out ActionResult? error))
+            {
+                return error!;
+            }
+
+            IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
+            var result = await _roleEditService.ApplyAsync(state, request.CardName, request.Role, request.Operation, cancellationToken).ConfigureAwait(false);
+            if (result.Error is not null)
+            {
+                return BadRequest(new { Message = result.Error });
+            }
+
+            if (!result.Changed)
+            {
+                return Ok(new CutLabRoleOverrideApiResponse
+                {
+                    Unchanged = true,
+                    CardName = request.CardName,
+                    RoleEdited = CutLabRoleOverrideRules.Find(state.RoleOverrides, request.CardName) is not null,
+                });
+            }
+
+            CutLabUiPatchDto patch;
+            try
+            {
+                patch = await _patchBuilder.BuildAsync(result.State, result.State.Intent.PlayExperience, commanderNames,
+                    IsFlagOn(CutLabStructuralFindings.FunctionalTwinsFlagKey), cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+            {
+                _logger.LogWarning(exception, "Cut Lab role override API patch failed; falling back to the form.");
+                return BadRequest(new { Message = CutLabMessages.NoChangeMessage, FormFallback = true });
+            }
+
+            return Ok(new CutLabRoleOverrideApiResponse
+            {
+                Patch = patch,
+                CardName = request.CardName,
+                RoleKeys = patch.RoleKeysByCardName.TryGetValue(request.CardName, out IReadOnlyList<string>? keys) ? keys : [],
+                RoleLabel = CutLabSharedHelpers.RoleLabelFor(request.CardName, patch.RoleKeysByCardName),
+                RoleEdited = CutLabRoleOverrideRules.Find(result.State.RoleOverrides, request.CardName) is not null,
+            });
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)
+        {
+            _logger.LogWarning(exception, "Cut Lab role override API request failed.");
+            return BadRequest(new { Message = CutLabMessages.NoChangeMessage });
         }
     }
 
