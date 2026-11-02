@@ -2039,6 +2039,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   let roleOptionTemplates: HTMLOptionElement[] | null = null;
+  let roleLabelsCache: Record<string, string> | null = null;
+
+  const getRoleLabels = (): Record<string, string> => {
+    if (roleLabelsCache) return roleLabelsCache;
+    try {
+      roleLabelsCache = JSON.parse(document.querySelector('[data-cut-lab-role-labels]')?.textContent ?? '{}') as Record<string, string>;
+    } catch {
+      roleLabelsCache = {};
+    }
+    return roleLabelsCache;
+  };
 
   const renderModalRoleBlock = (cardName: string, viewOnly: boolean): void => {
     const entry = getCardTextData()[cardName];
@@ -2051,16 +2062,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (form) form.hidden = !editable || block.hidden;
     const select = block.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
     if (select && roleOptionTemplates === null) roleOptionTemplates = Array.from(select.options, option => option.cloneNode(true) as HTMLOptionElement);
-    const labels = JSON.parse(document.querySelector('[data-cut-lab-role-labels]')?.textContent ?? '{}') as Record<string, string>;
+    const labels = getRoleLabels();
     const chips = block.querySelector<HTMLElement>('[data-cut-lab-role-chips]');
     chips?.replaceChildren();
     keys.forEach(key => {
-      const chip = document.createElement('li');
-      chip.className = 'kb-chip';
       const label = labels[key] ?? key;
-      chip.textContent = label;
+      const chip = createTextElement('li', 'kb-chip', label);
       if (key === 'lands') {
-        const fixed = document.createElement('span'); fixed.className = 'sr-only'; fixed.textContent = ' (fixed)'; chip.append(fixed);
+        chip.append(createTextElement('span', 'sr-only', ' (fixed)'));
       }
       if (editable && roleOptionTemplates?.some(option => option.value === key)) {
         const remove = document.createElement('button');
@@ -4696,22 +4705,24 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const cell = row.querySelector<HTMLElement>('[data-label="Type / role"]');
       if (!cell) return;
       let label = cell.querySelector<HTMLElement>('.cutlab-role-list');
-      if (roleLabel && !label) { label = document.createElement('span'); label.className = 'cutlab-role-list'; cell.append(label); }
+      if (roleLabel && !label) { label = createTextElement('span', 'cutlab-role-list', roleLabel); cell.append(label); }
       if (label) { label.textContent = roleLabel; if (!roleLabel) label.remove(); }
-      let edited = cell.querySelector<HTMLElement>('.cutlab-role-edited-chip');
-      if (roleEdited && !edited) { edited = document.createElement('span'); edited.className = 'cutlab-role-edited-chip'; edited.textContent = 'Edited'; cell.append(edited); }
+      const edited = cell.querySelector<HTMLElement>('.cutlab-role-edited-chip');
+      if (roleEdited && !edited) cell.append(createTextElement('span', 'cutlab-role-edited-chip', 'Edited'));
       if (!roleEdited) edited?.remove();
     });
     const groups = Array.from(document.querySelectorAll<HTMLElement>('details[data-cut-lab-group-role]'));
     const template = Array.from(document.querySelectorAll<HTMLElement>('details[data-cut-lab-group-role] [data-cut-lab-chip-card]')).find(chip => chip.dataset.cutLabChipCard === cardName)?.cloneNode(true) as HTMLElement | undefined;
+    // Why: row order is the same for every group, so compute it once instead of per group.
+    const order = rows.map(row => row.dataset.cutLabCard);
+    const cardPosition = order.indexOf(cardName);
     groups.forEach(group => {
       const key = group.dataset.cutLabGroupRole ?? '';
       const container = group.querySelector<HTMLElement>('.kb-chip-area__chips');
       const chips = Array.from(group.querySelectorAll<HTMLElement>('[data-cut-lab-chip-card]'));
       const own = chips.filter(chip => chip.dataset.cutLabChipCard === cardName);
       if (roleKeys.includes(key) && own.length === 0 && template && container) {
-        const order = rows.map(row => row.dataset.cutLabCard);
-        const next = chips.find(chip => order.indexOf(chip.dataset.cutLabChipCard) > order.indexOf(cardName));
+        const next = chips.find(chip => order.indexOf(chip.dataset.cutLabChipCard) > cardPosition);
         container.insertBefore(template.cloneNode(true), next ?? null);
       }
       if (!roleKeys.includes(key)) own.forEach(chip => chip.remove());

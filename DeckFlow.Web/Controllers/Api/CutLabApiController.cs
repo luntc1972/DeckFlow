@@ -251,23 +251,25 @@ public sealed class CutLabApiController : ControllerBase
                 return error!;
             }
 
-            IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
             var result = await _roleEditService.ApplyAsync(state, request.CardName, request.Role, request.Operation, cancellationToken).ConfigureAwait(false);
             if (result.Error is not null)
             {
                 return BadRequest(new { Message = result.Error });
             }
 
+            // Why: result.State equals state on the unchanged path, so one lookup serves both responses.
+            bool roleEdited = CutLabRoleOverrideRules.Find(result.State.RoleOverrides, request.CardName) is not null;
             if (!result.Changed)
             {
                 return Ok(new CutLabRoleOverrideApiResponse
                 {
                     Unchanged = true,
                     CardName = request.CardName,
-                    RoleEdited = CutLabRoleOverrideRules.Find(state.RoleOverrides, request.CardName) is not null,
+                    RoleEdited = roleEdited,
                 });
             }
 
+            IReadOnlyList<string> commanderNames = CutLabCommanderNames.Resolve(state);
             CutLabUiPatchDto patch;
             try
             {
@@ -286,7 +288,7 @@ public sealed class CutLabApiController : ControllerBase
                 CardName = request.CardName,
                 RoleKeys = patch.RoleKeysByCardName.TryGetValue(request.CardName, out IReadOnlyList<string>? keys) ? keys : [],
                 RoleLabel = CutLabSharedHelpers.RoleLabelFor(request.CardName, patch.RoleKeysByCardName),
-                RoleEdited = CutLabRoleOverrideRules.Find(result.State.RoleOverrides, request.CardName) is not null,
+                RoleEdited = roleEdited,
             });
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException)

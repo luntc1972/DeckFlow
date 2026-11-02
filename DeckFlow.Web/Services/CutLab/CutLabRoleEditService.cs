@@ -58,11 +58,7 @@ public sealed class CutLabRoleEditService : ICutLabRoleEditService
             };
             _logger.LogInformation("Cut Lab role edit rebuilt baseline at {Trials} trials in {ElapsedMs} ms", ICutLabSimulationService.InLoopTrials, watch.ElapsedMilliseconds);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger.LogWarning(exception, "Cut Lab role edit baseline rebuild failed after {ElapsedMs} ms; saving the edit without a baseline", watch.ElapsedMilliseconds);
         }

@@ -225,7 +225,10 @@ public sealed record CutLabViewModel
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Display labels for every canonical role, including fixed and fallback roles.</summary>
-    public IReadOnlyDictionary<string, string> RoleLabelsByKey { get; init; } =
+    public IReadOnlyDictionary<string, string> RoleLabelsByKey { get; init; } = DefaultRoleLabelsByKey;
+
+    // Why: the labels derive from constants, so every view model can share one dictionary instead of rebuilding it.
+    private static readonly IReadOnlyDictionary<string, string> DefaultRoleLabelsByKey =
         CutLabRoleOverrideRules.EditableRoleKeys.Concat(new[] { "lands", "other" })
             .ToDictionary(key => key, CutLabRoleAssigner.DisplayLabelFor, StringComparer.OrdinalIgnoreCase);
 
