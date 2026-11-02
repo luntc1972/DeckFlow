@@ -10,5 +10,8 @@ public enum HarvestMaintenanceOperation
     Purge,
 
     /// <summary>Rollout step 4 operation that marks decks for refetch.</summary>
-    Refetch
+    Refetch,
+
+    /// <summary>Rechecks the stored-live-row marker before maintenance counts are available.</summary>
+    Backfill
 }

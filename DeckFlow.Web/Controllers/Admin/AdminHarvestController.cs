@@ -171,6 +171,18 @@ public sealed class AdminHarvestController : Controller
         return StartMaintenance(HarvestMaintenanceOperation.Refetch, "Refetch");
     }
 
+    /// <summary>Starts or resumes the stored-live-row marker backfill.</summary>
+    [HttpPost("maintenance/backfill")]
+    [ValidateAntiForgeryToken]
+    public IActionResult MaintenanceBackfill(bool confirmed)
+    {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null) return sameOriginFailure;
+        return confirmed
+            ? StartMaintenance(HarvestMaintenanceOperation.Backfill, "Marker backfill")
+            : RefuseMaintenance(HarvestMaintenanceOperation.Backfill, "not_confirmed", "Tick the confirmation box to start Marker backfill.");
+    }
+
     /// <summary>Requests that the active maintenance operation stop.</summary>
     [HttpPost("maintenance/stop")]
     [ValidateAntiForgeryToken]
@@ -191,7 +203,7 @@ public sealed class AdminHarvestController : Controller
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
         var preview = await ReadMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
-        SetBanner(preview is null ? "Maintenance counts are unavailable." : $"Retention excess: {preview.RetentionExcessDecks}; purge candidates: {preview.PurgeCandidates}; refetch candidates: {preview.RefetchCandidates}.", preview is null);
+        SetBanner(preview is null ? "Maintenance counts are unavailable." : preview.MarkerBackfillPending ? "Maintenance counts wait for the marker backfill. Run Marker backfill first." : $"Retention excess: {preview.RetentionExcessDecks}; purge candidates: {preview.PurgeCandidates}; refetch candidates: {preview.RefetchCandidates}.", preview is null || preview.MarkerBackfillPending);
         return RedirectToAction(nameof(Index));
     }
 
@@ -201,6 +213,11 @@ public sealed class AdminHarvestController : Controller
         if (preview is null)
         {
             RefuseMaintenance(operation, "preview_unavailable", "Maintenance counts are unavailable. Nothing was started.");
+            return false;
+        }
+        if (preview.MarkerBackfillPending)
+        {
+            RefuseMaintenance(operation, "marker_backfill_pending", "Run Marker backfill first: maintenance counts wait for it. Nothing was started.");
             return false;
         }
         if (preview.PurgeCandidates > 0)

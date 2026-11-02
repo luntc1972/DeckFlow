@@ -205,6 +205,87 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
     }
 
+    [Fact]
+    public async Task RunMaintenanceAsync_Backfill_CompletesAndOpensPreview()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "illegal", "Alpha", 7);
+        await SeedStoredDeckAsync(repository, "metadata-less", "Alpha", null, metadataLess: true);
+        await MakeMarkerPendingAsync(store);
+        Assert.True((await store.GetMaintenancePreviewAsync())!.MarkerBackfillPending);
+
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Backfill);
+
+        Assert.Equal(HarvestMaintenanceOperation.Backfill, outcome.Operation);
+        Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
+        Assert.Equal(2, outcome.DecksAffected);
+        var preview = Assert.IsType<HarvestMaintenancePreview>(await store.GetMaintenancePreviewAsync());
+        Assert.False(preview.MarkerBackfillPending);
+        Assert.Equal(1, preview.PurgeCandidates);
+        Assert.Equal(1, preview.RefetchCandidates);
+    }
+
+    [Fact]
+    public async Task GetMaintenancePreviewAsync_MarkerPending_ReturnsPendingWithoutCounts()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "illegal", "Alpha", 7);
+        await MakeMarkerPendingAsync(store);
+        var preview = Assert.IsType<HarvestMaintenancePreview>(await store.GetMaintenancePreviewAsync());
+        Assert.True(preview.MarkerBackfillPending);
+        Assert.Equal((0, 0, 0), (preview.RetentionExcessDecks, preview.PurgeCandidates, preview.RefetchCandidates));
+    }
+
+    [Fact]
+    public async Task RunMaintenanceAsync_RefetchMarkerPending_MarksNothing()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "metadata-less", "Alpha", null, metadataLess: true);
+        await MakeMarkerPendingAsync(store);
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch);
+        Assert.Equal(DeckPruningStopReason.MarkerBackfillPending, outcome.StopReason);
+        Assert.Equal(0, outcome.DecksAffected);
+        Assert.Null((await ReadDeckStateAsync(store, "metadata-less")).RefreshRequestedUtc);
+    }
+
+    [Fact]
+    public async Task RunMaintenanceAsync_PurgeMarkerPending_RemovesNothing()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "illegal", "Alpha", 7);
+        await MakeMarkerPendingAsync(store);
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge);
+        Assert.Equal(DeckPruningStopReason.MarkerBackfillPending, outcome.StopReason);
+        Assert.Equal(0, outcome.DecksAffected);
+        Assert.Equal(1, (await ReadDeckStateAsync(store, "illegal")).Processed);
+        await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Backfill);
+        Assert.Equal(1, (await store.GetMaintenancePreviewAsync())!.PurgeCandidates);
+    }
+
+    [Fact]
+    public async Task GetMaintenancePreviewAsync_DeckEmptiedAfterStore_NotCounted()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "illegal", "Alpha", 7);
+        Assert.Equal(1, (await store.GetMaintenancePreviewAsync())!.PurgeCandidates);
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:illegal", []);
+        Assert.Equal(0, (await store.GetMaintenancePreviewAsync())!.PurgeCandidates);
+    }
+
+    private static async Task MakeMarkerPendingAsync(CategoryKnowledgeStore store)
+    {
+        await using var connection = new SqliteConnection($"Data Source={Assert.IsType<string>(store.DatabasePath)}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE deck_queue SET has_stored_live_rows = 0; DELETE FROM crawl_state WHERE key IN ('stored_live_rows_backfill_complete', 'stored_live_rows_backfill_cursor');";
+        await command.ExecuteNonQueryAsync();
+    }
+
     private static CategoryKnowledgeStore CreateStore(HarvestRetentionOptions? options = null)
     {
         var dataDirectory = Path.Combine(Path.GetTempPath(), "deckflow-maintenance-" + Guid.NewGuid().ToString("N"));

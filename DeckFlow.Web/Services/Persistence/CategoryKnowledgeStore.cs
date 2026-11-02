@@ -39,6 +39,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private readonly ILogger<CategoryKnowledgeStore>? _logger;
     private readonly HarvestRetentionOptions _retentionOptions;
     private readonly DeckPruningService _deckPruningService;
+    private readonly StoredLiveRowsBackfillService _markerBackfillService;
     private volatile bool _schemaReady;
 
     internal SemaphoreSlim SweepGate => _sweepGate;
@@ -66,7 +67,10 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         _memoryCache = memoryCache;
         _logger = logger;
         _retentionOptions = retentionOptions?.Value ?? new HarvestRetentionOptions();
-        _deckPruningService = new DeckPruningService(_repository, _retentionOptions.ToPruningOptions(), SelectFreeDiskProbe(_connectionInfo, renderDiskProbe, logger));
+        // Both services share Render sample pacing through the same probe instance.
+        var freeDiskProbe = SelectFreeDiskProbe(_connectionInfo, renderDiskProbe, logger);
+        _deckPruningService = new DeckPruningService(_repository, _retentionOptions.ToPruningOptions(), freeDiskProbe);
+        _markerBackfillService = new StoredLiveRowsBackfillService(_repository, _retentionOptions.ToPruningOptions(), freeDiskProbe);
     }
 
     internal static Func<CancellationToken, Task<long?>> SelectFreeDiskProbe(RelationalDatabaseConnection connectionInfo, RenderDiskHeadroomProbe? renderDiskProbe, ILogger? logger)
@@ -103,6 +107,10 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             await _sweepGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                if (!await _repository.IsStoredLiveRowsMarkerReadyAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    return new HarvestMaintenanceOutcome(operation, 0, 0, DeckPruningStopReason.MarkerBackfillPending);
+                }
                 var marked = await _repository.MarkMetadataLessDecksForRefreshAsync(cancellationToken).ConfigureAwait(false);
                 progress?.Report(marked);
                 return new HarvestMaintenanceOutcome(operation, marked, 0, null);
@@ -113,13 +121,18 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             }
         }
 
-        if (operation is not HarvestMaintenanceOperation.Drain and not HarvestMaintenanceOperation.Purge) throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
+        if (operation is not HarvestMaintenanceOperation.Drain and not HarvestMaintenanceOperation.Purge and not HarvestMaintenanceOperation.Backfill) throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
         ILogger logger = _logger is null ? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance : _logger;
         var outcome = await HarvestMaintenanceChunkLoop.RunAsync(
             operation,
             _sweepGate,
             _retentionOptions.MaintenanceChunkDecks,
-            (deckCount, token) => operation == HarvestMaintenanceOperation.Drain ? _deckPruningService.RunRetentionAsync(deckCount, token) : _deckPruningService.RunPurgeAsync(deckCount, token),
+            (deckCount, token) => operation switch
+            {
+                HarvestMaintenanceOperation.Drain => _deckPruningService.RunRetentionAsync(deckCount, token),
+                HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, token),
+                _ => _markerBackfillService.RunAsync(deckCount, token)
+            },
             progress,
             logger,
             cancellationToken).ConfigureAwait(false);
@@ -131,6 +144,10 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     public async Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
+        if (!await _repository.IsStoredLiveRowsMarkerReadyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return new HarvestMaintenancePreview(0, 0, 0) { MarkerBackfillPending = true };
+        }
         return new HarvestMaintenancePreview(
             await _repository.CountRetentionExcessAsync(_retentionOptions.PerCommanderCap, cancellationToken).ConfigureAwait(false),
             await _repository.CountPurgeCandidatesAsync(cancellationToken).ConfigureAwait(false),

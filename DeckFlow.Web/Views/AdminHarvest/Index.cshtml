@@ -206,17 +206,21 @@ else
     <h2 class="admin-card__title">Retention maintenance</h2>
     @if (Model.Maintenance.IsRunning)
     {
-        <p data-maintenance-state="running">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks so far; started @Model.Maintenance.StartedUtc?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture)</p>
+        <p data-maintenance-state="running">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Backfill ? "Marker backfill" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks so far; started @Model.Maintenance.StartedUtc?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture)</p>
         <form method="post" asp-action="MaintenanceStop" class="admin-action-form" data-maintenance-operation="stop">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Stop</button></form>
     }
     else if (Model.Maintenance.CompletedUtc.HasValue)
     {
-        <p data-maintenance-state="@maintenanceState">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks; @(Model.Maintenance.Failed ? "see the logs" : Model.Maintenance.StopRequested ? "stopped" : Model.Maintenance.StopReason == DeckFlow.Core.Knowledge.DeckPruningStopReason.Completed ? "completed (Completed)" : Model.Maintenance.StopReason?.ToString()) @Model.Maintenance.CompletedUtc.Value.ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture)</p>
+        <p data-maintenance-state="@maintenanceState">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Backfill ? "Marker backfill" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks; @(Model.Maintenance.Failed ? "see the logs" : Model.Maintenance.StopRequested ? "stopped" : Model.Maintenance.StopReason == DeckFlow.Core.Knowledge.DeckPruningStopReason.Completed ? "completed (Completed)" : Model.Maintenance.StopReason?.ToString()) @Model.Maintenance.CompletedUtc.Value.ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture)</p>
     }
     else
     {
         <p data-maintenance-state="idle">Preview counts before each rollout step.</p>
     }
+    <p class="admin-meta">Run Marker backfill once after this upgrade; Preview, Purge, Drain and Refetch wait for it.</p>
+    <form method="post" asp-action="MaintenanceBackfill" class="admin-action-form" data-maintenance-operation="backfill">
+        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Marker backfill</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Marker backfill</button>
+    </form>
     <form method="post" asp-action="MaintenancePreview" class="admin-action-form" data-maintenance-operation="preview">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Preview</button></form>
     <form method="post" asp-action="MaintenancePurge" class="admin-action-form" data-maintenance-operation="purge">
         @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Purge</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Purge</button>
