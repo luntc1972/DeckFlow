@@ -4,6 +4,9 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Normalization;
 using Microsoft.Data.Sqlite;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 
 namespace DeckFlow.Core.Tests;
 
@@ -52,6 +55,62 @@ public sealed class CliPostHarvestRetentionTests : IDisposable
         var result = await DeckCommandRunners.RunPostHarvestRetentionAsync(repository, _databasePath);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task RunPostHarvestRetentionAsync_MarkerPending_BackfillsThenRetains()
+    {
+        var repository = await SeedPendingAsync();
+
+        var result = await DeckCommandRunners.RunPostHarvestRetentionAsync(repository, _databasePath,
+            options: new DeckPruningOptions { PerCommanderCap = 1, Pause = TimeSpan.Zero, MinFreeDiskBytes = 0 });
+
+        Assert.Equal(new DeckPruningResult(1, 1, DeckPruningStopReason.Completed), result);
+        Assert.True(await repository.IsStoredLiveRowsMarkerReadyAsync());
+        Assert.Equal(1, await repository.GetCommanderDeckCountAsync("Atraxa"));
+    }
+
+    [Fact]
+    public async Task RunPostHarvestRetentionAsync_MarkerPendingBelowFloor_ReturnsDiskFloorWithoutRetention()
+    {
+        var repository = await SeedPendingAsync();
+        var sink = new CollectingSink();
+        using var logger = new LoggerConfiguration().WriteTo.Sink(sink).CreateLogger();
+
+        var result = await DeckCommandRunners.RunPostHarvestRetentionAsync(repository, _databasePath, logger,
+            new DeckPruningOptions { PerCommanderCap = 1, Pause = TimeSpan.Zero, MinFreeDiskBytes = long.MaxValue });
+
+        Assert.Equal(new DeckPruningResult(0, 0, DeckPruningStopReason.DiskFloor), result);
+        Assert.False(await repository.IsStoredLiveRowsMarkerReadyAsync());
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM card_deck_totals;";
+        Assert.Equal(2L, (long)(await command.ExecuteScalarAsync())!);
+        var stopped = Assert.Single(sink.Events, entry => entry.MessageTemplate.Text ==
+            "Post-harvest marker backfill stopped with {StopReason} after {DecksRechecked} decks; retention skipped.");
+        Assert.Equal("DiskFloor", Assert.IsType<ScalarValue>(stopped.Properties["StopReason"]).Value?.ToString());
+        Assert.Equal(0, Assert.IsType<ScalarValue>(stopped.Properties["DecksRechecked"]).Value);
+    }
+
+    private async Task<CategoryKnowledgeRepository> SeedPendingAsync()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await SeedStoredDeckAsync(repository, "pending-1", "Atraxa", DateTimeOffset.UtcNow.AddDays(-1));
+        await SeedStoredDeckAsync(repository, "pending-2", "Atraxa", DateTimeOffset.UtcNow);
+        await using var connection = new SqliteConnection($"Data Source={_databasePath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE deck_queue SET has_stored_live_rows = 0; DELETE FROM crawl_state WHERE key IN ('stored_live_rows_backfill_complete', 'stored_live_rows_backfill_cursor');";
+        await command.ExecuteNonQueryAsync();
+        return repository;
+    }
+
+    private sealed class CollectingSink : ILogEventSink
+    {
+        public List<LogEvent> Events { get; } = [];
+
+        public void Emit(LogEvent logEvent) => Events.Add(logEvent);
     }
 
     [Theory]

@@ -166,6 +166,47 @@ public sealed class StoredLiveRowsMarkerPostgresTests : IClassFixture<PostgresCo
         }
     }
 
+    [PostgresFact]
+    public async Task RetentionAndPurge_Postgres_WaitForMarkerBackfill()
+    {
+        var repository = await CreateRepositoryAsync();
+        var deckId = "marker-gate-" + Guid.NewGuid().ToString("N");
+        await StoreAsync(repository, deckId);
+        await StoreAsync(repository, deckId + "-second");
+        await repository.MarkDeckProcessedAsync(deckId, "Atraxa", false,
+            new ArchidektDeckMetadata(null, 2, false, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
+        var connectionString = await _fixture.GetConnectionStringOrSkipAsync();
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var read = new NpgsqlCommand("SELECT value FROM crawl_state WHERE key = 'stored_live_rows_backfill_complete';", connection);
+        var saved = await read.ExecuteScalarAsync();
+        try
+        {
+            await using var reset = new NpgsqlCommand("DELETE FROM crawl_state WHERE key = 'stored_live_rows_backfill_complete';", connection);
+            await reset.ExecuteNonQueryAsync();
+            var probes = 0;
+            var service = new DeckPruningService(repository,
+                new DeckPruningOptions { PerCommanderCap = 1, Pause = TimeSpan.Zero },
+                _ => { probes++; return Task.FromResult<long?>(long.MaxValue); });
+
+            Assert.Equal(new DeckPruningResult(0, 0, DeckPruningStopReason.MarkerBackfillPending), await service.RunRetentionAsync());
+            Assert.Equal(new DeckPruningResult(0, 0, DeckPruningStopReason.MarkerBackfillPending), await service.RunPurgeAsync());
+            Assert.Equal(0, probes);
+            Assert.Equal(2L, await ScalarAsync<long>("SELECT COUNT(*) FROM card_deck_totals t INNER JOIN sources s ON s.id = t.source_id INNER JOIN deck_queue q ON q.id = s.deck_queue_id WHERE q.deck_id IN (@deckId, @second);", ("deckId", deckId), ("second", deckId + "-second")));
+        }
+        finally
+        {
+            await using var restore = new NpgsqlCommand("DELETE FROM crawl_state WHERE key = 'stored_live_rows_backfill_complete';", connection);
+            await restore.ExecuteNonQueryAsync();
+            if (saved is not null and not DBNull)
+            {
+                await using var insert = new NpgsqlCommand("INSERT INTO crawl_state (key, value) VALUES ('stored_live_rows_backfill_complete', @value);", connection);
+                insert.Parameters.AddWithValue("value", saved);
+                await insert.ExecuteNonQueryAsync();
+            }
+        }
+    }
+
     private async Task<CategoryKnowledgeRepository> CreateRepositoryAsync()
     {
         var connectionString = await _fixture.GetConnectionStringOrSkipAsync();

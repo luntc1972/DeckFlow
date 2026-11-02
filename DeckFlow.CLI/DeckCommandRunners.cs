@@ -440,6 +440,16 @@ internal static class DeckCommandRunners
         {
             var connection = RelationalDatabaseConnection.FromSqlitePath(databasePath);
             var diskProbe = new DeckPruningDiskProbe(connection, logger: null);
+            if (!await repository.IsStoredLiveRowsMarkerReadyAsync(cancellationToken))
+            {
+                var backfillService = new StoredLiveRowsBackfillService(repository, options, diskProbe.GetFreeBytesAsync);
+                var backfill = await backfillService.RunAsync(cancellationToken: cancellationToken);
+                if (backfill.StopReason != DeckPruningStopReason.Completed)
+                {
+                    logger.Information("Post-harvest marker backfill stopped with {StopReason} after {DecksRechecked} decks; retention skipped.", backfill.StopReason, backfill.DecksRemoved);
+                    return new DeckPruningResult(0, 0, backfill.StopReason);
+                }
+            }
             var pruningService = new DeckPruningService(repository, options, diskProbe.GetFreeBytesAsync);
             return await pruningService.RunRetentionAsync(DeckPruningOptions.DefaultPostHarvestMaxDecks, cancellationToken);
         }

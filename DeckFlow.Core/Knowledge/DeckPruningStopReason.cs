@@ -11,4 +11,6 @@ public enum DeckPruningStopReason
     DiskFloor,
     /// <summary>The requested maximum number of removals was reached.</summary>
     MaxDecksReached,
+    /// <summary>The stored-live-rows marker backfill has not completed, so nothing was read or removed.</summary>
+    MarkerBackfillPending,
 }

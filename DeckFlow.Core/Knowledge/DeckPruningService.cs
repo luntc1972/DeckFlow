@@ -26,6 +26,10 @@ public sealed class DeckPruningService
     public async Task<DeckPruningResult> RunRetentionAsync(int? maxDecks = null, CancellationToken cancellationToken = default)
     {
         if (maxDecks is < 1) throw new ArgumentOutOfRangeException(nameof(maxDecks));
+        if (!await _repository.IsStoredLiveRowsMarkerReadyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return new DeckPruningResult(0, 0, DeckPruningStopReason.MarkerBackfillPending);
+        }
         var cutoff = _options.MaxAge is { } age ? _utcNow().Subtract(age) : (DateTimeOffset?)null;
         var removals = new List<long>();
         var commanders = await _repository.GetRetentionCommanderKeysAsync(cutoff.HasValue ? 0 : _options.PerCommanderCap, cancellationToken).ConfigureAwait(false);
@@ -61,6 +65,10 @@ public sealed class DeckPruningService
     private async Task<DeckPruningResult> RunPurgeCoreAsync(int? maxDecks, CancellationToken cancellationToken)
     {
         if (maxDecks is < 1) throw new ArgumentOutOfRangeException(nameof(maxDecks));
+        if (!await _repository.IsStoredLiveRowsMarkerReadyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return new DeckPruningResult(0, 0, DeckPruningStopReason.MarkerBackfillPending);
+        }
         var removed = 0;
         var batches = 0;
         while (!maxDecks.HasValue || removed < maxDecks.Value)
