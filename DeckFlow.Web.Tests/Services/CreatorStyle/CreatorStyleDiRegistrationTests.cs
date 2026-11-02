@@ -210,7 +210,7 @@ public sealed class CreatorStyleDiRegistrationTests
         Assert.Single(handler.Requests);
         Assert.Equal("https://api2.moxfield.com/v2/decks/search?authorUserNames=snail&pageNumber=1&pageSize=50", handler.Requests[0].RequestUri?.ToString());
         const string expectedUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
-        Assert.Equal(expectedUserAgent, typeof(MoxfieldOwnerClient).GetField(nameof(MoxfieldOwnerClient.BrowserUserAgent))?.GetRawConstantValue());
+        Assert.Equal(expectedUserAgent, typeof(MoxfieldApiUrl).GetField(nameof(MoxfieldApiUrl.BrowserUserAgent))?.GetRawConstantValue());
         Assert.Equal(expectedUserAgent, handler.Requests[0].UserAgent);
         Assert.True(handler.Requests[0].HasReferer);
     }

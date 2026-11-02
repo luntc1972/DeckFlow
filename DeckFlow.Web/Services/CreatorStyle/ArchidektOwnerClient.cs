@@ -236,7 +236,7 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
 
     private bool TryGetResponseContent(RestResponse response, string operation, out string content)
     {
-        if (!TryGetResponseContent(response, out content, out var byteCount))
+        if (!IsWithinByteCap(response, MaxResponseBytes, out content, out var byteCount))
         {
             _logger.LogWarning(
                 "Archidekt owner {Operation} payload exceeded the {MaxResponseBytes} byte cap ({ByteCount}).",
@@ -249,11 +249,11 @@ public sealed class ArchidektOwnerClient : IArchidektOwnerClient
         return true;
     }
 
-    internal static bool TryGetResponseContent(RestResponse response, out string content, out long byteCount)
+    internal static bool IsWithinByteCap(RestResponse response, int maxBytes, out string content, out long byteCount)
     {
         content = response.Content ?? string.Empty;
         byteCount = response.RawBytes?.LongLength ?? Encoding.UTF8.GetByteCount(content);
-        return byteCount <= MaxResponseBytes;
+        return byteCount <= maxBytes;
     }
 
     private static HttpClient CreateNamedClient(IHttpClientFactory factory)

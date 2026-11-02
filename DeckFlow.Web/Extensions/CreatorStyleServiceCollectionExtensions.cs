@@ -43,9 +43,9 @@ public static class CreatorStyleServiceCollectionExtensions
             client.MaxResponseContentBufferSize = MoxfieldOwnerClient.MaxResponseBytes;
             // Why: Moxfield's Cloudflare front rejects non-browser agents; match MoxfieldApiDeckImporter.
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", MoxfieldApiUrl.BrowserUserAgent);
-            client.DefaultRequestHeaders.Referrer = new Uri("https://moxfield.com/");
-            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
-            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US,en;q=0.9");
+            client.DefaultRequestHeaders.Referrer = new Uri(MoxfieldApiUrl.Referer);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", MoxfieldApiUrl.Accept);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", MoxfieldApiUrl.AcceptLanguage);
         });
 
         services.AddSingleton<ICardNameGrounder, ScryfallCardNameGrounder>();

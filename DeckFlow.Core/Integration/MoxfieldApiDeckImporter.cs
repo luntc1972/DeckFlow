@@ -72,9 +72,9 @@ public sealed class MoxfieldApiDeckImporter : IMoxfieldDeckImporter
     {
         var request = new RestRequest(MoxfieldApiUrl.BuildDeckApiUri(deckId), Method.Get);
         request.AddHeader("User-Agent", MoxfieldApiUrl.BrowserUserAgent);
-        request.AddHeader("Accept", "application/json, text/plain, */*");
-        request.AddHeader("Referer", "https://moxfield.com/");
-        request.AddHeader("Accept-Language", "en-US,en;q=0.9");
+        request.AddHeader("Accept", MoxfieldApiUrl.Accept);
+        request.AddHeader("Referer", MoxfieldApiUrl.Referer);
+        request.AddHeader("Accept-Language", MoxfieldApiUrl.AcceptLanguage);
 
         var response = await _executeAsync(request, cancellationToken);
         var body = response.Content ?? string.Empty;

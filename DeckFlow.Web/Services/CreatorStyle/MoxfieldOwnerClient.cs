@@ -16,8 +16,6 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
     internal const int PageSize = 50;
     /// <summary>Maximum response payload accepted from Moxfield.</summary>
     public const int MaxResponseBytes = 5 * 1024 * 1024;
-    /// <summary>Browser user agent accepted by Moxfield's Cloudflare front.</summary>
-    public const string BrowserUserAgent = MoxfieldApiUrl.BrowserUserAgent;
 
     private readonly RestClient _restClient;
     private readonly ResiliencePipeline<RestResponse> _pipeline;
@@ -80,7 +78,7 @@ public sealed class MoxfieldOwnerClient : IMoxfieldOwnerClient
                 _logger.LogWarning("Moxfield listing failed for {Username} page {Page}: HTTP {StatusCode}.", username, page, (int)response.StatusCode);
                 return Failed(decks);
             }
-            if (!ArchidektOwnerClient.TryGetResponseContent(response, out var content, out _))
+            if (!ArchidektOwnerClient.IsWithinByteCap(response, MaxResponseBytes, out var content, out _))
             {
                 _logger.LogWarning("Moxfield listing response for {Username} page {Page} exceeded {MaxResponseBytes} bytes.", username, page, MaxResponseBytes);
                 return Failed(decks);

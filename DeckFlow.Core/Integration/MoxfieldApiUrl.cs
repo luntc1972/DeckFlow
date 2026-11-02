@@ -11,6 +11,15 @@ public static class MoxfieldApiUrl
     /// <summary>The browser User-Agent sent with Moxfield requests.</summary>
     public const string BrowserUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
 
+    /// <summary>The Referer sent with Moxfield API requests.</summary>
+    public const string Referer = "https://moxfield.com/";
+
+    /// <summary>The accepted content types sent with Moxfield API requests.</summary>
+    public const string Accept = "application/json, text/plain, */*";
+
+    /// <summary>The preferred languages sent with Moxfield API requests.</summary>
+    public const string AcceptLanguage = "en-US,en;q=0.9";
+
     /// <summary>
     /// Tries to extract a deck identifier from a Moxfield URL or raw identifier.
     /// </summary>
