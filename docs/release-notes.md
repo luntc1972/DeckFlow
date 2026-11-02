@@ -22,6 +22,7 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 ### Unreleased — Legal-Commander harvest and per-commander retention
 
+- **Marker backfill:** Admin/Harvest prepares legacy stored-live markers in confirmed, disk-gated 500-deck batches before maintenance counts and operations become available; stopped runs resume from the saved cursor.
 - **Legal-Commander harvest:** bulk, update, and admin URL harvests keep only legal Commander decks, record skip reasons, and use Commander-only discovery filters.
 - **Per-commander retention:** each completed harvest retains the newest decks per commander up to the configured cap. A pruned deck returns only after its commander or main deck changes; sideboard or maybeboard edits leave it pruned.
 - **Retention maintenance:** Admin/Harvest previews the rollout counts and enforces Purge, Drain, then Refetch, with confirmations, stoppable paced batches, and a free-disk floor.
