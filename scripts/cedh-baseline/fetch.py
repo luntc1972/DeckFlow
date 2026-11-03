@@ -176,39 +176,7 @@ class TopDeckClient:
             },
             method="POST" if payload is not None else "GET",
         )
-        for attempt in range(4):
-            time.sleep(max(0.0, self.next_request - time.monotonic()))
-            self.next_request = time.monotonic() + 1.05
-            try:
-                with urllib.request.urlopen(request, timeout=60) as response:
-                    result = json.loads(response.read().decode("utf-8"))
-                if not isinstance(result, list):
-                    raise RuntimeError("TopDeck returned an unexpected response; expected a list.")
-                return result
-            except urllib.error.HTTPError as exc:
-                if exc.code in {429, 500, 502, 503, 504} and attempt < 3:
-                    delay = float(2 ** attempt)
-                    retry_after = exc.headers.get("Retry-After")
-                    if retry_after:
-                        try:
-                            delay = max(delay, float(retry_after))
-                        except ValueError:
-                            try:
-                                cooldown = email.utils.parsedate_to_datetime(retry_after)
-                                delay = max(delay, cooldown.timestamp() - time.time())
-                            except (TypeError, ValueError, OverflowError):
-                                pass
-                    time.sleep(delay)
-                    continue
-                raise RuntimeError(f"TopDeck request failed (HTTP {exc.code}).") from None
-            # Reads and truncated JSON bodies can fail after the connection opens.
-            except (urllib.error.URLError, ConnectionError, TimeoutError,
-                    http.client.HTTPException, json.JSONDecodeError):
-                if attempt < 3:
-                    time.sleep(1.0 + attempt)
-                    continue
-                raise RuntimeError("TopDeck request failed after four attempts.") from None
-        raise RuntimeError("TopDeck request exhausted retries.")
+        return request_json_with_retries(request, topdeck=self)
 
     def standings(self, tid: str) -> list[dict[str, Any]]:
         # Hash IDs so remote tournament names can never become local paths.
@@ -273,6 +241,24 @@ def text_deck_sections(decklist: str) -> dict[str, dict[str, dict[str, int]]]:
     return sections
 
 
+def commander_names(row: dict[str, Any], commanders: dict[str, Any]) -> list[str]:
+    names = [name for raw_name in commanders if (name := normalize_name(raw_name))]
+    if not names:
+        # Structured commander sections are authoritative for partner boundaries.
+        names = [name for raw_name in re.split(
+            r"\s+(?:/|\+|&)\s+", row.get("leader") or "",
+        ) if (name := normalize_name(raw_name))]
+    return names
+
+
+def supplement_commander_key(row: dict[str, Any]) -> str:
+    obj = row.get("deckObj") or {}
+    commanders = obj.get("Commanders") or {}
+    if not commanders and not obj.get("Mainboard"):
+        commanders = text_deck_sections(row.get("decklist") or "").get("commanders", {})
+    return " / ".join(commander_names(row, commanders))
+
+
 def map_deck(row: dict[str, Any], size: int, tier: str) -> dict[str, Any] | None:
     obj = row.get("deckObj") or {}
     commanders = obj.get("Commanders") or {}
@@ -281,17 +267,13 @@ def map_deck(row: dict[str, Any], size: int, tier: str) -> dict[str, Any] | None
         sections = text_deck_sections(row.get("decklist") or "")
         commanders = commanders or sections.get("commanders", {})
         mainboard = sections.get("mainboard", {})
-    names = [normalize_name(name) for name in commanders if normalize_name(name)]
-    if not names:
-        # Structured commander sections are authoritative for partner boundaries.
-        names = [normalize_name(name) for name in re.split(
-            r"\s+(?:/|\+|&)\s+", row.get("leader") or "",
-        ) if normalize_name(name)]
+    names = commander_names(row, commanders)
     maindeck = [
-        normalize_name(name)
-        for name, card in mainboard.items()
-        for _ in range(int(card.get("count", 1)))
-        if normalize_name(name)
+        name
+        for raw_name, card in mainboard.items()
+        if (count := int(card.get("count", 1))) > 0
+        if (name := normalize_name(raw_name))
+        for _ in range(count)
     ]
     standing = row.get("standing")
     if not names or not maindeck or standing is None or int(standing) < 1:
@@ -307,7 +289,7 @@ def fetch_all_decks(
 ) -> list[dict[str, Any]]:
     client = TopDeckClient(api_key, cache_dir)
     now = int(dt.datetime.now(dt.timezone.utc).timestamp())
-    scan_since = min(min_date, supplement_min_date) if SUPPLEMENT_COMMANDERS else min_date
+    scan_since = min(min_date, supplement_min_date)
     tournaments = enumerate_tournaments(client, scan_since, now)
     tier_decks: dict[str, list[dict[str, Any]]] = {c["label"]: [] for c in TIER_CONFIGS}
     supplements: list[dict[str, Any]] = []
@@ -325,11 +307,19 @@ def fetch_all_decks(
             float(event["startDate"]), dt.timezone.utc,
         ).date().isoformat()
         for row in rows:
+            standing = row.get("standing")
+            if standing is None or int(standing) < 1:
+                continue
+            tier = tier_for(size, int(standing))
+            keep_tier = tier is not None and event_date >= min_date
+            if not keep_tier and (
+                event_date < supplement_min_date or supplement_commander_key(row) not in wanted
+            ):
+                continue
             deck = map_deck(row, size, "commander-supplement")
             if deck is None:
                 continue
-            tier = tier_for(size, deck["standing"])
-            if tier and event_date >= min_date:
+            if keep_tier:
                 tier_decks[tier].append(dict(deck, tier=tier))
             if event_date >= supplement_min_date and deck["cmdkey"] in wanted:
                 supplements.append(deck)
@@ -363,24 +353,59 @@ def json_request(url: str, payload: dict[str, Any]) -> dict[str, Any]:
         },
         method="POST",
     )
+    return request_json_with_retries(request)
+
+
+def request_json_with_retries(
+    request: urllib.request.Request, *, topdeck: TopDeckClient | None = None,
+) -> Any:
+    network_errors = (urllib.error.URLError,)
+    if topdeck is not None:
+        network_errors += (ConnectionError, TimeoutError, http.client.HTTPException, json.JSONDecodeError)
     for attempt in range(4):
+        if topdeck is not None:
+            time.sleep(max(0.0, topdeck.next_request - time.monotonic()))
+            topdeck.next_request = time.monotonic() + 1.05
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
-                return json.loads(response.read().decode("utf-8"))
+                result = json.loads(response.read().decode("utf-8"))
+            if topdeck is not None and not isinstance(result, list):
+                raise RuntimeError("TopDeck returned an unexpected response; expected a list.")
+            return result
         except urllib.error.HTTPError as exc:
             if exc.code in {429, 500, 502, 503, 504} and attempt < 3:
-                time.sleep(http_retry_delay_seconds(exc, attempt))
+                time.sleep(http_retry_delay_seconds(exc, attempt, topdeck=topdeck is not None))
                 continue
+            if topdeck is not None:
+                raise RuntimeError(f"TopDeck request failed (HTTP {exc.code}).") from None
             raise
-        except urllib.error.URLError:
+        # TopDeck also retries reads and truncated JSON after the connection opens.
+        except network_errors:
             if attempt < 3:
                 time.sleep(1.0 + attempt)
                 continue
+            if topdeck is not None:
+                raise RuntimeError("TopDeck request failed after four attempts.") from None
             raise
+    raise RuntimeError("TopDeck request exhausted retries.")
 
 
-def http_retry_delay_seconds(exc: urllib.error.HTTPError, attempt: int) -> float:
+def http_retry_delay_seconds(
+    exc: urllib.error.HTTPError, attempt: int, *, topdeck: bool = False,
+) -> float:
     retry_after = exc.headers.get("Retry-After")
+    if topdeck:
+        delay = float(2 ** attempt)
+        if retry_after:
+            try:
+                delay = max(delay, float(retry_after))
+            except ValueError:
+                try:
+                    cooldown = email.utils.parsedate_to_datetime(retry_after)
+                    delay = max(delay, cooldown.timestamp() - time.time())
+                except (TypeError, ValueError, OverflowError):
+                    pass
+        return delay
     if retry_after is not None:
         try:
             # Honor upstream cooldowns when provided, but keep the bounded retry loop paced.
@@ -403,15 +428,12 @@ def load_card_cache(cards_path: Path) -> dict[str, dict[str, Any]]:
 
 
 def distinct_card_names(decks: list[dict[str, Any]]) -> list[str]:
-    names: dict[str, None] = {}
-    for deck in decks:
-        for name in deck["commanders"]:
-            if name:
-                names.setdefault(name, None)
-        for name in deck["maindeck"]:
-            if name:
-                names.setdefault(name, None)
-    return list(names)
+    return list(dict.fromkeys(
+        name
+        for deck in decks
+        for name in (*deck["commanders"], *deck["maindeck"])
+        if name
+    ))
 
 
 def resolve_missing_cards(

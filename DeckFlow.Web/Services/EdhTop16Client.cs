@@ -86,11 +86,9 @@ public sealed class EdhTop16Client : IEdhTop16Client
 
         var trimmedCommanderName = commanderName.Trim();
 
-        var request = new RestRequest(string.Empty, Method.Post);
-        request.AddHeader("Content-Type", "application/json");
-        request.AddJsonBody(new
-        {
-            variables = new
+        var payload = await PostPersistedQueryAsync<EdhTop16GraphQlResponse>(
+            CommanderEntriesQueryId,
+            new
             {
                 commander = trimmedCommanderName,
                 sortBy = sortBy.ToString(),
@@ -98,26 +96,7 @@ public sealed class EdhTop16Client : IEdhTop16Client
                 minEventSize,
                 maxStanding
             },
-            extensions = new Dictionary<string, string> { ["pastoria-id"] = CommanderEntriesQueryId }
-        });
-
-        var response = await _executeAsync(request, cancellationToken).ConfigureAwait(false);
-        var statusCode = (int)response.StatusCode;
-        if (statusCode is < 200 or >= 300 || string.IsNullOrWhiteSpace(response.Content))
-        {
-            throw new HttpRequestException(
-                $"EDH Top 16 request failed with HTTP {statusCode}.",
-                null,
-                response.StatusCode);
-        }
-
-        var payload = JsonSerializer.Deserialize<EdhTop16GraphQlResponse>(response.Content, JsonOptions)
-            ?? throw new InvalidOperationException("EDH Top 16 returned an unreadable response payload.");
-
-        if (payload.Errors.Count > 0)
-        {
-            throw new InvalidOperationException(GetErrorMessage(payload.Errors[0]));
-        }
+            cancellationToken).ConfigureAwait(false);
 
         if (payload.Data?.Commander is null)
         {
@@ -149,35 +128,10 @@ public sealed class EdhTop16Client : IEdhTop16Client
             throw new InvalidOperationException("At least one EDH Top 16 entry must be requested.");
         }
 
-        var request = new RestRequest(string.Empty, Method.Post);
-        request.AddHeader("Content-Type", "application/json");
-        request.AddJsonBody(new
-        {
-            variables = new
-            {
-                sortBy = "POPULARITY",
-                timePeriod = "SIX_MONTHS"
-            },
-            extensions = new Dictionary<string, string> { ["pastoria-id"] = TopCommandersQueryId }
-        });
-
-        var response = await _executeAsync(request, cancellationToken).ConfigureAwait(false);
-        var statusCode = (int)response.StatusCode;
-        if (statusCode is < 200 or >= 300 || string.IsNullOrWhiteSpace(response.Content))
-        {
-            throw new HttpRequestException(
-                $"EDH Top 16 request failed with HTTP {statusCode}.",
-                null,
-                response.StatusCode);
-        }
-
-        var payload = JsonSerializer.Deserialize<EdhTop16TopArchetypesGraphQlResponse>(response.Content, JsonOptions)
-            ?? throw new InvalidOperationException("EDH Top 16 returned an unreadable response payload.");
-
-        if (payload.Errors.Count > 0)
-        {
-            throw new InvalidOperationException(GetErrorMessage(payload.Errors[0]));
-        }
+        var payload = await PostPersistedQueryAsync<EdhTop16TopArchetypesGraphQlResponse>(
+            TopCommandersQueryId,
+            new { sortBy = "POPULARITY", timePeriod = "SIX_MONTHS" },
+            cancellationToken).ConfigureAwait(false);
 
         return payload.Data?.Commanders?.Edges?
             .Select(edge => edge.Node)
@@ -197,22 +151,9 @@ public sealed class EdhTop16Client : IEdhTop16Client
 
         try
         {
-            var request = new RestRequest(string.Empty, Method.Post);
-            request.AddHeader("Content-Type", "application/json");
-            request.AddJsonBody(new
-            {
-                variables = new { entry = entryId },
-                extensions = new Dictionary<string, string> { ["pastoria-id"] = DecklistQueryId }
-            });
-
-            var response = await _executeAsync(request, cancellationToken).ConfigureAwait(false);
-            if ((int)response.StatusCode is < 200 or >= 300 || string.IsNullOrWhiteSpace(response.Content))
-            {
-                return Array.Empty<EdhTop16Card>();
-            }
-
-            var payload = JsonSerializer.Deserialize<EdhTop16DecklistGraphQlResponse>(response.Content, JsonOptions);
-            if (payload?.Errors.Count > 0 || payload?.Data?.Entry is null)
+            var payload = await PostPersistedQueryAsync<EdhTop16DecklistGraphQlResponse>(
+                DecklistQueryId, new { entry = entryId }, cancellationToken).ConfigureAwait(false);
+            if (payload.Data?.Entry is null)
             {
                 return Array.Empty<EdhTop16Card>();
             }
@@ -227,6 +168,52 @@ public sealed class EdhTop16Client : IEdhTop16Client
             // A missing decklist must not hide an otherwise useful tournament finish.
             return Array.Empty<EdhTop16Card>();
         }
+    }
+
+    private async Task<T> PostPersistedQueryAsync<T>(string queryId, object variables, CancellationToken cancellationToken)
+        where T : EdhTop16Response, new()
+    {
+        var request = new RestRequest(string.Empty, Method.Post);
+        request.AddHeader("Content-Type", "application/json");
+        request.AddJsonBody(new
+        {
+            variables,
+            extensions = new Dictionary<string, string> { ["pastoria-id"] = queryId }
+        });
+
+        // Decklist response failures return empty data even when cancellation has been requested.
+        var isDecklist = queryId == DecklistQueryId;
+        var response = await _executeAsync(request, cancellationToken).ConfigureAwait(false);
+        var statusCode = (int)response.StatusCode;
+        if (statusCode is < 200 or >= 300 || string.IsNullOrWhiteSpace(response.Content))
+        {
+            if (isDecklist)
+            {
+                return new T();
+            }
+
+            throw new HttpRequestException(
+                $"EDH Top 16 request failed with HTTP {statusCode}.",
+                null,
+                response.StatusCode);
+        }
+
+        var payload = JsonSerializer.Deserialize<T>(response.Content, JsonOptions);
+        if (payload is null)
+        {
+            return isDecklist
+                ? new T()
+                : throw new InvalidOperationException("EDH Top 16 returned an unreadable response payload.");
+        }
+
+        if (payload.Errors.Count > 0)
+        {
+            return isDecklist
+                ? new T()
+                : throw new InvalidOperationException(GetErrorMessage(payload.Errors[0]));
+        }
+
+        return payload;
     }
 
     private static bool TryDecodeEntryId(string? encodedEntryId, out int entryId)
@@ -313,12 +300,16 @@ public sealed class EdhTop16Client : IEdhTop16Client
             MainDeck = Array.Empty<EdhTop16Card>()
         };
 
+    /// <summary>Holds GraphQL errors shared by persisted-query responses.</summary>
+    private abstract class EdhTop16Response
+    {
+        public List<JsonElement> Errors { get; init; } = new();
+    }
+
     /// <summary>Deserializes EDHTop16 commander-entry data and GraphQL errors from the remote response.</summary>
-    private sealed class EdhTop16GraphQlResponse
+    private sealed class EdhTop16GraphQlResponse : EdhTop16Response
     {
         public EdhTop16GraphQlData? Data { get; init; }
-
-        public List<JsonElement> Errors { get; init; } = new();
     }
 
     /// <summary>Holds the commander node returned by an EDHTop16 deck-entry query.</summary>
@@ -328,11 +319,9 @@ public sealed class EdhTop16Client : IEdhTop16Client
     }
 
     /// <summary>Deserializes EDHTop16 archetype data and GraphQL errors from the remote response.</summary>
-    private sealed class EdhTop16TopArchetypesGraphQlResponse
+    private sealed class EdhTop16TopArchetypesGraphQlResponse : EdhTop16Response
     {
         public EdhTop16TopArchetypesData? Data { get; init; }
-
-        public List<JsonElement> Errors { get; init; } = new();
     }
 
     /// <summary>Holds the commander connection returned by an EDHTop16 top-archetypes query.</summary>
@@ -342,11 +331,9 @@ public sealed class EdhTop16Client : IEdhTop16Client
     }
 
     /// <summary>Deserializes decklist cards for a single EDHTop16 tournament entry.</summary>
-    private sealed class EdhTop16DecklistGraphQlResponse
+    private sealed class EdhTop16DecklistGraphQlResponse : EdhTop16Response
     {
         public EdhTop16DecklistGraphQlData? Data { get; init; }
-
-        public List<JsonElement> Errors { get; init; } = new();
     }
 
     /// <summary>Holds the entry node returned by an EDHTop16 decklist query.</summary>
