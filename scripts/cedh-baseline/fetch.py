@@ -1,29 +1,36 @@
 #!/usr/bin/env python3
-"""Fetch EDHTop16 cEDH calibration decks and resolve cards through Scryfall."""
+"""Fetch TopDeck.gg cEDH calibration decks and resolve cards through Scryfall."""
 
 from __future__ import annotations
 
 import argparse
 import calendar
 import datetime as dt
+import email.utils
+import hashlib
+import http.client
 import json
+import os
+import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 
-EDHTOP16_URL = "https://edhtop16.com/api/graphql"
+TOPDECK_URL = "https://topdeck.gg/api"
 SCRYFALL_COLLECTION_URL = "https://api.scryfall.com/cards/collection"
 USER_AGENT = "DeckFlow-cEDH-baseline/1.0 (+https://github.com/luntc1972/DeckFlow)"
 COLLECTION_BATCH_SIZE = 75
 # Mirror ScryfallThrottle's 200ms pace (~5 req/sec) to leave headroom for 429 burst detection.
 COLLECTION_BATCH_DELAY_SECONDS = 0.2
-PAGE_SIZE = 100
 SUPPLEMENT_LOOKBACK_MONTHS = 12
-# Commanders too low-play for the size-tiered fetch; pulled via commander-specific search.
+# Allow isolated player typos, but reject widespread resolution loss that could bias the baseline.
+MAX_UNRESOLVED_DECK_FRACTION = 0.02
+# Commanders too low-play for the size-tiered fetch; pulled by scanning the longer supplement window.
 SUPPLEMENT_COMMANDERS = ["Plagon, Lord of the Beach"]
 
 TIER_CONFIGS = [
@@ -44,51 +51,15 @@ TIER_CONFIGS = [
     },
 ]
 
-TOURNAMENTS_QUERY = """
-query Tournaments($first: Int!, $after: String, $minDate: String!, $minSize: Int, $maxSize: Int, $maxStanding: Int) {
-  tournaments(
-    first: $first
-    after: $after
-    filters: { minDate: $minDate, minSize: $minSize, maxSize: $maxSize }
-    sortBy: DATE
-  ) {
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-    edges {
-      node {
-        size
-        tournamentDate
-        entries(maxStanding: $maxStanding) {
-          standing
-          commander { name }
-          maindeck { name }
-        }
-      }
-    }
-  }
-}
-""".strip()
-
-COMMANDER_ENTRIES_QUERY = """
-query($name:String!, $first:Int!, $after:String){
-  commander(name:$name){ name
-    entries(first:$first, after:$after){
-      edges{ node{ standing maindeck{ name } tournament{ tournamentDate size } } }
-      pageInfo{ hasNextPage endCursor } } } }
-""".strip()
-
-
 def main() -> int:
     args = parse_args()
+    api_key = os.environ.get("TOPDECK_API_KEY", "").strip()
+    if not api_key:
+        raise SystemExit("TOPDECK_API_KEY is required for TopDeck.gg v2 requests.")
     outdir = Path(args.outdir)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    decks = fetch_all_decks(args.since, args.supplement_since)
-    write_json(outdir / "decks_all.json", decks)
-    print(f"Wrote {outdir / 'decks_all.json'} with {len(decks)} decks.")
-
+    decks = fetch_all_decks(args.since, args.supplement_since, outdir / "topdeck_cache", api_key)
     cards_path = outdir / "cards_full.json"
     card_cache = load_card_cache(cards_path)
     all_names = distinct_card_names(decks)
@@ -100,20 +71,36 @@ def main() -> int:
     resolve_missing_cards(missing_names, card_cache, cards_path)
     print(f"Wrote {cards_path} with {len(card_cache)} cached cards.")
 
-    # Gate: the baseline builder counts lands off resolved cards, so an unresolved name is a
-    # silently dropped card, not a cosmetic warning. Modal-DFC lands resolving as "missing" once
-    # under-counted ~1.9 lands/deck across the whole 2026-07 snapshot. Fail closed instead.
-    unresolved = sorted(name for name in all_names if name not in card_cache)
-    if unresolved:
+    # Drop whole decks so unresolved cards can never under-count their land totals.
+    retained_decks = []
+    unresolved_names: set[str] = set()
+    for deck in decks:
+        unresolved = sorted({
+            name for name in deck["maindeck"] + deck["commanders"]
+            if name not in card_cache
+        })
+        if unresolved:
+            unresolved_names.update(unresolved)
+            print(
+                f"Dropped deck: {deck['cmdkey']} | {deck['tier']} | "
+                f"unresolved: {', '.join(unresolved)}",
+                file=sys.stderr,
+            )
+        else:
+            retained_decks.append(deck)
+
+    dropped_count = len(decks) - len(retained_decks)
+    write_json(outdir / "decks_all.json", retained_decks)
+    print(f"Wrote {outdir / 'decks_all.json'} with {len(retained_decks)} decks.")
+    if dropped_count:
+        print(f"Dropped {dropped_count} of {len(decks)} decks with unresolved cards.", file=sys.stderr)
+        print(f"Distinct unresolved names: {', '.join(sorted(unresolved_names))}", file=sys.stderr)
+    if dropped_count > MAX_UNRESOLVED_DECK_FRACTION * len(decks):
         print(
-            f"ERROR: {len(unresolved)} of {len(all_names)} card names did not resolve. "
-            f"The baseline would under-count these cards, so refusing to continue.",
+            f"ERROR: Dropped {dropped_count} of {len(decks)} decks with unresolved cards. "
+            f"This exceeds the {MAX_UNRESOLVED_DECK_FRACTION:.0%} limit, so refusing to continue.",
             file=sys.stderr,
         )
-        for name in unresolved[:20]:
-            print(f"  unresolved: {name}", file=sys.stderr)
-        if len(unresolved) > 20:
-            print(f"  ... and {len(unresolved) - 20} more.", file=sys.stderr)
         return 1
 
     return 0
@@ -169,155 +156,200 @@ def months_ago(months: int) -> str:
     return dt.date(year, month, day).isoformat()
 
 
-def fetch_all_decks(min_date: str, supplement_min_date: str) -> list[dict[str, Any]]:
-    decks: list[dict[str, Any]] = []
-    for config in TIER_CONFIGS:
-        tier_decks = fetch_tier(config, min_date)
-        print(f"Fetched {len(tier_decks)} decks for {config['label']}.", file=sys.stderr)
-        decks.extend(tier_decks)
-    supplement_decks = fetch_supplement_decks(supplement_min_date, decks)
-    if supplement_decks:
-        print(f"Fetched {len(supplement_decks)} supplement decks.", file=sys.stderr)
-        decks.extend(supplement_decks)
-    return decks
+class TopDeckClient:
+    """Paced TopDeck v2 requests with resumable, per-tournament standings."""
 
+    def __init__(self, api_key: str, cache_dir: Path):
+        self.api_key = api_key
+        self.cache_dir = cache_dir
+        self.next_request = 0.0
 
-def fetch_tier(config: dict[str, Any], min_date: str) -> list[dict[str, Any]]:
-    after: str | None = None
-    decks: list[dict[str, Any]] = []
-    while True:
-        variables = {
-            "first": PAGE_SIZE,
-            "after": after,
-            "minDate": min_date,
-            "minSize": config["filters"].get("minSize"),
-            "maxSize": config["filters"].get("maxSize"),
-            "maxStanding": config["maxStanding"],
-        }
-        payload = graphql_request(TOURNAMENTS_QUERY, variables)
-        tournaments = payload["data"]["tournaments"]
-        for edge in tournaments["edges"]:
-            node = edge["node"]
-            for entry in node.get("entries", []):
-                commander_name = normalize_name(entry["commander"]["name"])
-                if not commander_name:
+    def request(self, path: str, payload: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        request = urllib.request.Request(
+            TOPDECK_URL + path,
+            data=json.dumps(payload).encode("utf-8") if payload is not None else None,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": self.api_key,
+                "User-Agent": USER_AGENT,
+            },
+            method="POST" if payload is not None else "GET",
+        )
+        for attempt in range(4):
+            time.sleep(max(0.0, self.next_request - time.monotonic()))
+            self.next_request = time.monotonic() + 1.05
+            try:
+                with urllib.request.urlopen(request, timeout=60) as response:
+                    result = json.loads(response.read().decode("utf-8"))
+                if not isinstance(result, list):
+                    raise RuntimeError("TopDeck returned an unexpected response; expected a list.")
+                return result
+            except urllib.error.HTTPError as exc:
+                if exc.code in {429, 500, 502, 503, 504} and attempt < 3:
+                    delay = float(2 ** attempt)
+                    retry_after = exc.headers.get("Retry-After")
+                    if retry_after:
+                        try:
+                            delay = max(delay, float(retry_after))
+                        except ValueError:
+                            try:
+                                cooldown = email.utils.parsedate_to_datetime(retry_after)
+                                delay = max(delay, cooldown.timestamp() - time.time())
+                            except (TypeError, ValueError, OverflowError):
+                                pass
+                    time.sleep(delay)
                     continue
-                commanders = [name for name in commander_name.split(" / ") if name]
-                maindeck = [
-                    name
-                    for name in (normalize_name(card["name"]) for card in entry.get("maindeck", []))
-                    if name
-                ]
-                decks.append(
-                    {
-                        "tier": config["label"],
-                        "size": node["size"],
-                        "cmdkey": " / ".join(commanders),
-                        "commanders": commanders,
-                        "standing": entry["standing"],
-                        "maindeck": maindeck,
-                    }
-                )
+                raise RuntimeError(f"TopDeck request failed (HTTP {exc.code}).") from None
+            # Reads and truncated JSON bodies can fail after the connection opens.
+            except (urllib.error.URLError, ConnectionError, TimeoutError,
+                    http.client.HTTPException, json.JSONDecodeError):
+                if attempt < 3:
+                    time.sleep(1.0 + attempt)
+                    continue
+                raise RuntimeError("TopDeck request failed after four attempts.") from None
+        raise RuntimeError("TopDeck request exhausted retries.")
 
-        page_info = tournaments["pageInfo"]
-        if not page_info["hasNextPage"]:
-            break
-        after = page_info["endCursor"]
-    return decks
-
-
-def fetch_supplement_decks(min_date: str, existing_decks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if not SUPPLEMENT_COMMANDERS:
-        return []
-
-    min_date_value = dt.date.fromisoformat(min_date)
-    seen = {
-        deck_identity(deck["cmdkey"], deck["maindeck"])
-        for deck in existing_decks
-    }
-    decks: list[dict[str, Any]] = []
-    for commander_name in SUPPLEMENT_COMMANDERS:
-        commander_decks = fetch_commander_entries(commander_name, min_date_value, seen)
-        print(
-            f"Fetched {len(commander_decks)} supplement decks for {commander_name}.",
-            file=sys.stderr,
-        )
-        decks.extend(commander_decks)
-    return decks
+    def standings(self, tid: str) -> list[dict[str, Any]]:
+        # Hash IDs so remote tournament names can never become local paths.
+        path = self.cache_dir / (hashlib.sha256(tid.encode("utf-8")).hexdigest() + ".json")
+        if path.exists():
+            rows = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(rows, list):
+                raise RuntimeError(f"Invalid TopDeck standings cache: {path}")
+            return rows
+        rows = self.request(f"/v2/tournaments/{urllib.parse.quote(tid, safe='')}/standings")
+        # Interrupted writes must not leave a cache file that looks complete.
+        temporary = path.with_suffix(".tmp")
+        write_json(temporary, rows)
+        temporary.replace(path)
+        return rows
 
 
-def fetch_commander_entries(
-    commander_name: str,
-    min_date: dt.date,
-    seen: set[tuple[str, tuple[str, ...]]],
+def enumerate_tournaments(
+    client: TopDeckClient, min_date: str, now: int,
 ) -> list[dict[str, Any]]:
-    after: str | None = None
-    decks: list[dict[str, Any]] = []
-    normalized_commander = normalize_name(commander_name)
-    if not normalized_commander:
-        return decks
-
-    while True:
-        payload = graphql_request(
-            COMMANDER_ENTRIES_QUERY,
-            {"name": normalized_commander, "first": PAGE_SIZE, "after": after},
-        )
-        commander = payload["data"].get("commander")
-        if commander is None:
-            break
-
-        entries = commander["entries"]
-        for edge in entries["edges"]:
-            node = edge["node"]
-            tournament = node.get("tournament") or {}
-            tournament_date_raw = tournament.get("tournamentDate")
-            if not tournament_date_raw:
+    start = int(dt.datetime.combine(
+        dt.date.fromisoformat(min_date), dt.time.min, tzinfo=dt.timezone.utc,
+    ).timestamp())
+    tournaments: dict[str, dict[str, Any]] = {}
+    while start < now:
+        end = min(start + 7 * 86400, now)
+        events = client.request("/v2/tournaments", {
+            "game": "Magic: The Gathering", "format": "EDH",
+            "start": start, "end": end, "participantMin": 16, "columns": ["id"],
+        })
+        for event in events:
+            event_date = event.get("startDate")
+            if event_date is None or not start <= float(event_date) <= end:
                 continue
-            tournament_date = parse_api_date(tournament_date_raw)
-            if tournament_date < min_date:
+            if not event.get("standings") or len(event["standings"]) < 16:
                 continue
+            tournaments[str(event["TID"])] = event
+        start = end
+    return list(tournaments.values())
 
-            maindeck = [
-                name
-                for name in (normalize_name(card["name"]) for card in node.get("maindeck", []))
-                if name
-            ]
-            deck = {
-                "tier": "commander-supplement",
-                "size": tournament.get("size"),
-                "cmdkey": normalized_commander,
-                "commanders": [normalized_commander],
-                "standing": node["standing"],
-                "maindeck": maindeck,
-            }
-            identity = deck_identity(deck["cmdkey"], deck["maindeck"])
-            if identity in seen:
+
+def tier_for(size: int, standing: int) -> str | None:
+    for config in TIER_CONFIGS:
+        limits = config["filters"]
+        if (limits["minSize"] <= size <= limits.get("maxSize", sys.maxsize)
+                and 1 <= standing <= config["maxStanding"]):
+            return config["label"]
+    return None
+
+
+def text_deck_sections(decklist: str) -> dict[str, dict[str, dict[str, int]]]:
+    sections: dict[str, dict[str, dict[str, int]]] = {}
+    section = ""
+    for line in decklist.splitlines():
+        line = line.strip()
+        if line.startswith("~~") and line.endswith("~~"):
+            section = line.strip("~").casefold()
+        elif section in {"commanders", "mainboard"}:
+            match = re.fullmatch(r"(\d+)\s+(.+)", line)
+            if match:
+                sections.setdefault(section, {})[match[2]] = {"count": int(match[1])}
+    return sections
+
+
+def map_deck(row: dict[str, Any], size: int, tier: str) -> dict[str, Any] | None:
+    obj = row.get("deckObj") or {}
+    commanders = obj.get("Commanders") or {}
+    mainboard = obj.get("Mainboard") or {}
+    if not mainboard:
+        sections = text_deck_sections(row.get("decklist") or "")
+        commanders = commanders or sections.get("commanders", {})
+        mainboard = sections.get("mainboard", {})
+    names = [normalize_name(name) for name in commanders if normalize_name(name)]
+    if not names:
+        # Structured commander sections are authoritative for partner boundaries.
+        names = [normalize_name(name) for name in re.split(
+            r"\s+(?:/|\+|&)\s+", row.get("leader") or "",
+        ) if normalize_name(name)]
+    maindeck = [
+        normalize_name(name)
+        for name, card in mainboard.items()
+        for _ in range(int(card.get("count", 1)))
+        if normalize_name(name)
+    ]
+    standing = row.get("standing")
+    if not names or not maindeck or standing is None or int(standing) < 1:
+        return None
+    return {
+        "tier": tier, "size": size, "cmdkey": " / ".join(names),
+        "commanders": names, "standing": int(standing), "maindeck": maindeck,
+    }
+
+
+def fetch_all_decks(
+    min_date: str, supplement_min_date: str, cache_dir: Path, api_key: str,
+) -> list[dict[str, Any]]:
+    client = TopDeckClient(api_key, cache_dir)
+    now = int(dt.datetime.now(dt.timezone.utc).timestamp())
+    scan_since = min(min_date, supplement_min_date) if SUPPLEMENT_COMMANDERS else min_date
+    tournaments = enumerate_tournaments(client, scan_since, now)
+    tier_decks: dict[str, list[dict[str, Any]]] = {c["label"]: [] for c in TIER_CONFIGS}
+    supplements: list[dict[str, Any]] = []
+    wanted = {normalize_name(name) for name in SUPPLEMENT_COMMANDERS}
+    mismatch_count = 0
+    mismatch_examples: list[str] = []
+    for event in tournaments:
+        size = len(event["standings"])
+        rows = client.standings(str(event["TID"]))
+        if len(rows) != size:
+            mismatch_count += 1
+            if len(mismatch_examples) < 5:
+                mismatch_examples.append(str(event["TID"]))
+        event_date = dt.datetime.fromtimestamp(
+            float(event["startDate"]), dt.timezone.utc,
+        ).date().isoformat()
+        for row in rows:
+            deck = map_deck(row, size, "commander-supplement")
+            if deck is None:
                 continue
+            tier = tier_for(size, deck["standing"])
+            if tier and event_date >= min_date:
+                tier_decks[tier].append(dict(deck, tier=tier))
+            if event_date >= supplement_min_date and deck["cmdkey"] in wanted:
+                supplements.append(deck)
+    examples = f"; examples: {', '.join(mismatch_examples)}" if mismatch_examples else ""
+    print(
+        f"{mismatch_count} tournaments had bulk!=standings player counts{examples}",
+        file=sys.stderr,
+    )
+    decks = [deck for config in TIER_CONFIGS for deck in tier_decks[config["label"]]]
+    seen = {deck_identity(deck["cmdkey"], deck["maindeck"]) for deck in decks}
+    for deck in supplements:
+        identity = deck_identity(deck["cmdkey"], deck["maindeck"])
+        if identity not in seen:
             seen.add(identity)
             decks.append(deck)
-
-        page_info = entries["pageInfo"]
-        if not page_info["hasNextPage"]:
-            break
-        after = page_info["endCursor"]
-
     return decks
 
 
 def deck_identity(cmdkey: str, maindeck: list[str]) -> tuple[str, tuple[str, ...]]:
     return cmdkey, tuple(sorted(maindeck))
-
-
-def parse_api_date(value: str) -> dt.date:
-    return dt.date.fromisoformat(value.split("T", 1)[0])
-
-
-def graphql_request(query: str, variables: dict[str, Any]) -> dict[str, Any]:
-    body = {"query": query, "variables": variables}
-    payload = json_request(EDHTOP16_URL, body)
-    if payload.get("errors"):
-        raise RuntimeError(f"GraphQL request failed: {payload['errors']}")
-    return payload
 
 
 def json_request(url: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -450,7 +482,8 @@ def write_json(path: Path, data: Any) -> None:
 
 
 def normalize_name(name: str | None) -> str:
-    return (name or "").strip()
+    # TopDeck varies underscore counts; Scryfall uses five for _____ Goblin.
+    return re.sub(r"_{3,}", "_____", (name or "").strip())
 
 
 if __name__ == "__main__":

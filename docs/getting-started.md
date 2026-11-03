@@ -22,7 +22,7 @@ DeckFlow setup, development, and deployment guidance.
 
 DeckFlow commits a monthly cEDH land-baseline snapshot under `DeckFlow.Web/Data/cedh-land-baseline/` — the per-commander land-count sample the `analysis.manabase.cedh-land-target` hybrid target reads (see the mana-base analyzer notes). The pipeline is:
 
-1. Refresh `_calib` from EDHTop16 + Scryfall with `python3 scripts/cedh-baseline/fetch.py` (defaults to a **6-month** window; `--since` / `--supplement-since` override). The fetch pulls the size-tiered top-cut results, then runs a **commander-specific search** for each name in `SUPPLEMENT_COMMANDERS` (12-month lookback) so low-play commanders that never reach a usable sample through the tiered pull are still covered — deduped and appended automatically.
+1. Refresh `_calib` from [TopDeck.gg](https://topdeck.gg/) v2 + Scryfall. Set `TOPDECK_API_KEY` through the broker: `python3 ~/.claude/skills/exe-secrets/scripts/secret.py exec TOPDECK_API_KEY --store deckflow_openai --as TOPDECK_API_KEY -- python3 scripts/cedh-baseline/fetch.py --outdir _calib`. Defaults to a **6-month** tier window and a **12-month** supplement scan for `SUPPLEMENT_COMMANDERS`; `--since` / `--supplement-since` override. Weekly enumeration and cached per-tournament standings supply final placements; supplements reuse standings and are deduped automatically. **Attribution follow-up:** visible TopDeck credit and a link to https://topdeck.gg/ are required wherever these data are shown; consuming views still need that follow-up.
 2. Generate the monthly report + JSON snapshot with `dotnet run --project DeckFlow.CLI -- cedh-land-baseline --data _calib --month YYYY-MM`
 3. Commit the new dated `YYYY-MM.md` / `YYYY-MM.json` files plus the refreshed `latest.json`
 

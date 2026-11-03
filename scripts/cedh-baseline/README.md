@@ -5,7 +5,7 @@ Monthly pipeline:
 1. Refresh the calibration cache:
 
    ```bash
-   python3 scripts/cedh-baseline/fetch.py --outdir _calib --since YYYY-MM-DD
+   python3 ~/.claude/skills/exe-secrets/scripts/secret.py exec TOPDECK_API_KEY --store deckflow_openai --as TOPDECK_API_KEY -- python3 scripts/cedh-baseline/fetch.py --outdir _calib --since YYYY-MM-DD
    ```
 
 2. Build the monthly baseline artifacts from the cached `_calib` inputs:
@@ -22,6 +22,10 @@ Monthly pipeline:
 
 Notes:
 
+- Tournament data comes from [TopDeck.gg](https://topdeck.gg/) v2. `TOPDECK_API_KEY` must be set; the broker command above supplies it without exposing it. Authorization uses the raw key, without a Bearer prefix.
+- Enumeration uses weekly windows and minimal columns. Final placements come from per-tournament standings, cached under `<outdir>/topdeck_cache/` for resumable reruns. Requests are paced below 60 per minute, with retries and `Retry-After` handling. Cached standings are reused; remove a tournament cache file to refresh corrected results.
+- **Attribution follow-up:** TopDeck credit and a link to https://topdeck.gg/ must be visible wherever these data are shown. Update consuming views before displaying this data; this script change does not edit views.
+
 - `fetch.py` defaults to a **6-month** window (`--since` today−6mo). The wider window gives lower-play
   cEDH commanders a usable N≥10 sample without much recency loss (land counts are fairly stable);
   the size-tiered fetch (winner / top4 / top16) is what feeds `_calib`.
@@ -35,7 +39,7 @@ Notes:
   dotnet run --project DeckFlow.CLI -- cedh-land-calibrate --data _calib
   ```
 
-### Exception: under-covered commanders (commander search)
+### Exception: under-covered commanders (supplement scan)
 
 Some commanders (e.g. **Plagon, Lord of the Beach**) barely appear in the size-tiered top-cut results, so
 they never reach N≥10 through the normal fetch. `fetch.py` now handles these automatically through the
@@ -43,10 +47,11 @@ module-level `SUPPLEMENT_COMMANDERS` list:
 
 1. The monthly refresh still uses the normal size-tiered fetch for `_calib`, driven by `--since` (default:
    today−6mo).
-2. After that, `fetch.py` runs a commander-specific EDHTop16 search for each name in
-   `SUPPLEMENT_COMMANDERS`, paginates to completion, filters to `--supplement-since` (default: today−12mo),
-   shapes the results as `_calib` deck records, resolves any new cards into `cards_full.json`, and appends
-   the decks to `decks_all.json`.
+2. `fetch.py` scans the same TopDeck.gg tournaments back to `--supplement-since` (default: today−12mo),
+   keeping decks whose commander matches `SUPPLEMENT_COMMANDERS`, regardless of placement. Overlapping
+   windows reuse each tournament's standings without fetching the same TID twice. Supplements are deduped
+   against tier decks and each other using `deck_identity`, labeled `commander-supplement`, and appended
+   to `decks_all.json`; new card names are resolved into `cards_full.json`.
 3. Because the supplement decks are part of `_calib/decks_all.json`, the `cedh-land-baseline` CLI naturally
    reproduces those commanders in `YYYY-MM.json` and `latest.json` on each monthly refresh.
 
@@ -55,12 +60,14 @@ To add another under-covered commander, append the exact commander name to `SUPP
 
 ### Guards
 
-The pipeline fails closed at two points. Neither is advisory.
+The pipeline guards against unresolved cards and baseline drift.
 
-1. **Unresolved cards (`fetch.py`).** Any card name that does not resolve against Scryfall fails
-   the fetch with a non-zero exit. An unresolved name is a silently dropped card: the baseline
-   counts lands off the resolved cache, so unresolved modal-DFC lands under-count the deck. The
-   card cache is written before the failure, so the run stays resumable.
+1. **Unresolved cards (`fetch.py`).** After Scryfall resolution, decks containing an unresolved
+   maindeck or commander name are dropped entirely, so land counts are never under-counted.
+   The final `decks_all.json` contains only resolved decks, including when the gate fails.
+   Stderr reports each dropped deck's commander, tier, and unresolved names, followed by the
+   dropped-deck count and distinct unresolved names. Dropping at most 2% of fetched decks succeeds;
+   dropping more than 2% returns a non-zero exit with an ERROR. The card cache remains resumable.
 
 2. **Drift check (`cedh-land-baseline`).** Before writing any artifact, the new snapshot is
    compared against the committed `latest.json` using the limits in
