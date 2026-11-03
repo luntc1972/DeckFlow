@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using RestSharp;
 using DeckFlow.Web.Models;
@@ -42,35 +43,9 @@ public interface IEdhTop16Client
 public sealed class EdhTop16Client : IEdhTop16Client
 {
     private const string Endpoint = "https://edhtop16.com/api/graphql";
-    private const string CommanderEntriesQuery = """
-        query($name:String!,$first:Int!,$sortBy:EntriesSortBy!,$timePeriod:TimePeriod!,$minEventSize:Int!,$maxStanding:Int){
-          commander(name:$name){
-            name
-            colorId
-            entries(first:$first,sortBy:$sortBy,filters:{timePeriod:$timePeriod,minEventSize:$minEventSize,maxStanding:$maxStanding}){
-              edges{
-                node{
-                  standing
-                  wins
-                  losses
-                  draws
-                  decklist
-                  player{name}
-                  tournament{name tournamentDate size TID}
-                  maindeck{name type}
-                }
-              }
-            }
-          }
-        }
-        """;
-    private const string TopArchetypesQuery = """
-        query($first:Int!,$sortBy:CommandersSortBy!,$timePeriod:TimePeriod!){
-          commanders(first:$first,sortBy:$sortBy,timePeriod:$timePeriod){
-            edges{ node{ name colorId } }
-          }
-        }
-        """;
+    private const string CommanderEntriesQueryId = "124b6abe467f15a68b2a706f3e192fd5";
+    private const string TopCommandersQueryId = "86fac9d8c2353944c65306a21cd17574";
+    private const string DecklistQueryId = "9e246f3401cf45ec6c7ee849dff18c16";
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -115,16 +90,15 @@ public sealed class EdhTop16Client : IEdhTop16Client
         request.AddHeader("Content-Type", "application/json");
         request.AddJsonBody(new
         {
-            query = CommanderEntriesQuery,
             variables = new
             {
-                name = trimmedCommanderName,
-                first = count,
+                commander = trimmedCommanderName,
                 sortBy = sortBy.ToString(),
                 timePeriod = timePeriod.ToString(),
                 minEventSize,
                 maxStanding
-            }
+            },
+            extensions = new Dictionary<string, string> { ["pastoria-id"] = CommanderEntriesQueryId }
         });
 
         var response = await _executeAsync(request, cancellationToken).ConfigureAwait(false);
@@ -142,7 +116,7 @@ public sealed class EdhTop16Client : IEdhTop16Client
 
         if (payload.Errors.Count > 0)
         {
-            throw new InvalidOperationException(payload.Errors[0].Message);
+            throw new InvalidOperationException(GetErrorMessage(payload.Errors[0]));
         }
 
         if (payload.Data?.Commander is null)
@@ -150,12 +124,21 @@ public sealed class EdhTop16Client : IEdhTop16Client
             throw new InvalidOperationException($"No EDH Top 16 commander record was found for {trimmedCommanderName}.");
         }
 
-        return payload.Data.Commander.Entries?.Edges?
+        var nodes = payload.Data.Commander.Entries?.Edges?
             .Select(edge => edge.Node)
             .OfType<EdhTop16EntryNode>()
-            .Select(MapEntry)
+            .Take(count)
             .ToList()
-            ?? new List<EdhTop16Entry>();
+            ?? new List<EdhTop16EntryNode>();
+
+        var entries = new List<EdhTop16Entry>(nodes.Count);
+        foreach (var node in nodes)
+        {
+            var mainDeck = await GetDecklistAsync(node.Id, cancellationToken).ConfigureAwait(false);
+            entries.Add(MapEntry(node, mainDeck));
+        }
+
+        return entries;
     }
 
     /// <inheritdoc/>
@@ -170,13 +153,12 @@ public sealed class EdhTop16Client : IEdhTop16Client
         request.AddHeader("Content-Type", "application/json");
         request.AddJsonBody(new
         {
-            query = TopArchetypesQuery,
             variables = new
             {
-                first = count,
                 sortBy = "POPULARITY",
                 timePeriod = "SIX_MONTHS"
-            }
+            },
+            extensions = new Dictionary<string, string> { ["pastoria-id"] = TopCommandersQueryId }
         });
 
         var response = await _executeAsync(request, cancellationToken).ConfigureAwait(false);
@@ -194,16 +176,84 @@ public sealed class EdhTop16Client : IEdhTop16Client
 
         if (payload.Errors.Count > 0)
         {
-            throw new InvalidOperationException(payload.Errors[0].Message);
+            throw new InvalidOperationException(GetErrorMessage(payload.Errors[0]));
         }
 
         return payload.Data?.Commanders?.Edges?
             .Select(edge => edge.Node)
             .OfType<EdhTop16TopArchetypeNode>()
             .Select(MapArchetype)
+            .Take(count)
             .ToList()
             ?? new List<EdhTop16Entry>();
     }
+
+    private async Task<IReadOnlyList<EdhTop16Card>> GetDecklistAsync(string? encodedEntryId, CancellationToken cancellationToken)
+    {
+        if (!TryDecodeEntryId(encodedEntryId, out var entryId))
+        {
+            return Array.Empty<EdhTop16Card>();
+        }
+
+        try
+        {
+            var request = new RestRequest(string.Empty, Method.Post);
+            request.AddHeader("Content-Type", "application/json");
+            request.AddJsonBody(new
+            {
+                variables = new { entry = entryId },
+                extensions = new Dictionary<string, string> { ["pastoria-id"] = DecklistQueryId }
+            });
+
+            var response = await _executeAsync(request, cancellationToken).ConfigureAwait(false);
+            if ((int)response.StatusCode is < 200 or >= 300 || string.IsNullOrWhiteSpace(response.Content))
+            {
+                return Array.Empty<EdhTop16Card>();
+            }
+
+            var payload = JsonSerializer.Deserialize<EdhTop16DecklistGraphQlResponse>(response.Content, JsonOptions);
+            if (payload?.Errors.Count > 0 || payload?.Data?.Entry is null)
+            {
+                return Array.Empty<EdhTop16Card>();
+            }
+
+            return payload.Data.Entry.DecklistItems
+                .Where(item => !string.IsNullOrWhiteSpace(item.Card?.Name))
+                .SelectMany(item => Enumerable.Repeat(MapCard(item.Card!), Math.Max(item.Count, 1)))
+                .ToList();
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // A missing decklist must not hide an otherwise useful tournament finish.
+            return Array.Empty<EdhTop16Card>();
+        }
+    }
+
+    private static bool TryDecodeEntryId(string? encodedEntryId, out int entryId)
+    {
+        entryId = 0;
+        if (string.IsNullOrWhiteSpace(encodedEntryId))
+        {
+            return false;
+        }
+
+        try
+        {
+            var decodedId = Encoding.UTF8.GetString(Convert.FromBase64String(encodedEntryId));
+            return decodedId.StartsWith("Entry:", StringComparison.Ordinal) && int.TryParse(decodedId["Entry:".Length..], out entryId);
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    private static string GetErrorMessage(JsonElement error)
+        => error.ValueKind == JsonValueKind.String
+            ? error.GetString() ?? "EDH Top 16 returned an unspecified GraphQL error."
+            : error.TryGetProperty("message", out var message)
+                ? message.GetString() ?? "EDH Top 16 returned an unspecified GraphQL error."
+                : "EDH Top 16 returned an unspecified GraphQL error.";
 
     private static DateOnly? ParseDate(string? value)
     {
@@ -230,7 +280,7 @@ public sealed class EdhTop16Client : IEdhTop16Client
         return null;
     }
 
-    private static EdhTop16Entry MapEntry(EdhTop16EntryNode node)
+    private static EdhTop16Entry MapEntry(EdhTop16EntryNode node, IReadOnlyList<EdhTop16Card> mainDeck)
         => new()
         {
             Standing = node.Standing,
@@ -243,10 +293,7 @@ public sealed class EdhTop16Client : IEdhTop16Client
             TournamentId = node.Tournament?.TournamentId ?? string.Empty,
             TournamentDate = ParseDate(node.Tournament?.TournamentDate),
             TournamentSize = node.Tournament?.Size ?? 0,
-            MainDeck = node.MainDeck
-                .Where(card => !string.IsNullOrWhiteSpace(card.Name))
-                .Select(MapCard)
-                .ToList()
+            MainDeck = mainDeck
         };
 
     private static EdhTop16Card MapCard(EdhTop16CardNode card)
@@ -271,7 +318,7 @@ public sealed class EdhTop16Client : IEdhTop16Client
     {
         public EdhTop16GraphQlData? Data { get; init; }
 
-        public List<EdhTop16GraphQlError> Errors { get; init; } = new();
+        public List<JsonElement> Errors { get; init; } = new();
     }
 
     /// <summary>Holds the commander node returned by an EDHTop16 deck-entry query.</summary>
@@ -285,7 +332,7 @@ public sealed class EdhTop16Client : IEdhTop16Client
     {
         public EdhTop16TopArchetypesData? Data { get; init; }
 
-        public List<EdhTop16GraphQlError> Errors { get; init; } = new();
+        public List<JsonElement> Errors { get; init; } = new();
     }
 
     /// <summary>Holds the commander connection returned by an EDHTop16 top-archetypes query.</summary>
@@ -294,10 +341,32 @@ public sealed class EdhTop16Client : IEdhTop16Client
         public EdhTop16TopArchetypeConnection? Commanders { get; init; }
     }
 
-    /// <summary>Captures an EDHTop16 GraphQL error message for request-failure reporting.</summary>
-    private sealed class EdhTop16GraphQlError
+    /// <summary>Deserializes decklist cards for a single EDHTop16 tournament entry.</summary>
+    private sealed class EdhTop16DecklistGraphQlResponse
     {
-        public string Message { get; init; } = string.Empty;
+        public EdhTop16DecklistGraphQlData? Data { get; init; }
+
+        public List<JsonElement> Errors { get; init; } = new();
+    }
+
+    /// <summary>Holds the entry node returned by an EDHTop16 decklist query.</summary>
+    private sealed class EdhTop16DecklistGraphQlData
+    {
+        public EdhTop16DecklistEntryNode? Entry { get; init; }
+    }
+
+    /// <summary>Collects card quantities and cards returned by an EDHTop16 decklist query.</summary>
+    private sealed class EdhTop16DecklistEntryNode
+    {
+        public List<EdhTop16DecklistItemNode> DecklistItems { get; init; } = new();
+    }
+
+    /// <summary>Holds one EDHTop16 decklist card and its count.</summary>
+    private sealed class EdhTop16DecklistItemNode
+    {
+        public int Count { get; init; }
+
+        public EdhTop16CardNode? Card { get; init; }
     }
 
     /// <summary>Provides the tournament-entry connection nested under an EDHTop16 commander query.</summary>
@@ -321,6 +390,8 @@ public sealed class EdhTop16Client : IEdhTop16Client
     /// <summary>Captures placement, record, player, event, and deck cards for one EDHTop16 tournament entry.</summary>
     private sealed class EdhTop16EntryNode
     {
+        public string? Id { get; init; }
+
         public int Standing { get; init; }
 
         public int Wins { get; init; }
@@ -335,7 +406,6 @@ public sealed class EdhTop16Client : IEdhTop16Client
 
         public EdhTop16TournamentNode? Tournament { get; init; }
 
-        public List<EdhTop16CardNode> MainDeck { get; init; } = new();
     }
 
     /// <summary>Provides the player name attached to an EDHTop16 tournament entry.</summary>
