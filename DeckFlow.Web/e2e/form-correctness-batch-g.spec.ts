@@ -243,7 +243,11 @@ test.describe('Bracket — G1 and G4 behind the tool flag', () => {
 
     await selectInputMode(page, 'bracket-input-source', 'PublicUrl');
     await page.locator('#bracket-deck-url').fill(ARCHIDEKT_URL);
-    await page.locator('#bracket-deck-url').press('Enter');
+    // Why: Playwright 1.64's locator.press waits for the navigation the keypress starts, and
+    // the stubbed 204 never commits one, so it hung until the test timeout. The keyboard API
+    // does not wait.
+    await page.locator('#bracket-deck-url').focus();
+    await page.keyboard.press('Enter');
 
     await expect.poll(posted).toBe('/bracket');
 
