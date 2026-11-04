@@ -41,6 +41,7 @@ public class AboutControllerTests
         Assert.Contains("Scryfall", names);
         Assert.Contains("Commander Spellbook", names);
         Assert.Contains("EDH Top 16", names);
+        Assert.Contains("TopDeck.gg", names);
         Assert.Contains("Wizards of the Coast", names);
         Assert.Contains("Archidekt", names);
         Assert.Contains("Moxfield", names);

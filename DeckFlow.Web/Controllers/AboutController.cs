@@ -21,6 +21,7 @@ public sealed class AboutController : Controller
         new CreditEntry("Scryfall", "https://scryfall.com", "card data and rulings"),
         new CreditEntry("Commander Spellbook", "https://commanderspellbook.com", "combo lookup"),
         new CreditEntry("EDH Top 16", "https://edhtop16.com", "cEDH reference lists"),
+        new CreditEntry("TopDeck.gg", "https://topdeck.gg", "cEDH tournament results behind the manabase meta range"),
         new CreditEntry("Wizards of the Coast", "https://magic.wizards.com/en/rules", "mechanic rules text"),
         new CreditEntry("Archidekt", "https://archidekt.com", "category data and deck integration"),
         new CreditEntry("Moxfield", "https://moxfield.com", "deck integration"),

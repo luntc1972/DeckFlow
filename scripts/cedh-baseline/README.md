@@ -24,7 +24,7 @@ Notes:
 
 - Tournament data comes from [TopDeck.gg](https://topdeck.gg/) v2. `TOPDECK_API_KEY` must be set; the broker command above supplies it without exposing it. Authorization uses the raw key, without a Bearer prefix.
 - Enumeration uses weekly windows and minimal columns. Final placements come from per-tournament standings, cached under `<outdir>/topdeck_cache/` for resumable reruns. Requests are paced below 60 per minute, with retries and `Retry-After` handling. Cached standings are reused; remove a tournament cache file to refresh corrected results.
-- **Attribution follow-up:** TopDeck credit and a link to https://topdeck.gg/ must be visible wherever these data are shown. Update consuming views before displaying this data; this script change does not edit views.
+- **Attribution:** TopDeck credit and a link to https://topdeck.gg/ must be visible wherever these data are shown. It is currently shown on the Mana Base cEDH meta range line (`DeckFlow.Web/Views/Deck/Manabase.cshtml`) and in the About page credits (`AboutController.Credits`). Add the same credit to any new view that displays this data.
 
 - `fetch.py` defaults to a **6-month** window (`--since` today−6mo). The wider window gives lower-play
   cEDH commanders a usable N≥10 sample without much recency loss (land counts are fairly stable);
