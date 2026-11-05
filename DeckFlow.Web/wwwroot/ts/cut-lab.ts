@@ -585,10 +585,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    const anchorNav = document.querySelector<HTMLElement>('.cutlab-anchor-nav');
-    if (anchorNav) {
-      anchorNav.parentElement?.insertBefore(scenarios, anchorNav);
-    }
+    const firstPanel = document.querySelector<HTMLElement>('[role="tabpanel"]');
+    firstPanel?.parentElement?.insertBefore(scenarios, firstPanel);
   };
 
   // Why: This is the single writer of step-panel hidden state, without collapse, ARIA or focus behavior.
@@ -673,7 +671,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       activateStepTab(button, true);
     });
     tablist.addEventListener('keydown', event => {
-      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      const arrows = tablist.getAttribute('aria-orientation') === 'vertical'
+        ? ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+        : ['ArrowLeft', 'ArrowRight'];
+      if (![...arrows, 'Home', 'End'].includes(event.key)) {
         return;
       }
 
@@ -689,11 +690,116 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         ? 0
         : event.key === 'End'
           ? enabledTabs.length - 1
-          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + enabledTabs.length) % enabledTabs.length;
+          : (currentIndex + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1) + enabledTabs.length) % enabledTabs.length;
       const nextTab = enabledTabs[nextIndex];
       nextTab.focus();
       activateStepTab(nextTab, false);
     });
+  };
+
+  const referenceRestoreKey = 'cut-lab-reference-restore';
+  let activeReference: { section: HTMLElement; parent: Node; next: ChildNode | null; opener: HTMLElement; heading: HTMLElement | null; headingId: string | null; placeholder: HTMLElement; disclosures: { element: HTMLDetailsElement; open: boolean }[] } | null = null;
+
+  const openReference = (section: HTMLElement, opener: HTMLElement): void => {
+    const dialog = document.getElementById('cut-lab-reference');
+    const body = dialog?.querySelector('[data-cut-lab-reference-body]');
+    if (!(dialog instanceof HTMLDialogElement) || !body || !section.parentNode) return;
+    if (activeReference) {
+      // Why: Links inside a reference may open another section; keep the original visible opener.
+      opener = activeReference.opener;
+      returnReferenceSection();
+    }
+    const heading = section.querySelector<HTMLElement>('h2') ?? section.querySelector<HTMLElement>('summary');
+    // Why: Keep the visible reference's footprint so browser scroll anchoring cannot move the page.
+    const placeholder = document.createElement('div');
+    placeholder.setAttribute('aria-hidden', 'true');
+    placeholder.inert = true;
+    placeholder.style.height = `${section.getBoundingClientRect().height}px`;
+    placeholder.style.margin = window.getComputedStyle(section).margin;
+    placeholder.style.boxSizing = 'border-box';
+    section.before(placeholder);
+    const disclosures = [section, ...section.querySelectorAll('details')]
+      .filter((element): element is HTMLDetailsElement => element instanceof HTMLDetailsElement)
+      .map(element => ({ element, open: element.open }));
+    activeReference = { section, parent: section.parentNode, next: section.nextSibling, opener, heading, headingId: heading?.getAttribute('id') ?? null, placeholder, disclosures };
+    if (heading) {
+      heading.id ||= 'cut-lab-reference-heading';
+      dialog.setAttribute('aria-labelledby', heading.id);
+    }
+    body.appendChild(section);
+    if (section instanceof HTMLDetailsElement) section.open = true;
+    section.querySelectorAll('details').forEach(details => { details.open = true; });
+    if (!dialog.open) dialog.showModal();
+  };
+
+  const returnReferenceSection = (): HTMLElement | null => {
+    if (!activeReference) return null;
+    const { section, parent, next, opener, heading, headingId, placeholder, disclosures } = activeReference;
+    disclosures.forEach(({ element, open }) => { element.open = open; });
+    parent.insertBefore(section, next);
+    placeholder.remove();
+    if (heading) {
+      if (headingId === null) heading.removeAttribute('id');
+      else heading.id = headingId;
+    }
+    activeReference = null;
+    return opener;
+  };
+
+  const attachReferenceHandler = (): void => {
+    const dialog = document.getElementById('cut-lab-reference');
+    if (!(dialog instanceof HTMLDialogElement)) return;
+    activeReference = null;
+    document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-reference-open]').forEach(button => {
+      button.addEventListener('click', () => {
+        const section = document.getElementById(button.dataset.cutLabReferenceOpen ?? '');
+        if (section) openReference(section, button);
+      });
+    });
+    dialog.querySelectorAll<HTMLButtonElement>('[data-cut-lab-reference-close]').forEach(button => {
+      button.addEventListener('click', () => dialog.close());
+    });
+    dialog.addEventListener('click', event => {
+      if (event.target !== dialog) return;
+      const rect = dialog.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+    });
+    dialog.addEventListener('close', () => {
+      returnReferenceSection()?.focus({ preventScroll: true });
+    });
+  };
+
+  const saveReferencePosition = (): void => {
+    // Why: Storage can be denied; recalculation must still submit successfully.
+    try {
+      sessionStorage.setItem(referenceRestoreKey, JSON.stringify({ reference: activeReference?.section.id ?? null, scrollY: window.scrollY }));
+    } catch { /* Storage is optional. */ }
+  };
+
+  const restoreReferencePosition = (): void => {
+    let saved: { reference: string | null; scrollY: number };
+    try {
+      const value = sessionStorage.getItem(referenceRestoreKey);
+      if (!value) return;
+      saved = JSON.parse(value);
+      if (!saved || !Number.isFinite(saved.scrollY)) return;
+    } catch { return; }
+    // Why: deck-sync scrolls after two frames; two further frames make our restoration last.
+    requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.scrollTo({ top: saved.scrollY, behavior: 'instant' });
+      const section = saved.reference ? document.getElementById(saved.reference) : null;
+      const opener = Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-reference-open]'))
+        .find(button => button.dataset.cutLabReferenceOpen === saved.reference)
+        ?? Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-cut-lab-jump-link]'))
+          .find(link => link.getAttribute('href') === `#${saved.reference}`);
+      if (section && opener) openReference(section, opener);
+      try { sessionStorage.removeItem(referenceRestoreKey); } catch { /* Storage is optional. */ }
+    }))));
+  };
+
+  const updateStepOrientation = (): void => {
+    const tablist = document.querySelector<HTMLElement>('.cutlab-step-rail [role="tablist"]');
+    tablist?.setAttribute('aria-orientation', window.matchMedia('(min-width: 1024px)').matches ? 'vertical' : 'horizontal');
   };
 
   const handleAnchorJump = (link: HTMLAnchorElement, event: Event): void => {
@@ -709,10 +815,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     event.preventDefault();
     const targetPanel = target.closest<HTMLElement>('[role="tabpanel"]');
-    const targetTabId = targetPanel?.getAttribute('aria-labelledby');
-    const targetTab = targetTabId ? document.getElementById(targetTabId) : null;
-    if (targetTab instanceof HTMLButtonElement) {
-      activateStepTab(targetTab, false);
+    const currentPanel = link.closest('[role="tabpanel"]');
+    const isReference = ['cut-lab-section-role-floors', 'cut-lab-section-structural', 'cut-lab-section-constraints'].includes(target.id);
+    if (isReference || (targetPanel && targetPanel !== currentPanel)) {
+      // Why: Even the competes hint opens a reference, preserving the current mode and scroll.
+      openReference(target, link);
+      return;
     }
     expandJumpTarget(target);
     scrollJumpTargetIntoView(target);
@@ -723,7 +831,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const attachAnchorNavHandler = (): void => {
-    document.querySelectorAll<HTMLAnchorElement>('.cutlab-anchor-nav a[href^="#"], [data-cut-lab-jump-link][href^="#"]').forEach(link => {
+    document.querySelectorAll<HTMLAnchorElement>('[data-cut-lab-jump-link][href^="#"]').forEach(link => {
       link.addEventListener('click', event => handleAnchorJump(link, event));
     });
   };
@@ -1077,7 +1185,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     const stickyCandidates = [
-      document.querySelector<HTMLElement>('nav.cutlab-anchor-nav'),
       document.querySelector<HTMLElement>('.cutlab-sticky-bar[data-cut-lab-sticky-target]'),
     ];
     const offset = stickyCandidates.reduce((total, candidate) => {
@@ -1090,7 +1197,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         ? total + candidate.getBoundingClientRect().height
         : total;
     }, 0);
-    document.documentElement.style.setProperty('--cutlab-pinned-offset', `${offset}px`);
+    document.documentElement.style.setProperty('--cutlab-pinned-offset', `${Math.floor(offset)}px`);
   };
 
   const getLockedOvershootAdvisory = (): HTMLDivElement | null =>
@@ -4942,6 +5049,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       if (target.closest('[data-cut-lab-recalculate]')) {
+        saveReferencePosition();
         getForm()?.requestSubmit();
       }
     });
@@ -5222,6 +5330,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       event.preventDefault();
       writeStateToHiddenInput();
+      saveReferencePosition();
       getForm()?.requestSubmit();
     });
   };
@@ -5298,7 +5407,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     attachSectionCollapsePersistence();
     relocateScenarioSection();
     attachStepTabHandler();
+    attachReferenceHandler();
     attachAnchorNavHandler();
+    updateStepOrientation();
+    window.addEventListener('resize', updateStepOrientation);
+    restoreReferencePosition();
     updatePinnedProposalOffset();
     window.addEventListener('resize', updatePinnedProposalOffset);
     window.addEventListener('orientationchange', updatePinnedProposalOffset);

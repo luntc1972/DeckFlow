@@ -710,14 +710,12 @@
 
   .cutlab-workspace button:not(.card-picker__add):not(.card-picker__remove),
   .cutlab-workspace .prompt-step-tab,
-  .cutlab-workspace .cutlab-anchor-nav a,
   .cutlab-workspace label.kb-chip,
   .cutlab-workspace .cutlab-collapsible__summary {
     box-sizing: border-box;
     min-height: 44px;
   }
 
-  .cutlab-workspace .cutlab-anchor-nav a,
   .cutlab-workspace label.kb-chip {
     display: inline-flex;
     align-items: center;

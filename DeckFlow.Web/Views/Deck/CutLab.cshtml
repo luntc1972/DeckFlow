@@ -257,7 +257,9 @@
 
     <section class="deck-history-results" data-scroll-on-load>
         <script type="application/json" id="cutlab-card-text-data">@Html.Raw(JsonSerializer.Serialize(Model.BuildCardModalData()))</script>
-        @await Html.PartialAsync("_WorkflowStepTabs", exportTabs)
+        <div class="cutlab-step-rail">
+            @await Html.PartialAsync("_WorkflowStepTabs", exportTabs)
+        </div>
         <div class="toolbar">
             <button type="button" class="run-button" data-cut-lab-session-download>Download session</button>
             <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
@@ -274,26 +276,6 @@
                 </ul>
             </div>
         }
-
-        <nav class="cutlab-anchor-nav" aria-label="Jump to section">
-            <p class="cutlab-anchor-nav-label">On this page</p>
-            <ul class="cutlab-anchor-nav-list">
-                <li><a href="#cut-lab-step-panel-1">Process</a></li>
-                <li><a href="#cut-lab-section-constraints">Constraints</a></li>
-                <li><a href="#cut-lab-section-lock-pool">Lock your pool</a></li>
-                <li><a href="#cut-lab-section-competes">How your pool competes</a></li>
-                <li><a href="#cut-lab-section-by-type">By type</a></li>
-                <li><a href="#cut-lab-section-by-subtype">By subtype</a></li>
-                <li><a href="#cut-lab-section-structural">Structural findings</a></li>
-                <li><a href="#cut-lab-section-role-floors">Role floors</a></li>
-                <li><a href="#cut-lab-step-panel-2">Decide</a></li>
-                <li><a href="#cut-lab-section-cut-rounds">Cut rounds</a></li>
-                <li><a href="#cut-lab-section-tune">Tune quantities</a></li>
-                <li><a href="#cut-lab-section-cuts-made">Cuts made</a></li>
-                <li><a href="#cut-lab-section-goals">Goals</a></li>
-                <li><a href="#cut-lab-section-export">Export</a></li>
-            </ul>
-        </nav>
 
         <section class="result-panel">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-constraints" open>
@@ -943,6 +925,9 @@
                             <p class="cutlab-proposal__glance">@Model.Proposal.GlanceLine</p>
                         </div>
                         <div class="cutlab-proposal__pinned-actions">
+                            <button type="button" class="clear-cache-button" aria-haspopup="dialog" aria-controls="cut-lab-reference" data-cut-lab-reference-open="cut-lab-section-role-floors">Role floors</button>
+                            <button type="button" class="clear-cache-button" aria-haspopup="dialog" aria-controls="cut-lab-reference" data-cut-lab-reference-open="cut-lab-section-structural">Structural findings</button>
+                            <button type="button" class="clear-cache-button" aria-haspopup="dialog" aria-controls="cut-lab-reference" data-cut-lab-reference-open="cut-lab-section-constraints">Constraints</button>
                             @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "accept", "Accept cut", "accept", $"Accept cut for {Model.Proposal.CardName}"); }
                             @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "reject", "Reject cut", "reject", $"Reject cut for {Model.Proposal.CardName}"); }
                             @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "defer", "Defer decision", "defer", $"Defer cut for {Model.Proposal.CardName}"); }
@@ -1538,6 +1523,12 @@
                 </form>
             </details>
         </section>
+
+        <dialog id="cut-lab-reference" class="cutlab-reference" aria-label="Cut Lab reference">
+            <button type="button" class="clear-cache-button" data-cut-lab-reference-close>Close</button>
+            <div data-cut-lab-reference-body></div>
+            <button type="button" class="run-button" data-cut-lab-reference-close>Back to Cut rounds</button>
+        </dialog>
 
         <dialog id="cutlab-card-modal" class="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
             <div class="cutlab-card-modal__panel">

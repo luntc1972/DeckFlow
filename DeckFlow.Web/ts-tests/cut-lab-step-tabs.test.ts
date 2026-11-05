@@ -28,7 +28,6 @@ const renderFixture = (selectedStep = 1): void => {
     <section role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">Plan</section>
     <section role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">Goals<details id="cut-lab-section-goals" data-cutlab-mobile-collapse></details><details id="cut-lab-section-scenarios"></details></section>
     <section role="tabpanel" id="cut-lab-step-panel-5" aria-labelledby="cut-lab-step-tab-5">Export<details id="cut-lab-section-export" data-cutlab-mobile-collapse></details></section>
-    <nav class="cutlab-anchor-nav"></nav>
     <form id="cut-lab-export-form"></form>
   `;
 };
@@ -91,7 +90,7 @@ describe('cut-lab step tabs', () => {
     const scenarios = document.getElementById('cut-lab-section-scenarios');
     expect(scenarios?.closest('[role="tabpanel"]')).toBeNull();
     expect(scenarios?.closest('[hidden]')).toBeNull();
-    expect(scenarios?.nextElementSibling?.classList.contains('cutlab-anchor-nav')).toBe(true);
+    expect(scenarios?.nextElementSibling?.id).toBe('cut-lab-step-panel-1');
   });
 
   // Killing mutation: M4 - skip the initialization hide
@@ -231,4 +230,20 @@ describe('cut-lab step tabs', () => {
 
     expect(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).toHaveLength(5);
   });
+});
+
+ it('supports vertical arrows and preserves Home and End', () => {
+  renderFixture(2);
+  initialize();
+  const tabs = document.querySelector<HTMLElement>('[role="tablist"]')!;
+  tabs.setAttribute('aria-orientation', 'vertical');
+  const decide = document.getElementById('cut-lab-step-tab-2')!;
+  decide.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  expect(document.activeElement?.id).toBe('cut-lab-step-tab-3');
+  document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+  expect(document.activeElement?.id).toBe('cut-lab-step-tab-2');
+  decide.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+  expect(document.activeElement?.id).toBe('cut-lab-step-tab-1');
+  document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  expect(document.activeElement?.id).toBe('cut-lab-step-tab-5');
 });

@@ -563,6 +563,38 @@ public sealed class CutLabViewRenderTests
         Assert.Contains("340 decks (42.7%) on EDHREC", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ResultView_ReferenceNavigation_RendersDialogAndThreeProposalButtons()
+    {
+        CutLabViewModel model = BuildTwinBadgeModel() with
+        {
+            Proposal = new CutLabProposalView
+            {
+                HasProposal = true,
+                CardName = "Forest",
+                RoundKey = "test-round",
+            },
+        };
+        string html = await RenderAsync(model);
+
+        Assert.DoesNotContain("cutlab-anchor-nav", html, StringComparison.Ordinal);
+        Assert.Matches("<dialog id=\"cut-lab-reference\"[\\s\\S]*?</dialog>\\s*<dialog id=\"cutlab-card-modal\"", html);
+        string actions = Regex.Match(html, "<div class=\"cutlab-proposal__pinned-actions\">[\\s\\S]*?</div>").Value;
+        MatchCollection buttons = Regex.Matches(actions, "<button type=\"button\"[^>]*aria-haspopup=\"dialog\"[^>]*aria-controls=\"cut-lab-reference\"[^>]*>");
+        Assert.Equal(3, buttons.Count);
+        foreach (string section in new[] { "role-floors", "structural", "constraints" })
+        {
+            Assert.Contains($"data-cut-lab-reference-open=\"cut-lab-section-{section}\"", actions, StringComparison.Ordinal);
+        }
+
+        string export = Regex.Match(html, "<button[^>]*id=\"cut-lab-step-tab-5\"[^>]*>").Value;
+        Assert.Contains("type=\"submit\"", export, StringComparison.Ordinal);
+        Assert.Contains("form=\"cut-lab-export-form\"", export, StringComparison.Ordinal);
+        Assert.Contains("id=\"cut-lab-section-role-floors\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"cut-lab-section-structural\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"cut-lab-section-constraints\"", html, StringComparison.Ordinal);
+    }
+
     private const string HeliodRawName = "Heliod, Sun-Crowned";
 
     private static readonly string HeliodNormalizedName = CutLabCardNames.Normalize(HeliodRawName);

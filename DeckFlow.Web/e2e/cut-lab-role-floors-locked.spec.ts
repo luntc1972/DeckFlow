@@ -28,7 +28,6 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: 'Import pool' }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('tab', { name: 'Decide' }).click();
   await expandCutLabSection(page, 'cut-lab-section-role-floors');
   await expect(page.locator('table[data-cut-lab-role-floors-table]')).toBeVisible();
 });

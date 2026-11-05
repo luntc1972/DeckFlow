@@ -85,25 +85,36 @@ public sealed class CutLabMobileLayoutCssTests
     }
 
     [Fact]
-    public void CutLabMobileLayout_UsesTrailingFadeForScrollableAnchorNav()
+    public void CutLabMobileLayout_ReservesSpaceForFixedBottomStepRail()
     {
         string content = ReadSiteCommonCss();
+        int mobileBlockStart = content.LastIndexOf("@media (max-width: 640px)", StringComparison.Ordinal);
+        Assert.True(mobileBlockStart >= 0);
+        string mobileBlock = content[mobileBlockStart..];
+        Match workspaceRule = Regex.Match(
+            mobileBlock,
+            @"body:has\(\.cutlab-workspace \.cutlab-step-rail\)\s*\{(?<properties>[^}]*)\}");
+        Assert.True(workspaceRule.Success);
+        Assert.Contains("padding-bottom: calc(7rem + env(safe-area-inset-bottom));", workspaceRule.Groups["properties"].Value);
+        Match railRule = Regex.Match(
+            mobileBlock,
+            @"\.cutlab-workspace \.cutlab-step-rail\s*\{(?<properties>[^}]*)\}");
+        Assert.True(railRule.Success);
+        Assert.Contains("position: fixed;", railRule.Groups["properties"].Value);
+        Assert.Contains("bottom: 0;", railRule.Groups["properties"].Value);
+    }
 
-        int selectorStart = content.LastIndexOf(
-            "nav.cutlab-anchor-nav .cutlab-anchor-nav-list",
-            content.Length - 1,
-            StringComparison.Ordinal);
-        int mobileBlockStart = content.LastIndexOf(
-            "@media (max-width: 640px)",
-            selectorStart,
-            StringComparison.Ordinal);
-        Match mobileBlock = Regex.Match(
-            content[mobileBlockStart..],
-            @"nav\.cutlab-anchor-nav \.cutlab-anchor-nav-list\s*\{(?<properties>[^}]*)\}");
-
-        Assert.True(mobileBlock.Success);
-        Assert.Contains("mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);", mobileBlock.Groups["properties"].Value);
-        Assert.Contains("-webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);", mobileBlock.Groups["properties"].Value);
+    [Fact]
+    public void CutLabDesktopLayout_DoesNotAddGapsBetweenEmptyRailRows()
+    {
+        string content = ReadSiteCommonCss();
+        int desktopBlockStart = content.LastIndexOf("@media (min-width: 1024px)", StringComparison.Ordinal);
+        string desktopBlock = content[desktopBlockStart..];
+        Match gridRule = Regex.Match(desktopBlock,
+            @"\.cutlab-workspace \.deck-history-results\s*\{(?<properties>[^}]*)\}");
+        Assert.True(gridRule.Success);
+        Assert.Contains("row-gap: 0;", gridRule.Groups["properties"].Value);
+        Assert.Contains("margin-bottom: 1.25rem;", desktopBlock);
     }
 
     private static string ReadSiteMobileCss()
