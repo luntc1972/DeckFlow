@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Headless TEST launcher for DeckFlow web (http://localhost:5173).
+# Headless TEST launcher for DeckFlow web. Port: DECKFLOW_E2E_PORT, else PORT,
+# else 20000 + hash(DeckFlow.Web path) — the same port playwright.config.ts
+# resolves (e2e/support/e2e-port.ts), so Playwright reuses this server.
 #
 # RULE: UI testing must NEVER open a browser on Windows. This script guarantees
 # that by exporting DECKFLOW_DISABLE_AUTO_BROWSER=true (the gate read in
