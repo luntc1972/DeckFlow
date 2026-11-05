@@ -260,6 +260,7 @@ interface CutLabPatchResponse {
 interface CutLabFloorRow {
   roleKey: string;
   inPoolCount: number;
+  lockedCount: number;
   bracketValue: number;
   commanderDisplay: string;
   floor: number;
@@ -1323,6 +1324,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const updateLockedCountChip = (index = buildPoolIndex()): void => {
+    getFloorRows().forEach(({ row }) => {
+      const label = row.querySelector<HTMLElement>('[data-cut-lab-floor-locked-label]');
+      if (label) {
+        label.textContent = `${index.lockedQuantityByRole.get(row.dataset.cutLabFloorRow ?? '') ?? 0} locked`;
+      }
+    });
     const rows = index.rows;
     const poolCount = rows.reduce((total, row) => total + index.entries.get(row)!.quantity, 0);
     const lockedCount = rows.reduce((total, row) => {
@@ -1476,6 +1483,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
+      const lockedLabel = row.querySelector<HTMLElement>('[data-cut-lab-floor-locked-label]');
+      if (lockedLabel) {
+        lockedLabel.textContent = `${floor.lockedCount ?? 0} locked`;
+      }
       row.dataset.cutLabFloorCount = `${floor.inPoolCount}`;
       row.dataset.cutLabFloorDefault = `${floor.defaultValue}`;
       const countLabel = row.querySelector<HTMLElement>('[data-cut-lab-floor-count-label]');
@@ -3607,8 +3618,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
     reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson, options.adjustedCardName !== undefined);
     reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
-    refreshResolvedFloors(patch.resolvedFloors ?? []);
     updateLockedCountChip();
+    // Why: The server-supplied lockedCount must overwrite the client recount.
+    refreshResolvedFloors(patch.resolvedFloors ?? []);
   };
 
   const handleWhatifPreview = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {

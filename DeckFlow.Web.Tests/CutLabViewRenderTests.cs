@@ -60,6 +60,11 @@ public sealed class CutLabViewRenderTests
     {
         var model = BuildTwinBadgeModel() with
         {
+            FloorRows =
+            [
+                new CutLabFloorRowView { RoleKey = "ramp", LockedCount = 2 },
+                new CutLabFloorRowView { RoleKey = "engines", LockedCount = 3 },
+            ],
             FloorFeasibility = new CutLabFloorFeasibilityResult
             {
                 RequiredNonlandSlots = 68,
@@ -70,6 +75,13 @@ public sealed class CutLabViewRenderTests
         };
 
         string html = await RenderAsync(model);
+
+        int inPoolIndex = html.IndexOf("<th scope=\"col\">In pool</th>", StringComparison.Ordinal);
+        int lockedIndex = html.IndexOf("<th scope=\"col\">Locked</th>", StringComparison.Ordinal);
+        Assert.True(inPoolIndex >= 0 && lockedIndex > inPoolIndex);
+        Assert.True(string.IsNullOrWhiteSpace(html[(inPoolIndex + "<th scope=\"col\">In pool</th>".Length)..lockedIndex]));
+        Assert.Contains("<td data-label=\"Locked\">", html, StringComparison.Ordinal);
+        Assert.Contains("data-cut-lab-floor-locked-label>2 locked</span>", html, StringComparison.Ordinal);
 
         int headingIndex = html.IndexOf("<h2>Role floors</h2>", StringComparison.Ordinal);
         int warningIndex = html.IndexOf("data-cut-lab-floor-feasibility", StringComparison.Ordinal);

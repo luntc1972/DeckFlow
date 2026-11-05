@@ -151,7 +151,8 @@ public sealed record CutLabResolvedFloorDto
     public static IReadOnlyList<CutLabResolvedFloorDto> Create(
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
         IReadOnlyDictionary<string, int> countsByRole,
-        string playExperience)
+        string playExperience,
+        IReadOnlyDictionary<string, int>? lockedCountsByRole = null)
         => resolvedFloors.Select(floor =>
         {
             int inPoolCount = countsByRole.TryGetValue(floor.Role, out int count) ? count : 0;
@@ -175,6 +176,7 @@ public sealed record CutLabResolvedFloorDto
             {
                 RoleKey = floor.Role,
                 InPoolCount = inPoolCount,
+                LockedCount = lockedCountsByRole?.GetValueOrDefault(floor.Role) ?? 0,
                 BracketValue = floor.BracketValue,
                 CommanderDisplay = commanderDisplay,
                 Floor = floor.Floor,
@@ -187,6 +189,31 @@ public sealed record CutLabResolvedFloorDto
                     : $"Default for B{floor.ResolvedBracket}: {floor.DefaultValue}",
             };
         }).ToArray();
+
+    /// <summary>Counts locked pool quantities for each assigned role, including commanders.</summary>
+    public static IReadOnlyDictionary<string, int> CountLockedRoles(
+        IReadOnlyList<CutLabPoolCard> pool,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> rolesByCardName)
+    {
+        Dictionary<string, int> counts = new(StringComparer.OrdinalIgnoreCase);
+        foreach (CutLabPoolCard card in pool.Where(card => card.IsLocked || card.IsCommander))
+        {
+            if (!rolesByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles))
+            {
+                continue;
+            }
+
+            foreach (string role in roles.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                counts[role] = counts.GetValueOrDefault(role) + card.Quantity;
+            }
+        }
+
+        return counts;
+    }
+
+    /// <summary>Quantity of locked pool cards filling this role, including commanders.</summary>
+    public int LockedCount { get; init; }
 
     /// <summary>Role identifier used by the floor table.</summary>
     public string RoleKey { get; init; } = string.Empty;

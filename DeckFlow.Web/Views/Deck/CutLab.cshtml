@@ -800,6 +800,7 @@
                         <tr>
                             <th scope="col">Role</th>
                             <th scope="col">In pool</th>
+                            <th scope="col">Locked</th>
                             @if (Model.CommanderFloorsEnabled)
                             {
                                 <th scope="col">Bracket</th>
@@ -823,6 +824,9 @@
                                 <td data-label="In pool">
                                     <span data-cut-lab-floor-count-label>@row.InPoolCount in pool</span>
                                     <span class="cutlab-floor-state--at @(row.AtFloor ? string.Empty : "hidden")" data-cut-lab-floor-at-marker>· at floor</span>
+                                </td>
+                                <td data-label="Locked">
+                                    <span data-cut-lab-floor-locked-label>@row.LockedCount locked</span>
                                 </td>
                                 @if (Model.CommanderFloorsEnabled)
                                 {

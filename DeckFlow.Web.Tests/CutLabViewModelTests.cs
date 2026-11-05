@@ -9,6 +9,40 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabViewModelTests
 {
     [Fact]
+    public void From_LockedMultiRoleCardAndCommander_CountsQuantityForEveryRole()
+    {
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool =
+                [
+                    new CutLabPoolCard { Name = "Dual", Quantity = 2, IsLocked = true },
+                    new CutLabPoolCard { Name = "Commander", Quantity = 1, IsCommander = true },
+                    new CutLabPoolCard { Name = "Unlocked", Quantity = 4 },
+                ],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>
+            {
+                ["Dual"] = ["ramp", "engines"],
+                ["Commander"] = ["engines"],
+                ["Unlocked"] = ["ramp"],
+            },
+            ResolvedFloors =
+            [
+                CreateResolvedFloor("ramp", 1, null, 1, 1),
+                CreateResolvedFloor("engines", 1, null, 1, 1),
+                CreateResolvedFloor("lands", 1, null, 1, 1),
+            ],
+        };
+
+        var model = CutLabViewModel.From(new CutLabRequest(), result);
+
+        Assert.Equal(new[] { 2, 3, 0 }, model.FloorRows.Select(row => row.LockedCount).ToArray());
+    }
+
+    [Fact]
     public void From_InfrastructureProposal_RendersInfrastructureRoundCopy()
     {
         var result = new CutLabProcessResult

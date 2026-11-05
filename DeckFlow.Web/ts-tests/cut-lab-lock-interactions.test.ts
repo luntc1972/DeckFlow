@@ -78,6 +78,32 @@ afterEach(() => {
 });
 
 describe('DeckFlowCutLab', () => {
+  it('recounts locked quantities for every role when a checkbox changes', () => {
+    document.body.innerHTML = `
+      <form data-cache-key="cut-lab">
+        <input type="hidden" name="CutLabStateJson" value="" />
+        <table><tbody>
+          <tr data-cut-lab-card="Dual" data-cut-lab-role="ramp engines" data-cut-lab-quantity="2">
+            <td><input type="checkbox" data-cut-lab-lock-card="Dual" /></td>
+          </tr>
+          <tr data-cut-lab-card="Commander" data-cut-lab-role="engines" data-cut-lab-quantity="1" data-cut-lab-commander="true">
+            <td><input type="checkbox" data-cut-lab-lock-card="Commander" checked disabled /></td>
+          </tr>
+          ${['ramp', 'engines', 'lands'].map(role => `<tr data-cut-lab-floor-row="${role}">
+            <td><input data-cut-lab-floor="${role}" value="0" /></td>
+            <td data-label="Locked"><span data-cut-lab-floor-locked-label>0 locked</span></td>
+          </tr>`).join('')}
+        </tbody></table>
+      </form>`;
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    const labels = () => Array.from(document.querySelectorAll('[data-cut-lab-floor-locked-label]')).map(el => el.textContent);
+    const checkbox = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Dual"]')!;
+    checkbox.click();
+    expect(labels()).toEqual(['2 locked', '3 locked', '0 locked']);
+    checkbox.click();
+    expect(labels()).toEqual(['0 locked', '1 locked', '0 locked']);
+  });
+
   it('computes package checkbox states for checked, unchecked, and mixed members', () => {
     expect(api.computePackageCheckboxState([true, true])).toBe('checked');
     expect(api.computePackageCheckboxState([false, false])).toBe('unchecked');

@@ -340,7 +340,8 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabFindingView> findings = CutLabFindingPresenter.BuildFindings(result.Findings.Findings);
         IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
-        IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
+        IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience,
+            CutLabResolvedFloorDto.CountLockedRoles(pool, result.RoleAssignmentsByCardName));
         CutLabFloorFeasibilityResult? floorFeasibility = CutLabFloorFeasibility.Evaluate(result.ResolvedFloors);
         CutLabPlanPanelView planPanel = BuildPlanPanel(result.State?.Intent.PlanProfile, result.AvailableCommanderThemes, result.CommanderThemesUnavailable, result.ArchetypeSuggestion);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
@@ -545,9 +546,10 @@ public sealed record CutLabViewModel
     internal static IReadOnlyList<CutLabFloorRowView> BuildFloorRows(
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
         IReadOnlyDictionary<string, int> countsByRole,
-        string playExperience)
+        string playExperience,
+        IReadOnlyDictionary<string, int>? lockedCountsByRole = null)
     {
-        IReadOnlyList<CutLabResolvedFloorDto> floorDtos = CutLabResolvedFloorDto.Create(resolvedFloors, countsByRole, playExperience);
+        IReadOnlyList<CutLabResolvedFloorDto> floorDtos = CutLabResolvedFloorDto.Create(resolvedFloors, countsByRole, playExperience, lockedCountsByRole);
 
         return resolvedFloors
             .Zip(floorDtos, (floor, floorDto) =>
@@ -558,6 +560,7 @@ public sealed record CutLabViewModel
                     RoleKey = floorDto.RoleKey,
                     DisplayLabel = DisplayLabelFor(floor.Role),
                     InPoolCount = floorDto.InPoolCount,
+                    LockedCount = floorDto.LockedCount,
                     BracketValue = floorDto.BracketValue,
                     CommanderValue = floor.CommanderValue,
                     SupportsCommanderFloor = supportsCommanderFloor,
@@ -1223,6 +1226,9 @@ public sealed record CutLabFloorRowView
 
     /// <summary>User-facing role label.</summary>
     public string DisplayLabel { get; init; } = string.Empty;
+
+    /// <summary>Quantity of locked pool cards filling the role, including commanders.</summary>
+    public int LockedCount { get; init; }
 
     /// <summary>Current number of pool cards filling the role.</summary>
     public int InPoolCount { get; init; }
