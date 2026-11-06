@@ -40,7 +40,7 @@ public sealed class CutLabMobileLayoutCssTests
             content);
         Assert.Matches(
             new Regex(
-                "\\.cutlab-workspace\\s+label\\.kb-chip|\\.cutlab-workspace\\s+\\.cutlab-anchor-nav\\s+a",
+                "\\.cutlab-workspace\\s+label\\.kb-chip",
                 RegexOptions.Singleline),
             content);
     }

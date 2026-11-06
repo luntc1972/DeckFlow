@@ -772,17 +772,21 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const saveReferencePosition = (): void => {
     // Why: Storage can be denied; recalculation must still submit successfully.
     try {
-      sessionStorage.setItem(referenceRestoreKey, JSON.stringify({ reference: activeReference?.section.id ?? null, scrollY: window.scrollY }));
+      sessionStorage.setItem(referenceRestoreKey, JSON.stringify({ reference: activeReference?.section.id ?? null, scrollY: window.scrollY, savedAt: Date.now() }));
     } catch { /* Storage is optional. */ }
   };
 
   const restoreReferencePosition = (): void => {
-    let saved: { reference: string | null; scrollY: number };
+    let saved: { reference: string | null; scrollY: number; savedAt: number };
     try {
       const value = sessionStorage.getItem(referenceRestoreKey);
       if (!value) return;
       saved = JSON.parse(value);
       if (!saved || !Number.isFinite(saved.scrollY)) return;
+      if (!Number.isFinite(saved.savedAt) || Date.now() - saved.savedAt > 30_000) {
+        sessionStorage.removeItem(referenceRestoreKey);
+        return;
+      }
     } catch { return; }
     // Why: deck-sync scrolls after two frames; two further frames make our restoration last.
     requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => {

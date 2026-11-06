@@ -99,3 +99,27 @@ test('reference tools preserve Decide, scroll, live floors, section position and
   }
   for (const node of originalNodes) await node.dispose();
 });
+
+test('desktop dialogs stay vertically centred', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'Desktop grid regression; mobile uses separate dialog layout.');
+  await page.getByRole('tab', { name: 'Process' }).click();
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await page.locator('[data-cutlab-card-open]').filter({ hasText: 'Command Tower' }).first().click();
+  const cardDialog = page.locator('dialog#cutlab-card-modal');
+  await expect(cardDialog).toHaveAttribute('open', '');
+  const assertCentred = async (selector: string): Promise<void> => {
+    const box = await page.locator(selector).boundingBox();
+    expect(box).not.toBeNull();
+    const top = box!.y;
+    const bottom = page.viewportSize()!.height - (box!.y + box!.height);
+    expect.soft(Math.abs(top - bottom), `${selector}: top=${top}, bottom=${bottom}`).toBeLessThanOrEqual(2);
+  };
+  await assertCentred('dialog#cutlab-card-modal');
+  await page.keyboard.press('Escape');
+  await expect(cardDialog).not.toHaveAttribute('open', '');
+  await page.getByRole('tab', { name: 'Decide' }).click();
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
+  await page.locator('[data-cut-lab-reference-open="cut-lab-section-role-floors"]').click();
+  await expect(page.locator('dialog#cut-lab-reference')).toHaveAttribute('open', '');
+  await assertCentred('dialog#cut-lab-reference');
+});

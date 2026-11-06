@@ -118,14 +118,15 @@ describe('Cut Lab reference navigation', () => {
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 731 });
     opener().click();
     document.querySelector<HTMLButtonElement>('[data-cut-lab-recalculate]')!.click();
-    expect(JSON.parse(sessionStorage.getItem('cut-lab-reference-restore')!)).toEqual({ reference: 'cut-lab-section-role-floors', scrollY: 731 });
+    expect(JSON.parse(sessionStorage.getItem('cut-lab-reference-restore')!)).toEqual({ reference: 'cut-lab-section-role-floors', scrollY: 731, savedAt: expect.any(Number) });
   });
 
   it('restores scroll and reference after four animation frames, then clears storage', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(100_000);
     const frames: FrameRequestCallback[] = [];
     vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => { frames.push(callback); return frames.length; }));
     const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
-    sessionStorage.setItem('cut-lab-reference-restore', JSON.stringify({ reference: 'cut-lab-section-role-floors', scrollY: 731 }));
+    sessionStorage.setItem('cut-lab-reference-restore', JSON.stringify({ reference: 'cut-lab-section-role-floors', scrollY: 731, savedAt: Date.now() - 30_000 }));
     fixture();
     for (let i = 0; i < 3; i++) { frames.shift()!(0); expect(scroll).not.toHaveBeenCalled(); }
     frames.shift()!(0);
@@ -133,4 +134,18 @@ describe('Cut Lab reference navigation', () => {
     expect(dialog().open).toBe(true);
     expect(sessionStorage.getItem('cut-lab-reference-restore')).toBeNull();
   });
+
+  it('discards stale reference restoration without scrolling or opening a dialog', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(100_000);
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => { frames.push(callback); return frames.length; }));
+    const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    sessionStorage.setItem('cut-lab-reference-restore', JSON.stringify({ reference: 'cut-lab-section-role-floors', scrollY: 731, savedAt: Date.now() - 30_001 }));
+    fixture();
+    while (frames.length) frames.shift()!(0);
+    expect(scroll).not.toHaveBeenCalled();
+    expect(dialog().open).toBe(false);
+    expect(sessionStorage.getItem('cut-lab-reference-restore')).toBeNull();
+  });
+
 });
