@@ -2076,7 +2076,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     block.hidden = keys.length === 0;
     const form = block.querySelector<HTMLFormElement>('form');
     if (form) form.hidden = !editable || block.hidden;
-    const availableOptions = getRoleOptions().filter(option => !keys.includes(option.value) && !(entry?.roleLand === 'true' && option.value === 'ramp'));
+    const roleOptions = getRoleOptions();
+    const availableOptions = roleOptions.filter(option => !keys.includes(option.value) && !(entry?.roleLand === 'true' && option.value === 'ramp'));
     const labels = getRoleLabels();
     const chips = block.querySelector<HTMLElement>('[data-cut-lab-role-chips]');
     chips?.replaceChildren();
@@ -2086,7 +2087,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       if (key === 'lands') {
         chip.append(createTextElement('span', 'sr-only', ' (fixed)'));
       }
-      if (editable && getRoleOptions().some(option => option.value === key)) {
+      if (editable && roleOptions.some(option => option.value === key)) {
         const remove = document.createElement('button');
         remove.type = 'button'; remove.dataset.cutLabRoleRemove = key;
         remove.setAttribute('aria-label', `Remove ${label} role`); remove.textContent = '×';
@@ -4798,7 +4799,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const stateJson = getStateInput(form)?.value ?? '';
     const token = getAntiForgeryToken(form);
     const status = block.querySelector<HTMLElement>('[data-cut-lab-role-status]');
-    const controls = Array.from(block.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('input, button, select'));
+    const controls = Array.from(block.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button'));
     controls.push(...Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cutlab-modal-lock], [data-cutlab-modal-close]')));
     const disabled = controls.map(control => control.disabled);
     roleOverrideSubmitInFlight = true; block.setAttribute('aria-busy', 'true');
