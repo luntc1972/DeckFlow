@@ -585,8 +585,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
-    const firstPanel = document.querySelector<HTMLElement>('[role="tabpanel"]');
-    firstPanel?.parentElement?.insertBefore(scenarios, firstPanel);
+    const constraintsPanel = document.getElementById('cut-lab-section-constraints')?.closest('.result-panel');
+    const insertionPoint = constraintsPanel ?? document.querySelector<HTMLElement>('[role="tabpanel"]');
+    // Why: Scenarios precedes Constraints while leaving the step rail first; older layouts fall back to the first panel.
+    insertionPoint?.parentElement?.insertBefore(scenarios, insertionPoint);
   };
 
   // Why: This is the single writer of step-panel hidden state, without collapse, ARIA or focus behavior.

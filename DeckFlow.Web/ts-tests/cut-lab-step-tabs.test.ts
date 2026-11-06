@@ -83,6 +83,29 @@ describe('cut-lab step tabs', () => {
     expect(document.getElementById('cut-lab-step-tab-5')?.getAttribute('aria-selected')).toBe('false');
   });
 
+  it('places scenarios immediately before Constraints and keeps the step rail first', () => {
+    renderFixture(2);
+    const results = document.createElement('div');
+    results.className = 'deck-history-results';
+    results.append(...Array.from(document.body.childNodes));
+    document.body.append(results);
+    const rail = document.createElement('aside');
+    rail.className = 'cutlab-step-rail';
+    results.prepend(rail);
+    const constraints = document.createElement('section');
+    constraints.className = 'result-panel';
+    constraints.innerHTML = '<details id="cut-lab-section-constraints"></details>';
+    results.insertBefore(constraints, document.getElementById('cut-lab-step-panel-1'));
+
+    initialize();
+
+    const scenarios = document.getElementById('cut-lab-section-scenarios')!;
+    expect(scenarios.compareDocumentPosition(constraints) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(scenarios.nextElementSibling).toBe(constraints);
+    expect(results.firstElementChild).toBe(rail);
+    expect(rail.compareDocumentPosition(scenarios) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
   it('moves scenarios outside hidden step panels on initialization', () => {
     renderFixture(2);
     initialize();

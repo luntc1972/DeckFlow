@@ -148,4 +148,17 @@ describe('Cut Lab reference navigation', () => {
     expect(sessionStorage.getItem('cut-lab-reference-restore')).toBeNull();
   });
 
+  it('discards reference restoration without savedAt without scrolling or opening a dialog', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(100_000);
+    const frames: FrameRequestCallback[] = [];
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => { frames.push(callback); return frames.length; }));
+    const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    sessionStorage.setItem('cut-lab-reference-restore', JSON.stringify({ reference: 'cut-lab-section-role-floors', scrollY: 731 }));
+    fixture();
+    while (frames.length) frames.shift()!(0);
+    expect(scroll).not.toHaveBeenCalled();
+    expect(dialog().open).toBe(false);
+    expect(sessionStorage.getItem('cut-lab-reference-restore')).toBeNull();
+  });
+
 });
