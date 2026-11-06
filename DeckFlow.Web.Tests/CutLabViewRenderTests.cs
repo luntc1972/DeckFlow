@@ -654,19 +654,19 @@ public sealed class CutLabViewRenderTests
         string form = Regex.Match(dialog, "<form[^>]*action=\"/cut-lab/role-override\"[\\s\\S]*?</form>").Value;
         Assert.Contains("data-cut-lab-role-block", dialog);
         Assert.Contains("data-cut-lab-role-chips", dialog);
-        Assert.Contains("data-cut-lab-role-add", dialog);
+        Assert.Contains("data-cut-lab-role-suggestions", form);
+        Assert.DoesNotContain("<select", dialog);
+        Assert.DoesNotContain("<details data-cut-lab-role-add", dialog);
+        Assert.Contains("data-cut-lab-role-options", dialog);
         Assert.Contains("data-cut-lab-role-labels", html);
         Assert.DoesNotContain("value=\"Remove\"", form);
         Assert.Contains("__RequestVerificationToken", form);
-        foreach (string field in new[] { "CutLabStateJson", "CardName", "Role", "Operation" })
+        foreach (string field in new[] { "CutLabStateJson", "CardName", "Operation" })
         {
             Assert.Contains($"name=\"{field}\"", form);
         }
-        foreach (string operation in new[] { "Add", "Reset" })
-        {
-            Assert.Contains($"value=\"{operation}\"", form);
-        }
-        Assert.Contains("value=\"draw\">Card draw</option>", form);
+        Assert.Contains("value=\"Reset\"", form);
+        Assert.Contains("[\"draw\",\"Card draw\"]", dialog);
         Assert.DoesNotContain("cut-lab-role-editor", html);
         Assert.DoesNotContain("data-cut-lab-role-edit-card", html);
         Assert.DoesNotContain("Edit roles", html);
