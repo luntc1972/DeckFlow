@@ -324,6 +324,8 @@ interface PendingNewPackageTarget {
 }
 
 const newPackageOptionValue = '__new__';
+// Why: more suggested-role pills than this crowds the modal, so the rest sit behind "+ More…".
+const MaxSuggestedRoles = 3;
 const unlockedPoolOptionValue = '';
 const cutLabAntiForgeryFieldName = '__RequestVerificationToken';
 const cutLabAdjustAction = '/cut-lab/adjust';
@@ -2062,6 +2064,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (form) form.hidden = !editable || block.hidden;
     const select = block.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
     if (select && roleOptionTemplates === null) roleOptionTemplates = Array.from(select.options, option => option.cloneNode(true) as HTMLOptionElement);
+    const availableOptions = (roleOptionTemplates ?? []).filter(option => !keys.includes(option.value) && !(entry?.roleLand === 'true' && option.value === 'ramp'));
     const labels = getRoleLabels();
     const chips = block.querySelector<HTMLElement>('[data-cut-lab-role-chips]');
     chips?.replaceChildren();
@@ -2080,15 +2083,40 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
       chips?.append(chip);
     });
+    const add = block.querySelector<HTMLDetailsElement>('[data-cut-lab-role-add]');
+    const suggestions = block.querySelector<HTMLElement>('[data-cut-lab-role-suggestions]');
+    suggestions?.replaceChildren();
+    if (editable && suggestions) {
+      availableOptions.slice(0, MaxSuggestedRoles).forEach(option => {
+        const button = createTextElement('button', 'kb-chip cutlab-role-suggestion', `+ ${option.text}`);
+        button.setAttribute('type', 'button');
+        button.dataset.cutLabRoleSuggest = option.value;
+        button.setAttribute('aria-label', `Add ${option.text} role`);
+        button.addEventListener('click', () => { void submitRoleEdit({ cardName, role: option.value, operation: 'Add' }, button); });
+        suggestions.append(button);
+      });
+      if (availableOptions.length > MaxSuggestedRoles && add) {
+        const more = createTextElement('button', 'kb-chip cutlab-role-suggestion', '+ More…');
+        more.setAttribute('type', 'button');
+        more.dataset.cutLabRoleMore = '';
+        more.setAttribute('aria-expanded', String(add.open));
+        more.addEventListener('click', () => {
+          add.open = !add.open;
+          more.setAttribute('aria-expanded', String(add.open));
+        });
+        suggestions.append(more);
+      }
+    }
     const cardInput = block.querySelector<HTMLInputElement>('[data-cut-lab-role-override-card]');
     if (cardInput) cardInput.value = cardName;
     const reset = block.querySelector<HTMLButtonElement>('[data-cut-lab-role-reset]');
     if (reset) reset.hidden = !editable || entry?.roleEdited !== 'true';
     if (select) {
-      select.replaceChildren(...(roleOptionTemplates ?? []).filter(option => !keys.includes(option.value) && !(entry?.roleLand === 'true' && option.value === 'ramp')).map(option => option.cloneNode(true)));
-      window.DeckFlow?.refreshDfSelect?.(select);
-      const add = block.querySelector<HTMLElement>('[data-cut-lab-role-add]');
-      if (add) add.hidden = select.options.length === 0;
+      select.replaceChildren(...availableOptions.map(option => option.cloneNode(true)));
+      if (add) {
+        add.hidden = select.options.length === 0;
+        if (availableOptions.length <= MaxSuggestedRoles) add.open = false;
+      }
     }
   };
 

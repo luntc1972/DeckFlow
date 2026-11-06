@@ -1547,25 +1547,27 @@
                     {
                         <script type="application/json" data-cut-lab-role-labels>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RoleLabelsByKey))</script>
                         <div class="cutlab-card-modal__roles" data-cut-lab-role-block hidden>
-                            <ul class="cutlab-role-chips" role="list" aria-label="Roles" data-cut-lab-role-chips></ul>
+                            <div class="cutlab-role-editor">
+                                <ul class="cutlab-role-chips" role="list" aria-label="Roles" data-cut-lab-role-chips></ul>
+                                <form method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                                    <input type="hidden" name="CardName" data-cut-lab-role-override-card />
+                                    <div class="cutlab-role-suggestions" data-cut-lab-role-suggestions></div>
+                                    <details data-cut-lab-role-add>
+                                        <label for="cutlab-card-modal-role">Role</label>
+                                        <select id="cutlab-card-modal-role" name="Role" data-cut-lab-role-override-role>
+                                            @foreach (var roleOption in Model.RoleOverrideRoleOptions)
+                                            {
+                                                <option value="@roleOption.Key">@roleOption.Label</option>
+                                            }
+                                        </select>
+                                        <button type="submit" name="Operation" value="Add">Add</button>
+                                    </details>
+                                    <button type="submit" name="Operation" value="Reset" data-cut-lab-role-reset hidden>Reset card roles</button>
+                                </form>
+                            </div>
                             <p class="cutlab-card-modal__role-status" role="status" aria-live="polite" tabindex="-1" data-cut-lab-role-status></p>
-                            <form method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                                <input type="hidden" name="CardName" data-cut-lab-role-override-card />
-                                <details data-cut-lab-role-add>
-                                    <summary>Add a role</summary>
-                                    <label for="cutlab-card-modal-role">Role</label>
-                                <select id="cutlab-card-modal-role" name="Role" data-df-select data-cut-lab-role-override-role>
-                                    @foreach (var roleOption in Model.RoleOverrideRoleOptions)
-                                    {
-                                        <option value="@roleOption.Key">@roleOption.Label</option>
-                                    }
-                                </select>
-                                    <button type="submit" name="Operation" value="Add">Add</button>
-                                </details>
-                                <button type="submit" name="Operation" value="Reset" data-cut-lab-role-reset hidden>Reset card roles</button>
-                            </form>
                         </div>
                     }
                 </div>

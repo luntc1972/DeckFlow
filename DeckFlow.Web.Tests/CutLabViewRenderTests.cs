@@ -610,7 +610,10 @@ public sealed class CutLabViewRenderTests
         string form = Regex.Match(dialog, "<form[^>]*action=\"/cut-lab/role-override\"[\\s\\S]*?</form>").Value;
         Assert.Contains("data-cut-lab-role-block", dialog);
         Assert.Contains("data-cut-lab-role-chips", dialog);
+        Assert.Contains("data-cut-lab-role-suggestions", form);
         Assert.Contains("data-cut-lab-role-add", dialog);
+        Assert.Contains("id=\"cutlab-card-modal-role\"", form);
+        Assert.DoesNotContain("data-df-select", form);
         Assert.Contains("data-cut-lab-role-labels", html);
         Assert.DoesNotContain("value=\"Remove\"", form);
         Assert.Contains("__RequestVerificationToken", form);

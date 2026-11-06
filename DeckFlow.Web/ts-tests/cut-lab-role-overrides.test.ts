@@ -302,6 +302,7 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
 const overrides = [{ name: 'Relentless Rats', added: ['draw'] }];
 const api = (): any => (window as any).DeckFlowCutLab;
 const editor = (): void => {
+  const roleOptions: Array<[string, string]> = [['ramp', 'Ramp'], ['draw', 'Card draw'], ['other', 'Other'], ['interaction-targeted', 'Targeted removal'], ['interaction-mass', 'Mass interaction']];
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute('open', ''); } });
   document.body.insertAdjacentHTML('beforeend', `
     <button data-cutlab-card-open="Plains">Plains</button>
@@ -319,7 +320,8 @@ const editor = (): void => {
       <script type="application/json" data-cut-lab-role-labels>{"lands":"Lands","draw":"Card draw","ramp":"Ramp","other":"Other","interaction-targeted":"Targeted removal","interaction-mass":"Mass interaction"}</script><div data-cut-lab-role-block hidden><ul role="list" data-cut-lab-role-chips></ul>
         <form data-cut-lab-role-override-form><input name="CutLabStateJson" />
           <input name="CardName" data-cut-lab-role-override-card />
-          <details data-cut-lab-role-add><summary>Add a role</summary><select data-cut-lab-role-override-role><option value="ramp">Ramp</option><option value="draw">Card draw</option></select></details>
+          <div data-cut-lab-role-suggestions></div>
+          <details data-cut-lab-role-add><label for="cutlab-card-modal-role">Role</label><select id="cutlab-card-modal-role" data-cut-lab-role-override-role>${roleOptions.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select><button type="submit" name="Operation" value="Add">Add</button></details>
           <button data-cut-lab-role-reset hidden>Reset card roles</button>
         </form>
       </div>
@@ -363,24 +365,58 @@ describe('role overrides', () => {
   });
   it('offers only missing roles and never Ramp for a land', () => {
     buildFixture(); editor();
-    const refresh = vi.fn();
-    (window as any).DeckFlow = { ...(window as any).DeckFlow, refreshDfSelect: refresh };
     const role = document.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')!;
     openRoleCard('Plains');
-    expect(Array.from(role.options, option => option.value)).toEqual(['draw']);
-    expect(refresh).toHaveBeenCalledWith(role);
+    expect(Array.from(role.options, option => option.value)).toEqual(['draw', 'other', 'interaction-targeted', 'interaction-mass']);
     openRoleCard('Relentless Rats');
-    expect(Array.from(role.options, option => option.value)).toEqual(['ramp']);
+    expect(Array.from(role.options, option => option.value)).toEqual(['ramp', 'other', 'interaction-targeted', 'interaction-mass']);
   });
-  it.each(['lands draw', 'draw ramp'])('hides Add when no legal option remains: %s', keys => {
+  it('renders at most three suggested roles from filtered options and keeps the select native', () => {
+    buildFixture();
+    editor();
+    openRoleCard('Relentless Rats');
+    const suggestions = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-role-suggest]'));
+    expect(suggestions.map(button => button.dataset.cutLabRoleSuggest)).toEqual(['ramp', 'other', 'interaction-targeted']);
+    const select = document.querySelector<HTMLSelectElement>('#cutlab-card-modal-role')!;
+    expect(select.hasAttribute('data-df-select')).toBe(false);
+    expect(select.closest('.df-select')).toBeNull();
+  });
+  it('renders More only above three options and toggles the native select details', () => {
+    buildFixture();
+    editor();
+    const data = document.querySelector('#cutlab-card-text-data')!;
+    const entries = JSON.parse(data.textContent!);
+    entries.Plains.roleKeys = 'lands draw';
+    data.textContent = JSON.stringify(entries);
+    openRoleCard('Relentless Rats');
+    const add = document.querySelector<HTMLDetailsElement>('[data-cut-lab-role-add]')!;
+    const more = document.querySelector<HTMLButtonElement>('[data-cut-lab-role-more]')!;
+    expect(more).not.toBeNull();
+    more.click();
+    expect(add.open).toBe(true);
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    more.click();
+    expect(add.open).toBe(false);
+    openRoleCard('Plains');
+    expect(document.querySelector('[data-cut-lab-role-more]')).toBeNull();
+  });
+  it('does not render suggested roles when editing is unavailable or view-only', () => {
+    buildFixture(); editor();
+    openRoleCard('Commander');
+    expect(document.querySelector('[data-cut-lab-role-suggestions]')!.childElementCount).toBe(0);
+    openRoleCard('Plains', true);
+    expect(document.querySelector('[data-cut-lab-role-suggestions]')!.childElementCount).toBe(0);
+  });
+  it.each(['lands draw other interaction-targeted interaction-mass', 'ramp draw other interaction-targeted interaction-mass'])('hides Add when no legal option remains: %s', keys => {
     buildFixture(); editor();
     const data = document.querySelector('#cutlab-card-text-data')!;
     const entries = JSON.parse(data.textContent!);
     entries.Plains.roleKeys = keys;
-    entries.Plains.roleLand = keys === 'lands draw' ? 'true' : 'false';
+    entries.Plains.roleLand = keys.startsWith('lands ') ? 'true' : 'false';
     data.textContent = JSON.stringify(entries);
     openRoleCard('Plains');
     expect(document.querySelector<HTMLElement>('[data-cut-lab-role-add]')!.hidden).toBe(true);
+    expect(document.querySelector('[data-cut-lab-role-suggestions]')!.childElementCount).toBe(0);
   });
   it('serializes only non-empty overrides', () => {
     const state = JSON.parse(buildStateJson(98));
@@ -439,7 +475,6 @@ describe('JSON role edits', () => {
     block.insertAdjacentHTML('afterbegin', '<p data-cut-lab-role-status role="status" tabindex="-1"></p>');
     const form = block.querySelector('form')!;
     form.action = '/cut-lab/role-override';
-    form.insertAdjacentHTML('beforeend', '<button type="submit" name="Operation" value="Add">Add</button>');
     return form;
   };
   const submit = (form: HTMLFormElement): void => {
@@ -470,6 +505,15 @@ describe('JSON role edits', () => {
     expect(JSON.parse(init.body).cutLabStateJson).toBe(document.querySelector<HTMLInputElement>('#cutlab-form input[name="CutLabStateJson"]')?.value ?? document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!.value);
     expect(init.headers.RequestVerificationToken).toBe('token-123');
     expect(document.querySelector('[data-cut-lab-role-status]')!.textContent).toBe('No change to roles.');
+  });
+  it('posts a suggested role Add with the clicked role', async () => {
+    setup();
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ unchanged: true }) });
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-role-suggest="ramp"]')!.click();
+    await flushAdjustSubmit();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/cut-lab/role-override');
+    expect(JSON.parse(init.body)).toMatchObject({ cardName: 'Relentless Rats', role: 'ramp', operation: 'Add' });
   });
   it('shows the server message and restores controls on a 400', async () => {
     const form = setup();
