@@ -5318,10 +5318,6 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   outline-offset: 2px;
 }
 
-.cutlab-role-editor [data-cut-lab-role-add] {
-  margin: 0;
-}
-
 .cutlab-role-suggestions {
   display: contents;
 }
@@ -5354,12 +5350,7 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   outline-offset: 2px;
 }
 
-.cutlab-role-editor [data-cut-lab-role-add][open] {
-  flex-basis: 100%;
-}
-
-.cutlab-card-modal__roles form[hidden],
-.cutlab-card-modal__roles details[hidden] {
+.cutlab-card-modal__roles form[hidden] {
   display: none;
 }
 
@@ -5381,22 +5372,8 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   display: contents;
 }
 
-.cutlab-card-modal__roles label,
 .cutlab-card-modal__roles form p {
   flex-basis: 100%;
-}
-
-.cutlab-card-modal__roles select,
-.cutlab-card-modal__roles .df-select {
-  flex: 1 1 14rem;
-}
-
-.cutlab-card-modal__roles select {
-  min-height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-soft-bg);
-  color: inherit;
 }
 
 .cutlab-card-modal__roles button {

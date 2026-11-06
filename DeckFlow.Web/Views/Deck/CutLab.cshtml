@@ -1546,6 +1546,7 @@
                     @if (Model.RoleKeysByCardName.Values.Any(value => !string.IsNullOrWhiteSpace(value)))
                     {
                         <script type="application/json" data-cut-lab-role-labels>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RoleLabelsByKey))</script>
+                        <script type="application/json" data-cut-lab-role-options>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RoleOverrideRoleOptions.Select(option => new[] { option.Key, option.Label })))</script>
                         <div class="cutlab-card-modal__roles" data-cut-lab-role-block hidden>
                             <div class="cutlab-role-editor">
                                 <ul class="cutlab-role-chips" role="list" aria-label="Roles" data-cut-lab-role-chips></ul>
@@ -1554,16 +1555,6 @@
                                     <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
                                     <input type="hidden" name="CardName" data-cut-lab-role-override-card />
                                     <div class="cutlab-role-suggestions" data-cut-lab-role-suggestions></div>
-                                    <details data-cut-lab-role-add>
-                                        <label for="cutlab-card-modal-role">Role</label>
-                                        <select id="cutlab-card-modal-role" name="Role" data-cut-lab-role-override-role>
-                                            @foreach (var roleOption in Model.RoleOverrideRoleOptions)
-                                            {
-                                                <option value="@roleOption.Key">@roleOption.Label</option>
-                                            }
-                                        </select>
-                                        <button type="submit" name="Operation" value="Add">Add</button>
-                                    </details>
                                     <button type="submit" name="Operation" value="Reset" data-cut-lab-role-reset hidden>Reset card roles</button>
                                 </form>
                             </div>

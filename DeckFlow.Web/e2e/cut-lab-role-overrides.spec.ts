@@ -102,11 +102,7 @@ test('edits card roles, preserves them through locks, and resets inferred roles'
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"] [data-cut-lab-role-edit-card]')).toHaveCount(0);
   await openSolRing();
   await expect(editor.locator('[name="CardName"]')).toHaveValue('Sol Ring');
-  await expect(editor.locator('[data-cut-lab-role-add]')).not.toHaveAttribute('open');
-  const roleSelect = editor.locator('#cutlab-card-modal-role');
-  await expect(roleSelect).toHaveJSProperty('tagName', 'SELECT');
-  await expect(roleSelect).not.toHaveAttribute('data-df-select');
-  await expect(editor.locator('.df-select')).toHaveCount(0);
+  await expect(editor.locator('select')).toHaveCount(0);
   const suggestedCardDraw = editor.getByRole('button', { name: 'Add Card draw role', exact: true });
   const compactRemove = editor.locator('[data-cut-lab-role-remove="ramp"]');
   const [chipBox, suggestionBox, removeBox] = await Promise.all([
@@ -135,10 +131,8 @@ test('edits card roles, preserves them through locks, and resets inferred roles'
   await expect(editor.locator('[data-cut-lab-role-block]')).not.toHaveAttribute('aria-busy', 'true');
   const more = editor.getByRole('button', { name: '+ More…', exact: true });
   await more.click();
-  await expect(editor.locator('[data-cut-lab-role-add]')).toHaveAttribute('open', '');
-  // Why: Card draw was already added via the suggested pill above, and Sol Ring's Ramp/Tutors/Win conditions are removed from the select by renderModalRoleBlock, so add a role the select still offers.
-  await roleSelect.selectOption({ value: 'engines' });
-  await editor.getByRole('button', { name: 'Add', exact: true }).click();
+  // Why: Card draw was already added via the suggested pill above, and Sol Ring's Ramp/Tutors/Win conditions are filtered out by renderModalRoleBlock, so add a role that is still offered.
+  await editor.getByRole('button', { name: 'Add Engines role', exact: true }).click();
   await expect(editor.locator('[data-cut-lab-role-chips]')).toContainText('Engines');
   await expect(page.locator('details[data-cut-lab-group-role="engines"] [data-cut-lab-chip-card="Sol Ring"]')).toHaveCount(1);
   await editor.getByRole('button', { name: 'Close', exact: true }).click();
@@ -190,10 +184,9 @@ test('edits card roles, preserves them through locks, and resets inferred roles'
   await expect(editor.locator('[data-cut-lab-role-status]')).toBeEmpty();
   await expect(editor.locator('[data-cut-lab-role-chips]')).toContainText('Lands');
   await expect(editor.locator('[data-cut-lab-role-chips] button')).toHaveCount(0);
-  await expect(editor.locator('[data-cut-lab-role-add]')).not.toHaveAttribute('open');
   await editor.getByRole('button', { name: '+ More…', exact: true }).click();
-  await expect(editor.locator('#cutlab-card-modal-role option[value="ramp"]')).toHaveCount(0);
-  await expect(editor.locator('#cutlab-card-modal-role option[value="lands"]')).toHaveCount(0);
+  await expect(editor.locator('[data-cut-lab-role-suggest="ramp"]')).toHaveCount(0);
+  await expect(editor.locator('[data-cut-lab-role-suggest="lands"]')).toHaveCount(0);
   await editor.getByRole('button', { name: 'Close', exact: true }).click();
   // Exercise the same view-only opener used by Cuts made without changing the pool.
   await page.evaluate(() => {

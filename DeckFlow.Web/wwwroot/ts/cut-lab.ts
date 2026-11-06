@@ -2040,7 +2040,21 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return `CMC ${entry.cmc} · Cast by turn ${entry.cmc}: ${Math.round(entry.castPercent)}% at your current pool size`;
   };
 
-  let roleOptionTemplates: HTMLOptionElement[] | null = null;
+  type RoleOption = { value: string; text: string };
+  let roleOptionsCache: RoleOption[] | null = null;
+  // Why: "+ More…" expands the suggestion row in place; the state is per modal open, not per card render.
+  let roleSuggestionsExpanded = false;
+
+  const getRoleOptions = (): RoleOption[] => {
+    if (roleOptionsCache) return roleOptionsCache;
+    try {
+      const pairs = JSON.parse(document.querySelector('[data-cut-lab-role-options]')?.textContent ?? '[]') as string[][];
+      roleOptionsCache = pairs.map(([value, text]) => ({ value, text }));
+    } catch {
+      roleOptionsCache = [];
+    }
+    return roleOptionsCache;
+  };
   let roleLabelsCache: Record<string, string> | null = null;
 
   const getRoleLabels = (): Record<string, string> => {
@@ -2062,9 +2076,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     block.hidden = keys.length === 0;
     const form = block.querySelector<HTMLFormElement>('form');
     if (form) form.hidden = !editable || block.hidden;
-    const select = block.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
-    if (select && roleOptionTemplates === null) roleOptionTemplates = Array.from(select.options, option => option.cloneNode(true) as HTMLOptionElement);
-    const availableOptions = (roleOptionTemplates ?? []).filter(option => !keys.includes(option.value) && !(entry?.roleLand === 'true' && option.value === 'ramp'));
+    const availableOptions = getRoleOptions().filter(option => !keys.includes(option.value) && !(entry?.roleLand === 'true' && option.value === 'ramp'));
     const labels = getRoleLabels();
     const chips = block.querySelector<HTMLElement>('[data-cut-lab-role-chips]');
     chips?.replaceChildren();
@@ -2074,7 +2086,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       if (key === 'lands') {
         chip.append(createTextElement('span', 'sr-only', ' (fixed)'));
       }
-      if (editable && roleOptionTemplates?.some(option => option.value === key)) {
+      if (editable && getRoleOptions().some(option => option.value === key)) {
         const remove = document.createElement('button');
         remove.type = 'button'; remove.dataset.cutLabRoleRemove = key;
         remove.setAttribute('aria-label', `Remove ${label} role`); remove.textContent = '×';
@@ -2083,11 +2095,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
       chips?.append(chip);
     });
-    const add = block.querySelector<HTMLDetailsElement>('[data-cut-lab-role-add]');
     const suggestions = block.querySelector<HTMLElement>('[data-cut-lab-role-suggestions]');
     suggestions?.replaceChildren();
     if (editable && suggestions) {
-      availableOptions.slice(0, MaxSuggestedRoles).forEach(option => {
+      const hasMore = availableOptions.length > MaxSuggestedRoles;
+      const visibleOptions = hasMore && !roleSuggestionsExpanded ? availableOptions.slice(0, MaxSuggestedRoles) : availableOptions;
+      visibleOptions.forEach(option => {
         const button = createTextElement('button', 'kb-chip cutlab-role-suggestion', `+ ${option.text}`);
         button.setAttribute('type', 'button');
         button.dataset.cutLabRoleSuggest = option.value;
@@ -2095,14 +2108,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         button.addEventListener('click', () => { void submitRoleEdit({ cardName, role: option.value, operation: 'Add' }, button); });
         suggestions.append(button);
       });
-      if (availableOptions.length > MaxSuggestedRoles && add) {
-        const more = createTextElement('button', 'kb-chip cutlab-role-suggestion', '+ More…');
+      if (hasMore) {
+        const more = createTextElement('button', 'kb-chip cutlab-role-suggestion', roleSuggestionsExpanded ? 'Show fewer' : '+ More…');
         more.setAttribute('type', 'button');
         more.dataset.cutLabRoleMore = '';
-        more.setAttribute('aria-expanded', String(add.open));
+        more.setAttribute('aria-expanded', String(roleSuggestionsExpanded));
         more.addEventListener('click', () => {
-          add.open = !add.open;
-          more.setAttribute('aria-expanded', String(add.open));
+          roleSuggestionsExpanded = !roleSuggestionsExpanded;
+          renderModalRoleBlock(cardName, viewOnly);
+          block.querySelector<HTMLButtonElement>('[data-cut-lab-role-more]')?.focus();
         });
         suggestions.append(more);
       }
@@ -2111,13 +2125,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (cardInput) cardInput.value = cardName;
     const reset = block.querySelector<HTMLButtonElement>('[data-cut-lab-role-reset]');
     if (reset) reset.hidden = !editable || entry?.roleEdited !== 'true';
-    if (select) {
-      select.replaceChildren(...availableOptions.map(option => option.cloneNode(true)));
-      if (add) {
-        add.hidden = select.options.length === 0;
-        if (availableOptions.length <= MaxSuggestedRoles) add.open = false;
-      }
-    }
   };
 
   const openCardModal = (cardName: string, viewOnly: boolean = false): void => {
@@ -2129,8 +2136,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     const roleBlock = dialog.querySelector<HTMLElement>('[data-cut-lab-role-block]');
-    const addRole = roleBlock?.querySelector<HTMLDetailsElement>('[data-cut-lab-role-add]');
-    if (addRole) addRole.open = false;
+    roleSuggestionsExpanded = false;
     if (activeModalCardName !== cardName) {
       const status = roleBlock?.querySelector<HTMLElement>('[data-cut-lab-role-status]');
       if (status) status.textContent = '';
@@ -4849,7 +4855,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const form = event.target;
     const submitter = (event as SubmitEvent).submitter as HTMLButtonElement | null;
     const operation = submitter?.value ?? '';
-    void submitRoleEdit({ cardName: form.querySelector<HTMLInputElement>('[name="CardName"]')?.value ?? '', role: operation === 'Reset' ? '' : form.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')?.value ?? '', operation }, submitter);
+    void submitRoleEdit({ cardName: form.querySelector<HTMLInputElement>('[name="CardName"]')?.value ?? '', role: '', operation }, submitter);
   });
 
   const attachPoolFilterHandlers = (): void => {
