@@ -483,6 +483,25 @@ describe('JSON role edits', () => {
   const submit = (form: HTMLFormElement): void => {
     form.querySelector<HTMLButtonElement>('[data-cut-lab-role-suggest="ramp"]')!.click();
   };
+  it('inserts role chips by alphabetical rank despite commander-first pool rows', async () => {
+    const form = setup();
+    document.body.insertAdjacentHTML('beforeend', `
+      <table><tbody><tr data-cut-lab-card="Relentless Rats" data-cut-lab-sort-order="0" data-cut-lab-quantity="2" data-cut-lab-role="ramp"><td data-label="Type / role"></td></tr></tbody></table>
+      <details data-cut-lab-group-role="ramp"><div class="kb-chip-area__chips"><span data-cut-lab-chip-card="Relentless Rats">Rats</span></div></details>
+      <details data-cut-lab-group-role="draw"><div class="kb-chip-area__chips"><span data-cut-lab-chip-card="Commander">Commander</span></div></details>`);
+    const commander = document.querySelector<HTMLElement>('tr[data-cut-lab-card="Commander"]')!;
+    commander.dataset.cutLabSortOrder = '1';
+    const group = document.querySelector('[data-cut-lab-group-role="draw"] .kb-chip-area__chips')!;
+    fetchMock.mockResolvedValueOnce({ ok: true, headers: new Headers(), json: async () => ({
+      patch: buildPatch(buildStateJson(98), { nextProposal: null, quantityTuners: [] }),
+      cardName: 'Relentless Rats', roleKeys: ['draw'], roleLabel: 'Card draw', roleEdited: true,
+    }) });
+    submit(form);
+    await flushAdjustSubmit();
+    expect(Array.from(group.querySelectorAll<HTMLElement>('[data-cut-lab-chip-card]'))
+      .map(chip => chip.dataset.cutLabChipCard)).toEqual(['Relentless Rats', 'Commander']);
+  });
+
   it('posts Remove with the chip key and marks controls busy while pending', async () => {
     setup();
     let finish!: (value: unknown) => void;

@@ -139,6 +139,9 @@ public sealed record CutLabViewModel
     /// <summary>Resolved pool cards for the current working session.</summary>
     public IReadOnlyList<CutLabPoolCard> Pool { get; init; } = [];
 
+    /// <summary>Display-only pool rows with stable persisted and alphabetical positions.</summary>
+    public IReadOnlyList<CutLabPoolRowView> PoolRows => BuildPoolRows(Pool);
+
     /// <summary>Resolved lock packages for the current working session.</summary>
     public IReadOnlyList<CutLabPackage> Packages { get; init; } = [];
 
@@ -483,13 +486,34 @@ public sealed record CutLabViewModel
             honestySentence);
     }
 
+    // Why: every pool display uses identical full-name ordering without changing persisted pool order.
+    private static readonly IComparer<string> PoolDisplayNameComparer = Comparer<string>.Create((left, right) =>
+    {
+        int comparison = StringComparer.OrdinalIgnoreCase.Compare(left, right);
+        return comparison != 0 ? comparison : StringComparer.Ordinal.Compare(left, right);
+    });
+
+    private static IReadOnlyList<CutLabPoolRowView> BuildPoolRows(IReadOnlyList<CutLabPoolCard> pool)
+    {
+        return pool.Select((card, index) => (Card: card, PoolIndex: index))
+            .OrderBy(row => row.Card.Name, PoolDisplayNameComparer)
+            .Select((row, index) => new CutLabPoolRowView
+            {
+                Card = row.Card,
+                PoolIndex = row.PoolIndex,
+                AlphabeticalIndex = index,
+            })
+            .OrderByDescending(row => row.Card.IsCommander)
+            .ToArray();
+    }
+
     private static CutLabRoleGroupView BuildGroup(
         string key,
         string label,
         IEnumerable<CutLabPoolCard> cards,
         bool isLockable = true)
     {
-        CutLabRoleMemberView[] members = cards.Select(card => new CutLabRoleMemberView
+        CutLabRoleMemberView[] members = cards.OrderBy(card => card.Name, PoolDisplayNameComparer).Select(card => new CutLabRoleMemberView
         {
             Name = card.Name,
             Quantity = card.Quantity,

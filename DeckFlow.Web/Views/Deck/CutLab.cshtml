@@ -423,12 +423,15 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var card in Model.Pool)
+                        @foreach (var poolRow in Model.PoolRows)
                         {
+                            var card = poolRow.Card;
                             var frontTypeLine = CardTypeLine.FrontFace(card.TypeLine);
                             var roleList = Model.RoleListByCardName.TryGetValue(card.Name, out var displayRoles) ? displayRoles : string.Empty;
                             var roleKeys = Model.RoleKeysByCardName.TryGetValue(card.Name, out var rawRoleKeys) ? rawRoleKeys : string.Empty;
                             <tr data-cut-lab-card="@card.Name"
+                                data-cut-lab-pool-index="@poolRow.PoolIndex"
+                                data-cut-lab-sort-order="@poolRow.AlphabeticalIndex"
                                 data-cut-lab-type-line="@card.TypeLine"
                                 data-cut-lab-role="@roleKeys"
                                 data-cut-lab-quantity="@card.Quantity"

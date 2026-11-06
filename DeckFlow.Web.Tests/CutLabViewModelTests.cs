@@ -9,6 +9,46 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabViewModelTests
 {
     [Fact]
+    public void From_UnsortedPool_SortsAllDisplayListsWithCommanderPinnedOnlyInLockPool()
+    {
+        CutLabPoolCard[] pool =
+        [
+            new() { Name = "zebra", TypeLine = "Creature — Wizard" },
+            new() { Name = "alpha", TypeLine = "Creature — Wizard" },
+            new() { Name = "Zulu Commander", TypeLine = "Creature — Wizard", IsCommander = true },
+            new() { Name = "Alpha", TypeLine = "Creature — Wizard" },
+            new() { Name = "A // Z", TypeLine = "Creature — Wizard" },
+            new() { Name = "Beta Commander", TypeLine = "Creature — Wizard", IsCommander = true },
+        ];
+        var model = CutLabViewModel.From(new CutLabRequest(), new CutLabProcessResult
+        {
+            State = new CutLabState { Pool = pool },
+            RoleAssignmentsByCardName = pool.ToDictionary(card => card.Name,
+                _ => (IReadOnlyList<string>)["draw"], StringComparer.Ordinal),
+        });
+
+        string[] alphabetical = ["A // Z", "Alpha", "alpha", "Beta Commander", "zebra", "Zulu Commander"];
+        Assert.Equal(["Beta Commander", "Zulu Commander", "A // Z", "Alpha", "alpha", "zebra"],
+            model.PoolRows.Select(row => row.Card.Name));
+        Assert.Equal(alphabetical, model.PoolRows.OrderBy(row => row.AlphabeticalIndex).Select(row => row.Card.Name));
+        Assert.Equal(alphabetical, Assert.Single(model.TypeGroups).Members.Select(card => card.Name));
+        Assert.Equal(alphabetical, model.RoleGroups.Single(group => group.RoleKey == "draw").Members.Select(card => card.Name));
+    }
+
+    [Fact]
+    public void From_UnsortedPool_PreservesStatePoolOrderAndReferences()
+    {
+        CutLabPoolCard[] pool = [new() { Name = "Zulu" }, new() { Name = "Alpha" }];
+        var state = new CutLabState { Pool = pool };
+        var model = CutLabViewModel.From(new CutLabRequest(), new CutLabProcessResult { State = state });
+
+        Assert.Same(pool, state.Pool);
+        Assert.Same(pool, model.Pool);
+        Assert.Equal(["Zulu", "Alpha"], state.Pool.Select(card => card.Name));
+        Assert.Equal([1, 0], model.PoolRows.Select(row => row.PoolIndex));
+    }
+
+    [Fact]
     public void From_LockedMultiRoleCardAndCommander_CountsQuantityForEveryRole()
     {
         var result = new CutLabProcessResult

@@ -1122,8 +1122,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getDecisionStateInputs = (): HTMLInputElement[] =>
     Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]'));
 
+  // Why: display order must never leak into snapshots, package members, or other state-derived UI.
   const getPoolRows = (): HTMLTableRowElement[] =>
-    Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-card]'));
+    Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-card]'))
+      .sort((left, right) => Number(left.dataset.cutLabPoolIndex ?? 0) - Number(right.dataset.cutLabPoolIndex ?? 0));
+
+  const getAlphabeticalPoolRows = (): HTMLTableRowElement[] =>
+    getPoolRows().sort((left, right) => Number(left.dataset.cutLabSortOrder ?? 0) - Number(right.dataset.cutLabSortOrder ?? 0));
 
   const getSubtypeSearchInput = (): HTMLInputElement | null =>
     document.querySelector<HTMLInputElement>('input[data-cut-lab-subtype-search]');
@@ -2327,7 +2332,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const getPoolSubtypeEntries = (): CutLabSubtypeEntry[] =>
-    getPoolRows()
+    getAlphabeticalPoolRows()
       .filter(row => row.hasAttribute('data-cut-lab-type-line'))
       .map(row => {
         const name = row.dataset.cutLabCard?.trim() ?? '';
@@ -4872,8 +4877,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
     const groups = Array.from(document.querySelectorAll<HTMLElement>('details[data-cut-lab-group-role]'));
     const template = Array.from(document.querySelectorAll<HTMLElement>('details[data-cut-lab-group-role] [data-cut-lab-chip-card]')).find(chip => chip.dataset.cutLabChipCard === cardName)?.cloneNode(true) as HTMLElement | undefined;
-    // Why: row order is the same for every group, so compute it once instead of per group.
-    const order = rows.map(row => row.dataset.cutLabCard);
+    // Why: role groups use the server comparer rank, independent of commander pinning in the pool.
+    const order = getAlphabeticalPoolRows().map(row => row.dataset.cutLabCard);
     const cardPosition = order.indexOf(cardName);
     groups.forEach(group => {
       const key = group.dataset.cutLabGroupRole ?? '';
