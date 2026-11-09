@@ -36,7 +36,7 @@ afterEach(() => {
   closeSpy.mockClear();
 });
 
-const buildFixture = (): void => {
+const buildFixture = (withProposal = false): void => {
   document.body.innerHTML = `
     <form data-cache-key="cut-lab">
       <input type="hidden" name="CutLabStateJson" value="" />
@@ -98,10 +98,61 @@ const buildFixture = (): void => {
     </dialog>
   `;
 
+  if (withProposal) {
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="cutlab-proposal" data-cut-lab-card="Counterspell">
+        <div class="cutlab-proposal--pinned">
+          <div class="cutlab-proposal__pinned-actions">
+            ${['accept', 'reject', 'defer'].map(decision => `
+              <form data-cut-lab-decide-form><button type="submit" class="cutlab-decision-btn--${decision}">${decision}</button></form>
+            `).join('')}
+          </div>
+        </div>
+        <div class="cutlab-proposal__body">Evidence and metrics</div>
+      </div>
+    `);
+  }
+
   document.dispatchEvent(new Event('DOMContentLoaded'));
 };
 
 describe('cut-lab card modal', () => {
+  it('disables proposal decisions and shows the lock message from the dialog, then restores decisions on unlock', () => {
+    buildFixture(true);
+    document.querySelector<HTMLButtonElement>('[data-cutlab-card-open="Counterspell"]')!.click();
+    const lockButton = document.querySelector<HTMLButtonElement>('[data-cutlab-modal-lock]')!;
+    const proposal = document.querySelector<HTMLElement>('.cutlab-proposal')!;
+    const buttons = proposal.querySelectorAll<HTMLButtonElement>('button[type="submit"]');
+    expect(buttons).toHaveLength(3);
+
+    lockButton.click();
+
+    buttons.forEach(button => expect(button.disabled).toBe(true));
+    const message = proposal.querySelector<HTMLElement>('[data-cut-lab-decision-error]')!;
+    expect(message).not.toBeNull();
+    expect(message.textContent).toBe('Counterspell is locked. Unlock it before deciding.');
+    expect(message.hidden).toBe(false);
+    expect(message.classList.contains('hidden')).toBe(false);
+
+    lockButton.click();
+
+    buttons.forEach(button => expect(button.disabled).toBe(false));
+    expect(proposal.querySelector('[data-cut-lab-decision-error]')).toBeNull();
+  });
+
+  it('places the lock alert immediately after decisions and before evidence', () => {
+    buildFixture(true);
+    const checkbox = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Counterspell"]')!;
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const pinned = document.querySelector('.cutlab-proposal--pinned')!;
+    const message = document.querySelector('[data-cut-lab-decision-error]')!;
+    expect(pinned.nextElementSibling).toBe(message);
+    expect(message.getAttribute('role')).toBe('alert');
+    expect(message.nextElementSibling?.classList.contains('cutlab-proposal__body')).toBe(true);
+  });
+
   it('opens from a trigger, populates the dialog, and toggles the canonical pool lock state', () => {
     buildFixture();
 

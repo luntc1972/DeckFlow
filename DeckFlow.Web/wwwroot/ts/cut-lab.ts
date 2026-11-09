@@ -3248,9 +3248,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       errorLine = document.createElement('p');
       errorLine.dataset.cutLabDecisionError = 'true';
       errorLine.className = 'cutlab-degradation-note';
-      proposal.appendChild(errorLine);
     }
 
+    errorLine.setAttribute('role', 'alert');
+    const decisionContainer = proposal.querySelector<HTMLElement>('.cutlab-proposal--pinned');
+    if (decisionContainer) {
+      decisionContainer.insertAdjacentElement('afterend', errorLine);
+    } else {
+      proposal.appendChild(errorLine);
+    }
     errorLine.textContent = message;
   };
 
@@ -4844,13 +4850,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
+  const handlePoolLockChange = (row: HTMLTableRowElement, checkbox: HTMLInputElement): void => {
+    refreshAndSerialize();
+    syncLockedProposalState(row, checkbox);
+  };
+
   const attachRowHandlers = (): void => {
     getPoolRows().forEach(row => {
       const checkbox = getLockCheckbox(row);
       if (checkbox) {
         checkbox.addEventListener('change', () => {
-          refreshAndSerialize();
-          syncLockedProposalState(row, checkbox);
+          handlePoolLockChange(row, checkbox);
         });
       }
 
@@ -5313,13 +5323,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
         const row = getCardRowByName(cardName);
         const checkbox = row ? getLockCheckbox(row) : null;
-        if (!checkbox || checkbox.disabled) {
+        if (!row || !checkbox || checkbox.disabled) {
           syncCardModalLockButton(cardName, false);
           return;
         }
 
         checkbox.checked = !checkbox.checked;
-        refreshAndSerialize();
+        handlePoolLockChange(row, checkbox);
         syncCardModalLockButton(cardName, false);
       });
     }

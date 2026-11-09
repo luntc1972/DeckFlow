@@ -144,6 +144,26 @@ test('locking the current proposal disables decisions and explains why', async (
   await expect(proposal.locator('[data-cut-lab-decision-error]')).toContainText(`${proposedCard} is locked. Unlock it before deciding.`);
 });
 
+test('locking the proposed card via the card dialog disables decisions and shows the locked message', async ({ page }) => {
+  await importPool(page, '4');
+  await waitForCutRounds(page);
+
+  const proposal = page.locator('.cutlab-proposal');
+  const proposedCard = await proposal.getAttribute('data-cut-lab-card');
+  await proposal.locator('[data-cutlab-card-open]').click();
+  await page.locator('[data-cutlab-modal-lock]').click();
+  await page.locator('[data-cutlab-modal-close]').click();
+
+  await expect(proposal.locator('.cutlab-decision-btn--accept')).toBeDisabled();
+  await expect(proposal.locator('.cutlab-decision-btn--reject')).toBeDisabled();
+  await expect(proposal.locator('.cutlab-decision-btn--defer')).toBeDisabled();
+  const message = proposal.locator('[data-cut-lab-decision-error]');
+  await expect(message).toContainText(`${proposedCard} is locked. Unlock it before deciding.`);
+  await expect(message).toHaveAttribute('role', 'alert');
+  await expect(message).toBeVisible();
+  await expect(message).toBeInViewport();
+});
+
 test('saves a named scenario, then restores the saved session after a fresh import', async ({ page }) => {
   const savedBracket = '4';
   const freshBracket = '1';
