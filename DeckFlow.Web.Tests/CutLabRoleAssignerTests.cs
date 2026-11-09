@@ -518,6 +518,23 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
+    public void AssignRoles_SolRingComboPiece_MapsToRampOnly()
+    {
+        CardFact fact = Fact(
+            "Sol Ring",
+            "Artifact",
+            oracle: "{T}: Add {C}{C}.");
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
+            fact,
+            Array.Empty<string>(),
+            isComboPiece: true,
+            ManabaseMode.Casual);
+
+        Assert.Equal(["ramp"], roles);
+    }
+
+    [Fact]
     public void AssignRoles_CanonicalEmissionOrder_PutsTargetedBeforeLaterRoles()
     {
         CardFact fact = Fact(
@@ -531,7 +548,7 @@ public sealed class CutLabRoleAssignerTests
             isComboPiece: true,
             ManabaseMode.Casual);
 
-        Assert.Equal(["tutor", "interaction-targeted", "wincons"], roles);
+        Assert.Equal(["interaction-targeted"], roles);
     }
 
     [Fact]
@@ -586,7 +603,7 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
-    public void AssignRoles_ComboPiece_IsWinconEvenWithoutClosingPower()
+    public void AssignRoles_ComboPiece_DoesNotGrantTutorOrWincon()
     {
         CardFact fact = Fact(
             "Isochron Scepter",
@@ -599,7 +616,7 @@ public sealed class CutLabRoleAssignerTests
             isComboPiece: true,
             ManabaseMode.Casual);
 
-        Assert.Equal(["tutor", "wincons"], roles);
+        Assert.Equal(["other"], roles);
     }
 
     [Fact]
