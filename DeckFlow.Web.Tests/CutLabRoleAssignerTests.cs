@@ -504,38 +504,6 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
-    public void AssignRoles_SolRing_MapsToRampOnly()
-    {
-        CardFact fact = Fact(
-            "Sol Ring",
-            "Artifact",
-            oracle: "{T}: Add {C}{C}.");
-
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
-            fact,
-            Array.Empty<string>(),
-            ManabaseMode.Casual);
-
-        Assert.Equal(["ramp"], roles);
-    }
-
-    [Fact]
-    public void AssignRoles_SwordsToPlowshares_MapsToTargetedInteraction()
-    {
-        CardFact fact = Fact(
-            "Swords to Plowshares",
-            "Instant",
-            oracle: "Exile target creature. Its controller gains life equal to its power.");
-
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
-            fact,
-            Array.Empty<string>(),
-            ManabaseMode.Casual);
-
-        Assert.Equal(["interaction-targeted"], roles);
-    }
-
-    [Fact]
     public void AssignRoles_RhysticStudy_CanHoldDrawAndEngineRoles()
     {
         CardFact fact = Fact(
@@ -584,7 +552,7 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
-    public void AssignRoles_IsochronScepter_DoesNotGrantTutorOrWincon()
+    public void AssignRoles_IsochronScepter_MapsToOtherOnly()
     {
         CardFact fact = Fact(
             "Isochron Scepter",

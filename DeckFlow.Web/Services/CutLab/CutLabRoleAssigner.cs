@@ -122,8 +122,8 @@ public static class CutLabRoleAssigner
         string typeLine = fact.TypeLine;
         string oracle = fact.FrontOracleText;
         bool isLand = CutLabLockRules.IsLand(typeLine) || fact.HasLandFace;
-        // Why: Cut Lab combo membership must not grant the shared classifier's tutor fallback.
-        PlanRole roles = PlanRoleClassifier.Classify(fact, categories, false, mode, out _);
+        // Cut Lab never treats combo membership as a role signal, so isComboPiece is always false.
+        PlanRole roles = PlanRoleClassifier.Classify(fact, categories, isComboPiece: false, mode, out _);
         // Use neutral card metadata for land faces so only their oracle text supplies these roles.
         // In particular, an Instant front face alone must not grant land interaction.
         PlanRole oracleRoles = isLand
