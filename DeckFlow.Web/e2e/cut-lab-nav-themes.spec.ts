@@ -139,8 +139,8 @@ const getBoundingBox = async (locator: Locator, name: string): Promise<{ x: numb
 };
 
 const createLockedFastManaPackage = async (page: Page): Promise<void> => {
-  const packagesDetails = page.locator('#cut-lab-section-packages');
-  await ensureDetailsOpen(packagesDetails);
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await expandCutLabSection(page, 'cut-lab-section-packages');
 
   const packagePanel = page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' });
   if (!(await packagePanel.count())) {
@@ -187,6 +187,7 @@ const prepareReviewCapture = async (page: Page): Promise<void> => {
   await expect(landsGroup.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Island"]')).toBeVisible();
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.locator('#cut-lab-section-packages')).toHaveAttribute('open', '');
   await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' })).toBeVisible();
 
@@ -329,8 +330,8 @@ test('captures Lock your pool review screenshots across themes at desktop and mo
 test("shows a newly created package in another card's visible package widget without reload", async ({ page }) => {
   await importPool(page);
 
-  const packagesDetails = page.locator('#cut-lab-section-packages');
-  await ensureDetailsOpen(packagesDetails);
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await expandCutLabSection(page, 'cut-lab-section-packages');
 
   await page.locator('select[data-cut-lab-package-card="Sol Ring"]').selectOption('__new__');
   await page.locator('[data-cut-lab-new-package-input]').fill('Fast mana');
@@ -414,6 +415,7 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
 
 test('keeps pool rows hidden by search and lock filters', async ({ page }) => {
   await importPool(page);
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
 
   const solRing = page.locator('tr[data-cut-lab-card="Sol Ring"]');
   const arcaneSignet = page.locator('tr[data-cut-lab-card="Arcane Signet"]');

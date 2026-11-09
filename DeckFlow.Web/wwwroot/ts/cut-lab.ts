@@ -379,9 +379,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getScenarioSlotKey = (id: string): string => `${SCENARIO_SLOT_PREFIX}${id}`;
   const primarySectionIdsByStep = new Map<number, string>([
-    [1, 'cut-lab-section-lock-pool'],
-    [2, 'cut-lab-section-cut-rounds'],
-    [3, 'cut-lab-section-plan-panel'],
+    [1, 'cut-lab-section-competes'],
+    [2, 'cut-lab-section-plan-panel'],
+    [3, 'cut-lab-section-cut-rounds'],
     [4, 'cut-lab-section-goals'],
     [5, 'cut-lab-section-export'],
   ]);
@@ -2271,6 +2271,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    const originInput = dialog.querySelector<HTMLInputElement>('[data-cut-lab-role-origin-step]');
+    if (originInput) {
+      originInput.value = document.querySelector<HTMLElement>('[data-cut-lab-step][aria-selected="true"]')?.getAttribute('aria-label') ?? 'Plan';
+    }
     const roleBlock = dialog.querySelector<HTMLElement>('[data-cut-lab-role-block]');
     roleSuggestionsExpanded = false;
     if (activeModalCardName !== cardName) {
@@ -4923,6 +4927,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const form = document.createElement('form'); form.method = 'post'; form.action = source.action;
     const token = main.querySelector<HTMLInputElement>(`input[name="${cutLabAntiForgeryFieldName}"]`);
     const fields: Record<string, string> = { CutLabStateJson: stateJson, CardName: edit.cardName, Operation: edit.operation };
+    const originStep = source.querySelector<HTMLInputElement>('[data-cut-lab-role-origin-step]');
+    if (originStep) fields.originStep = originStep.value;
     if (edit.role) fields.Role = edit.role;
     if (token) fields[token.name] = token.value;
     Object.entries(fields).forEach(([name, value]) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.append(input); });

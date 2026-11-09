@@ -31,6 +31,32 @@ public sealed class CutLabViewRenderTests
     private static readonly IReadOnlyDictionary<string, CutLabCardTextView> EmptyCardTextByCardName = new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
 
     [Fact]
+    public async Task ResultView_ReorderedWorkflow_KeepsPoolInsidePlanAndSelectsPlan()
+    {
+        string html = await RenderAsync(BuildTwinBadgeModel());
+        string[] names = ["Process", "Plan", "Decide", "Goals", "Export"];
+        for (int step = 1; step <= names.Length; step++)
+        {
+            string tab = Regex.Match(html, $"<button[^>]*id=\"cut-lab-step-tab-{step}\"[^>]*>").Value;
+            Assert.Contains($"aria-label=\"{names[step - 1]}\"", tab);
+            if (step == CutLabSteps.Plan)
+            {
+                Assert.Contains("aria-selected=\"true\"", tab);
+            }
+        }
+        int process = html.IndexOf("id=\"cut-lab-step-panel-1\"", StringComparison.Ordinal);
+        int plan = html.IndexOf("id=\"cut-lab-step-panel-2\"", StringComparison.Ordinal);
+        int decide = html.IndexOf("id=\"cut-lab-step-panel-3\"", StringComparison.Ordinal);
+        int goals = html.IndexOf("id=\"cut-lab-step-panel-4\"", StringComparison.Ordinal);
+        int planSection = html.IndexOf("id=\"cut-lab-section-plan-panel\"", StringComparison.Ordinal);
+        int pool = html.IndexOf("id=\"cut-lab-section-lock-pool\"", StringComparison.Ordinal);
+        int rounds = html.IndexOf("id=\"cut-lab-section-cut-rounds\"", StringComparison.Ordinal);
+        Assert.True(process < plan && plan < planSection && planSection < pool && pool < decide && decide < rounds && rounds < goals);
+        Assert.Contains("id=\"cut-lab-section-competes\"", html[process..plan]);
+        Assert.DoesNotContain("<form", html[pool..decide]);
+    }
+
+    [Fact]
     public async Task EmptyState_RendersExpandedIntakeWithoutSummary()
     {
         string html = await RenderAsync(new CutLabViewModel());

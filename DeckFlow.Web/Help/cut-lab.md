@@ -7,7 +7,7 @@ requires_flag: tool.cut-lab.enabled
 
 # Cut Lab
 
-The Cut Lab page (`/cut-lab`) is where you take an oversized Commander pool and work it down to a validated 100-card list. After intake, the workspace is a five-slot wizard: **Process**, **Decide**, **Plan**, **Goals**, and **Export**. The unified progress strip keeps those slots visible while you work, and the completed intake collapses so the active workspace is not a single long scrolling page. The workflow is deterministic and decision-support driven: Cut Lab measures what each cut changes in the deck's numbers, rather than making a judgmental claim that a card is "objectively worse." AI is optional here at most, as an explanation layer, not as a requirement to use the tool.
+The Cut Lab page (`/cut-lab`) is where you take an oversized Commander pool and work it down to a validated 100-card list. After intake, the workspace is a five-slot wizard: **Process**, **Plan**, **Decide**, **Goals**, and **Export**. The unified progress strip keeps those slots visible while you work, and the completed intake collapses so the active workspace is not a single long scrolling page. The workflow is deterministic and decision-support driven: Cut Lab measures what each cut changes in the deck's numbers, rather than making a judgmental claim that a card is "objectively worse." AI is optional here at most, as an explanation layer, not as a requirement to use the tool.
 
 ## Intake
 
@@ -25,7 +25,7 @@ That context matters because Cut Lab measures tradeoffs against the deck's actua
 
 ### Choose a deck archetype
 
-In Step 3, Cut Lab suggests a deck archetype and explains why it fits. You can accept that suggestion or choose a different archetype; your choice always wins. Each archetype adds preset strategies and supplies default turns for casting the commander, establishing the engine, and presenting a representative line. Choose **None** to keep the prior behavior without archetype presets or archetype goal defaults.
+In Step 2, Cut Lab suggests a deck archetype and explains why it fits. You can accept that suggestion or choose a different archetype; your choice always wins. Each archetype adds preset strategies and supplies default turns for casting the commander, establishing the engine, and presenting a representative line. Choose **None** to keep the prior behavior without archetype presets or archetype goal defaults.
 
 ## Protect what cannot move
 

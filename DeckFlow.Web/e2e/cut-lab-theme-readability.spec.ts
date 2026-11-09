@@ -124,8 +124,8 @@ const ensureCutRoundsVisible = async (page: Page): Promise<void> => {
 };
 
 const createFastManaPackage = async (page: Page): Promise<Locator> => {
-  const packagesDetails = page.locator('#cut-lab-section-packages');
-  await ensureDetailsOpen(packagesDetails);
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await expandCutLabSection(page, 'cut-lab-section-packages');
 
   const existing = page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' });
   if (await existing.count()) {
@@ -441,6 +441,8 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await expect(packageToggle, `${theme.name}: Fast mana package toggle should exist for CLUP-19 package coverage`).toBeVisible();
     await expect(packageMemberChip, `${theme.name}: Fast mana package member chip should exist for CLUP-19 package coverage`).toBeVisible();
 
+    await page.getByRole('tab', { name: 'Process' }).click();
+
     // Lock pills are short, bold button labels, so WCAG AA permits the 3.0 large-text floor.
     await assertContrastFloor(theme.name, 'Lock All lands pill', lockAllPill, 3.0);
     // Role chips are compact chip buttons with emphasized labels, so 3.0 is the AA floor here.
@@ -460,12 +462,15 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
 
     await assertFocusIndicatorContrast(theme.name, 'Lock All lands pill', page, lockAllPill, 3.0);
     await assertFocusIndicatorContrast(theme.name, 'Lands role chip', page, roleChip, 3.0);
+    await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     await assertFocusIndicatorContrast(theme.name, 'Fast mana package toggle', page, packageToggle, 3.0);
+    await page.getByRole('tab', { name: 'Process' }).click();
     const cardPopup = await openCardModal(roleChip, page);
     // The popup lock control is a bold CTA-style button label, so the 3.0 large/bold UI-text floor applies.
     await assertContrastFloor(theme.name, 'card popup lock button', cardPopup.locator('[data-cutlab-modal-lock]'), 3.0);
     await cardPopup.locator('[data-cutlab-modal-close]').click();
     await expect(cardPopup).not.toHaveAttribute('open', '');
+    await expandCutLabSection(page, 'cut-lab-section-lock-pool');
     // Package helper copy is explanatory body text, so it must clear the 4.5 AA body-text floor.
     await assertContrastFloor(theme.name, 'package helper copy', packageHelper, 4.5);
     // Package panels contain ordinary heading/body copy, so the conservative body-text floor is 4.5.

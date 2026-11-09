@@ -20,11 +20,11 @@
         UseMobileLabeledTabs: true,
         Steps:
         [
-            new WorkflowStepTab(1, "Process", IsComplete: Model.HasResult),
-            new WorkflowStepTab(2, "Decide", IsComplete: cardsRemainingToTarget == 0),
-            new WorkflowStepTab(3, "Plan", IsComplete: false, IsEnabled: true),
-            new WorkflowStepTab(4, "Goals", IsComplete: true),
-            new WorkflowStepTab(5, "Export", IsComplete: Model.Export.HasExport, IsEnabled: currentCount == 100, SubmitFormId: "cut-lab-export-form"),
+            new WorkflowStepTab(CutLabSteps.Process, "Process", IsComplete: Model.HasResult),
+            new WorkflowStepTab(CutLabSteps.Plan, "Plan", IsComplete: false, IsEnabled: true),
+            new WorkflowStepTab(CutLabSteps.Decide, "Decide", IsComplete: cardsRemainingToTarget == 0),
+            new WorkflowStepTab(CutLabSteps.Goals, "Goals", IsComplete: true),
+            new WorkflowStepTab(CutLabSteps.Export, "Export", IsComplete: Model.Export.HasExport, IsEnabled: currentCount == 100, SubmitFormId: "cut-lab-export-form"),
         ]);
     string DeltaValueClass(CutLabMetricDirection direction) => direction switch
     {
@@ -337,231 +337,6 @@
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-lock-pool">
-                <summary class="cutlab-collapsible__summary">Lock your pool</summary>
-                <div class="panel-heading">
-                    <div>
-                        <h2>Lock your pool</h2>
-                        <p class="prompt-size-note">
-                            <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
-                        </p>
-                        <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
-                        <p class="manabase-help">Assigning a package groups cards for bulk lock/unlock — it doesn't remove them from the pool.</p>
-                        <p>@(CutLabCardNames.ToDisplayName(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}"))</p>
-                        <div class="cutlab-pool-filter" hidden>
-                            <div class="cutlab-pool-filter__group" role="radiogroup" aria-label="Show">
-                                <span class="cutlab-pool-filter__label">Show:</span>
-                                <label class="cutlab-pool-filter__option">
-                                    <input type="radio" name="CutLabPoolFilter" value="all" checked />
-                                    <span>All</span>
-                                </label>
-                                <label class="cutlab-pool-filter__option">
-                                    <input type="radio" name="CutLabPoolFilter" value="locked" />
-                                    <span>Locked</span>
-                                </label>
-                                <label class="cutlab-pool-filter__option">
-                                    <input type="radio" name="CutLabPoolFilter" value="unlocked" />
-                                    <span>Unlocked</span>
-                                </label>
-                            </div>
-                            <input type="text" class="cutlab-pool-search" placeholder="Search card name…" aria-label="Search card name" />
-                            <p class="cutlab-pool-match-count">Showing @Model.Pool.Count of @Model.Pool.Count cards</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
-                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
-                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
-                </div>
-            @if (Model.CommanderSelectionRequired)
-            {
-                <div class="result-panel nested-panel" data-scroll-on-load>
-                    <div class="panel-heading">
-                        <div>
-                            <h2>Pick your commander</h2>
-                            <p>We couldn't identify your commander automatically. Choose it below — it will be locked automatically once selected.</p>
-                        </div>
-                    </div>
-                    <div class="field">
-                        <label for="cut-lab-selected-commander">Commander from this deck</label>
-                        <select id="cut-lab-selected-commander" name="SelectedCommander" data-df-select autofocus>
-                            <option value="">Choose a commander</option>
-                            @foreach (var commanderChoice in Model.CommanderChoices)
-                            {
-                                <option value="@commanderChoice" selected="@(string.Equals(Model.Request.SelectedCommander, commanderChoice, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                                    @(CutLabCardNames.ToDisplayName(commanderChoice))
-                                </option>
-                            }
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="cut-lab-commander-search">Commander search backstop</label>
-                        <input id="cut-lab-commander-search"
-                               type="text"
-                               value="@Model.Request.SelectedCommander"
-                               placeholder="Start typing a commander name…"
-                               autocomplete="off"
-                               list="cut-lab-commander-suggestions"
-                               data-commander-search="@Url.Content("~/manabase/commander-search")"
-                               data-commander-target="#cut-lab-selected-commander"
-                               data-commander-create-option="true" />
-                        <datalist id="cut-lab-commander-suggestions"></datalist>
-                        <p class="manabase-help">Pick a commander, then re-run the same import. Your decklist and declared intent stay intact.</p>
-                    </div>
-                </div>
-            }
-
-            <div class="history-timeline__wrap">
-                <p class="prompt-size-note">Lock a card to protect it from future cuts.</p>
-                <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Lock (keep)</th>
-                            <th scope="col">Card</th>
-                            <th scope="col">Type / role</th>
-                            <th scope="col">Package assignment</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var poolRow in Model.PoolRows)
-                        {
-                            var card = poolRow.Card;
-                            var frontTypeLine = CardTypeLine.FrontFace(card.TypeLine);
-                            var roleList = Model.RoleListByCardName.TryGetValue(card.Name, out var displayRoles) ? displayRoles : string.Empty;
-                            var roleKeys = Model.RoleKeysByCardName.TryGetValue(card.Name, out var rawRoleKeys) ? rawRoleKeys : string.Empty;
-                            <tr data-cut-lab-card="@card.Name"
-                                data-cut-lab-pool-index="@poolRow.PoolIndex"
-                                data-cut-lab-sort-order="@poolRow.AlphabeticalIndex"
-                                data-cut-lab-type-line="@card.TypeLine"
-                                data-cut-lab-role="@roleKeys"
-                                data-cut-lab-quantity="@card.Quantity"
-                                data-cut-lab-commander="@(card.IsCommander ? "true" : "false")">
-                                <td data-label="Lock">
-                                    <input type="checkbox"
-                                           name="Lock_@card.Name"
-                                           value="@card.Name"
-                                           data-cut-lab-lock-card="@card.Name"
-                                           aria-label="Lock @card.Name to keep it"
-                                           checked="@(card.IsLocked ? "checked" : null)"
-                                           disabled="@(card.IsCommander ? "disabled" : null)" />
-                                </td>
-                                <td data-label="Card">
-                                    <strong>@card.Quantity × <button type="button" class="cutlab-card-link" data-cutlab-card-open="@card.Name">@(CutLabCardNames.ToDisplayName(card.Name))</button></strong>
-                                    @if (card.IsCommander)
-                                    {
-                                        <div class="cutlab-commander-card-cell__details">
-                                            <div>
-                                                <span class="kb-chip cutlab-lock-badge--commander">Commander · Always locked</span>
-                                            </div>
-                                        </div>
-                                    }
-                                </td>
-                                <td data-label="Type / role">
-                                    @frontTypeLine
-                                    @if (!string.IsNullOrWhiteSpace(roleList))
-                                    {
-                                        <div class="cutlab-role-list">@roleList</div>
-                                    }
-                                    @if (!card.IsCommander && Model.RoleOverrideCardsByName.TryGetValue(card.Name, out var roleOverrideCard))
-                                    {
-                                        @if (roleOverrideCard.IsEdited)
-                                        {
-                                            <span class="cutlab-role-edited-chip">Edited</span>
-                                        }
-                                    }
-                                </td>
-                                <td data-label="Package">
-                                    <select name="Package_@card.Name" data-df-select data-cut-lab-package-card="@card.Name">
-                                        <option value="">Unlocked pool</option>
-                                        @foreach (var package in Model.Packages)
-                                        {
-                                            <option value="@package.Id" selected="@(string.Equals(card.PackageId, package.Id, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                                                @package.Name
-                                            </option>
-                                        }
-                                        <option value="__new__">+ New package…</option>
-                                    </select>
-                                </td>
-                            </tr>
-                        }
-                        <tr class="cutlab-pool-empty-row" hidden>
-                            <td colspan="4">No cards match.</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-
-
-            <section class="result-panel nested-panel">
-                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-packages">
-                    <summary class="cutlab-collapsible__summary">Packages</summary>
-                    <div class="cutlab-package-help">
-                        <p class="cutlab-package-help__heading">How packages work</p>
-                        <p>Grouping a card into a package doesn't remove it from the pool — it's still counted and still cuttable unless the package itself is locked. Packages let you lock or unlock several cards together instead of one at a time.</p>
-                    </div>
-                    @if (Model.Packages.Count > 0)
-                    {
-                        @foreach (var package in Model.Packages)
-                        {
-                            var members = Model.Pool.Where(card => string.Equals(card.PackageId, package.Id, StringComparison.OrdinalIgnoreCase)).ToList();
-                            <div class="result-panel nested-panel @(package.Locked ? "cutlab-package--locked" : string.Empty)"
-                                 data-cut-lab-package-id="@package.Id"
-                                 data-cut-lab-package-name="@package.Name">
-                                <div class="panel-heading">
-                                    <div>
-                                        <h2>@package.Name</h2>
-                                        <p>@members.Count member@(members.Count == 1 ? string.Empty : "s")</p>
-                                    </div>
-                                    <div class="panel-heading__actions">
-                                        <label class="kb-chip" for="cut-lab-package-lock-@package.Id">
-                                            <input id="cut-lab-package-lock-@package.Id"
-                                                   type="checkbox"
-                                                   data-cut-lab-package-toggle="@package.Id"
-                                                   checked="@(package.Locked ? "checked" : null)" />
-                                            <span>Lock package</span>
-                                        </label>
-                                        <button type="button" class="clear-cache-button" data-cut-lab-package-delete="@package.Id">Delete package</button>
-                                    </div>
-                                </div>
-                                @if (members.Count > 0)
-                                {
-                                    <div class="kb-chip-area__chips">
-                                        @foreach (var member in members)
-                                        {
-                                            <span class="kb-chip">@(CutLabCardNames.ToDisplayName(member.Name))</span>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <p class="kb-chip-area__empty-hint">No cards assigned yet.</p>
-                                }
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <p class="kb-chip-area__empty-hint">No packages yet. Use a card's Package assignment menu, then choose + New package…</p>
-                    }
-
-                    <div class="card-picker__rows">
-                        <div class="card-picker__row hidden" data-cut-lab-new-package-row>
-                            <div class="card-picker__input-shell">
-                                <input class="card-picker__input"
-                                       type="text"
-                                       id="cut-lab-new-package-name"
-                                       placeholder="New package name"
-                                       data-cut-lab-new-package-input />
-                            </div>
-                            <button type="button" class="card-picker__add" aria-label="Save package" data-cut-lab-new-package-save>+</button>
-                            <button type="button" class="card-picker__remove" aria-label="Cancel package" data-cut-lab-new-package-cancel>&times;</button>
-                        </div>
-                    </div>
-                </details>
-            </section>
-            </details>
-
         <section class="result-panel">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-competes">
                 <summary class="cutlab-collapsible__summary">How your pool competes</summary>
@@ -851,6 +626,306 @@
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-2" aria-labelledby="cut-lab-step-tab-2">
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-plan-panel">
+                <summary class="cutlab-collapsible__summary">Plan profile</summary>
+                <form method="post" action="@Url.Content("~/cut-lab/plan-apply")" id="cut-lab-plan-form" data-cut-lab-plan-form>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                <div class="panel-heading">
+                    <div>
+                        @* Why: this duplication recurs across the file; a coordinated fix for all sections is separate, out-of-scope work. *@
+                        <h2 aria-hidden="true">Plan profile</h2>
+                        <p>Check what this deck actually does. Every box changes how Cut Lab protects, reorders, and flags cards in your working list — nothing here is cosmetic.</p>
+                    </div>
+                </div>
+                <div class="cut-lab-plan-panel" data-cut-lab-plan-panel>
+                    <p class="cut-lab-plan-panel__zero-notice @(Model.PlanPanel.ZeroSelectionNotice ? "" : "hidden")" role="status" data-cut-lab-plan-zero-notice>With nothing checked, the cut engine behaves exactly as it does today.</p>
+                    <fieldset class="cut-lab-plan-panel__archetypes" data-cut-lab-plan-archetypes>
+                        <legend>Deck archetype</legend>
+                        <p>What kind of deck is this? The archetype adds its strategies below and sets default goal turns. Your own choice always wins over the suggestion.</p>
+                        @foreach (CutLabPlanArchetypeRowView row in Model.PlanPanel.ArchetypeRows)
+                        {
+                            <label class="cut-lab-plan-panel__row">
+                                <input type="radio" name="PlanArchetype" value="@row.Slug" checked="@(row.IsChecked ? "checked" : null)" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="@string.Join(" ", row.PresetStrategies)" />
+                                <span class="cut-lab-plan-panel__row-body">
+                                    <span class="cut-lab-plan-panel__row-name">@row.DisplayName</span>
+                                    @if (row.IsSuggested) { <span class="cut-lab-plan-panel__badge @(row.IsLowConfidence ? "cut-lab-plan-panel__badge--low" : "") @(row.IsChecked ? "hidden" : "")" data-cut-lab-archetype-badge="suggested">Suggested@(row.IsLowConfidence ? " · low confidence" : "")</span> }
+                                    @if (row.Slug.Length > 0) { <span class="cut-lab-plan-panel__badge @(row.IsChecked ? "" : "hidden")" data-cut-lab-archetype-badge="choice">Your choice</span> }
+                                    <span class="cut-lab-plan-panel__row-definition">@row.Definition</span>
+                                    @if (row.Detail.Length > 0) { <span>@row.Detail</span> }
+                                    @if (row.SuggestionReason is not null) { <span class="@(row.ShowSuggestionReason ? "" : "hidden")" data-cut-lab-archetype-reason>Why suggested: @row.SuggestionReason</span> }
+                                </span>
+                            </label>
+                        }
+                        <p class="cut-lab-plan-panel__archetype-notice hidden" role="status" data-cut-lab-archetype-notice></p>
+                    </fieldset>
+                    <fieldset class="cut-lab-plan-panel__strategies">
+                        <legend>Generic strategies</legend>
+                        @foreach (var row in Model.PlanPanel.StrategyRows)
+                        {
+                            <label class="cut-lab-plan-panel__row @(row.IsImpliedByArchetype ? "cut-lab-plan-panel__row--implied" : "")">
+                                <input type="checkbox" name="PlanStrategies" value="@row.Slug" checked="@(row.IsChecked ? "checked" : null)" data-cut-lab-plan-checkbox />
+                                <span class="cut-lab-plan-panel__row-body">
+                                    <span class="cut-lab-plan-panel__row-name">@row.DisplayName</span>
+                                    @if (row.IsImpliedByArchetype && Model.PlanPanel.ChosenArchetypeName is not null) { <span class="cut-lab-plan-panel__badge cut-lab-plan-panel__badge--implied">Included by @Model.PlanPanel.ChosenArchetypeName</span> }
+                                    <span class="cut-lab-plan-panel__row-definition">@row.Definition</span>
+                                    <span class="cut-lab-plan-panel__row-consequence">@row.Consequence</span>
+                                </span>
+                            </label>
+                        }
+                    </fieldset>
+                    <fieldset class="cut-lab-plan-panel__themes">
+                        <legend>Commander themes</legend>
+                        @if (Model.PlanPanel.CommanderThemesUnavailable)
+                        {
+                            <p class="cut-lab-plan-panel__themes-unavailable">Commander themes couldn't be loaded from EDHREC right now. The generic strategies above still apply.</p>
+                        }
+                        else
+                        {
+                            @foreach (var theme in Model.PlanPanel.ThemeRows)
+                            {
+                                <label class="cut-lab-plan-panel__row">
+                                    <input type="checkbox" name="PlanThemes" value="@theme.Slug" checked="@(theme.IsChecked ? "checked" : null)" data-cut-lab-plan-checkbox />
+                                    <span class="cut-lab-plan-panel__row-body">
+                                        <span class="cut-lab-plan-panel__row-name">@theme.DisplayName</span>
+                                        <span class="cut-lab-plan-panel__row-definition">@theme.DeckCount decks (@theme.SharePercent.ToString("0.#")%) on EDHREC</span>
+                                    </span>
+                                </label>
+                            }
+                        }
+                    </fieldset>
+                </div>
+                    <button type="submit" class="run-button" data-cut-lab-plan-apply-submit>Apply plan</button>
+                </form>
+            </details>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-lock-pool">
+                <summary class="cutlab-collapsible__summary">Lock your pool</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Lock your pool</h2>
+                        <p class="prompt-size-note">
+                            <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
+                        </p>
+                        <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
+                        <p class="manabase-help">Assigning a package groups cards for bulk lock/unlock — it doesn't remove them from the pool.</p>
+                        <p>@(CutLabCardNames.ToDisplayName(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}"))</p>
+                        <div class="cutlab-pool-filter" hidden>
+                            <div class="cutlab-pool-filter__group" role="radiogroup" aria-label="Show">
+                                <span class="cutlab-pool-filter__label">Show:</span>
+                                <label class="cutlab-pool-filter__option">
+                                    <input type="radio" name="CutLabPoolFilter" value="all" checked />
+                                    <span>All</span>
+                                </label>
+                                <label class="cutlab-pool-filter__option">
+                                    <input type="radio" name="CutLabPoolFilter" value="locked" />
+                                    <span>Locked</span>
+                                </label>
+                                <label class="cutlab-pool-filter__option">
+                                    <input type="radio" name="CutLabPoolFilter" value="unlocked" />
+                                    <span>Unlocked</span>
+                                </label>
+                            </div>
+                            <input type="text" class="cutlab-pool-search" placeholder="Search card name…" aria-label="Search card name" />
+                            <p class="cutlab-pool-match-count">Showing @Model.Pool.Count of @Model.Pool.Count cards</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
+                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
+                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
+                </div>
+            @if (Model.CommanderSelectionRequired)
+            {
+                <div class="result-panel nested-panel" data-scroll-on-load>
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Pick your commander</h2>
+                            <p>We couldn't identify your commander automatically. Choose it below — it will be locked automatically once selected.</p>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="cut-lab-selected-commander">Commander from this deck</label>
+                        <select id="cut-lab-selected-commander" name="SelectedCommander" data-df-select autofocus>
+                            <option value="">Choose a commander</option>
+                            @foreach (var commanderChoice in Model.CommanderChoices)
+                            {
+                                <option value="@commanderChoice" selected="@(string.Equals(Model.Request.SelectedCommander, commanderChoice, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                                    @(CutLabCardNames.ToDisplayName(commanderChoice))
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="cut-lab-commander-search">Commander search backstop</label>
+                        <input id="cut-lab-commander-search"
+                               type="text"
+                               value="@Model.Request.SelectedCommander"
+                               placeholder="Start typing a commander name…"
+                               autocomplete="off"
+                               list="cut-lab-commander-suggestions"
+                               data-commander-search="@Url.Content("~/manabase/commander-search")"
+                               data-commander-target="#cut-lab-selected-commander"
+                               data-commander-create-option="true" />
+                        <datalist id="cut-lab-commander-suggestions"></datalist>
+                        <p class="manabase-help">Pick a commander, then re-run the same import. Your decklist and declared intent stay intact.</p>
+                    </div>
+                </div>
+            }
+
+            <div class="history-timeline__wrap">
+                <p class="prompt-size-note">Lock a card to protect it from future cuts.</p>
+                <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Lock (keep)</th>
+                            <th scope="col">Card</th>
+                            <th scope="col">Type / role</th>
+                            <th scope="col">Package assignment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var poolRow in Model.PoolRows)
+                        {
+                            var card = poolRow.Card;
+                            var frontTypeLine = CardTypeLine.FrontFace(card.TypeLine);
+                            var roleList = Model.RoleListByCardName.TryGetValue(card.Name, out var displayRoles) ? displayRoles : string.Empty;
+                            var roleKeys = Model.RoleKeysByCardName.TryGetValue(card.Name, out var rawRoleKeys) ? rawRoleKeys : string.Empty;
+                            <tr data-cut-lab-card="@card.Name"
+                                data-cut-lab-pool-index="@poolRow.PoolIndex"
+                                data-cut-lab-sort-order="@poolRow.AlphabeticalIndex"
+                                data-cut-lab-type-line="@card.TypeLine"
+                                data-cut-lab-role="@roleKeys"
+                                data-cut-lab-quantity="@card.Quantity"
+                                data-cut-lab-commander="@(card.IsCommander ? "true" : "false")">
+                                <td data-label="Lock">
+                                    <input type="checkbox"
+                                           name="Lock_@card.Name"
+                                           value="@card.Name"
+                                           data-cut-lab-lock-card="@card.Name"
+                                           aria-label="Lock @card.Name to keep it"
+                                           checked="@(card.IsLocked ? "checked" : null)"
+                                           disabled="@(card.IsCommander ? "disabled" : null)" />
+                                </td>
+                                <td data-label="Card">
+                                    <strong>@card.Quantity × <button type="button" class="cutlab-card-link" data-cutlab-card-open="@card.Name">@(CutLabCardNames.ToDisplayName(card.Name))</button></strong>
+                                    @if (card.IsCommander)
+                                    {
+                                        <div class="cutlab-commander-card-cell__details">
+                                            <div>
+                                                <span class="kb-chip cutlab-lock-badge--commander">Commander · Always locked</span>
+                                            </div>
+                                        </div>
+                                    }
+                                </td>
+                                <td data-label="Type / role">
+                                    @frontTypeLine
+                                    @if (!string.IsNullOrWhiteSpace(roleList))
+                                    {
+                                        <div class="cutlab-role-list">@roleList</div>
+                                    }
+                                    @if (!card.IsCommander && Model.RoleOverrideCardsByName.TryGetValue(card.Name, out var roleOverrideCard))
+                                    {
+                                        @if (roleOverrideCard.IsEdited)
+                                        {
+                                            <span class="cutlab-role-edited-chip">Edited</span>
+                                        }
+                                    }
+                                </td>
+                                <td data-label="Package">
+                                    <select name="Package_@card.Name" data-df-select data-cut-lab-package-card="@card.Name">
+                                        <option value="">Unlocked pool</option>
+                                        @foreach (var package in Model.Packages)
+                                        {
+                                            <option value="@package.Id" selected="@(string.Equals(card.PackageId, package.Id, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                                                @package.Name
+                                            </option>
+                                        }
+                                        <option value="__new__">+ New package…</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                        <tr class="cutlab-pool-empty-row" hidden>
+                            <td colspan="4">No cards match.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+
+
+            <section class="result-panel nested-panel">
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-packages">
+                    <summary class="cutlab-collapsible__summary">Packages</summary>
+                    <div class="cutlab-package-help">
+                        <p class="cutlab-package-help__heading">How packages work</p>
+                        <p>Grouping a card into a package doesn't remove it from the pool — it's still counted and still cuttable unless the package itself is locked. Packages let you lock or unlock several cards together instead of one at a time.</p>
+                    </div>
+                    @if (Model.Packages.Count > 0)
+                    {
+                        @foreach (var package in Model.Packages)
+                        {
+                            var members = Model.Pool.Where(card => string.Equals(card.PackageId, package.Id, StringComparison.OrdinalIgnoreCase)).ToList();
+                            <div class="result-panel nested-panel @(package.Locked ? "cutlab-package--locked" : string.Empty)"
+                                 data-cut-lab-package-id="@package.Id"
+                                 data-cut-lab-package-name="@package.Name">
+                                <div class="panel-heading">
+                                    <div>
+                                        <h2>@package.Name</h2>
+                                        <p>@members.Count member@(members.Count == 1 ? string.Empty : "s")</p>
+                                    </div>
+                                    <div class="panel-heading__actions">
+                                        <label class="kb-chip" for="cut-lab-package-lock-@package.Id">
+                                            <input id="cut-lab-package-lock-@package.Id"
+                                                   type="checkbox"
+                                                   data-cut-lab-package-toggle="@package.Id"
+                                                   checked="@(package.Locked ? "checked" : null)" />
+                                            <span>Lock package</span>
+                                        </label>
+                                        <button type="button" class="clear-cache-button" data-cut-lab-package-delete="@package.Id">Delete package</button>
+                                    </div>
+                                </div>
+                                @if (members.Count > 0)
+                                {
+                                    <div class="kb-chip-area__chips">
+                                        @foreach (var member in members)
+                                        {
+                                            <span class="kb-chip">@(CutLabCardNames.ToDisplayName(member.Name))</span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="kb-chip-area__empty-hint">No cards assigned yet.</p>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="kb-chip-area__empty-hint">No packages yet. Use a card's Package assignment menu, then choose + New package…</p>
+                    }
+
+                    <div class="card-picker__rows">
+                        <div class="card-picker__row hidden" data-cut-lab-new-package-row>
+                            <div class="card-picker__input-shell">
+                                <input class="card-picker__input"
+                                       type="text"
+                                       id="cut-lab-new-package-name"
+                                       placeholder="New package name"
+                                       data-cut-lab-new-package-input />
+                            </div>
+                            <button type="button" class="card-picker__add" aria-label="Save package" data-cut-lab-new-package-save>+</button>
+                            <button type="button" class="card-picker__remove" aria-label="Cancel package" data-cut-lab-new-package-cancel>&times;</button>
+                        </div>
+                    </div>
+                </details>
+            </section>
+            </details>
+
+        </section>
+
+        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-cut-rounds">
                 <summary class="cutlab-collapsible__summary">Cut rounds</summary>
                 <div class="panel-heading">
@@ -871,7 +946,7 @@
             @{
                 const int stickyBarTargetDeckSize = 100;
             }
-            
+
             <div class="cutlab-progress cutlab-sticky-bar" data-cut-lab-sticky-target="@stickyBarTargetDeckSize">
                 <span class="cutlab-progress__headline">@Model.BaselineCount → @stickyBarTargetDeckSize cards</span>
                 <span data-cut-lab-sticky-current>@Model.StickyBar.CurrentCount/@stickyBarTargetDeckSize cards</span>
@@ -1112,81 +1187,6 @@
                 </details>
             </section>
         }
-        </section>
-
-        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-plan-panel">
-                <summary class="cutlab-collapsible__summary">Plan profile</summary>
-                <form method="post" action="@Url.Content("~/cut-lab/plan-apply")" id="cut-lab-plan-form" data-cut-lab-plan-form>
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                <div class="panel-heading">
-                    <div>
-                        @* Why: this duplication recurs across the file; a coordinated fix for all sections is separate, out-of-scope work. *@
-                        <h2 aria-hidden="true">Plan profile</h2>
-                        <p>Check what this deck actually does. Every box changes how Cut Lab protects, reorders, and flags cards in your working list — nothing here is cosmetic.</p>
-                    </div>
-                </div>
-                <div class="cut-lab-plan-panel" data-cut-lab-plan-panel>
-                    <p class="cut-lab-plan-panel__zero-notice @(Model.PlanPanel.ZeroSelectionNotice ? "" : "hidden")" role="status" data-cut-lab-plan-zero-notice>With nothing checked, the cut engine behaves exactly as it does today.</p>
-                    <fieldset class="cut-lab-plan-panel__archetypes" data-cut-lab-plan-archetypes>
-                        <legend>Deck archetype</legend>
-                        <p>What kind of deck is this? The archetype adds its strategies below and sets default goal turns. Your own choice always wins over the suggestion.</p>
-                        @foreach (CutLabPlanArchetypeRowView row in Model.PlanPanel.ArchetypeRows)
-                        {
-                            <label class="cut-lab-plan-panel__row">
-                                <input type="radio" name="PlanArchetype" value="@row.Slug" checked="@(row.IsChecked ? "checked" : null)" data-cut-lab-plan-archetype data-cut-lab-archetype-presets="@string.Join(" ", row.PresetStrategies)" />
-                                <span class="cut-lab-plan-panel__row-body">
-                                    <span class="cut-lab-plan-panel__row-name">@row.DisplayName</span>
-                                    @if (row.IsSuggested) { <span class="cut-lab-plan-panel__badge @(row.IsLowConfidence ? "cut-lab-plan-panel__badge--low" : "") @(row.IsChecked ? "hidden" : "")" data-cut-lab-archetype-badge="suggested">Suggested@(row.IsLowConfidence ? " · low confidence" : "")</span> }
-                                    @if (row.Slug.Length > 0) { <span class="cut-lab-plan-panel__badge @(row.IsChecked ? "" : "hidden")" data-cut-lab-archetype-badge="choice">Your choice</span> }
-                                    <span class="cut-lab-plan-panel__row-definition">@row.Definition</span>
-                                    @if (row.Detail.Length > 0) { <span>@row.Detail</span> }
-                                    @if (row.SuggestionReason is not null) { <span class="@(row.ShowSuggestionReason ? "" : "hidden")" data-cut-lab-archetype-reason>Why suggested: @row.SuggestionReason</span> }
-                                </span>
-                            </label>
-                        }
-                        <p class="cut-lab-plan-panel__archetype-notice hidden" role="status" data-cut-lab-archetype-notice></p>
-                    </fieldset>
-                    <fieldset class="cut-lab-plan-panel__strategies">
-                        <legend>Generic strategies</legend>
-                        @foreach (var row in Model.PlanPanel.StrategyRows)
-                        {
-                            <label class="cut-lab-plan-panel__row @(row.IsImpliedByArchetype ? "cut-lab-plan-panel__row--implied" : "")">
-                                <input type="checkbox" name="PlanStrategies" value="@row.Slug" checked="@(row.IsChecked ? "checked" : null)" data-cut-lab-plan-checkbox />
-                                <span class="cut-lab-plan-panel__row-body">
-                                    <span class="cut-lab-plan-panel__row-name">@row.DisplayName</span>
-                                    @if (row.IsImpliedByArchetype && Model.PlanPanel.ChosenArchetypeName is not null) { <span class="cut-lab-plan-panel__badge cut-lab-plan-panel__badge--implied">Included by @Model.PlanPanel.ChosenArchetypeName</span> }
-                                    <span class="cut-lab-plan-panel__row-definition">@row.Definition</span>
-                                    <span class="cut-lab-plan-panel__row-consequence">@row.Consequence</span>
-                                </span>
-                            </label>
-                        }
-                    </fieldset>
-                    <fieldset class="cut-lab-plan-panel__themes">
-                        <legend>Commander themes</legend>
-                        @if (Model.PlanPanel.CommanderThemesUnavailable)
-                        {
-                            <p class="cut-lab-plan-panel__themes-unavailable">Commander themes couldn't be loaded from EDHREC right now. The generic strategies above still apply.</p>
-                        }
-                        else
-                        {
-                            @foreach (var theme in Model.PlanPanel.ThemeRows)
-                            {
-                                <label class="cut-lab-plan-panel__row">
-                                    <input type="checkbox" name="PlanThemes" value="@theme.Slug" checked="@(theme.IsChecked ? "checked" : null)" data-cut-lab-plan-checkbox />
-                                    <span class="cut-lab-plan-panel__row-body">
-                                        <span class="cut-lab-plan-panel__row-name">@theme.DisplayName</span>
-                                        <span class="cut-lab-plan-panel__row-definition">@theme.DeckCount decks (@theme.SharePercent.ToString("0.#")%) on EDHREC</span>
-                                    </span>
-                                </label>
-                            }
-                        }
-                    </fieldset>
-                </div>
-                    <button type="submit" class="run-button" data-cut-lab-plan-apply-submit>Apply plan</button>
-                </form>
-            </details>
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">
@@ -1551,6 +1551,7 @@
                                 <form method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                                    <input type="hidden" name="originStep" value="Plan" data-cut-lab-role-origin-step />
                                     <input type="hidden" name="CardName" data-cut-lab-role-override-card />
                                     <div class="cutlab-role-suggestions" data-cut-lab-role-suggestions></div>
                                     <button type="submit" name="Operation" value="Reset" data-cut-lab-role-reset hidden>Reset card roles</button>

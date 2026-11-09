@@ -319,7 +319,7 @@ const editor = (): void => {
       <p data-cutlab-modal-oracle></p>
       <script type="application/json" data-cut-lab-role-options>${JSON.stringify(roleOptions)}</script><script type="application/json" data-cut-lab-role-labels>{"lands":"Lands","draw":"Card draw","ramp":"Ramp","other":"Other","interaction-targeted":"Targeted removal","interaction-mass":"Mass interaction"}</script><div data-cut-lab-role-block hidden><ul role="list" data-cut-lab-role-chips></ul>
         <form data-cut-lab-role-override-form><input name="CutLabStateJson" />
-          <input name="CardName" data-cut-lab-role-override-card />
+          <input type="hidden" name="originStep" data-cut-lab-role-origin-step /><input name="CardName" data-cut-lab-role-override-card />
           <div data-cut-lab-role-suggestions></div>
           <button data-cut-lab-role-reset hidden>Reset card roles</button>
         </form>
@@ -353,6 +353,21 @@ const adjust = async (newBasic: boolean): Promise<void> => {
 
 describe('role overrides', () => {
   const suggestedRoles = (): Array<string | undefined> => Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-role-suggest]'), button => button.dataset.cutLabRoleSuggest);
+
+  it.each(['Process', 'Plan', 'Decide', 'Goals', 'Export'])('records %s as dialog origin on every open', (step) => {
+    buildFixture(); editor();
+    const tab = document.createElement('button');
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('data-cut-lab-step', String(['Process', 'Plan', 'Decide', 'Goals', 'Export'].indexOf(step) + 1));
+    tab.setAttribute('aria-selected', 'true');
+    tab.setAttribute('aria-label', step);
+    document.body.append(tab);
+    openRoleCard('Plains');
+    expect(document.querySelector<HTMLInputElement>('[data-cut-lab-role-origin-step]')?.value).toBe(step);
+    tab.setAttribute('aria-label', 'Decide');
+    openRoleCard('Plains');
+    expect(document.querySelector<HTMLInputElement>('[data-cut-lab-role-origin-step]')?.value).toBe('Decide');
+  });
   it('collapses More and clears previous-card feedback when opening another card', () => {
     buildFixture(); editor(); openRoleCard('Relentless Rats');
     const block = document.querySelector('[data-cut-lab-role-block]')!;
@@ -613,12 +628,15 @@ describe('JSON role edits', () => {
   });
   it('re-posts the edit through a native form on a formFallback 400', async () => {
     const form = setup();
+    document.body.insertAdjacentHTML('beforeend', '<button role="tab" data-cut-lab-step="3" aria-selected="true" aria-label="Decide"></button>');
+    openRoleCard('Relentless Rats');
     const native = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
     fetchMock.mockResolvedValue({ ok: false, json: async () => ({ formFallback: true }) });
     submit(form); await flushAdjustSubmit();
     expect(native).toHaveBeenCalledTimes(1);
     const posted = native.mock.instances[0] as HTMLFormElement;
     expect(posted.action).toBe(form.action);
+    expect(new FormData(posted).get('originStep')).toBe('Decide');
     expect(new FormData(posted).get('Operation')).toBe('Add');
     expect(new FormData(posted).get('CardName')).toBe('Relentless Rats');
     expect(form.querySelector<HTMLButtonElement>('[data-cut-lab-role-suggest]')!.disabled).toBe(true);

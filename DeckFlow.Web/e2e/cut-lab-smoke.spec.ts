@@ -104,6 +104,7 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await expect(page.locator('tr[data-cut-lab-card="Island"] input[data-cut-lab-lock-card]')).toBeChecked();
   await expect(landsLockButton).toHaveAttribute('aria-pressed', 'true');
 
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   const solRingPackageSelect = page.locator('select[data-cut-lab-package-card="Sol Ring"]');
   await solRingPackageSelect.selectOption('__new__');
   await page.locator('[data-cut-lab-new-package-input]').fill('Fast mana');

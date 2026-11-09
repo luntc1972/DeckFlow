@@ -1294,9 +1294,9 @@ public sealed record CutLabFloorRowView
 /// <summary>Plan-panel view: the twelve generic strategy checkboxes, the commander theme checkboxes, and derived display flags.</summary>
 public sealed record CutLabPlanPanelView
 {
-    /// <summary>Archetype rows shown in the Step 3 picker.</summary>
+    /// <summary>Archetype rows shown in the Step 2 picker.</summary>
     public IReadOnlyList<CutLabPlanArchetypeRowView> ArchetypeRows { get; init; } = [];
-    /// <summary>Display name of the selected Step 3 archetype, when one is selected.</summary>
+    /// <summary>Display name of the selected Step 2 archetype, when one is selected.</summary>
     public string? ChosenArchetypeName { get; init; }
     /// <summary>One row per fixed generic strategy, in catalog declaration order.</summary>
     public IReadOnlyList<CutLabPlanStrategyRowView> StrategyRows { get; init; } = [];

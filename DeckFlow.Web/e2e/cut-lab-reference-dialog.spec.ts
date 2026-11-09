@@ -19,7 +19,7 @@ test.beforeEach(async ({ page }) => {
   await clickManabasePillRadio(page, 'Bracket', '4');
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
-  await expect(page.locator('#cut-lab-step-tab-2')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('#cut-lab-step-tab-3')).toBeVisible({ timeout: 30_000 });
 });
 
 test.afterEach(async () => {
@@ -42,7 +42,7 @@ test('reference tools preserve Decide, scroll, live floors, section position and
   await page.evaluate(() => window.scrollBy({ top: 200, behavior: 'instant' }));
 
   const dialog = page.locator('dialog#cut-lab-reference');
-  const decide = page.locator('#cut-lab-step-panel-2');
+  const decide = page.locator('#cut-lab-step-panel-3');
   for (const [index, id] of sections.entries()) {
     const opener = page.locator(`[data-cut-lab-reference-open="cut-lab-section-${id}"]`);
     await expect(opener).toBeInViewport();
@@ -53,7 +53,7 @@ test('reference tools preserve Decide, scroll, live floors, section position and
     await expect(section).toHaveAttribute('open', '');
     await expect(section).toBeVisible();
     await expect(decide).not.toHaveAttribute('hidden', '');
-    await expect(page.locator('#cut-lab-step-tab-2')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#cut-lab-step-tab-3')).toHaveAttribute('aria-selected', 'true');
     await expect.poll(async () => Math.abs(await page.evaluate(() => window.scrollY) - scrollY), { message: `${id}: reference preserves page scroll` }).toBeLessThanOrEqual(2);
 
     if (id === 'role-floors') {
@@ -104,7 +104,7 @@ test('desktop dialogs stay vertically centred', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop', 'Desktop grid regression; mobile uses separate dialog layout.');
   await page.getByRole('tab', { name: 'Process' }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await page.locator('[data-cutlab-card-open]').filter({ hasText: 'Command Tower' }).first().click();
+  await page.locator('#cut-lab-section-lock-pool [data-cutlab-card-open]').filter({ hasText: 'Command Tower' }).first().click();
   const cardDialog = page.locator('dialog#cutlab-card-modal');
   await expect(cardDialog).toHaveAttribute('open', '');
   const assertCentred = async (selector: string): Promise<void> => {

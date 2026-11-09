@@ -131,8 +131,8 @@ test('Cut Lab mobile workflow stepper shows its short step names', async ({ page
   await expect(nav).toHaveClass(/prompt-step-nav--labeled/);
   await expect(tabs.locator('.prompt-step-tab__label')).toHaveText([
     'Process',
-    'Decide',
     'Plan',
+    'Decide',
     'Goals',
     'Export',
   ]);
@@ -147,8 +147,8 @@ test('Cut Lab mobile workflow stepper shows its short step names', async ({ page
   }));
   expect(tabMetrics).toEqual(expect.arrayContaining([
     expect.objectContaining({ text: '1Process' }),
-    expect.objectContaining({ text: '2Decide' }),
-    expect.objectContaining({ text: '3Plan' }),
+    expect.objectContaining({ text: '2Plan' }),
+    expect.objectContaining({ text: '3Decide' }),
     expect.objectContaining({ text: '4Goals' }),
     expect.objectContaining({ text: '5Export' }),
   ]));

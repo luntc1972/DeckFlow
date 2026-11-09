@@ -5,7 +5,7 @@ import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { cutLabPool } from './fixtures/cut-lab-pool';
 
-// E2E coverage for the Step 3 deck-archetype picker and its plan-apply round trip at desktop
+// E2E coverage for the Step 2 deck-archetype picker and its plan-apply round trip at desktop
 // and mobile viewports. The test intentionally does not depend on commander-theme availability.
 // Admin creds: read from FEEDBACK_ADMIN_USER / FEEDBACK_ADMIN_PASSWORD env vars. The Cut Lab
 // feature flag is enabled transiently and restored after each test.

@@ -6,7 +6,7 @@ const fixture = (): void => {
     <form data-cache-key="cut-lab"><input name="CutLabStateJson" /></form>
     <div role="tablist">
       <button role="tab" type="button" data-cut-lab-step="1" aria-selected="false" aria-controls="cut-lab-step-panel-1">Process</button>
-      <button role="tab" type="button" data-cut-lab-step="2" aria-selected="true" aria-controls="cut-lab-step-panel-2">Decide</button>
+      <button role="tab" type="button" data-cut-lab-step="2" aria-selected="true" aria-controls="cut-lab-step-panel-2">Plan</button>
     </div>
     <section id="cut-lab-step-panel-1" role="tabpanel">
       <details id="cut-lab-section-role-floors"><summary>Role floors</summary><h2>Role floors</h2><a data-cut-lab-jump-link href="#cut-lab-section-structural">Findings</a>
@@ -39,7 +39,7 @@ const dialog = (): HTMLDialogElement => document.querySelector('#cut-lab-referen
 const opener = (): HTMLButtonElement => document.querySelector('[data-cut-lab-reference-open]')!;
 
 describe('Cut Lab reference navigation', () => {
-  it('reparents the original section, preserves floor listeners and Decide, and restores position and focus', () => {
+  it('reparents the original section, preserves floor listeners and Plan, and restores position and focus', () => {
     fixture();
     const section = document.getElementById('cut-lab-section-role-floors') as HTMLDetailsElement;
     const parent = section.parentNode;
