@@ -411,3 +411,28 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
     await noJs.close();
   }
 });
+
+test('keeps pool rows hidden by search and lock filters', async ({ page }) => {
+  await importPool(page);
+
+  const solRing = page.locator('tr[data-cut-lab-card="Sol Ring"]');
+  const arcaneSignet = page.locator('tr[data-cut-lab-card="Arcane Signet"]');
+  const search = page.locator('.cutlab-pool-search');
+  await search.fill('Sol Ring');
+  await expect(arcaneSignet).toHaveAttribute('hidden', '');
+  await expect(arcaneSignet).toBeHidden();
+  await expect(solRing).toBeVisible();
+
+  await search.fill('');
+  await solRing.locator('[data-cut-lab-lock-card]').check();
+  await arcaneSignet.locator('[data-cut-lab-lock-card]').uncheck();
+  await page.locator('input[name="CutLabPoolFilter"][value="locked"]').check();
+  await expect(arcaneSignet).toHaveAttribute('hidden', '');
+  await expect(arcaneSignet).toBeHidden();
+  await expect(solRing).toBeVisible();
+
+  await page.locator('input[name="CutLabPoolFilter"][value="unlocked"]').check();
+  await expect(solRing).toHaveAttribute('hidden', '');
+  await expect(solRing).toBeHidden();
+  await expect(arcaneSignet).toBeVisible();
+});

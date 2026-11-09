@@ -1458,6 +1458,12 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     border-radius: 10px;
   }
 
+  /* Why: display: grid on card rows outranks the UA [hidden] rule, so rows the
+     Cut Lab pool filters hide would stay visible at 600px and below. */
+  table[data-prompt-cedh-reference-table] tr[hidden] {
+    display: none;
+  }
+
   /* Zero the base .conflicts-table cell borders so they don't bleed through the
      card grid as stray partial lines; intended dividers are re-added below. */
   table[data-prompt-cedh-reference-table] td,
