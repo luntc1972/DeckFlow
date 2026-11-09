@@ -264,7 +264,7 @@ internal static class EdhrecRoleGridCommandRunner
         foreach (CardFact probe in BuildTaxonomyProbes())
         {
             foreach (string role in CutLabRoleAssigner
-                         .AssignRoles(probe, [], isComboPiece: false, mode))
+                         .AssignRoles(probe, [], mode))
             {
                 emittedKeys.Add(role);
             }
@@ -463,7 +463,7 @@ internal static class EdhrecRoleGridCommandRunner
 
         foreach ((string cardName, ScryfallCardData card) in resolvedCards.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
         {
-            IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(ScryfallCardFactMapper.ToCardFact(card, quantity: 1, isCommander: false), [], isComboPiece: false, resolvedMode);
+            IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(ScryfallCardFactMapper.ToCardFact(card, quantity: 1, isCommander: false), [], resolvedMode);
             cardRoles[cardName] = roles
                 .Where(roleKeySet.Contains)
                 .Distinct(StringComparer.Ordinal)

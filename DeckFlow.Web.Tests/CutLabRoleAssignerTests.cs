@@ -18,7 +18,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["lands"], roles);
@@ -35,7 +34,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             ["Removal", "Board Wipe", "Win Condition"],
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["lands"], roles);
@@ -46,7 +44,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Category-Only Land", "Land", oracle: "{T}: Add {C}.");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Removal"], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Removal"], ManabaseMode.Casual);
 
         Assert.Equal(["lands"], roles);
     }
@@ -56,7 +54,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Counterspell", "Instant", oracle: "Counter target spell.");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
 
         Assert.Contains("interaction-targeted", roles);
     }
@@ -68,7 +66,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact(name, "Instant", oracle: oracle);
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
 
         Assert.Contains("interaction-targeted", roles);
     }
@@ -81,7 +79,7 @@ public sealed class CutLabRoleAssignerTests
             "Sorcery",
             oracle: "Return target card from your graveyard to your hand.");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
 
         Assert.DoesNotContain("interaction-targeted", roles);
     }
@@ -91,7 +89,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Category Interaction", "Creature");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], ManabaseMode.Casual);
 
         Assert.Contains("interaction-targeted", roles);
     }
@@ -101,7 +99,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Mother of Runes", "Creature", oracle: "{T}: Target creature you control gains protection from the color of your choice until end of turn.");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Protection"], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Protection"], ManabaseMode.Casual);
 
         Assert.DoesNotContain("interaction-targeted", roles);
     }
@@ -111,7 +109,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Jwari Disruption // Jwari Ruins", "Instant // Land", oracle: "Counter target spell unless its controller pays {1}.") with { HasLandFace = true };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Cedh);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Cedh);
 
         Assert.Contains("lands", roles);
         Assert.Contains("interaction-targeted", roles);
@@ -122,7 +120,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Jwari Disruption // Jwari Ruins", "Instant // Land", oracle: "Counter target spell unless its controller pays {1}.") with { HasLandFace = true };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Land"], false, ManabaseMode.Cedh);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Land"], ManabaseMode.Cedh);
 
         Assert.Contains("interaction-targeted", roles);
     }
@@ -132,7 +130,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Oracle Win Land", "Land", oracle: "You win the game.");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
 
         Assert.Contains("lands", roles);
         Assert.Contains("payoffs", roles);
@@ -143,7 +141,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Category-Only Land", "Land", oracle: "{T}: Add {C}.");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Counterspell"], false, ManabaseMode.Cedh);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Counterspell"], ManabaseMode.Cedh);
 
         Assert.Equal(["lands"], roles);
     }
@@ -153,7 +151,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Jwari Disruption // Jwari Ruins", "Instant // Land", oracle: "Counter target spell unless its controller pays {1}.") with { HasLandFace = true };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Counterspell"], false, ManabaseMode.Cedh);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Counterspell"], ManabaseMode.Cedh);
 
         Assert.Contains("interaction-targeted", roles);
     }
@@ -163,7 +161,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Sink into Stupor // Soporific Springs", "Instant // Land", oracle: "Return target spell or nonland permanent an opponent controls to its owner's hand.") with { HasLandFace = true };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Cedh);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], ManabaseMode.Cedh);
 
         Assert.Contains("interaction-targeted", roles);
     }
@@ -173,7 +171,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Category-Only Modal Land", "Instant // Land", oracle: "{T}: Add {C}.") with { HasLandFace = true };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Cedh);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], ManabaseMode.Cedh);
 
         Assert.DoesNotContain("interaction-targeted", roles);
     }
@@ -183,7 +181,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Jwari Disruption // Jwari Ruins", "Instant // Land", oracle: "Counter target spell unless its controller pays {1}.") with { HasLandFace = true };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], ManabaseMode.Casual);
 
         Assert.Contains("interaction-targeted", roles);
     }
@@ -193,7 +191,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Sink into Stupor // Soporific Springs", "Instant // Land", oracle: "Return target spell or nonland permanent an opponent controls to its owner's hand.") with { HasLandFace = true };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], ManabaseMode.Casual);
 
         Assert.Contains("interaction-targeted", roles);
     }
@@ -205,7 +203,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Category-Only Modal Land", "Instant // Land", oracle: "{T}: Add {C}.") with { HasLandFace = true };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [category], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [category], ManabaseMode.Casual);
 
         Assert.Equal(["lands"], roles);
     }
@@ -217,7 +215,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Win-Tagged Modal Land", "Sorcery // Land", oracle: oracle) with { HasLandFace = true };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Win Condition"], false, ManabaseMode.Cedh);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Win Condition"], ManabaseMode.Cedh);
 
         Assert.Equal(expectsPayoff, roles.Contains("payoffs"));
     }
@@ -229,7 +227,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact(name, typeLine, oracle: oracle) with { HasLandFace = hasLandFace };
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
 
         Assert.Contains("lands", roles);
         Assert.Contains("interaction-targeted", roles);
@@ -246,7 +244,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["ramp"], roles);
@@ -267,7 +264,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["protection"], roles);
@@ -278,7 +274,7 @@ public sealed class CutLabRoleAssignerTests
     {
         CardFact fact = Fact("Dark Ritual", "Instant", oracle: "Add {B}{B}{B}.");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
 
         Assert.Equal(["ramp"], roles);
     }
@@ -291,7 +287,7 @@ public sealed class CutLabRoleAssignerTests
             "Artifact",
             oracle: "{1}, {T}, Remove a wish counter from Wishclaw Talisman: Search your library for a card, put it into your hand, then shuffle. An opponent gains control of Wishclaw Talisman. Activate only during your turn.");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
 
         Assert.Equal(["tutor"], roles);
     }
@@ -307,7 +303,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Contains("ramp", roles);
@@ -324,7 +319,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["lands"], roles);
@@ -346,7 +340,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Contains("lands", roles);
@@ -368,7 +361,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.DoesNotContain("draw", roles);
@@ -385,7 +377,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["other"], roles);
@@ -402,7 +393,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["interaction-mass"], roles);
@@ -423,7 +413,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             [category],
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["interaction-mass"], roles);
@@ -440,7 +429,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["interaction-targeted"], roles);
@@ -454,7 +442,7 @@ public sealed class CutLabRoleAssignerTests
             "Instant",
             oracle: "Destroy target creature. It can't be regenerated. That creature's controller creates a 3/3 green Ape creature token.");
 
-        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual);
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
 
         Assert.Equal(["interaction-targeted"], roles);
     }
@@ -472,7 +460,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: false,
             mode);
 
         Assert.Equal(["interaction-targeted"], roles);
@@ -489,7 +476,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             ["answer"],
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["interaction-targeted"], roles);
@@ -498,18 +484,18 @@ public sealed class CutLabRoleAssignerTests
     [Fact]
     public void AssignRoles_InteractionRolesStayMutuallyExclusiveAcrossRepresentativeCards()
     {
-        (CardFact Fact, IReadOnlyList<string> Categories, bool IsComboPiece, ManabaseMode Mode)[] samples =
+        (CardFact Fact, IReadOnlyList<string> Categories, ManabaseMode Mode)[] samples =
         [
-            (Fact("Wrath of God", "Sorcery", "Destroy all creatures. They can't be regenerated."), Array.Empty<string>(), false, ManabaseMode.Casual),
-            (Fact("Cyclonic Redirection", "Instant", "Return all nonland permanents that player controls to their owner's hand."), ["Board Wipe"], false, ManabaseMode.Casual),
-            (Fact("Swords to Plowshares", "Instant", "Exile target creature. Its controller gains life equal to its power."), Array.Empty<string>(), false, ManabaseMode.Casual),
-            (Fact("Counterspell", "Instant", "Counter target spell."), Array.Empty<string>(), false, ManabaseMode.Cedh),
-            (Fact("Flexible Answer", "Artifact", "Artifacts you control enter untapped."), ["answer"], false, ManabaseMode.Casual),
+            (Fact("Wrath of God", "Sorcery", "Destroy all creatures. They can't be regenerated."), Array.Empty<string>(), ManabaseMode.Casual),
+            (Fact("Cyclonic Redirection", "Instant", "Return all nonland permanents that player controls to their owner's hand."), ["Board Wipe"], ManabaseMode.Casual),
+            (Fact("Swords to Plowshares", "Instant", "Exile target creature. Its controller gains life equal to its power."), Array.Empty<string>(), ManabaseMode.Casual),
+            (Fact("Counterspell", "Instant", "Counter target spell."), Array.Empty<string>(), ManabaseMode.Cedh),
+            (Fact("Flexible Answer", "Artifact", "Artifacts you control enter untapped."), ["answer"], ManabaseMode.Casual),
         ];
 
-        foreach ((CardFact sampleFact, IReadOnlyList<string> categories, bool isComboPiece, ManabaseMode mode) in samples)
+        foreach ((CardFact sampleFact, IReadOnlyList<string> categories, ManabaseMode mode) in samples)
         {
-            IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(sampleFact, categories, isComboPiece, mode);
+            IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(sampleFact, categories, mode);
             Assert.False(
                 roles.Contains("interaction-targeted", StringComparer.Ordinal)
                 && roles.Contains("interaction-mass", StringComparer.Ordinal),
@@ -518,7 +504,7 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
-    public void AssignRoles_SolRingComboPiece_MapsToRampOnly()
+    public void AssignRoles_SolRing_MapsToRampOnly()
     {
         CardFact fact = Fact(
             "Sol Ring",
@@ -528,14 +514,13 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: true,
             ManabaseMode.Casual);
 
         Assert.Equal(["ramp"], roles);
     }
 
     [Fact]
-    public void AssignRoles_CanonicalEmissionOrder_PutsTargetedBeforeLaterRoles()
+    public void AssignRoles_SwordsToPlowshares_MapsToTargetedInteraction()
     {
         CardFact fact = Fact(
             "Swords to Plowshares",
@@ -545,7 +530,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: true,
             ManabaseMode.Casual);
 
         Assert.Equal(["interaction-targeted"], roles);
@@ -562,7 +546,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             new[] { "Card Draw" },
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["draw", "engines"], roles);
@@ -579,7 +562,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             new[] { "Card Draw" },
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["draw"], roles);
@@ -596,14 +578,13 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             new[] { "Card Draw" },
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["draw", "engines"], roles);
     }
 
     [Fact]
-    public void AssignRoles_ComboPiece_DoesNotGrantTutorOrWincon()
+    public void AssignRoles_IsochronScepter_DoesNotGrantTutorOrWincon()
     {
         CardFact fact = Fact(
             "Isochron Scepter",
@@ -613,7 +594,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             Array.Empty<string>(),
-            isComboPiece: true,
             ManabaseMode.Casual);
 
         Assert.Equal(["other"], roles);
@@ -630,7 +610,6 @@ public sealed class CutLabRoleAssignerTests
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(
             fact,
             new[] { "Win Condition" },
-            isComboPiece: false,
             ManabaseMode.Casual);
 
         Assert.Equal(["wincons"], roles);

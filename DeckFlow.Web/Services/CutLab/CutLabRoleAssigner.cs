@@ -109,13 +109,11 @@ public static class CutLabRoleAssigner
     /// </summary>
     /// <param name="fact">Resolved card fact.</param>
     /// <param name="categories">Crowd-sourced category tags for the card.</param>
-    /// <param name="isComboPiece">Whether Commander Spellbook lists the card in an included combo. Currently ignored: combo membership alone grants neither the tutor nor the wincons role.</param>
     /// <param name="mode">Classifier mode derived from play experience.</param>
     /// <returns>The subset of role keys the card fills, in canonical order.</returns>
     public static IReadOnlyList<string> AssignRoles(
         CardFact fact,
         IReadOnlyList<string> categories,
-        bool isComboPiece,
         ManabaseMode mode)
     {
         ArgumentNullException.ThrowIfNull(fact);

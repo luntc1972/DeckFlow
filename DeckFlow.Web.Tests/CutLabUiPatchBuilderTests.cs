@@ -36,7 +36,7 @@ public sealed class CutLabUiPatchBuilderTests
     public void AssignRoles_RoleOverride_BasicPlainsStaysLandsOnly()
     {
         CardFact fact = new() { Name = "Plains", Quantity = 1, TypeLine = "Basic Land — Plains", OracleText = "({T}: Add {W}.)", ManaValue = 0 };
-        Assert.Equal(["lands"], CutLabRoleAssigner.AssignRoles(fact, [], false, ManabaseMode.Casual));
+        Assert.Equal(["lands"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
     }
 
     [Fact]

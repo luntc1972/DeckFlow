@@ -131,7 +131,7 @@ test('edits card roles, preserves them through locks, and resets inferred roles'
   await expect(editor.locator('[data-cut-lab-role-block]')).not.toHaveAttribute('aria-busy', 'true');
   const more = editor.getByRole('button', { name: '+ More…', exact: true });
   await more.click();
-  // Why: Card draw was already added via the suggested pill above, and Sol Ring's Ramp/Tutors/Win conditions are filtered out by renderModalRoleBlock, so add a role that is still offered.
+  // Why: Card draw was already added via the suggested pill above, so add a still-offered role: Engines.
   await editor.getByRole('button', { name: 'Add Engines role', exact: true }).click();
   await expect(editor.locator('[data-cut-lab-role-chips]')).toContainText('Engines');
   await expect(page.locator('details[data-cut-lab-group-role="engines"] [data-cut-lab-chip-card="Sol Ring"]')).toHaveCount(1);

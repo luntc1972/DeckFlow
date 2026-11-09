@@ -193,7 +193,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
 
         string[] afterNames = cards
             .Where(fact => CutLabRoleAssigner
-                .AssignRoles(fact, Array.Empty<string>(), isComboPiece: false, ManabaseMode.Casual)
+                .AssignRoles(fact, Array.Empty<string>(), ManabaseMode.Casual)
                 .Contains("protection"))
             .Select(fact => fact.Name)
             .OrderBy(name => name, StringComparer.Ordinal)
@@ -209,7 +209,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
 
         string[] afterNames = cards
             .Where(fact => CutLabRoleAssigner
-                .AssignRoles(fact, Array.Empty<string>(), isComboPiece: false, ManabaseMode.Casual)
+                .AssignRoles(fact, Array.Empty<string>(), ManabaseMode.Casual)
                 .Contains("interaction-targeted"))
             .Select(fact => fact.Name)
             .OrderBy(name => name, StringComparer.Ordinal)
@@ -335,7 +335,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
             Assert.False(DeckStatClassifier.IsProtectionCard(name, oracle),
                 $"{name} is a 'can't be regenerated' removal spell and must never classify as protection.");
 
-            IReadOnlyList<string> cutLabRoles = CutLabRoleAssigner.AssignRoles(fact, Array.Empty<string>(), isComboPiece: false, ManabaseMode.Casual);
+            IReadOnlyList<string> cutLabRoles = CutLabRoleAssigner.AssignRoles(fact, Array.Empty<string>(), ManabaseMode.Casual);
             Assert.DoesNotContain("protection", cutLabRoles);
 
             PlanRole roles = PlanRoleClassifier.Classify(fact, Array.Empty<string>(), isComboPiece: false, ManabaseMode.Casual, out _);
