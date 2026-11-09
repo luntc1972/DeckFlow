@@ -1292,3 +1292,58 @@ describe('cut-lab proposal enhancement', () => {
     expect(parsed.intent.secondaryPlan).toBe('Close with a reanimated finisher.');
   });
 });
+
+
+describe('cut-lab MDFC patch display', () => {
+  const canonical = 'Witch Enchanter // Witch-Blessed Meadow';
+  const display = 'Witch Enchanter / Witch-Blessed Meadow';
+
+  it('renders MDFC names with a single slash in the patched proposal and cuts-made rows while attributes keep the canonical name', async () => {
+    buildDecisionFixture();
+    const patch = buildPatch();
+    patch.nextProposal.cardName = canonical;
+    patch.cutsMade[0].cardName = canonical;
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ patch }) });
+    const button = document.querySelector<HTMLButtonElement>('.cutlab-proposal [data-cut-lab-decision="accept"]')!;
+    button.closest('form')!.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true, cancelable: true, submitter: button,
+    }));
+    await flushDecisionSubmit();
+
+    for (const selector of ['.cutlab-proposal', '.cutlab-cuts-made__row']) {
+      const trigger = document.querySelector<HTMLElement>(`${selector} [data-cutlab-card-open]`)!;
+      expect(trigger.textContent).toBe(display);
+      expect(trigger.dataset.cutlabCardOpen).toBe(canonical);
+    }
+    const inputs = document.querySelectorAll<HTMLInputElement>('.cutlab-proposal input[name="CardName"]');
+    expect(inputs.length).toBeGreaterThan(0);
+    for (const input of inputs) {
+      expect(input.value).toBe(canonical);
+    }
+    const decision = document.querySelector<HTMLElement>('.cutlab-proposal [data-cut-lab-decision]')!;
+    expect(decision.dataset.cutLabCard).toBe(canonical);
+  });
+
+  it('removes a restored MDFC cut row matched by its canonical name', async () => {
+    buildDecisionFixture();
+    const original = document.querySelector<HTMLElement>('.cutlab-cuts-made__row')!;
+    const row = original.cloneNode(true) as HTMLElement;
+    row.querySelector('span')!.outerHTML = `<button type="button" data-cutlab-card-open="${canonical}">${display}</button>`;
+    row.querySelector<HTMLInputElement>('input[name="CardName"]')!.value = canonical;
+    const button = row.querySelector<HTMLButtonElement>('[data-cut-lab-restore]')!;
+    button.dataset.cutLabCard = canonical;
+    original.after(row);
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ patch: buildPatch({ cutsMade: [] }) }) });
+    row.querySelector('form')!.dispatchEvent(new SubmitEvent('submit', {
+      bubbles: true, cancelable: true, submitter: button,
+    }));
+    await flushDecisionSubmit();
+
+    expect(row.isConnected).toBe(false);
+    expect(original.isConnected).toBe(true);
+    expect(document.body.textContent).toContain(`${display} restored — metrics recalculating…`);
+    expect(fetchMock).toHaveBeenCalledWith('/api/cut-lab/decide', expect.objectContaining({
+      body: JSON.stringify({ cutLabStateJson: '{"version":1}', cardName: canonical, decision: 'restore' }),
+    }));
+  });
+});

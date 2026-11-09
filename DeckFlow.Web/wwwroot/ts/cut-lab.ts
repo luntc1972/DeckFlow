@@ -302,6 +302,7 @@ interface CutLabSubtypeEntry {
 }
 
 interface CutLabApi {
+  toDisplayCardName(text: string): string;
   computePackageCheckboxState(memberLocked: boolean[]): PackageCheckboxState;
   hasRoleToken(roleList: string | null | undefined, role: string): boolean;
   isLandRole(roleList: string | null | undefined): boolean;
@@ -369,6 +370,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 (function (root: CutLabRoot): void {
   const normalizeAsciiCase = (value: string): string =>
     value.replace(/[A-Z]/g, character => String.fromCharCode(character.charCodeAt(0) + 32));
+
+  // Why: display only; card identity stays canonical.
+  const toDisplayCardName = (text: string): string => text.split(' // ').join(' / ');
 
   const frontFaceTypeLine = (typeLine: string): string =>
     typeLine.split('//')[0]?.trim() ?? '';
@@ -883,6 +887,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       : `s-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   const api: CutLabApi = {
+    toDisplayCardName,
     computePackageCheckboxState(memberLocked: boolean[]): PackageCheckboxState {
       if (memberLocked.length === 0) {
         return 'unchecked';
@@ -1505,7 +1510,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const matchesLockedState = selectedFilter === 'all'
         || (selectedFilter === 'locked' && (checkbox?.checked ?? false))
         || (selectedFilter === 'unlocked' && !(checkbox?.checked ?? false));
-      const matchesSearch = searchTerm === '' || cardName.includes(searchTerm);
+      const matchesSearch = searchTerm === '' || cardName.includes(searchTerm)
+        || toDisplayCardName(cardName).includes(searchTerm);
       const isVisible = matchesLockedState && matchesSearch;
       row.hidden = !isVisible;
       if (isVisible) {
@@ -1983,7 +1989,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const getComboBadgeText = (comboBadge: { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }): string =>
-    comboBadge.badgeState === 'CompletePiece' ? 'Combo piece' : comboBadge.context;
+    comboBadge.badgeState === 'CompletePiece' ? 'Combo piece' : toDisplayCardName(comboBadge.context);
 
   const getComboBadgeClassName = (comboBadge: { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }): string =>
     comboBadge.badgeState === 'CompletePiece'
@@ -2005,7 +2011,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const createLockableCardChip = (label: string, cardName: string, isLocked: boolean): HTMLButtonElement => {
     const className = `kb-chip cutlab-role-chip${isLocked ? ' cutlab-role-chip--locked' : ''}`;
-    const chip = createTextElement('button', className, label);
+    const chip = createTextElement('button', className, toDisplayCardName(label));
     chip.type = 'button';
     chip.dataset.cutlabCardOpen = cardName;
     chip.dataset.cutLabChipCard = cardName;
@@ -2019,7 +2025,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>,
   ): HTMLElement => {
     const match = findLockablePoolCardForEvidence(evidence, matches);
-    if (!match) return createTextElement('span', 'kb-chip', evidence);
+    if (!match) return createTextElement('span', 'kb-chip', toDisplayCardName(evidence));
 
     const button = createLockableCardChip(evidence, match.cardName, match.checkbox.checked);
     appendComboBadge(button, comboBadgeByCardName, match.cardName);
@@ -2280,7 +2286,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const combo = getCardModalCombo();
     const castability = getCardModalCastability();
 
-    title.textContent = cardName;
+    title.textContent = toDisplayCardName(cardName);
     if (meta) {
       meta.textContent = metaLine;
       meta.hidden = metaLine === '';
@@ -2294,7 +2300,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     oracle.textContent = oracleText !== '' ? oracleText : 'No card text available.';
 
     if (combo) {
-      combo.textContent = comboText;
+      combo.textContent = toDisplayCardName(comboText);
       combo.hidden = comboText === '';
     }
 
@@ -2316,13 +2322,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     button.type = 'button';
     button.className = className;
     button.dataset.cutlabCardOpen = cardName;
-    button.textContent = cardName;
+    button.textContent = toDisplayCardName(cardName);
     return button;
   };
 
   const createPoolCardChip = (entry: CutLabSubtypeEntry): HTMLElement => {
     if (entry.isCommander) {
-      const chip = createTextElement('span', 'kb-chip cutlab-lock-badge--commander', entry.name);
+      const chip = createTextElement('span', 'kb-chip cutlab-lock-badge--commander', toDisplayCardName(entry.name));
       chip.dataset.cutlabCardOpen = entry.name;
       chip.dataset.cutLabChipCard = entry.name;
       return chip;
@@ -2696,7 +2702,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const sentence = document.createElement('span');
     sentence.className = 'cutlab-delta__sentence';
     sentence.textContent = delta.isMeaningful
-      ? `cutting ${cardName} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.unit)}.`
+      ? `cutting ${toDisplayCardName(cardName)} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.unit)}.`
       : `${delta.label}: no meaningful change`;
 
     const value = createDeltaValue(
@@ -2913,13 +2919,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     const row = Array.from(details.querySelectorAll<HTMLDivElement>('.cutlab-cuts-made__row'))
       .find(candidate => {
-        const triggerText = candidate.querySelector<HTMLElement>('[data-cutlab-card-open]')?.textContent?.trim();
-        if (triggerText === cardName) {
+        const trigger = candidate.querySelector<HTMLElement>('[data-cutlab-card-open]');
+        const triggerText = trigger?.textContent?.trim();
+        const displayName = toDisplayCardName(cardName);
+        if (trigger?.dataset.cutlabCardOpen === cardName || triggerText === cardName || triggerText === displayName) {
           return true;
         }
 
         const legacyLabel = candidate.querySelector<HTMLSpanElement>('span')?.textContent?.trim();
-        return legacyLabel === cardName;
+        return legacyLabel === cardName || legacyLabel === displayName;
       });
     if (!row) {
       return;
@@ -2987,7 +2995,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         group.items.forEach(item => {
           const itemElement = document.createElement('div');
           itemElement.className = 'cutlab-finding__item';
-          itemElement.appendChild(createTextElement('p', 'cutlab-finding__lead', item.lead));
+          itemElement.appendChild(createTextElement('p', 'cutlab-finding__lead', toDisplayCardName(item.lead)));
 
           if (item.roles && item.roles.length > 0) {
             itemElement.appendChild(createTextElement('p', 'cutlab-finding__roles', `Role: ${item.roles.join(', ')}`));
@@ -3023,7 +3031,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     warnings.forEach(warning => {
       const warningPanel = document.createElement('div');
       warningPanel.className = 'cutlab-finding cutlab-proposal__floor-warning';
-      warningPanel.appendChild(createTextElement('p', 'cutlab-finding__lead', warning.message));
+      warningPanel.appendChild(createTextElement('p', 'cutlab-finding__lead', toDisplayCardName(warning.message)));
       proposal.appendChild(warningPanel);
     });
   };
@@ -3065,7 +3073,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const panel = document.createElement('div');
       panel.className = 'cutlab-finding cutlab-proposal__floor-warning';
       panel.appendChild(createTextElement('p', 'cutlab-finding__heading', group.roleLabel));
-      panel.appendChild(createTextElement('p', 'cutlab-finding__lead', group.cardNames.join(', ')));
+      panel.appendChild(createTextElement('p', 'cutlab-finding__lead', group.cardNames.map(toDisplayCardName).join(', ')));
       children.push(panel);
     });
 
@@ -3353,9 +3361,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     selection.classList.remove('hidden');
     selection.replaceChildren(
       document.createTextNode('Previewing: cut '),
-      createTextElement('strong', '', response.cardOut),
+      createTextElement('strong', '', toDisplayCardName(response.cardOut)),
       document.createTextNode(', restore '),
-      createTextElement('strong', '', response.cardIn),
+      createTextElement('strong', '', toDisplayCardName(response.cardIn)),
       document.createTextNode(`. ${response.changedFamilyCount} ${cutLabWhatifPreviewSummaryCopy}`),
     );
 
@@ -3416,7 +3424,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const emptyOptionLabel = Array.from(select.options).find(option => option.value === '')?.text ?? '';
     select.replaceChildren(...[
       new Option(emptyOptionLabel, ''),
-      ...cardNames.map(cardName => new Option(cardName, cardName)),
+      ...cardNames.map(cardName => new Option(toDisplayCardName(cardName), cardName)),
     ]);
     select.value = '';
   };
@@ -3531,7 +3539,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     const cardCell = document.createElement('td');
     cardCell.setAttribute('data-label', 'Card');
-    cardCell.appendChild(createTextElement('strong', '', row.cardName));
+    cardCell.appendChild(createTextElement('strong', '', toDisplayCardName(row.cardName)));
     if (row.isAddedBasic) {
       cardCell.appendChild(createTextElement('span', 'kb-chip cutlab-tuner-badge--added', 'Added'));
     }
@@ -4003,7 +4011,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       applyServerPatch(data.patch, antiForgeryToken, { preserveCutsSection: payload.decision === 'restore' });
       if (payload.decision === 'restore') {
         removeRestoredCutRow(payload.cardName);
-        renderCutsMadeStatus('data-cut-lab-restore-confirmation', `${payload.cardName} restored — metrics recalculating…`);
+        renderCutsMadeStatus('data-cut-lab-restore-confirmation', `${toDisplayCardName(payload.cardName)} restored — metrics recalculating…`);
       }
     } catch (error) {
       renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'
@@ -4507,7 +4515,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     if (chipArea) {
-      setKbChips(chipArea, rows.map(row => row.dataset.cutLabCard ?? ''));
+      setKbChips(chipArea, rows.map(row => toDisplayCardName(row.dataset.cutLabCard ?? '')));
     }
 
     if (emptyHint) {
@@ -4744,7 +4752,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       .slice(0, 3);
 
     if (lockedChips) {
-      setKbChips(lockedChips, lockedRows.slice(0, 3).map(row => row.dataset.cutLabCard ?? ''));
+      setKbChips(lockedChips, lockedRows.slice(0, 3).map(row => toDisplayCardName(row.dataset.cutLabCard ?? '')));
     }
 
     if (lockedMore) {

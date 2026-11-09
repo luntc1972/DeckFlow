@@ -595,6 +595,57 @@ public sealed class CutLabViewRenderTests
         Assert.Contains("id=\"cut-lab-section-constraints\"", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RenderAsync_MdfcPoolCard_RendersSlashTextAndCanonicalAttributes()
+    {
+        const string name = "Witch Enchanter // Witch-Blessed Meadow";
+        var model = new CutLabViewModel
+        {
+            ActiveTab = DeckPageTab.CutLab,
+            HasResult = true,
+            IsLegal = true,
+            Pool = [new CutLabPoolCard { Name = name, Quantity = 1, TypeLine = "Creature" }],
+            RoleListByCardName = new Dictionary<string, string> { [name] = "Utility" },
+            RoleKeysByCardName = new Dictionary<string, string> { [name] = "utility" },
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains(">Witch Enchanter / Witch-Blessed Meadow</button>", html, StringComparison.Ordinal);
+        foreach (string attribute in new[] { "data-cut-lab-card", "data-cutlab-card-open", "data-cut-lab-lock-card", "value" })
+        {
+            Assert.Contains($"{attribute}=\"{name}\"", html, StringComparison.Ordinal);
+        }
+        Assert.Contains($"aria-label=\"Lock {name} to keep it\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Witch Enchanter // ", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderAsync_MdfcProposalCutsMadeAndWhatif_RendersSlashTextAndCanonicalValues()
+    {
+        const string name = "Witch Enchanter // Witch-Blessed Meadow";
+        CutLabViewModel model = BuildTwinBadgeModel() with
+        {
+            Proposal = new CutLabProposalView { HasProposal = true, CardName = name, RoundKey = "test-round" },
+            CutsMade = [new CutLabCutMadeRowView { CardName = name, RoundKey = "test-round" }],
+            WhatifCardOutOptions = [name],
+            Export = new CutLabExportView
+            {
+                HasExport = true,
+                HardBlock = false,
+                MoxfieldFullListText = $"1 {name}",
+            },
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Equal(2, Regex.Matches(html, ">Witch Enchanter / Witch-Blessed Meadow</button>").Count);
+        Assert.Contains($"name=\"CardName\" value=\"{name}\"", html, StringComparison.Ordinal);
+        Assert.Matches($"<option value=\"{Regex.Escape(name)}\"[^>]*>\\s*Witch Enchanter / Witch-Blessed Meadow\\s*</option>", html);
+        Assert.Contains($"readonly>1 {name}</textarea>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Witch Enchanter // ", html, StringComparison.Ordinal);
+    }
+
     private const string HeliodRawName = "Heliod, Sun-Crowned";
 
     private static readonly string HeliodNormalizedName = CutLabCardNames.Normalize(HeliodRawName);

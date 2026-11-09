@@ -44,7 +44,7 @@
         {
             <span class="kb-chip cutlab-lock-badge--commander"
                   data-cutlab-card-open="@member.Name"
-                  data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
+                  data-cut-lab-chip-card="@member.Name">@(CutLabCardNames.ToDisplayName(member.Name))@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
         }
         else
         {
@@ -53,7 +53,7 @@
                     class="@chipClasses"
                     data-cutlab-card-open="@member.Name"
                     data-cut-lab-chip-card="@member.Name"
-                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
+                    aria-pressed="@(member.IsLocked ? "true" : "false")">@(CutLabCardNames.ToDisplayName(member.Name))@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
         }
     }
 
@@ -133,7 +133,7 @@
         foreach (var line in lines)
         {
             <div class="cutlab-delta__line">
-                <span class="cutlab-delta__sentence">@line.Sentence</span>
+                <span class="cutlab-delta__sentence">@(CutLabCardNames.ToDisplayName(line.Sentence))</span>
                 @{ await RenderDeltaValue(line.Direction, line.FormattedValueToken); }
             </div>
         }
@@ -271,7 +271,7 @@
                 <ul>
                     @foreach (var warning in Model.Warnings)
                     {
-                        <li>@warning</li>
+                        <li>@(CutLabCardNames.ToDisplayName(warning))</li>
                     }
                 </ul>
             </div>
@@ -300,7 +300,7 @@
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-locked-chips>
                             @foreach (var card in shownLocked)
                             {
-                                <span class="kb-chip">@card.Name</span>
+                                <span class="kb-chip">@(CutLabCardNames.ToDisplayName(card.Name))</span>
                             }
                         </div>
                         <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-locked-more hidden="@(Model.StickyBar.LockedCount > shownLockedQuantity ? null : "hidden")">+@Math.Max(0, Model.StickyBar.LockedCount - shownLockedQuantity) more</p>
@@ -347,7 +347,7 @@
                         </p>
                         <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
                         <p class="manabase-help">Assigning a package groups cards for bulk lock/unlock — it doesn't remove them from the pool.</p>
-                        <p>@(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}")</p>
+                        <p>@(CutLabCardNames.ToDisplayName(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}"))</p>
                         <div class="cutlab-pool-filter" hidden>
                             <div class="cutlab-pool-filter__group" role="radiogroup" aria-label="Show">
                                 <span class="cutlab-pool-filter__label">Show:</span>
@@ -389,7 +389,7 @@
                             @foreach (var commanderChoice in Model.CommanderChoices)
                             {
                                 <option value="@commanderChoice" selected="@(string.Equals(Model.Request.SelectedCommander, commanderChoice, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                                    @commanderChoice
+                                    @(CutLabCardNames.ToDisplayName(commanderChoice))
                                 </option>
                             }
                         </select>
@@ -446,7 +446,7 @@
                                            disabled="@(card.IsCommander ? "disabled" : null)" />
                                 </td>
                                 <td data-label="Card">
-                                    <strong>@card.Quantity × <button type="button" class="cutlab-card-link" data-cutlab-card-open="@card.Name">@card.Name</button></strong>
+                                    <strong>@card.Quantity × <button type="button" class="cutlab-card-link" data-cutlab-card-open="@card.Name">@(CutLabCardNames.ToDisplayName(card.Name))</button></strong>
                                     @if (card.IsCommander)
                                     {
                                         <div class="cutlab-commander-card-cell__details">
@@ -529,7 +529,7 @@
                                     <div class="kb-chip-area__chips">
                                         @foreach (var member in members)
                                         {
-                                            <span class="kb-chip">@member.Name</span>
+                                            <span class="kb-chip">@(CutLabCardNames.ToDisplayName(member.Name))</span>
                                         }
                                     </div>
                                 }
@@ -694,7 +694,7 @@
                             @foreach (var finding in findingGroup.Items)
                             {
                                 <div class="cutlab-finding__item">
-                                    <p class="cutlab-finding__lead">@finding.Lead</p>
+                                    <p class="cutlab-finding__lead">@(CutLabCardNames.ToDisplayName(finding.Lead))</p>
                                     @if (finding.Roles.Count > 0)
                                     {
                                         <p class="cutlab-finding__roles">Role: @string.Join(", ", finding.Roles)</p>
@@ -707,7 +707,7 @@
                                                 var evidenceCard = evidenceCardIndex.Find(evidence);
                                                 if (evidenceCard is null)
                                                 {
-                                                    <span class="kb-chip">@evidence</span>
+                                                    <span class="kb-chip">@(CutLabCardNames.ToDisplayName(evidence))</span>
                                                 }
                                                 else
                                                 {
@@ -720,10 +720,10 @@
                                                             data-cutlab-card-open="@evidenceCard.Name"
                                                             data-cut-lab-chip-card="@evidenceCard.Name"
                                                             aria-pressed="@(evidenceCard.IsLocked ? "true" : "false")">
-                                                        <span>@evidence</span>
+                                                        <span>@(CutLabCardNames.ToDisplayName(evidence))</span>
                                                         @if (comboBadgeText is not null && comboBadgeClass is not null)
                                                         {
-                                                            <span class="@comboBadgeClass">@comboBadgeText</span>
+                                                            <span class="@comboBadgeClass">@(CutLabCardNames.ToDisplayName(comboBadgeText))</span>
                                                         }
                                                     </button>
                                                 }
@@ -763,7 +763,7 @@
                         }
                         <h2>Role floors</h2>
                         <p>Minimum counts the finished 100 should keep, derived from your bracket and play experience. Adjust any floor — later cut suggestions will warn you before breaking one, never silently.</p>
-                        <p class="cutlab-role-floors-context">Defaults shown for <strong>@Model.Request.SelectedCommander</strong> — Bracket @Model.Request.Bracket (@roleFloorsBracketLabel) · @Model.Request.PlayExperience play.</p>
+                        <p class="cutlab-role-floors-context">Defaults shown for <strong>@(CutLabCardNames.ToDisplayName(Model.Request.SelectedCommander))</strong> — Bracket @Model.Request.Bracket (@roleFloorsBracketLabel) · @Model.Request.PlayExperience play.</p>
                         @if (Model.FloorFeasibility is not null)
                         {
                             <div class="warning-banner" role="status" data-cut-lab-floor-feasibility>
@@ -905,7 +905,7 @@
                     {
                         <div class="cutlab-finding cutlab-proposal__floor-warning">
                             <p class="cutlab-finding__heading">@group.RoleLabel</p>
-                            <p class="cutlab-finding__lead">@string.Join(", ", group.CardNames)</p>
+                            <p class="cutlab-finding__lead">@(CutLabCardNames.ToDisplayName(string.Join(", ", group.CardNames)))</p>
                         </div>
                     }
                     @if (advisory.HiddenCount > 0)
@@ -924,7 +924,7 @@
                 <div class="cutlab-proposal" data-cut-lab-card="@Model.Proposal.CardName" data-cut-lab-round="@Model.Proposal.RoundKey">
                     <div class="cutlab-proposal--pinned">
                         <div class="cutlab-proposal__pinned-row">
-                            <p class="cutlab-proposal__heading">Proposed cut: <button type="button" class="cutlab-card-link" data-cutlab-card-open="@Model.Proposal.CardName">@Model.Proposal.CardName</button></p>
+                            <p class="cutlab-proposal__heading">Proposed cut: <button type="button" class="cutlab-card-link" data-cutlab-card-open="@Model.Proposal.CardName">@(CutLabCardNames.ToDisplayName(Model.Proposal.CardName))</button></p>
                             <p class="cutlab-proposal__glance">@Model.Proposal.GlanceLine</p>
                         </div>
                         <div class="cutlab-proposal__pinned-actions">
@@ -976,7 +976,7 @@
                             @foreach (var warning in Model.Proposal.FloorWarnings)
                             {
                                 <div class="cutlab-finding cutlab-proposal__floor-warning">
-                                    <p class="cutlab-finding__lead">@warning</p>
+                                    <p class="cutlab-finding__lead">@(CutLabCardNames.ToDisplayName(warning))</p>
                                 </div>
                             }
                         }
@@ -1042,7 +1042,7 @@
                                     data-cut-lab-quantity="@row.CurrentQuantity"
                                     data-cut-lab-legal-max="@row.LegalMax">
                                     <td data-label="Card">
-                                        <strong>@row.Name</strong>
+                                        <strong>@(CutLabCardNames.ToDisplayName(row.Name))</strong>
                                         @if (row.IsAddedBasic)
                                         {
                                             <span class="kb-chip cutlab-tuner-badge--added">Added</span>
@@ -1103,7 +1103,7 @@
                         @foreach (var row in Model.CutsMade)
                         {
                             <div class="cutlab-cuts-made__row">
-                                <button type="button" class="cutlab-card-link" data-cutlab-card-open="@row.CardName" data-cutlab-card-view-only="true">@row.CardName</button>
+                                <button type="button" class="cutlab-card-link" data-cutlab-card-open="@row.CardName" data-cutlab-card-view-only="true">@(CutLabCardNames.ToDisplayName(row.CardName))</button>
                                 <span class="prompt-size-note">cut in @row.RoundLabel</span>
                                 @{ await RenderDecisionForm(row.CardName, row.RoundKey, "restore", "Restore", string.Empty, $"Restore {row.CardName}"); }
                             </div>
@@ -1298,7 +1298,7 @@
                                 @foreach (var cardName in Model.WhatifCardOutOptions)
                                 {
                                     <option value="@cardName" selected="@(string.Equals(Model.Whatif.CardOut, cardName, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                                        @cardName
+                                        @(CutLabCardNames.ToDisplayName(cardName))
                                     </option>
                                 }
                             </select>
@@ -1310,7 +1310,7 @@
                                 @foreach (var cardName in Model.WhatifCardInOptions)
                                 {
                                     <option value="@cardName" selected="@(string.Equals(Model.Whatif.CardIn, cardName, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                                        @cardName
+                                        @(CutLabCardNames.ToDisplayName(cardName))
                                     </option>
                                 }
                             </select>
@@ -1318,7 +1318,7 @@
                     </div>
                         <div class="@(Model.Whatif.HasPreview ? "cutlab-whatif__preview" : "cutlab-whatif__preview hidden")" data-cut-lab-whatif-preview>
                             <p class="@(Model.Whatif.HasPreview ? "cutlab-whatif__selection" : "cutlab-whatif__selection hidden")" data-cut-lab-whatif-selection>@if (Model.Whatif.HasPreview)
-                                {<text>Previewing: cut <strong>@Model.Whatif.CardOut</strong>, restore <strong>@Model.Whatif.CardIn</strong>.</text>}</p>
+                                {<text>Previewing: cut <strong>@(CutLabCardNames.ToDisplayName(Model.Whatif.CardOut))</strong>, restore <strong>@(CutLabCardNames.ToDisplayName(Model.Whatif.CardIn))</strong>.</text>}</p>
                             <div class="history-timeline__wrap">
                                 <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
                                     <thead>
@@ -1441,14 +1441,14 @@
                             else
                             {
                                 <strong>⚠ Color-identity illegal</strong>
-                                <span>@string.Join(", ", Model.Export.IllegalColorIdentity)</span>
+                                <span>@(CutLabCardNames.ToDisplayName(string.Join(", ", Model.Export.IllegalColorIdentity)))</span>
                             }
                         </div>
                         <div class="cutlab-export__status">
                             @if (Model.Export.HasExport && Model.Export.UnverifiedColorIdentity.Count > 0)
                             {
                                 <strong>⚠ Could not verify</strong>
-                                <span>@string.Join(", ", Model.Export.UnverifiedColorIdentity)</span>
+                                <span>@(CutLabCardNames.ToDisplayName(string.Join(", ", Model.Export.UnverifiedColorIdentity)))</span>
                             }
                             else if (Model.Export.HasExport)
                             {
@@ -1473,7 +1473,7 @@
                             else
                             {
                                 <strong>⚠ Banlist warning</strong>
-                                <span>@string.Join(", ", Model.Export.BanlistOffenders)</span>
+                                <span>@(CutLabCardNames.ToDisplayName(string.Join(", ", Model.Export.BanlistOffenders)))</span>
                             }
                         </div>
 
@@ -1484,7 +1484,7 @@
                                 <ul>
                                     @foreach (var warning in Model.Export.ReconstructionWarnings)
                                     {
-                                        <li>@warning</li>
+                                        <li>@(CutLabCardNames.ToDisplayName(warning))</li>
                                     }
                                 </ul>
                             </div>
@@ -1497,7 +1497,7 @@
                                 <ul>
                                     @foreach (var warning in Model.Export.Warnings)
                                     {
-                                        <li>@warning</li>
+                                        <li>@(CutLabCardNames.ToDisplayName(warning))</li>
                                     }
                                 </ul>
                             </div>

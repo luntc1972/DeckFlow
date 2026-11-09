@@ -139,3 +139,38 @@ describe('DeckFlowCutLab pool filter', () => {
     expect(summary?.textContent).toBe(summaryBeforeFilter);
   });
 });
+
+
+it('finds an MDFC pool row by either the double-slash or the single-slash separator', () => {
+  const canonical = 'Witch Enchanter // Witch-Blessed Meadow';
+  document.body.innerHTML = `
+    <form data-cache-key="cut-lab" id="cut-lab-section-lock-pool">
+      <input name="CutLabStateJson" type="hidden" value="" />
+      <div class="cutlab-pool-filter" hidden>
+        <input type="radio" name="CutLabPoolFilter" value="all" checked />
+        <input class="cutlab-pool-search" />
+        <p class="cutlab-pool-match-count"></p>
+      </div>
+      <table><tbody>
+        <tr data-cut-lab-card="${canonical}" data-cut-lab-quantity="1">
+          <td><input type="checkbox" data-cut-lab-lock-card="${canonical}" /></td>
+          <td>Witch Enchanter / Witch-Blessed Meadow</td>
+        </tr>
+        <tr data-cut-lab-card="Sol Ring" data-cut-lab-quantity="1">
+          <td><input type="checkbox" data-cut-lab-lock-card="Sol Ring" /></td><td>Sol Ring</td>
+        </tr>
+      </tbody></table>
+    </form>`;
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+  const search = document.querySelector<HTMLInputElement>('.cutlab-pool-search')!;
+  const row = document.querySelector<HTMLTableRowElement>('tr')!;
+  for (const term of ['enchanter // witch', 'Enchanter / Witch', '/']) {
+    search.value = term;
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(row.hidden, term).toBe(false);
+    expect(row.dataset.cutLabCard).toBe(canonical);
+  }
+  search.value = 'sol';
+  search.dispatchEvent(new Event('input', { bubbles: true }));
+  expect(row.hidden).toBe(true);
+});
