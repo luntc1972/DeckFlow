@@ -232,7 +232,7 @@ public sealed class CutLabAnalysisContextBuilderTests
     }
 
     [Fact]
-    public async Task BuildAsync_CompleteComboCard_PreservesComboWinconRoleSignal()
+    public async Task BuildAsync_CompleteComboCard_DoesNotGrantTutorOrWinconRoles()
     {
         IReadOnlyList<CutLabPoolCard> workingList =
         [
@@ -263,7 +263,9 @@ public sealed class CutLabAnalysisContextBuilderTests
             "Focused",
             ["Focused Commander"]);
 
-        Assert.Contains("wincons", context.RolesByCardName["Value Engine"]);
+        Assert.True(context.Classification.CardComboMembership.ContainsKey(CutLabCardNames.Normalize("Value Engine")));
+        Assert.DoesNotContain("wincons", context.RolesByCardName["Value Engine"]);
+        Assert.DoesNotContain("tutor", context.RolesByCardName["Value Engine"]);
     }
 
     [Fact]
