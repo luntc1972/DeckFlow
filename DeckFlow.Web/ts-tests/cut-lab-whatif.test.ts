@@ -81,7 +81,7 @@ const buildStateJson = (overrides: Partial<{
   },
 });
 
-const buildFixture = (): void => {
+const buildFixture = (setup?: () => void): void => {
   const stateJson = buildStateJson();
 
   document.body.innerHTML = `
@@ -174,6 +174,7 @@ const buildFixture = (): void => {
     </section>
   `;
 
+  setup?.();
   document.dispatchEvent(new Event('DOMContentLoaded'));
 };
 
@@ -257,7 +258,7 @@ describe('cut-lab what-if enhancement', () => {
   });
 
   it('keep renders the returned patch on successful commit', async () => {
-    buildFixture();
+    buildFixture(addNavigationFixture);
     const committedStateJson = JSON.stringify({
       commander: 'Commander',
       pool: [],
@@ -307,6 +308,46 @@ describe('cut-lab what-if enhancement', () => {
     expect(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]')).every(input => input.value === committedStateJson)).toBe(true);
     expect(document.querySelector('[data-cut-lab-sticky-accepted]')?.textContent).toBe('1 cut so far');
     expect(document.querySelector('.cutlab-cuts-made__row')?.textContent).toContain('Working Card');
+    const swap = document.querySelector<HTMLButtonElement>('.cutlab-cuts-made__row [data-cut-lab-swap-card]')!;
+    expect(swap.dataset.cutLabSwapCard).toBe('Working Card');
+    swap.click();
+    expect(document.querySelector<HTMLSelectElement>('[data-cut-lab-whatif-card-in]')!.value).toBe('Working Card');
+    expect(document.querySelector('#cut-lab-step-panel-4')!.hasAttribute('hidden')).toBe(false);
+
+  });
+
+  it('SwapJump_RebuiltMdfcRow_PreselectsCanonicalNameAndFocusesCardOutCombobox', async () => {
+    buildFixture(addNavigationFixture);
+    const name = 'Witch Enchanter // Witch-Blessed Meadow';
+    const stateJson = buildStateJson();
+    expect(document.querySelector('.cutlab-cuts-made__row [data-cut-lab-swap-card]')).toBeNull();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        cardOut: 'Working Card',
+        cardIn: 'Cut Card',
+        deltas: [],
+        changedFamilyCount: 0,
+        cutLabStateJson: stateJson,
+        patch: buildPatch(stateJson, {
+          cutsMade: [{ cardName: name, roundKey: 'whatif-swap', roundLabel: 'What-if swap', ordinal: 2 }],
+          whatifCardInOptions: [name],
+        }),
+      }),
+    });
+    const form = document.querySelector<HTMLFormElement>('[data-cut-lab-whatif-form]')!;
+    const keep = form.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-keep-submit]')!;
+    form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: keep }));
+    await flushWhatifSubmit();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/cut-lab/whatif/commit');
+    const swap = document.querySelector<HTMLButtonElement>('.cutlab-cuts-made__row [data-cut-lab-swap-card]')!;
+    expect(swap.dataset.cutLabSwapCard).toBe(name);
+    swap.click();
+    expect(form.querySelector<HTMLSelectElement>('[data-cut-lab-whatif-card-in]')!.value).toBe(name);
+    expect(document.querySelector('#cut-lab-step-panel-4')!.hasAttribute('hidden')).toBe(false);
+    expect(document.activeElement).toBe(form.querySelector('[role="combobox"]'));
   });
 
   it('rebuilds what-if select options from the returned patch after an accepted cut', async () => {
@@ -353,5 +394,85 @@ describe('cut-lab what-if enhancement', () => {
     expect(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]')).every(input => input.value === refreshedStateJson)).toBe(true);
     expect(cardOutOptions).toEqual(['', 'Alternate Working']);
     expect(cardInOptions).toEqual(['', 'Cut Card', 'Working Card']);
+  });
+});
+
+
+const addNavigationFixture = (): void => {
+  document.body.insertAdjacentHTML('beforeend', `
+    <button type="button" role="tab" data-cut-lab-step="2" id="cut-lab-step-tab-2">Plan</button>
+    <button type="button" role="tab" data-cut-lab-step="4" id="cut-lab-step-tab-4">Goals</button>
+    <section role="tabpanel" id="cut-lab-step-panel-2" hidden>
+      <details id="cut-lab-section-lock-pool" data-cutlab-mobile-collapse>
+        <summary>Locks</summary><details id="cut-lab-section-packages" data-cutlab-mobile-collapse><summary>Packages</summary></details>
+      </details>
+    </section>
+    <section role="tabpanel" id="cut-lab-step-panel-4" hidden>
+      <details id="cut-lab-section-whatif" data-cutlab-mobile-collapse><summary>What-if</summary></details>
+    </section>
+    <a href="#cut-lab-section-packages" data-cut-lab-tab-link="cut-lab-section-packages">Manage packages</a>
+    <p data-cut-lab-lock-callout>No cards locked yet.</p>
+    <button type="button" data-cut-lab-swap-card="Cut Card">What if I swap this?</button>`);
+  const form = document.querySelector<HTMLFormElement>('[data-cut-lab-whatif-form]')!;
+  document.querySelector('#cut-lab-section-whatif')!.append(form);
+  const out = form.querySelector<HTMLSelectElement>('[data-cut-lab-whatif-card-out]')!;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'df-select';
+  out.before(wrapper);
+  wrapper.append(out);
+  wrapper.insertAdjacentHTML('beforeend', '<button type="button" class="df-select__trigger" role="combobox">Choose card</button>');
+};
+
+describe('Cut Lab navigation shortcuts', () => {
+  it('TabLink_NestedTarget_ActivatesTabAndOpensAncestors', () => {
+    buildFixture(addNavigationFixture);
+    document.querySelector<HTMLAnchorElement>('[data-cut-lab-tab-link]')!.click();
+    expect(document.querySelector('#cut-lab-step-panel-2')!.hasAttribute('hidden')).toBe(false);
+    expect(document.querySelector<HTMLDetailsElement>('#cut-lab-section-lock-pool')!.open).toBe(true);
+    expect(document.querySelector<HTMLDetailsElement>('#cut-lab-section-packages')!.open).toBe(true);
+    expect(document.querySelector('dialog[open]')).toBeNull();
+  });
+
+  it('LockCallout_CommanderOnlyAndLockUnlock_TogglesNonCommanderVisibility', () => {
+    buildFixture(addNavigationFixture);
+    const callout = document.querySelector<HTMLElement>('[data-cut-lab-lock-callout]')!;
+    const lock = document.querySelector<HTMLInputElement>('[data-cut-lab-lock-card="Working Card"]')!;
+    expect(callout.hidden).toBe(false);
+    lock.click();
+    expect(callout.hidden).toBe(true);
+    lock.click();
+    expect(callout.hidden).toBe(false);
+  });
+
+  it('SwapJump_ExistingPreview_ClearsActionsPreselectsRefreshesAndFocusesCombobox', () => {
+    const refresh = vi.fn();
+    window.DeckFlow = { ...window.DeckFlow, refreshDfSelect: refresh };
+    buildFixture(addNavigationFixture);
+    for (const selector of ['[data-cut-lab-whatif-preview]', '[data-cut-lab-whatif-keep-submit]', '[data-cut-lab-whatif-discard]']) {
+      document.querySelector(selector)!.classList.remove('hidden');
+    }
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-swap-card]')!.click();
+    const input = document.querySelector<HTMLSelectElement>('[data-cut-lab-whatif-card-in]')!;
+    expect(input.value).toBe('Cut Card');
+    expect(refresh).toHaveBeenCalledWith(input);
+    expect(document.activeElement).toBe(document.querySelector('.df-select__trigger'));
+    expect(document.querySelector<HTMLDetailsElement>('#cut-lab-section-whatif')!.open).toBe(true);
+    for (const selector of ['[data-cut-lab-whatif-preview]', '[data-cut-lab-whatif-keep-submit]', '[data-cut-lab-whatif-discard]']) {
+      expect(document.querySelector(selector)!.classList.contains('hidden')).toBe(true);
+    }
+  });
+
+  it('SwapJump_PendingPreview_DropsLateResponse', async () => {
+    buildFixture(addNavigationFixture);
+    let resolve!: (response: unknown) => void;
+    fetchMock.mockReturnValue(new Promise(done => { resolve = done; }));
+    const form = document.querySelector<HTMLFormElement>('[data-cut-lab-whatif-form]')!;
+    form.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true,
+      submitter: document.querySelector<HTMLButtonElement>('[data-cut-lab-whatif-preview-submit]')! }));
+    document.querySelector<HTMLButtonElement>('[data-cut-lab-swap-card]')!.click();
+    resolve({ ok: true, json: async () => ({ cardOut: 'Working Card', cardIn: 'Cut Card', deltas: [], changedFamilyCount: 0 }) });
+    await flushWhatifSubmit();
+    expect(document.querySelector('[data-cut-lab-whatif-selection]')!.textContent).toBe('');
+    expect(document.querySelector('[data-cut-lab-whatif-keep-submit]')!.classList.contains('hidden')).toBe(true);
   });
 });

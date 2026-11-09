@@ -363,3 +363,23 @@ describe('cut-lab archetype picker', () => {
   });
 
 });
+
+
+it('ServerPatch_RefreshesFloorAndChipLockState', async () => {
+  buildFixture();
+  document.querySelector('form')!.insertAdjacentHTML('beforeend', `
+    <button type="button" data-cut-lab-lock-role="ramp" aria-pressed="false">Lock all ramp</button>
+    <button type="button" data-cut-lab-floor-lock-role="ramp" data-cut-lab-floor-lock-label="Ramp" aria-pressed="false">Lock all</button>
+    <table><tbody><tr data-cut-lab-card="Sol Ring" data-cut-lab-role="ramp"><td><input type="checkbox" data-cut-lab-lock-card="Sol Ring" checked /></td></tr></tbody></table>`);
+  fetchMock.mockResolvedValueOnce(response('turbo-combo'));
+  const turbo = document.querySelector<HTMLInputElement>('input[value="turbo-combo"]')!;
+  turbo.checked = true;
+  turbo.dispatchEvent(new Event('change', { bubbles: true }));
+  await flush();
+  expect(fetchMock).toHaveBeenCalled();
+  expect(document.querySelector('[data-cut-lab-lock-role="ramp"]')?.getAttribute('aria-pressed')).toBe('true');
+  const floor = document.querySelector('[data-cut-lab-floor-lock-role="ramp"]')!;
+  expect(floor.textContent).toBe('Unlock all');
+  expect(floor.getAttribute('aria-pressed')).toBe('true');
+  expect(floor.getAttribute('aria-label')).toBe('Unlock all Ramp from Role floors');
+});

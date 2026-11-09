@@ -842,7 +842,36 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
+  const switchTabAndOpen = (targetId: string): void => {
+    const target = document.getElementById(targetId);
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const panel = target.closest<HTMLElement>('[role="tabpanel"]');
+    const tab = getStepTabs().find(button => `cut-lab-step-panel-${button.dataset.cutLabStep}` === panel?.id);
+    if (tab) {
+      activateStepTab(tab, false);
+    }
+    // Tab activation can reset collapse state, so expand the entire path afterwards.
+    for (let node: HTMLElement | null = target; node; node = node.parentElement) {
+      if (node instanceof HTMLDetailsElement) {
+        node.open = true;
+      }
+    }
+    persistSectionCollapseState();
+    scrollJumpTargetIntoView(target);
+  };
+
   const attachAnchorNavHandler = (): void => {
+    document.addEventListener('click', event => {
+      const link = event.target instanceof Element
+        ? event.target.closest<HTMLElement>('[data-cut-lab-tab-link]')
+        : null;
+      if (link) {
+        event.preventDefault();
+        switchTabAndOpen(link.dataset.cutLabTabLink ?? '');
+      }
+    });
     document.querySelectorAll<HTMLAnchorElement>('[data-cut-lab-jump-link][href^="#"]').forEach(link => {
       link.addEventListener('click', event => handleAnchorJump(link, event));
     });
@@ -1075,6 +1104,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let decisionSubmitInFlight = false;
   let adjustSubmitInFlight = false;
   let whatifSubmitInFlight = false;
+  let whatifPreviewGeneration = 0;
+  let restoreInvalidatedPreview: (() => void) | null = null;
   let planApplySubmitInFlight = false;
   let roleOverrideSubmitInFlight = false;
   const isAnyCutLabMutationInFlight = (): boolean => decisionSubmitInFlight || adjustSubmitInFlight || whatifSubmitInFlight || planApplySubmitInFlight || roleOverrideSubmitInFlight;
@@ -1461,6 +1492,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const checkbox = index.entries.get(row)!.checkbox;
       return checkbox?.checked ? total + index.entries.get(row)!.quantity : total;
     }, 0);
+    const lockCallout = document.querySelector<HTMLElement>('[data-cut-lab-lock-callout]');
+    if (lockCallout) {
+      lockCallout.hidden = rows.some(row => row.dataset.cutLabCommander !== 'true'
+        && index.entries.get(row)!.checkbox?.checked);
+    }
     const summaryText = `${poolCount} cards in pool · ${lockedCount} locked`;
     const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
     const poolStickySummary = document.querySelector<HTMLElement>('[data-cut-lab-pool-sticky-count]');
@@ -1665,6 +1701,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const setRoleLockButtonState = (button: HTMLButtonElement, isPressed: boolean): void => {
     button.classList.toggle('is-selected', isPressed);
     button.setAttribute('aria-pressed', isPressed ? 'true' : 'false');
+    if (button.hasAttribute('data-cut-lab-floor-lock-role')) {
+      const action = isPressed ? 'Unlock all' : 'Lock all';
+      button.textContent = action;
+      button.setAttribute('aria-label', `${action} ${button.dataset.cutLabFloorLockLabel ?? ''} from Role floors`);
+    }
   };
 
   const getLockableRoleCheckboxes = (roleKey: string, rows = getPoolRows()): HTMLInputElement[] =>
@@ -1676,8 +1717,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     checkboxes.length > 0 && checkboxes.every(checkbox => checkbox.checked);
 
   const syncRoleLockButtons = (index = buildPoolIndex()): void => {
-    getRoleLockButtons().forEach(button => {
-      const roleKey = button.dataset.cutLabLockRole ?? '';
+    [...getRoleLockButtons(), ...document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-floor-lock-role]')].forEach(button => {
+      const roleKey = button.dataset.cutLabFloorLockRole ?? button.dataset.cutLabLockRole ?? '';
       if (roleKey === '') {
         return;
       }
@@ -2909,6 +2950,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       trigger.dataset.cutlabCardViewOnly = 'true';
       row.appendChild(trigger);
       row.appendChild(createTextElement('span', 'prompt-size-note', `cut in ${cut.roundLabel}`));
+      const swap = createTextElement('button', 'cutlab-swap-btn', 'What if I swap this?') as HTMLButtonElement;
+      swap.type = 'button';
+      swap.dataset.cutLabSwapCard = cut.cardName;
+      row.appendChild(swap);
       row.appendChild(createRestoreForm(cut, serializedState, antiForgeryToken));
       details.appendChild(row);
     });
@@ -3790,6 +3835,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson, options.adjustedCardName !== undefined);
     reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
     updateLockedCountChip();
+    syncRoleLockButtons();
     // Why: The server-supplied lockedCount must overwrite the client recount.
     refreshResolvedFloors(patch.resolvedFloors ?? []);
   };
@@ -3805,10 +3851,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    const generation = ++whatifPreviewGeneration;
     whatifSubmitInFlight = true;
     clearWhatifError();
     const antiForgeryToken = getAntiForgeryToken(form);
     const restoreBusyState = setWhatifBusyState(form, submitter);
+    restoreInvalidatedPreview = restoreBusyState;
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
 
@@ -3827,21 +3875,37 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         signal: controller.signal,
       });
 
+      if (generation !== whatifPreviewGeneration) {
+        return;
+      }
       if (!response.ok) {
-        renderWhatifError(await readErrorMessage(response));
+        const message = await readErrorMessage(response);
+        if (generation !== whatifPreviewGeneration) {
+          return;
+        }
+        renderWhatifError(message);
         return;
       }
 
       const data = await response.json() as CutLabWhatifResponse;
+      if (generation !== whatifPreviewGeneration) {
+        return;
+      }
       renderWhatifPreview(data);
     } catch (error) {
+      if (generation !== whatifPreviewGeneration) {
+        return;
+      }
       renderWhatifError(error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
         : cutLabWhatifPreviewErrorCopy);
     } finally {
       window.clearTimeout(timeoutId);
-      whatifSubmitInFlight = false;
-      restoreBusyState();
+      if (generation === whatifPreviewGeneration) {
+        whatifSubmitInFlight = false;
+        restoreBusyState();
+        restoreInvalidatedPreview = null;
+      }
     }
   };
 
@@ -5077,9 +5141,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
-      const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role]');
-      if (lockRoleButton?.dataset.cutLabLockRole) {
-        toggleRoleLock(lockRoleButton.dataset.cutLabLockRole);
+      const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role], [data-cut-lab-floor-lock-role]');
+      const lockRoleKey = lockRoleButton?.dataset.cutLabFloorLockRole ?? lockRoleButton?.dataset.cutLabLockRole;
+      if (lockRoleKey) {
+        toggleRoleLock(lockRoleKey);
         return;
       }
 
@@ -5390,6 +5455,33 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       clearWhatifPreview();
     });
   };
+
+  document.addEventListener('click', event => {
+    const button = event.target instanceof Element
+      ? event.target.closest<HTMLElement>('[data-cut-lab-swap-card]')
+      : null;
+    if (!button) {
+      return;
+    }
+    // A committed swap is a mutation; only a preview can be invalidated by navigation.
+    if (whatifSubmitInFlight && !restoreInvalidatedPreview) {
+      return;
+    }
+    ++whatifPreviewGeneration;
+    restoreInvalidatedPreview?.();
+    restoreInvalidatedPreview = null;
+    whatifSubmitInFlight = false;
+    clearWhatifPreview();
+    switchTabAndOpen('cut-lab-section-whatif');
+    const cardIn = document.querySelector<HTMLSelectElement>('[data-cut-lab-whatif-card-in]');
+    const cardOut = document.querySelector<HTMLSelectElement>('[data-cut-lab-whatif-card-out]');
+    if (cardIn) {
+      cardIn.value = button.dataset.cutLabSwapCard ?? '';
+      window.DeckFlow?.refreshDfSelect?.(cardIn);
+    }
+    const visibleControl = cardOut?.closest('.df-select')?.querySelector<HTMLElement>('.df-select__trigger') ?? cardOut;
+    visibleControl?.focus();
+  });
 
   const attachGoalSubmitHandler = (): void => {
     document.addEventListener('submit', event => {

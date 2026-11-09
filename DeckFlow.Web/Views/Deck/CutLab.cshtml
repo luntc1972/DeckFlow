@@ -143,11 +143,11 @@
 <div class="cutlab-workspace">
 <section class="hero cutlab-hero">
     <h1>Cut Lab</h1>
-    <p class="lede">Bring an oversized Commander pool into a workspace, declare what the finished 100 should do, then protect the cards that must survive every future cut.</p>
+    <p class="lede">Bring an oversized Commander pool into a workspace, declare what the finished 100 should do, then lock the cards that must survive every future cut.</p>
     <details class="cutlab-collapsible" open>
         <summary class="cutlab-collapsible__summary">How Cut Lab works</summary>
         <ol>
-            <li>Lock the cards that must survive — tick a card to protect it.</li>
+            <li>Lock the cards that must survive — tick a card to lock it.</li>
             <li>Cut Lab proposes cuts one at a time — you don't pick cards, it does.</li>
             <li>Accept / Reject / Defer each proposal until you reach 100.</li>
             <li>Tune land / multiple-copy counts, then Export.</li>
@@ -169,7 +169,7 @@
       data-cut-lab-decide-action="@Url.Content("~/cut-lab/decide")"
       data-cut-lab-decide-api="@Url.Content("~/api/cut-lab/decide")"
       data-busy-title="Importing pool"
-      data-busy-message="Loading the deck, resolving cards, and rebuilding your protected pool."
+      data-busy-message="Loading the deck, resolving cards, and rebuilding your locked pool."
       data-busy-progress="Loading the deck|Resolving cards via Scryfall|Checking commander + legality|Building the cut workspace">
     @Html.AntiForgeryToken()
     <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
@@ -283,7 +283,7 @@
                 <div class="panel-heading">
                     <div>
                         <h2>Constraints</h2>
-                        <p class="prompt-size-note">What's protected while you cut — updates live as you lock cards, packages, and roles below.</p>
+                        <p class="prompt-size-note">What's locked while you cut — updates live as you lock cards, packages, and roles below.</p>
                     </div>
                 </div>
                 <div class="cutlab-constraints-summary" aria-live="polite" aria-atomic="true">
@@ -309,6 +309,7 @@
                         <div class="cutlab-constraints-summary__head">
                             <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-package-count>@Model.Packages.Count(package => package.Locked)/@Model.Packages.Count</span>
                             <span class="cutlab-constraints-summary__label">packages locked</span>
+                            <a href="#cut-lab-section-packages" data-cut-lab-tab-link="cut-lab-section-packages">Manage packages</a>
                         </div>
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-package-chips>
                             @foreach (var package in Model.Packages.Where(package => package.Locked).Take(3))
@@ -320,9 +321,9 @@
                     <div class="cutlab-constraints-summary__block cutlab-constraints-summary__block--roles">
                         <div class="cutlab-constraints-summary__head">
                             <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-role-count>@(lockableRoles.Length - unprotectedRoles.Length)/@lockableRoles.Length</span>
-                            <span class="cutlab-constraints-summary__label">roles protected</span>
+                            <span class="cutlab-constraints-summary__label">roles fully locked</span>
                         </div>
-                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-caption hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Not yet protected:</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-caption hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Not yet locked:</p>
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-role-chips>
                             @foreach (var group in unprotectedRoles.Take(3))
                             {
@@ -330,7 +331,7 @@
                             }
                         </div>
                         <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-more hidden="@(unprotectedRoles.Length > 3 ? null : "hidden")">+@Math.Max(0, unprotectedRoles.Length - 3) more</p>
-                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-hint hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Protect a role with its "Lock all" button in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-hint hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Lock every card in a role with Lock all.</p>
                     </div>
                 </div>
             </details>
@@ -587,6 +588,17 @@
                                 </td>
                                 <td data-label="Locked">
                                     <span data-cut-lab-floor-locked-label>@row.LockedCount locked</span>
+                                    @{ var lockGroup = Model.RoleGroups.FirstOrDefault(group => group.RoleKey == row.RoleKey); }
+                                    @if (lockGroup is { IsLockable: true, Members.Count: > 0 })
+                                    {
+                                        var lockAction = lockGroup.AllLockableMembersLocked ? "Unlock all" : "Lock all";
+                                        <button type="button"
+                                                class="manabase-pill @(lockGroup.AllLockableMembersLocked ? "is-selected" : string.Empty)"
+                                                data-cut-lab-floor-lock-role="@row.RoleKey"
+                                                data-cut-lab-floor-lock-label="@lockGroup.DisplayLabel"
+                                                aria-pressed="@(lockGroup.AllLockableMembersLocked ? "true" : "false")"
+                                                aria-label="@lockAction @lockGroup.DisplayLabel from Role floors">@lockAction</button>
+                                    }
                                 </td>
                                 @if (Model.CommanderFloorsEnabled)
                                 {
@@ -926,6 +938,10 @@
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
+            <p class="cutlab-lock-callout" data-cut-lab-lock-callout hidden="@(Model.Pool.Any(card => card.IsLocked && !card.IsCommander) ? "hidden" : null)">
+                No cards locked yet. Locking a card protects it from cuts.
+                <a href="#cut-lab-section-lock-pool" data-cut-lab-tab-link="cut-lab-section-lock-pool">Lock your pool</a>
+            </p>
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-cut-rounds">
                 <summary class="cutlab-collapsible__summary">Cut rounds</summary>
                 <div class="panel-heading">
@@ -1180,6 +1196,7 @@
                             <div class="cutlab-cuts-made__row">
                                 <button type="button" class="cutlab-card-link" data-cutlab-card-open="@row.CardName" data-cutlab-card-view-only="true">@(CutLabCardNames.ToDisplayName(row.CardName))</button>
                                 <span class="prompt-size-note">cut in @row.RoundLabel</span>
+                                <button type="button" class="cutlab-swap-btn" data-cut-lab-swap-card="@row.CardName">What if I swap this?</button>
                                 @{ await RenderDecisionForm(row.CardName, row.RoundKey, "restore", "Restore", string.Empty, $"Restore {row.CardName}"); }
                             </div>
                         }

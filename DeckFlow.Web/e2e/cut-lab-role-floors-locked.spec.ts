@@ -94,3 +94,24 @@ test('commander roles contribute locked copies before any user lock', async ({ p
     expect(counts.find((row) => row.role === role)?.count).toBeGreaterThanOrEqual(quantity);
   }
 });
+
+test('Role floors Lock all stays synchronized with the chip-area role button', async ({ page }) => {
+  const floor = page.locator('[data-cut-lab-floor-lock-role="lands"]');
+  await expect(floor).toHaveText('Lock all');
+  await expect(floor).toHaveAttribute('aria-pressed', 'false');
+  await floor.click();
+  await expect(floor).toHaveText('Unlock all');
+  await expect(floor).toHaveAttribute('aria-pressed', 'true');
+  const chip = page.locator('#cut-lab-section-competes [data-cut-lab-lock-role="lands"]');
+  await expect(chip).toHaveAttribute('aria-pressed', 'true');
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await expandCutLabSection(page, 'cut-lab-section-competes');
+  const lands = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
+  if (!(await lands.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await lands.locator(':scope > summary').click();
+  }
+  await chip.click();
+  await expect(chip).toHaveAttribute('aria-pressed', 'false');
+  await expect(floor).toHaveText('Lock all');
+  await expect(floor).toHaveAttribute('aria-pressed', 'false');
+});
