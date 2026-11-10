@@ -6256,10 +6256,6 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
   color: var(--ink);
 }
 
-.cutlab-lock-callout[hidden] {
-  display: none;
-}
-
 .cutlab-busy-spinner {
   width: 16px;
   height: 16px;
@@ -8367,13 +8363,12 @@ dialog.cutlab-reference::backdrop { background: rgba(0, 0, 0, 0.65); }
 }
 
 @media (max-width: 600px) {
-  [data-cut-lab-restart-rounds-form],
-  .panel-heading__actions:has([data-cut-lab-restart-rounds]) {
+  .clear-cache-button--wrap {
     min-width: 0;
     max-width: 100%;
   }
 
-  [data-cut-lab-restart-rounds] {
+  .clear-cache-button.clear-cache-button--wrap {
     white-space: normal;
     max-width: 100%;
     box-sizing: border-box;

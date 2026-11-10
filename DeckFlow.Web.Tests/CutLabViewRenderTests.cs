@@ -867,7 +867,7 @@ public sealed class CutLabViewRenderTests
         Assert.Contains($"data-cut-lab-swap-card=\"{name}\"", html);
         Assert.DoesNotContain("data-cut-lab-swap-card=\"Pending Card\"", html);
         Assert.Single(Regex.Matches(html, "data-cut-lab-swap-card="));
-        Assert.Matches("data-cut-lab-constraints-package-count[^>]*>[^<]*</span>\\s*<span class=\"cutlab-constraints-summary__label\">packages locked</span>\\s*<a[^>]*data-cut-lab-tab-link=\"cut-lab-section-packages\"", html);
+        Assert.Matches("data-cut-lab-constraints-package-count[^>]*>[^<]*</span>\\s*<span class=\"cutlab-constraints-summary__label\">packages locked</span>\\s*<a[^>]*data-cut-lab-tab-link(?=[\\s>])", html);
     }
 
     private static CutLabViewModel BuildTwinBadgeModel(IReadOnlyDictionary<string, CutLabCardTextView>? cardTextByCardName = null)

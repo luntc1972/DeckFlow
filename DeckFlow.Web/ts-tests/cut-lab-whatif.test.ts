@@ -410,7 +410,7 @@ const addNavigationFixture = (): void => {
     <section role="tabpanel" id="cut-lab-step-panel-4" hidden>
       <details id="cut-lab-section-whatif" data-cutlab-mobile-collapse><summary>What-if</summary></details>
     </section>
-    <a href="#cut-lab-section-packages" data-cut-lab-tab-link="cut-lab-section-packages">Manage packages</a>
+    <a href="#cut-lab-section-packages" data-cut-lab-tab-link>Manage packages</a>
     <p data-cut-lab-lock-callout>No cards locked yet.</p>
     <button type="button" data-cut-lab-swap-card="Cut Card">What if I swap this?</button>`);
   const form = document.querySelector<HTMLFormElement>('[data-cut-lab-whatif-form]')!;
@@ -430,6 +430,7 @@ describe('Cut Lab navigation shortcuts', () => {
     expect(document.querySelector('#cut-lab-step-panel-2')!.hasAttribute('hidden')).toBe(false);
     expect(document.querySelector<HTMLDetailsElement>('#cut-lab-section-lock-pool')!.open).toBe(true);
     expect(document.querySelector<HTMLDetailsElement>('#cut-lab-section-packages')!.open).toBe(true);
+    expect(document.activeElement).toBe(document.querySelector('#cut-lab-section-packages'));
     expect(document.querySelector('dialog[open]')).toBeNull();
   });
 

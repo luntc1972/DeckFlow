@@ -551,15 +551,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const expandJumpTarget = (target: HTMLElement): void => {
-    if (!(target instanceof HTMLDetailsElement)) {
-      return;
+    for (let node: HTMLElement | null = target; node; node = node.parentElement) {
+      if (node instanceof HTMLDetailsElement) {
+        node.open = true;
+      }
     }
-
-    if (!target.matches('details[data-cutlab-mobile-collapse]') || target.open) {
-      return;
-    }
-
-    target.open = true;
     // Persist explicitly: the details 'toggle' event is not reliably dispatched
     // synchronously across environments, so do not rely on the toggle listener
     // to capture a jump-driven expand.
@@ -584,6 +580,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getStepTabs = (): HTMLButtonElement[] => Array.from(
     document.querySelectorAll<HTMLButtonElement>('[role="tab"][data-cut-lab-step]')
   );
+
+  const getStepTabForPanel = (panel: HTMLElement | null): HTMLButtonElement | undefined =>
+    getStepTabs().find(button => `cut-lab-step-panel-${button.dataset.cutLabStep}` === panel?.id);
 
   const relocateScenarioSection = (): void => {
     const scenarios = document.getElementById('cut-lab-section-scenarios');
@@ -848,18 +847,14 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
     const panel = target.closest<HTMLElement>('[role="tabpanel"]');
-    const tab = getStepTabs().find(button => `cut-lab-step-panel-${button.dataset.cutLabStep}` === panel?.id);
+    const tab = getStepTabForPanel(panel);
     if (tab) {
       activateStepTab(tab, false);
     }
     // Tab activation can reset collapse state, so expand the entire path afterwards.
-    for (let node: HTMLElement | null = target; node; node = node.parentElement) {
-      if (node instanceof HTMLDetailsElement) {
-        node.open = true;
-      }
-    }
-    persistSectionCollapseState();
+    expandJumpTarget(target);
     scrollJumpTargetIntoView(target);
+    focusJumpTarget(target);
   };
 
   const attachAnchorNavHandler = (): void => {
@@ -869,7 +864,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         : null;
       if (link) {
         event.preventDefault();
-        switchTabAndOpen(link.dataset.cutLabTabLink ?? '');
+        const hash = link.getAttribute('href');
+        if (hash?.startsWith('#') && hash !== '#') {
+          switchTabAndOpen(hash.slice(1));
+        }
       }
     });
     document.querySelectorAll<HTMLAnchorElement>('[data-cut-lab-jump-link][href^="#"]').forEach(link => {
@@ -1281,6 +1279,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getRoleLockButtons = (): HTMLButtonElement[] =>
     Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
 
+  const getFloorLockButtons = (): HTMLButtonElement[] =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-floor-lock-role]'));
+
+  const roleKeyOf = (button: HTMLElement): string =>
+    button.dataset.cutLabFloorLockRole ?? button.dataset.cutLabLockRole ?? '';
+
   const getTypeGroupLockedCounts = (): HTMLElement[] =>
     Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-type-locked]'));
 
@@ -1488,14 +1492,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
     const rows = index.rows;
     const poolCount = rows.reduce((total, row) => total + index.entries.get(row)!.quantity, 0);
+    let hasNonCommanderLock = false;
     const lockedCount = rows.reduce((total, row) => {
       const checkbox = index.entries.get(row)!.checkbox;
+      if (checkbox?.checked && row.dataset.cutLabCommander !== 'true') {
+        hasNonCommanderLock = true;
+      }
       return checkbox?.checked ? total + index.entries.get(row)!.quantity : total;
     }, 0);
     const lockCallout = document.querySelector<HTMLElement>('[data-cut-lab-lock-callout]');
     if (lockCallout) {
-      lockCallout.hidden = rows.some(row => row.dataset.cutLabCommander !== 'true'
-        && index.entries.get(row)!.checkbox?.checked);
+      lockCallout.hidden = hasNonCommanderLock;
     }
     const summaryText = `${poolCount} cards in pool · ${lockedCount} locked`;
     const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
@@ -1717,14 +1724,21 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     checkboxes.length > 0 && checkboxes.every(checkbox => checkbox.checked);
 
   const syncRoleLockButtons = (index = buildPoolIndex()): void => {
-    [...getRoleLockButtons(), ...document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-floor-lock-role]')].forEach(button => {
-      const roleKey = button.dataset.cutLabFloorLockRole ?? button.dataset.cutLabLockRole ?? '';
+    const allLockedByRole = new Map<string, boolean>();
+    [...getRoleLockButtons(), ...getFloorLockButtons()].forEach(button => {
+      const roleKey = roleKeyOf(button);
       if (roleKey === '') {
         return;
       }
 
-      const lockableMembers = getLockableRoleCheckboxes(roleKey, index.rows);
-      const allLocked = areAllLocked(lockableMembers);
+      let allLocked = allLockedByRole.get(roleKey);
+      if (allLocked === undefined) {
+        const lockableMembers = index.rows.filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey))
+          .map(row => index.entries.get(row)!.checkbox)
+          .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
+        allLocked = areAllLocked(lockableMembers);
+        allLockedByRole.set(roleKey, allLocked);
+      }
       setRoleLockButtonState(button, allLocked);
     });
   };
@@ -3834,8 +3848,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
     reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson, options.adjustedCardName !== undefined);
     reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
-    updateLockedCountChip();
-    syncRoleLockButtons();
+    refreshDerivedLockUi(buildPoolIndex());
     // Why: The server-supplied lockedCount must overwrite the client recount.
     refreshResolvedFloors(patch.resolvedFloors ?? []);
   };
@@ -3852,6 +3865,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     const generation = ++whatifPreviewGeneration;
+    const isStale = (): boolean => generation !== whatifPreviewGeneration;
     whatifSubmitInFlight = true;
     clearWhatifError();
     const antiForgeryToken = getAntiForgeryToken(form);
@@ -3875,12 +3889,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         signal: controller.signal,
       });
 
-      if (generation !== whatifPreviewGeneration) {
-        return;
-      }
       if (!response.ok) {
         const message = await readErrorMessage(response);
-        if (generation !== whatifPreviewGeneration) {
+        if (isStale()) {
           return;
         }
         renderWhatifError(message);
@@ -3888,12 +3899,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       const data = await response.json() as CutLabWhatifResponse;
-      if (generation !== whatifPreviewGeneration) {
+      if (isStale()) {
         return;
       }
       renderWhatifPreview(data);
     } catch (error) {
-      if (generation !== whatifPreviewGeneration) {
+      if (isStale()) {
         return;
       }
       renderWhatifError(error instanceof DOMException && error.name === 'AbortError'
@@ -3901,7 +3912,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         : cutLabWhatifPreviewErrorCopy);
     } finally {
       window.clearTimeout(timeoutId);
-      if (generation === whatifPreviewGeneration) {
+      if (!isStale()) {
         whatifSubmitInFlight = false;
         restoreBusyState();
         restoreInvalidatedPreview = null;
@@ -4874,14 +4885,18 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
-  const refreshAndSerialize = (syncDecisionForms = true): void => {
-    const index = buildPoolIndex();
+  const refreshDerivedLockUi = (index: ReturnType<typeof buildPoolIndex>): void => {
     updateLockedCountChip(index);
     updatePoolFilterState(index);
     syncAllPackageStates(index);
     syncRoleGroupLockState(index);
     syncRoleLockButtons(index);
     updateConstraintsSummary(index);
+  };
+
+  const refreshAndSerialize = (syncDecisionForms = true): void => {
+    const index = buildPoolIndex();
+    refreshDerivedLockUi(index);
     const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom(index));
     writeStateToHiddenInput(serializedState);
     if (syncDecisionForms) {
@@ -5142,7 +5157,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role], [data-cut-lab-floor-lock-role]');
-      const lockRoleKey = lockRoleButton?.dataset.cutLabFloorLockRole ?? lockRoleButton?.dataset.cutLabLockRole;
+      const lockRoleKey = lockRoleButton ? roleKeyOf(lockRoleButton) : '';
       if (lockRoleKey) {
         toggleRoleLock(lockRoleKey);
         return;
@@ -5473,8 +5488,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     whatifSubmitInFlight = false;
     clearWhatifPreview();
     switchTabAndOpen('cut-lab-section-whatif');
-    const cardIn = document.querySelector<HTMLSelectElement>('[data-cut-lab-whatif-card-in]');
-    const cardOut = document.querySelector<HTMLSelectElement>('[data-cut-lab-whatif-card-out]');
+    const cardIn = getWhatifCardInSelect();
+    const cardOut = getWhatifCardOutSelect();
     if (cardIn) {
       cardIn.value = button.dataset.cutLabSwapCard ?? '';
       window.DeckFlow?.refreshDfSelect?.(cardIn);

@@ -309,7 +309,7 @@
                         <div class="cutlab-constraints-summary__head">
                             <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-package-count>@Model.Packages.Count(package => package.Locked)/@Model.Packages.Count</span>
                             <span class="cutlab-constraints-summary__label">packages locked</span>
-                            <a href="#cut-lab-section-packages" data-cut-lab-tab-link="cut-lab-section-packages">Manage packages</a>
+                            <a href="#cut-lab-section-packages" data-cut-lab-tab-link>Manage packages</a>
                         </div>
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-package-chips>
                             @foreach (var package in Model.Packages.Where(package => package.Locked).Take(3))
@@ -940,7 +940,7 @@
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
             <p class="cutlab-lock-callout" data-cut-lab-lock-callout hidden="@(Model.Pool.Any(card => card.IsLocked && !card.IsCommander) ? "hidden" : null)">
                 No cards locked yet. Locking a card protects it from cuts.
-                <a href="#cut-lab-section-lock-pool" data-cut-lab-tab-link="cut-lab-section-lock-pool">Lock your pool</a>
+                <a href="#cut-lab-section-lock-pool" data-cut-lab-tab-link>Lock your pool</a>
             </p>
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-cut-rounds">
                 <summary class="cutlab-collapsible__summary">Cut rounds</summary>
@@ -950,11 +950,11 @@
                         <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
                         <p>Cut Lab picks each card for you. Accept cut removes it and proposes the next; Reject keeps it; Defer revisits it later.</p>
                     </div>
-                    <div class="panel-heading__actions">
-                        <form method="post" action="@Url.Content("~/cut-lab/restart-rounds")" data-cut-lab-restart-rounds-form data-cut-lab-restart-rounds-api="@Url.Content("~/api/cut-lab/restart-rounds")">
+                    <div class="panel-heading__actions clear-cache-button--wrap">
+                        <form class="clear-cache-button--wrap" method="post" action="@Url.Content("~/cut-lab/restart-rounds")" data-cut-lab-restart-rounds-form data-cut-lab-restart-rounds-api="@Url.Content("~/api/cut-lab/restart-rounds")">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                            <button type="submit" class="clear-cache-button" data-cut-lab-restart-rounds>Re-run rounds 1 &amp; 2 — your accepted cuts are kept</button>
+                            <button type="submit" class="clear-cache-button clear-cache-button--wrap" data-cut-lab-restart-rounds>Re-run rounds 1 &amp; 2 — your accepted cuts are kept</button>
                         </form>
                     </div>
                 </div>
