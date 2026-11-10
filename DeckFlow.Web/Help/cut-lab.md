@@ -7,7 +7,7 @@ requires_flag: tool.cut-lab.enabled
 
 # Cut Lab
 
-The Cut Lab page (`/cut-lab`) is where you take an oversized Commander pool and work it down to a validated 100-card list. After intake, the workspace is a five-slot wizard: **Process**, **Plan**, **Decide**, **Goals**, and **Export**. The unified progress strip keeps those slots visible while you work, and the completed intake collapses so the active workspace is not a single long scrolling page. The workflow is deterministic and decision-support driven: Cut Lab measures what each cut changes in the deck's numbers, rather than making a judgmental claim that a card is "objectively worse." AI is optional here at most, as an explanation layer, not as a requirement to use the tool.
+The Cut Lab page (`/cut-lab`) is where you take an oversized Commander pool and work it down to a validated 100-card list. After intake, the workspace is a five-slot wizard: **Process**, **Plan**, **Decide**, **Goals**, and **Export**. Process holds How your pool competes, By type, By subtype, Structural findings, and Role floors; Plan holds Plan profile (deck archetype, strategies, and commander themes), followed by Lock your pool with Packages at the end. Decide holds Cut rounds, Tune quantities, and Cuts made; Goals holds Goals and What-if; Export holds the finished lists and CUT/ADD patches, while Scenarios and Constraints stay above the active step. The unified progress strip keeps those slots visible while you work, and the completed intake collapses so the active workspace is not a single long scrolling page. The workflow is deterministic and decision-support driven: Cut Lab measures what each cut changes in the deck's numbers, rather than making a judgmental claim that a card is "objectively worse." AI is optional here at most, as an explanation layer, not as a requirement to use the tool.
 
 ## Intake
 
@@ -29,7 +29,11 @@ In Step 2, Cut Lab suggests a deck archetype and explains why it fits. You can a
 
 ## Protect what cannot move
 
-Some parts of the pool are non-negotiable. The commander is always locked. Beyond that, you can lock individual cards, lock named packages that must survive together, and lock whole role groups out of the cut pool when those cards are already settled.
+Some parts of the pool are non-negotiable. The commander is always locked. Beyond that, you can lock individual cards, lock named packages that must survive together, and lock whole role groups out of the cut pool when those cards are already settled. Individual card and package controls live in the Lock your pool section at the end of Plan.
+
+In Role floors, **Lock all** locks every card in that role; **Unlock all** releases them. These controls stay in sync with the role controls in How your pool competes. Constraints reports the number of roles fully locked.
+
+Beside the Constraints packages count, a **Manage packages** link switches to Plan and opens the Packages section inside Lock your pool.
 
 Use this step to remove "not up for debate" cards from the trimming conversation before the cut engine starts surfacing options.
 
@@ -53,7 +57,7 @@ In the card window, choose **Reset card roles** to restore that card's inferred 
 
 ## Inspect any card
 
-Anywhere a card appears in the workspace — a role pill, a structural findings chip, a pool-row name, or a cut proposal — you can click it to open a card popup. The popup shows the card's oracle text so you can check what it actually does without leaving Cut Lab, and it carries **Lock / Unlock** and **Close** so you can lock or unlock the card on the spot. Card text is served from the page itself, so opening a card is instant and needs no extra lookup.
+Anywhere a card appears in the workspace — a role pill, a structural findings chip, a pool-row name, or a cut proposal — you can click it to open a card popup. The popup shows the card's oracle text so you can check what it actually does without leaving Cut Lab, and it carries **Lock / Unlock** and **Close** so you can lock or unlock the card on the spot. Card text is served from the page itself, so opening a card is instant and needs no extra lookup. Double-faced card names display with a single slash (Front / Back); exports preserve the stored name for Moxfield and convert spaced single slashes to double slashes (Front // Back) for Archidekt.
 
 ## Guided cut rounds
 
@@ -71,7 +75,7 @@ For a deck with one commander, Cut Lab recognizes commander-specific staples fro
 
 The loop is straightforward once the pool is loaded:
 
-1. Lock the cards that must stay. Ticking a card protects it from future cut proposals, and the commander is always locked automatically.
+1. Lock the cards that must stay. Locking a card keeps it out of future cut proposals, and the commander is always locked automatically.
 2. Cut Lab chooses the proposed cut. You do not pick the next card yourself; the engine surfaces one candidate at a time based on the current locked pool, findings, floors, and goals.
 3. Work through the proposal queue with **Accept**, **Reject**, or **Defer**. Accept removes that card and moves to the next proposal, Reject keeps it, and Defer pushes it back to revisit later.
 4. When you are close to 100, use the quantity tuner to adjust basics and other legal multiple-copy cards so the final list lands exactly where you want it.
@@ -101,6 +105,3 @@ Singleton legality is still enforced, so this tuning step helps you finish the l
 Once the deck is a validated 100, export the finished list plus an add / cut patch in both Moxfield and Archidekt text formats. That makes the last step practical: copy the final list or patch straight back into your builder instead of manually reconstructing the cuts.
 
 Cut Lab is behind the `tool.cut-lab.enabled` feature flag. On small screens, the Packages, Scenarios, and What-if sections collapse into expandable panels so the workspace stays usable without dropping the shipped functionality. The shipped workspace is also verified readable and keyboard-accessible across all supported guild themes.
-
-In Role floors, **Lock all** locks every card in that role; **Unlock all** releases them. These controls stay in sync with the role controls in How your pool competes. Constraints reports the number of roles fully locked.
-Beside the Constraints packages count, a **Manage packages** link switches to Plan and opens the Packages section inside Lock your pool.
