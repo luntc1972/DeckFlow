@@ -49,6 +49,7 @@ public sealed class CutLabViewRenderTests
         Assert.Contains("aria-label=\"Unlock all Ramp from Role floors\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-cut-lab-floor-lock-role=\"engines\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("data-cut-lab-floor-lock-role=\"other\"", html, StringComparison.Ordinal);
+        Assert.Contains("Lock every card in a role with Lock all in <a href=\"#cut-lab-section-competes\" data-cut-lab-jump-link>How your pool competes</a>.", html, StringComparison.Ordinal);
         foreach ((string oldText, string newText) in new[]
         {
             ("What's protected while you cut", "What's locked while you cut"),

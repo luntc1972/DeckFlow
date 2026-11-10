@@ -33,7 +33,7 @@ const buildFixture = (allProtected: boolean): void => {
       <span data-cut-lab-constraints-role-caption>Not yet locked:</span>
       <div data-cut-lab-constraints-role-chips></div>
       <p data-cut-lab-constraints-role-more hidden></p>
-      <p data-cut-lab-constraints-role-hint hidden>Lock every card in a role with Lock all.</p>
+      <p data-cut-lab-constraints-role-hint hidden>Lock every card in a role with Lock all in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
       <table><tbody>${rows}</tbody></table>
       ${buttons}
       <button type="button" data-cut-lab-floor-lock-role="role-0" data-cut-lab-floor-lock-label="Lands">Lock all</button>
@@ -52,7 +52,7 @@ describe('Cut Lab constraints summary', () => {
     expect(document.querySelector('[data-cut-lab-constraints-role-more]')?.textContent).toBe('+2 more');
     expect(document.querySelector('[data-cut-lab-constraints-role-more]')?.hidden).toBe(false);
     expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.hidden).toBe(false);
-    expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.textContent).toBe('Lock every card in a role with Lock all.');
+    expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.textContent).toBe('Lock every card in a role with Lock all in How your pool competes.');
   });
 
   it('hides the unprotected role details when all roles are protected', () => {
