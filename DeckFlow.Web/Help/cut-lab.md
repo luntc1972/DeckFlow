@@ -103,3 +103,4 @@ Once the deck is a validated 100, export the finished list plus an add / cut pat
 Cut Lab is behind the `tool.cut-lab.enabled` feature flag. On small screens, the Packages, Scenarios, and What-if sections collapse into expandable panels so the workspace stays usable without dropping the shipped functionality. The shipped workspace is also verified readable and keyboard-accessible across all supported guild themes.
 
 In Role floors, **Lock all** locks every card in that role; **Unlock all** releases them. These controls stay in sync with the role controls in How your pool competes. Constraints reports the number of roles fully locked.
+Beside the Constraints packages count, a **Manage packages** link switches to Plan and opens the Packages section inside Lock your pool.

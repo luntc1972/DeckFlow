@@ -6,6 +6,16 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### 2026.11.1 — Cut Lab discoverability (2026-11-10)
+
+- **Step order:** Process, Plan, Decide, Goals, Export is the new order, with Lock your pool and Packages at the end of Plan.
+- **Lock your pool:** Decide shows a callout with a Lock your pool link while no non-commander card is locked.
+- **What-if swaps:** accepted cuts in Decide get What if I swap this?, which opens What-if in Goals with the card preselected.
+- **Manage packages:** the Constraints packages count gets a Manage packages link that switches to Plan and opens Packages inside Lock your pool.
+- **Role locks:** Role floors gains Lock all / Unlock all, synced with the How your pool competes role controls, and lock wording is unified.
+- **Double-faced names:** card names display with ' / '; identity stays ' // '.
+- **Mobile fixes:** filtered pool rows stay hidden, and the Re-run rounds 1 & 2 button fits its card at 390px.
+
 ### Unreleased — Cut Lab role editing in the card window (2026-10-28)
 
 - **Roles:** a card's roles are edited from its card window; the separate role editor and Edit roles links are gone.
