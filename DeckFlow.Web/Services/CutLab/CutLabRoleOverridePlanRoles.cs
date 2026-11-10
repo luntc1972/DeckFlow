@@ -10,7 +10,7 @@ internal static class CutLabRoleOverridePlanRoles
     /// <summary>Applies touched role families while preserving untouched classifier flags.</summary>
     public static SpellRequirement Apply(SpellRequirement spell, CardFact fact, ManabaseMode mode, CutLabRoleOverride roleOverride)
     {
-        var simBase = CutLabRoleAssigner.AssignRoles(fact, [], false, mode);
+        var simBase = CutLabRoleAssigner.AssignRoles(fact, [], mode);
         var effective = CutLabRoleOverrideRules.ApplyToRoles(simBase, roleOverride);
         PlanRole roles = spell.PlanRoles;
         bool interaction = spell.IsInteractionSpell;

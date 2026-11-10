@@ -243,7 +243,6 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 roles = CutLabRoleAssigner.AssignRoles(
                     fact,
                     categories,
-                    classification.CardComboMembership.ContainsKey(normalizedEntryName),
                     mode);
                 manaValue = fact.ManaValue;
 
