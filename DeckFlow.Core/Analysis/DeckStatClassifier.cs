@@ -162,10 +162,17 @@ public static class DeckStatClassifier
     /// <param name="oracleText">Raw oracle text; parenthesised reminder text is stripped before matching.</param>
     /// <param name="manaCost">Mana cost string (e.g. "{1}"); blank for zero-cost artifacts.</param>
     public static bool IsFastManaCard(string typeLine, string oracleText, string manaCost)
-        => DeckStatAggregator.EstimateManaValue(manaCost) == 0
-            && typeLine.Contains("Artifact", StringComparison.OrdinalIgnoreCase)
-            && (StripReminderText(oracleText).Contains("{T}: Add", StringComparison.OrdinalIgnoreCase)
-                || StripReminderText(oracleText).Contains("Add {", StringComparison.OrdinalIgnoreCase));
+    {
+        if (DeckStatAggregator.EstimateManaValue(manaCost) != 0
+            || !typeLine.Contains("Artifact", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string rulesText = StripReminderText(oracleText);
+        return rulesText.Contains("{T}: Add", StringComparison.OrdinalIgnoreCase)
+            || rulesText.Contains("Add {", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Returns <see langword="true"/> when the card is a ramp or draw piece with estimated mana value
