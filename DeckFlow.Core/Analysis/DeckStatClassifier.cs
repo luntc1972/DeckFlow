@@ -37,17 +37,26 @@ public static class DeckStatClassifier
     /// or a Treasure producer.
     /// </summary>
     /// <param name="typeLine">Card type line (e.g. "Artifact — Treasure").</param>
-    /// <param name="oracleText">Normalized oracle text.</param>
+    /// <param name="oracleText">Raw oracle text; parenthesised reminder text is stripped before matching.</param>
     public static bool IsRampCard(string typeLine, string oracleText)
-        => typeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("add one mana", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("add two mana", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("{T}: Add", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("Add {", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("search your library for a basic land", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("search your library for up to", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("land", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("Treasure token", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("create a Treasure", StringComparison.OrdinalIgnoreCase);
+    {
+        if (typeLine.Contains("Land", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Why: gift-a-Treasure reminder text (for example, Bilbo's Gambit) is not a ramp effect.
+        string rulesText = StripReminderText(oracleText);
+
+        return rulesText.Contains("add one mana", StringComparison.OrdinalIgnoreCase)
+            || rulesText.Contains("add two mana", StringComparison.OrdinalIgnoreCase)
+            || rulesText.Contains("{T}: Add", StringComparison.OrdinalIgnoreCase)
+            || rulesText.Contains("Add {", StringComparison.OrdinalIgnoreCase)
+            || rulesText.Contains("search your library for a basic land", StringComparison.OrdinalIgnoreCase)
+            || rulesText.Contains("search your library for up to", StringComparison.OrdinalIgnoreCase) && rulesText.Contains("land", StringComparison.OrdinalIgnoreCase)
+            || rulesText.Contains("Treasure token", StringComparison.OrdinalIgnoreCase)
+            || rulesText.Contains("create a Treasure", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Shared you-anchored literal card-draw predicate: "draw(s) a/N card(s)" that benefits YOU,
@@ -58,17 +67,17 @@ public static class DeckStatClassifier
     internal static bool MatchesYouCardDraw(string oracleText)
     {
         // Strip reminder text so cycling's "(..., Discard this card: Draw a card.)" does not make
-        // every cycling card look like literal draw (for example, Raugrin Triome). Most oracle text
-        // has no parentheses at all, so skip the regex pass (and its allocation) when there's
-        // nothing to strip — this runs per card in the Cut Lab role-tally hot path.
-        if (oracleText.IndexOf('(', StringComparison.Ordinal) < 0)
-        {
-            return YouCardDrawRegex.IsMatch(oracleText);
-        }
-
-        string text = ReminderTextRegex.Replace(oracleText, string.Empty);
-        return YouCardDrawRegex.IsMatch(text);
+        // every cycling card look like literal draw (for example, Raugrin Triome).
+        return YouCardDrawRegex.IsMatch(StripReminderText(oracleText));
     }
+
+    /// <summary>
+    /// Removes parenthesised reminder text from rules text.
+    /// </summary>
+    private static string StripReminderText(string text)
+        // Most oracle text has no parentheses at all, so skip the regex pass (and its allocation)
+        // when there's nothing to strip — this runs per card in the Cut Lab role-tally hot path.
+        => text.IndexOf('(', StringComparison.Ordinal) < 0 ? text : ReminderTextRegex.Replace(text, string.Empty);
 
     /// <summary>
     /// Returns <see langword="true"/> when the card has you-anchored literal card draw (any count),
@@ -155,8 +164,8 @@ public static class DeckStatClassifier
     public static bool IsFastManaCard(string typeLine, string oracleText, string manaCost)
         => DeckStatAggregator.EstimateManaValue(manaCost) == 0
             && typeLine.Contains("Artifact", StringComparison.OrdinalIgnoreCase)
-            && (oracleText.Contains("{T}: Add", StringComparison.OrdinalIgnoreCase)
-                || oracleText.Contains("Add {", StringComparison.OrdinalIgnoreCase));
+            && (StripReminderText(oracleText).Contains("{T}: Add", StringComparison.OrdinalIgnoreCase)
+                || StripReminderText(oracleText).Contains("Add {", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Returns <see langword="true"/> when the card is a ramp or draw piece with estimated mana value
