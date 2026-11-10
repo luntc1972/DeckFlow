@@ -141,25 +141,13 @@ public sealed class CutLabSimulationServiceTests
     {
         TestPool pool = BuildCedhPool();
         var goals = new CutLabGoalSettings { CommanderByTurn = 5 };
+        var analysisCounter = new CountingSnapshotBuilder(weightByPlayExperience: true);
         var service = new CutLabSimulationService(
             new CutLabResolvedCardCache(),
             new CutLabDeltaCache(),
             new FakeResolver(pool.Cards),
             NullLogger<CutLabSimulationService>.Instance,
-            (entries, playExperience, trials, settings, overrides) => new CutLabMetricSnapshot
-            {
-                Metrics =
-                [
-                    new CutLabMetricValue
-                    {
-                        Kind = CutLabMetricKind.CommanderByTurn,
-                        Family = CutLabMetricFamily.CategoryByTurn,
-                        Label = "Commander by turn",
-                        Value = entries.Sum(entry => entry.Quantity) * (playExperience == "cEDH" ? 2.0 : 1.0),
-                        Unit = CutLabMetricUnit.Percent,
-                    },
-                ],
-            });
+            analysisCounter.Build);
 
         CutLabProposalDeltas casual = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "Casual", trialsOverride: 100, goals: goals);
         CutLabProposalDeltas cedh = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", trialsOverride: 100, goals: goals);
@@ -169,6 +157,7 @@ public sealed class CutLabSimulationServiceTests
         Assert.Equal(casualDelta.Before * 2, cedhDelta.Before);
         Assert.Equal(casualDelta.After * 2, cedhDelta.After);
         Assert.NotEqual(casualDelta.Delta, cedhDelta.Delta);
+        Assert.Equal(4, analysisCounter.CallCount);
     }
 
     [Fact]
@@ -816,7 +805,7 @@ public sealed class CutLabSimulationServiceTests
         }
     }
 
-    private sealed class CountingSnapshotBuilder
+    private sealed class CountingSnapshotBuilder(bool weightByPlayExperience = false)
     {
         private readonly Dictionary<string, int> _callsByPoolKey = new(StringComparer.Ordinal);
 
@@ -846,9 +835,10 @@ public sealed class CutLabSimulationServiceTests
                         Kind = CutLabMetricKind.CommanderByTurn,
                         Family = CutLabMetricFamily.CategoryByTurn,
                         Label = $"Commander by turn {goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn}",
-                        Value = deckEntries.Sum(entry => entry.Quantity)
+                        Value = (deckEntries.Sum(entry => entry.Quantity)
                             + (trialsOverride ?? 20_000)
-                            + (goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn),
+                            + (goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn))
+                            * (weightByPlayExperience && playExperience == "cEDH" ? 2.0 : 1.0),
                         Unit = CutLabMetricUnit.Percent,
                     },
                 ],

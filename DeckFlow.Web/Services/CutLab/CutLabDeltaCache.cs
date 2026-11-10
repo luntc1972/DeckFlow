@@ -178,13 +178,16 @@ public sealed class CutLabDeltaCache
     }
 
     private static string ComputeDeltaEntryKey(string poolKey, string cardName, string? playExperience, int? trialsOverride, CutLabGoalSettings? goals, IReadOnlyList<CutLabRoleOverride>? roleOverrides)
-        => PacketSessionCache.ComputeKey(new DeltaCacheKey(poolKey, NormalizeCardName(cardName), NormalizePlayExperience(playExperience), trialsOverride, NormalizeGoalsKey(goals), CutLabRoleOverrideRules.Fingerprint(roleOverrides)));
+        => PacketSessionCache.ComputeKey(new DeltaCacheKey(CreateSimulationKeyContext(poolKey, playExperience, trialsOverride, goals, roleOverrides), NormalizeCardName(cardName)));
 
     private static string ComputeSnapshotEntryKey(string poolKey, string? playExperience, int? trialsOverride, CutLabGoalSettings? goals, IReadOnlyList<CutLabRoleOverride>? roleOverrides)
-        => PacketSessionCache.ComputeKey(new SnapshotCacheKey(poolKey, NormalizePlayExperience(playExperience), trialsOverride, NormalizeGoalsKey(goals), CutLabRoleOverrideRules.Fingerprint(roleOverrides)));
+        => PacketSessionCache.ComputeKey(new SnapshotCacheKey(CreateSimulationKeyContext(poolKey, playExperience, trialsOverride, goals, roleOverrides)));
 
     private static string ComputeResultEntryKey(string poolKey, string? playExperience, int? trialsOverride, CutLabGoalSettings? goals, IReadOnlyList<CutLabRoleOverride>? roleOverrides)
-        => PacketSessionCache.ComputeKey(new ResultCacheKey("result", poolKey, NormalizePlayExperience(playExperience), trialsOverride, NormalizeGoalsKey(goals), CutLabRoleOverrideRules.Fingerprint(roleOverrides)));
+        => PacketSessionCache.ComputeKey(new ResultCacheKey("result", CreateSimulationKeyContext(poolKey, playExperience, trialsOverride, goals, roleOverrides)));
+
+    private static SimulationKeyContext CreateSimulationKeyContext(string poolKey, string? playExperience, int? trialsOverride, CutLabGoalSettings? goals, IReadOnlyList<CutLabRoleOverride>? roleOverrides)
+        => new(poolKey, NormalizePlayExperience(playExperience), trialsOverride, NormalizeGoalsKey(goals), CutLabRoleOverrideRules.Fingerprint(roleOverrides));
 
     private static string NormalizeCardName(string cardName)
         => cardName.ToUpperInvariant();
@@ -260,10 +263,12 @@ public sealed class CutLabDeltaCache
         return Math.Max(total, 1);
     }
 
+    /// <summary>Shares normalized simulation dimensions across all cache entry kinds.</summary>
+    private sealed record SimulationKeyContext(string PoolKey, string PlayExperience, int? TrialsOverride, string GoalsKey, string RoleOverridesKey);
     /// <summary>Keys proposal-delta simulations by pool, candidate card, play experience, trial count, and normalized goals.</summary>
-    private sealed record DeltaCacheKey(string PoolKey, string CardName, string PlayExperience, int? TrialsOverride, string GoalsKey, string RoleOverridesKey);
+    private sealed record DeltaCacheKey(SimulationKeyContext Context, string CardName);
     /// <summary>Keys simulation snapshots by pool, play experience, trial count, and normalized goals.</summary>
-    private sealed record SnapshotCacheKey(string PoolKey, string PlayExperience, int? TrialsOverride, string GoalsKey, string RoleOverridesKey);
+    private sealed record SnapshotCacheKey(SimulationKeyContext Context);
     /// <summary>Keys complete Cut Lab simulation results while separating result entry kinds.</summary>
-    private sealed record ResultCacheKey(string EntryKind, string PoolKey, string PlayExperience, int? TrialsOverride, string GoalsKey, string RoleOverridesKey);
+    private sealed record ResultCacheKey(string EntryKind, SimulationKeyContext Context);
 }
