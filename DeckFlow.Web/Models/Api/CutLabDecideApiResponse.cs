@@ -61,6 +61,9 @@ public sealed record CutLabDecideNextProposalDto
     /// <summary>Fixed round-banner supporting copy.</summary>
     public string RoundBannerBody { get; init; } = string.Empty;
 
+    /// <summary>Server-authored evidence sentence for the proposed card.</summary>
+    public string FindingSummary { get; init; } = string.Empty;
+
     /// <summary>Count of discriminating findings attached to the proposed card.</summary>
     public int FindingCount { get; init; }
 

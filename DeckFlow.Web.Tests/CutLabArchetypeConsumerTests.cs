@@ -57,9 +57,11 @@ public sealed class CutLabArchetypeConsumerTests
         IReadOnlyDictionary<string, CutLabPlanAffinity> affinities = CutLabPlanAffinityResolver.ResolveAll(
             [Card("Tax", "tax"), Card("Round mate"), Card("Later")], Profile("stax"), EmptyThemeCards, []);
 
-        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(cards, Findings(("Tax", CutLabFindingKind.CurveCongestion), ("Tax", CutLabFindingKind.StrandedSubtheme), ("Round mate", CutLabFindingKind.CurveCongestion), ("Round mate", CutLabFindingKind.StrandedSubtheme), ("Later", CutLabFindingKind.CurveCongestion)), [], 3, planAffinities: affinities);
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(cards, Findings(("Tax", CutLabFindingKind.StrandedSubtheme), ("Round mate", CutLabFindingKind.StrandedSubtheme)), [], 3, planAffinities: affinities.ToDictionary(pair => pair.Key, pair => pair.Value with { IsInCheckedCommanderTheme = true }),
+            checkedCommanderThemesAvailable: true);
 
         Assert.Equal(["Round mate", "Tax", "Later"], plan.Queue.Select(item => item.CardName));
+        Assert.Equal([CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round3Key], plan.Queue.Select(item => item.RoundKey));
     }
 
     [Fact]

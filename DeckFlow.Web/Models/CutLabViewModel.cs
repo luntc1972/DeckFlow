@@ -834,9 +834,7 @@ public sealed record CutLabViewModel
             .Select(kind => findingHeadingsByKind[kind])
             .ToArray();
         IReadOnlyList<string> floorWarnings = BuildFloorWarnings(nextProposal.CardName, state, resolvedFloors, roleAssignmentsByCardName, countsByRole);
-        string findingSummary = nextProposal.FindingCount > 0
-            ? $"Flagged by {nextProposal.FindingCount} finding kind(s):"
-            : "No structural finding flags this card — it's a preference call.";
+        string findingSummary = nextProposal.FindingSummary;
         if (proposalDeltas is null)
         {
             return new CutLabProposalView
@@ -845,7 +843,7 @@ public sealed record CutLabViewModel
                 CardName = nextProposal.CardName,
                 RoundKey = nextProposal.RoundKey,
                 RoundLabel = nextProposal.RoundLabel,
-                RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable),
+                RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable, nextProposal.PlanSignalAvailable),
                 FindingCount = nextProposal.FindingCount,
                 FindingSummary = findingSummary,
                 FindingChips = findingChips,
@@ -866,7 +864,7 @@ public sealed record CutLabViewModel
             CardName = nextProposal.CardName,
             RoundKey = nextProposal.RoundKey,
             RoundLabel = nextProposal.RoundLabel,
-            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable),
+            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable, nextProposal.PlanSignalAvailable),
             FindingCount = nextProposal.FindingCount,
             FindingSummary = findingSummary,
             FindingChips = findingChips,

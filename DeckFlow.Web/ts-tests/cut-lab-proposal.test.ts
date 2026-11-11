@@ -48,6 +48,7 @@ interface CutLabUiPatch {
     roundKey: string;
     roundLabel: string;
     roundBannerBody: string;
+    findingSummary: string;
     findingCount: number;
     findingChips: string[];
     glanceLine?: string;
@@ -183,7 +184,7 @@ const buildDecisionFixture = (): void => {
       </details>
       <button type="button" id="cut-lab-step-tab-5" class="prompt-step-tab" aria-disabled="true">Export</button>
       <div class="cutlab-round-banner">
-        <p>Cards flagged by 2 or more structural findings from the section above.</p>
+        <p>Cards in a stranded subtheme that are also off your plan.</p>
       </div>
       <div class="cutlab-proposal" data-cut-lab-card="Sol Ring" data-cut-lab-round="round-1">
         <p class="cutlab-proposal__heading">Proposed cut: Sol Ring</p>
@@ -317,7 +318,8 @@ const buildPatch = (overrides: Partial<CutLabUiPatch> = {}): CutLabUiPatch => ({
     cardName: 'Arcane Signet',
     roundKey: 'round-2',
     roundLabel: 'Round 2 · Structural choices',
-    roundBannerBody: 'Cards flagged by exactly one structural finding.',
+    roundBannerBody: 'Cards with one reason to cut: a stranded subtheme, or off your plan.',
+    findingSummary: "No structural finding flags this card — it's a preference call.",
     findingCount: 1,
     findingChips: ['Redundant finishers'],
   },
@@ -371,6 +373,22 @@ const buildPatch = (overrides: Partial<CutLabUiPatch> = {}): CutLabUiPatch => ({
 });
 
 describe('cut-lab proposal enhancement', () => {
+  it.each([
+    ['round-2', 'No structural finding flags this card, but it is off your plan.'],
+    ['round-3', "No structural finding flags this card — it's a preference call."],
+    ['round-2', "No structural finding flags this card — it's a preference call."],
+  ])('renders server evidence after a decision in %s: %s', async (roundKey, findingSummary) => {
+    buildDecisionFixture();
+    const patch = buildPatch();
+    Object.assign(patch.nextProposal, { roundKey, findingCount: 0, findingSummary });
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ patch }) });
+    const form = document.querySelector<HTMLFormElement>('form[action="/cut-lab/decide"]');
+    const button = form?.querySelector<HTMLButtonElement>('[data-cut-lab-decision="accept"]');
+    form?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true, submitter: button ?? undefined }));
+    await flushDecisionSubmit();
+    expect(document.querySelector<HTMLElement>('.cutlab-proposal__evidence p')?.textContent).toBe(findingSummary);
+  });
+
   it('intercepts decision-form submit, posts JSON, and syncs every hidden state field from the response', async () => {
     buildDecisionFixture();
     const response: CutLabPatchResponse = { patch: buildPatch() };
@@ -434,7 +452,7 @@ describe('cut-lab proposal enhancement', () => {
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-round]')?.textContent).toBe('Round 2 · Structural choices');
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-remaining]')?.textContent).toBe('11 to cut');
     expect(document.querySelector<HTMLElement>('[data-cut-lab-sticky-accepted]')?.textContent).toBe('1 cut so far');
-    expect(document.querySelector<HTMLElement>('.cutlab-round-banner p:last-child')?.textContent).toBe('Cards flagged by exactly one structural finding.');
+    expect(document.querySelector<HTMLElement>('.cutlab-round-banner p:last-child')?.textContent).toBe('Cards with one reason to cut: a stranded subtheme, or off your plan.');
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__heading')?.textContent).toBe('Proposed cut: Arcane Signet');
     expect(document.querySelector<HTMLElement>('.cutlab-proposal__evidence p')?.textContent).toBe('Flagged by 1 findings:');
     expect(document.querySelectorAll('.cutlab-delta__line')).toHaveLength(3);
@@ -454,7 +472,8 @@ describe('cut-lab proposal enhancement', () => {
           cardName: 'Arcane Signet',
           roundKey: 'round-2',
           roundLabel: 'Round 2 · Structural choices',
-          roundBannerBody: 'Cards flagged by exactly one structural finding.',
+          roundBannerBody: 'Cards with one reason to cut: a stranded subtheme, or off your plan.',
+          findingSummary: "No structural finding flags this card — it's a preference call.",
         },
         lockedOvershootAdvisory: {
           cardsOverTarget: 5,
@@ -655,6 +674,7 @@ describe('cut-lab proposal enhancement', () => {
         nextProposal: {
           ...buildPatch().nextProposal,
           roundBannerBody: 'Server banner copy wins.',
+          findingSummary: "No structural finding flags this card — it's a preference call.",
         },
         proposalDeltas: {
           cardName: 'Arcane Signet',
@@ -1035,6 +1055,7 @@ describe('cut-lab proposal enhancement', () => {
             roundKey: '',
             roundLabel: '',
             roundBannerBody: '',
+            findingSummary: "No structural finding flags this card — it's a preference call.",
             findingCount: 0,
             findingChips: [],
           },
@@ -1097,6 +1118,7 @@ describe('cut-lab proposal enhancement', () => {
           roundKey: '',
           roundLabel: '',
           roundBannerBody: '',
+          findingSummary: "No structural finding flags this card — it's a preference call.",
           findingCount: 0,
           findingChips: [],
         },

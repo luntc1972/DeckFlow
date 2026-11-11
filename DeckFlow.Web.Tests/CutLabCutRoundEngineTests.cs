@@ -9,8 +9,8 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabCutRoundEngineTests
 {
     [Theory]
-    [InlineData(true, "Round 1 \u00b7 Off-theme cuts", "Off-theme cuts \u2014 cards outside your deck's themes.", "On-theme cards flagged by 1 or more structural finding kinds.")]
-    [InlineData(false, "Round 1 \u00b7 Structural cuts", "Cards flagged by 2 or more kinds of structural finding.", "Cards flagged by exactly one structural finding kind.")]
+    [InlineData(true, "Round 1 \u00b7 Off-theme cuts", "Off-theme cuts \u2014 cards outside your deck's themes.", "On-theme cards in a stranded subtheme.")]
+    [InlineData(false, "Round 1 \u00b7 Structural cuts", "Cards in a stranded subtheme that are also off your plan.", "Cards with one reason to cut: a stranded subtheme, or off your plan.")]
     public void RoundCopy_ReflectsThemeAvailability(bool themesAvailable, string round1Label, string round1Body, string round2Body)
     {
         Assert.Equal(round1Label, CutLabCutRoundEngine.LabelFor(CutLabCutRoundEngine.Round1Key, themesAvailable));
@@ -19,7 +19,56 @@ public sealed class CutLabCutRoundEngineTests
     }
 
     [Fact]
-    public void BuildQueue_TwoDiscriminatingFindings_PlacesCardInRound1()
+    public void RoundQueueItem_LegacyJson_DefaultsToUnchangedBanner()
+    {
+        const string json = """{"CardName":"Candidate","RoundKey":"round-2","RoundLabel":"","FindingCount":1,"DiscriminatingFindingKinds":[]}""";
+        CutLabRoundQueueItem? item = System.Text.Json.JsonSerializer.Deserialize<CutLabRoundQueueItem>(json);
+
+        Assert.NotNull(item);
+        Assert.True(item.PlanSignalAvailable);
+        Assert.Equal("Cards with one reason to cut: a stranded subtheme, or off your plan.",
+            CutLabCutRoundEngine.RoundBannerBodyFor(CutLabCutRoundEngine.Round2Key, item.CheckedCommanderThemesAvailable, item.PlanSignalAvailable));
+    }
+
+    [Theory]
+    [InlineData("neutral", "Cards in a stranded subtheme.")]
+    [InlineData("null", "Cards in a stranded subtheme.")]
+    [InlineData("available", "Cards with one reason to cut: a stranded subtheme, or off your plan.")]
+    [InlineData("themes", "On-theme cards in a stranded subtheme.")]
+    public void BuildQueue_Round2Banner_ReflectsPlanSignal(string mode, string expectedBody)
+    {
+        bool themesAvailable = mode == "themes";
+        CutLabStructuralFindingsResult findings = mode == "available"
+            ? Findings()
+            : Findings(Finding(CutLabFindingKind.StrandedSubtheme, "Candidate"));
+        IReadOnlyDictionary<string, CutLabPlanAffinity>? affinities = mode == "null"
+            ? null
+            : Affinities([("Candidate", themesAvailable ? 1 : 0), ("Anchor", mode == "available" || themesAvailable ? 1 : 0)], themesAvailable);
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Candidate", 4), Card("Anchor", 1)], findings, [],
+            cardsToCutTarget: 1, planAffinities: affinities,
+            checkedCommanderThemesAvailable: themesAvailable);
+
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, plan.NextProposal!.RoundKey);
+        var result = new CutLabProcessResult
+        {
+            HasResult = true,
+            State = new CutLabState
+            {
+                Pool = [new CutLabPoolCard { Name = "Candidate", Quantity = 1 }],
+            },
+            RoleAssignmentsByCardName = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase),
+            Findings = findings,
+            RoundPlan = plan,
+        };
+        CutLabViewModel model = CutLabViewModel.From(new CutLabRequest(), result);
+
+        Assert.Equal(expectedBody, model.Proposal.RoundBannerBody);
+        Assert.Equal(expectedBody, CutLabNextProposalBuilder.Build(plan, findings).RoundBannerBody);
+    }
+
+    [Fact]
+    public void BuildQueue_CurveAndStrandedFindings_WithOffPlanSignal_PlacesCardInRound1()
     {
         IReadOnlyList<CutLabRoundInputCard> workingList =
         [
@@ -35,14 +84,15 @@ public sealed class CutLabCutRoundEngineTests
                 Finding(CutLabFindingKind.StrandedSubtheme, "Round 1 Card"),
                 Finding(CutLabFindingKind.EnablerStarved, "Round 2 Card")),
             [],
-            cardsToCutTarget: 3);
+            cardsToCutTarget: 3,
+            planAffinities: Affinities([("Round 2 Card", 1), ("Round 3 Card", 1)]));
 
         CutLabRoundQueueItem round1 = Assert.Single(plan.Queue, item => item.CardName == "Round 1 Card");
         Assert.Equal(CutLabCutRoundEngine.Round1Key, round1.RoundKey);
         Assert.Equal(CutLabCutRoundEngine.Round1FallbackLabel, round1.RoundLabel);
-        Assert.Equal(2, round1.FindingCount);
+        Assert.Equal(1, round1.FindingCount);
         Assert.Equal(
-            [CutLabFindingKind.CurveCongestion, CutLabFindingKind.StrandedSubtheme],
+            [CutLabFindingKind.StrandedSubtheme],
             round1.DiscriminatingFindingKinds);
     }
 
@@ -83,7 +133,7 @@ public sealed class CutLabCutRoundEngineTests
 
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
-            Findings(Finding(CutLabFindingKind.CurveCongestion, "Structural Choice")),
+            Findings(Finding(CutLabFindingKind.StrandedSubtheme, "Structural Choice")),
             [],
             cardsToCutTarget: 2);
 
@@ -272,7 +322,7 @@ public sealed class CutLabCutRoundEngineTests
 
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
-            Findings(Finding(CutLabFindingKind.CurveCongestion, "Structural Choice")),
+            Findings(Finding(CutLabFindingKind.StrandedSubtheme, "Structural Choice")),
             decisions,
             cardsToCutTarget: 4);
 
@@ -306,7 +356,8 @@ public sealed class CutLabCutRoundEngineTests
                 Finding(CutLabFindingKind.CurveCongestion, "Immediate Proposal"),
                 Finding(CutLabFindingKind.StrandedSubtheme, "Immediate Proposal")),
             [],
-            cardsToCutTarget: 2);
+            cardsToCutTarget: 2,
+            planAffinities: Affinities([("Later Proposal", 1)]));
 
         Assert.NotNull(plan.NextProposal);
         Assert.Equal("Immediate Proposal", plan.NextProposal!.CardName);
@@ -570,8 +621,8 @@ public sealed class CutLabCutRoundEngineTests
     }
 
     [Theory]
-    [InlineData(CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round1FallbackLabel, "Cards flagged by 2 or more kinds of structural finding.")]
-    [InlineData(CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, "Cards flagged by exactly one structural finding kind.")]
+    [InlineData(CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round1FallbackLabel, "Cards in a stranded subtheme that are also off your plan.")]
+    [InlineData(CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, "Cards with one reason to cut: a stranded subtheme, or off your plan.")]
     [InlineData(CutLabCutRoundEngine.Round3Key, CutLabCutRoundEngine.Round3Label, "Everything else, ordered by smallest measurable tradeoff first.")]
     [InlineData(CutLabCutRoundEngine.InfrastructureKey, CutLabCutRoundEngine.InfrastructureLabel, "Mana base & staples — proposed only after everything else.")]
     [InlineData(CutLabCutRoundEngine.SecondPassDeferredKey, CutLabCutRoundEngine.SecondPassDeferredLabel, "Still over 100 cards. These were deferred or kept earlier; take another look.")]
@@ -602,7 +653,7 @@ public sealed class CutLabCutRoundEngineTests
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
             Findings(
-                Finding(CutLabFindingKind.CurveCongestion, "Combo Piece"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Combo Piece"),
                 Finding(CutLabFindingKind.EnablerStarved, "Combo Piece")),
             [],
             cardsToCutTarget: 1);
@@ -610,7 +661,7 @@ public sealed class CutLabCutRoundEngineTests
         CutLabRoundQueueItem proposal = Assert.Single(plan.Queue);
         Assert.Equal(CutLabCutRoundEngine.Round2Key, proposal.RoundKey);
         Assert.Equal(1, proposal.FindingCount);
-        Assert.Equal([CutLabFindingKind.CurveCongestion], proposal.DiscriminatingFindingKinds);
+        Assert.Equal([CutLabFindingKind.StrandedSubtheme], proposal.DiscriminatingFindingKinds);
     }
 
     [Fact]
@@ -658,7 +709,7 @@ public sealed class CutLabCutRoundEngineTests
             [Card("Combo Piece", 2), Card("Ordinary Card", 3)],
             Findings(
                 Finding(CutLabFindingKind.FunctionalTwins, "Combo Piece"),
-                Finding(CutLabFindingKind.CurveCongestion, "Combo Piece", "Ordinary Card"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Combo Piece", "Ordinary Card"),
                 Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Piece")),
             [],
             cardsToCutTarget: 2);
@@ -694,7 +745,8 @@ public sealed class CutLabCutRoundEngineTests
                 Finding(CutLabFindingKind.CurveCongestion, "Genuine Cut"),
                 Finding(CutLabFindingKind.StrandedSubtheme, "Genuine Cut")),
             [],
-            cardsToCutTarget: 2);
+            cardsToCutTarget: 2,
+            planAffinities: Affinities([("Ashnod's Altar", 1)]));
 
         CutLabRoundQueueItem altar = Assert.Single(plan.Queue, item => item.CardName == "Ashnod's Altar");
         Assert.Equal(CutLabCutRoundEngine.Round3Key, altar.RoundKey);
@@ -706,27 +758,28 @@ public sealed class CutLabCutRoundEngineTests
     }
 
     [Fact]
-    public void BuildQueue_ManySameKindStrandedFindings_DoNotOutrankCardWithTwoDistinctKinds_StapleRegression()
+    public void BuildQueue_ManySameKindStrandedFindings_DoNotOutrankOffPlanStrandedCard_StapleRegression()
     {
         IReadOnlyList<CutLabRoundInputCard> workingList =
         [
             Card("Noisy Staple", 1),
-            Card("Two Kind Card", 4),
+            Card("Off Plan Card", 4),
             .. Enumerable.Range(0, 40).Select(index => Card($"Filler {index}", 3)),
         ];
 
         CutLabStructuralFindingsResult findings = Findings(
             [
                 .. Enumerable.Range(0, 40).Select(index => Finding(CutLabFindingKind.StrandedSubtheme, "Noisy Staple", $"Filler {index}")),
-                Finding(CutLabFindingKind.CurveCongestion, "Two Kind Card"),
-                Finding(CutLabFindingKind.StrandedSubtheme, "Two Kind Card"),
+                Finding(CutLabFindingKind.CurveCongestion, "Off Plan Card"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Off Plan Card"),
             ]);
 
-        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(workingList, findings, [], cardsToCutTarget: 5);
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(workingList, findings, [], cardsToCutTarget: 5,
+            planAffinities: Affinities([("Noisy Staple", 1)]));
 
-        Assert.Equal("Two Kind Card", plan.NextProposal!.CardName);
+        Assert.Equal("Off Plan Card", plan.NextProposal!.CardName);
         Assert.Equal(CutLabCutRoundEngine.Round1Key, plan.NextProposal.RoundKey);
-        Assert.Equal(2, plan.NextProposal.FindingCount);
+        Assert.Equal(1, plan.NextProposal.FindingCount);
         CutLabRoundQueueItem noisyStaple = Assert.Single(plan.Queue, item => item.CardName == "Noisy Staple");
         Assert.Equal(CutLabCutRoundEngine.Round2Key, noisyStaple.RoundKey);
         Assert.Equal(1, noisyStaple.FindingCount);
@@ -753,16 +806,16 @@ public sealed class CutLabCutRoundEngineTests
         {
             ["Off Theme Two"] = new([], 0, false),
             ["Off Theme Five"] = new([], 0, false),
-            ["On Theme One"] = new([], 0, true),
-            ["On Theme Four"] = new([], 0, true),
-            ["On Theme Six"] = new([], 0, true),
-            ["Combo Piece"] = new([], 0, true),
+            ["On Theme One"] = new([], 1, true),
+            ["On Theme Four"] = new([], 1, true),
+            ["On Theme Six"] = new([], 1, true),
+            ["Combo Piece"] = new([], 1, true),
         };
 
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
             Findings(
-                Finding(CutLabFindingKind.CurveCongestion, "Off Theme Five", "On Theme Four", "Combo Piece"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Off Theme Five", "On Theme Four", "Combo Piece"),
                 Finding(CutLabFindingKind.StrandedSubtheme, "Off Theme Five"),
                 Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Piece")),
             [],
@@ -785,10 +838,10 @@ public sealed class CutLabCutRoundEngineTests
             :
             [
                 ("Off Theme Five", CutLabCutRoundEngine.Round1Key),
+                ("Off Theme Two", CutLabCutRoundEngine.Round2Key),
                 ("On Theme Four", CutLabCutRoundEngine.Round2Key),
                 ("Combo Piece", CutLabCutRoundEngine.Round2Key),
                 ("On Theme One", CutLabCutRoundEngine.Round3Key),
-                ("Off Theme Two", CutLabCutRoundEngine.Round3Key),
                 ("On Theme Six", CutLabCutRoundEngine.Round3Key),
                 ("Ramp Rock", CutLabCutRoundEngine.InfrastructureKey),
                 ("Land", CutLabCutRoundEngine.InfrastructureKey),
@@ -849,7 +902,7 @@ public sealed class CutLabCutRoundEngineTests
 
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
-            Findings(Finding(CutLabFindingKind.CurveCongestion, "Esper Sentinel")),
+            Findings(Finding(CutLabFindingKind.StrandedSubtheme, "Esper Sentinel")),
             [],
             cardsToCutTarget: 1,
             stapleCardNames: new HashSet<string>(StringComparer.Ordinal));
@@ -873,7 +926,7 @@ public sealed class CutLabCutRoundEngineTests
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
             Findings(
-                Finding(CutLabFindingKind.CurveCongestion, "Agatha's Soul Cauldron", "Plain Filler"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Agatha's Soul Cauldron", "Plain Filler"),
                 Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Agatha's Soul Cauldron")),
             [],
             cardsToCutTarget: 2);
@@ -890,12 +943,13 @@ public sealed class CutLabCutRoundEngineTests
     }
 
     [Fact]
-    public void BuildQueue_ComboProtectedCardSortsLastInRound1DespiteHigherTally()
+    public void BuildQueue_ComboProtectedCardSortsLastInRound1DespiteRepeatedFindingEvidence()
     {
         IReadOnlyList<CutLabRoundInputCard> workingList =
         [
             Card("Combo Engine", 2),
             Card("Plain Filler", 4),
+            Card("Plan Anchor", 1),
         ];
 
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
@@ -903,13 +957,15 @@ public sealed class CutLabCutRoundEngineTests
             Findings(
                 Finding(CutLabFindingKind.CurveCongestion, "Combo Engine", "Plain Filler"),
                 Finding(CutLabFindingKind.StrandedSubtheme, "Combo Engine", "Plain Filler"),
-                Finding(CutLabFindingKind.CurveCongestion, "Combo Engine"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Combo Engine"),
                 Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.CompletePiece, "Combo Engine")),
             [],
-            cardsToCutTarget: 2);
+            cardsToCutTarget: 2,
+            planAffinities: Affinities([("Plan Anchor", 1)]));
 
         Assert.Equal("Plain Filler", plan.NextProposal!.CardName);
         Assert.Equal(CutLabCutRoundEngine.Round1Key, plan.NextProposal.RoundKey);
+        Assert.Equal(CutLabCutRoundEngine.Round1Key, Assert.Single(plan.Queue, item => item.CardName == "Combo Engine").RoundKey);
     }
 
     /// <summary>
@@ -1159,7 +1215,7 @@ public sealed class CutLabCutRoundEngineTests
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             workingList,
             Findings(
-                Finding(CutLabFindingKind.CurveCongestion, "Needs Partner Piece", "Plain Filler"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Needs Partner Piece", "Plain Filler"),
                 Finding(CutLabFindingKind.ComboProtected, ComboBadgeState.NeedsPartner, "Needs Partner Piece")),
             [],
             cardsToCutTarget: 2);
@@ -1243,14 +1299,14 @@ public sealed class CutLabCutRoundEngineTests
             [Card("Twin Card", 3), Card("Fallback", 1)],
             Findings(
                 Finding(CutLabFindingKind.FunctionalTwins, "Twin Card"),
-                Finding(CutLabFindingKind.CurveCongestion, "Twin Card")),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Twin Card")),
             [],
             cardsToCutTarget: 2);
 
         CutLabRoundQueueItem twinCard = Assert.Single(plan.Queue, item => item.CardName == "Twin Card");
         Assert.Equal(CutLabCutRoundEngine.Round2Key, twinCard.RoundKey);
         Assert.Equal(1, twinCard.FindingCount);
-        Assert.Equal([CutLabFindingKind.CurveCongestion], twinCard.DiscriminatingFindingKinds);
+        Assert.Equal([CutLabFindingKind.StrandedSubtheme], twinCard.DiscriminatingFindingKinds);
     }
 
     [Fact]
@@ -1377,18 +1433,16 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(0, twinCard.FindingCount);
     }
 
-    // Why: behavioral tests prove the effect; this names the cause when a future change excludes
-    // FunctionalTwins from the tally without widening the private field just for test access.
     [Fact]
-    public void BuildQueue_FunctionalTwinsPresentInExclusionSet_IsAssertedStructurally()
+    public void BuildQueue_CountedFindingKinds_ContainsOnlyStrandedSubtheme()
     {
         System.Reflection.FieldInfo? field = typeof(CutLabCutRoundEngine).GetField(
-            "ExcludedFindingKindsFromTally",
+            "CountedFindingKinds",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(field);
-        IReadOnlySet<CutLabFindingKind> exclusions = Assert.IsAssignableFrom<IReadOnlySet<CutLabFindingKind>>(field!.GetValue(null));
-        Assert.Contains(CutLabFindingKind.FunctionalTwins, exclusions);
+        IReadOnlySet<CutLabFindingKind> countedKinds = Assert.IsAssignableFrom<IReadOnlySet<CutLabFindingKind>>(field!.GetValue(null));
+        Assert.True(countedKinds.SetEquals([CutLabFindingKind.StrandedSubtheme]));
     }
 
     [Fact]
@@ -1434,7 +1488,7 @@ public sealed class CutLabCutRoundEngineTests
         };
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             [Card("Off Theme", 2), Card("On Theme", 4)],
-            Findings(Finding(CutLabFindingKind.CurveCongestion, "On Theme")),
+            Findings(Finding(CutLabFindingKind.StrandedSubtheme, "On Theme")),
             [],
             cardsToCutTarget: 2,
             planAffinities: affinities,
@@ -1460,10 +1514,11 @@ public sealed class CutLabCutRoundEngineTests
                 Card("Land High", 4, isLand: true), Card("Land Low", 0, isLand: true),
             ],
             Findings(
-                Finding(CutLabFindingKind.CurveCongestion, "Round One High", "Round One Low", "Round Two High", "Round Two Low", "Land High", "Land Low"),
+                Finding(CutLabFindingKind.StrandedSubtheme, "Round One High", "Round One Low", "Round Two High", "Round Two Low", "Land High", "Land Low"),
                 Finding(CutLabFindingKind.StrandedSubtheme, "Round One High", "Round One Low")),
             [],
-            cardsToCutTarget: 6);
+            cardsToCutTarget: 6,
+            planAffinities: Affinities([("Round Two High", 1), ("Round Two Low", 1)]));
 
         Assert.Equal(["Round One High", "Round One Low"], plan.Queue.Where(item => item.RoundKey == CutLabCutRoundEngine.Round1Key).Select(item => item.CardName));
         Assert.Equal(["Round Two High", "Round Two Low"], plan.Queue.Where(item => item.RoundKey == CutLabCutRoundEngine.Round2Key).Select(item => item.CardName));
@@ -1531,6 +1586,116 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal("Two-Copy Land", rebuiltPlan.NextProposal?.CardName);
         Assert.Equal(2, workingList.Single(card => card.Name == rebuiltPlan.NextProposal?.CardName).Quantity);
     }
+
+    [Theory]
+    [InlineData(0, true, CutLabCutRoundEngine.Round1Key, 1)]
+    [InlineData(1, true, CutLabCutRoundEngine.Round2Key, 1)]
+    [InlineData(0, false, CutLabCutRoundEngine.Round2Key, 0)]
+    [InlineData(1, false, CutLabCutRoundEngine.Round3Key, 0)]
+    public void BuildQueue_StrandedFindingAndPlanScore_AssignsExpectedRound(int score, bool hasStrandedFinding, string expectedRoundKey, int expectedFindingCount)
+    {
+        CutLabRoundQueueItem card = PlanAffinityCard(score, hasStrandedFinding ? [CutLabFindingKind.StrandedSubtheme] : []);
+
+        Assert.Equal(expectedRoundKey, card.RoundKey);
+        Assert.Equal(expectedFindingCount, card.FindingCount);
+    }
+
+    [Fact]
+    public void BuildQueue_NullPlanAffinities_TreatsOffPlanAsNoSignal()
+    {
+        AssertNoPlanSignal(null);
+    }
+
+    [Fact]
+    public void BuildQueue_AllNeutralPlanAffinities_TreatsOffPlanAsNoSignal()
+    {
+        AssertNoPlanSignal(Affinities([("Stranded", 0), ("Plain", 0)]));
+    }
+
+    [Theory]
+    [InlineData("Land")]
+    [InlineData("Ramp")]
+    [InlineData("Staple")]
+    public void BuildQueue_OnlyInfrastructureCardOnPlan_TreatsOffPlanAsNoSignal(string infrastructureKind)
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Infrastructure", 0, isLand: infrastructureKind == "Land", roles: infrastructureKind == "Ramp" ? ["ramp"] : []), Card("Stranded", 2), Card("Plain", 2)],
+            Findings(Finding(CutLabFindingKind.StrandedSubtheme, "Stranded")),
+            [],
+            cardsToCutTarget: 1,
+            planAffinities: Affinities([("Infrastructure", 1), ("Stranded", 0), ("Plain", 0)]),
+            stapleCardNames: infrastructureKind == "Staple" ? new HashSet<string>(["infrastructure"], StringComparer.Ordinal) : null);
+
+        Assert.All(plan.Queue, card => Assert.False(card.PlanSignalAvailable));
+        Assert.DoesNotContain(plan.Queue, card => card.RoundKey == CutLabCutRoundEngine.Round1Key);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, Assert.Single(plan.Queue, card => card.CardName == "Stranded").RoundKey);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(plan.Queue, card => card.CardName == "Plain").RoundKey);
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, Assert.Single(plan.Queue, card => card.CardName == "Infrastructure").RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_CurveCongestionOnly_DoesNotCountTowardTally()
+    {
+        CutLabRoundQueueItem card = PlanAffinityCard(1, CutLabFindingKind.CurveCongestion);
+
+        Assert.Equal(0, card.FindingCount);
+        Assert.Empty(card.DiscriminatingFindingKinds);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, card.RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_CurveCongestionAndStrandedSubtheme_CountsOnlyStrandedSubtheme()
+    {
+        CutLabRoundQueueItem card = PlanAffinityCard(1, CutLabFindingKind.CurveCongestion, CutLabFindingKind.StrandedSubtheme);
+
+        Assert.Equal(1, card.FindingCount);
+        Assert.Equal([CutLabFindingKind.StrandedSubtheme], card.DiscriminatingFindingKinds);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, card.RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_CheckedThemesInThemeCurveCongestionOnly_AssignsRound3()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Candidate", 2)],
+            Findings(Finding(CutLabFindingKind.CurveCongestion, "Candidate")),
+            [],
+            cardsToCutTarget: 1,
+            planAffinities: Affinities([("Candidate", 1)], true),
+            checkedCommanderThemesAvailable: true);
+
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(plan.Queue).RoundKey);
+    }
+
+    private static CutLabRoundQueueItem PlanAffinityCard(int score, params CutLabFindingKind[] kinds)
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Candidate", 2), Card("On Plan", 2)],
+            Findings(kinds.Select(kind => Finding(kind, "Candidate")).ToArray()),
+            [],
+            cardsToCutTarget: 1,
+            planAffinities: Affinities([("Candidate", score), ("On Plan", 1)]));
+
+        return Assert.Single(plan.Queue, card => card.CardName == "Candidate");
+    }
+
+    private static CutLabRoundPlan AssertNoPlanSignal(IReadOnlyDictionary<string, CutLabPlanAffinity>? affinities, params CutLabRoundInputCard[] extraCards)
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [.. extraCards, Card("Stranded", 2), Card("Plain", 2)],
+            Findings(Finding(CutLabFindingKind.StrandedSubtheme, "Stranded")),
+            [],
+            cardsToCutTarget: 1,
+            planAffinities: affinities);
+
+        Assert.DoesNotContain(plan.Queue, card => card.RoundKey == CutLabCutRoundEngine.Round1Key);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, Assert.Single(plan.Queue, card => card.CardName == "Stranded").RoundKey);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(plan.Queue, card => card.CardName == "Plain").RoundKey);
+        return plan;
+    }
+
+    private static IReadOnlyDictionary<string, CutLabPlanAffinity> Affinities((string Name, int Score)[] entries, bool isInCheckedCommanderTheme = false)
+        => entries.ToDictionary(entry => CutLabCardNames.Normalize(entry.Name), entry => new CutLabPlanAffinity([], entry.Score, isInCheckedCommanderTheme), StringComparer.OrdinalIgnoreCase);
 
     private static CutLabRoundInputCard Card(
         string name,

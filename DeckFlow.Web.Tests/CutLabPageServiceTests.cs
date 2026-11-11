@@ -2681,9 +2681,69 @@ public sealed class CutLabPageServiceTests
     }
 
     [Theory]
-    [InlineData(false, "Cards flagged by exactly one structural finding kind.")]
-    [InlineData(true, "On-theme cards flagged by 1 or more structural finding kinds.")]
-    public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage(bool themesAvailable, string expectedBody)
+    [InlineData("round-2", false, true, 0, "No structural finding flags this card, but it is off your plan.")]
+    [InlineData("round-3", false, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("round-2", false, false, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("round-2", true, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("infrastructure", false, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("second-pass-deferred", false, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("second-pass-rejected", false, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("round-2", false, true, 1, "Flagged by 1 finding kind(s):")]
+    public void From_ProposalEvidence_UsesOffPlanSentenceOnlyForEligibleRound2(string round, bool themes, bool signal, int count, string expected)
+    {
+        foreach (bool withDeltas in new[] { false, true })
+        {
+            var result = new CutLabProcessResult
+            {
+                HasResult = true,
+                State = new CutLabState { Pool = [new CutLabPoolCard { Name = "Candidate", Quantity = 1 }] },
+                Findings = new CutLabStructuralFindingsResult([], true, true),
+                RoundPlan = new CutLabRoundPlan
+                {
+                    Queue = [],
+                    NextProposal = new CutLabRoundQueueItem("Candidate", round, "Round", count, [], themes, signal),
+                    CardsRemainingToTarget = 1,
+                },
+                InitialProposalDeltas = withDeltas ? BuildDeltas("Candidate") : null,
+            };
+
+            Assert.Equal(expected, CutLabViewModel.From(new CutLabRequest(), result).Proposal.FindingSummary);
+        }
+    }
+
+    [Theory]
+    [InlineData(true, "round-2", "No structural finding flags this card, but it is off your plan.")]
+    [InlineData(false, "round-3", "No structural finding flags this card — it's a preference call.")]
+    public async Task BuildPatch_ProposalEvidence_UsesServerSentence(bool signal, string expectedRound, string expected)
+    {
+        var state = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Candidate", Quantity = 1 }, new CutLabPoolCard { Name = "On Plan", Quantity = 101 }],
+        };
+        var builder = new CutLabUiPatchBuilder(
+            new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames)),
+            new FakeSimulationService(),
+            new CutLabFloorResolver(null, null, null, null));
+        var affinities = new Dictionary<string, CutLabPlanAffinity>
+        {
+            [CutLabCardNames.Normalize("On Plan")] = new CutLabPlanAffinity([], signal ? 1 : 0),
+        };
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(state, "cEDH", [], false, planAffinities: affinities);
+
+        Assert.NotNull(patch.NextProposal);
+        Assert.Equal("Candidate", patch.NextProposal.CardName);
+        Assert.Equal(expectedRound, patch.NextProposal.RoundKey);
+        using var json = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(patch.NextProposal));
+        Assert.True(json.RootElement.TryGetProperty("FindingSummary", out var summary), "Next-proposal payload must carry FindingSummary.");
+        Assert.Equal(expected, summary.GetString());
+    }
+
+    [Theory]
+    [InlineData(false, true, "Cards with one reason to cut: a stranded subtheme, or off your plan.")]
+    [InlineData(true, true, "On-theme cards in a stranded subtheme.")]
+    [InlineData(false, false, "Cards in a stranded subtheme.")]
+    public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage(bool themesAvailable, bool planSignalAvailable, string expectedBody)
     {
         var request = new CutLabRequest();
         var result = new CutLabProcessResult
@@ -2706,9 +2766,9 @@ public sealed class CutLabPageServiceTests
             {
                 Queue =
                 [
-                    new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable),
+                    new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable, planSignalAvailable),
                 ],
-                NextProposal = new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable),
+                NextProposal = new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable, planSignalAvailable),
                 CardsRemainingToTarget = 1,
                 CheckedCommanderThemesAvailable = themesAvailable,
             },

@@ -32,13 +32,23 @@ public sealed record CutLabRoundInputCard(
 /// <param name="FindingCount">Number of discriminating findings attached to this card.</param>
 /// <param name="DiscriminatingFindingKinds">Distinct discriminating finding kinds used for evidence chips.</param>
 /// <param name="CheckedCommanderThemesAvailable">Whether checked commander theme data was available for round copy.</param>
+/// <param name="PlanSignalAvailable">Whether plan affinity can distinguish non-infrastructure cards. The default true selects the sentence mentioning off-plan and preserves compilation for callers that omit this argument.</param>
 public sealed record CutLabRoundQueueItem(
     string CardName,
     string RoundKey,
     string RoundLabel,
     int FindingCount,
     IReadOnlyList<CutLabFindingKind> DiscriminatingFindingKinds,
-    bool CheckedCommanderThemesAvailable = false);
+    bool CheckedCommanderThemesAvailable = false,
+    bool PlanSignalAvailable = true)
+{
+    /// <summary>Server-authored evidence sentence for this proposal.</summary>
+    public string FindingSummary => FindingCount > 0
+        ? $"Flagged by {FindingCount} finding kind(s):"
+        : RoundKey == CutLabCutRoundEngine.Round2Key && !CheckedCommanderThemesAvailable && PlanSignalAvailable
+            ? "No structural finding flags this card, but it is off your plan."
+            : "No structural finding flags this card — it's a preference call.";
+}
 
 /// <summary>Deterministic ordered plan for the current cut rounds.</summary>
 public sealed record CutLabRoundPlan
@@ -120,8 +130,10 @@ public static class CutLabCutRoundEngine
     /// <summary>Fixed UI banner copy for committed what-if swaps.</summary>
     public const string WhatifSwapLabel = "What-if swap";
 
-    // Why: "Obvious cuts" should reflect findings that discriminate among cards. Two separate
-    // classes of finding fail that test and are excluded here.
+    // Why: "Obvious cuts" should reflect findings that discriminate among cards.
+    // Only StrandedSubtheme supplies a counted per-card
+    // structural reason; an allow-list keeps future finding kinds from counting by default.
+    // CurveCongestion informs curve assessment without promoting cards up the cut queue.
     // WeakFloorCase and RedundantFinishers are role-wide warnings that attach to every member of
     // a protected or redundant role uniformly, so they rank nothing against anything.
     // ComboProtected and EnablerStarved are combo advisories, and both are emitted from the same
@@ -135,16 +147,10 @@ public static class CutLabCutRoundEngine
     // nothing against anything.
     // FunctionalTwins is excluded because its evidence is supplemental and must not affect tally-based
     // queue assignment; it remains available for direct finding display.
-    private static readonly IReadOnlySet<CutLabFindingKind> ExcludedFindingKindsFromTally =
+    private static readonly IReadOnlySet<CutLabFindingKind> CountedFindingKinds =
         new HashSet<CutLabFindingKind>
         {
-            CutLabFindingKind.WeakFloorCase,
-            CutLabFindingKind.RedundantFinishers,
-            CutLabFindingKind.ComboProtected,
-            CutLabFindingKind.EnablerStarved,
-            CutLabFindingKind.StrandedOffPlanPackage,
-            CutLabFindingKind.FunctionalTwins,
-            CutLabFindingKind.ProvenEquivalence,
+            CutLabFindingKind.StrandedSubtheme,
         };
 
     // Why: headroom (in-pool count minus effective floor) is now the primary locked-overshoot rank, because
@@ -195,15 +201,18 @@ public static class CutLabCutRoundEngine
     /// <param name="roundKey">Stable round key.</param>
     /// <returns>The supporting banner copy for known rounds, or empty when unknown.</returns>
     /// <param name="checkedCommanderThemesAvailable">Whether checked commander theme data is available.</param>
-    public static string RoundBannerBodyFor(string roundKey, bool checkedCommanderThemesAvailable = false)
+    /// <param name="planSignalAvailable">Whether plan affinity can distinguish non-infrastructure cards. The default true selects the sentence mentioning off-plan and preserves compilation for callers that omit this argument.</param>
+    public static string RoundBannerBodyFor(string roundKey, bool checkedCommanderThemesAvailable = false, bool planSignalAvailable = true)
         => roundKey switch
         {
             Round1Key => checkedCommanderThemesAvailable
                 ? "Off-theme cuts — cards outside your deck's themes."
-                : "Cards flagged by 2 or more kinds of structural finding.",
+                : "Cards in a stranded subtheme that are also off your plan.",
             Round2Key => checkedCommanderThemesAvailable
-                ? "On-theme cards flagged by 1 or more structural finding kinds."
-                : "Cards flagged by exactly one structural finding kind.",
+                ? "On-theme cards in a stranded subtheme."
+                : planSignalAvailable
+                    ? "Cards with one reason to cut: a stranded subtheme, or off your plan."
+                    : "Cards in a stranded subtheme.",
             Round3Key => "Everything else, ordered by smallest measurable tradeoff first.",
             InfrastructureKey => "Mana base & staples — proposed only after everything else.",
             SecondPassDeferredKey or SecondPassRejectedKey => "Still over 100 cards. These were deferred or kept earlier; take another look.",
@@ -316,14 +325,18 @@ public static class CutLabCutRoundEngine
             .Select(card => (card, TallyFor(findingTallies, card.Name)))
             .ToArray();
 
+        bool planSignalAvailable = planAffinities is not null
+            && workingList.Any(card => !IsInfrastructure(card, stapleCardNames)
+                && CutLabPlanAffinityResolver.For(planAffinities, card.Name).IsOnPlan);
+
         IReadOnlyList<FirstPassCard> classifiedCards = firstPassCards
-            .Select(entry => ClassifyFirstPassCard(entry.Card, entry.Tally, planAffinities, checkedCommanderThemesAvailable, stapleCardNames))
+            .Select(entry => ClassifyFirstPassCard(entry.Card, entry.Tally, planAffinities, checkedCommanderThemesAvailable, stapleCardNames, planSignalAvailable))
             .ToArray();
 
-        IReadOnlyList<CutLabRoundQueueItem> round1 = OrderQueue(classifiedCards, Round1Key, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable);
-        IReadOnlyList<CutLabRoundQueueItem> round2 = OrderQueue(classifiedCards, Round2Key, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable);
-        IReadOnlyList<CutLabRoundQueueItem> round3 = OrderQueue(classifiedCards, Round3Key, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable);
-        IReadOnlyList<CutLabRoundQueueItem> infrastructure = OrderQueue(classifiedCards, InfrastructureKey, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable);
+        IReadOnlyList<CutLabRoundQueueItem> round1 = OrderQueue(classifiedCards, Round1Key, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable, planSignalAvailable);
+        IReadOnlyList<CutLabRoundQueueItem> round2 = OrderQueue(classifiedCards, Round2Key, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable, planSignalAvailable);
+        IReadOnlyList<CutLabRoundQueueItem> round3 = OrderQueue(classifiedCards, Round3Key, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable, planSignalAvailable);
+        IReadOnlyList<CutLabRoundQueueItem> infrastructure = OrderQueue(classifiedCards, InfrastructureKey, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable, planSignalAvailable);
 
         var deferredCardList = new List<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)>();
         var rejectedCardList = new List<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)>();
@@ -352,7 +365,7 @@ public static class CutLabCutRoundEngine
             .ThenBy(entry => IsSecondPassRound(entry.Decision.Round) ? 0 : ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
             .ThenBy(entry => entry.Decision.Ordinal)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => ToQueueItem(entry.Card.Name, SecondPassDeferredKey, entry.Tally, checkedCommanderThemesAvailable))
+            .Select(entry => ToQueueItem(entry.Card.Name, SecondPassDeferredKey, entry.Tally, checkedCommanderThemesAvailable, planSignalAvailable))
             .ToArray();
 
         IReadOnlyList<(CutLabRoundInputCard Card, CardFindingTally Tally, CutLabDecision Decision)> rejectedCards = rejectedCardList;
@@ -361,7 +374,7 @@ public static class CutLabCutRoundEngine
             .ThenBy(entry => IsSecondPassRound(entry.Decision.Round) ? 0 : ComboProtectionRank(comboProtectedCardNames, entry.Card.Name))
             .ThenBy(entry => entry.Decision.Ordinal)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => ToQueueItem(entry.Card.Name, SecondPassRejectedKey, entry.Tally, checkedCommanderThemesAvailable))
+            .Select(entry => ToQueueItem(entry.Card.Name, SecondPassRejectedKey, entry.Tally, checkedCommanderThemesAvailable, planSignalAvailable))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> queue = round1
@@ -498,7 +511,7 @@ public static class CutLabCutRoundEngine
 
         foreach (CutLabFinding finding in findings)
         {
-            if (ExcludedFindingKindsFromTally.Contains(finding.Kind))
+            if (!CountedFindingKinds.Contains(finding.Kind))
             {
                 continue;
             }
@@ -533,23 +546,28 @@ public static class CutLabCutRoundEngine
         CardFindingTally tally,
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities,
         bool checkedCommanderThemesAvailable,
-        IReadOnlySet<string>? stapleCardNames)
+        IReadOnlySet<string>? stapleCardNames,
+        bool planSignalAvailable)
     {
-        bool isInfrastructure = card.IsLand
-            || card.TypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
-            || card.Roles.Contains("ramp", StringComparer.OrdinalIgnoreCase)
-            || stapleCardNames?.Contains(CutLabCardNames.Normalize(card.Name)) == true;
+        bool isInfrastructure = IsInfrastructure(card, stapleCardNames);
         CutLabPlanAffinity? affinity = isInfrastructure || planAffinities is null
             ? null
             : CutLabPlanAffinityResolver.For(planAffinities, card.Name);
+        int planRank = PlanAffinityRank(affinity);
+        // Why: when the plan signal is available, plan affinity deliberately selects the round and also orders cards within a round.
         string roundKey = isInfrastructure
             ? InfrastructureKey
             : checkedCommanderThemesAvailable
                 ? affinity?.IsInCheckedCommanderTheme == true
                     ? tally.Count >= 1 ? Round2Key : Round3Key
                     : Round1Key
-                : tally.Count >= 2 ? Round1Key : tally.Count == 1 ? Round2Key : Round3Key;
-        return new FirstPassCard(card, tally, roundKey, PlanAffinityRank(affinity));
+                : (tally.Count >= 1, planSignalAvailable && affinity?.IsOnPlan != true) switch
+                {
+                    (true, true) => Round1Key,
+                    (false, false) => Round3Key,
+                    _ => Round2Key,
+                };
+        return new FirstPassCard(card, tally, roundKey, planRank);
     }
 
     private static IReadOnlyList<CutLabRoundQueueItem> OrderQueue(
@@ -557,7 +575,8 @@ public static class CutLabCutRoundEngine
         string roundKey,
         IReadOnlySet<string> comboProtectedCardNames,
         IReadOnlyDictionary<string, double>? round3DeltaMagnitudes,
-        bool checkedCommanderThemesAvailable)
+        bool checkedCommanderThemesAvailable,
+        bool planSignalAvailable)
     {
         bool isRound1 = roundKey == Round1Key;
         bool isRound3 = roundKey == Round3Key;
@@ -575,12 +594,12 @@ public static class CutLabCutRoundEngine
             .ThenBy(entry => isRound3 ? Round3DeltaMagnitudeFor(round3DeltaMagnitudes, entry.Card.Name) : 0)
             .ThenBy(entry => entry.Card.ManaValue, manaValueComparer)
             .ThenBy(entry => entry.Card.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(entry => ToQueueItem(entry.Card.Name, roundKey, entry.Tally, checkedCommanderThemesAvailable))
+            .Select(entry => ToQueueItem(entry.Card.Name, roundKey, entry.Tally, checkedCommanderThemesAvailable, planSignalAvailable))
             .ToArray();
     }
 
-    private static CutLabRoundQueueItem ToQueueItem(string cardName, string roundKey, CardFindingTally tally, bool checkedCommanderThemesAvailable)
-        => new(cardName, roundKey, LabelFor(roundKey, checkedCommanderThemesAvailable), tally.Count, tally.Kinds, checkedCommanderThemesAvailable);
+    private static CutLabRoundQueueItem ToQueueItem(string cardName, string roundKey, CardFindingTally tally, bool checkedCommanderThemesAvailable, bool planSignalAvailable)
+        => new(cardName, roundKey, LabelFor(roundKey, checkedCommanderThemesAvailable), tally.Count, tally.Kinds, checkedCommanderThemesAvailable, planSignalAvailable);
 
     private static CardFindingTally TallyFor(IReadOnlyDictionary<string, CardFindingTally> tallies, string cardName)
         => tallies.TryGetValue(cardName, out CardFindingTally? tally)
@@ -591,6 +610,12 @@ public static class CutLabCutRoundEngine
     // remaining keys. 0 = not a combo piece (proposed first), 1 = combo piece (proposed last).
     private static int ComboProtectionRank(IReadOnlySet<string> comboProtectedCardNames, string cardName)
         => comboProtectedCardNames.Contains(CutLabCardNames.Normalize(cardName)) ? 1 : 0;
+
+    private static bool IsInfrastructure(CutLabRoundInputCard card, IReadOnlySet<string>? stapleCardNames)
+        => card.IsLand
+            || card.TypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
+            || card.Roles.Contains("ramp", StringComparer.OrdinalIgnoreCase)
+            || stapleCardNames?.Contains(CutLabCardNames.Normalize(card.Name)) == true;
 
     // Why: This returns a sort rank rather than a bool so it can sit in an OrderBy chain without inverting later keys; 0 means off-plan and is proposed first. ComboProtectionRank remains the dominant tier because it is the primary OrderBy key and this rank is only a ThenBy key. OnPlanScoreCap separately keeps one, two, and three-or-more matching signals distinguishable without unbounded growth.
     private static int PlanAffinityRank(CutLabPlanAffinity? affinity)

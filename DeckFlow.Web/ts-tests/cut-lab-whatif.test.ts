@@ -14,6 +14,7 @@ interface CutLabUiPatch {
     roundKey: string;
     roundLabel: string;
     roundBannerBody: string;
+    findingSummary: string;
     findingCount: number;
     findingChips: string[];
   };
@@ -156,7 +157,7 @@ const buildFixture = (setup?: () => void): void => {
     <section class="result-panel">
       <div class="cutlab-round-banner">
         <p class="cutlab-finding__heading">Round 1</p>
-        <p>Cards flagged by structural findings.</p>
+        <p>Cards in a stranded subtheme that are also off your plan.</p>
       </div>
       <div class="cutlab-proposal" data-cut-lab-card="Working Card" data-cut-lab-round="round-1">
         <p class="cutlab-proposal__heading">Proposed cut: Working Card</p>
@@ -191,6 +192,7 @@ const buildPatch = (stateJson: string, overrides: Partial<CutLabUiPatch> = {}): 
     roundKey: 'round-2',
     roundLabel: 'Round 2',
     roundBannerBody: 'More cuts.',
+    findingSummary: "No structural finding flags this card — it's a preference call.",
     findingCount: 0,
     findingChips: [],
   },
