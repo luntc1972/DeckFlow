@@ -1667,6 +1667,162 @@ public sealed class CutLabCutRoundEngineTests
         Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(plan.Queue).RoundKey);
     }
 
+    [Theory]
+    [InlineData("interaction-targeted", 4, 4, true, false, "round-3")]
+    [InlineData("interaction-targeted", 4, 5, true, false, "round-1")]
+    [InlineData("interaction-targeted", 4, 4, true, true, "round-2")]
+    [InlineData("protection", 4, 3, false, true, "round-2")]
+    [InlineData("protection", 4, 3, false, false, "round-3")]
+    [InlineData("interaction-mass", 4, 4, true, false, "round-3")]
+    [InlineData("protection", 4, 4, true, false, "round-3")]
+    [InlineData("INTERACTION-TARGETED", 4, 4, true, false, "round-3")]
+    [InlineData("draw", 4, 4, true, false, "round-1")]
+    [InlineData("interaction-targeted", 0, 0, true, false, "round-1")]
+    public void BuildQueue_InteractionFloor_RoutesByCurrentCount(
+        string role, int floor, int count, bool checkedThemes, bool hasFinding, string expectedRound)
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Candidate", 4, roles: [role]), Card("Anchor", 1)],
+            hasFinding ? Findings(Finding(CutLabFindingKind.StrandedSubtheme, "Candidate")) : Findings(),
+            [], cardsToCutTarget: 1,
+            floorByRole: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { [role.ToLowerInvariant()] = floor },
+            roleCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) { [role.ToLowerInvariant()] = count },
+            planAffinities: Affinities([("Candidate", 0), ("Anchor", 1)]),
+            checkedCommanderThemesAvailable: checkedThemes);
+
+        Assert.Equal(expectedRound, Assert.Single(plan.Queue, item => item.CardName == "Candidate").RoundKey);
+    }
+
+    [Theory]
+    [InlineData("null-floors")]
+    [InlineData("null-counts")]
+    [InlineData("missing-floor")]
+    [InlineData("missing-count")]
+    public void BuildQueue_InteractionFloor_MissingInputsDoNotHold(string mode)
+    {
+        Dictionary<string, int> floors = mode == "missing-floor" ? [] : new() { ["protection"] = 3 };
+        Dictionary<string, int> counts = mode == "missing-count" ? [] : new() { ["protection"] = 3 };
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Candidate", 4, roles: ["protection"])], Findings(), [], cardsToCutTarget: 1,
+            floorByRole: mode == "null-floors" ? null : floors,
+            roleCounts: mode == "null-counts" ? null : counts,
+            checkedCommanderThemesAvailable: true);
+
+        Assert.Equal(CutLabCutRoundEngine.Round1Key, Assert.Single(plan.Queue).RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_InteractionFloor_AnyInteractionRoleCanHold()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Candidate", 4, roles: ["interaction-mass", "protection"])], Findings(), [], cardsToCutTarget: 1,
+            floorByRole: new Dictionary<string, int> { ["interaction-mass"] = 2, ["protection"] = 3 },
+            roleCounts: new Dictionary<string, int> { ["interaction-mass"] = 3, ["protection"] = 3 },
+            checkedCommanderThemesAvailable: true);
+
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(plan.Queue).RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_InteractionFloor_InfrastructureStaysInfrastructure()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Candidate", 0, isLand: true, roles: ["protection"])], Findings(), [], cardsToCutTarget: 1,
+            floorByRole: new Dictionary<string, int> { ["protection"] = 3 },
+            roleCounts: new Dictionary<string, int> { ["protection"] = 3 },
+            checkedCommanderThemesAvailable: true);
+
+        Assert.Equal(CutLabCutRoundEngine.InfrastructureKey, Assert.Single(plan.Queue).RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_InteractionFloor_HeldCardWithZeroAffinitySuppliesNoPlanSignal()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Held", 4, roles: ["protection"]), Card("Plain", 1)],
+            Findings(Finding(CutLabFindingKind.StrandedSubtheme, "Held")), [], cardsToCutTarget: 1,
+            floorByRole: new Dictionary<string, int> { ["protection"] = 3 },
+            roleCounts: new Dictionary<string, int> { ["protection"] = 3 },
+            planAffinities: Affinities([("Held", 0), ("Plain", 0)]));
+
+        Assert.All(plan.Queue, item => Assert.False(item.PlanSignalAvailable));
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, Assert.Single(plan.Queue, item => item.CardName == "Held").RoundKey);
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(plan.Queue, item => item.CardName == "Plain").RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_InteractionFloor_HeldCardWithPositiveAffinitySuppliesPlanSignal()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Held", 4, roles: ["protection"]), Card("Plain", 1)],
+            Findings(Finding(CutLabFindingKind.StrandedSubtheme, "Held")), [], cardsToCutTarget: 1,
+            floorByRole: new Dictionary<string, int> { ["protection"] = 3 },
+            roleCounts: new Dictionary<string, int> { ["protection"] = 3 },
+            planAffinities: Affinities([("Held", 1), ("Plain", 0)]));
+
+        Assert.All(plan.Queue, item => Assert.True(item.PlanSignalAvailable));
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, Assert.Single(plan.Queue, item => item.CardName == "Held").RoundKey);
+        Assert.Equal(CutLabCutRoundEngine.Round2Key, Assert.Single(plan.Queue, item => item.CardName == "Plain").RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_InteractionFloor_OrdinalDictionariesMatchRoleCaseInsensitively()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("Held", 4, roles: ["interaction-targeted"])], Findings(), [], cardsToCutTarget: 1,
+            floorByRole: new Dictionary<string, int>(StringComparer.Ordinal) { ["Interaction-Targeted"] = 3 },
+            roleCounts: new Dictionary<string, int>(StringComparer.Ordinal) { ["Interaction-Targeted"] = 3 },
+            checkedCommanderThemesAvailable: true);
+
+        Assert.Equal(CutLabCutRoundEngine.Round3Key, Assert.Single(plan.Queue).RoundKey);
+    }
+
+    [Fact]
+    public void BuildQueue_InteractionFloor_PlanRankOrdersPlainCardFirst()
+    {
+        CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
+            [Card("A Held", 1, roles: ["protection"]), Card("Z Plain", 8)], Findings(), [], cardsToCutTarget: 1,
+            floorByRole: new Dictionary<string, int> { ["protection"] = 3 },
+            roleCounts: new Dictionary<string, int> { ["protection"] = 3 },
+            planAffinities: Affinities([("A Held", 0), ("Z Plain", 0)]));
+
+        Assert.All(plan.Queue, item => Assert.Equal(CutLabCutRoundEngine.Round3Key, item.RoundKey));
+        Assert.Equal(new[] { "Z Plain", "A Held" }, plan.Queue.Select(item => item.CardName));
+    }
+
+    [Fact]
+    public void BuildFindingsAndRoundPlan_InteractionFloor_UsesResolvedFloorAndWorkingCounts()
+    {
+        IReadOnlyDictionary<string, int> floors = CutLabFloorDefaults.ResolveDefaults(
+            3, "", 4, [], null, null, null, []).ToDictionary(floor => floor.Role, floor => floor.DefaultValue);
+        int floor = floors["interaction-targeted"];
+        Assert.True(floor > 0);
+
+        foreach (int count in new[] { floor + 1, floor })
+        {
+            CutLabPoolCard[] working =
+            [
+                new() { Name = "Candidate", Quantity = count, TypeLine = "Instant" },
+                new() { Name = "Locked filler", Quantity = 100, TypeLine = "Land", IsLocked = true },
+            ];
+            CutLabAnalyzedCard[] analyzed = [new("Candidate", 1, false, ["interaction-targeted"], []) { Quantity = count }];
+            CutLabAnalysisContext context = new(
+                analyzed,
+                new Dictionary<string, IReadOnlyList<string>> { ["Candidate"] = analyzed[0].Roles },
+                new Dictionary<string, int> { ["interaction-targeted"] = analyzed.Sum(card => card.Quantity) },
+                4, default,
+                new CutLabClassificationContext([], true, true,
+                    new Dictionary<string, IReadOnlyList<string>>(), new Dictionary<string, CutLabCardComboMembership>()),
+                []);
+
+            var result = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
+                working, context, floors, [], twinsEnabled: false, checkedCommanderThemesAvailable: true);
+
+            Assert.Equal(count > floor ? CutLabCutRoundEngine.Round1Key : CutLabCutRoundEngine.Round3Key,
+                Assert.Single(result.RoundPlan.Queue).RoundKey);
+        }
+    }
+
     private static CutLabRoundQueueItem PlanAffinityCard(int score, params CutLabFindingKind[] kinds)
     {
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(

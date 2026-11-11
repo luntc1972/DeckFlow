@@ -153,6 +153,13 @@ public static class CutLabCutRoundEngine
             CutLabFindingKind.StrandedSubtheme,
         };
 
+    private static readonly IReadOnlySet<string> InteractionRoles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "interaction-targeted",
+        "interaction-mass",
+        "protection",
+    };
+
     // Why: headroom (in-pool count minus effective floor) is now the primary locked-overshoot rank, because
     // the old fixed order put wincons first as least-structural even though wincons usually has the least
     // slack against its floor. This array survives as the deterministic tiebreak so the advisory still stays
@@ -330,7 +337,7 @@ public static class CutLabCutRoundEngine
                 && CutLabPlanAffinityResolver.For(planAffinities, card.Name).IsOnPlan);
 
         IReadOnlyList<FirstPassCard> classifiedCards = firstPassCards
-            .Select(entry => ClassifyFirstPassCard(entry.Card, entry.Tally, planAffinities, checkedCommanderThemesAvailable, stapleCardNames, planSignalAvailable))
+            .Select(entry => ClassifyFirstPassCard(entry.Card, entry.Tally, planAffinities, checkedCommanderThemesAvailable, stapleCardNames, planSignalAvailable, floorByRole, roleCounts))
             .ToArray();
 
         IReadOnlyList<CutLabRoundQueueItem> round1 = OrderQueue(classifiedCards, Round1Key, comboProtectedCardNames, round3DeltaMagnitudes, checkedCommanderThemesAvailable, planSignalAvailable);
@@ -541,27 +548,40 @@ public static class CutLabCutRoundEngine
             StringComparer.OrdinalIgnoreCase);
     }
 
+    private static bool IsFloorHeld(
+        IReadOnlyList<string> roles,
+        IReadOnlyDictionary<string, int>? floorByRole,
+        IReadOnlyDictionary<string, int>? roleCounts)
+        => floorByRole is not null && roleCounts is not null
+            && roles.Any(role => InteractionRoles.Contains(role)
+                && TryGetCaseInsensitiveValue(floorByRole, role, out int floor) && floor > 0
+                && TryGetCaseInsensitiveValue(roleCounts, role, out int count) && count <= floor);
+
     private static FirstPassCard ClassifyFirstPassCard(
         CutLabRoundInputCard card,
         CardFindingTally tally,
         IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities,
         bool checkedCommanderThemesAvailable,
         IReadOnlySet<string>? stapleCardNames,
-        bool planSignalAvailable)
+        bool planSignalAvailable,
+        IReadOnlyDictionary<string, int>? floorByRole,
+        IReadOnlyDictionary<string, int>? roleCounts)
     {
         bool isInfrastructure = IsInfrastructure(card, stapleCardNames);
         CutLabPlanAffinity? affinity = isInfrastructure || planAffinities is null
             ? null
             : CutLabPlanAffinityResolver.For(planAffinities, card.Name);
-        int planRank = PlanAffinityRank(affinity);
+        bool floorHeld = !isInfrastructure && IsFloorHeld(card.Roles, floorByRole, roleCounts);
+        // Why: interaction at or below its positive working-list floor ranks at least as on-plan.
+        int planRank = floorHeld ? Math.Max(PlanAffinityRank(affinity), 1) : PlanAffinityRank(affinity);
         // Why: when the plan signal is available, plan affinity deliberately selects the round and also orders cards within a round.
         string roundKey = isInfrastructure
             ? InfrastructureKey
             : checkedCommanderThemesAvailable
-                ? affinity?.IsInCheckedCommanderTheme == true
+                ? floorHeld || affinity?.IsInCheckedCommanderTheme == true
                     ? tally.Count >= 1 ? Round2Key : Round3Key
                     : Round1Key
-                : (tally.Count >= 1, planSignalAvailable && affinity?.IsOnPlan != true) switch
+                : (tally.Count >= 1, planSignalAvailable && !floorHeld && affinity?.IsOnPlan != true) switch
                 {
                     (true, true) => Round1Key,
                     (false, false) => Round3Key,

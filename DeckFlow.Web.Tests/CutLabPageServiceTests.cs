@@ -2276,6 +2276,48 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task BuildFindingsAndRoundPlan_InteractionFloor_AcceptedCutHoldsRemainingInteraction()
+    {
+        IReadOnlyDictionary<string, int> floors = CutLabFloorDefaults.ResolveDefaults(
+            3, "", 4, [], null, null, null, []).ToDictionary(floor => floor.Role, floor => floor.DefaultValue);
+        int floor = floors["interaction-targeted"];
+        Assert.True(floor > 0);
+        CutLabPoolCard[] pool =
+        [
+            new() { Name = "Remaining", Quantity = floor, TypeLine = "Instant" },
+            new() { Name = "Accepted", Quantity = 1, TypeLine = "Instant" },
+            new() { Name = "Locked filler", Quantity = 100, TypeLine = "Land", IsLocked = true },
+        ];
+        var resolver = new FakeResolver([
+            Spell("Remaining", "Instant", oracleText: "Exile target creature.", cmc: 1),
+            Spell("Accepted", "Instant", oracleText: "Exile target creature.", cmc: 1),
+            Spell("Locked filler", "Land"),
+        ]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+        CutLabDecision[] decisions =
+        [
+            new() { CardName = "Accepted", Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key, Ordinal = 1 },
+        ];
+        CutLabAnalysisContext before = await builder.BuildAsync(pool, "", []);
+        Assert.Equal(floor + 1, before.RoleCounts["interaction-targeted"]);
+        var initial = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
+            pool, before, floors, [], twinsEnabled: false, checkedCommanderThemesAvailable: true);
+        Assert.All(initial.RoundPlan.Queue, item => Assert.Equal(CutLabCutRoundEngine.Round1Key, item.RoundKey));
+
+        IReadOnlyList<CutLabPoolCard> working = CutLabWorkingList.Derive(pool, decisions);
+        CutLabAnalysisContext after = await builder.BuildAsync(working, "", []);
+        Assert.Equal(floor, after.RoleCounts["interaction-targeted"]);
+        var result = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
+            working, after, floors, decisions, twinsEnabled: false, checkedCommanderThemesAvailable: true);
+
+        CutLabRoundQueueItem remaining = Assert.Single(result.RoundPlan.Queue);
+        Assert.Equal("Remaining", remaining.CardName);
+        Assert.NotEqual(CutLabCutRoundEngine.Round1Key, remaining.RoundKey);
+    }
+
+    [Fact]
     public async Task ProcessAsync_WithAcceptedCutsAtTarget_ReturnsNothingToCutPlan()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");

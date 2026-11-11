@@ -65,6 +65,8 @@ When no non-commander cards are locked, Decide shows a callout explaining lock p
 
 Cut Lab then walks you through iterative cut rounds. As you make decisions, the simulation and metrics engine recalculates the deck's consistency numbers so the workspace stays current instead of showing stale advice from the opening snapshot.
 
+Non-infrastructure cards with targeted interaction, mass interaction, or protection stay out of the early off-plan round when one of their own interaction roles is at or below that role’s positive floor in your current working list. They appear in Round 2 when they have a counted finding, otherwise Round 3. When no commander themes are checked and there is no plan signal, rounds stay unchanged. Within a round, they rank as on-plan. Above the floor, surplus interaction remains eligible for early cuts; after an accepted cut reaches the floor, the remaining cards are held on the next queue build.
+
 The important part is the stance: the tool does not tell you that a card is bad. It shows the measurable tradeoff of removing that card. You see what each proposed cut changes in the deck's numbers, which makes Cut Lab a decision-support workspace rather than a judgment engine.
 
 ### Commander staples
