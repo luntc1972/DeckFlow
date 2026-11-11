@@ -485,8 +485,193 @@ public sealed class HarvestMaintenanceRunnerTests
         }
     }
 
-    private static HarvestMaintenanceRunner CreateRunner(ICategoryKnowledgeStore store, ILogger<HarvestMaintenanceRunner>? logger = null, Func<DateTimeOffset>? utcNow = null, IHarvestMaintenanceRunStore? runStore = null, TimeSpan? persistInterval = null)
-        => new(WithCleanPreview(store), runStore ?? new FakeHarvestMaintenanceRunStore(), logger ?? NullLogger<HarvestMaintenanceRunner>.Instance, utcNow ?? (() => DateTimeOffset.UtcNow), persistInterval);
+    [Fact]
+    public async Task RequestStop_WhileRunning_FinishesCurrentBatchThenStops()
+    {
+        var inBatch = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool? cancelledInBatch = null;
+        bool? stoppedAtBoundary = null;
+        bool? cancelledAtBoundary = null;
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunMaintenanceHandler = async (_, progress, stop, token) =>
+            {
+                Assert.False(stop!());
+                progress!.Report(new(3, 1));
+                Assert.False(stop());
+                inBatch.SetResult();
+                await resume.Task;
+                cancelledInBatch = token.IsCancellationRequested;
+                progress.Report(new(6, 2));
+                stoppedAtBoundary = stop();
+                cancelledAtBoundary = token.IsCancellationRequested;
+                await Task.Delay(Timeout.Infinite, token);
+                throw new InvalidOperationException("Unreachable");
+            }
+        };
+        using var runner = CreateRunner(store, stopGrace: TimeSpan.FromSeconds(30));
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            await inBatch.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(runner.RequestStop());
+            Assert.True(runner.RequestStop());
+            resume.SetResult();
+            var status = await WaitForCompletionAsync(runner).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(cancelledInBatch);
+            Assert.True(stoppedAtBoundary);
+            Assert.True(cancelledAtBoundary);
+            Assert.Equal(HarvestMaintenanceRunState.Stopped, status.State);
+            Assert.Equal(6, status.DecksAffected);
+            Assert.Equal(2, status.Batches);
+        }
+        finally { resume.TrySetResult(); await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task RequestStop_BetweenBatches_StopsBeforeNextBatch()
+    {
+        var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunMaintenanceHandler = async (_, progress, stop, token) =>
+            {
+                Assert.False(stop!());
+                progress!.Report(new(3, 1));
+                paused.SetResult();
+                await Task.Delay(Timeout.Infinite, token);
+                throw new InvalidOperationException("Unreachable");
+            }
+        };
+        using var runner = CreateRunner(store, stopGrace: TimeSpan.FromSeconds(30));
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            await paused.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(runner.RequestStop());
+            var status = await WaitForCompletionAsync(runner).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(HarvestMaintenanceRunState.Stopped, status.State);
+            Assert.Equal(3, status.DecksAffected);
+            Assert.Equal(1, status.Batches);
+        }
+        finally { await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task RequestStop_NoBatchWithinGrace_CancelsAfterGrace()
+    {
+        var inBatch = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunMaintenanceHandler = async (_, _, stop, token) =>
+            {
+                Assert.False(stop!());
+                inBatch.SetResult();
+                await Task.Delay(Timeout.Infinite, token);
+                throw new InvalidOperationException("Unreachable");
+            }
+        };
+        using var runner = CreateRunner(store, stopGrace: TimeSpan.FromMilliseconds(100));
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            await inBatch.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(runner.RequestStop());
+            Assert.Equal(HarvestMaintenanceRunState.Stopped, (await WaitForCompletionAsync(runner).WaitAsync(TimeSpan.FromSeconds(5))).State);
+        }
+        finally { await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task RequestStop_OperationReturnsAfterStopCancel_EndsStopped()
+    {
+        var running = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunMaintenanceHandler = async (operation, _, _, token) =>
+            {
+                running.SetResult();
+                try { await Task.Delay(Timeout.Infinite, token); }
+                catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+                return new(operation, 0, 0, DeckPruningStopReason.DiskProbeUnavailable);
+            }
+        };
+        using var runner = CreateRunner(store, stopGrace: TimeSpan.FromSeconds(30));
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            await running.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(runner.RequestStop());
+            var status = await WaitForCompletionAsync(runner).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(HarvestMaintenanceRunState.Stopped, status.State);
+            Assert.Equal(DeckPruningStopReason.DiskProbeUnavailable, status.StopReason);
+        }
+        finally { await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task RequestStop_StatusShowsStopRequestedUntilEnd()
+    {
+        var inBatch = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunMaintenanceHandler = async (_, progress, stop, token) =>
+            {
+                Assert.False(stop!());
+                inBatch.SetResult();
+                await resume.Task;
+                progress!.Report(new(3, 1));
+                await Task.Delay(Timeout.Infinite, token);
+                throw new InvalidOperationException("Unreachable");
+            }
+        };
+        using var runner = CreateRunner(store, stopGrace: TimeSpan.FromSeconds(30));
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            await inBatch.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(runner.RequestStop());
+            var status = runner.GetStatus();
+            Assert.True(status.StopRequested);
+            Assert.True(status.IsRunning);
+            Assert.Equal("stop-requested", HarvestMaintenanceStatusText.Describe(status, DateTimeOffset.UtcNow).State);
+            resume.SetResult();
+            Assert.Equal(HarvestMaintenanceRunState.Stopped, (await WaitForCompletionAsync(runner).WaitAsync(TimeSpan.FromSeconds(5))).State);
+        }
+        finally { resume.TrySetResult(); await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task RequestStop_WhileStarting_CancelsImmediately()
+    {
+        var store = new FakeCategoryKnowledgeStore { MaintenancePreviewBlocksUntilCancelled = true };
+        using var runner = CreateRunner(store, stopGrace: TimeSpan.FromSeconds(30));
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            await WaitForPreviewAsync(store).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(runner.RequestStop());
+            Assert.Equal(HarvestMaintenanceRunState.Stopped, (await WaitForCompletionAsync(runner).WaitAsync(TimeSpan.FromSeconds(5))).State);
+            Assert.Equal(0, store.RunMaintenanceCalls);
+        }
+        finally { await runner.StopAsync(default); }
+    }
+
+    private static async Task WaitForPreviewAsync(FakeCategoryKnowledgeStore store)
+    {
+        while (store.MaintenancePreviewCalls == 0) await Task.Delay(10);
+    }
+
+    private static HarvestMaintenanceRunner CreateRunner(ICategoryKnowledgeStore store, ILogger<HarvestMaintenanceRunner>? logger = null, Func<DateTimeOffset>? utcNow = null, IHarvestMaintenanceRunStore? runStore = null, TimeSpan? persistInterval = null, TimeSpan? stopGrace = null)
+        => new(WithCleanPreview(store), runStore ?? new FakeHarvestMaintenanceRunStore(), logger ?? NullLogger<HarvestMaintenanceRunner>.Instance, utcNow ?? (() => DateTimeOffset.UtcNow), persistInterval, stopGrace ?? TimeSpan.Zero);
 
     private static ICategoryKnowledgeStore WithCleanPreview(ICategoryKnowledgeStore store)
     {

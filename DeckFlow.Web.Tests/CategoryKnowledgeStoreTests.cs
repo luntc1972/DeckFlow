@@ -918,6 +918,14 @@ public sealed class CategoryKnowledgeStoreTests
         Assert.Null(await probe(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(2)));
     }
 
+    [Fact]
+    public void CreateFreeDiskProbe_WrapsSelectedProbeInRetry()
+    {
+        var probe = CategoryKnowledgeStore.CreateFreeDiskProbe(new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, "Host=192.0.2.1"), CreateRenderProbe(), null);
+
+        Assert.IsType<RetryingFreeDiskProbe>(probe.Target);
+    }
+
     private static CategoryKnowledgeStore CreateStore(string? contentRootPath = null)
         => new(
             new FakeWebHostEnvironment(contentRootPath ?? Path.Combine(Path.GetTempPath(), "deckflow-content-root")),

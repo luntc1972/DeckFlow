@@ -13,6 +13,8 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
     private readonly ICategoryKnowledgeStore _store;
     private readonly IHarvestMaintenanceRunStore _runStore;
     private readonly TimeSpan _persistInterval;
+    private readonly TimeSpan _stopGrace;
+    private bool _batchInFlight;
     private readonly ILogger<HarvestMaintenanceRunner> _logger;
     private readonly Func<DateTimeOffset> _utcNow;
     private readonly Channel<HarvestMaintenanceOperation> _queue = Channel.CreateUnbounded<HarvestMaintenanceOperation>();
@@ -30,6 +32,7 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
         _store = store;
         _runStore = runStore;
         _persistInterval = persistInterval ?? TimeSpan.FromSeconds(15);
+        _stopGrace = stopGrace ?? TimeSpan.FromSeconds(30);
         _logger = logger;
         _utcNow = utcNow;
     }
@@ -46,6 +49,7 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
             previous = _status;
             _operationCts?.Dispose();
             _operationCts = new CancellationTokenSource();
+            _batchInFlight = false;
             starting = _status = new HarvestMaintenanceStatus { RunId = Guid.NewGuid(), State = HarvestMaintenanceRunState.Starting, Operation = operation, StartedUtc = _utcNow() };
         }
         try
@@ -68,14 +72,37 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
     /// <inheritdoc/>
     public bool RequestStop()
     {
+        CancellationTokenSource cancellation;
         lock (_lock)
         {
             if (!_status.IsRunning || _operationCts is null) return false;
-
+            if (_status.StopRequested) return true;
             _status = _status with { StopRequested = true };
-            _operationCts.Cancel();
-            return true;
+            cancellation = _operationCts;
+            if (_status.State == HarvestMaintenanceRunState.Running && _batchInFlight)
+            {
+                cancellation.CancelAfter(_stopGrace);
+                return true;
+            }
         }
+        cancellation.Cancel();
+        return true;
+    }
+
+    private bool StopBeforeBatch()
+    {
+        CancellationTokenSource? cancellation;
+        lock (_lock)
+        {
+            if (!_status.StopRequested)
+            {
+                _batchInFlight = true;
+                return false;
+            }
+            cancellation = _operationCts;
+        }
+        cancellation?.Cancel();
+        return true;
     }
 
     /// <inheritdoc/>
@@ -140,7 +167,7 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
                 lock (_lock) { _status = _status with { State = HarvestMaintenanceRunState.Running }; }
                 await PersistAsync().ConfigureAwait(false);
                 var lastSaved = GetStatus();
-                var work = _store.RunMaintenanceAsync(operation, new InlineProgress(UpdateProgress), null, linkedCts.Token);
+                var work = _store.RunMaintenanceAsync(operation, new InlineProgress(UpdateProgress), StopBeforeBatch, linkedCts.Token);
                 while (!work.IsCompleted)
                 {
                     using var tick = new CancellationTokenSource();
@@ -231,11 +258,18 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
 
     private void UpdateProgress(DeckPruningProgress progress)
     {
+        CancellationTokenSource? cancellation;
         lock (_lock)
         {
-            if (!_status.IsRunning || progress.DecksAffected < _status.DecksAffected || progress.Batches < _status.Batches
-                || (progress.DecksAffected == _status.DecksAffected && progress.Batches == _status.Batches)) return;
-            _status = _status with { DecksAffected = progress.DecksAffected, Batches = progress.Batches, LastProgressUtc = _utcNow() };
+            _batchInFlight = false;
+            cancellation = _status.StopRequested ? _operationCts : null;
+            if (_status.IsRunning && progress.DecksAffected >= _status.DecksAffected && progress.Batches >= _status.Batches
+                && (progress.DecksAffected != _status.DecksAffected || progress.Batches != _status.Batches))
+            {
+                _status = _status with { DecksAffected = progress.DecksAffected, Batches = progress.Batches, LastProgressUtc = _utcNow() };
+            }
         }
+        // Why: the reported batch has committed; cancellation must run outside the status lock.
+        cancellation?.Cancel();
     }
 }

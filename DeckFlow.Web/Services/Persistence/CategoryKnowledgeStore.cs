@@ -68,10 +68,13 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         _logger = logger;
         _retentionOptions = retentionOptions?.Value ?? new HarvestRetentionOptions();
         // Both services share Render sample pacing through the same probe instance.
-        var freeDiskProbe = SelectFreeDiskProbe(_connectionInfo, renderDiskProbe, logger);
+        var freeDiskProbe = CreateFreeDiskProbe(_connectionInfo, renderDiskProbe, logger);
         _deckPruningService = new DeckPruningService(_repository, _retentionOptions.ToPruningOptions(), freeDiskProbe);
         _markerBackfillService = new StoredLiveRowsBackfillService(_repository, _retentionOptions.ToPruningOptions(), freeDiskProbe);
     }
+
+    internal static Func<CancellationToken, Task<long?>> CreateFreeDiskProbe(RelationalDatabaseConnection connectionInfo, RenderDiskHeadroomProbe? renderDiskProbe, ILogger? logger)
+        => new RetryingFreeDiskProbe(SelectFreeDiskProbe(connectionInfo, renderDiskProbe, logger), logger).GetFreeBytesAsync;
 
     internal static Func<CancellationToken, Task<long?>> SelectFreeDiskProbe(RelationalDatabaseConnection connectionInfo, RenderDiskHeadroomProbe? renderDiskProbe, ILogger? logger)
         => connectionInfo.IsPostgres && renderDiskProbe is not null
