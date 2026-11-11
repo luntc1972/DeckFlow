@@ -752,7 +752,101 @@ public sealed class AdminHarvestControllerTests
 
     [Fact] public void MaintenanceStop_Running_RequestsStop() { var runner = new StubHarvestMaintenanceRunner { Status = new HarvestMaintenanceStatus { State = HarvestMaintenanceRunState.Running, Operation = HarvestMaintenanceOperation.Drain, StartedUtc = DateTimeOffset.UtcNow } }; var controller = Build(NewStore(0), maintenanceRunner: runner); AssertRedirect(controller.MaintenanceStop()); Assert.Equal(1, runner.RequestStopCalls); Assert.Equal("Stop requested — finishing current batch.", Banner(controller)); Assert.Equal("info", controller.TempData["AdminHarvestBannerTone"]); }
     [Fact] public void MaintenanceStop_Idle_ShowsNothingToStop() { var runner = new StubHarvestMaintenanceRunner(); var controller = Build(NewStore(0), maintenanceRunner: runner); AssertRedirect(controller.MaintenanceStop()); Assert.Equal(1, runner.RequestStopCalls); Assert.Equal("Nothing to stop.", Banner(controller)); }
-    [Fact] public async Task MaintenancePreview_ShowsThreeCounts() { var controller = Build(Preview(176000, 11000, 16000)); AssertRedirect(await controller.MaintenancePreview(default)); Assert.Contains("176000", Banner(controller)); Assert.Contains("11000", Banner(controller)); Assert.Contains("16000", Banner(controller)); }
+    [Fact]
+    public async Task MaintenancePreview_ShowsThreeCountsWithAsOfTime()
+    {
+        var controller = Build(Preview(176000, 11000, 16000));
+        AssertRedirect(await controller.MaintenancePreview(default));
+        Assert.Matches(@"^Retention excess: 176000; purge candidates: 11000; refetch candidates: 16000 \(counts as of \d{2}:\d{2}:\d{2} UTC\)\.$", Banner(controller));
+    }
+
+    [Fact]
+    public async Task MaintenancePreview_Timeout_ShowsTimedOutAfterSeconds()
+    {
+        await AssertPreviewTimeoutAsync(new Exception("wrapped", new TimeoutException()));
+    }
+
+    [Fact]
+    public async Task MaintenancePreview_SqlStateQueryCanceled_ShowsTimedOut()
+    {
+        await AssertPreviewTimeoutAsync(new Exception("wrapped", new FakeDbException()));
+    }
+
+    private static async Task AssertPreviewTimeoutAsync(Exception exception)
+    {
+        var store = Preview();
+        store.MaintenancePreviewException = exception;
+        var controller = Build(store);
+        AssertRedirect(await controller.MaintenancePreview(default));
+        Assert.Matches(@"^Preview timed out after \d+ s\.$", Banner(controller));
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    private sealed class FakeDbException : System.Data.Common.DbException
+    {
+        public override string SqlState => "57014";
+    }
+
+    [Theory]
+    [InlineData("idle")]
+    [InlineData("starting")]
+    [InlineData("running")]
+    [InlineData("stalled")]
+    [InlineData("stop-requested")]
+    [InlineData("completed")]
+    [InlineData("disk-probe-unavailable")]
+    [InlineData("disk-floor")]
+    [InlineData("marker-backfill-pending")]
+    [InlineData("no-progress")]
+    [InlineData("stopped")]
+    [InlineData("interrupted")]
+    [InlineData("failed")]
+    [InlineData("refused")]
+    public async Task MaintenanceStatus_State_ReturnsDescribedJson(string token)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var status = MaintenanceStatusFixtures.For(token, now);
+        var controller = Build(Preview(), maintenanceRunner: new StubHarvestMaintenanceRunner { Status = status });
+        var value = Assert.IsType<HarvestMaintenanceStatusView>(Assert.IsType<JsonResult>(await controller.MaintenanceStatus(default)).Value);
+        var expected = HarvestMaintenanceStatusText.Describe(status, now);
+        Assert.Equal(token, value.State);
+        Assert.Equal(expected.Tone, value.Tone);
+        Assert.Equal(expected.Headline, value.Headline);
+        Assert.Equal(expected.Details, value.Details);
+        Assert.Equal(expected.IsActive, value.IsActive);
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(value, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.Equal(new[] { "details", "headline", "isActive", "state", "tone" }, json.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
+    }
+
+    [Fact]
+    public async Task MaintenanceStatus_CrossOrigin_Returns403()
+    {
+        AssertForbidden(await Build(Preview(), crossOrigin: true).MaintenanceStatus(default));
+    }
+
+    [Fact]
+    public async Task MaintenanceStatus_IsGetWithNoStore()
+    {
+        var method = typeof(AdminHarvestController).GetMethod("MaintenanceStatus")!;
+        var attribute = Assert.Single(method.GetCustomAttributes(typeof(HttpGetAttribute), false).Cast<HttpGetAttribute>());
+        Assert.Equal("maintenance/status", attribute.Template);
+        var controller = Build(Preview());
+        await controller.MaintenanceStatus(default);
+        Assert.Equal("no-store", controller.Response.Headers.CacheControl.ToString());
+    }
+
+    [Fact]
+    public async Task IndexView_StartForms_CarryOperatorLabel()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = HarvestMaintenanceStatus.Idle });
+        var document = new HtmlParser().ParseDocument(html);
+        var forms = document.QuerySelectorAll("form[data-maintenance-label]");
+        Assert.Equal(4, forms.Length);
+        foreach (var pair in new[] { ("backfill", "Marker backfill"), ("purge", "Purge"), ("drain", "Retention drain"), ("refetch", "Refetch") })
+        {
+            Assert.Equal(pair.Item2, Assert.Single(forms, form => form.GetAttribute("data-maintenance-operation") == pair.Item1).GetAttribute("data-maintenance-label"));
+        }
+    }
     [Fact] public async Task MaintenancePreview_Unavailable_ShowsError() { var controller = Build(Preview(null)); AssertRedirect(await controller.MaintenancePreview(default)); Assert.Equal("Maintenance counts are unavailable.", Banner(controller)); Assert.True((bool)controller.TempData["AdminHarvestBannerTone"]!.Equals("danger")); }
     [Fact]
     public void MaintenanceActions_ArePostWithAntiforgery()

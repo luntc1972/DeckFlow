@@ -2,6 +2,7 @@
   'use strict';
 
   const ACTIVE_POLL_INTERVAL_MS = 3000;
+  const MAINTENANCE_POLL_INTERVAL_MS = 5000;
   const IDLE_POLL_INTERVAL_MS = 10000;
   const FETCH_TIMEOUT_MS = 10000;
   const ACTIVE_STATES = new Set<string>(['Queued', 'Running', 'Stopping']);
@@ -214,6 +215,60 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll<HTMLFormElement>('form[data-maintenance-operation]').forEach(form => {
+      form.addEventListener('submit', () => {
+        const operation = form.dataset.maintenanceOperation;
+        if (operation !== 'stop' && operation !== 'preview' && !form.querySelector<HTMLInputElement>('input[name="confirmed"]')?.checked) return;
+        const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+        if (!button) return;
+        button.disabled = true;
+        button.textContent = operation === 'stop' ? 'Stopping…' : operation === 'preview' ? 'Counting…' : `Starting ${form.dataset.maintenanceLabel}…`;
+      });
+    });
+    const maintenance = document.querySelector<HTMLElement>('#harvest-maintenance-status');
+    if (maintenance) {
+      type MaintenancePayload = { state: string; tone: string; headline: string; details: string[]; isActive: boolean };
+      let wasActive = maintenance.dataset.maintenanceActive === 'true';
+      const pollMaintenance = async (): Promise<void> => {
+        if (!maintenance.isConnected || maintenance.hasAttribute('data-maintenance-reloading')) return;
+        let keepPolling = true;
+        try {
+          const payload = await fetchWithTimeout<MaintenancePayload>('/Admin/Harvest/maintenance/status', {
+            credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }
+          }, async response => {
+            if (!response.ok) throw new Error('Maintenance status unavailable');
+            return await response.json() as MaintenancePayload;
+          });
+          if (!maintenance.isConnected) return;
+          const tone = ['success', 'info', 'warning', 'danger'].includes(payload.tone) ? payload.tone : 'info';
+          maintenance.className = `admin-banner admin-banner--${tone}`;
+          maintenance.dataset.maintenanceState = payload.state;
+          maintenance.dataset.maintenanceActive = String(payload.isActive);
+          const headline = maintenance.querySelector<HTMLElement>('[data-maintenance-headline]');
+          if (headline) headline.textContent = payload.headline;
+          const details = maintenance.querySelector<HTMLElement>('[data-maintenance-details]');
+          if (details) {
+            details.replaceChildren(...payload.details.map(text => {
+              const item = document.createElement('li');
+              item.textContent = text;
+              return item;
+            }));
+          }
+          if (wasActive && !payload.isActive) {
+            maintenance.setAttribute('data-maintenance-reloading', 'true');
+            window.location.reload();
+            return;
+          }
+          wasActive = payload.isActive;
+          keepPolling = payload.isActive;
+        } catch {
+          // Preserve the last progress report and retry transient failures.
+        }
+        if (keepPolling && maintenance.isConnected) window.setTimeout(() => { void pollMaintenance(); }, MAINTENANCE_POLL_INTERVAL_MS);
+      };
+      void pollMaintenance();
+    }
+
     const runKind = document.querySelector<HTMLSelectElement>('#runKind');
     const duration = document.querySelector<HTMLSelectElement>('#durationSeconds');
     const syncRunDuration = (): void => {

@@ -1,3 +1,6 @@
+using System.Data.Common;
+using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
@@ -207,16 +210,35 @@ public sealed class AdminHarvestController : Controller
     {
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
-        var preview = await ReadMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
-        SetBanner(preview is null ? "Maintenance counts are unavailable." : preview.MarkerBackfillPending ? "Maintenance counts wait for the marker backfill. Run Marker backfill first." : $"Retention excess: {preview.RetentionExcessDecks}; purge candidates: {preview.PurgeCandidates}; refetch candidates: {preview.RefetchCandidates}.", preview is null || preview.MarkerBackfillPending);
+        var stopwatch = Stopwatch.StartNew();
+        var (preview, timedOut) = await ReadMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
+        stopwatch.Stop();
+        var asOf = DateTimeOffset.UtcNow.ToString("HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+        var message = timedOut
+            ? $"Preview timed out after {((long)stopwatch.Elapsed.TotalSeconds).ToString(CultureInfo.InvariantCulture)} s."
+            : preview is null ? "Maintenance counts are unavailable."
+            : preview.MarkerBackfillPending ? "Maintenance counts wait for the marker backfill. Run Marker backfill first."
+            : $"Retention excess: {preview.RetentionExcessDecks}; purge candidates: {preview.PurgeCandidates}; refetch candidates: {preview.RefetchCandidates} (counts as of {asOf}).";
+        SetBanner(message, preview is null || preview.MarkerBackfillPending);
         return RedirectToAction(nameof(Index));
     }
 
-    private async Task<HarvestMaintenancePreview?> ReadMaintenancePreviewAsync(CancellationToken cancellationToken)
+    /// <summary>Describes the latest maintenance run for the operator card.</summary>
+    [HttpGet("maintenance/status")]
+    public async Task<IActionResult> MaintenanceStatus(CancellationToken cancellationToken)
+    {
+        var sameOriginFailure = ValidateSameOriginRequest();
+        if (sameOriginFailure is not null) return sameOriginFailure;
+        var status = await _maintenanceRunner.GetStatusAsync(cancellationToken).ConfigureAwait(false);
+        Response.Headers.CacheControl = "no-store";
+        return Json(HarvestMaintenanceStatusText.Describe(status, DateTimeOffset.UtcNow));
+    }
+
+    private async Task<(HarvestMaintenancePreview? Preview, bool TimedOut)> ReadMaintenancePreviewAsync(CancellationToken cancellationToken)
     {
         try
         {
-            return await _categoryStore.GetMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
+            return (await _categoryStore.GetMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false), false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -225,7 +247,11 @@ public sealed class AdminHarvestController : Controller
         catch (Exception exception)
         {
             _logger.LogWarning(exception, "Harvest.Maintenance.PreviewUnavailable");
-            return null;
+            for (Exception? current = exception; current is not null; current = current.InnerException)
+            {
+                if (current is TimeoutException || current is DbException { SqlState: "57014" }) return (null, true);
+            }
+            return (null, false);
         }
     }
 
