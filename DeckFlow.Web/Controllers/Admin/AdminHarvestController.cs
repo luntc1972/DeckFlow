@@ -130,6 +130,7 @@ public sealed class AdminHarvestController : Controller
             LastBannerIsError = string.Equals(TempData[BannerToneKey] as string, "danger", StringComparison.Ordinal),
             Stats = stats,
             Maintenance = _maintenanceRunner.GetStatus(),
+            MaintenanceAsOfUtc = DateTimeOffset.UtcNow,
         };
 
         return View(viewModel);

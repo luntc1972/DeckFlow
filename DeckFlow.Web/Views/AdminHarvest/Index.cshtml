@@ -5,7 +5,7 @@
     var activeState = Model.ActiveRun?.State.ToString() ?? "Idle";
     static string NextRunLabel(DateTimeOffset? nextRun, bool enabled, bool paused)
         => !enabled ? "Off" : paused ? "Paused" : nextRun?.ToString("yyyy-MM-dd HH:mm UTC") ?? "Pending";
-    var maintenanceState = Model.Maintenance.IsRunning ? "running" : Model.Maintenance.Failed ? "failed" : Model.Maintenance.CompletedUtc.HasValue ? (Model.Maintenance.StopRequested ? "stopped" : Model.Maintenance.StopReason == DeckFlow.Core.Knowledge.DeckPruningStopReason.Completed ? "completed" : Model.Maintenance.StopReason?.ToString() ?? "completed") : "idle";
+    var maintenanceText = DeckFlow.Web.Services.Harvest.HarvestMaintenanceStatusText.Describe(Model.Maintenance, Model.MaintenanceAsOfUtc);
 }
 
 <noscript>
@@ -202,22 +202,21 @@ else
 
 </section>
 
-<section id="harvest-maintenance" class="admin-card" data-maintenance-state="@maintenanceState">
+<section id="harvest-maintenance" class="admin-card">
     <h2 class="admin-card__title">Retention maintenance</h2>
+    <div id="harvest-maintenance-status" class="admin-banner admin-banner--@maintenanceText.Tone" role="status" aria-live="polite" data-maintenance-state="@maintenanceText.State" data-maintenance-active="@maintenanceText.IsActive.ToString().ToLowerInvariant()">
+        <p data-maintenance-headline>@maintenanceText.Headline</p>
+        <ul data-maintenance-details>
+            @foreach (var detail in maintenanceText.Details)
+            {
+                <li>@detail</li>
+            }
+        </ul>
+    </div>
     @if (Model.Maintenance.IsRunning)
     {
-        <p data-maintenance-state="running">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Backfill ? "Marker backfill" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks so far; started @Model.Maintenance.StartedUtc?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture)</p>
         <form method="post" asp-action="MaintenanceStop" class="admin-action-form" data-maintenance-operation="stop">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Stop</button></form>
     }
-    else if (Model.Maintenance.CompletedUtc.HasValue)
-    {
-        <p data-maintenance-state="@maintenanceState">@(Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain ? "Retention drain" : Model.Maintenance.Operation == DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Backfill ? "Marker backfill" : Model.Maintenance.Operation): @Model.Maintenance.DecksAffected decks; @(Model.Maintenance.Failed ? "see the logs" : Model.Maintenance.StopRequested ? "stopped" : Model.Maintenance.StopReason == DeckFlow.Core.Knowledge.DeckPruningStopReason.Completed ? "completed (Completed)" : Model.Maintenance.StopReason?.ToString()) @Model.Maintenance.CompletedUtc.Value.ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture)</p>
-    }
-    else
-    {
-        <p data-maintenance-state="idle">Preview counts before each rollout step.</p>
-    }
-    <p class="admin-meta">Run Marker backfill once after this upgrade; Preview, Purge, Drain and Refetch wait for it.</p>
     <form method="post" asp-action="MaintenanceBackfill" class="admin-action-form" data-maintenance-operation="backfill">
         @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Marker backfill</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Marker backfill</button>
     </form>

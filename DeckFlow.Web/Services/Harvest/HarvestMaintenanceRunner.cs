@@ -39,7 +39,7 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
 
             _operationCts?.Dispose();
             _operationCts = new CancellationTokenSource();
-            _status = new HarvestMaintenanceStatus(true, operation, _utcNow(), null, 0, null, false, false);
+            _status = new HarvestMaintenanceStatus { RunId = Guid.NewGuid(), State = HarvestMaintenanceRunState.Starting, Operation = operation, StartedUtc = _utcNow() };
             _queue.Writer.TryWrite(operation);
         }
 
@@ -79,23 +79,22 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
             lock (_lock)
             {
                 operationToken = _operationCts?.Token ?? CancellationToken.None;
+                _status = _status with { State = HarvestMaintenanceRunState.Running };
             }
 
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, operationToken);
             try
             {
                 var outcome = await _store.RunMaintenanceAsync(operation, new Progress<int>(UpdateProgress), linkedCts.Token).ConfigureAwait(false);
-                Complete(outcome.DecksAffected, outcome.StopReason, failed: false);
-                _logger.LogInformation("Harvest.Maintenance.Finished operation={Operation} decksAffected={DecksAffected} stopReason={StopReason}", operation, outcome.DecksAffected, outcome.StopReason);
+                Complete(operation, outcome.DecksAffected, outcome.StopReason, operationToken, stoppingToken, null);
             }
             catch (OperationCanceledException) when (linkedCts.IsCancellationRequested)
             {
-                Complete(GetStatus().DecksAffected, stopReason: null, failed: false);
+                Complete(operation, null, null, operationToken, stoppingToken, null);
             }
             catch (Exception exception)
             {
-                Complete(GetStatus().DecksAffected, stopReason: null, failed: true);
-                _logger.LogError(exception, "Harvest.Maintenance.Failed operation={Operation}", operation);
+                Complete(operation, null, null, operationToken, stoppingToken, exception);
             }
         }
     }
@@ -114,15 +113,35 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
     /// <inheritdoc/>
     public override Task StopAsync(CancellationToken cancellationToken)
     {
-        RequestStop();
+        // Why: shutdown is Interrupted; only an operator Stop is Stopped.
         return base.StopAsync(cancellationToken);
     }
 
-    private void Complete(int decksAffected, DeckPruningStopReason? stopReason, bool failed)
+    private void Complete(HarvestMaintenanceOperation operation, int? decksAffected, DeckPruningStopReason? stopReason, CancellationToken operationToken, CancellationToken stoppingToken, Exception? exception)
     {
+        HarvestMaintenanceStatus status;
         lock (_lock)
         {
-            _status = _status with { IsRunning = false, CompletedUtc = _utcNow(), DecksAffected = decksAffected, StopReason = stopReason, Failed = failed };
+            var state = operationToken.IsCancellationRequested && _status.StopRequested ? HarvestMaintenanceRunState.Stopped
+                : stoppingToken.IsCancellationRequested && !_status.StopRequested ? HarvestMaintenanceRunState.Interrupted
+                : exception is not null ? HarvestMaintenanceRunState.Failed : HarvestMaintenanceRunState.Finished;
+            status = _status = _status with { State = state, EndedUtc = _utcNow(), DecksAffected = decksAffected ?? _status.DecksAffected, StopReason = stopReason };
+        }
+
+        switch (status.State)
+        {
+            case HarvestMaintenanceRunState.Stopped:
+                _logger.LogInformation("Harvest.Maintenance.Stopped operation={Operation} decksAffected={DecksAffected}", operation, status.DecksAffected);
+                break;
+            case HarvestMaintenanceRunState.Interrupted:
+                _logger.LogWarning("Harvest.Maintenance.Interrupted operation={Operation} decksAffected={DecksAffected}", operation, status.DecksAffected);
+                break;
+            case HarvestMaintenanceRunState.Failed:
+                _logger.LogError(exception, "Harvest.Maintenance.Failed operation={Operation}", operation);
+                break;
+            default:
+                _logger.LogInformation("Harvest.Maintenance.Finished operation={Operation} decksAffected={DecksAffected} stopReason={StopReason}", operation, status.DecksAffected, stopReason);
+                break;
         }
     }
 
@@ -130,7 +149,7 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
     {
         lock (_lock)
         {
-            _status = _status with { DecksAffected = decksAffected };
+            if (_status.IsRunning) _status = _status with { DecksAffected = decksAffected, LastProgressUtc = _utcNow() };
         }
     }
 }

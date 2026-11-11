@@ -10,6 +10,9 @@ namespace DeckFlow.Web.Models.Admin;
 /// </summary>
 public sealed record AdminHarvestViewModel
 {
+    /// <summary>Gets the time used to describe maintenance progress.</summary>
+    public DateTimeOffset MaintenanceAsOfUtc { get; init; }
+
     /// <summary>Current or most recent retention-maintenance operation.</summary>
     public HarvestMaintenanceStatus Maintenance { get; init; } = HarvestMaintenanceStatus.Idle;
     /// <summary>Default number of harvested commander rows shown per page.</summary>
