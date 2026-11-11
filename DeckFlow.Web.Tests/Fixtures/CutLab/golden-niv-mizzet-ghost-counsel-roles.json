@@ -1,0 +1,417 @@
+{
+  "Alseid of Life\u0027s Bounty": [
+    "protection"
+  ],
+  "Ancient Tomb": [
+    "lands"
+  ],
+  "Animate Dead": [
+    "other"
+  ],
+  "Arcane Signet": [
+    "ramp"
+  ],
+  "Authority of the Consuls": [
+    "other"
+  ],
+  "Belladonna Took": [
+    "draw",
+    "engines"
+  ],
+  "Bilbo\u0027s Gambit": [
+    "ramp",
+    "interaction-targeted"
+  ],
+  "Black Market Connections": [
+    "ramp",
+    "draw",
+    "engines"
+  ],
+  "Black Sun\u0027s Twilight": [
+    "interaction-targeted"
+  ],
+  "Bleachbone Verge": [
+    "lands"
+  ],
+  "Blind Obedience": [
+    "payoffs",
+    "wincons"
+  ],
+  "Bloodchief Ascension": [
+    "other"
+  ],
+  "Bofur, Reliable Guardian // Concerted Care": [
+    "other"
+  ],
+  "Bog Witch": [
+    "ramp"
+  ],
+  "Boggart Trawler // Boggart Bog": [
+    "lands",
+    "interaction-targeted"
+  ],
+  "Bojuka Bog": [
+    "lands",
+    "interaction-targeted"
+  ],
+  "Bubbling Muck": [
+    "other"
+  ],
+  "Cabal Ritual": [
+    "ramp"
+  ],
+  "Caves of Koilos": [
+    "lands"
+  ],
+  "Chain of Smog": [
+    "other"
+  ],
+  "Chaplain\u0027s Blessing": [
+    "other"
+  ],
+  "Command Tower": [
+    "lands"
+  ],
+  "Concealed Courtyard": [
+    "lands"
+  ],
+  "Confessor": [
+    "other"
+  ],
+  "Crypt Ghast": [
+    "payoffs",
+    "wincons"
+  ],
+  "Culling the Weak": [
+    "ramp"
+  ],
+  "Dark Ritual": [
+    "ramp"
+  ],
+  "Dauntless Dismantler": [
+    "other"
+  ],
+  "Dawn\u0027s Truce": [
+    "protection"
+  ],
+  "Deadly Rollick": [
+    "interaction-targeted"
+  ],
+  "Deathgreeter": [
+    "other"
+  ],
+  "Delney, Streetwise Lookout": [
+    "other"
+  ],
+  "Diabolic Intent": [
+    "tutor"
+  ],
+  "Dismember": [
+    "interaction-targeted"
+  ],
+  "Doctor Doom, Unrivaled": [
+    "draw",
+    "engines",
+    "payoffs",
+    "wincons"
+  ],
+  "Dr. Pulaski, Cynical Clinician": [
+    "other"
+  ],
+  "Drana and Linvala": [
+    "other"
+  ],
+  "Eclipsed Steppe": [
+    "lands"
+  ],
+  "Eiganjo, Seat of the Empire": [
+    "lands"
+  ],
+  "Elixir of Immortality": [
+    "other"
+  ],
+  "Emergence Zone": [
+    "lands"
+  ],
+  "Enduring Tenacity": [
+    "other"
+  ],
+  "Enlightened Confidant": [
+    "other"
+  ],
+  "Esper Sentinel": [
+    "draw",
+    "engines"
+  ],
+  "Exsanguinate": [
+    "wincons"
+  ],
+  "Feast of Sanity": [
+    "other"
+  ],
+  "Fellwar Stone": [
+    "ramp"
+  ],
+  "Fracture": [
+    "interaction-targeted"
+  ],
+  "Gleaming Splendor": [
+    "ramp",
+    "draw",
+    "engines"
+  ],
+  "Godless Shrine": [
+    "lands"
+  ],
+  "Grim Tutor": [
+    "tutor"
+  ],
+  "Hall of Echoes": [
+    "lands"
+  ],
+  "Imp\u0027s Mischief": [
+    "other"
+  ],
+  "Isolated Chapel": [
+    "lands"
+  ],
+  "Jeweled Amulet": [
+    "ramp"
+  ],
+  "Kambal, Consul of Allocation": [
+    "other"
+  ],
+  "Kambal, Profiteering Mayor": [
+    "payoffs",
+    "wincons"
+  ],
+  "Karlov of the Ghost Council": [
+    "interaction-targeted"
+  ],
+  "Leonin Elder": [
+    "other"
+  ],
+  "Light of Hope": [
+    "interaction-targeted"
+  ],
+  "Lightning Greaves": [
+    "protection"
+  ],
+  "Liliana the Faultless": [
+    "protection"
+  ],
+  "Linvala, Keeper of Silence": [
+    "other"
+  ],
+  "Lotho, Corrupt Shirriff": [
+    "ramp"
+  ],
+  "Lurrus of the Dream-Den": [
+    "other"
+  ],
+  "MacCready, Lamplight Mayor": [
+    "other"
+  ],
+  "Malakir Rebirth // Malakir Mire": [
+    "lands"
+  ],
+  "March of Wretched Sorrow": [
+    "other"
+  ],
+  "Martyr of Sands": [
+    "other"
+  ],
+  "Miren, the Moaning Well": [
+    "lands"
+  ],
+  "Monologue Tax": [
+    "ramp"
+  ],
+  "Mother of Runes": [
+    "protection"
+  ],
+  "Necromancy": [
+    "other"
+  ],
+  "Niv-Mizzet, Ghost Counsel": [
+    "payoffs",
+    "wincons"
+  ],
+  "Ocelot Pride": [
+    "other"
+  ],
+  "Orim\u0027s Chant": [
+    "other"
+  ],
+  "Orzhov Signet": [
+    "ramp"
+  ],
+  "Paradise Mantle": [
+    "ramp"
+  ],
+  "Path to Exile": [
+    "interaction-targeted"
+  ],
+  "Patrician\u0027s Scorn": [
+    "interaction-mass"
+  ],
+  "Peace of Mind": [
+    "other"
+  ],
+  "Pentad Prism": [
+    "ramp"
+  ],
+  "Plains": [
+    "lands"
+  ],
+  "Polluted Delta": [
+    "lands",
+    "tutor"
+  ],
+  "Professor Onyx": [
+    "payoffs",
+    "wincons"
+  ],
+  "Rain of Filth": [
+    "ramp"
+  ],
+  "Reanimate": [
+    "other"
+  ],
+  "Recruiter of the Guard": [
+    "tutor"
+  ],
+  "Revival // Revenge": [
+    "other"
+  ],
+  "Reward the Faithful": [
+    "other"
+  ],
+  "Selfless Spirit": [
+    "protection"
+  ],
+  "Serra Ascendant": [
+    "other"
+  ],
+  "Shadow of the Grave": [
+    "other"
+  ],
+  "Shadowy Backstreet": [
+    "lands"
+  ],
+  "Shattered Sanctum": [
+    "lands"
+  ],
+  "Sheoldred, the Apocalypse": [
+    "other"
+  ],
+  "Shineshadow Snarl": [
+    "lands"
+  ],
+  "Sickening Dreams": [
+    "other"
+  ],
+  "Silence": [
+    "other"
+  ],
+  "Skirge Familiar": [
+    "ramp"
+  ],
+  "Slaughter Pact": [
+    "interaction-targeted"
+  ],
+  "Snuff Out": [
+    "interaction-targeted"
+  ],
+  "Sol Ring": [
+    "ramp"
+  ],
+  "Soul Warden": [
+    "other"
+  ],
+  "Soul\u0027s Attendant": [
+    "other"
+  ],
+  "Springleaf Drum": [
+    "ramp"
+  ],
+  "Starving Revenant": [
+    "draw",
+    "engines"
+  ],
+  "Swamp": [
+    "lands"
+  ],
+  "Swords to Plowshares": [
+    "interaction-targeted"
+  ],
+  "Talisman of Hierarchy": [
+    "ramp"
+  ],
+  "Tataru Taru": [
+    "ramp",
+    "draw",
+    "engines"
+  ],
+  "Tendrils of Agony": [
+    "other"
+  ],
+  "The Meathook Massacre": [
+    "interaction-mass",
+    "payoffs",
+    "wincons"
+  ],
+  "The Mind Stone": [
+    "ramp"
+  ],
+  "The Queen of Dale": [
+    "other"
+  ],
+  "The Soul Stone": [
+    "ramp"
+  ],
+  "Thraben Charm": [
+    "interaction-targeted"
+  ],
+  "Tinybones, Pocket Nuisance": [
+    "other"
+  ],
+  "Toxic Deluge": [
+    "other"
+  ],
+  "Trouble in Pairs": [
+    "draw",
+    "engines",
+    "payoffs",
+    "wincons"
+  ],
+  "Turbulent Moor": [
+    "lands"
+  ],
+  "Twilight Prophet": [
+    "payoffs",
+    "wincons"
+  ],
+  "Ulamog, the Infinite Gyre": [
+    "interaction-targeted"
+  ],
+  "Union of the Third Path": [
+    "draw"
+  ],
+  "Vampiric Tutor": [
+    "tutor"
+  ],
+  "Voice of Victory": [
+    "other"
+  ],
+  "Wishclaw Talisman": [
+    "tutor"
+  ],
+  "Witch Enchanter // Witch-Blessed Meadow": [
+    "lands",
+    "interaction-targeted"
+  ],
+  "Zuran Orb": [
+    "other"
+  ]
+}
