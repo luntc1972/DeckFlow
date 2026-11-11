@@ -137,6 +137,30 @@ public sealed class CutLabSimulationServiceTests
     }
 
     [Fact]
+    public async Task ComputeProposalDeltas_DifferentPlayExperienceSamePool_DoesNotReuseCachedDeltas()
+    {
+        TestPool pool = BuildCedhPool();
+        var goals = new CutLabGoalSettings { CommanderByTurn = 5 };
+        var analysisCounter = new CountingSnapshotBuilder(weightByPlayExperience: true);
+        var service = new CutLabSimulationService(
+            new CutLabResolvedCardCache(),
+            new CutLabDeltaCache(),
+            new FakeResolver(pool.Cards),
+            NullLogger<CutLabSimulationService>.Instance,
+            analysisCounter.Build);
+
+        CutLabProposalDeltas casual = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "Casual", trialsOverride: 100, goals: goals);
+        CutLabProposalDeltas cedh = await service.ComputeProposalDeltas(pool.WorkingList, "Utility Land", "cEDH", trialsOverride: 100, goals: goals);
+
+        CutLabMetricDelta casualDelta = Assert.Single(casual.Deltas);
+        CutLabMetricDelta cedhDelta = Assert.Single(cedh.Deltas);
+        Assert.Equal(casualDelta.Before * 2, cedhDelta.Before);
+        Assert.Equal(casualDelta.After * 2, cedhDelta.After);
+        Assert.NotEqual(casualDelta.Delta, cedhDelta.Delta);
+        Assert.Equal(4, analysisCounter.CallCount);
+    }
+
+    [Fact]
     public async Task ComputeProposalDeltas_ReusesDeltaCacheBeforeAnyRecomputation()
     {
         TestPool pool = BuildCedhPool();
@@ -781,7 +805,7 @@ public sealed class CutLabSimulationServiceTests
         }
     }
 
-    private sealed class CountingSnapshotBuilder
+    private sealed class CountingSnapshotBuilder(bool weightByPlayExperience = false)
     {
         private readonly Dictionary<string, int> _callsByPoolKey = new(StringComparer.Ordinal);
 
@@ -811,9 +835,10 @@ public sealed class CutLabSimulationServiceTests
                         Kind = CutLabMetricKind.CommanderByTurn,
                         Family = CutLabMetricFamily.CategoryByTurn,
                         Label = $"Commander by turn {goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn}",
-                        Value = deckEntries.Sum(entry => entry.Quantity)
+                        Value = (deckEntries.Sum(entry => entry.Quantity)
                             + (trialsOverride ?? 20_000)
-                            + (goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn),
+                            + (goals?.CommanderByTurn ?? CutLabGoalDefaults.CommanderByTurn))
+                            * (weightByPlayExperience && playExperience == "cEDH" ? 2.0 : 1.0),
                         Unit = CutLabMetricUnit.Percent,
                     },
                 ],
