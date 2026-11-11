@@ -257,8 +257,131 @@ public sealed class HarvestMaintenanceRunnerTests
         finally { await first.StopAsync(default); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); File.Delete(path); }
     }
 
+    [Fact]
+    public async Task Drain_PurgePending_EndsRefusedWithoutRunning()
+    {
+        var now = DateTimeOffset.Parse("2026-11-11T07:00:00Z");
+        var store = new FakeCategoryKnowledgeStore { MaintenancePreview = new(0, 5, 0) };
+        var runs = new FakeHarvestMaintenanceRunStore();
+        var logger = new ExceptionRecordingLogger();
+        using var runner = CreateRunner(store, logger, () => now, runs);
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            var status = await WaitForCompletionAsync(runner);
+            await runner.StopAsync(default);
+            Assert.Equal(HarvestMaintenanceRunState.Refused, status.State); Assert.Equal("purge_pending", status.RefusalReason); Assert.Equal(store.MaintenancePreview, status.PreviewAtStart); Assert.Equal(0, store.RunMaintenanceCalls); Assert.Single(logger.Fields, x => Equals(x.Value, "Harvest.Maintenance.Refused operation={Operation} reason={Reason}")); Assert.Contains(logger.Fields, x => x.Key == "Operation" && Equals(x.Value, HarvestMaintenanceOperation.Drain)); Assert.Contains(logger.Fields, x => x.Key == "Reason" && Equals(x.Value, "purge_pending"));
+            Assert.Equal(status.State, runs.Saved[^1].State);
+        }
+        finally { await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task Drain_PreviewThrows_EndsRefusedPreviewUnavailable()
+    {
+        var now = DateTimeOffset.Parse("2026-11-11T07:00:00Z");
+        var store = new FakeCategoryKnowledgeStore { MaintenancePreviewException = new InvalidOperationException("unavailable") };
+        var runs = new FakeHarvestMaintenanceRunStore();
+        var logger = new ExceptionRecordingLogger();
+        using var runner = CreateRunner(store, logger, () => now, runs);
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            var status = await WaitForCompletionAsync(runner);
+            await runner.StopAsync(default);
+            Assert.Equal(HarvestMaintenanceRunState.Refused, status.State); Assert.Equal("preview_unavailable", status.RefusalReason); Assert.Single(logger.Fields, x => Equals(x.Value, "Harvest.Maintenance.PreviewUnavailable operation={Operation}")); Assert.Contains(logger.Fields, x => x.Key == "Operation" && Equals(x.Value, HarvestMaintenanceOperation.Drain));
+            Assert.Equal(status.State, runs.Saved[^1].State);
+        }
+        finally { await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task Purge_PreviewUnavailable_RunsWithoutEstimate()
+    {
+        var now = DateTimeOffset.Parse("2026-11-11T07:00:00Z");
+        var store = new FakeCategoryKnowledgeStore { MaintenancePreviewException = new InvalidOperationException("unavailable") };
+        var runs = new FakeHarvestMaintenanceRunStore();
+        var logger = new ExceptionRecordingLogger();
+        using var runner = CreateRunner(store, logger, () => now, runs);
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Purge);
+            var status = await WaitForCompletionAsync(runner);
+            await runner.StopAsync(default);
+            Assert.Equal(HarvestMaintenanceRunState.Finished, status.State); Assert.Null(status.PreviewAtStart); Assert.Equal(1, store.RunMaintenanceCalls);
+            Assert.Equal(status.State, runs.Saved[^1].State);
+        }
+        finally { await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task Backfill_SkipsPreview()
+    {
+        var now = DateTimeOffset.Parse("2026-11-11T07:00:00Z");
+        var store = new FakeCategoryKnowledgeStore { MaintenancePreviewException = new InvalidOperationException("must not read") };
+        var runs = new FakeHarvestMaintenanceRunStore();
+        var logger = new ExceptionRecordingLogger();
+        using var runner = CreateRunner(store, logger, () => now, runs);
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Backfill);
+            var status = await WaitForCompletionAsync(runner);
+            await runner.StopAsync(default);
+            Assert.Equal(HarvestMaintenanceRunState.Finished, status.State); Assert.Equal(0, store.MaintenancePreviewCalls);
+            Assert.Equal(status.State, runs.Saved[^1].State);
+        }
+        finally { await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task Drain_GatePasses_RecordsPreviewAtStartAndRuns()
+    {
+        var now = DateTimeOffset.Parse("2026-11-11T07:00:00Z");
+        var store = new FakeCategoryKnowledgeStore { MaintenancePreview = new(2000, 0, 0) };
+        var runs = new FakeHarvestMaintenanceRunStore();
+        var logger = new ExceptionRecordingLogger();
+        using var runner = CreateRunner(store, logger, () => now, runs);
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            var status = await WaitForCompletionAsync(runner);
+            await runner.StopAsync(default);
+            Assert.Equal(store.MaintenancePreview, status.PreviewAtStart); Assert.Equal(now, status.PreviewAsOfUtc); Assert.Equal(1, store.RunMaintenanceCalls);
+            Assert.Equal(status.State, runs.Saved[^1].State);
+        }
+        finally { await runner.StopAsync(default); }
+    }
+
+    [Fact]
+    public async Task Drain_PreviewInFlight_StatusStartingAndDuplicateStartRefused()
+    {
+        var store = new FakeCategoryKnowledgeStore { MaintenancePreviewBlocksUntilCancelled = true };
+        using var runner = CreateRunner(store);
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Drain);
+            await Task.Delay(100);
+            Assert.Equal(1, store.MaintenancePreviewCalls);
+            Assert.Equal(HarvestMaintenanceRunState.Starting, runner.GetStatus().State);
+            Assert.Equal(HarvestMaintenanceStartResult.AlreadyActive, await runner.TryStartAsync(HarvestMaintenanceOperation.Purge));
+        }
+        finally { runner.RequestStop(); await runner.StopAsync(default); }
+    }
+
     private static HarvestMaintenanceRunner CreateRunner(ICategoryKnowledgeStore store, ILogger<HarvestMaintenanceRunner>? logger = null, Func<DateTimeOffset>? utcNow = null, IHarvestMaintenanceRunStore? runStore = null, TimeSpan? persistInterval = null)
-        => new(store, runStore ?? new FakeHarvestMaintenanceRunStore(), logger ?? NullLogger<HarvestMaintenanceRunner>.Instance, utcNow ?? (() => DateTimeOffset.UtcNow), persistInterval);
+        => new(WithCleanPreview(store), runStore ?? new FakeHarvestMaintenanceRunStore(), logger ?? NullLogger<HarvestMaintenanceRunner>.Instance, utcNow ?? (() => DateTimeOffset.UtcNow), persistInterval);
+
+    private static ICategoryKnowledgeStore WithCleanPreview(ICategoryKnowledgeStore store)
+    {
+        if (store is FakeCategoryKnowledgeStore fake && fake.MaintenancePreview is null && fake.MaintenancePreviewException is null) fake.MaintenancePreview = new(0, 0, 0);
+        return store;
+    }
 
     private sealed class ExceptionRecordingLogger : ILogger<HarvestMaintenanceRunner>
     {

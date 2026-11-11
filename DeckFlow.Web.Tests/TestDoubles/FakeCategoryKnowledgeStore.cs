@@ -27,6 +27,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public HarvestMaintenancePreview? MaintenancePreview { get; set; }
 
+    public bool MaintenancePreviewBlocksUntilCancelled { get; set; }
+
     public int MaintenancePreviewCalls { get; private set; }
 
     public Exception? MaintenancePreviewException { get; set; }
@@ -329,10 +331,11 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(CommanderDeckCount);
     }
 
-    public Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
+    public async Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
     {
         MaintenancePreviewCalls++;
         if (MaintenancePreviewException is not null) throw MaintenancePreviewException;
-        return Task.FromResult(MaintenancePreview);
+        if (MaintenancePreviewBlocksUntilCancelled) await Task.Delay(Timeout.Infinite, cancellationToken);
+        return MaintenancePreview;
     }
 }

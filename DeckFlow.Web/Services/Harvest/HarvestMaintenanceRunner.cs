@@ -114,6 +114,29 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
             try
             {
                 linkedCts.Token.ThrowIfCancellationRequested();
+                HarvestMaintenancePreview? preview = null;
+                if (operation != HarvestMaintenanceOperation.Backfill)
+                {
+                    try { preview = await _store.GetMaintenancePreviewAsync(linkedCts.Token).ConfigureAwait(false); }
+                    catch (OperationCanceledException) when (linkedCts.IsCancellationRequested) { throw; }
+                    catch (Exception exception)
+                    {
+                        _logger.LogWarning(exception, "Harvest.Maintenance.PreviewUnavailable operation={Operation}", operation);
+                    }
+                }
+                linkedCts.Token.ThrowIfCancellationRequested();
+                var refusal = HarvestMaintenanceRolloutGate.Evaluate(operation, preview);
+                lock (_lock)
+                {
+                    _status = _status with { PreviewAtStart = preview, PreviewAsOfUtc = preview is null ? null : _utcNow() };
+                    if (refusal is not null) _status = _status with { State = HarvestMaintenanceRunState.Refused, RefusalReason = refusal, EndedUtc = _utcNow() };
+                }
+                if (refusal is not null)
+                {
+                    _logger.LogInformation("Harvest.Maintenance.Refused operation={Operation} reason={Reason}", operation, refusal);
+                    await PersistAsync().ConfigureAwait(false);
+                    continue;
+                }
                 lock (_lock) { _status = _status with { State = HarvestMaintenanceRunState.Running }; }
                 await PersistAsync().ConfigureAwait(false);
                 var lastSaved = GetStatus();

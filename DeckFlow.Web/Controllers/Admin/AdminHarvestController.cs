@@ -127,6 +127,7 @@ public sealed class AdminHarvestController : Controller
             RatePerMinute = throttle.MaxRequestsPerMinute,
             RateLimitedUtc = throttle.RateLimitedUtc,
             LastBanner = TempData[BannerKey] as string,
+            LastBannerIsInfo = string.Equals(TempData[BannerToneKey] as string, "info", StringComparison.Ordinal),
             LastBannerIsError = string.Equals(TempData[BannerToneKey] as string, "danger", StringComparison.Ordinal),
             Stats = stats,
             Maintenance = await _maintenanceRunner.GetStatusAsync(cancellationToken).ConfigureAwait(false),
@@ -139,13 +140,12 @@ public sealed class AdminHarvestController : Controller
     /// <summary>Starts the retention drain after the purge step has completed.</summary>
     [HttpPost("maintenance/drain")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> MaintenanceDrain(bool confirmed, CancellationToken cancellationToken)
+    public async Task<IActionResult> MaintenanceDrain(bool confirmed)
     {
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
         if (!confirmed) return RefuseMaintenance(HarvestMaintenanceOperation.Drain, "not_confirmed", "Tick the confirmation box to start Retention drain.");
-        if (!await CheckRolloutOrderAsync(HarvestMaintenanceOperation.Drain, cancellationToken).ConfigureAwait(false)) return RedirectToAction(nameof(Index));
-        return await StartMaintenance(HarvestMaintenanceOperation.Drain, "Retention drain").ConfigureAwait(false);
+        return await StartMaintenance(HarvestMaintenanceOperation.Drain).ConfigureAwait(false);
     }
 
     /// <summary>Starts the purge operation.</summary>
@@ -156,20 +156,19 @@ public sealed class AdminHarvestController : Controller
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
         return confirmed
-            ? await StartMaintenance(HarvestMaintenanceOperation.Purge, "Purge").ConfigureAwait(false)
+            ? await StartMaintenance(HarvestMaintenanceOperation.Purge).ConfigureAwait(false)
             : RefuseMaintenance(HarvestMaintenanceOperation.Purge, "not_confirmed", "Tick the confirmation box to start Purge.");
     }
 
     /// <summary>Starts metadata refetch after purge and retention drain complete.</summary>
     [HttpPost("maintenance/refetch")]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> MaintenanceRefetch(bool confirmed, CancellationToken cancellationToken)
+    public async Task<IActionResult> MaintenanceRefetch(bool confirmed)
     {
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
         if (!confirmed) return RefuseMaintenance(HarvestMaintenanceOperation.Refetch, "not_confirmed", "Tick the confirmation box to start Refetch.");
-        if (!await CheckRolloutOrderAsync(HarvestMaintenanceOperation.Refetch, cancellationToken).ConfigureAwait(false)) return RedirectToAction(nameof(Index));
-        return await StartMaintenance(HarvestMaintenanceOperation.Refetch, "Refetch").ConfigureAwait(false);
+        return await StartMaintenance(HarvestMaintenanceOperation.Refetch).ConfigureAwait(false);
     }
 
     /// <summary>Starts or resumes the stored-live-row marker backfill.</summary>
@@ -180,7 +179,7 @@ public sealed class AdminHarvestController : Controller
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
         return confirmed
-            ? await StartMaintenance(HarvestMaintenanceOperation.Backfill, "Marker backfill").ConfigureAwait(false)
+            ? await StartMaintenance(HarvestMaintenanceOperation.Backfill).ConfigureAwait(false)
             : RefuseMaintenance(HarvestMaintenanceOperation.Backfill, "not_confirmed", "Tick the confirmation box to start Marker backfill.");
     }
 
@@ -192,7 +191,12 @@ public sealed class AdminHarvestController : Controller
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
         var requested = _maintenanceRunner.RequestStop();
-        SetBanner(requested ? "Stop requested." : "Nothing to stop.", !requested);
+        if (requested)
+        {
+            var status = _maintenanceRunner.GetStatus() with { State = HarvestMaintenanceRunState.Running, StopRequested = true };
+            SetInfoBanner(HarvestMaintenanceStatusText.Describe(status, DateTimeOffset.UtcNow).Headline);
+        }
+        else SetBanner("Nothing to stop.", isError: true);
         return RedirectToAction(nameof(Index));
     }
 
@@ -206,32 +210,6 @@ public sealed class AdminHarvestController : Controller
         var preview = await ReadMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
         SetBanner(preview is null ? "Maintenance counts are unavailable." : preview.MarkerBackfillPending ? "Maintenance counts wait for the marker backfill. Run Marker backfill first." : $"Retention excess: {preview.RetentionExcessDecks}; purge candidates: {preview.PurgeCandidates}; refetch candidates: {preview.RefetchCandidates}.", preview is null || preview.MarkerBackfillPending);
         return RedirectToAction(nameof(Index));
-    }
-
-    private async Task<bool> CheckRolloutOrderAsync(HarvestMaintenanceOperation operation, CancellationToken cancellationToken)
-    {
-        var preview = await ReadMaintenancePreviewAsync(cancellationToken).ConfigureAwait(false);
-        if (preview is null)
-        {
-            RefuseMaintenance(operation, "preview_unavailable", "Maintenance counts are unavailable. Nothing was started.");
-            return false;
-        }
-        if (preview.MarkerBackfillPending)
-        {
-            RefuseMaintenance(operation, "marker_backfill_pending", "Run Marker backfill first: maintenance counts wait for it. Nothing was started.");
-            return false;
-        }
-        if (preview.PurgeCandidates > 0)
-        {
-            RefuseMaintenance(operation, "purge_pending", $"Run the purge first: {preview.PurgeCandidates} decks still match it. Nothing was started.");
-            return false;
-        }
-        if (operation == HarvestMaintenanceOperation.Refetch && preview.RetentionExcessDecks > 0)
-        {
-            RefuseMaintenance(operation, "retention_pending", $"Finish the retention drain first: {preview.RetentionExcessDecks} decks are still over the per-commander cap. Nothing was started.");
-            return false;
-        }
-        return true;
     }
 
     private async Task<HarvestMaintenancePreview?> ReadMaintenancePreviewAsync(CancellationToken cancellationToken)
@@ -251,8 +229,9 @@ public sealed class AdminHarvestController : Controller
         }
     }
 
-    private async Task<IActionResult> StartMaintenance(HarvestMaintenanceOperation operation, string label)
+    private async Task<IActionResult> StartMaintenance(HarvestMaintenanceOperation operation)
     {
+        var label = HarvestMaintenanceStatusText.Label(operation);
         var result = await _maintenanceRunner.TryStartAsync(operation).ConfigureAwait(false);
         if (result == HarvestMaintenanceStartResult.NotRecorded)
         {
@@ -261,7 +240,18 @@ public sealed class AdminHarvestController : Controller
         }
         var started = result == HarvestMaintenanceStartResult.Started;
         _logger.LogInformation("Harvest.Maintenance.Requested operation={Operation} result={Result}", operation, result);
-        SetBanner(started ? $"{label} started. Refresh this page to follow progress." : "A maintenance run is already in progress. Nothing new was started.", !started);
+        if (started) SetBanner($"{label} started. The Retention maintenance card shows its progress.");
+        else
+        {
+            var active = _maintenanceRunner.GetStatus();
+            var activeLabel = active.Operation.HasValue ? HarvestMaintenanceStatusText.Label(active.Operation.Value) : "Maintenance";
+            SetInfoBanner(active.State switch
+            {
+                HarvestMaintenanceRunState.Starting => $"{activeLabel} is already starting. Nothing new was started.",
+                HarvestMaintenanceRunState.Running => $"{activeLabel} is already running. Nothing new was started.",
+                _ => "A maintenance run is already starting or running. Nothing new was started.",
+            });
+        }
         return RedirectToAction(nameof(Index));
     }
 
@@ -800,6 +790,12 @@ public sealed class AdminHarvestController : Controller
     /// <summary>
     /// Stores the banner message and tone so an earlier unread tone never recolors a new message.
     /// </summary>
+    private void SetInfoBanner(string message)
+    {
+        TempData[BannerKey] = message;
+        TempData[BannerToneKey] = "info";
+    }
+
     private void SetBanner(string message, bool isError = false)
     {
         TempData[BannerKey] = message;
