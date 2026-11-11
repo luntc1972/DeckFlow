@@ -99,7 +99,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
-    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<DeckPruningProgress>? progress = null, Func<bool>? stopBeforeBatch = null, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         if (operation == HarvestMaintenanceOperation.Refetch)
@@ -112,7 +112,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                     return new HarvestMaintenanceOutcome(operation, 0, 0, DeckPruningStopReason.MarkerBackfillPending);
                 }
                 var marked = await _repository.MarkMetadataLessDecksForRefreshAsync(cancellationToken).ConfigureAwait(false);
-                progress?.Report(marked);
+                progress?.Report(new(marked, 0));
                 return new HarvestMaintenanceOutcome(operation, marked, 0, null);
             }
             finally
@@ -127,14 +127,15 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             operation,
             _sweepGate,
             _retentionOptions.MaintenanceChunkDecks,
-            (deckCount, token) => operation switch
+            (deckCount, batchProgress, stop, token) => operation switch
             {
-                HarvestMaintenanceOperation.Drain => _deckPruningService.RunRetentionAsync(deckCount, token),
-                HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, token),
-                _ => _markerBackfillService.RunAsync(deckCount, token)
+                HarvestMaintenanceOperation.Drain => _deckPruningService.RunRetentionAsync(deckCount, batchProgress, stop, token),
+                HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, batchProgress, stop, token),
+                _ => _markerBackfillService.RunAsync(deckCount, batchProgress, stop, token)
             },
             progress,
             logger,
+            stopBeforeBatch,
             cancellationToken).ConfigureAwait(false);
         _logger?.LogInformation("Harvest.Maintenance.Completed operation={Operation} decksAffected={DecksAffected} batches={Batches} stopReason={StopReason}", outcome.Operation, outcome.DecksAffected, outcome.Batches, outcome.StopReason);
         return outcome;

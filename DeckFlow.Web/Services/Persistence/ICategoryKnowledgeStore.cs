@@ -16,7 +16,7 @@ public interface ICategoryKnowledgeStore
     Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<HarvestMaintenancePreview?>(null);
     /// <summary>Runs an operator-requested harvest maintenance operation.</summary>
-    Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<DeckPruningProgress>? progress = null, Func<bool>? stopBeforeBatch = null, CancellationToken cancellationToken = default)
         // Why: a double that cannot run maintenance must not report a completed run.
         => Task.FromException<HarvestMaintenanceOutcome>(new NotSupportedException());
 

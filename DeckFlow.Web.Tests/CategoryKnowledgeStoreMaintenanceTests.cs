@@ -23,7 +23,7 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
     {
         var store = CreateStore();
         await SeedTracerAsync(store);
-        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain, new Progress<int>());
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain, null);
 
         Assert.Equal(HarvestMaintenanceOperation.Drain, outcome.Operation);
         Assert.Equal(5, outcome.DecksAffected);
@@ -41,12 +41,12 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         await SeedStoredDeckAsync(repository, "missing-one", null, 3);
         await SeedStoredDeckAsync(repository, "missing-two", null, 3);
 
-        var progress = new List<int>();
-        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge, new Progress<int>(progress.Add));
+        var progress = new List<DeckPruningProgress>();
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge, new InlineProgress(progress.Add));
 
         Assert.Equal(4, outcome.DecksAffected);
         Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
-        Assert.Equal([3, 4], progress);
+        AssertBatchReports(progress, outcome);
         Assert.Equal(0, await repository.CountPurgeCandidatesAsync());
     }
 
@@ -64,13 +64,13 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         Assert.Equal(DeckPruningStopReason.Completed, drain.StopReason);
         Assert.Equal(new DeckState(1, 1, "retention", null), await ReadDeckStateAsync(store, "refresh-oldest"));
 
-        var progress = new List<int>();
-        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, new Progress<int>(progress.Add));
+        var progress = new List<DeckPruningProgress>();
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, new InlineProgress(progress.Add));
 
         Assert.Equal(2, outcome.DecksAffected);
         Assert.Equal(0, outcome.Batches);
         Assert.Null(outcome.StopReason);
-        Assert.Equal([2], progress);
+        Assert.Equal([new DeckPruningProgress(2, 0)], progress);
         var middle = await ReadDeckStateAsync(store, "refresh-middle");
         var newest = await ReadDeckStateAsync(store, "refresh-newest");
         var oldest = await ReadDeckStateAsync(store, "refresh-oldest");
@@ -165,13 +165,13 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
     {
         var store = CreateStore(new HarvestRetentionOptions { PerCommanderCap = 2, BatchSize = 2, MaintenanceChunkDecks = 3, PauseMilliseconds = 0, MinFreeDiskBytes = long.MaxValue });
         await SeedTracerAsync(store);
-        var progress = new List<int>();
+        var progress = new List<DeckPruningProgress>();
 
-        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain, new Progress<int>(progress.Add));
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain, new InlineProgress(progress.Add));
 
         Assert.Equal(0, outcome.DecksAffected);
         Assert.Equal(DeckPruningStopReason.DiskFloor, outcome.StopReason);
-        Assert.Equal([0], progress);
+        Assert.Empty(progress);
     }
 
     [Fact]
@@ -196,8 +196,10 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
 
         var drain = Task.Run(() => store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain, progress));
         await firstReport.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        var postHarvest = await store.RunPostHarvestRetentionAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        var postHarvestTask = store.RunPostHarvestRetentionAsync();
+        Assert.False(postHarvestTask.IsCompleted);
         resume.TrySetResult();
+        var postHarvest = await postHarvestTask.WaitAsync(TimeSpan.FromSeconds(10));
         var outcome = await drain.WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.Equal(2, postHarvest!.DecksRemoved);
@@ -358,13 +360,41 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         }
     }
 
+    [Fact]
+    public async Task RunMaintenanceAsync_Drain_ReportsCumulativeBatchProgress()
+    {
+        var store = CreateStore();
+        await SeedTracerAsync(store);
+        var reports = new List<DeckPruningProgress>();
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain, new InlineProgress(reports.Add));
+        AssertBatchReports(reports, outcome);
+    }
+
+    private static void AssertBatchReports(List<DeckPruningProgress> reports, HarvestMaintenanceOutcome outcome)
+    {
+        Assert.NotEmpty(reports);
+        var previous = new DeckPruningProgress(0, 0);
+        foreach (var report in reports)
+        {
+            Assert.True(report.DecksAffected > previous.DecksAffected);
+            Assert.Equal(previous.Batches + 1, report.Batches);
+            previous = report;
+        }
+        Assert.Equal(new DeckPruningProgress(outcome.DecksAffected, outcome.Batches), reports[^1]);
+    }
+
+    private sealed class InlineProgress(Action<DeckPruningProgress> report) : IProgress<DeckPruningProgress>
+    {
+        public void Report(DeckPruningProgress value) => report(value);
+    }
+
     private sealed record DeckState(int Processed, int Skipped, string? SkipReason, string? RefreshRequestedUtc);
 
-    private sealed class PausingProgress(TaskCompletionSource firstReport, TaskCompletionSource resume) : IProgress<int>
+    private sealed class PausingProgress(TaskCompletionSource firstReport, TaskCompletionSource resume) : IProgress<DeckPruningProgress>
     {
-        public void Report(int value)
+        public void Report(DeckPruningProgress value)
         {
-            firstReport.TrySetResult();
+            if (!firstReport.TrySetResult()) return;
             resume.Task.Wait(TimeSpan.FromSeconds(30));
         }
     }

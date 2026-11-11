@@ -140,7 +140,7 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
                 lock (_lock) { _status = _status with { State = HarvestMaintenanceRunState.Running }; }
                 await PersistAsync().ConfigureAwait(false);
                 var lastSaved = GetStatus();
-                var work = _store.RunMaintenanceAsync(operation, new InlineProgress(UpdateProgress), linkedCts.Token);
+                var work = _store.RunMaintenanceAsync(operation, new InlineProgress(UpdateProgress), null, linkedCts.Token);
                 while (!work.IsCompleted)
                 {
                     using var tick = new CancellationTokenSource();
@@ -178,9 +178,9 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
         }
     }
 
-    private sealed class InlineProgress(Action<int> report) : IProgress<int>
+    private sealed class InlineProgress(Action<DeckPruningProgress> report) : IProgress<DeckPruningProgress>
     {
-        public void Report(int value) => report(value);
+        public void Report(DeckPruningProgress value) => report(value);
     }
 
     /// <inheritdoc/>
@@ -229,11 +229,13 @@ public sealed class HarvestMaintenanceRunner : BackgroundService, IHarvestMainte
         }
     }
 
-    private void UpdateProgress(int decksAffected)
+    private void UpdateProgress(DeckPruningProgress progress)
     {
         lock (_lock)
         {
-            if (_status.IsRunning) _status = _status with { DecksAffected = decksAffected, LastProgressUtc = _utcNow() };
+            if (!_status.IsRunning || progress.DecksAffected < _status.DecksAffected || progress.Batches < _status.Batches
+                || (progress.DecksAffected == _status.DecksAffected && progress.Batches == _status.Batches)) return;
+            _status = _status with { DecksAffected = progress.DecksAffected, Batches = progress.Batches, LastProgressUtc = _utcNow() };
         }
     }
 }

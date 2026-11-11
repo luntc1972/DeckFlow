@@ -5,7 +5,7 @@ namespace DeckFlow.Web.Services.Harvest;
 /// <summary>Runs maintenance in chunks while allowing other sweep work between chunks.</summary>
 internal static class HarvestMaintenanceChunkLoop
 {
-    internal static async Task<HarvestMaintenanceOutcome> RunAsync(HarvestMaintenanceOperation operation, SemaphoreSlim gate, int chunkDecks, Func<int, CancellationToken, Task<DeckPruningResult>> runChunk, IProgress<int>? progress, ILogger logger, CancellationToken cancellationToken)
+    internal static async Task<HarvestMaintenanceOutcome> RunAsync(HarvestMaintenanceOperation operation, SemaphoreSlim gate, int chunkDecks, Func<int, IProgress<DeckPruningProgress>, Func<bool>?, CancellationToken, Task<DeckPruningResult>> runChunk, IProgress<DeckPruningProgress>? progress, ILogger logger, Func<bool>? stopBeforeBatch, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(gate);
         ArgumentOutOfRangeException.ThrowIfLessThan(chunkDecks, 1);
@@ -21,7 +21,9 @@ internal static class HarvestMaintenanceChunkLoop
             DeckPruningResult result;
             try
             {
-                result = await runChunk(chunkDecks, cancellationToken).ConfigureAwait(false);
+                // Why: reports run inside the sweep gate; consumers must be synchronous and non-blocking.
+                var adapter = new BatchProgress(progress, decksAffected, batches);
+                result = await runChunk(chunkDecks, adapter, stopBeforeBatch, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -30,8 +32,6 @@ internal static class HarvestMaintenanceChunkLoop
 
             decksAffected += result.DecksRemoved;
             batches += result.Batches;
-            // Why: progress runs after Release so a slow consumer never extends the hold and the between-chunk window is where harvest gets the gate.
-            progress?.Report(decksAffected);
             if (result.StopReason != DeckPruningStopReason.MaxDecksReached)
             {
                 return new HarvestMaintenanceOutcome(operation, decksAffected, batches, result.StopReason);
@@ -44,4 +44,10 @@ internal static class HarvestMaintenanceChunkLoop
             }
         }
     }
+
+    private sealed class BatchProgress(IProgress<DeckPruningProgress>? progress, int decksAffected, int batches) : IProgress<DeckPruningProgress>
+    {
+        public void Report(DeckPruningProgress value) => progress?.Report(new(decksAffected + value.DecksAffected, batches + value.Batches));
+    }
+
 }

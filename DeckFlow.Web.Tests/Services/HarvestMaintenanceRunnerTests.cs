@@ -374,6 +374,117 @@ public sealed class HarvestMaintenanceRunnerTests
         finally { runner.RequestStop(); await runner.StopAsync(default); }
     }
 
+    [Fact]
+    public async Task Progress_PerBatch_SetsLastProgressUtcAndBatches()
+    {
+        var now = DateTimeOffset.Parse("2026-11-11T00:00:00Z");
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunMaintenanceHandler = async (operation, progress, stop, token) =>
+            {
+                progress!.Report(new(3, 1));
+                progress.Report(new(7, 2));
+                reported.SetResult();
+                await resume.Task.WaitAsync(token);
+                return new HarvestMaintenanceOutcome(operation, 7, 2, DeckPruningStopReason.Completed);
+            }
+        };
+        using var runner = CreateRunner(store, utcNow: () => now);
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Backfill);
+            await reported.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var status = runner.GetStatus();
+            Assert.Equal(7, status.DecksAffected);
+            Assert.Equal(2, status.Batches);
+            Assert.Equal(now, status.LastProgressUtc);
+            resume.TrySetResult();
+            await WaitForCompletionAsync(runner);
+        }
+        finally
+        {
+            resume.TrySetResult();
+            await runner.StopAsync(default);
+        }
+    }
+
+    [Fact]
+    public async Task Progress_OutOfOrderReport_IsIgnored()
+    {
+        var now = DateTimeOffset.Parse("2026-11-11T00:00:00Z");
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunMaintenanceHandler = async (operation, progress, stop, token) =>
+            {
+                progress!.Report(new(7, 2));
+                progress.Report(new(3, 1));
+                reported.SetResult();
+                await resume.Task.WaitAsync(token);
+                return new HarvestMaintenanceOutcome(operation, 7, 2, DeckPruningStopReason.Completed);
+            }
+        };
+        using var runner = CreateRunner(store, utcNow: () => now);
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Backfill);
+            await reported.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var status = runner.GetStatus();
+            Assert.Equal(7, status.DecksAffected);
+            Assert.Equal(2, status.Batches);
+            Assert.Equal(now, status.LastProgressUtc);
+            resume.TrySetResult();
+            await WaitForCompletionAsync(runner);
+        }
+        finally
+        {
+            resume.TrySetResult();
+            await runner.StopAsync(default);
+        }
+    }
+
+    [Fact]
+    public async Task Progress_MixedDirectionReport_IsIgnored()
+    {
+        var now = DateTimeOffset.Parse("2026-11-11T00:00:00Z");
+        var reported = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = new FakeCategoryKnowledgeStore
+        {
+            RunMaintenanceHandler = async (operation, progress, stop, token) =>
+            {
+                progress!.Report(new(7, 2));
+                progress.Report(new(3, 3));
+                reported.SetResult();
+                await resume.Task.WaitAsync(token);
+                return new HarvestMaintenanceOutcome(operation, 7, 2, DeckPruningStopReason.Completed);
+            }
+        };
+        using var runner = CreateRunner(store, utcNow: () => now);
+        await runner.StartAsync(default);
+        try
+        {
+            await runner.TryStartAsync(HarvestMaintenanceOperation.Backfill);
+            await reported.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var status = runner.GetStatus();
+            Assert.Equal(7, status.DecksAffected);
+            Assert.Equal(2, status.Batches);
+            Assert.Equal(now, status.LastProgressUtc);
+            resume.TrySetResult();
+            await WaitForCompletionAsync(runner);
+        }
+        finally
+        {
+            resume.TrySetResult();
+            await runner.StopAsync(default);
+        }
+    }
+
     private static HarvestMaintenanceRunner CreateRunner(ICategoryKnowledgeStore store, ILogger<HarvestMaintenanceRunner>? logger = null, Func<DateTimeOffset>? utcNow = null, IHarvestMaintenanceRunStore? runStore = null, TimeSpan? persistInterval = null)
         => new(WithCleanPreview(store), runStore ?? new FakeHarvestMaintenanceRunStore(), logger ?? NullLogger<HarvestMaintenanceRunner>.Instance, utcNow ?? (() => DateTimeOffset.UtcNow), persistInterval);
 

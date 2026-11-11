@@ -69,6 +69,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public Exception? RunMaintenanceException { get; set; }
 
+    public Func<HarvestMaintenanceOperation, IProgress<DeckPruningProgress>?, Func<bool>?, CancellationToken, Task<HarvestMaintenanceOutcome>>? RunMaintenanceHandler { get; set; }
+
     public int? RunMaintenanceProgress { get; set; }
 
     public bool RunMaintenanceBlocksUntilCancelled { get; set; }
@@ -193,11 +195,12 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return RunUpdateSweepResult;
     }
 
-    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<DeckPruningProgress>? progress = null, Func<bool>? stopBeforeBatch = null, CancellationToken cancellationToken = default)
     {
         RunMaintenanceCalls++;
         LastMaintenanceOperation = operation;
-        if (RunMaintenanceProgress is not null) progress?.Report(RunMaintenanceProgress.Value);
+        if (RunMaintenanceHandler is not null) return await RunMaintenanceHandler(operation, progress, stopBeforeBatch, cancellationToken);
+        if (RunMaintenanceProgress is not null) progress?.Report(new(RunMaintenanceProgress.Value, 1));
         if (RunMaintenanceBlocksUntilCancelled) await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         if (RunMaintenanceException is not null) throw RunMaintenanceException;
         return RunMaintenanceOutcome;
