@@ -129,7 +129,7 @@ public sealed class AdminHarvestController : Controller
             LastBanner = TempData[BannerKey] as string,
             LastBannerIsError = string.Equals(TempData[BannerToneKey] as string, "danger", StringComparison.Ordinal),
             Stats = stats,
-            Maintenance = _maintenanceRunner.GetStatus(),
+            Maintenance = await _maintenanceRunner.GetStatusAsync(cancellationToken).ConfigureAwait(false),
             MaintenanceAsOfUtc = DateTimeOffset.UtcNow,
         };
 
@@ -145,18 +145,18 @@ public sealed class AdminHarvestController : Controller
         if (sameOriginFailure is not null) return sameOriginFailure;
         if (!confirmed) return RefuseMaintenance(HarvestMaintenanceOperation.Drain, "not_confirmed", "Tick the confirmation box to start Retention drain.");
         if (!await CheckRolloutOrderAsync(HarvestMaintenanceOperation.Drain, cancellationToken).ConfigureAwait(false)) return RedirectToAction(nameof(Index));
-        return StartMaintenance(HarvestMaintenanceOperation.Drain, "Retention drain");
+        return await StartMaintenance(HarvestMaintenanceOperation.Drain, "Retention drain").ConfigureAwait(false);
     }
 
     /// <summary>Starts the purge operation.</summary>
     [HttpPost("maintenance/purge")]
     [ValidateAntiForgeryToken]
-    public IActionResult MaintenancePurge(bool confirmed)
+    public async Task<IActionResult> MaintenancePurge(bool confirmed)
     {
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
         return confirmed
-            ? StartMaintenance(HarvestMaintenanceOperation.Purge, "Purge")
+            ? await StartMaintenance(HarvestMaintenanceOperation.Purge, "Purge").ConfigureAwait(false)
             : RefuseMaintenance(HarvestMaintenanceOperation.Purge, "not_confirmed", "Tick the confirmation box to start Purge.");
     }
 
@@ -169,18 +169,18 @@ public sealed class AdminHarvestController : Controller
         if (sameOriginFailure is not null) return sameOriginFailure;
         if (!confirmed) return RefuseMaintenance(HarvestMaintenanceOperation.Refetch, "not_confirmed", "Tick the confirmation box to start Refetch.");
         if (!await CheckRolloutOrderAsync(HarvestMaintenanceOperation.Refetch, cancellationToken).ConfigureAwait(false)) return RedirectToAction(nameof(Index));
-        return StartMaintenance(HarvestMaintenanceOperation.Refetch, "Refetch");
+        return await StartMaintenance(HarvestMaintenanceOperation.Refetch, "Refetch").ConfigureAwait(false);
     }
 
     /// <summary>Starts or resumes the stored-live-row marker backfill.</summary>
     [HttpPost("maintenance/backfill")]
     [ValidateAntiForgeryToken]
-    public IActionResult MaintenanceBackfill(bool confirmed)
+    public async Task<IActionResult> MaintenanceBackfill(bool confirmed)
     {
         var sameOriginFailure = ValidateSameOriginRequest();
         if (sameOriginFailure is not null) return sameOriginFailure;
         return confirmed
-            ? StartMaintenance(HarvestMaintenanceOperation.Backfill, "Marker backfill")
+            ? await StartMaintenance(HarvestMaintenanceOperation.Backfill, "Marker backfill").ConfigureAwait(false)
             : RefuseMaintenance(HarvestMaintenanceOperation.Backfill, "not_confirmed", "Tick the confirmation box to start Marker backfill.");
     }
 
@@ -251,10 +251,16 @@ public sealed class AdminHarvestController : Controller
         }
     }
 
-    private IActionResult StartMaintenance(HarvestMaintenanceOperation operation, string label)
+    private async Task<IActionResult> StartMaintenance(HarvestMaintenanceOperation operation, string label)
     {
-        var started = _maintenanceRunner.TryStart(operation);
-        _logger.LogInformation("Harvest.Maintenance.Requested operation={Operation} started={Started}", operation, started);
+        var result = await _maintenanceRunner.TryStartAsync(operation).ConfigureAwait(false);
+        if (result == HarvestMaintenanceStartResult.NotRecorded)
+        {
+            SetBanner($"{label} was not started: its run record could not be saved. Nothing was changed; see the logs.", isError: true);
+            return RedirectToAction(nameof(Index));
+        }
+        var started = result == HarvestMaintenanceStartResult.Started;
+        _logger.LogInformation("Harvest.Maintenance.Requested operation={Operation} result={Result}", operation, result);
         SetBanner(started ? $"{label} started. Refresh this page to follow progress." : "A maintenance run is already in progress. Nothing new was started.", !started);
         return RedirectToAction(nameof(Index));
     }

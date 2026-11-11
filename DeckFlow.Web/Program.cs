@@ -115,6 +115,7 @@ public partial class Program
             await app.Services.GetRequiredService<IHarvestScheduleStore>().EnsureSchemaAsync();
             await app.Services.GetRequiredService<IHarvestUpdateScheduleStore>().EnsureSchemaAsync();
             await app.Services.GetRequiredService<IHarvestThrottleStore>().EnsureSchemaAsync();
+            await app.Services.GetRequiredService<IHarvestMaintenanceRunStore>().EnsureSchemaAsync();
             app.Logger.LogInformation("Harvest store schemas ensured during startup.");
             await ApplyHarvestThrottleRateAsync(app.Services, app.Logger);
 

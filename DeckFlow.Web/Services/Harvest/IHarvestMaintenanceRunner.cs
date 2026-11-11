@@ -4,11 +4,14 @@ namespace DeckFlow.Web.Services.Harvest;
 public interface IHarvestMaintenanceRunner
 {
     /// <summary>Attempts to queue a maintenance operation.</summary>
-    bool TryStart(HarvestMaintenanceOperation operation);
+    Task<HarvestMaintenanceStartResult> TryStartAsync(HarvestMaintenanceOperation operation, CancellationToken cancellationToken = default);
 
     /// <summary>Requests that the active maintenance operation stop.</summary>
     bool RequestStop();
 
     /// <summary>Gets the current or most recently completed operation status.</summary>
     HarvestMaintenanceStatus GetStatus();
+
+    /// <summary>Gets current status or the latest persisted run after restart.</summary>
+    Task<HarvestMaintenanceStatus> GetStatusAsync(CancellationToken cancellationToken = default);
 }
