@@ -33,6 +33,23 @@ public sealed class ManabaseRampDrawBucketTests
         ProducedMana = producedMana,
     };
 
+    [Theory]
+    [InlineData("Dauntless Scrapbot", 3, "Artifact Creature — Robot", "When this creature enters, create a Lander token. (It's an artifact with \"{2}, {T}, Sacrifice this token: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\")", true, 0)]
+    [InlineData("Karn, Living Legacy", 4, "Legendary Planeswalker — Karn", "+1: Create a tapped Powerstone token. (It's an artifact with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")", false, 0)]
+    [InlineData("Gild", 4, "Sorcery", "Exile target creature. Create a Gold token. (It's an artifact with \"Sacrifice this token: Add one mana of any color.\")", false, 0)]
+    [InlineData("Cheap Lander maker", 2, "Sorcery", "Create two tapped Lander tokens. (Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.)", true, 1)]
+    public void Classify_ManaTokenMaker_PreservesRampAndLandCredit(string name, double manaValue, string typeLine, string oracleText, bool isLandRamp, int landCredit)
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            Nonland(name, manaValue, typeLine, oracleText),
+        }, rampCreditV2: true, landRampSim: true);
+
+        Assert.Equal(1.0, deck.RampPieceCount);
+        Assert.Equal(landCredit, deck.RampAndDrawUnderThree);
+        Assert.Equal(isLandRamp, deck.Sources.Any(source => source.Name == name));
+    }
+
     [Fact]
     public void Classify_GiftTreasureReminderOnly_IsNotBudgetRamp()
     {

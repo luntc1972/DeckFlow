@@ -911,9 +911,15 @@ public static class ManabaseClassifier
     private static string StripReminderText(string text) =>
         text.IndexOf('(', StringComparison.Ordinal) < 0 ? text : ReminderTextRegex.Replace(text, string.Empty);
 
-    // Why: Rain of Riches / Prosperous Bandit create counted and optionally tapped Treasure tokens.
-    private static readonly Regex CreateTreasureTokenRegex = new(
-        @"\bcreate\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|that\s+many|a\s+number\s+of|[0-9]+)\s+(?:tapped\s+)?Treasure\s+tokens?\b",
+    // Token effects must match without relying on their stripped reminder text.
+    private const string TokenCountPattern = @"(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|that\s+many|a\s+number\s+of|[0-9]+)";
+
+    private static readonly Regex CreateManaTokenRegex = new(
+        @"\bcreate\s+" + TokenCountPattern + @"\s+(?:tapped\s+)?(?:Treasure|Lander|Powerstone|Gold)\s+tokens?\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex CreateLanderTokenRegex = new(
+        @"\bcreate\s+" + TokenCountPattern + @"\s+(?:tapped\s+)?Lander\s+tokens?\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // Shockland ETB template ("you may pay N life. If you don't, it enters tapped"). Compiled +
@@ -1793,7 +1799,7 @@ public static class ManabaseClassifier
         return (text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
                 && text.Contains("land", StringComparison.OrdinalIgnoreCase))
             || text.Contains("Add ", StringComparison.OrdinalIgnoreCase)
-            || CreateTreasureTokenRegex.IsMatch(text)
+            || CreateManaTokenRegex.IsMatch(text)
             || IsRockOrDork(card)
             || IsLandRampToBattlefield(card);
     }
@@ -1889,9 +1895,10 @@ public static class ManabaseClassifier
     private static bool IsLandRampToBattlefield(CardFact card)
     {
         string text = StripReminderText(card.OracleText ?? string.Empty);
-        return text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
-            && text.Contains("land", StringComparison.OrdinalIgnoreCase)
-            && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase);
+        return CreateLanderTokenRegex.IsMatch(text)
+            || (text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
+                && text.Contains("land", StringComparison.OrdinalIgnoreCase)
+                && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase));
     }
 
     // ---- REDUCE-01: always-on static generic cost reducers --------------------------------
