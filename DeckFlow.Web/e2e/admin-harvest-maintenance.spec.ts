@@ -70,11 +70,24 @@ test('Marker backfill shows starting, running and completed feedback with one re
   const status = maintenance.locator('#harvest-maintenance-status');
 
   await backfill.getByRole('checkbox', { name: 'Confirm Marker backfill' }).check();
-  // Assert the in-flight state before awaiting the click navigation.
-  const clicked = button.click();
-  await expect(button).toBeDisabled();
-  await expect(button).toHaveText('Starting Marker backfill…');
-  await clicked;
+  // Playwright cannot read the old document while a form-POST navigation is pending.
+  await page.evaluate(() => {
+    window.addEventListener('submit', (event) => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (!submitButton) return;
+      sessionStorage.setItem('maintenance-submit-state', JSON.stringify({
+        disabled: submitButton.disabled,
+        text: submitButton.textContent?.trim(),
+      }));
+    }, { once: true });
+  });
+  await button.click();
+  const submittedState = JSON.parse(await page.evaluate(() => sessionStorage.getItem('maintenance-submit-state')) ?? 'null');
+  expect(submittedState.disabled).toBe(true);
+  expect(submittedState.text).toBe('Starting Marker backfill…');
+  await page.evaluate(() => sessionStorage.removeItem('maintenance-submit-state'));
   await expect(status.locator('[data-maintenance-headline]')).toHaveText('Marker backfill running.');
   await expect(status).toHaveAttribute('data-maintenance-state', 'completed', { timeout: 20_000 });
   await expect(status.locator('[data-maintenance-headline]')).toHaveText('Marker backfill: Done.', { timeout: 20_000 });
@@ -95,10 +108,24 @@ test('Preview shows counting feedback and the counts timestamp', async ({ page }
   const maintenance = page.locator('#harvest-maintenance');
   const button = maintenance.getByRole('button', { name: 'Preview', exact: true });
 
-  const clicked = button.click();
-  await expect(button).toBeDisabled();
-  await expect(button).toHaveText('Counting…');
-  await clicked;
+  // Playwright cannot read the old document while a form-POST navigation is pending.
+  await page.evaluate(() => {
+    window.addEventListener('submit', (event) => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      if (!submitButton) return;
+      sessionStorage.setItem('maintenance-submit-state', JSON.stringify({
+        disabled: submitButton.disabled,
+        text: submitButton.textContent?.trim(),
+      }));
+    }, { once: true });
+  });
+  await button.click();
+  const submittedState = JSON.parse(await page.evaluate(() => sessionStorage.getItem('maintenance-submit-state')) ?? 'null');
+  expect(submittedState.disabled).toBe(true);
+  expect(submittedState.text).toBe('Counting…');
+  await page.evaluate(() => sessionStorage.removeItem('maintenance-submit-state'));
   await expect(page.locator('.admin-banner').filter({ hasText: 'Retention excess:' }))
     .toHaveText(/\(counts as of \d{2}:\d{2}:\d{2} UTC\)\.$/);
 });
