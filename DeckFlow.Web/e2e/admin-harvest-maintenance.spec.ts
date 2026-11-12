@@ -24,28 +24,28 @@ test('Marker backfill shows starting, running and completed feedback with one re
 
   page.on('response', (response) => {
     const request = response.request();
-    const pathname = new URL(response.url()).pathname;
-    if (request.method() === 'POST' && pathname === '/Admin/Harvest/maintenance/backfill') {
+    const pathname = new URL(response.url()).pathname.toLowerCase();
+    if (request.method() === 'POST' && pathname === '/admin/harvest/maintenance/backfill') {
       backfillResponseSeen = true;
     }
     if (backfillResponseSeen && request.method() === 'GET' && request.isNavigationRequest()
-      && request.resourceType() === 'document' && pathname === '/Admin/Harvest') {
+      && request.resourceType() === 'document' && pathname === '/admin/harvest') {
       redirectSeen = true;
     }
   });
 
   page.on('request', (request) => {
     if (runningStatusServed && request.method() === 'GET' && request.isNavigationRequest()
-      && request.resourceType() === 'document' && new URL(request.url()).pathname === '/Admin/Harvest') {
+      && request.resourceType() === 'document' && new URL(request.url()).pathname.toLowerCase() === '/admin/harvest') {
       reloadCount += 1;
     }
   });
 
-  await page.route('**/Admin/Harvest/maintenance/backfill', async (route) => {
+  await page.route(/\/admin\/harvest\/maintenance\/backfill$/i, async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     await route.continue();
   });
-  await page.route('**/Admin/Harvest/maintenance/status', async (route) => {
+  await page.route(/\/admin\/harvest\/maintenance\/status$/i, async (route) => {
     if (!redirectSeen || runningStatusServed) {
       await route.continue();
       return;
@@ -85,7 +85,7 @@ test('Marker backfill shows starting, running and completed feedback with one re
 });
 
 test('Preview shows counting feedback and the counts timestamp', async ({ page }) => {
-  await page.route('**/Admin/Harvest/maintenance/preview', async (route) => {
+  await page.route(/\/admin\/harvest\/maintenance\/preview$/i, async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     await route.continue();
   });
