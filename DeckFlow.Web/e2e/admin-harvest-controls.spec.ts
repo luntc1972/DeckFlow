@@ -76,7 +76,8 @@ test('admin harvest rate card saves an allow-listed rate', async ({ page }) => {
 
   try {
     await saveRate(selected!);
-    await expect(page.locator('.admin-banner:not(#harvest-rate-limited-banner)')).toHaveText(`Archidekt rate set to ${selected} requests per minute.`);
+    // The maintenance status card also carries the admin-banner class.
+    await expect(page.locator('.admin-banner:not(#harvest-rate-limited-banner):not(#harvest-maintenance-status)')).toHaveText(`Archidekt rate set to ${selected} requests per minute.`);
     await expect(rate).toHaveValue(selected!);
     if (rateLimitedMode === '1') {
       await expect(page.locator('#harvest-rate-limited-banner')).toBeVisible();
@@ -96,6 +97,6 @@ test('@resume admin harvest resume schedules clears the rate-limited banner', as
     page.locator('#harvest-rate-limited-banner button[type="submit"]').click(),
   ]);
   expect(postResponse.status()).toBeLessThan(400);
-  await expect(page.locator('.admin-banner:not(#harvest-rate-limited-banner)')).toHaveText('Rate-limit pause cleared. Both schedules resumed.');
+  await expect(page.locator('.admin-banner:not(#harvest-rate-limited-banner):not(#harvest-maintenance-status)')).toHaveText('Rate-limit pause cleared. Both schedules resumed.');
   await expect(page.locator('#harvest-rate-limited-banner')).toHaveCount(0);
 });
