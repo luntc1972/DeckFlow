@@ -854,6 +854,7 @@ public sealed class CutLabUiPatchBuilderTests
         Assert.NotNull(patch.NextProposal);
         Assert.True(patch.NextProposal.IsTerminal);
         Assert.True(patch.NextProposal.IsAtTarget);
+        Assert.Equal(CutLabViewModel.ComposeProposalGlance(null, CutLabMessages.NoChangeMessage), patch.NextProposal.GlanceLine);
         Assert.False(patch.NextProposal.IsNothingToCut);
         Assert.Equal(0, contextBuilder.BuildCalls);
         Assert.Equal(0, simulationService.ComputeProposalDeltasCalls);

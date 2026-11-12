@@ -300,7 +300,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             TargetLands = snapshotResult.TargetLands,
             CanBuildExport = projection.CanBuildExport,
             CardTextByCardName = BuildPopupCardTextPatch(state.Pool),
-            NextProposal = BuildNextProposal(roundPlan, findings),
+            NextProposal = AddProposalGlance(BuildNextProposal(roundPlan, findings), proposalDeltas),
             ProposalDeltas = proposalDeltas,
             ResolvedFloors = CutLabResolvedFloorDto.Create(resolvedFloors, context.RoleCounts, playExperience,
                 CutLabResolvedFloorDto.CountLockedRoles(state.Pool, context.RolesByCardName)),
@@ -337,13 +337,13 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             CardsRemaining = projection.CardsRemaining,
             CanBuildExport = projection.CanBuildExport,
             CardTextByCardName = BuildPopupCardTextPatch(state.Pool),
-            NextProposal = projection.CanBuildExport
+            NextProposal = AddProposalGlance(projection.CanBuildExport
                 ? new CutLabDecideNextProposalDto
                 {
                     IsTerminal = true,
                     IsAtTarget = true,
                 }
-                : null,
+                : null, null),
             ProposalDeltas = null,
             FloorWarnings = [],
             CutsMade = BuildCutsMade(state.Decisions, false),
@@ -415,6 +415,31 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
 
         return CutLabSharedHelpers.BuildFloorWarnings(workingList, context, floorByRole, roundPlan.NextProposal.CardName);
     }
+
+    private static CutLabDecideNextProposalDto? AddProposalGlance(
+        CutLabDecideNextProposalDto? proposal,
+        CutLabDecideProposalDeltasDto? deltas)
+        // Why: Every patch producer must supply the same glance, including terminal fallback copy.
+        => proposal is null
+            ? null
+            : proposal with
+            {
+                GlanceLine = CutLabViewModel.ComposeProposalGlance(
+                deltas is null
+                    ? null
+                    : new CutLabProposalDeltas
+                    {
+                        ChangedFamilyCount = deltas.ChangedFamilyCount,
+                        Deltas = deltas.Deltas.Select(delta => new CutLabMetricDelta
+                        {
+                            Label = delta.Label,
+                            Delta = delta.Delta,
+                            Unit = delta.Unit,
+                            IsMeaningful = delta.IsMeaningful,
+                        }).ToArray(),
+                    },
+                CutLabMessages.NoChangeMessage),
+            };
 
     private static CutLabDecideNextProposalDto BuildNextProposal(CutLabRoundPlan roundPlan, CutLabStructuralFindingsResult findings)
         => CutLabNextProposalBuilder.Build(roundPlan, findings);
