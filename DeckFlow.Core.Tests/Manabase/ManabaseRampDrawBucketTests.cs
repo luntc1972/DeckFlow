@@ -108,6 +108,18 @@ public sealed class ManabaseRampDrawBucketTests
     }
 
     [Fact]
+    public void Classify_DrawCardsEqualTo_CountsAsBudgetDrawPiece()
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            Nonland("Greater Good", 4, "Enchantment", "Sacrifice a creature: Draw cards equal to the sacrificed creature's power, then discard three cards."),
+        });
+
+        Assert.Equal(1.0, deck.DrawPieceCount);
+        Assert.Equal(0.0, deck.RampPieceCount);
+    }
+
+    [Fact]
     public void Classify_BigScore_IsRampAndDrawViaRealTreasureClause()
     {
         ManabaseDeck deck = ManabaseClassifier.Classify(new[]

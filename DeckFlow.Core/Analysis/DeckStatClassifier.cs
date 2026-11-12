@@ -10,7 +10,8 @@ namespace DeckFlow.Core.Analysis;
 /// </summary>
 public static class DeckStatClassifier
 {
-    // A card-draw effect that benefits YOU (efficacy R2 M7). Matches "draw(s) a/N card(s)" —
+    // A card-draw effect that benefits YOU (efficacy R2 M7). Matches "draw(s) a/N card(s)" or
+    // "draw(s) cards equal to ..." (Greater Good) —
     // imperative ("Draw a card"), activated ("<cost>: Draw a card"), "you (may) draw…", and
     // symmetric wheels ("each player draws seven cards", where you are a player too) — but EXCLUDES:
     //   * draws attributed to an opponent or an indeterminate other player ("target/that/another
@@ -23,7 +24,7 @@ public static class DeckStatClassifier
     // same by the v2 land-target credit (IsRepeatableRampOrDraw) and the budget draw count
     // (IsDrawPieceForBudget), instead of one subsystem crediting it while the other ignores it.
     private static readonly Regex YouCardDrawRegex = new(
-        @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player|whenever you|when you|would) )\bdraws?\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?",
+        @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player|whenever you|when you|would) )\bdraws?\s+(?:(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?|cards equal to)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
@@ -59,9 +60,10 @@ public static class DeckStatClassifier
     }
 
     /// <summary>
-    /// Shared you-anchored literal card-draw predicate: "draw(s) a/N card(s)" that benefits YOU,
-    /// excluding opponent/trigger/replacement draws. Regex-only (no clue/connive union) so Manabase's
-    /// Karsten draw term can reuse the exact same signal without inheriting role-tally extras.
+    /// Shared you-anchored literal card-draw predicate: "draw(s) a/N card(s)" or
+    /// "draw(s) cards equal to ..." (Greater Good) that benefits YOU, excluding opponent/trigger/replacement
+    /// draws. Regex-only (no clue/connive union) so Manabase's Karsten draw term can reuse the exact same
+    /// signal without inheriting role-tally extras.
     /// </summary>
     /// <param name="oracleText">Raw oracle text; parenthesised reminder text is stripped before matching.</param>
     internal static bool MatchesYouCardDraw(string oracleText)

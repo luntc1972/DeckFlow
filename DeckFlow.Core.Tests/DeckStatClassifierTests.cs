@@ -52,6 +52,8 @@ public sealed class DeckStatClassifierTests
 
     [Theory]
     [InlineData("Draw three cards", true)]
+    [InlineData("Sacrifice a creature: Draw cards equal to the sacrificed creature's power, then discard three cards.", true)]
+    [InlineData("When Grothama leaves the battlefield, each player draws cards equal to the amount of damage dealt to Grothama this turn by sources they controlled.", true)]
     [InlineData("Investigate.", true)]
     [InlineData("Connive.", true)]
     [InlineData("Draw a card.", true)]
@@ -63,6 +65,7 @@ public sealed class DeckStatClassifierTests
 
     [Theory]
     [InlineData("Target player draws two cards", false)]
+    [InlineData("Target player draws cards equal to the number of creatures they control.", false)]
     [InlineData("Destroy target creature.", false)]
     [InlineData("Search your library for a basic land card.", false)]
     [InlineData("Raugrin Triome enters the battlefield tapped.\n{T}: Add {R}, {U}, or {W}.\nCycling {3} ({3}, Discard this card: Draw a card.)", false)]
