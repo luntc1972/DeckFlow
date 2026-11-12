@@ -909,9 +909,6 @@ public static class ManabaseClassifier
     // of any color.)") so token reminder wording never reads as the card's own mana ability.
     private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
 
-    private static string StripReminderText(string text) =>
-        text.IndexOf('(', StringComparison.Ordinal) < 0 ? text : ReminderTextRegex.Replace(text, string.Empty);
-
     // Token effects must match without relying on their stripped reminder text.
     private const string TokenCountPattern = @"(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|that\s+many|a\s+number\s+of|[0-9]+)";
 
@@ -1410,7 +1407,7 @@ public static class ManabaseClassifier
 
     // Why: Scryfall sets produced_mana from Treasure reminders, so that disjunct still governs real cards.
     private static bool ProducesMana(CardFact card) =>
-        StripReminderText(card.OracleText ?? string.Empty).Contains("Add ", StringComparison.OrdinalIgnoreCase)
+        OracleText.StripReminderText(card.OracleText ?? string.Empty).Contains("Add ", StringComparison.OrdinalIgnoreCase)
         || card.ProducedMana.Count > 0;
 
     private static bool IsBasicFetch(CardFact card)
@@ -1796,7 +1793,7 @@ public static class ManabaseClassifier
     {
         // Why: reminder text is not the card's effect (Bilbo's Gambit; see 791611ef).
         // Big Score still matches through its real Treasure clause.
-        string text = StripReminderText(card.OracleText ?? string.Empty);
+        string text = OracleText.StripReminderText(card.OracleText ?? string.Empty);
         return (text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
                 && text.Contains("land", StringComparison.OrdinalIgnoreCase))
             || text.Contains("Add ", StringComparison.OrdinalIgnoreCase)
@@ -1895,7 +1892,7 @@ public static class ManabaseClassifier
     // land-target credit (IsRepeatableRampOrDraw) and the land-ramp sim source, so the two never drift.
     private static bool IsLandRampToBattlefield(CardFact card)
     {
-        string text = StripReminderText(card.OracleText ?? string.Empty);
+        string text = OracleText.StripReminderText(card.OracleText ?? string.Empty);
         return CreateLanderTokenRegex.IsMatch(text)
             || (text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
                 && text.Contains("land", StringComparison.OrdinalIgnoreCase)

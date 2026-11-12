@@ -27,8 +27,6 @@ public static class DeckStatClassifier
         @"(?<!(?:opponent|opponents|target player|target opponent|that player|another player|whenever you|when you|would) )\bdraws?\s+(?:(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|\d+)\s+cards?|cards equal to)",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
-
     // Why: broad role-tally ramp signal — intentionally distinct from the tuned, flag-gated
     // Manabase ramp predicates (castability/land math). Do NOT unify the two. See ADR
     // docs/decisions/0003-ramp-classifier-divergence.md.
@@ -47,7 +45,7 @@ public static class DeckStatClassifier
         }
 
         // Why: gift-a-Treasure reminder text (for example, Bilbo's Gambit) is not a ramp effect.
-        string rulesText = StripReminderText(oracleText);
+        string rulesText = OracleText.StripReminderText(oracleText);
 
         return rulesText.Contains("add one mana", StringComparison.OrdinalIgnoreCase)
             || rulesText.Contains("add two mana", StringComparison.OrdinalIgnoreCase)
@@ -70,17 +68,12 @@ public static class DeckStatClassifier
     {
         // Strip reminder text so cycling's "(..., Discard this card: Draw a card.)" does not make
         // every cycling card look like literal draw (for example, Raugrin Triome).
-        return YouCardDrawRegex.IsMatch(StripReminderText(oracleText));
+        return YouCardDrawRegex.IsMatch(OracleText.StripReminderText(oracleText));
     }
 
     /// <summary>
     /// Removes parenthesised reminder text from rules text.
     /// </summary>
-    private static string StripReminderText(string text)
-        // Most oracle text has no parentheses at all, so skip the regex pass (and its allocation)
-        // when there's nothing to strip — this runs per card in the Cut Lab role-tally hot path.
-        => text.IndexOf('(', StringComparison.Ordinal) < 0 ? text : ReminderTextRegex.Replace(text, string.Empty);
-
     /// <summary>
     /// Returns <see langword="true"/> when the card has you-anchored literal card draw (any count),
     /// or is clue/connive card-advantage (investigate/connive). Role-tally draw signal.
@@ -171,7 +164,7 @@ public static class DeckStatClassifier
             return false;
         }
 
-        string rulesText = StripReminderText(oracleText);
+        string rulesText = OracleText.StripReminderText(oracleText);
         return rulesText.Contains("{T}: Add", StringComparison.OrdinalIgnoreCase)
             || rulesText.Contains("Add {", StringComparison.OrdinalIgnoreCase);
     }
