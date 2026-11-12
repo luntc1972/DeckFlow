@@ -121,6 +121,70 @@ public sealed class DeckStatClassifierTests
         Assert.Equal(expected, DeckStatClassifier.IsBoardWipeCard(oracleText));
     }
 
+    [Theory]
+    [InlineData("Ancient Tomb", "{T}: Add {C}{C}. This land deals 2 damage to you.", false)]
+    [InlineData("Authority of the Consuls", "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.", true)]
+    [InlineData("Bilbo's Gambit", "Gift a Treasure (You may promise an opponent a gift as you cast this spell. If you do, they create a Treasure token before its other effects. It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nReturn target spell to its owner's hand. If the gift was promised, players can't cast spells this turn.", false)]
+    [InlineData("Bleachbone Verge", "{T}: Add {B}.\n{T}: Add {W}. Activate only if you control a Plains or a Swamp.", false)]
+    [InlineData("Blind Obedience", "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.", true)]
+    [InlineData("Bojuka Bog", "This land enters tapped.\nWhen this land enters, exile target player's graveyard.\n{T}: Add {B}.", false)]
+    [InlineData("Caves of Koilos", "{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.", false)]
+    [InlineData("Command Tower", "{T}: Add one mana of any color in your commander's color identity.", false)]
+    [InlineData("Concealed Courtyard", "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {W} or {B}.", false)]
+    [InlineData("Dauntless Dismantler", "Artifacts your opponents control enter tapped.\n{X}{X}{W}, Sacrifice this creature: Destroy each artifact with mana value X.", true)]
+    [InlineData("Drana and Linvala", "Flying, vigilance\nActivated abilities of creatures your opponents control can't be activated.\nDrana and Linvala has all activated abilities of all creatures your opponents control. You may spend mana as though it were mana of any color to activate those abilities.", true)]
+    [InlineData("Eclipsed Steppe", "({T}: Add {W} or {B}.)\nThis land enters tapped unless you control two or more basic lands.", false)]
+    [InlineData("Eiganjo, Seat of the Empire", "{T}: Add {W}.\nChannel — {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.", false)]
+    [InlineData("Emergence Zone", "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: You may cast spells this turn as though they had flash.", false)]
+    [InlineData("Godless Shrine", "({T}: Add {W} or {B}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.", false)]
+    [InlineData("Hall of Echoes", "{T}: Add {C}.\n{5}: This land becomes a copy of target creature you control until end of turn. The \"legend rule\" doesn't apply to permanents you control this turn.", false)]
+    [InlineData("Isolated Chapel", "This land enters tapped unless you control a Plains or a Swamp.\n{T}: Add {W} or {B}.", false)]
+    [InlineData("Kambal, Consul of Allocation", "Whenever an opponent casts a noncreature spell, that player loses 2 life and you gain 2 life.", false)]
+    [InlineData("Linvala, Keeper of Silence", "Flying\nActivated abilities of creatures your opponents control can't be activated.", true)]
+    [InlineData("Miren, the Moaning Well", "{T}: Add {C}.\n{3}, {T}, Sacrifice a creature: You gain life equal to the sacrificed creature's toughness.", false)]
+    [InlineData("Mother of Runes", "{T}: Target creature you control gains protection from the color of your choice until end of turn.", false)]
+    [InlineData("Orim's Chant", "Kicker {W} (You may pay an additional {W} as you cast this spell.)\nTarget player can't cast spells this turn. If this spell was kicked, creatures can't attack this turn.", false)]
+    [InlineData("Plains", "({T}: Add {W}.)", false)]
+    [InlineData("Polluted Delta", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.", false)]
+    [InlineData("Shadowy Backstreet", "({T}: Add {W} or {B}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)", false)]
+    [InlineData("Shattered Sanctum", "This land enters tapped unless you control two or more other lands.\n{T}: Add {W} or {B}.", false)]
+    [InlineData("Shineshadow Snarl", "As this land enters, you may reveal a Plains or Swamp card from your hand. If you don't, this land enters tapped.\n{T}: Add {W} or {B}.", false)]
+    [InlineData("Silence", "Your opponents can't cast spells this turn.", false)]
+    [InlineData("Swamp", "({T}: Add {B}.)", false)]
+    [InlineData("Trouble in Pairs", "If an opponent would begin an extra turn, that player skips that turn instead.\nWhenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn, you draw a card.", false)]
+    [InlineData("Turbulent Moor", "({T}: Add {W} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.", false)]
+    [InlineData("Voice of Victory", "Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the next end step.)\nYour opponents can't cast spells during your turn.", true)]
+    [InlineData("Synthetic tax", "Spells cost {1} more to cast.", true)]
+    [InlineData("Synthetic limit", "Each player can't cast more than one spell each turn.", true)]
+    [InlineData("Synthetic self cost", "This spell costs {1} more to cast.", false)]
+    [InlineData("Synthetic self tapped", "This permanent enters tapped.", false)]
+    [InlineData("Synthetic activation", "Your opponents can't activate abilities.", true)]
+    [InlineData("Synthetic positive limit", "Each player can cast only one spell each turn.", true)]
+    [InlineData("Synthetic reduction", "Spells cost {1} less to cast.", false)]
+    [InlineData("Synthetic temporary", "Your opponents can't activate abilities until end of turn.", false)]
+    [InlineData("Synthetic mixed duration", "Your opponents can't cast spells this turn.\nCreatures your opponents control enter tapped.", true)]
+    public void IsStaxCard_CorpusAndSyntheticCases_MatchesContract(string name, string oracleText, bool expected)
+    {
+        Assert.True(expected == DeckStatClassifier.IsStaxCard(name, oracleText), name);
+    }
+
+    [Theory]
+    [InlineData("Blood Moon")]
+    [InlineData("Collector Ouphe")]
+    [InlineData("Drannith Magistrate")]
+    [InlineData("Grand Arbiter Augustin IV")]
+    [InlineData("Root Maze")]
+    [InlineData("Rule of Law")]
+    [InlineData("Sphere of Resistance")]
+    [InlineData("Static Orb")]
+    [InlineData("Thalia Guardian of Thraben")]
+    [InlineData("Trinisphere")]
+    [InlineData("Winter Orb")]
+    public void IsStaxCard_CatalogNameWithoutOracle_ReturnsTrue(string name)
+    {
+        Assert.True(DeckStatClassifier.IsStaxCard(name, ""));
+    }
+
     // -----------------------------------------------------------------------
     // IsRecursionCard
     // -----------------------------------------------------------------------

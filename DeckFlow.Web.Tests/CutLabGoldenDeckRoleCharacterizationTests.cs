@@ -70,21 +70,18 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
         Assert.Equal(ManabaseMode.Casual, Mode);
         Assert.Equal(129, facts.Count);
         Assert.Equal(106, nonlands.Length);
-        Assert.Equal(40, other.Length);
+        Assert.Equal(35, other.Length);
         Assert.Equal<string>(
         [
-            "Authority of the Consuls",
             "Bloodchief Ascension",
             "Bofur, Reliable Guardian // Concerted Care",
             "Bubbling Muck",
             "Chain of Smog",
             "Chaplain's Blessing",
             "Confessor",
-            "Dauntless Dismantler",
             "Deathgreeter",
             "Delney, Streetwise Lookout",
             "Dr. Pulaski, Cynical Clinician",
-            "Drana and Linvala",
             "Elixir of Immortality",
             "Enduring Tenacity",
             "Enlightened Confidant",
@@ -92,7 +89,6 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
             "Imp's Mischief",
             "Kambal, Consul of Allocation",
             "Leonin Elder",
-            "Linvala, Keeper of Silence",
             "Lurrus of the Dream-Den",
             "MacCready, Lamplight Mayor",
             "March of Wretched Sorrow",
@@ -111,7 +107,6 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
             "The Queen of Dale",
             "Tinybones, Pocket Nuisance",
             "Toxic Deluge",
-            "Voice of Victory",
             "Zuran Orb"
         ], other);
     }

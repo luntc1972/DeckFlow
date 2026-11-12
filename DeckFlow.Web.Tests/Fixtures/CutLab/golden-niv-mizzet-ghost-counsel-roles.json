@@ -12,7 +12,7 @@
     "ramp"
   ],
   "Authority of the Consuls": [
-    "other"
+    "stax"
   ],
   "Belladonna Took": [
     "draw",
@@ -35,7 +35,8 @@
   ],
   "Blind Obedience": [
     "payoffs",
-    "wincons"
+    "wincons",
+    "stax"
   ],
   "Bloodchief Ascension": [
     "other"
@@ -89,7 +90,7 @@
     "ramp"
   ],
   "Dauntless Dismantler": [
-    "other"
+    "stax"
   ],
   "Dawn\u0027s Truce": [
     "protection"
@@ -119,7 +120,7 @@
     "other"
   ],
   "Drana and Linvala": [
-    "other"
+    "stax"
   ],
   "Eclipsed Steppe": [
     "lands"
@@ -201,7 +202,7 @@
     "protection"
   ],
   "Linvala, Keeper of Silence": [
-    "other"
+    "stax"
   ],
   "Lotho, Corrupt Shirriff": [
     "ramp"
@@ -403,7 +404,7 @@
     "tutor"
   ],
   "Voice of Victory": [
-    "other"
+    "stax"
   ],
   "Wishclaw Talisman": [
     "tutor"

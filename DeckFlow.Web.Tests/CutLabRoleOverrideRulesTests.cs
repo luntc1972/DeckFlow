@@ -37,6 +37,23 @@ public sealed class CutLabRoleOverrideRulesTests
     }
 
     [Fact]
+    public void Sanitize_StaxOverride_PreservesLoadAndFingerprint()
+    {
+        var state = new CutLabState
+        {
+            Pool = Pool(),
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card", Added = ["stax", "unknown"] }],
+        };
+        var sanitized = CutLabRoleOverrideRules.Sanitize(state);
+        Assert.Equal(["stax"], Assert.Single(sanitized.RoleOverrides!).Added);
+        Assert.Equal(CutLabRoleOverrideRules.Fingerprint(state.RoleOverrides), CutLabRoleOverrideRules.Fingerprint(sanitized.RoleOverrides));
+        Assert.NotEqual(CutLabRoleOverrideRules.Fingerprint([]), CutLabRoleOverrideRules.Fingerprint(sanitized.RoleOverrides));
+        Assert.Contains("stax", CutLabRoleOverrideRules.EditableRoleKeys);
+        Assert.DoesNotContain("lands", CutLabRoleOverrideRules.EditableRoleKeys);
+        Assert.DoesNotContain("other", CutLabRoleOverrideRules.EditableRoleKeys);
+    }
+
+    [Fact]
     public void Deserialize_RecursionOverride_PreservesNormalizedSavedOverride()
     {
         var saved = new CutLabState
@@ -50,6 +67,22 @@ public sealed class CutLabRoleOverrideRulesTests
         var roleOverride = Assert.Single(loaded.RoleOverrides!);
         Assert.Equal("Card", roleOverride.Name);
         Assert.Equal(["recursion"], roleOverride.Added);
+    }
+
+    [Fact]
+    public void Deserialize_StaxOverride_PreservesNormalizedSavedOverride()
+    {
+        var saved = new CutLabState
+        {
+            Pool = Pool(),
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card", Added = ["stax", "unknown"] }],
+        };
+
+        var loaded = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(saved));
+
+        var roleOverride = Assert.Single(loaded.RoleOverrides!);
+        Assert.Equal("Card", roleOverride.Name);
+        Assert.Equal(["stax"], roleOverride.Added);
     }
 
     [Fact]

@@ -116,6 +116,56 @@ public static class DeckStatClassifier
             || oracleText.Contains("each creature", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("gets -", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("exile all", StringComparison.OrdinalIgnoreCase);
 
+    // Authority, Blind Obedience, Dismantler: opponents' permanents enter tapped.
+    // Linvala / Drana and Linvala: opponents' creature abilities cannot be activated.
+    // Voice of Victory: opponents cannot cast during your turn; synthetic tax / spell limits.
+    // Rejected: bare "enters tapped", self-costs, life-loss triggers, extra-turn replacement,
+    // and temporary "this turn" / "until end of turn" restrictions (Silence, Orim's Chant, Bilbo's Gambit).
+    private static readonly string[] StaxOracleNeedles =
+    [
+        "your opponents control enter tapped",
+        "your opponents control can't be activated",
+        "your opponents can't cast",
+        "your opponents can't activate",
+        "spells cost {",
+        "each player can't cast more than",
+        "each player can cast only",
+    ];
+
+    /// <summary>Returns whether a catalog staple or continuing opponent restriction supplies stax.</summary>
+    public static bool IsStaxCard(string name, string oracleText)
+    {
+        if (StaxProtectionCatalog.IsStax(name))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(oracleText))
+        {
+            return false;
+        }
+
+        foreach (string sentence in oracleText.Split(['.', '\n', ';']))
+        {
+            if (sentence.Contains("this turn", StringComparison.OrdinalIgnoreCase)
+                || sentence.Contains("until end of turn", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            foreach (string needle in StaxOracleNeedles)
+            {
+                if (sentence.Contains(needle, StringComparison.OrdinalIgnoreCase)
+                    && (needle != "spells cost {" || sentence.Contains("more to cast", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Returns <see langword="true"/> when the card returns cards from the graveyard.
     /// </summary>

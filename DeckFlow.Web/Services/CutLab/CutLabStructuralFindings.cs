@@ -403,7 +403,7 @@ public static class CutLabStructuralFindings
     private static readonly IReadOnlySet<string> FunctionalCategoryKeys = new HashSet<string>(StringComparer.Ordinal)
     {
         "ramp", "mana rock", "mana dork", "mana", "fixing", "land", "utility land", "card draw", "draw",
-        "removal", "board wipe", "protection", "tutor", "counterspell", "recursion", "utility"
+        "removal", "board wipe", "protection", "tutor", "counterspell", "recursion", "stax", "utility"
     };
 
     private static IEnumerable<CutLabFinding> ComputeRedundantFinishers(

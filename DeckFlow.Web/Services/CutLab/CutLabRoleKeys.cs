@@ -6,11 +6,14 @@ public static class CutLabRoleKeys
     /// <summary>Role key for graveyard recursion.</summary>
     public const string Recursion = "recursion";
 
+    /// <summary>Role key for continuing opponent restrictions and taxes.</summary>
+    public const string Stax = "stax";
+
     /// <summary>Display-only fallback role key.</summary>
     public const string Residual = "other";
 
     /// <summary>Roles that may be displayed and assigned without a floor.</summary>
-    public static readonly IReadOnlyList<string> Floorless = Array.AsReadOnly(new[] { Recursion });
+    public static readonly IReadOnlyList<string> Floorless = Array.AsReadOnly(new[] { Recursion, Stax });
 
     /// <summary>Floor roles followed by floor-less roles and the display-only fallback.</summary>
     public static readonly IReadOnlyList<string> Display = Array.AsReadOnly(

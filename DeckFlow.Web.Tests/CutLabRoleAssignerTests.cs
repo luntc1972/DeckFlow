@@ -639,6 +639,30 @@ public sealed class CutLabRoleAssignerTests
         Assert.Equal(["lands"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
     }
 
+    [Fact]
+    public void AssignRoles_StaxTagOnly_EmitsStax()
+    {
+        Assert.Equal(["stax"], CutLabRoleAssigner.AssignRoles(Fact("Category-only", "Artifact", ""), ["StAx"], ManabaseMode.Casual));
+    }
+
+    [Theory]
+    [InlineData("Authority of the Consuls", "Creatures your opponents control enter tapped.", true)]
+    [InlineData("Silence", "Your opponents can't cast spells this turn.", false)]
+    public void AssignRoles_StaxDetector_MatchesContract(string name, string oracle, bool expected)
+    {
+        Assert.Equal(expected, CutLabRoleAssigner.AssignRoles(Fact(name, "Enchantment", oracle), [], ManabaseMode.Casual).Contains("stax"));
+    }
+
+    [Fact]
+    public void AssignRoles_StaxOnBackFace_DoesNotReadPastExplicitFront()
+    {
+        CardFact fact = Fact("Synthetic", "Artifact", "Creatures your opponents control enter tapped.") with
+        {
+            FrontFaceOracleText = "{T}: Add {C}.",
+        };
+        Assert.DoesNotContain("stax", CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
+    }
+
     private static CardFact Fact(string name, string typeLine, string? oracle = null) => new()
     {
         Name = name,

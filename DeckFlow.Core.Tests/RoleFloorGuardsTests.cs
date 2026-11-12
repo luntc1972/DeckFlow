@@ -46,11 +46,11 @@ public sealed class RoleFloorGuardsTests
     }
 
     [Fact]
-    public void FindTaxonomyDrift_RecursionEmission_DeclaredFloorless_ReturnsNull()
+    public void FindTaxonomyDrift_TwoFloorlessEmissions_DeclaredFloorless_ReturnsNull()
     {
         string? result = RoleFloorGuards.FindTaxonomyDrift(
-            ShippedRoleKeys, ShippedRoleKeys, [.. ShippedRoleKeys, "recursion"], "other",
-            floorlessRoleKeys: ["recursion"]);
+            ShippedRoleKeys, ShippedRoleKeys, [.. ShippedRoleKeys, "recursion", "stax"], "other",
+            floorlessRoleKeys: ["recursion", "stax"]);
 
         Assert.Null(result);
     }
@@ -59,7 +59,7 @@ public sealed class RoleFloorGuardsTests
     public void FindTaxonomyDrift_RecursionEmission_UndeclaredFloorless_ReportsIt()
     {
         string? result = RoleFloorGuards.FindTaxonomyDrift(
-            ShippedRoleKeys, ShippedRoleKeys, [.. ShippedRoleKeys, "recursion"], "other",
+            ShippedRoleKeys, ShippedRoleKeys, [.. ShippedRoleKeys, "recursion", "stax"], "other",
             floorlessRoleKeys: []);
 
         Assert.Contains("recursion", Assert.IsType<string>(result));
@@ -69,8 +69,8 @@ public sealed class RoleFloorGuardsTests
     public void FindTaxonomyDrift_FloorlessShippedKey_DoesNotRequireTargetOrProbe()
     {
         Assert.Null(RoleFloorGuards.FindTaxonomyDrift(
-            [.. ShippedRoleKeys, "recursion"], ShippedRoleKeys, ShippedRoleKeys, "other",
-            floorlessRoleKeys: ["recursion"]));
+            [.. ShippedRoleKeys, "recursion", "stax"], ShippedRoleKeys, ShippedRoleKeys, "other",
+            floorlessRoleKeys: ["recursion", "stax"]));
     }
 
     [Fact]
@@ -146,7 +146,8 @@ public sealed class RoleFloorGuardsTests
             ShippedRoleKeys,
             ShippedRoleKeys.Where(role => !string.Equals(role, "protection", StringComparison.Ordinal)).ToArray(),
             ShippedRoleKeys,
-            residualRoleKey: "other");
+            residualRoleKey: "other",
+            floorlessRoleKeys: ["recursion", "stax"]);
 
         Assert.NotNull(result);
         Assert.Contains("shipped keys missing from TargetRoles: protection", result, StringComparison.Ordinal);

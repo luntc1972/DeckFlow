@@ -153,7 +153,7 @@ test.afterEach(async () => {
   heldLock = null;
 });
 
-test('renders the three structure sections with 12 collapsed role groups and 10 floor inputs', async ({ page }) => {
+test('renders the three structure sections with 13 collapsed role groups and 10 floor inputs', async ({ page }) => {
   await importPool(page);
 
   await expect(page.getByRole('heading', { name: 'How your pool competes' })).toBeVisible();
@@ -161,7 +161,7 @@ test('renders the three structure sections with 12 collapsed role groups and 10 
   await expect(page.getByRole('heading', { name: 'Role floors' })).toBeVisible();
 
   const roleGroups = page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]');
-  await expect(roleGroups).toHaveCount(12);
+  await expect(roleGroups).toHaveCount(13);
   await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"][open]')).toHaveCount(0);
   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(10);
   await expect(page.locator('.cutlab-findings-count')).toBeVisible();

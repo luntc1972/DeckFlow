@@ -26,6 +26,7 @@ public static class CutLabRoleAssigner
     private const string PayoffsRole = "payoffs";
     private const string WinconsRole = "wincons";
     private const string RecursionRole = CutLabRoleKeys.Recursion;
+    private const string StaxRole = CutLabRoleKeys.Stax;
     private const string OtherRole = CutLabRoleKeys.Residual;
 
     private static readonly string[] RoleKeys =
@@ -70,6 +71,7 @@ public static class CutLabRoleAssigner
             ["payoffs"] = "Payoffs",
             ["wincons"] = "Win conditions",
             ["recursion"] = "Recursion",
+            [StaxRole] = "Stax",
             ["other"] = "Other",
         };
 
@@ -210,6 +212,12 @@ public static class CutLabRoleAssigner
             || categories.Contains(RecursionRole, StringComparer.OrdinalIgnoreCase))
         {
             assigned.Add(RecursionRole);
+        }
+
+        if (DeckStatClassifier.IsStaxCard(fact.Name, oracle)
+            || categories.Contains(StaxRole, StringComparer.OrdinalIgnoreCase))
+        {
+            assigned.Add(StaxRole);
         }
 
         if (assigned.Count == 0)

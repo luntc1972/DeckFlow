@@ -37,6 +37,24 @@ public sealed class CutLabCutRoundEngineTests
     }
 
     [Fact]
+    public void BuildQueue_LockedFloorRoleWithStax_PreservesAdvisoryOrderAndGroups()
+    {
+        CutLabLockedOvershootAdvisory Advisory(string[] roles) => Assert.IsType<CutLabLockedOvershootAdvisory>(
+            CutLabCutRoundEngine.BuildQueue(
+                [Card("Draw", 1, quantity: 99, isLocked: true, roles: roles),
+                 Card("Ramp", 1, quantity: 3, isLocked: true, roles: ["ramp"]),
+                 Card("Floorless", 1, isLocked: true, roles: ["stax"])],
+                Findings(), [], cardsToCutTarget: 3,
+                floorByRole: new Dictionary<string, int> { ["draw"] = 1, ["ramp"] = 1 },
+                roleCounts: new Dictionary<string, int> { ["draw"] = 99, ["ramp"] = 3 }).LockedOvershootAdvisory);
+        var baseline = Advisory(["draw"]);
+        var expanded = Advisory(["draw", "stax"]);
+        Assert.Equal(baseline.Groups.Select(group => group.RoleKey), expanded.Groups.Select(group => group.RoleKey));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(baseline), System.Text.Json.JsonSerializer.Serialize(expanded));
+        Assert.Contains(expanded.Groups, group => group.RoleKey == "other");
+    }
+
+    [Fact]
     public void RoundQueueItem_LegacyJson_DefaultsToUnchangedBanner()
     {
         const string json = """{"CardName":"Candidate","RoundKey":"round-2","RoundLabel":"","FindingCount":1,"DiscriminatingFindingKinds":[]}""";
