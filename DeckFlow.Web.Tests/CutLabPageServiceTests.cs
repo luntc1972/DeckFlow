@@ -1819,7 +1819,7 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
-    public async Task ProcessAsync_PartnerCommanders_UseMaxCommanderManaValueForRampAndDrawFloors()
+    public async Task ProcessAsync_PartnerCommanders_UseMaxCommanderManaValueForRampFloor()
     {
         var entries = new List<DeckEntry>
         {
@@ -1849,7 +1849,7 @@ public sealed class CutLabPageServiceTests
 
         Assert.True(result.HasResult);
         Assert.Equal(13, Assert.Single(result.ResolvedFloors, floor => floor.Role == "ramp").DefaultValue);
-        Assert.Equal(11, Assert.Single(result.ResolvedFloors, floor => floor.Role == "draw").DefaultValue);
+        Assert.Equal(10, Assert.Single(result.ResolvedFloors, floor => floor.Role == "draw").DefaultValue);
     }
 
     [Fact]

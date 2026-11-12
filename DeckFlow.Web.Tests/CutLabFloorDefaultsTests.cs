@@ -9,6 +9,30 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Coverage for Cut Lab role-floor default derivation, fallbacks, and user-override merge.</summary>
 public sealed class CutLabFloorDefaultsTests
 {
+    [Theory]
+    [InlineData(2.0, 8)]
+    [InlineData(3.0, 10)]
+    [InlineData(5.0, 13)]
+    [InlineData(8.0, 14)]
+    public void ResolveDefaults_DrawBracketValueIsBandMinimum_RampFollowsCommanderManaValue(double commanderManaValue, int expectedRamp)
+    {
+        var resolved = CutLabFloorDefaults.ResolveDefaults(
+            declaredBracket: 4,
+            playExperience: "Focused",
+            commanderManaValue: commanderManaValue,
+            commanderNames: ["Atraxa, Praetors' Voice"],
+            baseline: new FakeBaselineProvider(new ManabaseBracketBaseline { Bracket = 4, AvgLands = 36.4, DeckCount = 1000 }),
+            cedhBaseline: null,
+            roleFloorBaseline: null,
+            priorFloors: []);
+
+        CutLabResolvedFloor draw = resolved.Single(floor => floor.Role == "draw");
+        Assert.Equal(ManabaseRampDrawBudgetCalculator.DrawBandMin, draw.BracketValue);
+        Assert.Equal(ManabaseRampDrawBudgetCalculator.DrawBandMin, draw.DefaultValue);
+        Assert.Equal(ManabaseRampDrawBudgetCalculator.DrawBandMin, draw.Floor);
+        Assert.Equal(expectedRamp, resolved.Single(floor => floor.Role == "ramp").BracketValue);
+    }
+
     [Fact]
     public void ResolveDefaults_BracketFourAndCommanderManaValueThree_UsesBracketRowBudgetAndStaticColumn()
     {
@@ -25,7 +49,7 @@ public sealed class CutLabFloorDefaultsTests
         Assert.Equal(CutLabFloorRules.RoleKeys, resolved.Select(floor => floor.Role).ToArray());
         AssertFloor(resolved[0], "lands", 36, false, 36, 36, null, 4, false);
         AssertFloor(resolved[1], "ramp", 10, false, 10, 10, null, 4, false);
-        AssertFloor(resolved[2], "draw", 14, false, 14, 14, null, 4, false);
+        AssertFloor(resolved[2], "draw", 10, false, 10, 10, null, 4, false);
         AssertFloor(resolved[3], "interaction-targeted", 7, false, 7, 7, null, 4, false);
         AssertFloor(resolved[4], "interaction-mass", 3, false, 3, 3, null, 4, false);
         AssertFloor(resolved[5], "protection", 4, false, 4, 4, null, 4, false);
@@ -161,7 +185,7 @@ public sealed class CutLabFloorDefaultsTests
             ]);
 
         AssertFloor(resolved[3], "interaction-targeted", 15, true, 7, 7, null, 4, false);
-        AssertFloor(resolved[2], "draw", 14, false, 14, 14, null, 4, false);
+        AssertFloor(resolved[2], "draw", 10, false, 10, 10, null, 4, false);
     }
 
     [Theory]
@@ -374,7 +398,7 @@ public sealed class CutLabFloorDefaultsTests
         CutLabResolvedFloor draw = resolved.Single(floor => floor.Role == "draw");
 
         Assert.Equal(15, ramp.Floor);
-        Assert.Equal(14, draw.Floor);
+        Assert.Equal(10, draw.Floor);
         Assert.True(ramp.Floor + draw.Floor > 24);
     }
 

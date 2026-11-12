@@ -66,7 +66,7 @@ public static class CutLabFloorDefaults
     /// <summary>Resolves all nine Cut Lab role floors in stable role order, merging in any user overrides.</summary>
     /// <param name="declaredBracket">User-declared bracket, when present.</param>
     /// <param name="playExperience">User-declared play-experience string.</param>
-    /// <param name="commanderManaValue">Resolved commander mana value used for the ramp/draw split.</param>
+    /// <param name="commanderManaValue">Resolved commander mana value used to set the ramp floor only.</param>
     /// <param name="commanderNames">Resolved commander names for optional cEDH lands baseline lookup.</param>
     /// <param name="baseline">Optional bundled per-bracket baseline provider.</param>
     /// <param name="cedhBaseline">Optional commander-keyed cEDH lands baseline provider.</param>
@@ -94,11 +94,10 @@ public static class CutLabFloorDefaults
         int resolvedBracket = ResolveBracket(declaredBracket, playExperience, out bool bracketWasFallback);
         int landsDefault = ResolveLandsDefault(resolvedBracket, commanderNames, baseline, cedhBaseline);
         int rampDefault = ManabaseRampDrawBudgetCalculator.CalculateTargetRamp(commanderManaValue);
-        // Why: 24 - rampDefault remains the bracket-derived draw component, mirroring
-        // ManabaseRampDrawBudgetCalculator's fixed split. After commander-aware max() resolution,
-        // ramp and draw are independent minimums and may sum past 24 because floors are minimums,
-        // not a budget.
-        int drawDefault = 24 - rampDefault;
+        // Why: The draw floor follows the Manabase draw band minimum (user decision 2026-11-12)
+        // so both tools state one draw number; the old fixed-sum split had no citation.
+        // Ramp and draw remain independent minimums and may sum past any slot budget.
+        int drawDefault = ManabaseRampDrawBudgetCalculator.DrawBandMin;
 
         Dictionary<string, CutLabRoleFloor> userOverrides = GetUserOverrides(priorFloors);
         List<CutLabResolvedFloor> resolved = [];

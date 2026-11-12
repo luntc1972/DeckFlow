@@ -124,7 +124,10 @@ public static class ManabaseRampDrawBudgetCalculator
         };
     }
 
-    /// <summary>Also consumed by CutLabFloorDefaults for Cut Lab ramp/draw floor derivation.</summary>
+    /// <summary>
+    /// Also consumed by CutLabFloorDefaults for the Cut Lab ramp floor;
+    /// the Cut Lab draw floor reads DrawBandMin.
+    /// </summary>
     public static int CalculateTargetRamp(double threshold)
     {
         double rampTarget = threshold switch
