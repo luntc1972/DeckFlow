@@ -66,24 +66,12 @@ public static class ManabaseVerdictSynthesizer
 
         if (budget is not null && budget.IsRampLight)
         {
-            issues.Add(BuildBudgetIssue(
-                prefix: "Ramp looks light",
-                countLabel: "ramp",
-                count: budget.RampCount,
-                targetRamp: budget.TargetRamp,
-                targetDrawMin: budget.TargetDrawMin,
-                targetDrawMax: budget.TargetDrawMax,
-                threshold: budget.Threshold,
-                thresholdSource: budget.ThresholdSource,
-                shortfall: budget.RampShort,
-                example: "a 2-mana rock"));
+            issues.Add(BuildRampLightIssue(budget));
         }
 
         if (budget is not null && budget.IsDrawLight)
         {
-            issues.Add(string.Create(
-                CultureInfo.InvariantCulture,
-                $"Draw looks light: ~{budget.DrawCount:0.#} draw pieces vs a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band - add ~{budget.DrawShort} (e.g. a repeatable card-draw enchantment). (community heuristic, not Karsten math)"));
+            issues.Add(ManabaseWording.DrawLightLine(budget));
         }
 
         if (issues.Count > 3)
@@ -116,21 +104,11 @@ public static class ManabaseVerdictSynthesizer
             $"{finding.Color} access is inconsistent - {slowSpells} {finding.Color} {ManabaseWording.Pluralize("spell", slowSpells)} miss their on-curve window on color; heuristic guidance: add 1-2 {finding.Color}-producing lands (swap in a dual or cut a colorless utility land).");
     }
 
-    private static string BuildBudgetIssue(
-        string prefix,
-        string countLabel,
-        double count,
-        int targetRamp,
-        int targetDrawMin,
-        int targetDrawMax,
-        double threshold,
-        ManabaseRampDrawThresholdSource thresholdSource,
-        int shortfall,
-        string example)
+    private static string BuildRampLightIssue(ManabaseRampDrawBudget budget)
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{prefix}: the deck runs ~{count:0.#} {countLabel} vs a ~{targetRamp} ramp target for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) and a {targetDrawMin}-{targetDrawMax} draw band - add ~{shortfall} {countLabel} {ManabaseWording.Pluralize("piece", shortfall)} (e.g. {example}). (community heuristic, not Karsten math)");
+            $"Ramp looks light: the deck runs ~{budget.RampCount:0.#} ramp vs a ~{budget.TargetRamp} ramp target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}) and a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band - add ~{budget.RampShort} ramp {ManabaseWording.Pluralize("piece", budget.RampShort)} (e.g. a 2-mana rock). (community heuristic, not Karsten math)");
     }
 
     private static string BuildNoIssueReason(

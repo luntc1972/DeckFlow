@@ -31,4 +31,14 @@ public static class ManabaseWording
     public static string ScrySourceCreditLine(int copies, double credit) => string.Create(
         CultureInfo.InvariantCulture,
         $"Scry source credit: +{credit:0.0} any-color sources ({copies} cheap scry {Pluralize("spell", copies)} × 0.2) — separate from the ≤2 MV ramp/draw land credit, so draw+scry cards can count in both places.");
+
+    /// <summary>Format the advisory line shown when draw is below the community heuristic band.</summary>
+    public static string DrawLightLine(ManabaseRampDrawBudget budget) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"Draw looks light: ~{budget.DrawCount:0.#} draw pieces vs a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band - add ~{budget.DrawShort} (e.g. a repeatable card-draw enchantment). (community heuristic, not Karsten math)");
+
+    /// <summary>Format the advisory line shown when draw exceeds the community heuristic band.</summary>
+    public static string DrawHeavyLine(ManabaseRampDrawBudget budget) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"Draw looks heavy: ~{budget.DrawCount:0.#} draw pieces vs a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band. (community heuristic, not Karsten math)");
 }

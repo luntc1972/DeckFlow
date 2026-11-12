@@ -168,7 +168,8 @@ public static class ManabaseClassifier
             }
 
             // Spell front: contributes to the curve.
-            if (!card.IsCommander)
+            bool inNinetyNine = !card.IsCommander;
+            if (inNinetyNine)
             {
                 mvSum += card.ManaValue * card.Quantity;
                 nonlandCount += card.Quantity;
@@ -227,7 +228,7 @@ public static class ManabaseClassifier
             }
 
             // Why: The Karsten regression and Command Zone template count the 99; AverageManaValue already excludes commanders.
-            if (!card.IsCommander && card.ManaValue <= 2 && (rampCreditV2 ? IsRepeatableRampOrDraw(card) : IsRampOrDraw(card)))
+            if (inNinetyNine && card.ManaValue <= 2 && (rampCreditV2 ? IsRepeatableRampOrDraw(card) : IsRampOrDraw(card)))
             {
                 rampUnderThree += card.Quantity;
                 rampNames.Add(card.Name);
@@ -240,8 +241,8 @@ public static class ManabaseClassifier
 
             SourceCapabilities sourceCapabilities = GetSourceCapabilities(card);
 
-            bool isRampPieceForBudget = !card.IsCommander && IsRampPieceForBudget(card);
-            bool isDrawPieceForBudget = !card.IsCommander && IsDrawPieceForBudget(card);
+            bool isRampPieceForBudget = inNinetyNine && IsRampPieceForBudget(card);
+            bool isDrawPieceForBudget = inNinetyNine && IsDrawPieceForBudget(card);
             if (isRampPieceForBudget)
             {
                 rampPieces += card.Quantity;

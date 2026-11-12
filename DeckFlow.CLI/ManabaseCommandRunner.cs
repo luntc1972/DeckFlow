@@ -250,11 +250,11 @@ internal static class ManabaseCommandRunner
             }
             if (budget.IsDrawLight)
             {
-                WriteInvariant($"  Draw looks light: ~{budget.DrawCount:0.#} draw pieces vs a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band - add ~{budget.DrawShort} (e.g. a repeatable card-draw enchantment). (community heuristic, not Karsten math)");
+                WriteInvariant($"  {ManabaseWording.DrawLightLine(budget)}");
             }
             else if (budget.IsDrawHeavy)
             {
-                WriteInvariant($"  Draw looks heavy: ~{budget.DrawCount:0.#} draw pieces vs a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band. (community heuristic, not Karsten math)");
+                WriteInvariant($"  {ManabaseWording.DrawHeavyLine(budget)}");
             }
         }
 
