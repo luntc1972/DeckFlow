@@ -239,7 +239,7 @@ internal static class ManabaseCommandRunner
         {
             Console.WriteLine();
             WriteInvariant(
-                $"Ramp/draw budget: {budget.RampCount:0.#} ramp / {budget.DrawCount:0.#} draw (target ~{budget.TargetRamp}/{budget.TargetDraw}).");
+                $"Ramp/draw budget: {budget.RampCount:0.#} ramp / {budget.DrawCount:0.#} draw (target ~{budget.TargetRamp} ramp, {budget.TargetDrawMin}-{budget.TargetDrawMax} draw).");
             if (budget.IsRampLight)
             {
                 WriteInvariant($"  Ramp looks light — about {budget.RampShort} more ramp piece(s) suggested.");
@@ -251,6 +251,10 @@ internal static class ManabaseCommandRunner
             if (budget.IsDrawLight)
             {
                 WriteInvariant($"  Card draw looks light — about {budget.DrawShort} more draw piece(s) suggested.");
+            }
+            else if (budget.IsDrawHeavy)
+            {
+                WriteInvariant($"  Card draw looks heavy — above the {budget.TargetDrawMin}-{budget.TargetDrawMax} band.");
             }
         }
 

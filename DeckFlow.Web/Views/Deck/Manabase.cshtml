@@ -879,13 +879,13 @@
                     {
                         <span>Ramp/draw split looks balanced. </span>
                     }
-                    <span>The deck runs <strong>@budget.RampCount.ToString("0.#")</strong> ramp / <strong>@budget.DrawCount.ToString("0.#")</strong> draw; for a ~MV@(budget.Threshold.ToString("0.#")) threshold a common split is @budget.TargetRamp / @budget.TargetDraw.</span>
+                    <span>The deck runs <strong>@budget.RampCount.ToString("0.#")</strong> ramp / <strong>@budget.DrawCount.ToString("0.#")</strong> draw; for a ~MV@(budget.Threshold.ToString("0.#")) threshold a common ramp target is @budget.TargetRamp, with a @(budget.TargetDrawMin)-@(budget.TargetDrawMax) draw band.</span>
                     @if (budget.OverlapCount > 0)
                     {
                         <span> (@budget.OverlapCount do both)</span>
                     }
                 </p>
-                <p class="manabase-lens-note">Community heuristic, not Karsten math. Threshold proxied from @thresholdProxy.</p>
+                <p class="manabase-lens-note">Community heuristic, not Karsten math; the draw band follows the Command Zone template. Threshold proxied from @thresholdProxy.</p>
                 @if (showRampDetails)
                 {
                     RenderRampBreakdownDetails(rampSummary);

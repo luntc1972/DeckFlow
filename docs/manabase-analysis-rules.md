@@ -241,9 +241,10 @@ count as real lands, §1.4 — so the old `MdfcCommonCredit`/`MdfcMythicCredit` 
 ## 5. Derived reads (layered on the sim)
 
 ### 5.1 Ramp/draw budget (advisory — never touches target/color/health)
-- **Threshold** (`RDB:126-153`): highest commander MV if a commander exists, else the 75th-percentile MV of non-mana spells (`min(count−1, ceil(count·0.75))`), else 4.0.
-- **TargetRamp** (`RDB:113-124`): `≤2→8`; `≤4→8+2(t−2)`; `≤6→12+(t−4)`; `>6→14`. **TargetDraw = 24 − TargetRamp**.
-- **IsBalanced** = `|rampDelta| ≤ 2 AND |drawDelta| ≤ 2` — both axes (`RDB:87`). `IsRampLight/Heavy` = `rampDelta </> ±2`; `IsDrawLight` = `drawDelta < −2` (no draw-heavy). `RampShort/DrawShort = ceil(−delta)` when light — `RDB:88-93`.
+- **Threshold** (`RDB:141-168`): highest commander MV if a commander exists, else the 75th-percentile MV of non-mana spells (`min(count−1, ceil(count·0.75))`), else 4.0.
+- **TargetRamp** (`RDB:128-139`): `≤2→8`; `≤4→8+2(t−2)`; `≤6→12+(t−4)`; `>6→14`. The threshold affects ramp only.
+- **Draw band** (`RDB:74-82`, `RDB:115-116`): 10-12 draw pieces, inclusive and threshold-independent, from the Command Zone deckbuilding template. `ManabaseRampDrawBudgetCalculator.DrawBandMin` / `DrawBandMax` are the canonical code source; the record exposes `TargetDrawMin` / `TargetDrawMax`.
+- **IsBalanced** (`RDB:96-105`) = `|rampDelta| ≤ 2 AND 10 ≤ DrawCount ≤ 12`. `IsRampLight/Heavy` = `rampDelta </> ±2`; `RampShort = ceil(−rampDelta)` when ramp-light. `IsDrawLight` means below the minimum; `DrawShort = ceil(minimum − DrawCount)` when draw-light, otherwise zero. `IsDrawHeavy` means above the maximum.
 
 ### 5.2 Tap analysis (`ComputeTapAnalysis`, `MA:916-962`) — flag `tap-analyzer`
 - Per-color untapped % = `round(100·rawUntapped/rawTotal)` (raw un-rounded weights). Overall = same over sums. Turn1UntappedPercent = mean `Turn1UntappedTrials` over non-commander rows ÷ trials.

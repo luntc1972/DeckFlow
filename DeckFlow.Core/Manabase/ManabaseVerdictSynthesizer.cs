@@ -71,7 +71,8 @@ public static class ManabaseVerdictSynthesizer
                 countLabel: "ramp",
                 count: budget.RampCount,
                 targetRamp: budget.TargetRamp,
-                targetDraw: budget.TargetDraw,
+                targetDrawMin: budget.TargetDrawMin,
+                targetDrawMax: budget.TargetDrawMax,
                 threshold: budget.Threshold,
                 thresholdSource: budget.ThresholdSource,
                 shortfall: budget.RampShort,
@@ -85,7 +86,8 @@ public static class ManabaseVerdictSynthesizer
                 countLabel: "draw",
                 count: budget.DrawCount,
                 targetRamp: budget.TargetRamp,
-                targetDraw: budget.TargetDraw,
+                targetDrawMin: budget.TargetDrawMin,
+                targetDrawMax: budget.TargetDrawMax,
                 threshold: budget.Threshold,
                 thresholdSource: budget.ThresholdSource,
                 shortfall: budget.DrawShort,
@@ -127,7 +129,8 @@ public static class ManabaseVerdictSynthesizer
         string countLabel,
         double count,
         int targetRamp,
-        int targetDraw,
+        int targetDrawMin,
+        int targetDrawMax,
         double threshold,
         ManabaseRampDrawThresholdSource thresholdSource,
         int shortfall,
@@ -135,7 +138,7 @@ public static class ManabaseVerdictSynthesizer
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{prefix}: the deck runs ~{count:0.#} {countLabel} vs a ~{targetRamp}/{targetDraw} split for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) - add ~{shortfall} {countLabel} {ManabaseWording.Pluralize("piece", shortfall)} (e.g. {example}). (community heuristic, not Karsten math)");
+            $"{prefix}: the deck runs ~{count:0.#} {countLabel} vs a ~{targetRamp} ramp target for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) and a {targetDrawMin}-{targetDrawMax} draw band - add ~{shortfall} {countLabel} {ManabaseWording.Pluralize("piece", shortfall)} (e.g. {example}). (community heuristic, not Karsten math)");
     }
 
     private static string BuildNoIssueReason(

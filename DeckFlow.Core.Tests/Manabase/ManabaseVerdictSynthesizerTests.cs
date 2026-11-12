@@ -44,7 +44,7 @@ public sealed class ManabaseVerdictSynthesizerTests
                     CreateFinding(ManaColor.Blue, actualSources: 16.7, requiredSources: 19, drivingSpell: "Cryptic Command"),
                 ]),
             ManabaseMode.Casual,
-            CreateBudget(rampCount: 6.0, drawCount: 12.0, targetRamp: 12, targetDraw: 12, threshold: 4.0, overlapCount: 1, isRampLight: true, rampShort: 6));
+            CreateBudget(rampCount: 6.0, drawCount: 12.0, targetRamp: 12, threshold: 4.0, overlapCount: 1, isRampLight: true, rampShort: 6));
 
         Assert.True(verdict.HasIssues);
         Assert.Equal(3, verdict.Lines.Count);
@@ -55,7 +55,7 @@ public sealed class ManabaseVerdictSynthesizerTests
             "Add ~3 more lands - the base is short for this curve.",
             verdict.Lines[1]);
         Assert.Equal(
-            "Ramp looks light: the deck runs ~6 ramp vs a ~12/12 split for a ~MV4 threshold (the commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "Ramp looks light: the deck runs ~6 ramp vs a ~12 ramp target for a ~MV4 threshold (the commander's mana value) and a 10-12 draw band - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
             verdict.Lines[2]);
         Assert.DoesNotContain(verdict.Lines, line => line.Contains("plus", System.StringComparison.Ordinal));
     }
@@ -74,7 +74,7 @@ public sealed class ManabaseVerdictSynthesizerTests
                     CreateFinding(ManaColor.Blue, actualSources: 16.0, requiredSources: 14, drivingSpell: "Counterspell"),
                 ]),
             ManabaseMode.Casual,
-            CreateBudget(rampCount: 12.0, drawCount: 12.0, targetRamp: 12, targetDraw: 12, threshold: 4.0, overlapCount: 2));
+            CreateBudget(rampCount: 12.0, drawCount: 12.0, targetRamp: 12, threshold: 4.0, overlapCount: 2));
 
         Assert.False(verdict.HasIssues);
         Assert.Empty(verdict.Lines);
@@ -100,7 +100,7 @@ public sealed class ManabaseVerdictSynthesizerTests
                     CreateFinding(ManaColor.Blue, actualSources: 16.0, requiredSources: 14, drivingSpell: "Counterspell"),
                 ]),
             ManabaseMode.Casual,
-            CreateBudget(rampCount: 12.0, drawCount: 16.0, targetRamp: 12, targetDraw: 12, threshold: 4.0, overlapCount: 0, isBalanced: false));
+            CreateBudget(rampCount: 12.0, drawCount: 16.0, targetRamp: 12, threshold: 4.0, overlapCount: 0, isBalanced: false, isDrawHeavy: true));
 
         Assert.False(verdict.HasIssues);
         Assert.Contains("ramp/draw (12 / 16) leans off the community split", verdict.NoIssueReason);
@@ -125,14 +125,13 @@ public sealed class ManabaseVerdictSynthesizerTests
                 rampCount: 7.0,
                 drawCount: 8.0,
                 targetRamp: 12,
-                targetDraw: 12,
                 threshold: 5.0,
                 overlapCount: 0,
                 thresholdSource: ManabaseRampDrawThresholdSource.CurveProxy,
                 isRampLight: true,
                 rampShort: 5,
                 isDrawLight: true,
-                drawShort: 4));
+                drawShort: 2));
 
         Assert.True(verdict.HasIssues);
         Assert.Equal(4, verdict.Lines.Count);
@@ -143,7 +142,7 @@ public sealed class ManabaseVerdictSynthesizerTests
             "Add ~5 more lands - the base is short for this curve.",
             verdict.Lines[1]);
         Assert.Equal(
-            "Ramp looks light: the deck runs ~7 ramp vs a ~12/12 split for a ~MV5 threshold (the curve's 75th-percentile mana value (no single commander)) - add ~5 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "Ramp looks light: the deck runs ~7 ramp vs a ~12 ramp target for a ~MV5 threshold (the curve's 75th-percentile mana value (no single commander)) and a 10-12 draw band - add ~5 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
             verdict.Lines[2]);
         Assert.Equal("…plus 1 more", verdict.Lines[3]);
     }
@@ -311,7 +310,6 @@ public sealed class ManabaseVerdictSynthesizerTests
         double rampCount,
         double drawCount,
         int targetRamp,
-        int targetDraw,
         double threshold,
         int overlapCount,
         ManabaseRampDrawThresholdSource thresholdSource = ManabaseRampDrawThresholdSource.CommanderManaValue,
@@ -320,7 +318,10 @@ public sealed class ManabaseVerdictSynthesizerTests
         bool isDrawLight = false,
         int drawShort = 0,
         bool? isBalanced = null,
-        bool isRampHeavy = false) => new()
+        bool isRampHeavy = false,
+        int targetDrawMin = 10,
+        int targetDrawMax = 12,
+        bool isDrawHeavy = false) => new()
         {
             RampCount = rampCount,
             DrawCount = drawCount,
@@ -328,7 +329,9 @@ public sealed class ManabaseVerdictSynthesizerTests
             Threshold = threshold,
             ThresholdSource = thresholdSource,
             TargetRamp = targetRamp,
-            TargetDraw = targetDraw,
+            TargetDrawMin = targetDrawMin,
+            TargetDrawMax = targetDrawMax,
+            IsDrawHeavy = isDrawHeavy,
             // Default mirrors the light-shortfall path; override for heavy-side (surplus) cases the
             // light flags cannot express.
             IsBalanced = isBalanced ?? (!isRampLight && !isDrawLight),

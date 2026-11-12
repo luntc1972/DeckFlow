@@ -36,6 +36,78 @@ public sealed class ManabaseRampDrawBudgetTests
             RampDrawBothCount = overlapCount,
         };
 
+    [Theory]
+    [InlineData(2, 8)]
+    [InlineData(3, 10)]
+    [InlineData(4, 12)]
+    [InlineData(6, 14)]
+    [InlineData(8, 14)]
+    public void Calculate_DrawBandIsTenToTwelveForEveryThreshold(int manaValue, int targetRamp)
+    {
+        ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
+            Deck(targetRamp, 10, 0, Spell("Commander", manaValue, isCommander: true)));
+
+        Assert.Equal(10, budget.TargetDrawMin);
+        Assert.Equal(12, budget.TargetDrawMax);
+        Assert.Equal(targetRamp, budget.TargetRamp);
+    }
+
+    [Fact]
+    public void Calculate_DrawAboveBand_IsDrawHeavyAndNotBalanced()
+    {
+        ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
+            Deck(12, 12.5, 0, Spell("Commander", 4, isCommander: true)));
+
+        Assert.True(budget.IsDrawHeavy);
+        Assert.False(budget.IsDrawLight);
+        Assert.Equal(0, budget.DrawShort);
+        Assert.False(budget.IsBalanced);
+    }
+
+    [Fact]
+    public void Calculate_DrawJustBelowBand_ShortByOne()
+    {
+        ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
+            Deck(12, 9.5, 0, Spell("Commander", 4, isCommander: true)));
+
+        Assert.True(budget.IsDrawLight);
+        Assert.Equal(1, budget.DrawShort);
+        Assert.False(budget.IsDrawHeavy);
+    }
+
+    [Fact]
+    public void Calculate_DrawExactlyAtBandFloor_IsNotLight()
+    {
+        ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
+            Deck(12, 10, 0, Spell("Commander", 4, isCommander: true)));
+
+        Assert.False(budget.IsDrawLight);
+        Assert.True(budget.IsBalanced);
+    }
+
+    [Fact]
+    public void Calculate_MvThreeCommanderWithTenDraw_IsNotDrawLight()
+    {
+        ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
+            Deck(10, 10, 0, Spell("Commander", 3, isCommander: true)));
+
+        Assert.False(budget.IsDrawLight);
+        Assert.False(budget.IsDrawHeavy);
+        Assert.Equal(0, budget.DrawShort);
+        Assert.True(budget.IsBalanced);
+    }
+
+    [Fact]
+    public void Calculate_AnimatedArmyShape_DrawShortMeasuredFromBandFloor()
+    {
+        ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
+            Deck(22.5, 7.5, 3, Spell("Bello", 3, isCommander: true)));
+
+        Assert.True(budget.IsDrawLight);
+        Assert.Equal(3, budget.DrawShort);
+        Assert.True(budget.IsRampHeavy);
+    }
+
     [Fact]
     public void Calculate_UsesHighestCommanderManaValueAsThreshold()
     {
@@ -54,7 +126,8 @@ public sealed class ManabaseRampDrawBudgetTests
         Assert.Equal(5.0, budget.Threshold);
         Assert.Equal(ManabaseRampDrawThresholdSource.CommanderManaValue, budget.ThresholdSource);
         Assert.Equal(13, budget.TargetRamp);
-        Assert.Equal(11, budget.TargetDraw);
+        Assert.Equal(10, budget.TargetDrawMin);
+        Assert.Equal(12, budget.TargetDrawMax);
         Assert.True(budget.IsBalanced);
     }
 
@@ -79,7 +152,8 @@ public sealed class ManabaseRampDrawBudgetTests
         Assert.Equal(4.0, budget.Threshold);
         Assert.Equal(ManabaseRampDrawThresholdSource.CurveProxy, budget.ThresholdSource);
         Assert.Equal(12, budget.TargetRamp);
-        Assert.Equal(12, budget.TargetDraw);
+        Assert.Equal(10, budget.TargetDrawMin);
+        Assert.Equal(12, budget.TargetDrawMax);
         Assert.True(budget.IsBalanced);
     }
 
@@ -101,7 +175,7 @@ public sealed class ManabaseRampDrawBudgetTests
         ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
             Deck(
                 rampCount: 10,
-                drawCount: 14,
+                drawCount: 12,
                 overlapCount: 0,
                 Spell("Commander", 4, isCommander: true)));
 
@@ -109,6 +183,7 @@ public sealed class ManabaseRampDrawBudgetTests
         Assert.False(budget.IsRampLight);
         Assert.False(budget.IsRampHeavy);
         Assert.False(budget.IsDrawLight);
+        Assert.False(budget.IsDrawHeavy);
         Assert.Equal(0, budget.RampShort);
         Assert.Equal(0, budget.DrawShort);
     }
@@ -128,15 +203,15 @@ public sealed class ManabaseRampDrawBudgetTests
         Assert.False(budget.IsRampHeavy);
         Assert.True(budget.IsDrawLight);
         Assert.Equal(4, budget.RampShort);
-        Assert.Equal(3, budget.DrawShort);
+        Assert.Equal(1, budget.DrawShort);
     }
 
     [Fact]
     public void Calculate_RampOnTargetButDrawLight_IsNotBalanced()
     {
-        // Regression: ramp on-target (delta 0) but draw short by >2 must NOT report balanced —
+        // Regression: ramp on-target (delta 0) but draw below the band minimum must NOT report balanced —
         // otherwise the view shows "split looks balanced" beside the verdict's "Draw looks light"
-        // line. Threshold 4 (commander MV) -> target 12 ramp / 12 draw; ramp 12 / draw 8.
+        // line. Threshold 4 (commander MV) -> target 12 ramp / 10-12 draw band; ramp 12 / draw 8.
         ManabaseRampDrawBudget budget = ManabaseRampDrawBudgetCalculator.Calculate(
             Deck(
                 rampCount: 12,
@@ -149,7 +224,7 @@ public sealed class ManabaseRampDrawBudgetTests
         Assert.False(budget.IsRampHeavy);
         Assert.True(budget.IsDrawLight);
         Assert.Equal(0, budget.RampShort);
-        Assert.Equal(4, budget.DrawShort);
+        Assert.Equal(2, budget.DrawShort);
     }
 
     [Fact]
@@ -167,7 +242,7 @@ public sealed class ManabaseRampDrawBudgetTests
         Assert.True(budget.IsRampHeavy);
         Assert.True(budget.IsDrawLight);
         Assert.Equal(0, budget.RampShort);
-        Assert.Equal(4, budget.DrawShort);
+        Assert.Equal(2, budget.DrawShort);
     }
 
     [Fact]
