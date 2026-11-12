@@ -81,10 +81,11 @@ Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false,
 - Known approximation: the fetched land is modeled as a delayed source once the ramp resolves, but the simulator does **not** thin that land out of the library. That slightly overstates later draw density while slightly understating the resolved ramp's deck-compression benefit; over the short castability window those errors partially offset.
 
 ### 1.7 Ramp/draw budget piece counting (`rampCreditV2` flag)
+Both the land-target credit and the budget piece counts exclude commanders, matching the 99-card population used by AverageManaValue.
 - **Land-target credit** `RampAndDrawUnderThree`: `+Quantity` when `ManaValue <= 2` and the ramp/draw predicate matches — `Cls:191-195`.
   - `rampCreditV2` **off** → broad `IsRampOrDraw` (search-land, "Add ", "create a Treasure", draw-a/two) — `Cls:808-818`.
   - `rampCreditV2` **on** (prod) → narrowed `IsRepeatableRampOrDraw` = you-draw OR land-ramp-to-battlefield OR (permanent AND non-one-shot front "Add"); "permanent" here tests the **whole** type line (any spell face disqualifies) — `Cls:847-873`. Drops one-shot rituals/Treasure from the land credit.
-- **Budget piece counts** (independent of the ≤2 gate): `IsRampPieceForBudget` (search-land, "Add ", Treasure, rock/dork, land-ramp) and `IsDrawPieceForBudget` (you-draw) — `Cls:820-832`. Final: `RampPieceCount = rampPieces − 0.5·both`, `DrawPieceCount = drawPieces − 0.5·both` (a dual-purpose card splits half/half) — `Cls:301-303`.
+- **Budget piece counts** (independent of the ≤2 gate): `IsRampPieceForBudget` strips parenthesized reminder text before checking search-land, "Add ", and "create <count> [tapped] Treasure/Lander/Powerstone/Gold token(s)" clauses, alongside rock/dork and land-ramp checks. `IsLandRampToBattlefield` also strips reminder text and explicitly recognizes Lander makers, preserving their simulation sources and <=2 MV land credit; Powerstone and Gold makers are not land ramp — `Cls:1895-1902`. `IsDrawPieceForBudget` checks you-draw — `Cls:1787-1801`. Final: `RampPieceCount = rampPieces − 0.5·both`, `DrawPieceCount = drawPieces − 0.5·both` (a dual-purpose card splits half/half) — `Cls:366-367`.
 
 ### 1.8 Cost reducers & alt/reduced-cost
 - **`DetectCostReducer`** (always-on static generic reducers): needs `(<scope>) spells you cast cost {N} less`; excluded if oracle has "for each / less for / affinity / improvise / convoke / delve / opponent(s)"; amount > 0 — `Cls:938-987`. `ReductionScope` (whole-word): empty→All, instant/sorcery→InstantSorcery, creature→Creature, artifact→Artifact, anything else → dropped — `Cls:1120-1154`.
@@ -240,9 +241,10 @@ count as real lands, §1.4 — so the old `MdfcCommonCredit`/`MdfcMythicCredit` 
 ## 5. Derived reads (layered on the sim)
 
 ### 5.1 Ramp/draw budget (advisory — never touches target/color/health)
-- **Threshold** (`RDB:126-153`): highest commander MV if a commander exists, else the 75th-percentile MV of non-mana spells (`min(count−1, ceil(count·0.75))`), else 4.0.
-- **TargetRamp** (`RDB:113-124`): `≤2→8`; `≤4→8+2(t−2)`; `≤6→12+(t−4)`; `>6→14`. **TargetDraw = 24 − TargetRamp**.
-- **IsBalanced** = `|rampDelta| ≤ 2 AND |drawDelta| ≤ 2` — both axes (`RDB:87`). `IsRampLight/Heavy` = `rampDelta </> ±2`; `IsDrawLight` = `drawDelta < −2` (no draw-heavy). `RampShort/DrawShort = ceil(−delta)` when light — `RDB:88-93`.
+- **Threshold** (`RDB:141-168`): highest commander MV if a commander exists, else the 75th-percentile MV of non-mana spells (`min(count−1, ceil(count·0.75))`), else 4.0.
+- **TargetRamp** (`RDB:128-139`): `≤2→8`; `≤4→8+2(t−2)`; `≤6→12+(t−4)`; `>6→14`. The threshold affects ramp only.
+- **Draw band** (`RDB:74-82`, `RDB:115-116`): 10-12 draw pieces, inclusive and threshold-independent, from the Command Zone deckbuilding template. `ManabaseRampDrawBudgetCalculator.DrawBandMin` / `DrawBandMax` are the canonical code source; the record exposes `TargetDrawMin` / `TargetDrawMax`.
+- **IsBalanced** (`RDB:96-105`) = `|rampDelta| ≤ 2 AND 10 ≤ DrawCount ≤ 12`. `IsRampLight/Heavy` = `rampDelta </> ±2`; `RampShort = ceil(−rampDelta)` when ramp-light. `IsDrawLight` means below the minimum; `DrawShort = ceil(minimum − DrawCount)` when draw-light, otherwise zero. `IsDrawHeavy` means above the maximum.
 
 ### 5.2 Tap analysis (`ComputeTapAnalysis`, `MA:916-962`) — flag `tap-analyzer`
 - Per-color untapped % = `round(100·rawUntapped/rawTotal)` (raw un-rounded weights). Overall = same over sums. Turn1UntappedPercent = mean `Turn1UntappedTrials` over non-commander rows ÷ trials.
@@ -309,7 +311,7 @@ Strict priority: **ColorSources** (largest `Deficit > 1`) → **Lands** (only if
 1. Per-color issues from `ColorIssueFindings` (the exact set the health band uses, so the verdict can't say "no changes needed" beside a Workable/Needs-work chip) — `VS:49-57`.
 2. Land line if `LandDelta < −1 && !LandShortfallCoveredByRamp` — `VS:59-64`.
 3. Ramp-light / draw-light budget lines, each tagged "(community heuristic, not Karsten math)" — `VS:66-92`.
-Per-color "add N sources" wording is now explicitly tagged as **heuristic guidance** on the page, in the `.txt` artifact, and in the swap prompt; the shortfall count is advisory wording only, not a new math path. The same shared helper also removed the last user-visible `(s)` artifacts from the summary / biggest-fix / lens surfaces. No-issue path: on the balanced budget → "in balance"; on a surplus/heavy side → "leans off the community split" (deliberately not "close enough") — `VS:157-165`. Verdict + budget are computed **only in Casual**; cEDH uses the flag as a UI-gloss gate — `MAS:328-331`.
+Per-color "add N sources" wording is now explicitly tagged as **heuristic guidance** on the page, in the `.txt` artifact, and in the swap prompt; the shortfall count is advisory wording only, not a new math path. The same shared helper also removed the last user-visible `(s)` artifacts from the summary / biggest-fix / lens surfaces. No-issue path: on the balanced budget → "in balance"; on a surplus/heavy side → "is outside the community ramp target / draw band" (deliberately not "close enough" or "in balance") — `VS:157-165`. Verdict + budget are computed **only in Casual**; cEDH uses the flag as a UI-gloss gate — `MAS:328-331`.
 
 ---
 

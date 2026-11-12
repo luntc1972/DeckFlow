@@ -2,7 +2,7 @@ namespace DeckFlow.Core.Manabase;
 
 /// <summary>
 /// The threshold source used by <see cref="ManabaseRampDrawBudgetCalculator"/>. This is a single-point
-/// proxy for a deck's operating point, used only to aim the advisory ramp/draw slot split.
+/// proxy for a deck's operating point, used only to aim the advisory ramp target.
 /// </summary>
 public enum ManabaseRampDrawThresholdSource
 {
@@ -14,7 +14,7 @@ public enum ManabaseRampDrawThresholdSource
 }
 
 /// <summary>
-/// Advisory ramp/draw slot-budget result. This is a community heuristic, not Karsten math, and never
+/// Advisory ramp target and threshold-independent draw band. This community heuristic is not Karsten math and never
 /// changes land target, color counts, castability, or health.
 /// </summary>
 public sealed record ManabaseRampDrawBudget
@@ -28,19 +28,22 @@ public sealed record ManabaseRampDrawBudget
     /// <summary>Raw count of cards that qualified as both ramp and draw before the split.</summary>
     public required int OverlapCount { get; init; }
 
-    /// <summary>The single-point threshold proxy used to choose the target split.</summary>
+    /// <summary>The single-point threshold proxy used to choose the ramp target.</summary>
     public required double Threshold { get; init; }
 
     /// <summary>Whether the threshold came from commander mana value or the curve proxy.</summary>
     public required ManabaseRampDrawThresholdSource ThresholdSource { get; init; }
 
-    /// <summary>Advisory target number of ramp slots from the 24-slot community heuristic.</summary>
+    /// <summary>Advisory ramp target from the threshold-based community heuristic.</summary>
     public required int TargetRamp { get; init; }
 
-    /// <summary>Advisory target number of draw slots from the 24-slot community heuristic.</summary>
-    public required int TargetDraw { get; init; }
+    /// <summary>Inclusive minimum of the threshold-independent Command Zone draw band.</summary>
+    public required int TargetDrawMin { get; init; }
 
-    /// <summary>True when the ramp count is within the +/-2 deadband around the target.</summary>
+    /// <summary>Inclusive maximum of the threshold-independent Command Zone draw band.</summary>
+    public required int TargetDrawMax { get; init; }
+
+    /// <summary>True when ramp is within its +/-2 deadband and draw is inside the inclusive draw band.</summary>
     public required bool IsBalanced { get; init; }
 
     /// <summary>True when the deck is more than two ramp slots below the advisory target.</summary>
@@ -52,19 +55,32 @@ public sealed record ManabaseRampDrawBudget
     /// <summary>Ceiling-rounded number of ramp slots the deck is short, outside the deadband.</summary>
     public required int RampShort { get; init; }
 
-    /// <summary>True when the deck is more than two draw slots below the advisory target.</summary>
+    /// <summary>True when draw count is strictly below the draw band minimum.</summary>
     public required bool IsDrawLight { get; init; }
 
-    /// <summary>Ceiling-rounded number of draw slots the deck is short, outside the deadband.</summary>
+    /// <summary>True when draw count is strictly above the draw band maximum.</summary>
+    public required bool IsDrawHeavy { get; init; }
+
+    /// <summary>Ceiling-rounded shortfall from the draw band minimum when draw is light, otherwise zero.</summary>
     public required int DrawShort { get; init; }
 }
 
 /// <summary>
-/// Computes the advisory ramp/draw slot-budget from classifier-projected bucket counts. The 24-slot
-/// split is a community heuristic, not Karsten math, and the threshold is a single-point proxy.
+/// Computes an advisory threshold-based ramp target and threshold-independent Command Zone draw band
+/// from classifier-projected bucket counts. This is a community heuristic, not Karsten math.
 /// </summary>
 public static class ManabaseRampDrawBudgetCalculator
 {
+    // Why: the Command Zone deckbuilding template draw band, adopted by user decision 2026-11-11
+    // and also used by dan-blanchard/mtg-skills COMMANDER_TEMPLATE, replaces an uncited fixed-sum
+    // 24-slot split that gave MV-3 commanders a 14-draw target. It is threshold-independent on
+    // purpose. Cut Lab's default draw floor (CutLabFloorDefaults) reads DrawBandMin.
+    /// <summary>Minimum draw pieces in the threshold-independent Command Zone template band.</summary>
+    public const int DrawBandMin = 10;
+
+    /// <summary>Maximum draw pieces in the threshold-independent Command Zone template band.</summary>
+    public const int DrawBandMax = 12;
+
     /// <summary>
     /// Calculate the advisory ramp/draw slot budget for a classified deck.
     /// </summary>
@@ -76,21 +92,17 @@ public static class ManabaseRampDrawBudgetCalculator
 
         (double threshold, ManabaseRampDrawThresholdSource source) = DetermineThreshold(deck);
         int targetRamp = CalculateTargetRamp(threshold);
-        int targetDraw = 24 - targetRamp;
 
         double rampDelta = deck.RampPieceCount - targetRamp;
-        double drawDelta = deck.DrawPieceCount - targetDraw;
+        bool isDrawLight = deck.DrawPieceCount < DrawBandMin;
+        bool isDrawHeavy = deck.DrawPieceCount > DrawBandMax;
 
-        // "Balanced" must hold for BOTH axes, not ramp alone: a deck on-target for ramp but short
-        // on draw was reporting "split looks balanced" directly beside the verdict's "Draw looks
-        // light — add ~N draw" line (UX contradiction). Require draw within the same deadband too.
-        bool isBalanced = Math.Abs(rampDelta) <= 2.0 && Math.Abs(drawDelta) <= 2.0;
+        // Balanced requires ramp within its existing deadband and draw inside the inclusive band.
+        bool isBalanced = Math.Abs(rampDelta) <= 2.0 && !isDrawLight && !isDrawHeavy;
         bool isRampLight = rampDelta < -2.0;
         bool isRampHeavy = rampDelta > 2.0;
         int rampShort = isRampLight ? (int)Math.Ceiling(-rampDelta) : 0;
-
-        bool isDrawLight = drawDelta < -2.0;
-        int drawShort = isDrawLight ? (int)Math.Ceiling(-drawDelta) : 0;
+        int drawShort = isDrawLight ? (int)Math.Ceiling(DrawBandMin - deck.DrawPieceCount) : 0;
 
         return new ManabaseRampDrawBudget
         {
@@ -100,17 +112,22 @@ public static class ManabaseRampDrawBudgetCalculator
             Threshold = threshold,
             ThresholdSource = source,
             TargetRamp = targetRamp,
-            TargetDraw = targetDraw,
+            TargetDrawMin = DrawBandMin,
+            TargetDrawMax = DrawBandMax,
             IsBalanced = isBalanced,
             IsRampLight = isRampLight,
             IsRampHeavy = isRampHeavy,
             RampShort = rampShort,
             IsDrawLight = isDrawLight,
+            IsDrawHeavy = isDrawHeavy,
             DrawShort = drawShort,
         };
     }
 
-    /// <summary>Also consumed by CutLabFloorDefaults for Cut Lab ramp/draw floor derivation.</summary>
+    /// <summary>
+    /// Also consumed by CutLabFloorDefaults for the Cut Lab ramp floor;
+    /// the Cut Lab draw floor reads DrawBandMin.
+    /// </summary>
     public static int CalculateTargetRamp(double threshold)
     {
         double rampTarget = threshold switch

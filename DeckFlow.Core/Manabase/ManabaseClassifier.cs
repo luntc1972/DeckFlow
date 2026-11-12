@@ -168,7 +168,8 @@ public static class ManabaseClassifier
             }
 
             // Spell front: contributes to the curve.
-            if (!card.IsCommander)
+            bool inNinetyNine = !card.IsCommander;
+            if (inNinetyNine)
             {
                 mvSum += card.ManaValue * card.Quantity;
                 nonlandCount += card.Quantity;
@@ -226,7 +227,8 @@ public static class ManabaseClassifier
                 unsupported.Add(new UnsupportedInteraction { Name = card.Name, Reason = unsupportedReason });
             }
 
-            if (card.ManaValue <= 2 && (rampCreditV2 ? IsRepeatableRampOrDraw(card) : IsRampOrDraw(card)))
+            // Why: The Karsten regression and Command Zone template count the 99; AverageManaValue already excludes commanders.
+            if (inNinetyNine && card.ManaValue <= 2 && (rampCreditV2 ? IsRepeatableRampOrDraw(card) : IsRampOrDraw(card)))
             {
                 rampUnderThree += card.Quantity;
                 rampNames.Add(card.Name);
@@ -239,8 +241,8 @@ public static class ManabaseClassifier
 
             SourceCapabilities sourceCapabilities = GetSourceCapabilities(card);
 
-            bool isRampPieceForBudget = IsRampPieceForBudget(card);
-            bool isDrawPieceForBudget = IsDrawPieceForBudget(card);
+            bool isRampPieceForBudget = inNinetyNine && IsRampPieceForBudget(card);
+            bool isDrawPieceForBudget = inNinetyNine && IsDrawPieceForBudget(card);
             if (isRampPieceForBudget)
             {
                 rampPieces += card.Quantity;
@@ -907,6 +909,20 @@ public static class ManabaseClassifier
     // of any color.)") so token reminder wording never reads as the card's own mana ability.
     private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
 
+    private static string StripReminderText(string text) =>
+        text.IndexOf('(', StringComparison.Ordinal) < 0 ? text : ReminderTextRegex.Replace(text, string.Empty);
+
+    // Token effects must match without relying on their stripped reminder text.
+    private const string TokenCountPattern = @"(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|that\s+many|a\s+number\s+of|[0-9]+)";
+
+    private static readonly Regex CreateManaTokenRegex = new(
+        @"\bcreate\s+" + TokenCountPattern + @"\s+(?:tapped\s+)?(?:Treasure|Lander|Powerstone|Gold)\s+tokens?\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static readonly Regex CreateLanderTokenRegex = new(
+        @"\bcreate\s+" + TokenCountPattern + @"\s+(?:tapped\s+)?Lander\s+tokens?\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     // Shockland ETB template ("you may pay N life. If you don't, it enters tapped"). Compiled +
     // hoisted to match this file's regex convention; see TextPayLifeUntapped for why it is anchored
     // to "you may pay" rather than a bare "pay N life".
@@ -1392,8 +1408,9 @@ public static class ManabaseClassifier
     private static bool IsType(string typeLine, string type) =>
         typeLine.Contains(type, StringComparison.OrdinalIgnoreCase);
 
+    // Why: Scryfall sets produced_mana from Treasure reminders, so that disjunct still governs real cards.
     private static bool ProducesMana(CardFact card) =>
-        (card.OracleText?.Contains("Add ", StringComparison.OrdinalIgnoreCase) ?? false)
+        StripReminderText(card.OracleText ?? string.Empty).Contains("Add ", StringComparison.OrdinalIgnoreCase)
         || card.ProducedMana.Count > 0;
 
     private static bool IsBasicFetch(CardFact card)
@@ -1777,11 +1794,13 @@ public static class ManabaseClassifier
 
     private static bool IsRampPieceForBudget(CardFact card)
     {
-        string text = card.OracleText ?? string.Empty;
+        // Why: reminder text is not the card's effect (Bilbo's Gambit; see 791611ef).
+        // Big Score still matches through its real Treasure clause.
+        string text = StripReminderText(card.OracleText ?? string.Empty);
         return (text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
                 && text.Contains("land", StringComparison.OrdinalIgnoreCase))
             || text.Contains("Add ", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("create a Treasure", StringComparison.OrdinalIgnoreCase)
+            || CreateManaTokenRegex.IsMatch(text)
             || IsRockOrDork(card)
             || IsLandRampToBattlefield(card);
     }
@@ -1876,10 +1895,11 @@ public static class ManabaseClassifier
     // land-target credit (IsRepeatableRampOrDraw) and the land-ramp sim source, so the two never drift.
     private static bool IsLandRampToBattlefield(CardFact card)
     {
-        string text = card.OracleText ?? string.Empty;
-        return text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
-            && text.Contains("land", StringComparison.OrdinalIgnoreCase)
-            && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase);
+        string text = StripReminderText(card.OracleText ?? string.Empty);
+        return CreateLanderTokenRegex.IsMatch(text)
+            || (text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
+                && text.Contains("land", StringComparison.OrdinalIgnoreCase)
+                && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase));
     }
 
     // ---- REDUCE-01: always-on static generic cost reducers --------------------------------

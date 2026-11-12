@@ -19,7 +19,7 @@ public sealed class ManabaseSwapPromptBuilderTests
         Lines =
         [
             "You're ~3 White sources short - heuristic guidance: add ~3 White-producing lands/rocks; consider cutting a colorless utility land.",
-            "Ramp looks light: the deck runs ~6 ramp vs a ~12/12 split for a ~MV4 threshold (the commander's mana value) - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
+            "Ramp looks light: the deck runs ~6 ramp vs a ~12 ramp target for a ~MV4 threshold (the commander's mana value) and a 10-12 draw band - add ~6 ramp pieces (e.g. a 2-mana rock). (community heuristic, not Karsten math)",
         ],
     };
 
@@ -31,7 +31,9 @@ public sealed class ManabaseSwapPromptBuilderTests
         Threshold = 4.0,
         ThresholdSource = ManabaseRampDrawThresholdSource.CommanderManaValue,
         TargetRamp = 12,
-        TargetDraw = 12,
+        TargetDrawMin = 10,
+        TargetDrawMax = 12,
+        IsDrawHeavy = false,
         IsBalanced = false,
         IsRampLight = true,
         IsRampHeavy = false,
@@ -252,7 +254,7 @@ public sealed class ManabaseSwapPromptBuilderTests
         Assert.True(askIndex > verdictIndex);
         Assert.Contains("1. You're ~3 White sources short - heuristic guidance:", prompt);
         Assert.Contains("2. Ramp looks light: the deck runs ~6 ramp", prompt);
-        Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12/12 community target for a ~MV4 threshold (the commander's mana value); (1 do both). community heuristic, not Karsten math.", prompt);
+        Assert.Contains("Ramp/draw: ~6 ramp / ~12 draw vs a ~12 ramp target for a ~MV4 threshold (the commander's mana value) and a 10-12 draw band (Command Zone template); (1 do both). community heuristic, not Karsten math.", prompt);
     }
 
     [Fact]

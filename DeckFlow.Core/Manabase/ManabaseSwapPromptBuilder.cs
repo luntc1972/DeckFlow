@@ -177,7 +177,7 @@ public static class ManabaseSwapPromptBuilder
 
     private static string BuildBudgetLine(ManabaseRampDrawBudget budget) => string.Create(
         CultureInfo.InvariantCulture,
-        $"Ramp/draw: ~{budget.RampCount:0.#} ramp / ~{budget.DrawCount:0.#} draw vs a ~{budget.TargetRamp}/{budget.TargetDraw} community target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}); ({budget.OverlapCount} do both). community heuristic, not Karsten math.");
+        $"Ramp/draw: ~{budget.RampCount:0.#} ramp / ~{budget.DrawCount:0.#} draw vs a ~{budget.TargetRamp} ramp target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}) and a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band (Command Zone template); ({budget.OverlapCount} do both). community heuristic, not Karsten math.");
 
     private static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
     {

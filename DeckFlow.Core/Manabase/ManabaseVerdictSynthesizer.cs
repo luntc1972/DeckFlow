@@ -66,30 +66,12 @@ public static class ManabaseVerdictSynthesizer
 
         if (budget is not null && budget.IsRampLight)
         {
-            issues.Add(BuildBudgetIssue(
-                prefix: "Ramp looks light",
-                countLabel: "ramp",
-                count: budget.RampCount,
-                targetRamp: budget.TargetRamp,
-                targetDraw: budget.TargetDraw,
-                threshold: budget.Threshold,
-                thresholdSource: budget.ThresholdSource,
-                shortfall: budget.RampShort,
-                example: "a 2-mana rock"));
+            issues.Add(BuildRampLightIssue(budget));
         }
 
         if (budget is not null && budget.IsDrawLight)
         {
-            issues.Add(BuildBudgetIssue(
-                prefix: "Draw looks light",
-                countLabel: "draw",
-                count: budget.DrawCount,
-                targetRamp: budget.TargetRamp,
-                targetDraw: budget.TargetDraw,
-                threshold: budget.Threshold,
-                thresholdSource: budget.ThresholdSource,
-                shortfall: budget.DrawShort,
-                example: "a repeatable card-draw enchantment"));
+            issues.Add(ManabaseWording.DrawLightLine(budget));
         }
 
         if (issues.Count > 3)
@@ -122,20 +104,11 @@ public static class ManabaseVerdictSynthesizer
             $"{finding.Color} access is inconsistent - {slowSpells} {finding.Color} {ManabaseWording.Pluralize("spell", slowSpells)} miss their on-curve window on color; heuristic guidance: add 1-2 {finding.Color}-producing lands (swap in a dual or cut a colorless utility land).");
     }
 
-    private static string BuildBudgetIssue(
-        string prefix,
-        string countLabel,
-        double count,
-        int targetRamp,
-        int targetDraw,
-        double threshold,
-        ManabaseRampDrawThresholdSource thresholdSource,
-        int shortfall,
-        string example)
+    private static string BuildRampLightIssue(ManabaseRampDrawBudget budget)
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{prefix}: the deck runs ~{count:0.#} {countLabel} vs a ~{targetRamp}/{targetDraw} split for a ~MV{threshold:0.#} threshold ({BuildThresholdProxy(thresholdSource)}) - add ~{shortfall} {countLabel} {ManabaseWording.Pluralize("piece", shortfall)} (e.g. {example}). (community heuristic, not Karsten math)");
+            $"Ramp looks light: the deck runs ~{budget.RampCount:0.#} ramp vs a ~{budget.TargetRamp} ramp target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}) and a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band - add ~{budget.RampShort} ramp {ManabaseWording.Pluralize("piece", budget.RampShort)} (e.g. a 2-mana rock). (community heuristic, not Karsten math)");
     }
 
     private static string BuildNoIssueReason(
@@ -153,17 +126,16 @@ public static class ManabaseVerdictSynthesizer
             return colorsClause + " and " + castRateClause + " - no changes needed.";
         }
 
-        // This no-issue path only runs when no ramp/draw SHORTFALL was collected (light side), so a
-        // not-balanced budget here is the heavy side (surplus ramp or draw). Don't claim it is "close
-        // enough" — that contradicts the same +/-2 deadband IsBalanced now uses. State it leans off
-        // the split; the trailing "no changes needed" already says a surplus is not worth fixing.
+        // No shortfall issue was collected, so an unbalanced budget here has surplus ramp or
+        // draw. Ramp uses a +/-2 deadband; draw uses the inclusive configured draw band.
+        // A surplus does not require changes, but must not be described as balanced.
         string budgetClause = budget.IsBalanced
             ? string.Create(
                 CultureInfo.InvariantCulture,
                 $"ramp/draw ({budget.RampCount:0.#} / {budget.DrawCount:0.#}) is in balance")
             : string.Create(
                 CultureInfo.InvariantCulture,
-                $"ramp/draw ({budget.RampCount:0.#} / {budget.DrawCount:0.#}) leans off the community split");
+                $"ramp/draw ({budget.RampCount:0.#} / {budget.DrawCount:0.#}) is outside the community ramp target / draw band");
 
         return colorsClause + " and " + castRateClause + " - and " + budgetClause + " - no changes needed.";
     }

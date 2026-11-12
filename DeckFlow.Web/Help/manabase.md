@@ -167,9 +167,9 @@ By default (the plain-language layer, on), the result also shows a short **Readi
 
 - **Metric glosses** — brief plain-English help under the Karsten source check and simulated cast-rate lenses, plus the demanding-cards note when that warning renders.
 - **Reading your deck** — a prioritized summary of the top fixes when there are issues, or a specific why-it-is-fine explanation when the mana base already clears the important checks.
-- **Ramp / draw budget** (Casual only) — an advisory slot-budget line comparing your current split to a common ramp/draw split for the deck's threshold proxy.
+- **Ramp / draw budget** (Casual only) — an advisory line comparing your counts to a ramp target for the deck's threshold proxy and the Command Zone template's threshold-independent 10-12 draw band.
 
-This layer is advisory only. It never changes the land count, color counts, castability table, or health band. The ramp/draw split is a **community heuristic, not Karsten math**, and its threshold is a single-point proxy taken from either the commander's mana value or the deck's 75th-percentile curve point. If the verdict surfaces more than three distinct issues, the summary shows the top three and then appends **"...plus N more"** so nothing is silently hidden. In cEDH, the glosses can still render, but the ramp/draw budget is suppressed.
+This layer is advisory only. It never changes the land count, color counts, castability table, or health band. The ramp target is a **community heuristic, not Karsten math**. Its threshold is a single-point proxy taken from either the commander's mana value or the deck's 75th-percentile curve point and applies to ramp only; the draw band follows the Command Zone template. If the verdict surfaces more than three distinct issues, the summary shows the top three and then appends **"...plus N more"** so nothing is silently hidden. In cEDH, the glosses can still render, but the ramp/draw budget is suppressed.
 
 ## Step 3 — See The Formula
 
