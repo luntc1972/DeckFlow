@@ -472,7 +472,10 @@ const registerPromptDownloadHandler = (): void => {
         return;
       }
 
-      const action = button.formAction || form.action;
+      // Why: the formAction getter returns the document URL when formaction is absent or empty.
+      const action = button.hasAttribute('formaction') && button.getAttribute('formaction')
+        ? button.formAction
+        : form.action;
       const methodAttr = (button.getAttribute('formmethod') ?? form.method ?? 'POST').toUpperCase();
       const method = methodAttr === 'GET' ? 'GET' : 'POST';
 
