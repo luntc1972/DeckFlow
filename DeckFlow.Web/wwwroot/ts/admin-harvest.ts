@@ -230,7 +230,7 @@
       type MaintenancePayload = { state: string; tone: string; headline: string; details: string[]; isActive: boolean };
       let wasActive = maintenance.dataset.maintenanceActive === 'true';
       const pollMaintenance = async (): Promise<void> => {
-        if (!maintenance.isConnected) return;
+        if (!maintenance.isConnected || maintenance.hasAttribute('data-maintenance-reloading')) return;
         try {
           const payload = await fetchWithTimeout<MaintenancePayload>('/Admin/Harvest/maintenance/status', {
             credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }
@@ -263,15 +263,7 @@
         }
         if (wasActive && maintenance.isConnected) window.setTimeout(() => { void pollMaintenance(); }, MAINTENANCE_POLL_INTERVAL_MS);
       };
-      document.querySelectorAll<HTMLFormElement>('form[data-maintenance-operation]').forEach(form => {
-        form.addEventListener('submit', () => {
-          const operation = form.dataset.maintenanceOperation;
-          if (!wasActive && operation !== 'stop' && operation !== 'preview' && form.querySelector<HTMLInputElement>('input[name="confirmed"]')?.checked) {
-            void pollMaintenance();
-          }
-        });
-      });
-      if (wasActive) void pollMaintenance();
+      void pollMaintenance();
     }
 
     const runKind = document.querySelector<HTMLSelectElement>('#runKind');

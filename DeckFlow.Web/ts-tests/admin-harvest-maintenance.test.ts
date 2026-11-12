@@ -5,9 +5,8 @@ const fetchStub = vi.fn();
 const reload = vi.fn();
 const payload = (isActive: boolean, headline = 'Running', tone = 'info') => ({ state: isActive ? 'running' : 'completed', tone, headline, details: ['Batch complete'], isActive });
 const respond = (value: ReturnType<typeof payload>) => ({ ok: true, json: async () => value });
-const start = async (active = false, withStartForm = false) => {
+const start = async (active = false) => {
   document.body.innerHTML = `<div id="harvest-maintenance-status" data-maintenance-active="${active}"><p data-maintenance-headline>Previous</p><ul data-maintenance-details></ul></div>`;
-  if (withStartForm) document.body.insertAdjacentHTML('beforeend', '<form data-maintenance-operation="drain"><input name="confirmed" type="checkbox" checked><button type="submit">Start</button></form>');
   document.dispatchEvent(new Event('DOMContentLoaded'));
   await vi.advanceTimersByTimeAsync(0);
 };
@@ -91,25 +90,18 @@ describe('maintenance feedback', () => {
     expect(fetchStub).toHaveBeenCalledTimes(3);
     expect(document.querySelector('[data-maintenance-headline]')!.textContent).toBe('New progress');
   });
-  it('does not fetch an idle card on load', async () => {
+  it('fetches an idle card once on load and does not reschedule', async () => {
+    fetchStub.mockResolvedValue(respond(payload(false)));
     await start();
     await vi.advanceTimersByTimeAsync(15000);
-    expect(fetchStub).not.toHaveBeenCalled();
+    expect(fetchStub).toHaveBeenCalledTimes(1);
   });
   it('does not reschedule a fetch error while idle', async () => {
     fetchStub.mockRejectedValue(new Error('offline'));
-    await start(false, true);
-    document.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await start();
     await vi.advanceTimersByTimeAsync(15000);
     expect(fetchStub).toHaveBeenCalledTimes(1);
     expect(document.querySelector('[data-maintenance-headline]')!.textContent).toBe('Previous');
-  });
-  it('starts polling after a confirmed start on an idle card', async () => {
-    fetchStub.mockResolvedValue(respond(payload(true)));
-    await start(false, true);
-    document.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(fetchStub).toHaveBeenCalledTimes(2);
   });
 
 });
