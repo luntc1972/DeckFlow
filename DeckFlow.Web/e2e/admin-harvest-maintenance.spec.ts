@@ -70,10 +70,11 @@ test('Marker backfill shows starting, running and completed feedback with one re
   const status = maintenance.locator('#harvest-maintenance-status');
 
   await backfill.getByRole('checkbox', { name: 'Confirm Marker backfill' }).check();
-  // Do not wait for navigation: the starting label must be observed during the delayed POST.
-  await button.click({ noWaitAfter: true });
+  // Assert the in-flight state before awaiting the click navigation.
+  const clicked = button.click();
   await expect(button).toBeDisabled();
   await expect(button).toHaveText('Starting Marker backfill…');
+  await clicked;
   await expect(status.locator('[data-maintenance-headline]')).toHaveText('Marker backfill running.');
   await expect(status).toHaveAttribute('data-maintenance-state', 'completed', { timeout: 20_000 });
   await expect(status.locator('[data-maintenance-headline]')).toHaveText('Marker backfill: Done.', { timeout: 20_000 });
@@ -94,9 +95,10 @@ test('Preview shows counting feedback and the counts timestamp', async ({ page }
   const maintenance = page.locator('#harvest-maintenance');
   const button = maintenance.getByRole('button', { name: 'Preview', exact: true });
 
-  await button.click({ noWaitAfter: true });
+  const clicked = button.click();
   await expect(button).toBeDisabled();
   await expect(button).toHaveText('Counting…');
+  await clicked;
   await expect(page.locator('.admin-banner').filter({ hasText: 'Retention excess:' }))
     .toHaveText(/\(counts as of \d{2}:\d{2}:\d{2} UTC\)\.$/);
 });
