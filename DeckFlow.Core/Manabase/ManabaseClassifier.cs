@@ -907,6 +907,14 @@ public static class ManabaseClassifier
     // of any color.)") so token reminder wording never reads as the card's own mana ability.
     private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
 
+    private static string StripReminderText(string text) =>
+        text.IndexOf('(', StringComparison.Ordinal) < 0 ? text : ReminderTextRegex.Replace(text, string.Empty);
+
+    // Why: Rain of Riches / Prosperous Bandit create counted and optionally tapped Treasure tokens.
+    private static readonly Regex CreateTreasureTokenRegex = new(
+        @"\bcreate\s+(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|that\s+many|a\s+number\s+of|[0-9]+)\s+(?:tapped\s+)?Treasure\s+tokens?\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     // Shockland ETB template ("you may pay N life. If you don't, it enters tapped"). Compiled +
     // hoisted to match this file's regex convention; see TextPayLifeUntapped for why it is anchored
     // to "you may pay" rather than a bare "pay N life".
@@ -1392,8 +1400,9 @@ public static class ManabaseClassifier
     private static bool IsType(string typeLine, string type) =>
         typeLine.Contains(type, StringComparison.OrdinalIgnoreCase);
 
+    // Why: Scryfall sets produced_mana from Treasure reminders, so that disjunct still governs real cards.
     private static bool ProducesMana(CardFact card) =>
-        (card.OracleText?.Contains("Add ", StringComparison.OrdinalIgnoreCase) ?? false)
+        StripReminderText(card.OracleText ?? string.Empty).Contains("Add ", StringComparison.OrdinalIgnoreCase)
         || card.ProducedMana.Count > 0;
 
     private static bool IsBasicFetch(CardFact card)
@@ -1777,11 +1786,13 @@ public static class ManabaseClassifier
 
     private static bool IsRampPieceForBudget(CardFact card)
     {
-        string text = card.OracleText ?? string.Empty;
+        // Why: reminder text is not the card's effect (Bilbo's Gambit; see 791611ef).
+        // Big Score still matches through its real Treasure clause.
+        string text = StripReminderText(card.OracleText ?? string.Empty);
         return (text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
                 && text.Contains("land", StringComparison.OrdinalIgnoreCase))
             || text.Contains("Add ", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("create a Treasure", StringComparison.OrdinalIgnoreCase)
+            || CreateTreasureTokenRegex.IsMatch(text)
             || IsRockOrDork(card)
             || IsLandRampToBattlefield(card);
     }
@@ -1876,7 +1887,7 @@ public static class ManabaseClassifier
     // land-target credit (IsRepeatableRampOrDraw) and the land-ramp sim source, so the two never drift.
     private static bool IsLandRampToBattlefield(CardFact card)
     {
-        string text = card.OracleText ?? string.Empty;
+        string text = StripReminderText(card.OracleText ?? string.Empty);
         return text.Contains("Search your library for", StringComparison.OrdinalIgnoreCase)
             && text.Contains("land", StringComparison.OrdinalIgnoreCase)
             && text.Contains("onto the battlefield", StringComparison.OrdinalIgnoreCase);

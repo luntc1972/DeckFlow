@@ -34,6 +34,107 @@ public sealed class ManabaseRampDrawBucketTests
     };
 
     [Fact]
+    public void Classify_GiftTreasureReminderOnly_IsNotBudgetRamp()
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            Nonland("Bilbo's Gambit", 3, "Instant", "Gift a Treasure (You may promise an opponent a gift as you cast this spell. If you do, they create a Treasure token before its other effects. It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nReturn target spell to its owner's hand. If the gift was promised, players can't cast spells this turn."),
+        });
+
+        Assert.Equal(0.0, deck.RampPieceCount);
+        Assert.Equal(0, deck.RampDrawBothCount);
+    }
+
+    [Theory]
+    [InlineData("When this enchantment enters, create two Treasure tokens.")]
+    [InlineData("Whenever this creature deals combat damage to a player, create that many tapped Treasure tokens.")]
+    [InlineData("When this Class enters, create two tapped Treasure tokens.")]
+    [InlineData("When this creature enters, create X Treasure tokens, where X is the number of artifacts and enchantments your opponents control.")]
+    [InlineData("create one Treasure token.")]
+    [InlineData("create three Treasure tokens.")]
+    [InlineData("create four tapped Treasure tokens.")]
+    [InlineData("create five Treasure tokens.")]
+    [InlineData("create six Treasure tokens.")]
+    [InlineData("create seven Treasure tokens.")]
+    [InlineData("create eight Treasure tokens.")]
+    [InlineData("create nine Treasure tokens.")]
+    [InlineData("create ten Treasure tokens.")]
+    [InlineData("create 2 Treasure tokens.")]
+    [InlineData("create a number of Treasure tokens equal to your devotion to red.")]
+    [InlineData("create a tapped Treasure token.")]
+    public void Classify_TreasureCountForms_AreBudgetRamp(string oracleText)
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            Nonland("Treasure Maker", 3, "Enchantment", oracleText),
+        });
+
+        Assert.Equal(1.0, deck.RampPieceCount);
+    }
+
+    [Fact]
+    public void Classify_BasicLandcyclingReminderOnly_IsNotBudgetRamp()
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            Nonland("Landcycler", 5, "Creature — Beast", "Basic landcycling {1}{G} ({1}{G}, Discard this card: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.)"),
+        });
+
+        Assert.Equal(0.0, deck.RampPieceCount);
+    }
+
+    [Fact]
+    public void Classify_LandToBattlefieldOnlyInReminder_EarnsNoRampOrLandCredit()
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            Nonland("Reminder Seeker", 2, "Creature — Elf", "Reach (Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.)"),
+        }, rampCreditV2: true, landRampSim: true);
+
+        Assert.Equal(0.0, deck.RampPieceCount);
+        Assert.Equal(0, deck.RampAndDrawUnderThree);
+        Assert.DoesNotContain(deck.Sources, source => source.Name == "Reminder Seeker");
+    }
+
+    [Fact]
+    public void Classify_ZeroCostArtifactWithAddOnlyInReminder_IsNotFastMana()
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            Nonland("Reminder Trinket", 0, "Artifact", "When this artifact enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")"),
+        });
+
+        Assert.Equal(0, deck.FastMana);
+    }
+
+    [Fact]
+    public void Classify_BigScore_IsRampAndDrawViaRealTreasureClause()
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            Nonland("Big Score", 4, "Instant", "As an additional cost to cast this spell, discard a card.\nDraw two cards and create two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")", "B", "G", "R", "U", "W"),
+        });
+
+        Assert.Equal(0.5, deck.RampPieceCount);
+        Assert.Equal(0.5, deck.DrawPieceCount);
+        Assert.Equal(1, deck.RampDrawBothCount);
+    }
+
+    [Theory]
+    [InlineData("create two Clue tokens.", "Enchantment", 3, 0.0)]
+    [InlineData("Lands you control have \"{T}: Create a Treasure token.\"", "Artifact", 6, 1.0)]
+    [InlineData("Target opponent creates a Treasure token.", "Instant", 1, 0.0)]
+    public void Classify_TreasureClauseGuards_CountExpectedRamp(string oracleText, string typeLine, double manaValue, double expectedRamp)
+    {
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            Nonland("Treasure Guard", manaValue, typeLine, oracleText),
+        });
+
+        Assert.Equal(expectedRamp, deck.RampPieceCount);
+    }
+
+    [Fact]
     public void Classify_CantripRock_SplitsOverlapAcrossBothBuckets()
     {
         ManabaseDeck deck = ManabaseClassifier.Classify(
