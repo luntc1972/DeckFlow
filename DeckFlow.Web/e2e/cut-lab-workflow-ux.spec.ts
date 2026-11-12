@@ -262,3 +262,65 @@ test('G-6 lets a workflow control beneath the pinned proposal receive a click', 
   await page.mouse.click(result.x, result.y);
   expect(await details.evaluate((element) => (element as HTMLDetailsElement).open), 'delta-expander open state flips after its centre receives a real click').toBe(!wasOpen);
 });
+
+test('Decide callout opens Plan and follows non-commander locks without reload', async ({ page }) => {
+  await importPool(page);
+  await page.evaluate(() => document.documentElement.setAttribute('data-t2c-document', 'original'));
+  const callout = page.locator('p.cutlab-lock-callout[data-cut-lab-lock-callout]');
+  await expect(page.locator('tr[data-cut-lab-commander="true"] input[data-cut-lab-lock-card]')).toBeChecked();
+  await expect(page.locator('tr[data-cut-lab-commander="false"] input[data-cut-lab-lock-card]:checked')).toHaveCount(0);
+  await expect(callout).toBeVisible();
+  await callout.getByRole('link', { name: 'Lock your pool', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Plan', exact: true })).toHaveAttribute('aria-selected', 'true');
+  const lockPool = page.locator('#cut-lab-section-lock-pool');
+  await expect(lockPool).toHaveAttribute('open', '');
+  await expect(lockPool).toBeInViewport();
+  await expect(page.locator('dialog#cut-lab-reference')).not.toHaveAttribute('open', '');
+  const lock = lockPool.locator('tr[data-cut-lab-card="Plains"] input[data-cut-lab-lock-card]');
+  await lock.check();
+  await expect(callout).toHaveAttribute('hidden', '');
+  await page.getByRole('tab', { name: 'Decide', exact: true }).click();
+  await expect(callout).toBeHidden();
+  await page.getByRole('tab', { name: 'Plan', exact: true }).click();
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await lock.uncheck();
+  await expect(callout).not.toHaveAttribute('hidden', '');
+  await page.getByRole('tab', { name: 'Decide', exact: true }).click();
+  await expect(callout).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-t2c-document', 'original');
+});
+
+test('Manage packages opens Plan with Lock your pool and Packages in viewport', async ({ page }) => {
+  await importPool(page);
+  await page.getByRole('link', { name: 'Manage packages', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Plan', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#cut-lab-section-lock-pool')).toHaveAttribute('open', '');
+  const packages = page.locator('#cut-lab-section-packages');
+  await expect(packages).toHaveAttribute('open', '');
+  await expect(packages).toBeInViewport();
+  await expect(page.locator('dialog#cut-lab-reference')).not.toHaveAttribute('open', '');
+});
+
+test('restart rounds wraps inside its Decide card at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await importPool(page);
+  await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
+  const restart = page.locator('[data-cut-lab-restart-rounds]');
+  await expect(restart).toBeVisible();
+  const bounds = await restart.evaluate((button) => {
+    const card = button.closest('.result-panel');
+    if (!card) throw new Error('Restart rounds must have a containing card.');
+    const buttonBox = button.getBoundingClientRect();
+    const cardBox = card.getBoundingClientRect();
+    return {
+      left: buttonBox.left, right: buttonBox.right,
+      cardLeft: cardBox.left, cardRight: cardBox.right,
+      scrollWidth: button.scrollWidth, clientWidth: button.clientWidth,
+      whiteSpace: getComputedStyle(button).whiteSpace,
+    };
+  });
+  expect(bounds.left).toBeGreaterThanOrEqual(bounds.cardLeft);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.cardRight);
+  expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth);
+  expect(bounds.whiteSpace).not.toBe('nowrap');
+});

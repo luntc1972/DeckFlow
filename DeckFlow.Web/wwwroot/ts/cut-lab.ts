@@ -260,6 +260,7 @@ interface CutLabPatchResponse {
 interface CutLabFloorRow {
   roleKey: string;
   inPoolCount: number;
+  lockedCount: number;
   bracketValue: number;
   commanderDisplay: string;
   floor: number;
@@ -301,6 +302,7 @@ interface CutLabSubtypeEntry {
 }
 
 interface CutLabApi {
+  toDisplayCardName(text: string): string;
   computePackageCheckboxState(memberLocked: boolean[]): PackageCheckboxState;
   hasRoleToken(roleList: string | null | undefined, role: string): boolean;
   isLandRole(roleList: string | null | undefined): boolean;
@@ -324,6 +326,8 @@ interface PendingNewPackageTarget {
 }
 
 const newPackageOptionValue = '__new__';
+// Why: more suggested-role pills than this crowds the modal, so the rest sit behind "+ More…".
+const MaxSuggestedRoles = 3;
 const unlockedPoolOptionValue = '';
 const cutLabAntiForgeryFieldName = '__RequestVerificationToken';
 const cutLabAdjustAction = '/cut-lab/adjust';
@@ -367,14 +371,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const normalizeAsciiCase = (value: string): string =>
     value.replace(/[A-Z]/g, character => String.fromCharCode(character.charCodeAt(0) + 32));
 
+  // Why: display only; card identity stays canonical.
+  const toDisplayCardName = (text: string): string => text.split(' // ').join(' / ');
+
   const frontFaceTypeLine = (typeLine: string): string =>
     typeLine.split('//')[0]?.trim() ?? '';
 
   const getScenarioSlotKey = (id: string): string => `${SCENARIO_SLOT_PREFIX}${id}`;
   const primarySectionIdsByStep = new Map<number, string>([
-    [1, 'cut-lab-section-lock-pool'],
-    [2, 'cut-lab-section-cut-rounds'],
-    [3, 'cut-lab-section-plan-panel'],
+    [1, 'cut-lab-section-competes'],
+    [2, 'cut-lab-section-plan-panel'],
+    [3, 'cut-lab-section-cut-rounds'],
     [4, 'cut-lab-section-goals'],
     [5, 'cut-lab-section-export'],
   ]);
@@ -544,15 +551,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const expandJumpTarget = (target: HTMLElement): void => {
-    if (!(target instanceof HTMLDetailsElement)) {
-      return;
+    for (let node: HTMLElement | null = target; node; node = node.parentElement) {
+      if (node instanceof HTMLDetailsElement) {
+        node.open = true;
+      }
     }
-
-    if (!target.matches('details[data-cutlab-mobile-collapse]') || target.open) {
-      return;
-    }
-
-    target.open = true;
     // Persist explicitly: the details 'toggle' event is not reliably dispatched
     // synchronously across environments, so do not rely on the toggle listener
     // to capture a jump-driven expand.
@@ -578,16 +581,19 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     document.querySelectorAll<HTMLButtonElement>('[role="tab"][data-cut-lab-step]')
   );
 
+  const getStepTabForPanel = (panel: HTMLElement | null): HTMLButtonElement | undefined =>
+    getStepTabs().find(button => `cut-lab-step-panel-${button.dataset.cutLabStep}` === panel?.id);
+
   const relocateScenarioSection = (): void => {
     const scenarios = document.getElementById('cut-lab-section-scenarios');
     if (!scenarios || !scenarios.closest('[role="tabpanel"]')) {
       return;
     }
 
-    const anchorNav = document.querySelector<HTMLElement>('.cutlab-anchor-nav');
-    if (anchorNav) {
-      anchorNav.parentElement?.insertBefore(scenarios, anchorNav);
-    }
+    const constraintsPanel = document.getElementById('cut-lab-section-constraints')?.closest('.result-panel');
+    const insertionPoint = constraintsPanel ?? document.querySelector<HTMLElement>('[role="tabpanel"]');
+    // Why: Scenarios precedes Constraints while leaving the step rail first; older layouts fall back to the first panel.
+    insertionPoint?.parentElement?.insertBefore(scenarios, insertionPoint);
   };
 
   // Why: This is the single writer of step-panel hidden state, without collapse, ARIA or focus behavior.
@@ -672,7 +678,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       activateStepTab(button, true);
     });
     tablist.addEventListener('keydown', event => {
-      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      const arrows = tablist.getAttribute('aria-orientation') === 'vertical'
+        ? ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']
+        : ['ArrowLeft', 'ArrowRight'];
+      if (![...arrows, 'Home', 'End'].includes(event.key)) {
         return;
       }
 
@@ -688,11 +697,120 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         ? 0
         : event.key === 'End'
           ? enabledTabs.length - 1
-          : (currentIndex + (event.key === 'ArrowRight' ? 1 : -1) + enabledTabs.length) % enabledTabs.length;
+          : (currentIndex + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1) + enabledTabs.length) % enabledTabs.length;
       const nextTab = enabledTabs[nextIndex];
       nextTab.focus();
       activateStepTab(nextTab, false);
     });
+  };
+
+  const referenceRestoreKey = 'cut-lab-reference-restore';
+  let activeReference: { section: HTMLElement; parent: Node; next: ChildNode | null; opener: HTMLElement; heading: HTMLElement | null; headingId: string | null; placeholder: HTMLElement; disclosures: { element: HTMLDetailsElement; open: boolean }[] } | null = null;
+
+  const openReference = (section: HTMLElement, opener: HTMLElement): void => {
+    const dialog = document.getElementById('cut-lab-reference');
+    const body = dialog?.querySelector('[data-cut-lab-reference-body]');
+    if (!(dialog instanceof HTMLDialogElement) || !body || !section.parentNode) return;
+    if (activeReference) {
+      // Why: Links inside a reference may open another section; keep the original visible opener.
+      opener = activeReference.opener;
+      returnReferenceSection();
+    }
+    const heading = section.querySelector<HTMLElement>('h2') ?? section.querySelector<HTMLElement>('summary');
+    // Why: Keep the visible reference's footprint so browser scroll anchoring cannot move the page.
+    const placeholder = document.createElement('div');
+    placeholder.setAttribute('aria-hidden', 'true');
+    placeholder.inert = true;
+    placeholder.style.height = `${section.getBoundingClientRect().height}px`;
+    placeholder.style.margin = window.getComputedStyle(section).margin;
+    placeholder.style.boxSizing = 'border-box';
+    section.before(placeholder);
+    const disclosures = [section, ...section.querySelectorAll('details')]
+      .filter((element): element is HTMLDetailsElement => element instanceof HTMLDetailsElement)
+      .map(element => ({ element, open: element.open }));
+    activeReference = { section, parent: section.parentNode, next: section.nextSibling, opener, heading, headingId: heading?.getAttribute('id') ?? null, placeholder, disclosures };
+    if (heading) {
+      heading.id ||= 'cut-lab-reference-heading';
+      dialog.setAttribute('aria-labelledby', heading.id);
+    }
+    body.appendChild(section);
+    if (section instanceof HTMLDetailsElement) section.open = true;
+    section.querySelectorAll('details').forEach(details => { details.open = true; });
+    if (!dialog.open) dialog.showModal();
+  };
+
+  const returnReferenceSection = (): HTMLElement | null => {
+    if (!activeReference) return null;
+    const { section, parent, next, opener, heading, headingId, placeholder, disclosures } = activeReference;
+    disclosures.forEach(({ element, open }) => { element.open = open; });
+    parent.insertBefore(section, next);
+    placeholder.remove();
+    if (heading) {
+      if (headingId === null) heading.removeAttribute('id');
+      else heading.id = headingId;
+    }
+    activeReference = null;
+    return opener;
+  };
+
+  const attachReferenceHandler = (): void => {
+    const dialog = document.getElementById('cut-lab-reference');
+    if (!(dialog instanceof HTMLDialogElement)) return;
+    activeReference = null;
+    document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-reference-open]').forEach(button => {
+      button.addEventListener('click', () => {
+        const section = document.getElementById(button.dataset.cutLabReferenceOpen ?? '');
+        if (section) openReference(section, button);
+      });
+    });
+    dialog.querySelectorAll<HTMLButtonElement>('[data-cut-lab-reference-close]').forEach(button => {
+      button.addEventListener('click', () => dialog.close());
+    });
+    dialog.addEventListener('click', event => {
+      if (event.target !== dialog) return;
+      const rect = dialog.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+    });
+    dialog.addEventListener('close', () => {
+      returnReferenceSection()?.focus({ preventScroll: true });
+    });
+  };
+
+  const saveReferencePosition = (): void => {
+    // Why: Storage can be denied; recalculation must still submit successfully.
+    try {
+      sessionStorage.setItem(referenceRestoreKey, JSON.stringify({ reference: activeReference?.section.id ?? null, scrollY: window.scrollY, savedAt: Date.now() }));
+    } catch { /* Storage is optional. */ }
+  };
+
+  const restoreReferencePosition = (): void => {
+    let saved: { reference: string | null; scrollY: number; savedAt: number };
+    try {
+      const value = sessionStorage.getItem(referenceRestoreKey);
+      if (!value) return;
+      saved = JSON.parse(value);
+      if (!saved || !Number.isFinite(saved.scrollY)) return;
+      if (!Number.isFinite(saved.savedAt) || Date.now() - saved.savedAt > 30_000) {
+        sessionStorage.removeItem(referenceRestoreKey);
+        return;
+      }
+    } catch { return; }
+    // Why: deck-sync scrolls after two frames; two further frames make our restoration last.
+    requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.scrollTo({ top: saved.scrollY, behavior: 'instant' });
+      const section = saved.reference ? document.getElementById(saved.reference) : null;
+      const opener = Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-reference-open]'))
+        .find(button => button.dataset.cutLabReferenceOpen === saved.reference)
+        ?? Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-cut-lab-jump-link]'))
+          .find(link => link.getAttribute('href') === `#${saved.reference}`);
+      if (section && opener) openReference(section, opener);
+      try { sessionStorage.removeItem(referenceRestoreKey); } catch { /* Storage is optional. */ }
+    }))));
+  };
+
+  const updateStepOrientation = (): void => {
+    const tablist = document.querySelector<HTMLElement>('.cutlab-step-rail [role="tablist"]');
+    tablist?.setAttribute('aria-orientation', window.matchMedia('(min-width: 1024px)').matches ? 'vertical' : 'horizontal');
   };
 
   const handleAnchorJump = (link: HTMLAnchorElement, event: Event): void => {
@@ -708,10 +826,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     event.preventDefault();
     const targetPanel = target.closest<HTMLElement>('[role="tabpanel"]');
-    const targetTabId = targetPanel?.getAttribute('aria-labelledby');
-    const targetTab = targetTabId ? document.getElementById(targetTabId) : null;
-    if (targetTab instanceof HTMLButtonElement) {
-      activateStepTab(targetTab, false);
+    const currentPanel = link.closest('[role="tabpanel"]');
+    const isReference = ['cut-lab-section-role-floors', 'cut-lab-section-structural', 'cut-lab-section-constraints'].includes(target.id);
+    if (isReference || (targetPanel && targetPanel !== currentPanel)) {
+      // Why: Even the competes hint opens a reference, preserving the current mode and scroll.
+      openReference(target, link);
+      return;
     }
     expandJumpTarget(target);
     scrollJumpTargetIntoView(target);
@@ -721,8 +841,36 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
+  const switchTabAndOpen = (targetId: string): void => {
+    const target = document.getElementById(targetId);
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    const panel = target.closest<HTMLElement>('[role="tabpanel"]');
+    const tab = getStepTabForPanel(panel);
+    if (tab) {
+      activateStepTab(tab, false);
+    }
+    // Tab activation can reset collapse state, so expand the entire path afterwards.
+    expandJumpTarget(target);
+    scrollJumpTargetIntoView(target);
+    focusJumpTarget(target);
+  };
+
   const attachAnchorNavHandler = (): void => {
-    document.querySelectorAll<HTMLAnchorElement>('.cutlab-anchor-nav a[href^="#"], [data-cut-lab-jump-link][href^="#"]').forEach(link => {
+    document.addEventListener('click', event => {
+      const link = event.target instanceof Element
+        ? event.target.closest<HTMLElement>('[data-cut-lab-tab-link]')
+        : null;
+      if (link) {
+        event.preventDefault();
+        const hash = link.getAttribute('href');
+        if (hash?.startsWith('#') && hash !== '#') {
+          switchTabAndOpen(hash.slice(1));
+        }
+      }
+    });
+    document.querySelectorAll<HTMLAnchorElement>('[data-cut-lab-jump-link][href^="#"]').forEach(link => {
       link.addEventListener('click', event => handleAnchorJump(link, event));
     });
   };
@@ -766,6 +914,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       : `s-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   const api: CutLabApi = {
+    toDisplayCardName,
     computePackageCheckboxState(memberLocked: boolean[]): PackageCheckboxState {
       if (memberLocked.length === 0) {
         return 'unchecked';
@@ -953,6 +1102,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let decisionSubmitInFlight = false;
   let adjustSubmitInFlight = false;
   let whatifSubmitInFlight = false;
+  let whatifPreviewGeneration = 0;
+  let restoreInvalidatedPreview: (() => void) | null = null;
   let planApplySubmitInFlight = false;
   let roleOverrideSubmitInFlight = false;
   const isAnyCutLabMutationInFlight = (): boolean => decisionSubmitInFlight || adjustSubmitInFlight || whatifSubmitInFlight || planApplySubmitInFlight || roleOverrideSubmitInFlight;
@@ -1005,8 +1156,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const getDecisionStateInputs = (): HTMLInputElement[] =>
     Array.from(document.querySelectorAll<HTMLInputElement>('input[name="CutLabStateJson"]'));
 
+  // Why: display order must never leak into snapshots, package members, or other state-derived UI.
   const getPoolRows = (): HTMLTableRowElement[] =>
-    Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-card]'));
+    Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-cut-lab-card]'))
+      .sort((left, right) => Number(left.dataset.cutLabPoolIndex ?? 0) - Number(right.dataset.cutLabPoolIndex ?? 0));
+
+  const getAlphabeticalPoolRows = (): HTMLTableRowElement[] =>
+    getPoolRows().sort((left, right) => Number(left.dataset.cutLabSortOrder ?? 0) - Number(right.dataset.cutLabSortOrder ?? 0));
 
   const getSubtypeSearchInput = (): HTMLInputElement | null =>
     document.querySelector<HTMLInputElement>('input[data-cut-lab-subtype-search]');
@@ -1076,7 +1232,6 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     const stickyCandidates = [
-      document.querySelector<HTMLElement>('nav.cutlab-anchor-nav'),
       document.querySelector<HTMLElement>('.cutlab-sticky-bar[data-cut-lab-sticky-target]'),
     ];
     const offset = stickyCandidates.reduce((total, candidate) => {
@@ -1089,7 +1244,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         ? total + candidate.getBoundingClientRect().height
         : total;
     }, 0);
-    document.documentElement.style.setProperty('--cutlab-pinned-offset', `${offset}px`);
+    document.documentElement.style.setProperty('--cutlab-pinned-offset', `${Math.floor(offset)}px`);
   };
 
   const getLockedOvershootAdvisory = (): HTMLDivElement | null =>
@@ -1123,6 +1278,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const getRoleLockButtons = (): HTMLButtonElement[] =>
     Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-lock-role]'));
+
+  const getFloorLockButtons = (): HTMLButtonElement[] =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cut-lab-floor-lock-role]'));
+
+  const roleKeyOf = (button: HTMLElement): string =>
+    button.dataset.cutLabFloorLockRole ?? button.dataset.cutLabLockRole ?? '';
 
   const getTypeGroupLockedCounts = (): HTMLElement[] =>
     Array.from(document.querySelectorAll<HTMLElement>('[data-cut-lab-type-locked]'));
@@ -1323,12 +1484,26 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const updateLockedCountChip = (index = buildPoolIndex()): void => {
+    getFloorRows().forEach(({ row }) => {
+      const label = row.querySelector<HTMLElement>('[data-cut-lab-floor-locked-label]');
+      if (label) {
+        label.textContent = `${index.lockedQuantityByRole.get(row.dataset.cutLabFloorRow ?? '') ?? 0} locked`;
+      }
+    });
     const rows = index.rows;
     const poolCount = rows.reduce((total, row) => total + index.entries.get(row)!.quantity, 0);
+    let hasNonCommanderLock = false;
     const lockedCount = rows.reduce((total, row) => {
       const checkbox = index.entries.get(row)!.checkbox;
+      if (checkbox?.checked && row.dataset.cutLabCommander !== 'true') {
+        hasNonCommanderLock = true;
+      }
       return checkbox?.checked ? total + index.entries.get(row)!.quantity : total;
     }, 0);
+    const lockCallout = document.querySelector<HTMLElement>('[data-cut-lab-lock-callout]');
+    if (lockCallout) {
+      lockCallout.hidden = hasNonCommanderLock;
+    }
     const summaryText = `${poolCount} cards in pool · ${lockedCount} locked`;
     const summary = document.querySelector<HTMLElement>('[data-cut-lab-lock-count]');
     const poolStickySummary = document.querySelector<HTMLElement>('[data-cut-lab-pool-sticky-count]');
@@ -1378,7 +1553,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const matchesLockedState = selectedFilter === 'all'
         || (selectedFilter === 'locked' && (checkbox?.checked ?? false))
         || (selectedFilter === 'unlocked' && !(checkbox?.checked ?? false));
-      const matchesSearch = searchTerm === '' || cardName.includes(searchTerm);
+      const matchesSearch = searchTerm === '' || cardName.includes(searchTerm)
+        || toDisplayCardName(cardName).includes(searchTerm);
       const isVisible = matchesLockedState && matchesSearch;
       row.hidden = !isVisible;
       if (isVisible) {
@@ -1476,6 +1652,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
+      const lockedLabel = row.querySelector<HTMLElement>('[data-cut-lab-floor-locked-label]');
+      if (lockedLabel) {
+        lockedLabel.textContent = `${floor.lockedCount ?? 0} locked`;
+      }
       row.dataset.cutLabFloorCount = `${floor.inPoolCount}`;
       row.dataset.cutLabFloorDefault = `${floor.defaultValue}`;
       const countLabel = row.querySelector<HTMLElement>('[data-cut-lab-floor-count-label]');
@@ -1528,6 +1708,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const setRoleLockButtonState = (button: HTMLButtonElement, isPressed: boolean): void => {
     button.classList.toggle('is-selected', isPressed);
     button.setAttribute('aria-pressed', isPressed ? 'true' : 'false');
+    if (button.hasAttribute('data-cut-lab-floor-lock-role')) {
+      const action = isPressed ? 'Unlock all' : 'Lock all';
+      button.textContent = action;
+      button.setAttribute('aria-label', `${action} ${button.dataset.cutLabFloorLockLabel ?? ''} from Role floors`);
+    }
   };
 
   const getLockableRoleCheckboxes = (roleKey: string, rows = getPoolRows()): HTMLInputElement[] =>
@@ -1539,14 +1724,21 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     checkboxes.length > 0 && checkboxes.every(checkbox => checkbox.checked);
 
   const syncRoleLockButtons = (index = buildPoolIndex()): void => {
-    getRoleLockButtons().forEach(button => {
-      const roleKey = button.dataset.cutLabLockRole ?? '';
+    const allLockedByRole = new Map<string, boolean>();
+    [...getRoleLockButtons(), ...getFloorLockButtons()].forEach(button => {
+      const roleKey = roleKeyOf(button);
       if (roleKey === '') {
         return;
       }
 
-      const lockableMembers = getLockableRoleCheckboxes(roleKey, index.rows);
-      const allLocked = areAllLocked(lockableMembers);
+      let allLocked = allLockedByRole.get(roleKey);
+      if (allLocked === undefined) {
+        const lockableMembers = index.rows.filter(row => api.hasRoleToken(row.dataset.cutLabRole, roleKey))
+          .map(row => index.entries.get(row)!.checkbox)
+          .filter((checkbox): checkbox is HTMLInputElement => checkbox !== null && !checkbox.disabled);
+        allLocked = areAllLocked(lockableMembers);
+        allLockedByRole.set(roleKey, allLocked);
+      }
       setRoleLockButtonState(button, allLocked);
     });
   };
@@ -1852,7 +2044,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const getComboBadgeText = (comboBadge: { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }): string =>
-    comboBadge.badgeState === 'CompletePiece' ? 'Combo piece' : comboBadge.context;
+    comboBadge.badgeState === 'CompletePiece' ? 'Combo piece' : toDisplayCardName(comboBadge.context);
 
   const getComboBadgeClassName = (comboBadge: { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }): string =>
     comboBadge.badgeState === 'CompletePiece'
@@ -1874,7 +2066,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
   const createLockableCardChip = (label: string, cardName: string, isLocked: boolean): HTMLButtonElement => {
     const className = `kb-chip cutlab-role-chip${isLocked ? ' cutlab-role-chip--locked' : ''}`;
-    const chip = createTextElement('button', className, label);
+    const chip = createTextElement('button', className, toDisplayCardName(label));
     chip.type = 'button';
     chip.dataset.cutlabCardOpen = cardName;
     chip.dataset.cutLabChipCard = cardName;
@@ -1888,7 +2080,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     comboBadgeByCardName: Record<string, { badgeState: 'CompletePiece' | 'NeedsPartner'; context: string }>,
   ): HTMLElement => {
     const match = findLockablePoolCardForEvidence(evidence, matches);
-    if (!match) return createTextElement('span', 'kb-chip', evidence);
+    if (!match) return createTextElement('span', 'kb-chip', toDisplayCardName(evidence));
 
     const button = createLockableCardChip(evidence, match.cardName, match.checkbox.checked);
     appendComboBadge(button, comboBadgeByCardName, match.cardName);
@@ -2038,7 +2230,21 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     return `CMC ${entry.cmc} · Cast by turn ${entry.cmc}: ${Math.round(entry.castPercent)}% at your current pool size`;
   };
 
-  let roleOptionTemplates: HTMLOptionElement[] | null = null;
+  type RoleOption = { value: string; text: string };
+  let roleOptionsCache: RoleOption[] | null = null;
+  // Why: "+ More…" expands the suggestion row in place; the state is per modal open, not per card render.
+  let roleSuggestionsExpanded = false;
+
+  const getRoleOptions = (): RoleOption[] => {
+    if (roleOptionsCache) return roleOptionsCache;
+    try {
+      const pairs = JSON.parse(document.querySelector('[data-cut-lab-role-options]')?.textContent ?? '[]') as string[][];
+      roleOptionsCache = pairs.map(([value, text]) => ({ value, text }));
+    } catch {
+      roleOptionsCache = [];
+    }
+    return roleOptionsCache;
+  };
   let roleLabelsCache: Record<string, string> | null = null;
 
   const getRoleLabels = (): Record<string, string> => {
@@ -2060,8 +2266,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     block.hidden = keys.length === 0;
     const form = block.querySelector<HTMLFormElement>('form');
     if (form) form.hidden = !editable || block.hidden;
-    const select = block.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]');
-    if (select && roleOptionTemplates === null) roleOptionTemplates = Array.from(select.options, option => option.cloneNode(true) as HTMLOptionElement);
+    const roleOptions = getRoleOptions();
+    const availableOptions = roleOptions.filter(option => !keys.includes(option.value) && !(entry?.roleLand === 'true' && option.value === 'ramp'));
     const labels = getRoleLabels();
     const chips = block.querySelector<HTMLElement>('[data-cut-lab-role-chips]');
     chips?.replaceChildren();
@@ -2071,7 +2277,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       if (key === 'lands') {
         chip.append(createTextElement('span', 'sr-only', ' (fixed)'));
       }
-      if (editable && roleOptionTemplates?.some(option => option.value === key)) {
+      if (editable && roleOptions.some(option => option.value === key)) {
         const remove = document.createElement('button');
         remove.type = 'button'; remove.dataset.cutLabRoleRemove = key;
         remove.setAttribute('aria-label', `Remove ${label} role`); remove.textContent = '×';
@@ -2080,16 +2286,36 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
       chips?.append(chip);
     });
+    const suggestions = block.querySelector<HTMLElement>('[data-cut-lab-role-suggestions]');
+    suggestions?.replaceChildren();
+    if (editable && suggestions) {
+      const hasMore = availableOptions.length > MaxSuggestedRoles;
+      const visibleOptions = hasMore && !roleSuggestionsExpanded ? availableOptions.slice(0, MaxSuggestedRoles) : availableOptions;
+      visibleOptions.forEach(option => {
+        const button = createTextElement('button', 'kb-chip cutlab-role-suggestion', `+ ${option.text}`);
+        button.setAttribute('type', 'button');
+        button.dataset.cutLabRoleSuggest = option.value;
+        button.setAttribute('aria-label', `Add ${option.text} role`);
+        button.addEventListener('click', () => { void submitRoleEdit({ cardName, role: option.value, operation: 'Add' }, button); });
+        suggestions.append(button);
+      });
+      if (hasMore) {
+        const more = createTextElement('button', 'kb-chip cutlab-role-suggestion', roleSuggestionsExpanded ? 'Show fewer' : '+ More…');
+        more.setAttribute('type', 'button');
+        more.dataset.cutLabRoleMore = '';
+        more.setAttribute('aria-expanded', String(roleSuggestionsExpanded));
+        more.addEventListener('click', () => {
+          roleSuggestionsExpanded = !roleSuggestionsExpanded;
+          renderModalRoleBlock(cardName, viewOnly);
+          block.querySelector<HTMLButtonElement>('[data-cut-lab-role-more]')?.focus();
+        });
+        suggestions.append(more);
+      }
+    }
     const cardInput = block.querySelector<HTMLInputElement>('[data-cut-lab-role-override-card]');
     if (cardInput) cardInput.value = cardName;
     const reset = block.querySelector<HTMLButtonElement>('[data-cut-lab-role-reset]');
     if (reset) reset.hidden = !editable || entry?.roleEdited !== 'true';
-    if (select) {
-      select.replaceChildren(...(roleOptionTemplates ?? []).filter(option => !keys.includes(option.value) && !(entry?.roleLand === 'true' && option.value === 'ramp')).map(option => option.cloneNode(true)));
-      window.DeckFlow?.refreshDfSelect?.(select);
-      const add = block.querySelector<HTMLElement>('[data-cut-lab-role-add]');
-      if (add) add.hidden = select.options.length === 0;
-    }
   };
 
   const openCardModal = (cardName: string, viewOnly: boolean = false): void => {
@@ -2100,9 +2326,12 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    const originInput = dialog.querySelector<HTMLInputElement>('[data-cut-lab-role-origin-step]');
+    if (originInput) {
+      originInput.value = document.querySelector<HTMLElement>('[data-cut-lab-step][aria-selected="true"]')?.getAttribute('aria-label') ?? 'Plan';
+    }
     const roleBlock = dialog.querySelector<HTMLElement>('[data-cut-lab-role-block]');
-    const addRole = roleBlock?.querySelector<HTMLDetailsElement>('[data-cut-lab-role-add]');
-    if (addRole) addRole.open = false;
+    roleSuggestionsExpanded = false;
     if (activeModalCardName !== cardName) {
       const status = roleBlock?.querySelector<HTMLElement>('[data-cut-lab-role-status]');
       if (status) status.textContent = '';
@@ -2117,7 +2346,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const combo = getCardModalCombo();
     const castability = getCardModalCastability();
 
-    title.textContent = cardName;
+    title.textContent = toDisplayCardName(cardName);
     if (meta) {
       meta.textContent = metaLine;
       meta.hidden = metaLine === '';
@@ -2131,7 +2360,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     oracle.textContent = oracleText !== '' ? oracleText : 'No card text available.';
 
     if (combo) {
-      combo.textContent = comboText;
+      combo.textContent = toDisplayCardName(comboText);
       combo.hidden = comboText === '';
     }
 
@@ -2153,13 +2382,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     button.type = 'button';
     button.className = className;
     button.dataset.cutlabCardOpen = cardName;
-    button.textContent = cardName;
+    button.textContent = toDisplayCardName(cardName);
     return button;
   };
 
   const createPoolCardChip = (entry: CutLabSubtypeEntry): HTMLElement => {
     if (entry.isCommander) {
-      const chip = createTextElement('span', 'kb-chip cutlab-lock-badge--commander', entry.name);
+      const chip = createTextElement('span', 'kb-chip cutlab-lock-badge--commander', toDisplayCardName(entry.name));
       chip.dataset.cutlabCardOpen = entry.name;
       chip.dataset.cutLabChipCard = entry.name;
       return chip;
@@ -2169,7 +2398,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   };
 
   const getPoolSubtypeEntries = (): CutLabSubtypeEntry[] =>
-    getPoolRows()
+    getAlphabeticalPoolRows()
       .filter(row => row.hasAttribute('data-cut-lab-type-line'))
       .map(row => {
         const name = row.dataset.cutLabCard?.trim() ?? '';
@@ -2533,7 +2762,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const sentence = document.createElement('span');
     sentence.className = 'cutlab-delta__sentence';
     sentence.textContent = delta.isMeaningful
-      ? `cutting ${cardName} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.unit)}.`
+      ? `cutting ${toDisplayCardName(cardName)} ${directionVerbFor(delta.direction)} ${delta.label.toLowerCase()} by ${formatDeltaToken(delta.delta, delta.unit)}.`
       : `${delta.label}: no meaningful change`;
 
     const value = createDeltaValue(
@@ -2735,6 +2964,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       trigger.dataset.cutlabCardViewOnly = 'true';
       row.appendChild(trigger);
       row.appendChild(createTextElement('span', 'prompt-size-note', `cut in ${cut.roundLabel}`));
+      const swap = createTextElement('button', 'cutlab-swap-btn', 'What if I swap this?') as HTMLButtonElement;
+      swap.type = 'button';
+      swap.dataset.cutLabSwapCard = cut.cardName;
+      row.appendChild(swap);
       row.appendChild(createRestoreForm(cut, serializedState, antiForgeryToken));
       details.appendChild(row);
     });
@@ -2750,13 +2983,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     const row = Array.from(details.querySelectorAll<HTMLDivElement>('.cutlab-cuts-made__row'))
       .find(candidate => {
-        const triggerText = candidate.querySelector<HTMLElement>('[data-cutlab-card-open]')?.textContent?.trim();
-        if (triggerText === cardName) {
+        const trigger = candidate.querySelector<HTMLElement>('[data-cutlab-card-open]');
+        const triggerText = trigger?.textContent?.trim();
+        const displayName = toDisplayCardName(cardName);
+        if (trigger?.dataset.cutlabCardOpen === cardName || triggerText === cardName || triggerText === displayName) {
           return true;
         }
 
         const legacyLabel = candidate.querySelector<HTMLSpanElement>('span')?.textContent?.trim();
-        return legacyLabel === cardName;
+        return legacyLabel === cardName || legacyLabel === displayName;
       });
     if (!row) {
       return;
@@ -2824,7 +3059,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         group.items.forEach(item => {
           const itemElement = document.createElement('div');
           itemElement.className = 'cutlab-finding__item';
-          itemElement.appendChild(createTextElement('p', 'cutlab-finding__lead', item.lead));
+          itemElement.appendChild(createTextElement('p', 'cutlab-finding__lead', toDisplayCardName(item.lead)));
 
           if (item.roles && item.roles.length > 0) {
             itemElement.appendChild(createTextElement('p', 'cutlab-finding__roles', `Role: ${item.roles.join(', ')}`));
@@ -2860,7 +3095,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     warnings.forEach(warning => {
       const warningPanel = document.createElement('div');
       warningPanel.className = 'cutlab-finding cutlab-proposal__floor-warning';
-      warningPanel.appendChild(createTextElement('p', 'cutlab-finding__lead', warning.message));
+      warningPanel.appendChild(createTextElement('p', 'cutlab-finding__lead', toDisplayCardName(warning.message)));
       proposal.appendChild(warningPanel);
     });
   };
@@ -2902,7 +3137,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const panel = document.createElement('div');
       panel.className = 'cutlab-finding cutlab-proposal__floor-warning';
       panel.appendChild(createTextElement('p', 'cutlab-finding__heading', group.roleLabel));
-      panel.appendChild(createTextElement('p', 'cutlab-finding__lead', group.cardNames.join(', ')));
+      panel.appendChild(createTextElement('p', 'cutlab-finding__lead', group.cardNames.map(toDisplayCardName).join(', ')));
       children.push(panel);
     });
 
@@ -3072,9 +3307,15 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       errorLine = document.createElement('p');
       errorLine.dataset.cutLabDecisionError = 'true';
       errorLine.className = 'cutlab-degradation-note';
-      proposal.appendChild(errorLine);
     }
 
+    errorLine.setAttribute('role', 'alert');
+    const decisionContainer = proposal.querySelector<HTMLElement>('.cutlab-proposal--pinned');
+    if (decisionContainer) {
+      decisionContainer.insertAdjacentElement('afterend', errorLine);
+    } else {
+      proposal.appendChild(errorLine);
+    }
     errorLine.textContent = message;
   };
 
@@ -3190,9 +3431,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     selection.classList.remove('hidden');
     selection.replaceChildren(
       document.createTextNode('Previewing: cut '),
-      createTextElement('strong', '', response.cardOut),
+      createTextElement('strong', '', toDisplayCardName(response.cardOut)),
       document.createTextNode(', restore '),
-      createTextElement('strong', '', response.cardIn),
+      createTextElement('strong', '', toDisplayCardName(response.cardIn)),
       document.createTextNode(`. ${response.changedFamilyCount} ${cutLabWhatifPreviewSummaryCopy}`),
     );
 
@@ -3253,7 +3494,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const emptyOptionLabel = Array.from(select.options).find(option => option.value === '')?.text ?? '';
     select.replaceChildren(...[
       new Option(emptyOptionLabel, ''),
-      ...cardNames.map(cardName => new Option(cardName, cardName)),
+      ...cardNames.map(cardName => new Option(toDisplayCardName(cardName), cardName)),
     ]);
     select.value = '';
   };
@@ -3368,7 +3609,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
     const cardCell = document.createElement('td');
     cardCell.setAttribute('data-label', 'Card');
-    cardCell.appendChild(createTextElement('strong', '', row.cardName));
+    cardCell.appendChild(createTextElement('strong', '', toDisplayCardName(row.cardName)));
     if (row.isAddedBasic) {
       cardCell.appendChild(createTextElement('span', 'kb-chip cutlab-tuner-badge--added', 'Added'));
     }
@@ -3607,8 +3848,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
     reconcileQuantityTuners(patch.quantityTuners, antiForgeryToken, patch.cutLabStateJson, options.adjustedCardName !== undefined);
     reconcileAddableBasics(patch.addableBasics, antiForgeryToken, patch.cutLabStateJson);
+    refreshDerivedLockUi(buildPoolIndex());
+    // Why: The server-supplied lockedCount must overwrite the client recount.
     refreshResolvedFloors(patch.resolvedFloors ?? []);
-    updateLockedCountChip();
   };
 
   const handleWhatifPreview = async (form: HTMLFormElement, submitter: HTMLButtonElement | null): Promise<void> => {
@@ -3622,10 +3864,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       return;
     }
 
+    const generation = ++whatifPreviewGeneration;
+    const isStale = (): boolean => generation !== whatifPreviewGeneration;
     whatifSubmitInFlight = true;
     clearWhatifError();
     const antiForgeryToken = getAntiForgeryToken(form);
     const restoreBusyState = setWhatifBusyState(form, submitter);
+    restoreInvalidatedPreview = restoreBusyState;
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), cutLabDecisionTimeoutMs);
 
@@ -3645,20 +3890,33 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       });
 
       if (!response.ok) {
-        renderWhatifError(await readErrorMessage(response));
+        const message = await readErrorMessage(response);
+        if (isStale()) {
+          return;
+        }
+        renderWhatifError(message);
         return;
       }
 
       const data = await response.json() as CutLabWhatifResponse;
+      if (isStale()) {
+        return;
+      }
       renderWhatifPreview(data);
     } catch (error) {
+      if (isStale()) {
+        return;
+      }
       renderWhatifError(error instanceof DOMException && error.name === 'AbortError'
         ? cutLabDecisionTimeoutCopy
         : cutLabWhatifPreviewErrorCopy);
     } finally {
       window.clearTimeout(timeoutId);
-      whatifSubmitInFlight = false;
-      restoreBusyState();
+      if (!isStale()) {
+        whatifSubmitInFlight = false;
+        restoreBusyState();
+        restoreInvalidatedPreview = null;
+      }
     }
   };
 
@@ -3839,7 +4097,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       applyServerPatch(data.patch, antiForgeryToken, { preserveCutsSection: payload.decision === 'restore' });
       if (payload.decision === 'restore') {
         removeRestoredCutRow(payload.cardName);
-        renderCutsMadeStatus('data-cut-lab-restore-confirmation', `${payload.cardName} restored — metrics recalculating…`);
+        renderCutsMadeStatus('data-cut-lab-restore-confirmation', `${toDisplayCardName(payload.cardName)} restored — metrics recalculating…`);
       }
     } catch (error) {
       renderDecisionError(form, error instanceof DOMException && error.name === 'AbortError'
@@ -4343,7 +4601,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
 
     if (chipArea) {
-      setKbChips(chipArea, rows.map(row => row.dataset.cutLabCard ?? ''));
+      setKbChips(chipArea, rows.map(row => toDisplayCardName(row.dataset.cutLabCard ?? '')));
     }
 
     if (emptyHint) {
@@ -4580,7 +4838,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       .slice(0, 3);
 
     if (lockedChips) {
-      setKbChips(lockedChips, lockedRows.slice(0, 3).map(row => row.dataset.cutLabCard ?? ''));
+      setKbChips(lockedChips, lockedRows.slice(0, 3).map(row => toDisplayCardName(row.dataset.cutLabCard ?? '')));
     }
 
     if (lockedMore) {
@@ -4627,14 +4885,18 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
-  const refreshAndSerialize = (syncDecisionForms = true): void => {
-    const index = buildPoolIndex();
+  const refreshDerivedLockUi = (index: ReturnType<typeof buildPoolIndex>): void => {
     updateLockedCountChip(index);
     updatePoolFilterState(index);
     syncAllPackageStates(index);
     syncRoleGroupLockState(index);
     syncRoleLockButtons(index);
     updateConstraintsSummary(index);
+  };
+
+  const refreshAndSerialize = (syncDecisionForms = true): void => {
+    const index = buildPoolIndex();
+    refreshDerivedLockUi(index);
     const serializedState = api.buildCutLabStateJson(buildSnapshotFromDom(index));
     writeStateToHiddenInput(serializedState);
     if (syncDecisionForms) {
@@ -4667,13 +4929,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     }
   };
 
+  const handlePoolLockChange = (row: HTMLTableRowElement, checkbox: HTMLInputElement): void => {
+    refreshAndSerialize();
+    syncLockedProposalState(row, checkbox);
+  };
+
   const attachRowHandlers = (): void => {
     getPoolRows().forEach(row => {
       const checkbox = getLockCheckbox(row);
       if (checkbox) {
         checkbox.addEventListener('change', () => {
-          refreshAndSerialize();
-          syncLockedProposalState(row, checkbox);
+          handlePoolLockChange(row, checkbox);
         });
       }
 
@@ -4713,8 +4979,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
     const groups = Array.from(document.querySelectorAll<HTMLElement>('details[data-cut-lab-group-role]'));
     const template = Array.from(document.querySelectorAll<HTMLElement>('details[data-cut-lab-group-role] [data-cut-lab-chip-card]')).find(chip => chip.dataset.cutLabChipCard === cardName)?.cloneNode(true) as HTMLElement | undefined;
-    // Why: row order is the same for every group, so compute it once instead of per group.
-    const order = rows.map(row => row.dataset.cutLabCard);
+    // Why: role groups use the server comparer rank, independent of commander pinning in the pool.
+    const order = getAlphabeticalPoolRows().map(row => row.dataset.cutLabCard);
     const cardPosition = order.indexOf(cardName);
     groups.forEach(group => {
       const key = group.dataset.cutLabGroupRole ?? '';
@@ -4750,6 +5016,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const form = document.createElement('form'); form.method = 'post'; form.action = source.action;
     const token = main.querySelector<HTMLInputElement>(`input[name="${cutLabAntiForgeryFieldName}"]`);
     const fields: Record<string, string> = { CutLabStateJson: stateJson, CardName: edit.cardName, Operation: edit.operation };
+    const originStep = source.querySelector<HTMLInputElement>('[data-cut-lab-role-origin-step]');
+    if (originStep) fields.originStep = originStep.value;
     if (edit.role) fields.Role = edit.role;
     if (token) fields[token.name] = token.value;
     Object.entries(fields).forEach(([name, value]) => { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.append(input); });
@@ -4764,7 +5032,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const stateJson = getStateInput(form)?.value ?? '';
     const token = getAntiForgeryToken(form);
     const status = block.querySelector<HTMLElement>('[data-cut-lab-role-status]');
-    const controls = Array.from(block.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('input, button, select'));
+    const controls = Array.from(block.querySelectorAll<HTMLInputElement | HTMLButtonElement>('input, button'));
     controls.push(...Array.from(document.querySelectorAll<HTMLButtonElement>('[data-cutlab-modal-lock], [data-cutlab-modal-close]')));
     const disabled = controls.map(control => control.disabled);
     roleOverrideSubmitInFlight = true; block.setAttribute('aria-busy', 'true');
@@ -4821,7 +5089,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const form = event.target;
     const submitter = (event as SubmitEvent).submitter as HTMLButtonElement | null;
     const operation = submitter?.value ?? '';
-    void submitRoleEdit({ cardName: form.querySelector<HTMLInputElement>('[name="CardName"]')?.value ?? '', role: operation === 'Reset' ? '' : form.querySelector<HTMLSelectElement>('[data-cut-lab-role-override-role]')?.value ?? '', operation }, submitter);
+    void submitRoleEdit({ cardName: form.querySelector<HTMLInputElement>('[name="CardName"]')?.value ?? '', role: '', operation }, submitter);
   });
 
   const attachPoolFilterHandlers = (): void => {
@@ -4888,9 +5156,10 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         return;
       }
 
-      const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role]');
-      if (lockRoleButton?.dataset.cutLabLockRole) {
-        toggleRoleLock(lockRoleButton.dataset.cutLabLockRole);
+      const lockRoleButton = target.closest<HTMLElement>('[data-cut-lab-lock-role], [data-cut-lab-floor-lock-role]');
+      const lockRoleKey = lockRoleButton ? roleKeyOf(lockRoleButton) : '';
+      if (lockRoleKey) {
+        toggleRoleLock(lockRoleKey);
         return;
       }
 
@@ -4930,6 +5199,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       }
 
       if (target.closest('[data-cut-lab-recalculate]')) {
+        saveReferencePosition();
         getForm()?.requestSubmit();
       }
     });
@@ -5133,13 +5403,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
         const row = getCardRowByName(cardName);
         const checkbox = row ? getLockCheckbox(row) : null;
-        if (!checkbox || checkbox.disabled) {
+        if (!row || !checkbox || checkbox.disabled) {
           syncCardModalLockButton(cardName, false);
           return;
         }
 
         checkbox.checked = !checkbox.checked;
-        refreshAndSerialize();
+        handlePoolLockChange(row, checkbox);
         syncCardModalLockButton(cardName, false);
       });
     }
@@ -5201,6 +5471,33 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     });
   };
 
+  document.addEventListener('click', event => {
+    const button = event.target instanceof Element
+      ? event.target.closest<HTMLElement>('[data-cut-lab-swap-card]')
+      : null;
+    if (!button) {
+      return;
+    }
+    // A committed swap is a mutation; only a preview can be invalidated by navigation.
+    if (whatifSubmitInFlight && !restoreInvalidatedPreview) {
+      return;
+    }
+    ++whatifPreviewGeneration;
+    restoreInvalidatedPreview?.();
+    restoreInvalidatedPreview = null;
+    whatifSubmitInFlight = false;
+    clearWhatifPreview();
+    switchTabAndOpen('cut-lab-section-whatif');
+    const cardIn = getWhatifCardInSelect();
+    const cardOut = getWhatifCardOutSelect();
+    if (cardIn) {
+      cardIn.value = button.dataset.cutLabSwapCard ?? '';
+      window.DeckFlow?.refreshDfSelect?.(cardIn);
+    }
+    const visibleControl = cardOut?.closest('.df-select')?.querySelector<HTMLElement>('.df-select__trigger') ?? cardOut;
+    visibleControl?.focus();
+  });
+
   const attachGoalSubmitHandler = (): void => {
     document.addEventListener('submit', event => {
       const target = event.target;
@@ -5210,6 +5507,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
 
       event.preventDefault();
       writeStateToHiddenInput();
+      saveReferencePosition();
       getForm()?.requestSubmit();
     });
   };
@@ -5286,7 +5584,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     attachSectionCollapsePersistence();
     relocateScenarioSection();
     attachStepTabHandler();
+    attachReferenceHandler();
     attachAnchorNavHandler();
+    updateStepOrientation();
+    window.addEventListener('resize', updateStepOrientation);
+    restoreReferencePosition();
     updatePinnedProposalOffset();
     window.addEventListener('resize', updatePinnedProposalOffset);
     window.addEventListener('orientationchange', updatePinnedProposalOffset);

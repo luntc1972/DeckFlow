@@ -7,6 +7,13 @@ internal static class CutLabCardNames
 {
     public static StringComparer Comparer { get; } = StringComparer.Ordinal;
 
+    /// <summary>Formats canonical MDFC separators for display in card names and sentences.</summary>
+    public static string ToDisplayName(string? text)
+    {
+        // Why: Display-only formatting keeps canonical card identity unchanged.
+        return text?.Replace(" // ", " / ", StringComparison.Ordinal) ?? string.Empty;
+    }
+
     public static string Normalize(string cardName)
     {
         ArgumentNullException.ThrowIfNull(cardName);

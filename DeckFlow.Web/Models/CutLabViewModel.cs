@@ -139,6 +139,9 @@ public sealed record CutLabViewModel
     /// <summary>Resolved pool cards for the current working session.</summary>
     public IReadOnlyList<CutLabPoolCard> Pool { get; init; } = [];
 
+    /// <summary>Display-only pool rows with stable persisted and alphabetical positions.</summary>
+    public IReadOnlyList<CutLabPoolRowView> PoolRows => BuildPoolRows(Pool);
+
     /// <summary>Resolved lock packages for the current working session.</summary>
     public IReadOnlyList<CutLabPackage> Packages { get; init; } = [];
 
@@ -340,7 +343,8 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabFindingView> findings = CutLabFindingPresenter.BuildFindings(result.Findings.Findings);
         IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
         Dictionary<string, int> countsByRole = CountRoles(derivedWorkingList, result.RoleAssignmentsByCardName);
-        IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience);
+        IReadOnlyList<CutLabFloorRowView> floorRows = BuildFloorRows(result.ResolvedFloors, countsByRole, request.PlayExperience,
+            CutLabResolvedFloorDto.CountLockedRoles(pool, result.RoleAssignmentsByCardName));
         CutLabFloorFeasibilityResult? floorFeasibility = CutLabFloorFeasibility.Evaluate(result.ResolvedFloors);
         CutLabPlanPanelView planPanel = BuildPlanPanel(result.State?.Intent.PlanProfile, result.AvailableCommanderThemes, result.CommanderThemesUnavailable, result.ArchetypeSuggestion);
         IReadOnlyDictionary<string, string> roleListByCardName = BuildRoleListByCardName(pool, result.RoleAssignmentsByCardName);
@@ -482,13 +486,34 @@ public sealed record CutLabViewModel
             honestySentence);
     }
 
+    // Why: every pool display uses identical full-name ordering without changing persisted pool order.
+    private static readonly IComparer<string> PoolDisplayNameComparer = Comparer<string>.Create((left, right) =>
+    {
+        int comparison = StringComparer.OrdinalIgnoreCase.Compare(left, right);
+        return comparison != 0 ? comparison : StringComparer.Ordinal.Compare(left, right);
+    });
+
+    private static IReadOnlyList<CutLabPoolRowView> BuildPoolRows(IReadOnlyList<CutLabPoolCard> pool)
+    {
+        return pool.Select((card, index) => (Card: card, PoolIndex: index))
+            .OrderBy(row => row.Card.Name, PoolDisplayNameComparer)
+            .Select((row, index) => new CutLabPoolRowView
+            {
+                Card = row.Card,
+                PoolIndex = row.PoolIndex,
+                AlphabeticalIndex = index,
+            })
+            .OrderByDescending(row => row.Card.IsCommander)
+            .ToArray();
+    }
+
     private static CutLabRoleGroupView BuildGroup(
         string key,
         string label,
         IEnumerable<CutLabPoolCard> cards,
         bool isLockable = true)
     {
-        CutLabRoleMemberView[] members = cards.Select(card => new CutLabRoleMemberView
+        CutLabRoleMemberView[] members = cards.OrderBy(card => card.Name, PoolDisplayNameComparer).Select(card => new CutLabRoleMemberView
         {
             Name = card.Name,
             Quantity = card.Quantity,
@@ -545,9 +570,10 @@ public sealed record CutLabViewModel
     internal static IReadOnlyList<CutLabFloorRowView> BuildFloorRows(
         IReadOnlyList<CutLabResolvedFloor> resolvedFloors,
         IReadOnlyDictionary<string, int> countsByRole,
-        string playExperience)
+        string playExperience,
+        IReadOnlyDictionary<string, int>? lockedCountsByRole = null)
     {
-        IReadOnlyList<CutLabResolvedFloorDto> floorDtos = CutLabResolvedFloorDto.Create(resolvedFloors, countsByRole, playExperience);
+        IReadOnlyList<CutLabResolvedFloorDto> floorDtos = CutLabResolvedFloorDto.Create(resolvedFloors, countsByRole, playExperience, lockedCountsByRole);
 
         return resolvedFloors
             .Zip(floorDtos, (floor, floorDto) =>
@@ -558,6 +584,7 @@ public sealed record CutLabViewModel
                     RoleKey = floorDto.RoleKey,
                     DisplayLabel = DisplayLabelFor(floor.Role),
                     InPoolCount = floorDto.InPoolCount,
+                    LockedCount = floorDto.LockedCount,
                     BracketValue = floorDto.BracketValue,
                     CommanderValue = floor.CommanderValue,
                     SupportsCommanderFloor = supportsCommanderFloor,
@@ -1224,6 +1251,9 @@ public sealed record CutLabFloorRowView
     /// <summary>User-facing role label.</summary>
     public string DisplayLabel { get; init; } = string.Empty;
 
+    /// <summary>Quantity of locked pool cards filling the role, including commanders.</summary>
+    public int LockedCount { get; init; }
+
     /// <summary>Current number of pool cards filling the role.</summary>
     public int InPoolCount { get; init; }
 
@@ -1264,9 +1294,9 @@ public sealed record CutLabFloorRowView
 /// <summary>Plan-panel view: the twelve generic strategy checkboxes, the commander theme checkboxes, and derived display flags.</summary>
 public sealed record CutLabPlanPanelView
 {
-    /// <summary>Archetype rows shown in the Step 3 picker.</summary>
+    /// <summary>Archetype rows shown in the Step 2 picker.</summary>
     public IReadOnlyList<CutLabPlanArchetypeRowView> ArchetypeRows { get; init; } = [];
-    /// <summary>Display name of the selected Step 3 archetype, when one is selected.</summary>
+    /// <summary>Display name of the selected Step 2 archetype, when one is selected.</summary>
     public string? ChosenArchetypeName { get; init; }
     /// <summary>One row per fixed generic strategy, in catalog declaration order.</summary>
     public IReadOnlyList<CutLabPlanStrategyRowView> StrategyRows { get; init; } = [];

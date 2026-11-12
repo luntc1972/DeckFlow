@@ -30,12 +30,13 @@ const buildFixture = (allProtected: boolean): void => {
     <form data-cache-key="cut-lab">
       <input type="hidden" name="CutLabStateJson" value="" />
       <div data-cut-lab-constraints-role-count>0/5</div>
-      <span data-cut-lab-constraints-role-caption>Not yet protected:</span>
+      <span data-cut-lab-constraints-role-caption>Not yet locked:</span>
       <div data-cut-lab-constraints-role-chips></div>
       <p data-cut-lab-constraints-role-more hidden></p>
-      <p data-cut-lab-constraints-role-hint hidden>Protect a role with its "Lock all" button in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
+      <p data-cut-lab-constraints-role-hint hidden>Lock every card in a role with Lock all in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
       <table><tbody>${rows}</tbody></table>
       ${buttons}
+      <button type="button" data-cut-lab-floor-lock-role="role-0" data-cut-lab-floor-lock-label="Lands">Lock all</button>
     </form>`;
 };
 
@@ -45,13 +46,13 @@ describe('Cut Lab constraints summary', () => {
     document.dispatchEvent(new Event('DOMContentLoaded'));
 
     expect(document.querySelector('[data-cut-lab-constraints-role-caption]')?.hidden).toBe(false);
-    expect(document.querySelector('[data-cut-lab-constraints-role-caption]')?.textContent).toBe('Not yet protected:');
+    expect(document.querySelector('[data-cut-lab-constraints-role-caption]')?.textContent).toBe('Not yet locked:');
     expect(document.querySelector('[data-cut-lab-constraints-role-caption]')?.compareDocumentPosition(document.querySelector('[data-cut-lab-constraints-role-chips]') ?? document.body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(document.querySelectorAll('[data-cut-lab-constraints-role-chips] .kb-chip')).toHaveLength(3);
     expect(document.querySelector('[data-cut-lab-constraints-role-more]')?.textContent).toBe('+2 more');
     expect(document.querySelector('[data-cut-lab-constraints-role-more]')?.hidden).toBe(false);
     expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.hidden).toBe(false);
-    expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.textContent).toBe('Protect a role with its "Lock all" button in How your pool competes.');
+    expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.textContent).toBe('Lock every card in a role with Lock all in How your pool competes.');
   });
 
   it('hides the unprotected role details when all roles are protected', () => {
@@ -62,5 +63,29 @@ describe('Cut Lab constraints summary', () => {
     expect(document.querySelector('[data-cut-lab-constraints-role-caption]')?.hidden).toBe(true);
     expect(document.querySelector('[data-cut-lab-constraints-role-more]')?.hidden).toBe(true);
     expect(document.querySelector('[data-cut-lab-constraints-role-hint]')?.hidden).toBe(true);
+  });
+});
+
+
+describe('Role floors lock controls', () => {
+  it('FloorClick_ThenChipClick_SynchronizesBothControlsWithoutDoubleCounting', () => {
+    buildFixture(false);
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    const floor = document.querySelector<HTMLButtonElement>('[data-cut-lab-floor-lock-role]')!;
+    const chip = document.querySelector<HTMLButtonElement>('[data-cut-lab-lock-role="role-0"]')!;
+    floor.click();
+    expect(chip.getAttribute('aria-pressed')).toBe('true');
+    expect(floor.textContent).toBe('Unlock all');
+    expect(floor.getAttribute('aria-label')).toBe('Unlock all Lands from Role floors');
+    expect(floor.getAttribute('aria-pressed')).toBe('true');
+    expect(floor.classList.contains('is-selected')).toBe(true);
+    expect(document.querySelector('[data-cut-lab-constraints-role-count]')?.textContent).toBe('1/5');
+    expect(document.querySelector('[data-cut-lab-constraints-role-chips]')?.textContent).toContain('Ramp');
+    chip.click();
+    expect(floor.textContent).toBe('Lock all');
+    expect(floor.getAttribute('aria-pressed')).toBe('false');
+    expect(floor.getAttribute('aria-label')).toBe('Lock all Lands from Role floors');
+    expect(floor.classList.contains('is-selected')).toBe(false);
+    expect(document.querySelector('[data-cut-lab-constraints-role-count]')?.textContent).toBe('0/5');
   });
 });

@@ -11,8 +11,7 @@ import { resolveE2EPort } from './support/e2e-port';
 const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const screenshotDir = uiDesignDir('cut-lab');
 const desktopViewport = { width: 1280, height: 900 };
-// 2200px left no scrollable headroom below nav.cutlab-anchor-nav for the position:sticky assertion.
-const mobileViewport = { width: 430, height: 932 };
+const mobileViewport = { width: 390, height: 844 };
 
 const themes = [
   { name: 'classic', cookie: 'site.css' },
@@ -140,8 +139,8 @@ const getBoundingBox = async (locator: Locator, name: string): Promise<{ x: numb
 };
 
 const createLockedFastManaPackage = async (page: Page): Promise<void> => {
-  const packagesDetails = page.locator('#cut-lab-section-packages');
-  await ensureDetailsOpen(packagesDetails);
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await expandCutLabSection(page, 'cut-lab-section-packages');
 
   const packagePanel = page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' });
   if (!(await packagePanel.count())) {
@@ -188,6 +187,7 @@ const prepareReviewCapture = async (page: Page): Promise<void> => {
   await expect(landsGroup.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Island"]')).toBeVisible();
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.locator('#cut-lab-section-packages')).toHaveAttribute('open', '');
   await expect(page.locator('[data-cut-lab-package-id]').filter({ hasText: 'Fast mana' })).toBeVisible();
 
@@ -242,52 +242,49 @@ test('captures cross-theme mobile chrome and back-to-top tap-target coverage for
     await page.context().clearCookies();
     await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
 
+    await page.setViewportSize(desktopViewport);
     await importPool(page);
-    await page.getByRole('tab', { name: 'Decide' }).click();
+    const tablist = page.locator('.cutlab-step-rail [role="tablist"]');
+    await expect(tablist).toBeVisible();
+    const desktopTabs = await getBoundingBox(tablist, 'Desktop step tabs');
+    const results = await getBoundingBox(page.locator('#cut-lab-step-panel-1'), 'Process panel');
+    expect(desktopTabs.x + desktopTabs.width, `${theme.name}: tabs occupy the left column`).toBeLessThanOrEqual(results.x);
+    await page.locator('#cut-lab-step-tab-1').focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('#cut-lab-step-tab-2')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#cut-lab-step-panel-2')).toBeVisible();
+    await page.setViewportSize(mobileViewport);
     await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
     await expandMobileCollapsibles(page);
 
-    const anchorNav = page.locator('.cutlab-anchor-nav');
-    const anchorLinks = page.locator('.cutlab-anchor-nav-list a');
+    const rail = page.locator('.cutlab-step-rail');
     const stickyBar = page.locator('.cutlab-sticky-bar[data-cut-lab-sticky-target]');
     const backToTopButton = page.locator('#back-to-top-button');
     const poolFilter = page.locator('.cutlab-pool-filter');
     const poolTableHeader = page.locator('#cut-lab-section-lock-pool .conflicts-table thead');
     const commandTowerTrigger = page.locator('button.cutlab-card-link[data-cutlab-card-open="Command Tower"]').first();
 
-    await expect(anchorNav).toBeVisible();
-    await expect(anchorLinks.first()).toBeVisible();
+    await expect(tablist).toBeVisible();
+    expect(await rail.evaluate(node => getComputedStyle(node).position)).toBe('fixed');
+    const bottomBar = await getBoundingBox(rail, 'Bottom step bar');
+    expect(bottomBar.y + bottomBar.height).toBeCloseTo(mobileViewport.height, 0);
+    await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+    const lastControl = page.locator('.cutlab-workspace button:visible:enabled, .cutlab-workspace input:visible:enabled, .cutlab-workspace select:visible:enabled, .cutlab-workspace textarea:visible:enabled, .cutlab-workspace a[href]:visible').filter({ hasNot: page.locator('[role="tab"]') });
+    // The rail is earlier in DOM order than the result controls.
+    const lastControlBox = await getBoundingBox(lastControl.last(), 'Last page control');
+    expect(lastControlBox.y + lastControlBox.height, `${theme.name}: last control clears the bottom bar`).toBeLessThanOrEqual(bottomBar.y);
 
     await page.locator('#cut-lab-section-cut-rounds').scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollBy({ top: 200, behavior: 'instant' }));
     await expect(stickyBar).toBeVisible();
-
-    const anchorNavPosition = await anchorNav.evaluate(node => getComputedStyle(node).position);
-    expect(anchorNavPosition).toBe('sticky');
-
-    const stuckNavBox = await getBoundingBox(anchorNav, 'Anchor nav');
-    expect(stuckNavBox.y).toBeLessThanOrEqual(4);
-
-    const linkMetrics = await anchorLinks.evaluateAll(links =>
-      links.map(link => {
-        const element = link as HTMLAnchorElement;
-        return {
-          text: element.textContent?.trim() ?? '',
-          scrollWidth: element.scrollWidth,
-          clientWidth: element.clientWidth,
-        };
-      }));
-    for (const metric of linkMetrics) {
-      expect(metric.scrollWidth, `${theme.name}: anchor pill text should not be clipped for "${metric.text}"`).toBeLessThanOrEqual(metric.clientWidth + 1);
-    }
-
     await expect(backToTopButton).toBeVisible();
     const backToTopBox = await getBoundingBox(backToTopButton, 'Back-to-top button');
     expect(backToTopBox.width, `${theme.name}: back-to-top button should be at least 44px wide`).toBeGreaterThanOrEqual(44);
     expect(backToTopBox.height, `${theme.name}: back-to-top button should be at least 44px tall`).toBeGreaterThanOrEqual(44);
-    assertNoOverlap(stuckNavBox, backToTopBox, `${theme.name}: anchor nav should not overlap the back-to-top button`);
+    assertNoOverlap(bottomBar, backToTopBox, `${theme.name}: bottom bar should not overlap the back-to-top button`);
 
     const stickyBarBox = await getBoundingBox(stickyBar, 'Sticky bar');
-    expect(stickyBarBox.y, `${theme.name}: sticky bar should start below the anchor nav when both are visible`).toBeGreaterThanOrEqual(stuckNavBox.y + stuckNavBox.height - 1);
+    expect(Math.abs(stickyBarBox.y), `${theme.name}: stuck bar starts at viewport top`).toBeLessThanOrEqual(4);
 
     await page.getByRole('tab', { name: 'Process' }).click();
     await expandCutLabSection(page, 'cut-lab-section-lock-pool');
@@ -333,8 +330,8 @@ test('captures Lock your pool review screenshots across themes at desktop and mo
 test("shows a newly created package in another card's visible package widget without reload", async ({ page }) => {
   await importPool(page);
 
-  const packagesDetails = page.locator('#cut-lab-section-packages');
-  await ensureDetailsOpen(packagesDetails);
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+  await expandCutLabSection(page, 'cut-lab-section-packages');
 
   await page.locator('select[data-cut-lab-package-card="Sol Ring"]').selectOption('__new__');
   await page.locator('[data-cut-lab-new-package-input]').fill('Fast mana');
@@ -379,15 +376,12 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
     await expect(noJs.page.locator('#cut-lab-step-tab-5')).toHaveAttribute('form', 'cut-lab-export-form');
     await acceptProposalNoJs(noJs.page);
 
-    const anchorLink = noJs.page.locator('.cutlab-anchor-nav-list a[href="#cut-lab-section-cut-rounds"]').first();
-    await expect(anchorLink).toHaveAttribute('href', '#cut-lab-section-cut-rounds');
-    await anchorLink.click();
-    await expect.poll(() => new URL(noJs.page.url()).hash).toBe('#cut-lab-section-cut-rounds');
-    const targetInView = await noJs.page.locator('#cut-lab-section-cut-rounds').evaluate(node => {
-      const rect = node.getBoundingClientRect();
-      return rect.top >= 0 && rect.top < window.innerHeight;
-    });
-    expect(targetInView).toBe(true);
+    for (const id of ['role-floors', 'structural', 'constraints']) {
+      await expect(noJs.page.locator(`#cut-lab-section-${id}`)).toBeAttached();
+    }
+    await expect(noJs.page.locator('#cut-lab-step-panel-1 #cut-lab-section-role-floors')).toBeAttached();
+    await expect(noJs.page.locator('#cut-lab-step-panel-1 #cut-lab-section-structural')).toBeAttached();
+    await expect(noJs.page.locator('#cut-lab-reference')).not.toHaveAttribute('open', '');
 
     const mobileDetails = noJs.page.locator('#cut-lab-section-cut-rounds');
     await expect(mobileDetails).toHaveAttribute('open', '');
@@ -417,4 +411,30 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
   } finally {
     await noJs.close();
   }
+});
+
+test('keeps pool rows hidden by search and lock filters', async ({ page }) => {
+  await importPool(page);
+  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
+
+  const solRing = page.locator('tr[data-cut-lab-card="Sol Ring"]');
+  const arcaneSignet = page.locator('tr[data-cut-lab-card="Arcane Signet"]');
+  const search = page.locator('.cutlab-pool-search');
+  await search.fill('Sol Ring');
+  await expect(arcaneSignet).toHaveAttribute('hidden', '');
+  await expect(arcaneSignet).toBeHidden();
+  await expect(solRing).toBeVisible();
+
+  await search.fill('');
+  await solRing.locator('[data-cut-lab-lock-card]').check();
+  await arcaneSignet.locator('[data-cut-lab-lock-card]').uncheck();
+  await page.locator('input[name="CutLabPoolFilter"][value="locked"]').check();
+  await expect(arcaneSignet).toHaveAttribute('hidden', '');
+  await expect(arcaneSignet).toBeHidden();
+  await expect(solRing).toBeVisible();
+
+  await page.locator('input[name="CutLabPoolFilter"][value="unlocked"]').check();
+  await expect(solRing).toHaveAttribute('hidden', '');
+  await expect(solRing).toBeHidden();
+  await expect(arcaneSignet).toBeVisible();
 });

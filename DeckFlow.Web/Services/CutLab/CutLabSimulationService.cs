@@ -274,7 +274,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         ArgumentException.ThrowIfNullOrWhiteSpace(candidateCardName);
 
         string currentPoolKey = poolKey ?? CutLabResolvedCardCache.ComputePoolKey(currentWorkingList);
-        if (_deltaCache.TryGet(currentPoolKey, candidateCardName, out CutLabProposalDeltas? cached, trialsOverride, goals, roleOverrides: roleOverrides) && cached is not null)
+        if (_deltaCache.TryGet(currentPoolKey, candidateCardName, playExperience, out CutLabProposalDeltas? cached, trialsOverride, goals, roleOverrides: roleOverrides) && cached is not null)
         {
             return cached;
         }
@@ -294,7 +294,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             ChangedFamilyCount = metricDeltaSet.ChangedFamilyCount,
         };
 
-        _deltaCache.Set(currentPoolKey, candidateCardName, computed, trialsOverride, goals, roleOverrides: roleOverrides);
+        _deltaCache.Set(currentPoolKey, candidateCardName, playExperience, computed, trialsOverride, goals, roleOverrides: roleOverrides);
         return computed;
     }
 

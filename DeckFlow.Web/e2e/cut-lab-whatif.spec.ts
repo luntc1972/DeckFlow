@@ -225,3 +225,22 @@ test('supports the no-JS what-if preview and keep fallback via full-page re-rend
     await noJs.close();
   }
 });
+
+test('accepted-cut swap opens Goals, preselects its canonical card and focuses card-out', async ({ page }) => {
+  await importPool(page);
+  await waitForCutRounds(page);
+  await expect(page.locator('.cutlab-proposal [data-cut-lab-swap-card]')).toHaveCount(0);
+  await acceptCurrentProposal(page);
+  const swap = page.locator('.cutlab-cuts-made__row button[data-cut-lab-swap-card]');
+  await expect(swap).toHaveCount(1);
+  const cardName = await swap.getAttribute('data-cut-lab-swap-card');
+  expect(cardName).toBeTruthy();
+  await expect(swap).toHaveText('What if I swap this?');
+  await swap.click();
+  await expect(page.getByRole('tab', { name: 'Goals', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#cut-lab-section-whatif')).toHaveAttribute('open', '');
+  await expect(page.locator('select[data-cut-lab-whatif-card-in]')).toHaveValue(cardName!);
+  const cardOut = page.locator('select[data-cut-lab-whatif-card-out]');
+  const enhanced = cardOut.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " df-select ")][1]').locator('.df-select__trigger');
+  await expect((await enhanced.count()) ? enhanced : cardOut).toBeFocused();
+});

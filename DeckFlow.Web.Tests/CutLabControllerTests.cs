@@ -386,6 +386,29 @@ public sealed class CutLabControllerTests
     }
 
     [Fact]
+    public async Task Decide_AcceptLockedCard_PreservesDecideStepOverride()
+    {
+        var service = new FakeCutLabPageService();
+        var controller = CreateController(service);
+        CutLabState unlockedState = CreateState();
+        CutLabState lockedState = unlockedState with
+        {
+            Pool = unlockedState.Pool.Select(card => card.Name == "Arcane Signet" ? card with { IsLocked = true } : card).ToArray(),
+        };
+        var request = new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(lockedState),
+        };
+
+        var result = await controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept, CutLabCutRoundEngine.Round2Key);
+
+        var view = Assert.IsType<ViewResult>(result);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal(0, service.CallCount);
+        Assert.Equal(CutLabSteps.Decide, model.CurrentStepOverride);
+    }
+
+    [Fact]
     public async Task Decide_PostedThemeAvailability_PersistsOnDecision()
     {
         var service = new FakeCutLabPageService { Result = new CutLabProcessResult { State = new CutLabState() } };
@@ -626,7 +649,7 @@ public sealed class CutLabControllerTests
 
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CutLabViewModel>(view.Model);
-        Assert.Equal(3, model.CurrentStepOverride);
+        Assert.Equal(CutLabSteps.Plan, model.CurrentStepOverride);
         CutLabState restoredState = CutLabStateSerializer.Deserialize(model.CutLabStateJson);
         Assert.Equal(["combo"], restoredState.Intent.PlanProfile!.GenericStrategies);
         Assert.Equal(["tokens"], restoredState.Intent.PlanProfile.CommanderThemes.Select(theme => theme.Slug));
@@ -694,7 +717,7 @@ public sealed class CutLabControllerTests
         var result = await controller.PlanApply(request);
 
         var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
-        Assert.Equal(3, model.CurrentStepOverride);
+        Assert.Equal(CutLabSteps.Plan, model.CurrentStepOverride);
     }
 
     [Fact]
@@ -975,7 +998,7 @@ public sealed class CutLabControllerTests
         var model = Assert.IsType<CutLabViewModel>(view.Model);
         CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
         Assert.Equal(6, updatedState.Goals.CommanderByTurn);
-        Assert.Equal(4, model.CurrentStepOverride);
+        Assert.Equal(CutLabSteps.Goals, model.CurrentStepOverride);
         CutLabGoalRowView commanderRow = Assert.Single(model.GoalRows, row => row.Kind == CutLabMetricKind.CommanderByTurn);
         Assert.Equal(6, commanderRow.TurnValue);
         Assert.Equal("Commander by turn 6", commanderRow.Label);
@@ -994,7 +1017,7 @@ public sealed class CutLabControllerTests
         var result = await controller.Goals(request);
 
         var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
-        Assert.Equal(4, model.CurrentStepOverride);
+        Assert.Equal(CutLabSteps.Goals, model.CurrentStepOverride);
     }
 
     [Fact]
@@ -1384,6 +1407,103 @@ public sealed class CutLabControllerTests
         var view = Assert.IsType<ViewResult>(result);
         var model = Assert.IsType<CutLabViewModel>(view.Model);
         Assert.Equal("boom", model.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("PlanApply", CutLabSteps.Plan)]
+    [InlineData("Decide", CutLabSteps.Decide)]
+    [InlineData("Adjust", CutLabSteps.Decide)]
+    [InlineData("RoleOverride", CutLabSteps.Plan)]
+    [InlineData("RestartRounds", CutLabSteps.Decide)]
+    [InlineData("Goals", CutLabSteps.Goals)]
+    [InlineData("Export", CutLabSteps.Export)]
+    [InlineData("Whatif", CutLabSteps.Goals)]
+    public async Task Mutation_MissingState_PreservesOwningStep(string action, int expectedStep)
+    {
+        var controller = CreateController(new FakeCutLabPageService());
+        var response = await InvokeMutationAsync(controller, action, new CutLabRequest());
+        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(response).Model);
+        Assert.Equal(expectedStep, model.CurrentStepOverride);
+    }
+
+    private static Task<IActionResult> InvokeMutationAsync(CutLabController controller, string action, CutLabRequest request) => action switch
+    {
+        "PlanApply" => controller.PlanApply(request),
+        "Decide" => controller.Decide(request, "Arcane Signet", CutLabDecideAction.Accept),
+        "Adjust" => controller.Adjust(request, "Arcane Signet", -1, false),
+        "RoleOverride" => controller.RoleOverride(request, "Arcane Signet", "draw", CutLabRoleOverrideOperation.Add),
+        "RestartRounds" => controller.RestartRounds(request),
+        "Goals" => controller.Goals(request),
+        "Export" => controller.Export(request),
+        "Whatif" => controller.Whatif(request, "Arcane Signet", "Plains", "preview"),
+        _ => throw new ArgumentOutOfRangeException(nameof(action)),
+    };
+
+    [Theory]
+    [InlineData("Decide", CutLabSteps.Decide)]
+    [InlineData(null, CutLabSteps.Plan)]
+    [InlineData("bogus", CutLabSteps.Plan)]
+    [InlineData("3", CutLabSteps.Plan)]
+    public async Task RoleOverride_InvalidRequest_ValidatesOriginBeforeEarlyExit(string? origin, int expectedStep)
+    {
+        var controller = CreateController(new FakeCutLabPageService());
+        var response = await controller.RoleOverride(new CutLabRequest(), "", null, CutLabRoleOverrideOperation.Add, origin);
+        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(response).Model);
+        Assert.Equal(expectedStep, model.CurrentStepOverride);
+    }
+
+    [Theory]
+    [InlineData("PlanApply", CutLabSteps.Plan)]
+    [InlineData("Decide", CutLabSteps.Decide)]
+    [InlineData("Adjust", CutLabSteps.Decide)]
+    [InlineData("RoleOverride", CutLabSteps.Plan)]
+    [InlineData("RestartRounds", CutLabSteps.Decide)]
+    [InlineData("Goals", CutLabSteps.Goals)]
+    [InlineData("Export", CutLabSteps.Export)]
+    [InlineData("Whatif", CutLabSteps.Goals)]
+    public async Task Mutation_ExceptionFallback_PreservesOwningStep(string action, int expectedStep)
+    {
+        foreach (Exception error in new Exception[] { new InvalidOperationException("Bad pool."), new OperationCanceledException(), new Exception("boom") })
+        {
+            var controller = CreateController(new ThrowingCutLabPageService(error));
+            var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
+            var response = await InvokeMutationAsync(controller, action, request);
+            var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(response).Model);
+            Assert.Equal(expectedStep, model.CurrentStepOverride);
+        }
+    }
+
+    [Theory]
+    [InlineData("PlanApply", CutLabSteps.Plan)]
+    [InlineData("Decide", CutLabSteps.Decide)]
+    [InlineData("Adjust", CutLabSteps.Decide)]
+    [InlineData("RoleOverride", CutLabSteps.Plan)]
+    [InlineData("RestartRounds", CutLabSteps.Decide)]
+    [InlineData("Goals", CutLabSteps.Goals)]
+    [InlineData("Export", CutLabSteps.Export)]
+    [InlineData("Whatif", CutLabSteps.Goals)]
+    public async Task Mutation_ValidState_PreservesOwningStep(string action, int expectedStep)
+    {
+        var controller = CreateController(new FakeCutLabPageService());
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
+        var response = await InvokeMutationAsync(controller, action, request);
+        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(response).Model);
+        Assert.Equal(expectedStep, model.CurrentStepOverride);
+    }
+
+    [Theory]
+    [InlineData("Decide", CutLabSteps.Decide, false)]
+    [InlineData(null, CutLabSteps.Plan, false)]
+    [InlineData("bogus", CutLabSteps.Plan, false)]
+    [InlineData("Decide", CutLabSteps.Decide, true)]
+    public async Task RoleOverride_StatefulPost_PreservesValidatedOrigin(string? origin, int expectedStep, bool throws)
+    {
+        ICutLabPageService service = throws ? new ThrowingCutLabPageService(new OperationCanceledException()) : new FakeCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(CreateState()) };
+        var response = await controller.RoleOverride(request, "Arcane Signet", "draw", CutLabRoleOverrideOperation.Add, origin);
+        var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(response).Model);
+        Assert.Equal(expectedStep, model.CurrentStepOverride);
     }
 
     private static CutLabController CreateController(

@@ -59,10 +59,8 @@ public static class CutLabFloorFeasibility
             // payoffs harder than any other role — 124 of 124 adopting commanders sit below the band
             // at brackets 4-5 — so discounting it would silence the advisory in the case it must catch.
             payoffs;
-        // Why: wincons is intentionally omitted from the required-slot arithmetic. Win conditions can
-        // co-occur with any other role through the isComboPiece branch, so a wincons floor is at least
-        // partly free whenever the deck already runs qualifying combo pieces. The magnitude is unmeasured,
-        // so crediting it fully under-counts demand and makes the advisory fire less often rather than more.
+        // Why: wincons is intentionally omitted from the required-slot arithmetic; the floor is based
+        // on the roles with measured nonland-slot demand, while closers remain advisory-only.
 
         if (requiredNonlandSlots <= availableNonlandSlots)
         {

@@ -14,21 +14,21 @@ const stubMatchMedia = (): void => {
   } satisfies MediaQueryList)));
 };
 
+// Decide is deliberately disabled in this fixture to exercise generic disabled-tab navigation.
 const renderFixture = (selectedStep = 1): void => {
   document.body.innerHTML = `
     <div class="prompt-step-nav" role="tablist" aria-label="Cut Lab workflow steps">
       <button type="button" role="tab" id="cut-lab-step-tab-1" data-cut-lab-step="1" aria-controls="cut-lab-step-panel-1" aria-selected="${selectedStep === 1}" tabindex="${selectedStep === 1 ? 0 : -1}">Process</button>
-      <button type="button" role="tab" id="cut-lab-step-tab-2" data-cut-lab-step="2" aria-controls="cut-lab-step-panel-2" aria-selected="${selectedStep === 2}" tabindex="${selectedStep === 2 ? 0 : -1}">Decide</button>
-      <button type="button" role="tab" id="cut-lab-step-tab-3" data-cut-lab-step="3" aria-controls="cut-lab-step-panel-3" aria-disabled="true" aria-selected="false" tabindex="-1">Plan</button>
+      <button type="button" role="tab" id="cut-lab-step-tab-2" data-cut-lab-step="2" aria-controls="cut-lab-step-panel-2" aria-selected="${selectedStep === 2}" tabindex="${selectedStep === 2 ? 0 : -1}">Plan</button>
+      <button type="button" role="tab" id="cut-lab-step-tab-3" data-cut-lab-step="3" aria-controls="cut-lab-step-panel-3" aria-disabled="true" aria-selected="false" tabindex="-1">Decide</button>
       <button type="button" role="tab" id="cut-lab-step-tab-4" data-cut-lab-step="4" aria-controls="cut-lab-step-panel-4" aria-selected="${selectedStep === 4}" tabindex="${selectedStep === 4 ? 0 : -1}">Goals</button>
       <button type="submit" role="tab" id="cut-lab-step-tab-5" form="cut-lab-export-form" data-cut-lab-step="5" aria-controls="cut-lab-step-panel-5" aria-selected="${selectedStep === 5}" tabindex="${selectedStep === 5 ? 0 : -1}">Export</button>
     </div>
-    <section role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">Process<details id="cut-lab-section-lock-pool" data-cutlab-mobile-collapse></details></section>
-    <section role="tabpanel" id="cut-lab-step-panel-2" aria-labelledby="cut-lab-step-tab-2">Decide<details id="cut-lab-section-cut-rounds" data-cutlab-mobile-collapse open></details></section>
-    <section role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">Plan</section>
+    <section role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">Process</section>
+    <section role="tabpanel" id="cut-lab-step-panel-2" aria-labelledby="cut-lab-step-tab-2">Plan<details id="cut-lab-section-plan-panel" data-cutlab-mobile-collapse open></details><details id="cut-lab-section-lock-pool" data-cutlab-mobile-collapse></details></section>
+    <section role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">Decide<details id="cut-lab-section-cut-rounds" data-cutlab-mobile-collapse open></details></section>
     <section role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">Goals<details id="cut-lab-section-goals" data-cutlab-mobile-collapse></details><details id="cut-lab-section-scenarios"></details></section>
     <section role="tabpanel" id="cut-lab-step-panel-5" aria-labelledby="cut-lab-step-tab-5">Export<details id="cut-lab-section-export" data-cutlab-mobile-collapse></details></section>
-    <nav class="cutlab-anchor-nav"></nav>
     <form id="cut-lab-export-form"></form>
   `;
 };
@@ -84,6 +84,29 @@ describe('cut-lab step tabs', () => {
     expect(document.getElementById('cut-lab-step-tab-5')?.getAttribute('aria-selected')).toBe('false');
   });
 
+  it('places scenarios immediately before Constraints and keeps the step rail first', () => {
+    renderFixture(2);
+    const results = document.createElement('div');
+    results.className = 'deck-history-results';
+    results.append(...Array.from(document.body.childNodes));
+    document.body.append(results);
+    const rail = document.createElement('aside');
+    rail.className = 'cutlab-step-rail';
+    results.prepend(rail);
+    const constraints = document.createElement('section');
+    constraints.className = 'result-panel';
+    constraints.innerHTML = '<details id="cut-lab-section-constraints"></details>';
+    results.insertBefore(constraints, document.getElementById('cut-lab-step-panel-1'));
+
+    initialize();
+
+    const scenarios = document.getElementById('cut-lab-section-scenarios')!;
+    expect(scenarios.compareDocumentPosition(constraints) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(scenarios.nextElementSibling).toBe(constraints);
+    expect(results.firstElementChild).toBe(rail);
+    expect(rail.compareDocumentPosition(scenarios) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
   it('moves scenarios outside hidden step panels on initialization', () => {
     renderFixture(2);
     initialize();
@@ -91,7 +114,7 @@ describe('cut-lab step tabs', () => {
     const scenarios = document.getElementById('cut-lab-section-scenarios');
     expect(scenarios?.closest('[role="tabpanel"]')).toBeNull();
     expect(scenarios?.closest('[hidden]')).toBeNull();
-    expect(scenarios?.nextElementSibling?.classList.contains('cutlab-anchor-nav')).toBe(true);
+    expect(scenarios?.nextElementSibling?.id).toBe('cut-lab-step-panel-1');
   });
 
   // Killing mutation: M4 - skip the initialization hide
@@ -103,15 +126,13 @@ describe('cut-lab step tabs', () => {
     }
   });
 
-  it('requires selecting Process before the Lock your pool panel is visible after a Decide load', () => {
-    renderFixture(2);
+  it('requires selecting Plan before the Lock your pool panel is visible after a Process load', () => {
+    renderFixture(1);
     initialize();
-
-    expect(document.getElementById('cut-lab-step-panel-1')?.hidden).toBe(true);
-    document.getElementById('cut-lab-step-tab-1')?.click();
-    expect(document.getElementById('cut-lab-step-panel-1')?.hidden).toBe(false);
+    expect(document.getElementById('cut-lab-step-panel-2')?.hidden).toBe(true);
+    document.getElementById('cut-lab-step-tab-2')?.click();
+    expect(document.getElementById('cut-lab-step-panel-2')?.hidden).toBe(false);
   });
-
   // Killing mutation: M5 - route initialization through tab activation
   it('does not apply the default section collapse state on first load', () => {
     renderFixture();
@@ -121,13 +142,24 @@ describe('cut-lab step tabs', () => {
     expect(window.localStorage.getItem('deckflow.cutlab.sections')).toBeNull();
   });
 
+  it('opens the Process primary section and collapses other sections when selected', () => {
+    renderFixture(2);
+    document.getElementById('cut-lab-step-panel-1')!.insertAdjacentHTML('beforeend', '<details id="cut-lab-section-competes" data-cutlab-mobile-collapse></details>');
+    initialize();
+    document.getElementById('cut-lab-step-tab-1')!.click();
+    expect(document.getElementById('cut-lab-section-competes')!.hasAttribute('open')).toBe(true);
+    expect(document.getElementById('cut-lab-section-plan-panel')!.hasAttribute('open')).toBe(false);
+    expect(document.getElementById('cut-lab-section-cut-rounds')!.hasAttribute('open')).toBe(false);
+  });
+
   // Killing mutation: M6 - delete the collapse default from activation too
   it('still applies the default section collapse state when a tab is clicked', () => {
     renderFixture();
     initialize();
-    (document.getElementById('cut-lab-step-tab-1') as HTMLButtonElement).click();
-    expect(document.getElementById('cut-lab-section-lock-pool')?.hasAttribute('open')).toBe(true);
+    (document.getElementById('cut-lab-step-tab-2') as HTMLButtonElement).click();
+    expect(document.getElementById('cut-lab-section-lock-pool')?.hasAttribute('open')).toBe(false);
     expect(document.getElementById('cut-lab-section-cut-rounds')?.hasAttribute('open')).toBe(false);
+    expect(document.getElementById('cut-lab-section-plan-panel')?.hasAttribute('open')).toBe(true);
   });
 
   // Killing mutation: M18 - no-op activation on click
@@ -157,17 +189,17 @@ describe('cut-lab step tabs', () => {
     renderFixture(2);
     initialize();
 
-    const decide = document.getElementById('cut-lab-step-tab-2') as HTMLButtonElement;
-    const plan = document.getElementById('cut-lab-step-tab-3') as HTMLButtonElement;
-    expect(plan.disabled).toBe(false);
+    const plan = document.getElementById('cut-lab-step-tab-2') as HTMLButtonElement;
+    const decide = document.getElementById('cut-lab-step-tab-3') as HTMLButtonElement;
+    expect(decide.disabled).toBe(false);
 
     const visiblePanelIdsBefore = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id);
-    decide.focus();
-    decide.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
-    expect(document.activeElement).toBe(plan);
-    expect(plan.getAttribute('aria-selected')).toBe('false');
+    plan.focus();
+    plan.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(document.activeElement).toBe(decide);
+    expect(decide.getAttribute('aria-selected')).toBe('false');
     expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id)).toEqual(visiblePanelIdsBefore);
-    expect(decide.getAttribute('aria-selected')).toBe('true');
+    expect(plan.getAttribute('aria-selected')).toBe('true');
   });
 
   // Killing mutation: M21 - drop Home/End boundary navigation
@@ -193,21 +225,21 @@ describe('cut-lab step tabs', () => {
     renderFixture(2);
     initialize();
 
-    const decide = document.getElementById('cut-lab-step-tab-2') as HTMLButtonElement;
-    const plan = document.getElementById('cut-lab-step-tab-3') as HTMLButtonElement;
+    const plan = document.getElementById('cut-lab-step-tab-2') as HTMLButtonElement;
+    const decide = document.getElementById('cut-lab-step-tab-3') as HTMLButtonElement;
     const goals = document.getElementById('cut-lab-step-tab-4') as HTMLButtonElement;
-    decide.focus();
-    decide.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
-    expect(document.activeElement).toBe(plan);
-    expect(plan.getAttribute('aria-selected')).toBe('false');
+    plan.focus();
     plan.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(document.activeElement).toBe(decide);
+    expect(decide.getAttribute('aria-selected')).toBe('false');
+    decide.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     expect(document.activeElement).toBe(goals);
-    expect(plan.getAttribute('aria-selected')).toBe('false');
+    expect(decide.getAttribute('aria-selected')).toBe('false');
 
     const visiblePanelIdsBefore = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id);
     goals.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
-    expect(document.activeElement, 'arrowLeft: focus returns to Plan').toBe(plan);
-    expect(plan.getAttribute('aria-selected'), 'arrowLeft: aria-selected stays false').toBe('false');
+    expect(document.activeElement, 'arrowLeft: focus returns to Decide').toBe(decide);
+    expect(decide.getAttribute('aria-selected'), 'arrowLeft: aria-selected stays false').toBe('false');
     expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id), 'arrowLeft: visible-panel set unchanged').toEqual(visiblePanelIdsBefore);
   });
 
@@ -216,10 +248,10 @@ describe('cut-lab step tabs', () => {
     renderFixture(2);
     initialize();
 
-    const plan = document.getElementById('cut-lab-step-tab-3') as HTMLButtonElement;
+    const decide = document.getElementById('cut-lab-step-tab-3') as HTMLButtonElement;
     const visiblePanelIdsBefore = Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id);
-    plan.click();
-    expect(plan.getAttribute('aria-selected')).toBe('false');
+    decide.click();
+    expect(decide.getAttribute('aria-selected')).toBe('false');
     expect(Array.from(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).map(panel => panel.id)).toEqual(visiblePanelIdsBefore);
   });
 
@@ -231,4 +263,20 @@ describe('cut-lab step tabs', () => {
 
     expect(document.querySelectorAll<HTMLElement>('[role="tabpanel"]:not([hidden])')).toHaveLength(5);
   });
+});
+
+ it('supports vertical arrows and preserves Home and End', () => {
+  renderFixture(2);
+  initialize();
+  const tabs = document.querySelector<HTMLElement>('[role="tablist"]')!;
+  tabs.setAttribute('aria-orientation', 'vertical');
+  const plan = document.getElementById('cut-lab-step-tab-2')!;
+  plan.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+  expect(document.activeElement?.id).toBe('cut-lab-step-tab-3');
+  document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+  expect(document.activeElement?.id).toBe('cut-lab-step-tab-2');
+  plan.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+  expect(document.activeElement?.id).toBe('cut-lab-step-tab-1');
+  document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+  expect(document.activeElement?.id).toBe('cut-lab-step-tab-5');
 });

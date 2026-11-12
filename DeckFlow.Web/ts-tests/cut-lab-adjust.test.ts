@@ -297,12 +297,21 @@ const buildFixture = (options: { includePlainsRow?: boolean; addableBasics?: str
 describe('cut-lab adjust enhancement', () => {
   it('patches sticky count and exact-100 export gates after a successful stepper adjust', async () => {
     buildFixture();
+    document.body.insertAdjacentHTML('beforeend', `<table><tbody>
+      <tr data-cut-lab-floor-row="lands"><td><input data-cut-lab-floor="lands" value="36" /></td>
+      <td data-label="Locked"><span data-cut-lab-floor-locked-label>0 locked</span></td></tr>
+    </tbody></table>`);
     const originalState = buildStateJson(98);
     const nextStateJson = buildStateJson(98, 1);
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
         patch: buildPatch(nextStateJson, {
+          resolvedFloors: [{
+            roleKey: 'lands', inPoolCount: 99, lockedCount: 7, bracketValue: 36,
+            commanderDisplay: '—', floor: 36, defaultValue: 36, planDelta: 0,
+            isUserSet: false, sourceLabel: 'Bracket', sourceDetail: 'Default',
+          }],
           currentCount: 100,
           canBuildExport: true,
           quantityTuners: [
@@ -332,6 +341,7 @@ describe('cut-lab adjust enhancement', () => {
     }));
     await flushAdjustSubmit();
 
+    expect(document.querySelector('[data-cut-lab-floor-locked-label]')?.textContent).toBe('7 locked');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe('/api/cut-lab/adjust');
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({

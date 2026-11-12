@@ -131,8 +131,8 @@ test('Cut Lab mobile workflow stepper shows its short step names', async ({ page
   await expect(nav).toHaveClass(/prompt-step-nav--labeled/);
   await expect(tabs.locator('.prompt-step-tab__label')).toHaveText([
     'Process',
-    'Decide',
     'Plan',
+    'Decide',
     'Goals',
     'Export',
   ]);
@@ -147,13 +147,26 @@ test('Cut Lab mobile workflow stepper shows its short step names', async ({ page
   }));
   expect(tabMetrics).toEqual(expect.arrayContaining([
     expect.objectContaining({ text: '1Process' }),
-    expect.objectContaining({ text: '2Decide' }),
-    expect.objectContaining({ text: '3Plan' }),
+    expect.objectContaining({ text: '2Plan' }),
+    expect.objectContaining({ text: '3Decide' }),
     expect.objectContaining({ text: '4Goals' }),
     expect.objectContaining({ text: '5Export' }),
   ]));
   expect(tabMetrics.every(tab => tab.width >= 44 && tab.height >= 44)).toBe(true);
-  expect(await nav.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
+  // Why: The rail fits without scrolling since the G2 step-rail redesign.
+  const navBounds = await nav.boundingBox();
+  expect(navBounds).not.toBeNull();
+  for (const tab of await tabs.all()) {
+    const bounds = await tab.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(navBounds!.x - 0.5);
+    expect(bounds!.y).toBeGreaterThanOrEqual(navBounds!.y - 0.5);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(navBounds!.x + navBounds!.width + 0.5);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(navBounds!.y + navBounds!.height + 0.5);
+  }
+  for (const label of await tabs.locator('.prompt-step-tab__label').all()) {
+    expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  }
 });
 
 test('deck primer section groups collapse on mobile', async ({ page }) => {

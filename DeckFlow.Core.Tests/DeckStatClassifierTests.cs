@@ -27,6 +27,9 @@ public sealed class DeckStatClassifierTests
     [InlineData("Artifact", "{T}: Add {C}{C}.", true)]         // Sol Ring
     [InlineData("Creature — Elf", "{T}: Add {G}.", true)]      // mana dork (Llanowar Elves)
     [InlineData("Instant", "Add {B}{B}{B}.", true)]            // Dark Ritual (ritual acceleration)
+    [InlineData("Artifact", "{T}: Add {C}. (This is a reminder.)", true)]  // mana ability with reminder text
+    [InlineData("Sorcery", "Create a Treasure token. (It is an artifact with \"{T}, Sacrifice this artifact: Add one mana of any color.\")", true)]  // Treasure creation with reminder text
+    [InlineData("Creature — Elf", "Reach (This creature can block creatures with flying.)\n{T}: Add {G}.", true)]  // mana dork with reminder text
     public void IsRampCard_TrueCases(string typeLine, string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsRampCard(typeLine, oracleText));
@@ -36,6 +39,8 @@ public sealed class DeckStatClassifierTests
     [InlineData("Creature — Elf", "Tap: deal 1 damage to target creature.", false)]  // vanilla creature
     [InlineData("Instant", "Counter target spell.", false)]                           // counterspell, not ramp
     [InlineData("Enchantment", "Whenever a creature dies, draw a card.", false)]     // draw, not ramp
+    [InlineData("Instant", "Gift a Treasure (You may promise an opponent a gift as you cast this spell. If you do, they create a Treasure token before its other effects. It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nReturn target spell to its owner's hand. If the gift was promised, players can't cast spells this turn.", false)]  // Bilbo's Gambit gift-a-Treasure reminder text
+    [InlineData("Creature — Human", "Flash (You may cast this spell any time you could cast an instant. Add {C}.)", false)]  // Flash reminder text is not ramp
     public void IsRampCard_FalseCases(string typeLine, string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsRampCard(typeLine, oracleText));
@@ -191,6 +196,7 @@ public sealed class DeckStatClassifierTests
     [Theory]
     [InlineData("Artifact", "{T}: Add {C}{C}.", "", true)]            // Mana Crypt: MV 0, artifact, produces mana
     [InlineData("Artifact", "Add {C}{C}{C}.", "", true)]              // Jeweled-Lotus-style: MV 0, "Add {"
+    [InlineData("Artifact", "{T}: Add {C}{C}. (This is a reminder.)", "", true)]  // real mana ability before reminder text
     public void IsFastManaCard_TrueCases(string typeLine, string oracleText, string manaCost, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsFastManaCard(typeLine, oracleText, manaCost));
@@ -200,6 +206,8 @@ public sealed class DeckStatClassifierTests
     [InlineData("Artifact", "{T}: Add {C}.", "{1}", false)]           // Sol Ring: MV 1, not fast mana
     [InlineData("Creature — Elf", "{T}: Add {G}.", "{G}", false)]     // mana dork, not artifact
     [InlineData("Artifact", "{T}: Tap target creature.", "", false)]  // MV 0 artifact but produces no mana
+    [InlineData("Artifact", "Indestructible (Effects that say destroy don't destroy this. It's like a land with \"{T}: Add {C}.\")", "", false)]  // mana ability only in reminder text
+    [InlineData("Artifact — Equipment", "Equip {2} (Attach to target creature you control. Add {C} is not real here.)", "", false)]  // mana production only in equip reminder text
     public void IsFastManaCard_FalseCases(string typeLine, string oracleText, string manaCost, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsFastManaCard(typeLine, oracleText, manaCost));

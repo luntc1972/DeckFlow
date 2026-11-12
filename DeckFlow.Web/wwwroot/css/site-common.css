@@ -7,7 +7,6 @@
   /* Why: this workspace shadow is shared and non-theme-varying; declared here
      because guild themes fork site.css. */
   --workspace-card-shadow: 0 12px 30px rgba(26, 31, 46, 0.06);
-  --cutlab-anchor-nav-stuck-height: 4rem;
   /* WDG-08 finding O: signal user-agent that native chrome (scrollbars,
      form controls) should follow each theme's light/dark intent. */
   color-scheme: light dark;
@@ -1457,6 +1456,12 @@ table[data-prompt-cedh-reference-table] th[aria-sort="descending"] .cedh-sort-in
     padding: 0.75rem 0.95rem;
     border: 1px solid var(--line, currentColor);
     border-radius: 10px;
+  }
+
+  /* Why: display: grid on card rows outranks the UA [hidden] rule, so rows the
+     Cut Lab pool filters hide would stay visible at 600px and below. */
+  table[data-prompt-cedh-reference-table] tr[hidden] {
+    display: none;
   }
 
   /* Zero the base .conflicts-table cell borders so they don't bleed through the
@@ -3769,42 +3774,6 @@ details.cutlab-collapsible > div.cutlab-package-help > p.cutlab-package-help__he
   }
 }
 
-nav.cutlab-anchor-nav {
-  margin: 0.85rem 0 0;
-  padding: 0.85rem 1rem;
-  border-radius: 12px;
-  border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
-  background: var(--panel-soft-bg, var(--panel));
-}
-
-nav.cutlab-anchor-nav .cutlab-anchor-nav-label {
-  margin: 0 0 0.45rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted, #5a6472);
-}
-
-nav.cutlab-anchor-nav .cutlab-anchor-nav-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 0.8rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-nav.cutlab-anchor-nav .cutlab-anchor-nav-list a {
-  color: var(--accent-strong, var(--accent, inherit));
-  text-decoration: none;
-}
-
-nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:hover,
-nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
-  text-decoration: underline;
-}
-
 .manabase-castability-summary {
   margin: 0.35rem 0 0.75rem;
   color: var(--muted, #5a6472);
@@ -5267,17 +5236,50 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   padding-top: 0.75rem;
 }
 
-.cutlab-role-chips {
+.cutlab-role-editor {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
+}
+
+.cutlab-role-chips {
+  display: contents;
   list-style: none;
   padding: 0;
 }
 
-.cutlab-role-chips button {
-  min-width: 44px;
-  min-height: 44px;
+.cutlab-workspace .cutlab-role-editor .cutlab-role-chips .kb-chip > button {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1em;
+  line-height: 1;
+  overflow: visible;
+}
+
+/* Why: the compact x and the suggestion pill stay visually small but keep a 44px touch target. */
+.cutlab-role-chips .kb-chip > button::before,
+.cutlab-card-modal__roles button.cutlab-role-suggestion::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.cutlab-role-chips .kb-chip > button:hover,
+.cutlab-role-chips .kb-chip > button:focus-visible {
+  color: var(--danger);
 }
 
 .cutlab-role-chips button:focus-visible {
@@ -5285,8 +5287,39 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   outline-offset: 2px;
 }
 
-.cutlab-card-modal__roles form[hidden],
-.cutlab-card-modal__roles details[hidden] {
+.cutlab-role-suggestions {
+  display: contents;
+}
+
+.cutlab-card-modal__roles button.cutlab-role-suggestion {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  appearance: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  min-height: 0;
+  white-space: nowrap;
+}
+
+.cutlab-card-modal__roles button.cutlab-role-suggestion:hover,
+.cutlab-card-modal__roles button.cutlab-role-suggestion:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cutlab-card-modal__roles button.cutlab-role-suggestion:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.cutlab-card-modal__roles form[hidden] {
   display: none;
 }
 
@@ -5297,12 +5330,6 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   border: 0;
 }
 
-@media (max-width: 600px) {
-  .cutlab-card-modal__roles details {
-    flex-basis: 100%;
-  }
-}
-
 .cutlab-card-modal__roles form {
   display: flex;
   flex-wrap: wrap;
@@ -5310,14 +5337,12 @@ nav.cutlab-anchor-nav .cutlab-anchor-nav-list a:focus-visible {
   gap: 0.75rem;
 }
 
-.cutlab-card-modal__roles label,
-.cutlab-card-modal__roles form p {
-  flex-basis: 100%;
+.cutlab-card-modal__roles .cutlab-role-editor > [data-cut-lab-role-override-form]:not([hidden]) {
+  display: contents;
 }
 
-.cutlab-card-modal__roles select,
-.cutlab-card-modal__roles .df-select {
-  flex: 1 1 14rem;
+.cutlab-card-modal__roles form p {
+  flex-basis: 100%;
 }
 
 .cutlab-card-modal__roles button {
@@ -5506,8 +5531,9 @@ button.cutlab-role-chip:focus-visible {
 /* Cut Lab role floors: wrap the added numeric-column sizing in a min-width query because
    this table also carries data-prompt-cedh-reference-table and inherits the generic stacked
    grid at <= 600px, where a fixed width would collapse the value track. */
-table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] th:nth-child(3),
+/* Why: The inserted Locked column shifts Bracket and Commander to columns 4 and 5. */
 table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] th:nth-child(4),
+table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] th:nth-child(5),
 table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] td[data-label="Bracket"],
 table[data-cut-lab-role-floors-table][data-cut-lab-commander-floors="true"] td[data-label="Commander"] {
   width: 6rem;
@@ -6172,6 +6198,7 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
 }
 
 .cutlab-decision-btn,
+.cutlab-swap-btn,
 .cutlab-restore-btn {
   display: inline-flex;
   align-items: center;
@@ -6206,6 +6233,7 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
   background: transparent;
 }
 
+.cutlab-swap-btn,
 .cutlab-restore-btn {
   border: 1px solid var(--line);
   background: transparent;
@@ -6213,9 +6241,19 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
 }
 
 .cutlab-decision-btn:disabled,
+.cutlab-swap-btn:disabled,
 .cutlab-restore-btn:disabled {
   cursor: progress;
   opacity: 0.72;
+}
+
+.cutlab-lock-callout {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
 }
 
 .cutlab-busy-spinner {
@@ -6320,55 +6358,9 @@ tr[data-cut-lab-tuner-row]:has(.cutlab-tuner-badge--added) {
 }
 
 @media (max-width: 640px) {
-  nav.cutlab-anchor-nav {
-    --cutlab-anchor-nav-stuck-height: 4rem;
-    position: sticky;
-    top: 0;
-    z-index: 15;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    min-height: var(--cutlab-anchor-nav-stuck-height);
-    max-height: var(--cutlab-anchor-nav-stuck-height);
-    padding: 0.5rem 0.75rem;
-    overflow: hidden;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
-  }
-
-  nav.cutlab-anchor-nav .cutlab-anchor-nav-label {
-    flex: 0 0 auto;
-    margin: 0;
-    white-space: nowrap;
-  }
-
-  nav.cutlab-anchor-nav .cutlab-anchor-nav-list {
-    flex: 1 1 auto;
-    flex-wrap: nowrap;
-    gap: 0.4rem;
-    overflow-x: auto;
-    overflow-y: hidden;
-    white-space: nowrap;
-    scrollbar-width: thin;
-    mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 0 calc(100% - 24px), transparent 100%);
-  }
-
-  nav.cutlab-anchor-nav .cutlab-anchor-nav-list li {
-    flex: 0 0 auto;
-  }
-
-  nav.cutlab-anchor-nav .cutlab-anchor-nav-list a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding: 0 0.75rem;
-    border: 1px solid var(--line, rgba(0, 0, 0, 0.18));
-    border-radius: 999px;
-    background: var(--panel-soft-bg, var(--panel));
-  }
 
   .cutlab-sticky-bar {
-    top: var(--cutlab-anchor-nav-stuck-height, 4rem);
+    top: 0;
     flex-wrap: wrap;
     gap: 0.5rem;
     min-height: auto;
@@ -8297,14 +8289,90 @@ pre {
     min-height: 2.75rem;
   }
 
-  .cutlab-workspace .cutlab-anchor-nav {
-    padding: 1rem 1.25rem;
-    border-left: 3px solid var(--accent);
-    background: color-mix(in srgb, var(--panel) 94%, var(--accent));
-  }
 }
 
 .kb-chip-area__chips[hidden],
 .kb-chip-area__empty-hint[hidden] {
     display: none;
+}
+
+/* Cut Lab keeps one workflow navigation across desktop, tablet, and phone. */
+.cutlab-step-rail { min-width: 0; }
+dialog.cutlab-reference {
+  width: min(64rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+}
+dialog.cutlab-reference::backdrop { background: rgba(0, 0, 0, 0.65); }
+@media (min-width: 1024px) {
+  .cutlab-workspace .deck-history-results {
+    display: grid;
+    grid-template-columns: 10rem minmax(0, 1fr);
+    /* Why: The spanning rail creates empty rows; gaps there would push sticky actions offscreen. */
+    row-gap: 0;
+    align-items: start;
+    column-gap: 1rem;
+  }
+  /* Why: Native dialogs need auto margins to stay centred in the viewport. */
+  .cutlab-workspace .deck-history-results > .result-panel,
+  .cutlab-workspace .deck-history-results > :not(.result-panel, dialog) { grid-column: 2; min-width: 0; margin-bottom: 1.25rem; }
+  .cutlab-workspace .deck-history-results > .cutlab-step-rail {
+    grid-column: 1;
+    grid-row: 1 / span 100;
+    position: sticky;
+    top: 1rem;
+  }
+  .cutlab-step-rail .prompt-step-nav { display: flex; flex-direction: column; }
+  .cutlab-step-rail .prompt-step-tab { width: 100%; }
+}
+@media (max-width: 640px) {
+  body:has(.cutlab-workspace .cutlab-step-rail) { padding-bottom: calc(7rem + env(safe-area-inset-bottom)); }
+  .cutlab-workspace .cutlab-step-rail {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 4rem;
+    z-index: 850;
+    padding: 0.25rem 0.25rem calc(0.25rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .cutlab-step-rail .prompt-step-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: 0;
+    gap: 0.15rem;
+  }
+  .cutlab-workspace .cutlab-step-rail .prompt-step-tab {
+    min-width: 0;
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+    padding: 0.4rem 0.1rem;
+    flex-direction: column;
+    gap: 0.15rem;
+    white-space: normal;
+    font-size: 0.65rem;
+  }
+  dialog.cutlab-reference { width: 100%; height: 100dvh; max-height: 100dvh; max-width: 100%; margin: 0; border-radius: 0; }
+}
+
+@media (max-width: 600px) {
+  .clear-cache-button--wrap {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .clear-cache-button.clear-cache-button--wrap {
+    white-space: normal;
+    max-width: 100%;
+    box-sizing: border-box;
+    flex-shrink: 1;
+    overflow-wrap: anywhere;
+  }
 }

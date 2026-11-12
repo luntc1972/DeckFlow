@@ -363,9 +363,7 @@ internal static class RoleFloorResearchCommandRunner
                         // Commander is singleton for every nonland card that can plausibly earn one
                         // of the target roles, so the research harness classifies quantity as 1.
                         CardFact fact = ScryfallCardFactMapper.ToCardFact(card, quantity: 1, isCommander: false);
-                        // Commander Spellbook combo-piece resolution is out of scope here, so this
-                        // can only undercount wincons, never overcount them.
-                        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], isComboPiece: false, resolvedMode);
+                        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], resolvedMode);
                         foreach (string role in roles)
                         {
                             if (roleCounts.ContainsKey(role))
@@ -400,7 +398,7 @@ internal static class RoleFloorResearchCommandRunner
                             {
                                 ScryfallCardData card = cardResolution.ResolvedCards[cardEntry.Name];
                                 CardFact fact = ScryfallCardFactMapper.ToCardFact(card, quantity: 1, isCommander: false);
-                                IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], isComboPiece: false, resolvedMode);
+                                IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], resolvedMode);
                                 return (Roles: roles, Quantity: cardEntry.Quantity);
                             }));
 
@@ -1004,7 +1002,7 @@ internal static class RoleFloorResearchCommandRunner
         foreach (CardFact probe in probes)
         {
             foreach (string role in CutLabRoleAssigner
-                         .AssignRoles(probe, [], isComboPiece: false, mode))
+                         .AssignRoles(probe, [], mode))
             {
                 emittedKeys.Add(role);
             }
@@ -1299,7 +1297,7 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine(FormattableString.Invariant(
             $"A commander-role row clears the written statistical bar only when DEDUPED N >= {computation.MinDeckCount}, the commander's P25 is >= {RatioHigh:0.###}x or <= {RatioLow:0.###}x the corpus P25 (or differs by at least {AbsoluteFloorGap:0.0} cards when the corpus P25 is zero), and |z| >= {ZThreshold:0.0}; z is computed as (commanderMean - corpusMean) / (corpusStdDev / sqrt(n))."));
         builder.AppendLine("RAW N is the count of distinct reconstructed mainboard deck_queue ids for a commander before content-hash collapse; DEDUPED N collapses same-content_hash near-duplicates to one representative deck per non-null hash, so DEDUPED N is the only N compared against the threshold or passed into ClearsFloorBar.");
-        builder.AppendLine("Every card is classified oracle-only with the production role assigner using empty categories and `isComboPiece: false`: categories are intentionally always `[]` because `PlanRoleClassifier.Classify` is categories-first and first-hit-wins, so using live Archidekt tags would partially measure each commander playerbase's tagging habits rather than the card's mechanics. This matches the already-shipped `CutLabSimulationService.cs:517` call shape, but it means these findings do not reproduce what CutLabRoleAssigner outputs today for an actually-tagged production decklist.");
+        builder.AppendLine("Every card is classified oracle-only with the production role assigner using empty categories: categories are intentionally always `[]` because `PlanRoleClassifier.Classify` is categories-first and first-hit-wins, so using live Archidekt tags would partially measure each commander playerbase's tagging habits rather than the card's mechanics. Cut Lab no longer grants wincons or tutor roles for combo membership, so no combo credit exists to undercount. This matches the already-shipped `CutLabSimulationService.cs:517` call shape, but it means these findings do not reproduce what CutLabRoleAssigner outputs today for an actually-tagged production decklist.");
         builder.AppendLine("The verdict is computed from the commander's 25th percentile against the corpus 25th percentile; the mean z-score is retained only as a significance gate because a sample percentile has no closed-form standard error.");
         builder.AppendLine("When the corpus P25 is zero, the multiplicative ratio is undefined and `ComputeRatio` returns 0.0, so the bar falls back to an absolute gap of 2.0 cards; that is the smallest floor difference worth stating as a recommendation.");
         builder.AppendLine("EDHREC cells never enter the go/no-go, because ClearsFloorBar requires a standard deviation and a sample size that a single synthesized average deck cannot supply.");
@@ -1316,7 +1314,7 @@ internal static class RoleFloorResearchCommandRunner
         builder.AppendLine("- Card-level category-tag coverage gap: a tagged deck can still leave individual cards uncategorized, so reconstructed decklists may miss cards.");
         builder.AppendLine("- Deck-level invisibility gap: a processed deck with zero category-tagged cards contributes no membership rows at all and is invisible to this pipeline.");
         builder.AppendLine("- content_hash NULL dedup limitation: dedup is conservative, not perfect, because older deck_queue rows may still have NULL content_hash values.");
-        builder.AppendLine("- `isComboPiece` is fixed to `false`, so combo-only win conditions can be undercounted.");
+        builder.AppendLine("- Cut Lab no longer grants wincons or tutor roles for combo membership, so no combo credit exists to undercount.");
         builder.AppendLine("- ManabaseMode is fixed per run, so this pass does not compare role floors across multiple play-experience modes.");
         builder.AppendLine("- The `other` residual role is deliberately excluded because it measures fallback classifier coverage rather than deck-construction structure.");
         builder.AppendLine("- Postgres decks are classified as singleton card sets because Commander is singleton for the target nonland roles there, while EDHREC cells preserve real decklist quantities so basics and other repeated entries are counted at their actual quantity.");

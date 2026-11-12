@@ -460,7 +460,7 @@
                     && report.BaselineLandsMean is { } baselineMean
                     && report.BaselineLandsSd is { } baselineSd)
                 {
-                    <text>— cEDH meta range ~@Math.Round(rangeLow).ToString("F0")–@Math.Round(rangeHigh).ToString("F0") lands (@baselineDeckCount cEDH tournament decks@(string.IsNullOrWhiteSpace(report.BaselineMonth) ? "" : $", {report.BaselineMonth} sample"); mean @baselineMean.ToString("F1") ±@baselineSd.ToString("F1")).</text>
+                    <text>— cEDH meta range ~@Math.Round(rangeLow).ToString("F0")–@Math.Round(rangeHigh).ToString("F0") lands (@baselineDeckCount cEDH tournament decks@(string.IsNullOrWhiteSpace(report.BaselineMonth) ? "" : $", {report.BaselineMonth} sample"); mean @baselineMean.ToString("F1") ±@baselineSd.ToString("F1")). Tournament data: <a href="https://topdeck.gg/" target="_blank" rel="noopener noreferrer">TopDeck.gg</a>.</text>
                 }
                 <text> (@landNote).</text>
             </p>

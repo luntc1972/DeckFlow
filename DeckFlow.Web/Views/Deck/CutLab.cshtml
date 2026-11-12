@@ -20,11 +20,11 @@
         UseMobileLabeledTabs: true,
         Steps:
         [
-            new WorkflowStepTab(1, "Process", IsComplete: Model.HasResult),
-            new WorkflowStepTab(2, "Decide", IsComplete: cardsRemainingToTarget == 0),
-            new WorkflowStepTab(3, "Plan", IsComplete: false, IsEnabled: true),
-            new WorkflowStepTab(4, "Goals", IsComplete: true),
-            new WorkflowStepTab(5, "Export", IsComplete: Model.Export.HasExport, IsEnabled: currentCount == 100, SubmitFormId: "cut-lab-export-form"),
+            new WorkflowStepTab(CutLabSteps.Process, "Process", IsComplete: Model.HasResult),
+            new WorkflowStepTab(CutLabSteps.Plan, "Plan", IsComplete: false, IsEnabled: true),
+            new WorkflowStepTab(CutLabSteps.Decide, "Decide", IsComplete: cardsRemainingToTarget == 0),
+            new WorkflowStepTab(CutLabSteps.Goals, "Goals", IsComplete: true),
+            new WorkflowStepTab(CutLabSteps.Export, "Export", IsComplete: Model.Export.HasExport, IsEnabled: currentCount == 100, SubmitFormId: "cut-lab-export-form"),
         ]);
     string DeltaValueClass(CutLabMetricDirection direction) => direction switch
     {
@@ -44,7 +44,7 @@
         {
             <span class="kb-chip cutlab-lock-badge--commander"
                   data-cutlab-card-open="@member.Name"
-                  data-cut-lab-chip-card="@member.Name">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
+                  data-cut-lab-chip-card="@member.Name">@(CutLabCardNames.ToDisplayName(member.Name))@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</span>
         }
         else
         {
@@ -53,7 +53,7 @@
                     class="@chipClasses"
                     data-cutlab-card-open="@member.Name"
                     data-cut-lab-chip-card="@member.Name"
-                    aria-pressed="@(member.IsLocked ? "true" : "false")">@member.Name@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
+                    aria-pressed="@(member.IsLocked ? "true" : "false")">@(CutLabCardNames.ToDisplayName(member.Name))@(member.Quantity > 1 ? $" ×{member.Quantity}" : string.Empty)</button>
         }
     }
 
@@ -133,7 +133,7 @@
         foreach (var line in lines)
         {
             <div class="cutlab-delta__line">
-                <span class="cutlab-delta__sentence">@line.Sentence</span>
+                <span class="cutlab-delta__sentence">@(CutLabCardNames.ToDisplayName(line.Sentence))</span>
                 @{ await RenderDeltaValue(line.Direction, line.FormattedValueToken); }
             </div>
         }
@@ -143,11 +143,11 @@
 <div class="cutlab-workspace">
 <section class="hero cutlab-hero">
     <h1>Cut Lab</h1>
-    <p class="lede">Bring an oversized Commander pool into a workspace, declare what the finished 100 should do, then protect the cards that must survive every future cut.</p>
+    <p class="lede">Bring an oversized Commander pool into a workspace, declare what the finished 100 should do, then lock the cards that must survive every future cut.</p>
     <details class="cutlab-collapsible" open>
         <summary class="cutlab-collapsible__summary">How Cut Lab works</summary>
         <ol>
-            <li>Lock the cards that must survive — tick a card to protect it.</li>
+            <li>Lock the cards that must survive — tick a card to lock it.</li>
             <li>Cut Lab proposes cuts one at a time — you don't pick cards, it does.</li>
             <li>Accept / Reject / Defer each proposal until you reach 100.</li>
             <li>Tune land / multiple-copy counts, then Export.</li>
@@ -169,7 +169,7 @@
       data-cut-lab-decide-action="@Url.Content("~/cut-lab/decide")"
       data-cut-lab-decide-api="@Url.Content("~/api/cut-lab/decide")"
       data-busy-title="Importing pool"
-      data-busy-message="Loading the deck, resolving cards, and rebuilding your protected pool."
+      data-busy-message="Loading the deck, resolving cards, and rebuilding your locked pool."
       data-busy-progress="Loading the deck|Resolving cards via Scryfall|Checking commander + legality|Building the cut workspace">
     @Html.AntiForgeryToken()
     <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
@@ -257,7 +257,9 @@
 
     <section class="deck-history-results" data-scroll-on-load>
         <script type="application/json" id="cutlab-card-text-data">@Html.Raw(JsonSerializer.Serialize(Model.BuildCardModalData()))</script>
-        @await Html.PartialAsync("_WorkflowStepTabs", exportTabs)
+        <div class="cutlab-step-rail">
+            @await Html.PartialAsync("_WorkflowStepTabs", exportTabs)
+        </div>
         <div class="toolbar">
             <button type="button" class="run-button" data-cut-lab-session-download>Download session</button>
             <a href="@Url.Content("~/cut-lab")" class="clear-cache-button" role="button" data-clear-cache data-no-busy>Start over</a>
@@ -269,31 +271,11 @@
                 <ul>
                     @foreach (var warning in Model.Warnings)
                     {
-                        <li>@warning</li>
+                        <li>@(CutLabCardNames.ToDisplayName(warning))</li>
                     }
                 </ul>
             </div>
         }
-
-        <nav class="cutlab-anchor-nav" aria-label="Jump to section">
-            <p class="cutlab-anchor-nav-label">On this page</p>
-            <ul class="cutlab-anchor-nav-list">
-                <li><a href="#cut-lab-step-panel-1">Process</a></li>
-                <li><a href="#cut-lab-section-constraints">Constraints</a></li>
-                <li><a href="#cut-lab-section-lock-pool">Lock your pool</a></li>
-                <li><a href="#cut-lab-section-competes">How your pool competes</a></li>
-                <li><a href="#cut-lab-section-by-type">By type</a></li>
-                <li><a href="#cut-lab-section-by-subtype">By subtype</a></li>
-                <li><a href="#cut-lab-section-structural">Structural findings</a></li>
-                <li><a href="#cut-lab-section-role-floors">Role floors</a></li>
-                <li><a href="#cut-lab-step-panel-2">Decide</a></li>
-                <li><a href="#cut-lab-section-cut-rounds">Cut rounds</a></li>
-                <li><a href="#cut-lab-section-tune">Tune quantities</a></li>
-                <li><a href="#cut-lab-section-cuts-made">Cuts made</a></li>
-                <li><a href="#cut-lab-section-goals">Goals</a></li>
-                <li><a href="#cut-lab-section-export">Export</a></li>
-            </ul>
-        </nav>
 
         <section class="result-panel">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-constraints" open>
@@ -301,7 +283,7 @@
                 <div class="panel-heading">
                     <div>
                         <h2>Constraints</h2>
-                        <p class="prompt-size-note">What's protected while you cut — updates live as you lock cards, packages, and roles below.</p>
+                        <p class="prompt-size-note">What's locked while you cut — updates live as you lock cards, packages, and roles below.</p>
                     </div>
                 </div>
                 <div class="cutlab-constraints-summary" aria-live="polite" aria-atomic="true">
@@ -318,7 +300,7 @@
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-locked-chips>
                             @foreach (var card in shownLocked)
                             {
-                                <span class="kb-chip">@card.Name</span>
+                                <span class="kb-chip">@(CutLabCardNames.ToDisplayName(card.Name))</span>
                             }
                         </div>
                         <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-locked-more hidden="@(Model.StickyBar.LockedCount > shownLockedQuantity ? null : "hidden")">+@Math.Max(0, Model.StickyBar.LockedCount - shownLockedQuantity) more</p>
@@ -327,6 +309,7 @@
                         <div class="cutlab-constraints-summary__head">
                             <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-package-count>@Model.Packages.Count(package => package.Locked)/@Model.Packages.Count</span>
                             <span class="cutlab-constraints-summary__label">packages locked</span>
+                            <a href="#cut-lab-section-packages" data-cut-lab-tab-link>Manage packages</a>
                         </div>
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-package-chips>
                             @foreach (var package in Model.Packages.Where(package => package.Locked).Take(3))
@@ -338,9 +321,9 @@
                     <div class="cutlab-constraints-summary__block cutlab-constraints-summary__block--roles">
                         <div class="cutlab-constraints-summary__head">
                             <span class="cutlab-constraints-summary__count" data-cut-lab-constraints-role-count>@(lockableRoles.Length - unprotectedRoles.Length)/@lockableRoles.Length</span>
-                            <span class="cutlab-constraints-summary__label">roles protected</span>
+                            <span class="cutlab-constraints-summary__label">roles fully locked</span>
                         </div>
-                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-caption hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Not yet protected:</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-caption hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Not yet locked:</p>
                         <div class="kb-chip-area__chips" data-cut-lab-constraints-role-chips>
                             @foreach (var group in unprotectedRoles.Take(3))
                             {
@@ -348,235 +331,13 @@
                             }
                         </div>
                         <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-more hidden="@(unprotectedRoles.Length > 3 ? null : "hidden")">+@Math.Max(0, unprotectedRoles.Length - 3) more</p>
-                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-hint hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Protect a role with its "Lock all" button in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
+                        <p class="cutlab-constraints-summary__note" data-cut-lab-constraints-role-hint hidden="@(unprotectedRoles.Length > 0 ? null : "hidden")">Lock every card in a role with Lock all in <a href="#cut-lab-section-competes" data-cut-lab-jump-link>How your pool competes</a>.</p>
                     </div>
                 </div>
             </details>
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-1" aria-labelledby="cut-lab-step-tab-1">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-lock-pool">
-                <summary class="cutlab-collapsible__summary">Lock your pool</summary>
-                <div class="panel-heading">
-                    <div>
-                        <h2>Lock your pool</h2>
-                        <p class="prompt-size-note">
-                            <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
-                        </p>
-                        <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
-                        <p class="manabase-help">Assigning a package groups cards for bulk lock/unlock — it doesn't remove them from the pool.</p>
-                        <p>@(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}")</p>
-                        <div class="cutlab-pool-filter" hidden>
-                            <div class="cutlab-pool-filter__group" role="radiogroup" aria-label="Show">
-                                <span class="cutlab-pool-filter__label">Show:</span>
-                                <label class="cutlab-pool-filter__option">
-                                    <input type="radio" name="CutLabPoolFilter" value="all" checked />
-                                    <span>All</span>
-                                </label>
-                                <label class="cutlab-pool-filter__option">
-                                    <input type="radio" name="CutLabPoolFilter" value="locked" />
-                                    <span>Locked</span>
-                                </label>
-                                <label class="cutlab-pool-filter__option">
-                                    <input type="radio" name="CutLabPoolFilter" value="unlocked" />
-                                    <span>Unlocked</span>
-                                </label>
-                            </div>
-                            <input type="text" class="cutlab-pool-search" placeholder="Search card name…" aria-label="Search card name" />
-                            <p class="cutlab-pool-match-count">Showing @Model.Pool.Count of @Model.Pool.Count cards</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
-                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
-                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
-                </div>
-            @if (Model.CommanderSelectionRequired)
-            {
-                <div class="result-panel nested-panel" data-scroll-on-load>
-                    <div class="panel-heading">
-                        <div>
-                            <h2>Pick your commander</h2>
-                            <p>We couldn't identify your commander automatically. Choose it below — it will be locked automatically once selected.</p>
-                        </div>
-                    </div>
-                    <div class="field">
-                        <label for="cut-lab-selected-commander">Commander from this deck</label>
-                        <select id="cut-lab-selected-commander" name="SelectedCommander" data-df-select autofocus>
-                            <option value="">Choose a commander</option>
-                            @foreach (var commanderChoice in Model.CommanderChoices)
-                            {
-                                <option value="@commanderChoice" selected="@(string.Equals(Model.Request.SelectedCommander, commanderChoice, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                                    @commanderChoice
-                                </option>
-                            }
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label for="cut-lab-commander-search">Commander search backstop</label>
-                        <input id="cut-lab-commander-search"
-                               type="text"
-                               value="@Model.Request.SelectedCommander"
-                               placeholder="Start typing a commander name…"
-                               autocomplete="off"
-                               list="cut-lab-commander-suggestions"
-                               data-commander-search="@Url.Content("~/manabase/commander-search")"
-                               data-commander-target="#cut-lab-selected-commander"
-                               data-commander-create-option="true" />
-                        <datalist id="cut-lab-commander-suggestions"></datalist>
-                        <p class="manabase-help">Pick a commander, then re-run the same import. Your decklist and declared intent stay intact.</p>
-                    </div>
-                </div>
-            }
-
-            <div class="history-timeline__wrap">
-                <p class="prompt-size-note">Lock a card to protect it from future cuts.</p>
-                <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Lock (keep)</th>
-                            <th scope="col">Card</th>
-                            <th scope="col">Type / role</th>
-                            <th scope="col">Package assignment</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var card in Model.Pool)
-                        {
-                            var frontTypeLine = CardTypeLine.FrontFace(card.TypeLine);
-                            var roleList = Model.RoleListByCardName.TryGetValue(card.Name, out var displayRoles) ? displayRoles : string.Empty;
-                            var roleKeys = Model.RoleKeysByCardName.TryGetValue(card.Name, out var rawRoleKeys) ? rawRoleKeys : string.Empty;
-                            <tr data-cut-lab-card="@card.Name"
-                                data-cut-lab-type-line="@card.TypeLine"
-                                data-cut-lab-role="@roleKeys"
-                                data-cut-lab-quantity="@card.Quantity"
-                                data-cut-lab-commander="@(card.IsCommander ? "true" : "false")">
-                                <td data-label="Lock">
-                                    <input type="checkbox"
-                                           name="Lock_@card.Name"
-                                           value="@card.Name"
-                                           data-cut-lab-lock-card="@card.Name"
-                                           aria-label="Lock @card.Name to keep it"
-                                           checked="@(card.IsLocked ? "checked" : null)"
-                                           disabled="@(card.IsCommander ? "disabled" : null)" />
-                                </td>
-                                <td data-label="Card">
-                                    <strong>@card.Quantity × <button type="button" class="cutlab-card-link" data-cutlab-card-open="@card.Name">@card.Name</button></strong>
-                                    @if (card.IsCommander)
-                                    {
-                                        <div class="cutlab-commander-card-cell__details">
-                                            <div>
-                                                <span class="kb-chip cutlab-lock-badge--commander">Commander · Always locked</span>
-                                            </div>
-                                        </div>
-                                    }
-                                </td>
-                                <td data-label="Type / role">
-                                    @frontTypeLine
-                                    @if (!string.IsNullOrWhiteSpace(roleList))
-                                    {
-                                        <div class="cutlab-role-list">@roleList</div>
-                                    }
-                                    @if (!card.IsCommander && Model.RoleOverrideCardsByName.TryGetValue(card.Name, out var roleOverrideCard))
-                                    {
-                                        @if (roleOverrideCard.IsEdited)
-                                        {
-                                            <span class="cutlab-role-edited-chip">Edited</span>
-                                        }
-                                    }
-                                </td>
-                                <td data-label="Package">
-                                    <select name="Package_@card.Name" data-df-select data-cut-lab-package-card="@card.Name">
-                                        <option value="">Unlocked pool</option>
-                                        @foreach (var package in Model.Packages)
-                                        {
-                                            <option value="@package.Id" selected="@(string.Equals(card.PackageId, package.Id, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                                                @package.Name
-                                            </option>
-                                        }
-                                        <option value="__new__">+ New package…</option>
-                                    </select>
-                                </td>
-                            </tr>
-                        }
-                        <tr class="cutlab-pool-empty-row" hidden>
-                            <td colspan="4">No cards match.</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-
-
-            <section class="result-panel nested-panel">
-                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-packages">
-                    <summary class="cutlab-collapsible__summary">Packages</summary>
-                    <div class="cutlab-package-help">
-                        <p class="cutlab-package-help__heading">How packages work</p>
-                        <p>Grouping a card into a package doesn't remove it from the pool — it's still counted and still cuttable unless the package itself is locked. Packages let you lock or unlock several cards together instead of one at a time.</p>
-                    </div>
-                    @if (Model.Packages.Count > 0)
-                    {
-                        @foreach (var package in Model.Packages)
-                        {
-                            var members = Model.Pool.Where(card => string.Equals(card.PackageId, package.Id, StringComparison.OrdinalIgnoreCase)).ToList();
-                            <div class="result-panel nested-panel @(package.Locked ? "cutlab-package--locked" : string.Empty)"
-                                 data-cut-lab-package-id="@package.Id"
-                                 data-cut-lab-package-name="@package.Name">
-                                <div class="panel-heading">
-                                    <div>
-                                        <h2>@package.Name</h2>
-                                        <p>@members.Count member@(members.Count == 1 ? string.Empty : "s")</p>
-                                    </div>
-                                    <div class="panel-heading__actions">
-                                        <label class="kb-chip" for="cut-lab-package-lock-@package.Id">
-                                            <input id="cut-lab-package-lock-@package.Id"
-                                                   type="checkbox"
-                                                   data-cut-lab-package-toggle="@package.Id"
-                                                   checked="@(package.Locked ? "checked" : null)" />
-                                            <span>Lock package</span>
-                                        </label>
-                                        <button type="button" class="clear-cache-button" data-cut-lab-package-delete="@package.Id">Delete package</button>
-                                    </div>
-                                </div>
-                                @if (members.Count > 0)
-                                {
-                                    <div class="kb-chip-area__chips">
-                                        @foreach (var member in members)
-                                        {
-                                            <span class="kb-chip">@member.Name</span>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <p class="kb-chip-area__empty-hint">No cards assigned yet.</p>
-                                }
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <p class="kb-chip-area__empty-hint">No packages yet. Use a card's Package assignment menu, then choose + New package…</p>
-                    }
-
-                    <div class="card-picker__rows">
-                        <div class="card-picker__row hidden" data-cut-lab-new-package-row>
-                            <div class="card-picker__input-shell">
-                                <input class="card-picker__input"
-                                       type="text"
-                                       id="cut-lab-new-package-name"
-                                       placeholder="New package name"
-                                       data-cut-lab-new-package-input />
-                            </div>
-                            <button type="button" class="card-picker__add" aria-label="Save package" data-cut-lab-new-package-save>+</button>
-                            <button type="button" class="card-picker__remove" aria-label="Cancel package" data-cut-lab-new-package-cancel>&times;</button>
-                        </div>
-                    </div>
-                </details>
-            </section>
-            </details>
-
         <section class="result-panel">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-competes">
                 <summary class="cutlab-collapsible__summary">How your pool competes</summary>
@@ -709,7 +470,7 @@
                             @foreach (var finding in findingGroup.Items)
                             {
                                 <div class="cutlab-finding__item">
-                                    <p class="cutlab-finding__lead">@finding.Lead</p>
+                                    <p class="cutlab-finding__lead">@(CutLabCardNames.ToDisplayName(finding.Lead))</p>
                                     @if (finding.Roles.Count > 0)
                                     {
                                         <p class="cutlab-finding__roles">Role: @string.Join(", ", finding.Roles)</p>
@@ -722,7 +483,7 @@
                                                 var evidenceCard = evidenceCardIndex.Find(evidence);
                                                 if (evidenceCard is null)
                                                 {
-                                                    <span class="kb-chip">@evidence</span>
+                                                    <span class="kb-chip">@(CutLabCardNames.ToDisplayName(evidence))</span>
                                                 }
                                                 else
                                                 {
@@ -735,10 +496,10 @@
                                                             data-cutlab-card-open="@evidenceCard.Name"
                                                             data-cut-lab-chip-card="@evidenceCard.Name"
                                                             aria-pressed="@(evidenceCard.IsLocked ? "true" : "false")">
-                                                        <span>@evidence</span>
+                                                        <span>@(CutLabCardNames.ToDisplayName(evidence))</span>
                                                         @if (comboBadgeText is not null && comboBadgeClass is not null)
                                                         {
-                                                            <span class="@comboBadgeClass">@comboBadgeText</span>
+                                                            <span class="@comboBadgeClass">@(CutLabCardNames.ToDisplayName(comboBadgeText))</span>
                                                         }
                                                     </button>
                                                 }
@@ -778,7 +539,7 @@
                         }
                         <h2>Role floors</h2>
                         <p>Minimum counts the finished 100 should keep, derived from your bracket and play experience. Adjust any floor — later cut suggestions will warn you before breaking one, never silently.</p>
-                        <p class="cutlab-role-floors-context">Defaults shown for <strong>@Model.Request.SelectedCommander</strong> — Bracket @Model.Request.Bracket (@roleFloorsBracketLabel) · @Model.Request.PlayExperience play.</p>
+                        <p class="cutlab-role-floors-context">Defaults shown for <strong>@(CutLabCardNames.ToDisplayName(Model.Request.SelectedCommander))</strong> — Bracket @Model.Request.Bracket (@roleFloorsBracketLabel) · @Model.Request.PlayExperience play.</p>
                         @if (Model.FloorFeasibility is not null)
                         {
                             <div class="warning-banner" role="status" data-cut-lab-floor-feasibility>
@@ -800,6 +561,7 @@
                         <tr>
                             <th scope="col">Role</th>
                             <th scope="col">In pool</th>
+                            <th scope="col">Locked</th>
                             @if (Model.CommanderFloorsEnabled)
                             {
                                 <th scope="col">Bracket</th>
@@ -823,6 +585,20 @@
                                 <td data-label="In pool">
                                     <span data-cut-lab-floor-count-label>@row.InPoolCount in pool</span>
                                     <span class="cutlab-floor-state--at @(row.AtFloor ? string.Empty : "hidden")" data-cut-lab-floor-at-marker>· at floor</span>
+                                </td>
+                                <td data-label="Locked">
+                                    <span data-cut-lab-floor-locked-label>@row.LockedCount locked</span>
+                                    @{ var lockGroup = Model.RoleGroups.FirstOrDefault(group => group.RoleKey == row.RoleKey); }
+                                    @if (lockGroup is { IsLockable: true, Members.Count: > 0 })
+                                    {
+                                        var lockAction = lockGroup.AllLockableMembersLocked ? "Unlock all" : "Lock all";
+                                        <button type="button"
+                                                class="manabase-pill @(lockGroup.AllLockableMembersLocked ? "is-selected" : string.Empty)"
+                                                data-cut-lab-floor-lock-role="@row.RoleKey"
+                                                data-cut-lab-floor-lock-label="@lockGroup.DisplayLabel"
+                                                aria-pressed="@(lockGroup.AllLockableMembersLocked ? "true" : "false")"
+                                                aria-label="@lockAction @lockGroup.DisplayLabel from Role floors">@lockAction</button>
+                                    }
                                 </td>
                                 @if (Model.CommanderFloorsEnabled)
                                 {
@@ -862,267 +638,6 @@
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-2" aria-labelledby="cut-lab-step-tab-2">
-            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-cut-rounds">
-                <summary class="cutlab-collapsible__summary">Cut rounds</summary>
-                <div class="panel-heading">
-                    <div>
-                        <h2>Cut rounds</h2>
-                        <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
-                        <p>Cut Lab picks each card for you. Accept cut removes it and proposes the next; Reject keeps it; Defer revisits it later.</p>
-                    </div>
-                    <div class="panel-heading__actions">
-                        <form method="post" action="@Url.Content("~/cut-lab/restart-rounds")" data-cut-lab-restart-rounds-form data-cut-lab-restart-rounds-api="@Url.Content("~/api/cut-lab/restart-rounds")">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                            <button type="submit" class="clear-cache-button" data-cut-lab-restart-rounds>Re-run rounds 1 &amp; 2 — your accepted cuts are kept</button>
-                        </form>
-                    </div>
-                </div>
-
-            @{
-                const int stickyBarTargetDeckSize = 100;
-            }
-            
-            <div class="cutlab-progress cutlab-sticky-bar" data-cut-lab-sticky-target="@stickyBarTargetDeckSize">
-                <span class="cutlab-progress__headline">@Model.BaselineCount → @stickyBarTargetDeckSize cards</span>
-                <span data-cut-lab-sticky-current>@Model.StickyBar.CurrentCount/@stickyBarTargetDeckSize cards</span>
-                <span class="cutlab-progress__bar" role="progressbar" aria-label="Cards remaining in pool" aria-valuemin="0" aria-valuemax="@stickyBarTargetDeckSize" aria-valuenow="@Model.StickyBar.CurrentCount">
-                    <span class="cutlab-progress__fill" data-cut-lab-progress-fill style="width: @Math.Clamp((Model.StickyBar.CurrentCount * 100) / stickyBarTargetDeckSize, 0, 100)%"></span>
-                </span>
-                @if (Model.StickyBar.HasStickyBar)
-                {
-                    <span class="cutlab-progress__round" data-cut-lab-sticky-round>@Model.StickyBar.RoundLabel</span>
-                    <span data-cut-lab-sticky-remaining aria-live="polite" aria-atomic="true">@Model.StickyBar.CardsRemainingToCut to cut</span>
-                    <span data-cut-lab-sticky-accepted>@CutLabViewModel.FormatCutsAcceptedSoFar(Model.StickyBar.CutsAcceptedCount)</span>
-                }
-                <span data-cut-lab-sticky-locked>@Model.StickyBar.LockedCount locked</span>
-            </div>
-            @if (Model.CurrentActualLands is int actualLands && Model.CurrentTargetLands is double targetLands)
-            {
-                var roundedTargetLands = Math.Round(targetLands);
-                var landPercent = targetLands <= 0 ? 0 : (int)Math.Round((actualLands / targetLands) * 100, MidpointRounding.AwayFromZero);
-                <details class="cutlab-collapsible" data-cut-lab-lands-disclosure id="cut-lab-section-lands-now">
-                    <summary class="cutlab-collapsible__summary">Lands right now</summary>
-                    <p data-cut-lab-lands-text>Lands: @actualLands/@roundedTargetLands (@landPercent%) as your pool stands now (@Model.CurrentCount cards).</p>
-                    <p>Adjust basic land copies in <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a>.</p>
-                </details>
-            }
-
-            @if (Model.Proposal.LockedOvershootAdvisory is { } advisory)
-            {
-                <div class="warning-banner cutlab-locked-overshoot-advisory" data-cut-lab-locked-overshoot-advisory>
-                    <p>Locked cards alone already put you @advisory.CardsOverTarget cards over the 100-card target. If you need to unlock something, start with these:</p>
-                    @foreach (var group in advisory.Groups)
-                    {
-                        <div class="cutlab-finding cutlab-proposal__floor-warning">
-                            <p class="cutlab-finding__heading">@group.RoleLabel</p>
-                            <p class="cutlab-finding__lead">@string.Join(", ", group.CardNames)</p>
-                        </div>
-                    }
-                    @if (advisory.HiddenCount > 0)
-                    {
-                        <p class="prompt-size-note">+@advisory.HiddenCount more locked cards ranked below these.</p>
-                    }
-                </div>
-            }
-
-            @if (Model.Proposal.HasProposal)
-            {
-                <div class="cutlab-round-banner">
-                    <p>@Model.Proposal.RoundBannerBody</p>
-                </div>
-
-                <div class="cutlab-proposal" data-cut-lab-card="@Model.Proposal.CardName" data-cut-lab-round="@Model.Proposal.RoundKey">
-                    <div class="cutlab-proposal--pinned">
-                        <div class="cutlab-proposal__pinned-row">
-                            <p class="cutlab-proposal__heading">Proposed cut: <button type="button" class="cutlab-card-link" data-cutlab-card-open="@Model.Proposal.CardName">@Model.Proposal.CardName</button></p>
-                            <p class="cutlab-proposal__glance">@Model.Proposal.GlanceLine</p>
-                        </div>
-                        <div class="cutlab-proposal__pinned-actions">
-                            @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "accept", "Accept cut", "accept", $"Accept cut for {Model.Proposal.CardName}"); }
-                            @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "reject", "Reject cut", "reject", $"Reject cut for {Model.Proposal.CardName}"); }
-                            @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "defer", "Defer decision", "defer", $"Defer cut for {Model.Proposal.CardName}"); }
-                        </div>
-                    </div>
-                    <div class="cutlab-proposal__body">
-                        <div class="cutlab-proposal__evidence">
-                            <p>@Model.Proposal.FindingSummary</p>
-                            @if (Model.Proposal.FindingChips.Count > 0)
-                            {
-                                <div class="kb-chip-area__chips">
-                                    @foreach (var chip in Model.Proposal.FindingChips)
-                                    {
-                                        <span class="kb-chip">@chip</span>
-                                    }
-                                </div>
-                            }
-                        </div>
-
-                        @if (!string.IsNullOrWhiteSpace(Model.Proposal.DeltaUnavailableMessage))
-                        {
-                            <div class="cutlab-finding cutlab-proposal__floor-warning">
-                                <p class="cutlab-finding__lead">@Model.Proposal.DeltaUnavailableMessage</p>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="cutlab-delta">
-                                <p>@Model.Proposal.ChangedFamilyCount of 7 deck numbers moved.</p>
-                                @{ await RenderDeltaLines(Model.Proposal.ChangedDeltaLines); }
-                            </div>
-
-                            <details data-cut-lab-delta-expander>
-                                <summary>Show full metric breakdown</summary>
-                                <div class="cutlab-delta">
-                                    @{ await RenderDeltaLines(Model.Proposal.FullDeltaLines); }
-                                </div>
-                            </details>
-                        }
-
-                        @if (Model.Proposal.FloorWarnings.Count > 0)
-                        {
-                            @foreach (var warning in Model.Proposal.FloorWarnings)
-                            {
-                                <div class="cutlab-finding cutlab-proposal__floor-warning">
-                                    <p class="cutlab-finding__lead">@warning</p>
-                                </div>
-                            }
-                        }
-
-                    </div>
-                </div>
-            }
-            else if (currentCount < 100)
-            {
-                <div class="cutlab-proposal">
-                    <p class="cutlab-proposal__heading">You're under 100 cards</p>
-                    <p>Add copies or a basic land in the <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a> section below to reach exactly 100.</p>
-                </div>
-            }
-            else if (Model.Proposal.IsAtTarget)
-            {
-                <div class="cutlab-proposal">
-                    <p class="cutlab-proposal__heading">You're at 100 cards</p>
-                    <p>Review the cuts you made below, or reopen a card from the Cuts made list if you want to reconsider.</p>
-                </div>
-            }
-            else if (Model.Proposal.IsNothingToCut)
-            {
-                <div class="cutlab-proposal">
-                    <p class="cutlab-proposal__heading">Nothing to cut</p>
-                    <p>Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.</p>
-                </div>
-            }
-
-            <section class="result-panel nested-panel cutlab-tuner">
-                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-tune">
-                    <summary class="cutlab-collapsible__summary">Tune quantities</summary>
-                    <div class="panel-heading">
-                        <div>
-                            <h2>Tune quantities</h2>
-                            <p>Cut or add copies of basics and other legal-multiple cards one at a time, or add a new basic land, to land on exactly 100.</p>
-                        </div>
-                    </div>
-                <div class="history-timeline__wrap">
-                    <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Card</th>
-                                <th scope="col">Role</th>
-                                <th scope="col">Quantity</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var row in Model.WorkingListRows)
-                            {
-                                if (!row.IsLegalMultiple)
-                                {
-                                    continue;
-                                }
-
-                                var removeDisabled = row.CurrentQuantity == 0 || row.IsLocked;
-                                var addDisabled = row.CurrentQuantity >= row.LegalMax || row.IsLocked;
-                                var adjustAriaLabel = row.IsLocked
-                                    ? $"{row.Name} is locked - unlock it to adjust quantity"
-                                    : null;
-
-                                <tr data-cut-lab-tuner-row="@row.Name"
-                                    data-cut-lab-quantity="@row.CurrentQuantity"
-                                    data-cut-lab-legal-max="@row.LegalMax">
-                                    <td data-label="Card">
-                                        <strong>@row.Name</strong>
-                                        @if (row.IsAddedBasic)
-                                        {
-                                            <span class="kb-chip cutlab-tuner-badge--added">Added</span>
-                                        }
-                                    </td>
-                                    <td data-label="Role">@row.RoleLabel</td>
-                                    <td data-label="Quantity">
-                                        <div class="cutlab-stepper">
-                                            @{ await RenderAdjustForm(row.Name, -1, false, "−", "cutlab-stepper-btn", adjustAriaLabel ?? $"Remove one {row.Name}", removeDisabled, adjustAriaLabel); }
-                                            <span class="cutlab-stepper__count tabular" data-cut-lab-quantity-value>@row.CurrentQuantity</span>
-                                            @{ await RenderAdjustForm(row.Name, 1, false, "+", "cutlab-stepper-btn", adjustAriaLabel ?? $"Add one {row.Name}", addDisabled, adjustAriaLabel); }
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-                @if (Model.AddableBasics.Count > 0)
-                {
-                    <form method="post" action="@Url.Content("~/cut-lab/adjust")" data-cut-lab-adjust-form class="toolbar cutlab-tuner__add-basic">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                        <input type="hidden" name="Delta" value="1" />
-                        <input type="hidden" name="IsAddedBasic" value="true" />
-                        <label for="cut-lab-add-basic-select">Add a basic land</label>
-                        <select id="cut-lab-add-basic-select" name="CardName" data-df-select data-cut-lab-add-basic-select required>
-                            <option value="" selected disabled>Choose a basic…</option>
-                            @foreach (var basic in Model.AddableBasics)
-                            {
-                                <option value="@basic">@basic</option>
-                            }
-                        </select>
-                        <button type="submit" class="run-button" data-cut-lab-adjust data-cut-lab-add-basic data-cut-lab-delta="1" data-cut-lab-added-basic="true">Add basic land</button>
-                    </form>
-                }
-                else
-                {
-                    <p class="cutlab-floor-source-default">All basic land types are already in your working list. Use the steppers above to add more copies.</p>
-                }
-                </details>
-            </section>
-            </details>
-
-        @if (Model.CutsMade.Count > 0)
-        {
-            <section class="result-panel">
-                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-cuts-made">
-                    <summary class="cutlab-collapsible__summary">Cuts made</summary>
-                    <div class="panel-heading">
-                        <div>
-                            <h2>Cuts made</h2>
-                            <p>Every accepted cut, restorable any time — order doesn't matter.</p>
-                        </div>
-                    </div>
-                    <details class="cutlab-cuts-made" open="@(Model.CutsMade.Count <= 5 ? "open" : null)">
-                        <summary>Cuts made · @CutLabViewModel.FormatCutsMadeCount(Model.CutsMade.Count)</summary>
-                        @foreach (var row in Model.CutsMade)
-                        {
-                            <div class="cutlab-cuts-made__row">
-                                <button type="button" class="cutlab-card-link" data-cutlab-card-open="@row.CardName" data-cutlab-card-view-only="true">@row.CardName</button>
-                                <span class="prompt-size-note">cut in @row.RoundLabel</span>
-                                @{ await RenderDecisionForm(row.CardName, row.RoundKey, "restore", "Restore", string.Empty, $"Restore {row.CardName}"); }
-                            </div>
-                        }
-                    </details>
-                </details>
-            </section>
-        }
-        </section>
-
-        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
             <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-plan-panel">
                 <summary class="cutlab-collapsible__summary">Plan profile</summary>
                 <form method="post" action="@Url.Content("~/cut-lab/plan-apply")" id="cut-lab-plan-form" data-cut-lab-plan-form>
@@ -1195,6 +710,500 @@
                     <button type="submit" class="run-button" data-cut-lab-plan-apply-submit>Apply plan</button>
                 </form>
             </details>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-lock-pool">
+                <summary class="cutlab-collapsible__summary">Lock your pool</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Lock your pool</h2>
+                        <p class="prompt-size-note">
+                            <span data-cut-lab-lock-count>@Model.PoolStatusText</span>
+                        </p>
+                        <p class="prompt-size-note">@Model.BoardCounts.ToBreakdown()</p>
+                        <p class="manabase-help">Assigning a package groups cards for bulk lock/unlock — it doesn't remove them from the pool.</p>
+                        <p>@(CutLabCardNames.ToDisplayName(Model.IsLegal ? "No banned cards found" : $"Banned cards present: {string.Join(", ", Model.BannedCardsPresent)}"))</p>
+                        <div class="cutlab-pool-filter" hidden>
+                            <div class="cutlab-pool-filter__group" role="radiogroup" aria-label="Show">
+                                <span class="cutlab-pool-filter__label">Show:</span>
+                                <label class="cutlab-pool-filter__option">
+                                    <input type="radio" name="CutLabPoolFilter" value="all" checked />
+                                    <span>All</span>
+                                </label>
+                                <label class="cutlab-pool-filter__option">
+                                    <input type="radio" name="CutLabPoolFilter" value="locked" />
+                                    <span>Locked</span>
+                                </label>
+                                <label class="cutlab-pool-filter__option">
+                                    <input type="radio" name="CutLabPoolFilter" value="unlocked" />
+                                    <span>Unlocked</span>
+                                </label>
+                            </div>
+                            <input type="text" class="cutlab-pool-search" placeholder="Search card name…" aria-label="Search card name" />
+                            <p class="cutlab-pool-match-count">Showing @Model.Pool.Count of @Model.Pool.Count cards</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="cutlab-sticky-bar cutlab-sticky-bar--pool">
+                    <span class="cutlab-sticky-bar__count" data-cut-lab-pool-sticky-count>@Model.PoolStatusText</span>
+                    <span class="cutlab-sticky-bar__accepted" data-cut-lab-pool-sticky-breakdown>@Model.BoardCounts.ToBreakdown()</span>
+                </div>
+            @if (Model.CommanderSelectionRequired)
+            {
+                <div class="result-panel nested-panel" data-scroll-on-load>
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Pick your commander</h2>
+                            <p>We couldn't identify your commander automatically. Choose it below — it will be locked automatically once selected.</p>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="cut-lab-selected-commander">Commander from this deck</label>
+                        <select id="cut-lab-selected-commander" name="SelectedCommander" data-df-select autofocus>
+                            <option value="">Choose a commander</option>
+                            @foreach (var commanderChoice in Model.CommanderChoices)
+                            {
+                                <option value="@commanderChoice" selected="@(string.Equals(Model.Request.SelectedCommander, commanderChoice, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                                    @(CutLabCardNames.ToDisplayName(commanderChoice))
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="cut-lab-commander-search">Commander search backstop</label>
+                        <input id="cut-lab-commander-search"
+                               type="text"
+                               value="@Model.Request.SelectedCommander"
+                               placeholder="Start typing a commander name…"
+                               autocomplete="off"
+                               list="cut-lab-commander-suggestions"
+                               data-commander-search="@Url.Content("~/manabase/commander-search")"
+                               data-commander-target="#cut-lab-selected-commander"
+                               data-commander-create-option="true" />
+                        <datalist id="cut-lab-commander-suggestions"></datalist>
+                        <p class="manabase-help">Pick a commander, then re-run the same import. Your decklist and declared intent stay intact.</p>
+                    </div>
+                </div>
+            }
+
+            <div class="history-timeline__wrap">
+                <p class="prompt-size-note">Lock a card to protect it from future cuts.</p>
+                <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Lock (keep)</th>
+                            <th scope="col">Card</th>
+                            <th scope="col">Type / role</th>
+                            <th scope="col">Package assignment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var poolRow in Model.PoolRows)
+                        {
+                            var card = poolRow.Card;
+                            var frontTypeLine = CardTypeLine.FrontFace(card.TypeLine);
+                            var roleList = Model.RoleListByCardName.TryGetValue(card.Name, out var displayRoles) ? displayRoles : string.Empty;
+                            var roleKeys = Model.RoleKeysByCardName.TryGetValue(card.Name, out var rawRoleKeys) ? rawRoleKeys : string.Empty;
+                            <tr data-cut-lab-card="@card.Name"
+                                data-cut-lab-pool-index="@poolRow.PoolIndex"
+                                data-cut-lab-sort-order="@poolRow.AlphabeticalIndex"
+                                data-cut-lab-type-line="@card.TypeLine"
+                                data-cut-lab-role="@roleKeys"
+                                data-cut-lab-quantity="@card.Quantity"
+                                data-cut-lab-commander="@(card.IsCommander ? "true" : "false")">
+                                <td data-label="Lock">
+                                    <input type="checkbox"
+                                           name="Lock_@card.Name"
+                                           value="@card.Name"
+                                           data-cut-lab-lock-card="@card.Name"
+                                           aria-label="Lock @card.Name to keep it"
+                                           checked="@(card.IsLocked ? "checked" : null)"
+                                           disabled="@(card.IsCommander ? "disabled" : null)" />
+                                </td>
+                                <td data-label="Card">
+                                    <strong>@card.Quantity × <button type="button" class="cutlab-card-link" data-cutlab-card-open="@card.Name">@(CutLabCardNames.ToDisplayName(card.Name))</button></strong>
+                                    @if (card.IsCommander)
+                                    {
+                                        <div class="cutlab-commander-card-cell__details">
+                                            <div>
+                                                <span class="kb-chip cutlab-lock-badge--commander">Commander · Always locked</span>
+                                            </div>
+                                        </div>
+                                    }
+                                </td>
+                                <td data-label="Type / role">
+                                    @frontTypeLine
+                                    @if (!string.IsNullOrWhiteSpace(roleList))
+                                    {
+                                        <div class="cutlab-role-list">@roleList</div>
+                                    }
+                                    @if (!card.IsCommander && Model.RoleOverrideCardsByName.TryGetValue(card.Name, out var roleOverrideCard))
+                                    {
+                                        @if (roleOverrideCard.IsEdited)
+                                        {
+                                            <span class="cutlab-role-edited-chip">Edited</span>
+                                        }
+                                    }
+                                </td>
+                                <td data-label="Package">
+                                    <select name="Package_@card.Name" data-df-select data-cut-lab-package-card="@card.Name">
+                                        <option value="">Unlocked pool</option>
+                                        @foreach (var package in Model.Packages)
+                                        {
+                                            <option value="@package.Id" selected="@(string.Equals(card.PackageId, package.Id, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                                                @package.Name
+                                            </option>
+                                        }
+                                        <option value="__new__">+ New package…</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                        <tr class="cutlab-pool-empty-row" hidden>
+                            <td colspan="4">No cards match.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+
+
+            <section class="result-panel nested-panel">
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-packages">
+                    <summary class="cutlab-collapsible__summary">Packages</summary>
+                    <div class="cutlab-package-help">
+                        <p class="cutlab-package-help__heading">How packages work</p>
+                        <p>Grouping a card into a package doesn't remove it from the pool — it's still counted and still cuttable unless the package itself is locked. Packages let you lock or unlock several cards together instead of one at a time.</p>
+                    </div>
+                    @if (Model.Packages.Count > 0)
+                    {
+                        @foreach (var package in Model.Packages)
+                        {
+                            var members = Model.Pool.Where(card => string.Equals(card.PackageId, package.Id, StringComparison.OrdinalIgnoreCase)).ToList();
+                            <div class="result-panel nested-panel @(package.Locked ? "cutlab-package--locked" : string.Empty)"
+                                 data-cut-lab-package-id="@package.Id"
+                                 data-cut-lab-package-name="@package.Name">
+                                <div class="panel-heading">
+                                    <div>
+                                        <h2>@package.Name</h2>
+                                        <p>@members.Count member@(members.Count == 1 ? string.Empty : "s")</p>
+                                    </div>
+                                    <div class="panel-heading__actions">
+                                        <label class="kb-chip" for="cut-lab-package-lock-@package.Id">
+                                            <input id="cut-lab-package-lock-@package.Id"
+                                                   type="checkbox"
+                                                   data-cut-lab-package-toggle="@package.Id"
+                                                   checked="@(package.Locked ? "checked" : null)" />
+                                            <span>Lock package</span>
+                                        </label>
+                                        <button type="button" class="clear-cache-button" data-cut-lab-package-delete="@package.Id">Delete package</button>
+                                    </div>
+                                </div>
+                                @if (members.Count > 0)
+                                {
+                                    <div class="kb-chip-area__chips">
+                                        @foreach (var member in members)
+                                        {
+                                            <span class="kb-chip">@(CutLabCardNames.ToDisplayName(member.Name))</span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="kb-chip-area__empty-hint">No cards assigned yet.</p>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="kb-chip-area__empty-hint">No packages yet. Use a card's Package assignment menu, then choose + New package…</p>
+                    }
+
+                    <div class="card-picker__rows">
+                        <div class="card-picker__row hidden" data-cut-lab-new-package-row>
+                            <div class="card-picker__input-shell">
+                                <input class="card-picker__input"
+                                       type="text"
+                                       id="cut-lab-new-package-name"
+                                       placeholder="New package name"
+                                       data-cut-lab-new-package-input />
+                            </div>
+                            <button type="button" class="card-picker__add" aria-label="Save package" data-cut-lab-new-package-save>+</button>
+                            <button type="button" class="card-picker__remove" aria-label="Cancel package" data-cut-lab-new-package-cancel>&times;</button>
+                        </div>
+                    </div>
+                </details>
+            </section>
+            </details>
+
+        </section>
+
+        <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-3" aria-labelledby="cut-lab-step-tab-3">
+            <p class="cutlab-lock-callout" data-cut-lab-lock-callout hidden="@(Model.Pool.Any(card => card.IsLocked && !card.IsCommander) ? "hidden" : null)">
+                No cards locked yet. Locking a card protects it from cuts.
+                <a href="#cut-lab-section-lock-pool" data-cut-lab-tab-link>Lock your pool</a>
+            </p>
+            <details class="cutlab-collapsible" data-cutlab-mobile-collapse open id="cut-lab-section-cut-rounds">
+                <summary class="cutlab-collapsible__summary">Cut rounds</summary>
+                <div class="panel-heading">
+                    <div>
+                        <h2>Cut rounds</h2>
+                        <p>Work through proposed cuts in order. Every proposal shows what actually changes — nothing here says a card is bad.</p>
+                        <p>Cut Lab picks each card for you. Accept cut removes it and proposes the next; Reject keeps it; Defer revisits it later.</p>
+                    </div>
+                    <div class="panel-heading__actions clear-cache-button--wrap">
+                        <form class="clear-cache-button--wrap" method="post" action="@Url.Content("~/cut-lab/restart-rounds")" data-cut-lab-restart-rounds-form data-cut-lab-restart-rounds-api="@Url.Content("~/api/cut-lab/restart-rounds")">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                            <button type="submit" class="clear-cache-button clear-cache-button--wrap" data-cut-lab-restart-rounds>Re-run rounds 1 &amp; 2 — your accepted cuts are kept</button>
+                        </form>
+                    </div>
+                </div>
+
+            @{
+                const int stickyBarTargetDeckSize = 100;
+            }
+
+            <div class="cutlab-progress cutlab-sticky-bar" data-cut-lab-sticky-target="@stickyBarTargetDeckSize">
+                <span class="cutlab-progress__headline">@Model.BaselineCount → @stickyBarTargetDeckSize cards</span>
+                <span data-cut-lab-sticky-current>@Model.StickyBar.CurrentCount/@stickyBarTargetDeckSize cards</span>
+                <span class="cutlab-progress__bar" role="progressbar" aria-label="Cards remaining in pool" aria-valuemin="0" aria-valuemax="@stickyBarTargetDeckSize" aria-valuenow="@Model.StickyBar.CurrentCount">
+                    <span class="cutlab-progress__fill" data-cut-lab-progress-fill style="width: @Math.Clamp((Model.StickyBar.CurrentCount * 100) / stickyBarTargetDeckSize, 0, 100)%"></span>
+                </span>
+                @if (Model.StickyBar.HasStickyBar)
+                {
+                    <span class="cutlab-progress__round" data-cut-lab-sticky-round>@Model.StickyBar.RoundLabel</span>
+                    <span data-cut-lab-sticky-remaining aria-live="polite" aria-atomic="true">@Model.StickyBar.CardsRemainingToCut to cut</span>
+                    <span data-cut-lab-sticky-accepted>@CutLabViewModel.FormatCutsAcceptedSoFar(Model.StickyBar.CutsAcceptedCount)</span>
+                }
+                <span data-cut-lab-sticky-locked>@Model.StickyBar.LockedCount locked</span>
+            </div>
+            @if (Model.CurrentActualLands is int actualLands && Model.CurrentTargetLands is double targetLands)
+            {
+                var roundedTargetLands = Math.Round(targetLands);
+                var landPercent = targetLands <= 0 ? 0 : (int)Math.Round((actualLands / targetLands) * 100, MidpointRounding.AwayFromZero);
+                <details class="cutlab-collapsible" data-cut-lab-lands-disclosure id="cut-lab-section-lands-now">
+                    <summary class="cutlab-collapsible__summary">Lands right now</summary>
+                    <p data-cut-lab-lands-text>Lands: @actualLands/@roundedTargetLands (@landPercent%) as your pool stands now (@Model.CurrentCount cards).</p>
+                    <p>Adjust basic land copies in <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a>.</p>
+                </details>
+            }
+
+            @if (Model.Proposal.LockedOvershootAdvisory is { } advisory)
+            {
+                <div class="warning-banner cutlab-locked-overshoot-advisory" data-cut-lab-locked-overshoot-advisory>
+                    <p>Locked cards alone already put you @advisory.CardsOverTarget cards over the 100-card target. If you need to unlock something, start with these:</p>
+                    @foreach (var group in advisory.Groups)
+                    {
+                        <div class="cutlab-finding cutlab-proposal__floor-warning">
+                            <p class="cutlab-finding__heading">@group.RoleLabel</p>
+                            <p class="cutlab-finding__lead">@(CutLabCardNames.ToDisplayName(string.Join(", ", group.CardNames)))</p>
+                        </div>
+                    }
+                    @if (advisory.HiddenCount > 0)
+                    {
+                        <p class="prompt-size-note">+@advisory.HiddenCount more locked cards ranked below these.</p>
+                    }
+                </div>
+            }
+
+            @if (Model.Proposal.HasProposal)
+            {
+                <div class="cutlab-round-banner">
+                    <p>@Model.Proposal.RoundBannerBody</p>
+                </div>
+
+                <div class="cutlab-proposal" data-cut-lab-card="@Model.Proposal.CardName" data-cut-lab-round="@Model.Proposal.RoundKey">
+                    <div class="cutlab-proposal--pinned">
+                        <div class="cutlab-proposal__pinned-row">
+                            <p class="cutlab-proposal__heading">Proposed cut: <button type="button" class="cutlab-card-link" data-cutlab-card-open="@Model.Proposal.CardName">@(CutLabCardNames.ToDisplayName(Model.Proposal.CardName))</button></p>
+                            <p class="cutlab-proposal__glance">@Model.Proposal.GlanceLine</p>
+                        </div>
+                        <div class="cutlab-proposal__pinned-actions">
+                            <button type="button" class="clear-cache-button" aria-haspopup="dialog" aria-controls="cut-lab-reference" data-cut-lab-reference-open="cut-lab-section-role-floors">Role floors</button>
+                            <button type="button" class="clear-cache-button" aria-haspopup="dialog" aria-controls="cut-lab-reference" data-cut-lab-reference-open="cut-lab-section-structural">Structural findings</button>
+                            <button type="button" class="clear-cache-button" aria-haspopup="dialog" aria-controls="cut-lab-reference" data-cut-lab-reference-open="cut-lab-section-constraints">Constraints</button>
+                            @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "accept", "Accept cut", "accept", $"Accept cut for {Model.Proposal.CardName}"); }
+                            @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "reject", "Reject cut", "reject", $"Reject cut for {Model.Proposal.CardName}"); }
+                            @{ await RenderDecisionForm(Model.Proposal.CardName, Model.Proposal.RoundKey, "defer", "Defer decision", "defer", $"Defer cut for {Model.Proposal.CardName}"); }
+                        </div>
+                    </div>
+                    <div class="cutlab-proposal__body">
+                        <div class="cutlab-proposal__evidence">
+                            <p>@Model.Proposal.FindingSummary</p>
+                            @if (Model.Proposal.FindingChips.Count > 0)
+                            {
+                                <div class="kb-chip-area__chips">
+                                    @foreach (var chip in Model.Proposal.FindingChips)
+                                    {
+                                        <span class="kb-chip">@chip</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(Model.Proposal.DeltaUnavailableMessage))
+                        {
+                            <div class="cutlab-finding cutlab-proposal__floor-warning">
+                                <p class="cutlab-finding__lead">@Model.Proposal.DeltaUnavailableMessage</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="cutlab-delta">
+                                <p>@Model.Proposal.ChangedFamilyCount of 7 deck numbers moved.</p>
+                                @{ await RenderDeltaLines(Model.Proposal.ChangedDeltaLines); }
+                            </div>
+
+                            <details data-cut-lab-delta-expander>
+                                <summary>Show full metric breakdown</summary>
+                                <div class="cutlab-delta">
+                                    @{ await RenderDeltaLines(Model.Proposal.FullDeltaLines); }
+                                </div>
+                            </details>
+                        }
+
+                        @if (Model.Proposal.FloorWarnings.Count > 0)
+                        {
+                            @foreach (var warning in Model.Proposal.FloorWarnings)
+                            {
+                                <div class="cutlab-finding cutlab-proposal__floor-warning">
+                                    <p class="cutlab-finding__lead">@(CutLabCardNames.ToDisplayName(warning))</p>
+                                </div>
+                            }
+                        }
+
+                    </div>
+                </div>
+            }
+            else if (currentCount < 100)
+            {
+                <div class="cutlab-proposal">
+                    <p class="cutlab-proposal__heading">You're under 100 cards</p>
+                    <p>Add copies or a basic land in the <a href="#cut-lab-section-tune" data-cut-lab-jump-link>Tune quantities</a> section below to reach exactly 100.</p>
+                </div>
+            }
+            else if (Model.Proposal.IsAtTarget)
+            {
+                <div class="cutlab-proposal">
+                    <p class="cutlab-proposal__heading">You're at 100 cards</p>
+                    <p>Review the cuts you made below, or reopen a card from the Cuts made list if you want to reconsider.</p>
+                </div>
+            }
+            else if (Model.Proposal.IsNothingToCut)
+            {
+                <div class="cutlab-proposal">
+                    <p class="cutlab-proposal__heading">Nothing to cut</p>
+                    <p>Every remaining card is either locked or your working list is already at 100 cards. Review your locks and packages above, or adjust a role floor if you want to reconsider.</p>
+                </div>
+            }
+
+            <section class="result-panel nested-panel cutlab-tuner">
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-tune">
+                    <summary class="cutlab-collapsible__summary">Tune quantities</summary>
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Tune quantities</h2>
+                            <p>Cut or add copies of basics and other legal-multiple cards one at a time, or add a new basic land, to land on exactly 100.</p>
+                        </div>
+                    </div>
+                <div class="history-timeline__wrap">
+                    <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Card</th>
+                                <th scope="col">Role</th>
+                                <th scope="col">Quantity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.WorkingListRows)
+                            {
+                                if (!row.IsLegalMultiple)
+                                {
+                                    continue;
+                                }
+
+                                var removeDisabled = row.CurrentQuantity == 0 || row.IsLocked;
+                                var addDisabled = row.CurrentQuantity >= row.LegalMax || row.IsLocked;
+                                var adjustAriaLabel = row.IsLocked
+                                    ? $"{row.Name} is locked - unlock it to adjust quantity"
+                                    : null;
+
+                                <tr data-cut-lab-tuner-row="@row.Name"
+                                    data-cut-lab-quantity="@row.CurrentQuantity"
+                                    data-cut-lab-legal-max="@row.LegalMax">
+                                    <td data-label="Card">
+                                        <strong>@(CutLabCardNames.ToDisplayName(row.Name))</strong>
+                                        @if (row.IsAddedBasic)
+                                        {
+                                            <span class="kb-chip cutlab-tuner-badge--added">Added</span>
+                                        }
+                                    </td>
+                                    <td data-label="Role">@row.RoleLabel</td>
+                                    <td data-label="Quantity">
+                                        <div class="cutlab-stepper">
+                                            @{ await RenderAdjustForm(row.Name, -1, false, "−", "cutlab-stepper-btn", adjustAriaLabel ?? $"Remove one {row.Name}", removeDisabled, adjustAriaLabel); }
+                                            <span class="cutlab-stepper__count tabular" data-cut-lab-quantity-value>@row.CurrentQuantity</span>
+                                            @{ await RenderAdjustForm(row.Name, 1, false, "+", "cutlab-stepper-btn", adjustAriaLabel ?? $"Add one {row.Name}", addDisabled, adjustAriaLabel); }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (Model.AddableBasics.Count > 0)
+                {
+                    <form method="post" action="@Url.Content("~/cut-lab/adjust")" data-cut-lab-adjust-form class="toolbar cutlab-tuner__add-basic">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                        <input type="hidden" name="Delta" value="1" />
+                        <input type="hidden" name="IsAddedBasic" value="true" />
+                        <label for="cut-lab-add-basic-select">Add a basic land</label>
+                        <select id="cut-lab-add-basic-select" name="CardName" data-df-select data-cut-lab-add-basic-select required>
+                            <option value="" selected disabled>Choose a basic…</option>
+                            @foreach (var basic in Model.AddableBasics)
+                            {
+                                <option value="@basic">@basic</option>
+                            }
+                        </select>
+                        <button type="submit" class="run-button" data-cut-lab-adjust data-cut-lab-add-basic data-cut-lab-delta="1" data-cut-lab-added-basic="true">Add basic land</button>
+                    </form>
+                }
+                else
+                {
+                    <p class="cutlab-floor-source-default">All basic land types are already in your working list. Use the steppers above to add more copies.</p>
+                }
+                </details>
+            </section>
+            </details>
+
+        @if (Model.CutsMade.Count > 0)
+        {
+            <section class="result-panel">
+                <details class="cutlab-collapsible" data-cutlab-mobile-collapse id="cut-lab-section-cuts-made">
+                    <summary class="cutlab-collapsible__summary">Cuts made</summary>
+                    <div class="panel-heading">
+                        <div>
+                            <h2>Cuts made</h2>
+                            <p>Every accepted cut, restorable any time — order doesn't matter.</p>
+                        </div>
+                    </div>
+                    <details class="cutlab-cuts-made" open="@(Model.CutsMade.Count <= 5 ? "open" : null)">
+                        <summary>Cuts made · @CutLabViewModel.FormatCutsMadeCount(Model.CutsMade.Count)</summary>
+                        @foreach (var row in Model.CutsMade)
+                        {
+                            <div class="cutlab-cuts-made__row">
+                                <button type="button" class="cutlab-card-link" data-cutlab-card-open="@row.CardName" data-cutlab-card-view-only="true">@(CutLabCardNames.ToDisplayName(row.CardName))</button>
+                                <span class="prompt-size-note">cut in @row.RoundLabel</span>
+                                <button type="button" class="cutlab-swap-btn" data-cut-lab-swap-card="@row.CardName">What if I swap this?</button>
+                                @{ await RenderDecisionForm(row.CardName, row.RoundKey, "restore", "Restore", string.Empty, $"Restore {row.CardName}"); }
+                            </div>
+                        }
+                    </details>
+                </details>
+            </section>
+        }
         </section>
 
         <section class="result-panel" role="tabpanel" id="cut-lab-step-panel-4" aria-labelledby="cut-lab-step-tab-4">
@@ -1306,7 +1315,7 @@
                                 @foreach (var cardName in Model.WhatifCardOutOptions)
                                 {
                                     <option value="@cardName" selected="@(string.Equals(Model.Whatif.CardOut, cardName, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                                        @cardName
+                                        @(CutLabCardNames.ToDisplayName(cardName))
                                     </option>
                                 }
                             </select>
@@ -1318,7 +1327,7 @@
                                 @foreach (var cardName in Model.WhatifCardInOptions)
                                 {
                                     <option value="@cardName" selected="@(string.Equals(Model.Whatif.CardIn, cardName, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                                        @cardName
+                                        @(CutLabCardNames.ToDisplayName(cardName))
                                     </option>
                                 }
                             </select>
@@ -1326,7 +1335,7 @@
                     </div>
                         <div class="@(Model.Whatif.HasPreview ? "cutlab-whatif__preview" : "cutlab-whatif__preview hidden")" data-cut-lab-whatif-preview>
                             <p class="@(Model.Whatif.HasPreview ? "cutlab-whatif__selection" : "cutlab-whatif__selection hidden")" data-cut-lab-whatif-selection>@if (Model.Whatif.HasPreview)
-                                {<text>Previewing: cut <strong>@Model.Whatif.CardOut</strong>, restore <strong>@Model.Whatif.CardIn</strong>.</text>}</p>
+                                {<text>Previewing: cut <strong>@(CutLabCardNames.ToDisplayName(Model.Whatif.CardOut))</strong>, restore <strong>@(CutLabCardNames.ToDisplayName(Model.Whatif.CardIn))</strong>.</text>}</p>
                             <div class="history-timeline__wrap">
                                 <table class="conflicts-table" data-prompt-cedh-reference-table role="table">
                                     <thead>
@@ -1449,14 +1458,14 @@
                             else
                             {
                                 <strong>⚠ Color-identity illegal</strong>
-                                <span>@string.Join(", ", Model.Export.IllegalColorIdentity)</span>
+                                <span>@(CutLabCardNames.ToDisplayName(string.Join(", ", Model.Export.IllegalColorIdentity)))</span>
                             }
                         </div>
                         <div class="cutlab-export__status">
                             @if (Model.Export.HasExport && Model.Export.UnverifiedColorIdentity.Count > 0)
                             {
                                 <strong>⚠ Could not verify</strong>
-                                <span>@string.Join(", ", Model.Export.UnverifiedColorIdentity)</span>
+                                <span>@(CutLabCardNames.ToDisplayName(string.Join(", ", Model.Export.UnverifiedColorIdentity)))</span>
                             }
                             else if (Model.Export.HasExport)
                             {
@@ -1481,7 +1490,7 @@
                             else
                             {
                                 <strong>⚠ Banlist warning</strong>
-                                <span>@string.Join(", ", Model.Export.BanlistOffenders)</span>
+                                <span>@(CutLabCardNames.ToDisplayName(string.Join(", ", Model.Export.BanlistOffenders)))</span>
                             }
                         </div>
 
@@ -1492,7 +1501,7 @@
                                 <ul>
                                     @foreach (var warning in Model.Export.ReconstructionWarnings)
                                     {
-                                        <li>@warning</li>
+                                        <li>@(CutLabCardNames.ToDisplayName(warning))</li>
                                     }
                                 </ul>
                             </div>
@@ -1505,7 +1514,7 @@
                                 <ul>
                                     @foreach (var warning in Model.Export.Warnings)
                                     {
-                                        <li>@warning</li>
+                                        <li>@(CutLabCardNames.ToDisplayName(warning))</li>
                                     }
                                 </ul>
                             </div>
@@ -1535,6 +1544,12 @@
             </details>
         </section>
 
+        <dialog id="cut-lab-reference" class="cutlab-reference" aria-label="Cut Lab reference">
+            <button type="button" class="clear-cache-button" data-cut-lab-reference-close>Close</button>
+            <div data-cut-lab-reference-body></div>
+            <button type="button" class="run-button" data-cut-lab-reference-close>Back to Cut rounds</button>
+        </dialog>
+
         <dialog id="cutlab-card-modal" class="cutlab-card-modal" aria-labelledby="cutlab-card-modal-title">
             <div class="cutlab-card-modal__panel">
                 <h2 id="cutlab-card-modal-title" class="cutlab-card-modal__title"></h2>
@@ -1546,26 +1561,20 @@
                     @if (Model.RoleKeysByCardName.Values.Any(value => !string.IsNullOrWhiteSpace(value)))
                     {
                         <script type="application/json" data-cut-lab-role-labels>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RoleLabelsByKey))</script>
+                        <script type="application/json" data-cut-lab-role-options>@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RoleOverrideRoleOptions.Select(option => new[] { option.Key, option.Label })))</script>
                         <div class="cutlab-card-modal__roles" data-cut-lab-role-block hidden>
-                            <ul class="cutlab-role-chips" role="list" aria-label="Roles" data-cut-lab-role-chips></ul>
+                            <div class="cutlab-role-editor">
+                                <ul class="cutlab-role-chips" role="list" aria-label="Roles" data-cut-lab-role-chips></ul>
+                                <form method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
+                                    <input type="hidden" name="originStep" value="Plan" data-cut-lab-role-origin-step />
+                                    <input type="hidden" name="CardName" data-cut-lab-role-override-card />
+                                    <div class="cutlab-role-suggestions" data-cut-lab-role-suggestions></div>
+                                    <button type="submit" name="Operation" value="Reset" data-cut-lab-role-reset hidden>Reset card roles</button>
+                                </form>
+                            </div>
                             <p class="cutlab-card-modal__role-status" role="status" aria-live="polite" tabindex="-1" data-cut-lab-role-status></p>
-                            <form method="post" action="@Url.Content("~/cut-lab/role-override")" data-cut-lab-role-override-form>
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="CutLabStateJson" value="@Model.CutLabStateJson" />
-                                <input type="hidden" name="CardName" data-cut-lab-role-override-card />
-                                <details data-cut-lab-role-add>
-                                    <summary>Add a role</summary>
-                                    <label for="cutlab-card-modal-role">Role</label>
-                                <select id="cutlab-card-modal-role" name="Role" data-df-select data-cut-lab-role-override-role>
-                                    @foreach (var roleOption in Model.RoleOverrideRoleOptions)
-                                    {
-                                        <option value="@roleOption.Key">@roleOption.Label</option>
-                                    }
-                                </select>
-                                    <button type="submit" name="Operation" value="Add">Add</button>
-                                </details>
-                                <button type="submit" name="Operation" value="Reset" data-cut-lab-role-reset hidden>Reset card roles</button>
-                            </form>
                         </div>
                     }
                 </div>

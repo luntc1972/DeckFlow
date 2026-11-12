@@ -655,6 +655,7 @@ public sealed class ManabaseViewRenderTests
         string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Cedh, includeCedhRange: true));
 
         Assert.Contains("cEDH meta range ~26–29 lands (33 cEDH tournament decks, 2026-07 sample; mean 27.5 ±1.6).", html, StringComparison.Ordinal);
+        Assert.Contains("Tournament data: <a href=\"https://topdeck.gg/\" target=\"_blank\" rel=\"noopener noreferrer\">TopDeck.gg</a>.", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -663,6 +664,7 @@ public sealed class ManabaseViewRenderTests
         string html = await RenderManabaseViewAsync(BuildPopulatedModel(showTapAnalyzer: false, mode: ManabaseMode.Casual, includeCedhRange: false));
 
         Assert.DoesNotContain("cEDH meta range", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("https://topdeck.gg/", html, StringComparison.Ordinal);
     }
 
     [Fact]

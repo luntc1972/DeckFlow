@@ -31,6 +31,72 @@ public sealed class CutLabViewRenderTests
     private static readonly IReadOnlyDictionary<string, CutLabCardTextView> EmptyCardTextByCardName = new Dictionary<string, CutLabCardTextView>(StringComparer.OrdinalIgnoreCase);
 
     [Fact]
+    public async Task RoleFloors_LockableNonemptyGroup_RendersDistinctSynchronizedButton()
+    {
+        var model = BuildTwinBadgeModel() with
+        {
+            Pool = [new CutLabPoolCard { Name = "Commander", IsCommander = true, IsLocked = true, Quantity = 1 }],
+            RoleGroups =
+            [
+                new CutLabRoleGroupView { RoleKey = "ramp", DisplayLabel = "Ramp", Members = [new CutLabRoleMemberView { Name = "Sol Ring", IsLocked = true }] },
+                new CutLabRoleGroupView { RoleKey = "engines", DisplayLabel = "Engines" },
+                new CutLabRoleGroupView { RoleKey = "other", IsLockable = false, Members = [new CutLabRoleMemberView { Name = "Other" }] },
+            ],
+            FloorRows = [new CutLabFloorRowView { RoleKey = "ramp" }, new CutLabFloorRowView { RoleKey = "engines" }, new CutLabFloorRowView { RoleKey = "other" }],
+        };
+        string html = await RenderAsync(model);
+        Assert.Contains("data-cut-lab-floor-lock-role=\"ramp\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Unlock all Ramp from Role floors\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-floor-lock-role=\"engines\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("data-cut-lab-floor-lock-role=\"other\"", html, StringComparison.Ordinal);
+        Assert.Contains("Lock every card in a role with Lock all in <a href=\"#cut-lab-section-competes\" data-cut-lab-jump-link>How your pool competes</a>.", html, StringComparison.Ordinal);
+        foreach ((string oldText, string newText) in new[]
+        {
+            ("What's protected while you cut", "What's locked while you cut"),
+            ("roles protected", "roles fully locked"),
+            ("Not yet protected:", "Not yet locked:"),
+            ("Protect a role with its", "Lock every card in a role with Lock all"),
+            ("then protect the cards that must survive", "then lock the cards that must survive"),
+            ("tick a card to protect it", "tick a card to lock it"),
+            ("rebuilding your protected pool", "rebuilding your locked pool"),
+        })
+        {
+            Assert.DoesNotContain(oldText, System.Net.WebUtility.HtmlDecode(html), StringComparison.Ordinal);
+            Assert.Contains(newText, System.Net.WebUtility.HtmlDecode(html), StringComparison.Ordinal);
+        }
+        foreach (string text in new[] { "Lock a card to protect it from future cuts.", "how Cut Lab protects, reorders, and flags", "Commander · Always locked", "data-cut-lab-floor-locked-label>0 locked</span>" })
+        {
+            Assert.Contains(text, System.Net.WebUtility.HtmlDecode(html), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task ResultView_ReorderedWorkflow_KeepsPoolInsidePlanAndSelectsPlan()
+    {
+        string html = await RenderAsync(BuildTwinBadgeModel());
+        string[] names = ["Process", "Plan", "Decide", "Goals", "Export"];
+        for (int step = 1; step <= names.Length; step++)
+        {
+            string tab = Regex.Match(html, $"<button[^>]*id=\"cut-lab-step-tab-{step}\"[^>]*>").Value;
+            Assert.Contains($"aria-label=\"{names[step - 1]}\"", tab);
+            if (step == CutLabSteps.Plan)
+            {
+                Assert.Contains("aria-selected=\"true\"", tab);
+            }
+        }
+        int process = html.IndexOf("id=\"cut-lab-step-panel-1\"", StringComparison.Ordinal);
+        int plan = html.IndexOf("id=\"cut-lab-step-panel-2\"", StringComparison.Ordinal);
+        int decide = html.IndexOf("id=\"cut-lab-step-panel-3\"", StringComparison.Ordinal);
+        int goals = html.IndexOf("id=\"cut-lab-step-panel-4\"", StringComparison.Ordinal);
+        int planSection = html.IndexOf("id=\"cut-lab-section-plan-panel\"", StringComparison.Ordinal);
+        int pool = html.IndexOf("id=\"cut-lab-section-lock-pool\"", StringComparison.Ordinal);
+        int rounds = html.IndexOf("id=\"cut-lab-section-cut-rounds\"", StringComparison.Ordinal);
+        Assert.True(process < plan && plan < planSection && planSection < pool && pool < decide && decide < rounds && rounds < goals);
+        Assert.Contains("id=\"cut-lab-section-competes\"", html[process..plan]);
+        Assert.DoesNotContain("<form", html[pool..decide]);
+    }
+
+    [Fact]
     public async Task EmptyState_RendersExpandedIntakeWithoutSummary()
     {
         string html = await RenderAsync(new CutLabViewModel());
@@ -60,6 +126,11 @@ public sealed class CutLabViewRenderTests
     {
         var model = BuildTwinBadgeModel() with
         {
+            FloorRows =
+            [
+                new CutLabFloorRowView { RoleKey = "ramp", LockedCount = 2 },
+                new CutLabFloorRowView { RoleKey = "engines", LockedCount = 3 },
+            ],
             FloorFeasibility = new CutLabFloorFeasibilityResult
             {
                 RequiredNonlandSlots = 68,
@@ -70,6 +141,13 @@ public sealed class CutLabViewRenderTests
         };
 
         string html = await RenderAsync(model);
+
+        int inPoolIndex = html.IndexOf("<th scope=\"col\">In pool</th>", StringComparison.Ordinal);
+        int lockedIndex = html.IndexOf("<th scope=\"col\">Locked</th>", StringComparison.Ordinal);
+        Assert.True(inPoolIndex >= 0 && lockedIndex > inPoolIndex);
+        Assert.True(string.IsNullOrWhiteSpace(html[(inPoolIndex + "<th scope=\"col\">In pool</th>".Length)..lockedIndex]));
+        Assert.Contains("<td data-label=\"Locked\">", html, StringComparison.Ordinal);
+        Assert.Contains("data-cut-lab-floor-locked-label>2 locked</span>", html, StringComparison.Ordinal);
 
         int headingIndex = html.IndexOf("<h2>Role floors</h2>", StringComparison.Ordinal);
         int warningIndex = html.IndexOf("data-cut-lab-floor-feasibility", StringComparison.Ordinal);
@@ -551,6 +629,89 @@ public sealed class CutLabViewRenderTests
         Assert.Contains("340 decks (42.7%) on EDHREC", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ResultView_ReferenceNavigation_RendersDialogAndThreeProposalButtons()
+    {
+        CutLabViewModel model = BuildTwinBadgeModel() with
+        {
+            Proposal = new CutLabProposalView
+            {
+                HasProposal = true,
+                CardName = "Forest",
+                RoundKey = "test-round",
+            },
+        };
+        string html = await RenderAsync(model);
+
+        Assert.DoesNotContain("cutlab-anchor-nav", html, StringComparison.Ordinal);
+        Assert.Matches("<dialog id=\"cut-lab-reference\"[\\s\\S]*?</dialog>\\s*<dialog id=\"cutlab-card-modal\"", html);
+        string actions = Regex.Match(html, "<div class=\"cutlab-proposal__pinned-actions\">[\\s\\S]*?</div>").Value;
+        MatchCollection buttons = Regex.Matches(actions, "<button type=\"button\"[^>]*aria-haspopup=\"dialog\"[^>]*aria-controls=\"cut-lab-reference\"[^>]*>");
+        Assert.Equal(3, buttons.Count);
+        foreach (string section in new[] { "role-floors", "structural", "constraints" })
+        {
+            Assert.Contains($"data-cut-lab-reference-open=\"cut-lab-section-{section}\"", actions, StringComparison.Ordinal);
+        }
+
+        string export = Regex.Match(html, "<button[^>]*id=\"cut-lab-step-tab-5\"[^>]*>").Value;
+        Assert.Contains("type=\"submit\"", export, StringComparison.Ordinal);
+        Assert.Contains("form=\"cut-lab-export-form\"", export, StringComparison.Ordinal);
+        Assert.Contains("id=\"cut-lab-section-role-floors\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"cut-lab-section-structural\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"cut-lab-section-constraints\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderAsync_MdfcPoolCard_RendersSlashTextAndCanonicalAttributes()
+    {
+        const string name = "Witch Enchanter // Witch-Blessed Meadow";
+        var model = new CutLabViewModel
+        {
+            ActiveTab = DeckPageTab.CutLab,
+            HasResult = true,
+            IsLegal = true,
+            Pool = [new CutLabPoolCard { Name = name, Quantity = 1, TypeLine = "Creature" }],
+            RoleListByCardName = new Dictionary<string, string> { [name] = "Utility" },
+            RoleKeysByCardName = new Dictionary<string, string> { [name] = "utility" },
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Contains(">Witch Enchanter / Witch-Blessed Meadow</button>", html, StringComparison.Ordinal);
+        foreach (string attribute in new[] { "data-cut-lab-card", "data-cutlab-card-open", "data-cut-lab-lock-card", "value" })
+        {
+            Assert.Contains($"{attribute}=\"{name}\"", html, StringComparison.Ordinal);
+        }
+        Assert.Contains($"aria-label=\"Lock {name} to keep it\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Witch Enchanter // ", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenderAsync_MdfcProposalCutsMadeAndWhatif_RendersSlashTextAndCanonicalValues()
+    {
+        const string name = "Witch Enchanter // Witch-Blessed Meadow";
+        CutLabViewModel model = BuildTwinBadgeModel() with
+        {
+            Proposal = new CutLabProposalView { HasProposal = true, CardName = name, RoundKey = "test-round" },
+            CutsMade = [new CutLabCutMadeRowView { CardName = name, RoundKey = "test-round" }],
+            WhatifCardOutOptions = [name],
+            Export = new CutLabExportView
+            {
+                HasExport = true,
+                HardBlock = false,
+                MoxfieldFullListText = $"1 {name}",
+            },
+        };
+
+        string html = await RenderAsync(model);
+
+        Assert.Equal(2, Regex.Matches(html, ">Witch Enchanter / Witch-Blessed Meadow</button>").Count);
+        Assert.Contains($"name=\"CardName\" value=\"{name}\"", html, StringComparison.Ordinal);
+        Assert.Matches($"<option value=\"{Regex.Escape(name)}\"[^>]*>\\s*Witch Enchanter / Witch-Blessed Meadow\\s*</option>", html);
+        Assert.Contains($"readonly>1 {name}</textarea>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Witch Enchanter // ", html, StringComparison.Ordinal);
+    }
+
     private const string HeliodRawName = "Heliod, Sun-Crowned";
 
     private static readonly string HeliodNormalizedName = CutLabCardNames.Normalize(HeliodRawName);
@@ -610,19 +771,19 @@ public sealed class CutLabViewRenderTests
         string form = Regex.Match(dialog, "<form[^>]*action=\"/cut-lab/role-override\"[\\s\\S]*?</form>").Value;
         Assert.Contains("data-cut-lab-role-block", dialog);
         Assert.Contains("data-cut-lab-role-chips", dialog);
-        Assert.Contains("data-cut-lab-role-add", dialog);
+        Assert.Contains("data-cut-lab-role-suggestions", form);
+        Assert.DoesNotContain("<select", dialog);
+        Assert.DoesNotContain("<details data-cut-lab-role-add", dialog);
+        Assert.Contains("data-cut-lab-role-options", dialog);
         Assert.Contains("data-cut-lab-role-labels", html);
         Assert.DoesNotContain("value=\"Remove\"", form);
         Assert.Contains("__RequestVerificationToken", form);
-        foreach (string field in new[] { "CutLabStateJson", "CardName", "Role", "Operation" })
+        foreach (string field in new[] { "CutLabStateJson", "CardName", "Operation" })
         {
             Assert.Contains($"name=\"{field}\"", form);
         }
-        foreach (string operation in new[] { "Add", "Reset" })
-        {
-            Assert.Contains($"value=\"{operation}\"", form);
-        }
-        Assert.Contains("value=\"draw\">Card draw</option>", form);
+        Assert.Contains("value=\"Reset\"", form);
+        Assert.Contains("[\"draw\",\"Card draw\"]", dialog);
         Assert.DoesNotContain("cut-lab-role-editor", html);
         Assert.DoesNotContain("data-cut-lab-role-edit-card", html);
         Assert.DoesNotContain("Edit roles", html);
@@ -675,6 +836,38 @@ public sealed class CutLabViewRenderTests
         string script = Regex.Match(html, "<script[^>]*id=\"cutlab-card-text-data\"[\\s\\S]*?</script>").Value;
         Assert.DoesNotContain(roles, html);
         Assert.Contains("\\u003C/script\\u003E", script);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RenderAsync_NonCommanderLock_TogglesDecideCallout(bool locked)
+    {
+        var model = BuildTwinBadgeModel() with
+        {
+            Pool = [new() { Name = "Commander", IsCommander = true, IsLocked = true }, new() { Name = "Sol Ring", IsLocked = locked }],
+        };
+        string html = await RenderAsync(model);
+        var callout = Regex.Match(html, "<p[^>]*data-cut-lab-lock-callout[^>]*>").Value;
+        Assert.NotEmpty(callout);
+        Assert.Equal(locked, callout.Contains("hidden", StringComparison.Ordinal));
+        Assert.Contains("No cards locked yet. Locking a card protects it from cuts.", html);
+    }
+
+    [Fact]
+    public async Task RenderAsync_AcceptedMdfcCut_RendersCanonicalSwapShortcutAndSiblingPackagesLink()
+    {
+        const string name = "Witch Enchanter // Witch-Blessed Meadow";
+        var model = BuildTwinBadgeModel() with
+        {
+            Proposal = new CutLabProposalView { HasProposal = true, CardName = "Pending Card", RoundKey = "test-round" },
+            CutsMade = [new CutLabCutMadeRowView { CardName = name, RoundKey = "test-round" }],
+        };
+        string html = await RenderAsync(model);
+        Assert.Contains($"data-cut-lab-swap-card=\"{name}\"", html);
+        Assert.DoesNotContain("data-cut-lab-swap-card=\"Pending Card\"", html);
+        Assert.Single(Regex.Matches(html, "data-cut-lab-swap-card="));
+        Assert.Matches("data-cut-lab-constraints-package-count[^>]*>[^<]*</span>\\s*<span class=\"cutlab-constraints-summary__label\">packages locked</span>\\s*<a[^>]*data-cut-lab-tab-link(?=[\\s>])", html);
     }
 
     private static CutLabViewModel BuildTwinBadgeModel(IReadOnlyDictionary<string, CutLabCardTextView>? cardTextByCardName = null)

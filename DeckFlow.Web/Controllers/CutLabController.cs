@@ -93,7 +93,7 @@ public sealed class CutLabController : Controller
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson))
         {
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage, step: CutLabSteps.Plan);
         }
 
         try
@@ -103,11 +103,11 @@ public sealed class CutLabController : Controller
             RehydrateIntakeRequestFromState(request, state, preservePostedPlanProfile: true, formHasNoPlanArchetype);
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            return View("CutLab", CutLabViewModel.From(request, result, currentStepOverride: 3));
+            return View("CutLab", CutLabViewModel.From(request, result, currentStepOverride: CutLabSteps.Plan));
         }
         catch (Exception exception)
         {
-            return HandleFallbackException(exception, request, "Cut Lab plan apply fallback failed.", CutLabMessages.NoChangeMessage);
+            return HandleFallbackException(exception, request, "Cut Lab plan apply fallback failed.", CutLabMessages.NoChangeMessage, step: CutLabSteps.Plan);
         }
     }
 
@@ -127,7 +127,7 @@ public sealed class CutLabController : Controller
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName))
         {
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage, step: CutLabSteps.Decide);
         }
 
         try
@@ -135,7 +135,7 @@ public sealed class CutLabController : Controller
             CutLabState state = CutLabStateSerializer.Deserialize(request.CutLabStateJson);
             if (CutLabDecisionApplier.IsLockedDecision(state, cardName, decision))
             {
-                return CutLabView(request, error: CutLabDecisionApplier.GetLockedDecisionMessage(cardName));
+                return CutLabView(request, error: CutLabDecisionApplier.GetLockedDecisionMessage(cardName), step: CutLabSteps.Decide);
             }
 
             string resolvedRoundKey = DetermineRoundKey(state, cardName, decision, roundKey);
@@ -144,11 +144,11 @@ public sealed class CutLabController : Controller
             request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
 
             var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            return View("CutLab", CutLabViewModel.From(request, result));
+            return View("CutLab", CutLabViewModel.From(request, result, currentStepOverride: CutLabSteps.Decide));
         }
         catch (Exception exception)
         {
-            return HandleFallbackException(exception, request, "Cut Lab decision fallback failed.", CutLabMessages.NoChangeMessage);
+            return HandleFallbackException(exception, request, "Cut Lab decision fallback failed.", CutLabMessages.NoChangeMessage, step: CutLabSteps.Decide);
         }
     }
 
@@ -167,14 +167,14 @@ public sealed class CutLabController : Controller
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName))
         {
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage, step: CutLabSteps.Decide);
         }
 
         return await RunStateMutationAsync(request, "Cut Lab adjustment fallback failed.", state =>
         {
             state = CutLabAdjustmentApplier.Apply(state, cardName, delta, isAddedBasic);
             return (state, null);
-        });
+        }, step: CutLabSteps.Decide);
     }
 
     /// <summary>Applies a user-selected role override to one pool card.</summary>
@@ -182,22 +182,24 @@ public sealed class CutLabController : Controller
     /// <param name="cardName">Card to update.</param>
     /// <param name="role">Role key to add or remove.</param>
     /// <param name="operation">Requested role-override operation.</param>
+    /// <param name="originStep">Workflow step from which the card dialog opened.</param>
     [HttpPost("/cut-lab/role-override")]
     [FeatureFlagGate("tool.cut-lab.enabled")]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(2 * 1024 * 1024)]
-    public async Task<IActionResult> RoleOverride(CutLabRequest request, string cardName, string? role, CutLabRoleOverrideOperation operation)
+    public async Task<IActionResult> RoleOverride(CutLabRequest request, string cardName, string? role, CutLabRoleOverrideOperation operation, string? originStep = null)
     {
         request ??= new CutLabRequest();
+        int originStepNumber = CutLabSteps.FromOrigin(originStep);
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson) || string.IsNullOrWhiteSpace(cardName))
         {
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage, step: originStepNumber);
         }
         return await RunStateMutationAsync(request, "Cut Lab role-override fallback failed.", async state =>
         {
             CutLabRoleEditResult result = await _roleEditService.ApplyAsync(state, cardName, role, operation, HttpContext.RequestAborted);
             return (result.State, result.Error);
-        });
+        }, step: originStepNumber);
     }
 
     /// <summary>Re-surfaces prior round 1 and round 2 rejects/defers without undoing accepted cuts.</summary>
@@ -212,14 +214,14 @@ public sealed class CutLabController : Controller
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson))
         {
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage, step: CutLabSteps.Decide);
         }
 
         return await RunStateMutationAsync(request, "Cut Lab restart rounds fallback failed.", state =>
         {
             state = CutLabDecisionApplier.RestartRounds(state, [CutLabCutRoundEngine.Round1Key, CutLabCutRoundEngine.Round2Key]);
             return (state, null);
-        });
+        }, step: CutLabSteps.Decide);
     }
 
     /// <summary>Applies posted goal turns and re-renders the full page for the no-JS fallback.</summary>
@@ -234,7 +236,7 @@ public sealed class CutLabController : Controller
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson))
         {
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage, step: CutLabSteps.Goals);
         }
 
         return await RunStateMutationAsync(request, "Cut Lab goals fallback failed.", state =>
@@ -250,7 +252,7 @@ public sealed class CutLabController : Controller
             };
             state = CutLabGoalRules.ClampGoals(state);
             return (state, null);
-        }, step: 4);
+        }, step: CutLabSteps.Goals);
     }
 
     /// <summary>Builds the export surface and re-renders the full page for the no-JS fallback.</summary>
@@ -265,7 +267,7 @@ public sealed class CutLabController : Controller
 
         if (string.IsNullOrWhiteSpace(request.CutLabStateJson))
         {
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage, step: CutLabSteps.Export);
         }
 
         try
@@ -281,11 +283,11 @@ public sealed class CutLabController : Controller
                 request.PlayExperience,
                 CutLabCommanderNames.Resolve(exportState),
                 HttpContext.RequestAborted).ConfigureAwait(false);
-            return View("CutLab", CutLabViewModel.From(request, result, export: export, currentStepOverride: 5));
+            return View("CutLab", CutLabViewModel.From(request, result, export: export, currentStepOverride: CutLabSteps.Export));
         }
         catch (Exception exception)
         {
-            return HandleFallbackException(exception, request, "Cut Lab export fallback failed.", CutLabMessages.NoChangeMessage);
+            return HandleFallbackException(exception, request, "Cut Lab export fallback failed.", CutLabMessages.NoChangeMessage, step: CutLabSteps.Export);
         }
     }
 
@@ -307,7 +309,7 @@ public sealed class CutLabController : Controller
             || string.IsNullOrWhiteSpace(cardIn)
             || !IsWhatifIntent(intent))
         {
-            return CutLabView(request, error: CutLabMessages.NoChangeMessage);
+            return CutLabView(request, error: CutLabMessages.NoChangeMessage, step: CutLabSteps.Goals);
         }
 
         try
@@ -338,11 +340,11 @@ public sealed class CutLabController : Controller
             request.CutLabStateJson = CutLabStateSerializer.Serialize(result.State);
 
             var pageResult = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-            return View("CutLab", CutLabViewModel.From(request, pageResult));
+            return View("CutLab", CutLabViewModel.From(request, pageResult, currentStepOverride: CutLabSteps.Goals));
         }
         catch (Exception exception)
         {
-            return HandleFallbackException(exception, request, "Cut Lab what-if fallback failed.", CutLabMessages.NoChangeMessage);
+            return HandleFallbackException(exception, request, "Cut Lab what-if fallback failed.", CutLabMessages.NoChangeMessage, step: CutLabSteps.Goals);
         }
     }
 
@@ -350,14 +352,14 @@ public sealed class CutLabController : Controller
         CutLabRequest request,
         string failureLog,
         Func<CutLabState, (CutLabState State, string? Error)> mutate,
-        int? step = null)
+        int step)
         => await RunStateMutationAsync(request, failureLog, state => Task.FromResult(mutate(state)), step);
 
     private async Task<IActionResult> RunStateMutationAsync(
         CutLabRequest request,
         string failureLog,
         Func<CutLabState, Task<(CutLabState State, string? Error)>> mutate,
-        int? step = null)
+        int step)
     {
         try
         {
@@ -371,22 +373,22 @@ public sealed class CutLabController : Controller
         }
         catch (Exception exception)
         {
-            return HandleFallbackException(exception, request, failureLog, CutLabMessages.NoChangeMessage);
+            return HandleFallbackException(exception, request, failureLog, CutLabMessages.NoChangeMessage, step: step);
         }
     }
 
-    private IActionResult HandleFallbackException(Exception exception, CutLabRequest request, string failureLog, string genericMessage)
+    private IActionResult HandleFallbackException(Exception exception, CutLabRequest request, string failureLog, string genericMessage, int? step = null)
     {
         if (exception is InvalidOperationException)
         {
-            return CutLabView(request, error: exception.Message);
+            return CutLabView(request, error: exception.Message, step: step);
         }
         if (exception is OperationCanceledException)
         {
-            return CutLabView(request, error: "The request timed out. Try again.");
+            return CutLabView(request, error: "The request timed out. Try again.", step: step);
         }
         _logger.LogError(exception, failureLog);
-        return CutLabView(request, error: genericMessage);
+        return CutLabView(request, error: genericMessage, step: step);
     }
 
     private static string DetermineRoundKey(CutLabState state, string cardName, CutLabDecideAction decision, string? postedRoundKey)
@@ -409,7 +411,7 @@ public sealed class CutLabController : Controller
         request.CutLabStateJson = CutLabStateSerializer.Serialize(state);
 
         var result = await _pageService.ProcessAsync(request, HttpContext.RequestAborted);
-        CutLabViewModel viewModel = CutLabViewModel.From(request, result, BuildWhatifPreviewView(preview));
+        CutLabViewModel viewModel = CutLabViewModel.From(request, result, BuildWhatifPreviewView(preview), currentStepOverride: CutLabSteps.Goals);
         return View("CutLab", string.IsNullOrWhiteSpace(error) ? viewModel : viewModel with { ErrorMessage = error });
     }
 
@@ -564,12 +566,13 @@ public sealed class CutLabController : Controller
 
     private static string FormatDeckLine(CutLabPoolCard card) => $"{card.Quantity} {card.Name}";
 
-    private ViewResult CutLabView(CutLabRequest request, string? error) =>
+    private ViewResult CutLabView(CutLabRequest request, string? error, int? step = null) =>
         View("CutLab", new CutLabViewModel
         {
             ActiveTab = DeckPageTab.CutLab,
             Request = request,
             ErrorMessage = error,
+            CurrentStepOverride = step,
             CutLabStateJson = request.CutLabStateJson,
         });
 }

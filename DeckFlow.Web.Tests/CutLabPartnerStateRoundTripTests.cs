@@ -23,6 +23,7 @@ public sealed class CutLabPartnerStateRoundTripTests
         var (service, request) = CreateService(partnerCommanders: true);
         var firstResult = await service.ProcessAsync(request);
         Assert.True(firstResult.HasResult);
+        Assert.NotNull(firstResult.SerializedStateJson);
         var firstState = CutLabStateSerializer.Deserialize(firstResult.SerializedStateJson);
         Assert.All(firstState.Pool.Where(card => card.Name is "Kediss, Emberclaw Familiar" or "Brinelin, the Moon Kraken"), card => Assert.True(card.IsCommander));
 
@@ -45,6 +46,7 @@ public sealed class CutLabPartnerStateRoundTripTests
         var (service, request) = CreateService(partnerCommanders: false);
         var firstResult = await service.ProcessAsync(request);
         Assert.True(firstResult.HasResult);
+        Assert.NotNull(firstResult.SerializedStateJson);
 
         var result = await CreateController(service).Process(new CutLabRequest { CutLabStateJson = firstResult.SerializedStateJson });
         var model = Assert.IsType<CutLabViewModel>(Assert.IsType<ViewResult>(result).Model);
