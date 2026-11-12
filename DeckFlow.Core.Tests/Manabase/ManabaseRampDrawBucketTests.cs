@@ -234,4 +234,53 @@ public sealed class ManabaseRampDrawBucketTests
         Assert.Equal(baselineReport.TargetLands, report.TargetLands);
         Assert.Equal(baselineReport.LandTarget!.FinalTarget, report.LandTarget!.FinalTarget);
     }
+
+    [Fact]
+    public void Classify_CommanderDrawText_IsExcludedFromBudget()
+    {
+        CardFact commander = Nonland("Bello, Bard of the Brambles", 3, "Legendary Creature — Raccoon Bard",
+            "During your turn, each non-Equipment artifact and non-Aura enchantment you control with mana value 4 or greater is a 4/4 Elemental creature in addition to its other types and has indestructible, haste, and \"Whenever this creature deals combat damage to a player, draw a card.\"")
+        with
+        {
+            IsCommander = true,
+        };
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[]
+        {
+            commander,
+            Nonland("Divination", 3, "Sorcery", "Draw two cards."),
+        });
+
+        Assert.Equal(1.0, deck.DrawPieceCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Classify_CommanderManaDork_IsExcludedFromBudgetAndLandCredit(bool rampCreditV2)
+    {
+        CardFact commander = Nonland("Dork Commander", 2, "Legendary Creature — Elf Druid", "{T}: Add {G}.", "G") with { IsCommander = true };
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[] { commander }, rampCreditV2: rampCreditV2);
+
+        Assert.Equal((0.0, 0, 0), (deck.RampPieceCount, deck.RampAndDrawUnderThree, deck.RampAndDrawNames.Count));
+    }
+
+    [Fact]
+    public void Classify_NonCommanderManaDork_StillEarnsBudgetAndLandCredit()
+    {
+        CardFact card = Nonland("Dork Commander", 2, "Legendary Creature — Elf Druid", "{T}: Add {G}.", "G") with { IsCommander = false };
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[] { card }, rampCreditV2: true);
+
+        Assert.Equal(1.0, deck.RampPieceCount);
+        Assert.Equal(1, deck.RampAndDrawUnderThree);
+        Assert.Equal(new[] { "Dork Commander" }, deck.RampAndDrawNames);
+    }
+
+    [Fact]
+    public void Classify_CommanderRampAndDraw_IsExcludedFromBothCount()
+    {
+        CardFact commander = Nonland("Overlap Commander", 3, "Legendary Creature — Elf Druid", "{T}: Add {G}.\n{2}, {T}: Draw a card.", "G") with { IsCommander = true };
+        ManabaseDeck deck = ManabaseClassifier.Classify(new[] { commander }, rampCreditV2: true);
+
+        Assert.Equal((0.0, 0.0, 0), (deck.RampPieceCount, deck.DrawPieceCount, deck.RampDrawBothCount));
+    }
 }

@@ -81,6 +81,7 @@ Entry: `ManabaseClassifier.Classify(cards, isSingleton=true, rampCreditV2=false,
 - Known approximation: the fetched land is modeled as a delayed source once the ramp resolves, but the simulator does **not** thin that land out of the library. That slightly overstates later draw density while slightly understating the resolved ramp's deck-compression benefit; over the short castability window those errors partially offset.
 
 ### 1.7 Ramp/draw budget piece counting (`rampCreditV2` flag)
+Both the land-target credit and the budget piece counts exclude commanders, matching the 99-card population used by AverageManaValue.
 - **Land-target credit** `RampAndDrawUnderThree`: `+Quantity` when `ManaValue <= 2` and the ramp/draw predicate matches — `Cls:191-195`.
   - `rampCreditV2` **off** → broad `IsRampOrDraw` (search-land, "Add ", "create a Treasure", draw-a/two) — `Cls:808-818`.
   - `rampCreditV2` **on** (prod) → narrowed `IsRepeatableRampOrDraw` = you-draw OR land-ramp-to-battlefield OR (permanent AND non-one-shot front "Add"); "permanent" here tests the **whole** type line (any spell face disqualifies) — `Cls:847-873`. Drops one-shot rituals/Treasure from the land credit.

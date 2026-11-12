@@ -226,7 +226,8 @@ public static class ManabaseClassifier
                 unsupported.Add(new UnsupportedInteraction { Name = card.Name, Reason = unsupportedReason });
             }
 
-            if (card.ManaValue <= 2 && (rampCreditV2 ? IsRepeatableRampOrDraw(card) : IsRampOrDraw(card)))
+            // Why: The Karsten regression and Command Zone template count the 99; AverageManaValue already excludes commanders.
+            if (!card.IsCommander && card.ManaValue <= 2 && (rampCreditV2 ? IsRepeatableRampOrDraw(card) : IsRampOrDraw(card)))
             {
                 rampUnderThree += card.Quantity;
                 rampNames.Add(card.Name);
@@ -239,8 +240,8 @@ public static class ManabaseClassifier
 
             SourceCapabilities sourceCapabilities = GetSourceCapabilities(card);
 
-            bool isRampPieceForBudget = IsRampPieceForBudget(card);
-            bool isDrawPieceForBudget = IsDrawPieceForBudget(card);
+            bool isRampPieceForBudget = !card.IsCommander && IsRampPieceForBudget(card);
+            bool isDrawPieceForBudget = !card.IsCommander && IsDrawPieceForBudget(card);
             if (isRampPieceForBudget)
             {
                 rampPieces += card.Quantity;

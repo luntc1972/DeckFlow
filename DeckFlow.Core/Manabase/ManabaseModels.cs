@@ -486,28 +486,28 @@ public sealed record ManabaseDeck
     /// <summary>Mean mana value of the non-land cards.</summary>
     public required double AverageManaValue { get; init; }
 
-    /// <summary>Count of ramp/card-draw spells of mana value 2 or less.</summary>
+    /// <summary>Count of ramp/card-draw spells of mana value 2 or less, excluding commanders.</summary>
     public int RampAndDrawUnderThree { get; init; }
 
-    /// <summary>Names of the ≤2 MV ramp/draw cards credited above, de-duplicated, in deck order.</summary>
+    /// <summary>Names of the ≤2 MV ramp/draw cards credited above, excluding commanders, de-duplicated, in deck order.</summary>
     public IReadOnlyList<string> RampAndDrawNames { get; init; } = Array.Empty<string>();
 
     /// <summary>
-    /// Advisory-only ramp-piece count over all nonland cards. Cards that qualify as both ramp and
+    /// Advisory-only ramp-piece count over all nonland cards, excluding commanders. Cards that qualify as both ramp and
     /// draw count as 0.5 here and 0.5 in <see cref="DrawPieceCount"/>. Never feeds land target,
     /// color counts, castability, or health.
     /// </summary>
     public double RampPieceCount { get; init; }
 
     /// <summary>
-    /// Advisory-only draw-piece count over all nonland cards. Cards that qualify as both draw and
+    /// Advisory-only draw-piece count over all nonland cards, excluding commanders. Cards that qualify as both draw and
     /// ramp count as 0.5 here and 0.5 in <see cref="RampPieceCount"/>. Never feeds land target,
     /// color counts, castability, or health.
     /// </summary>
     public double DrawPieceCount { get; init; }
 
     /// <summary>
-    /// Advisory-only overlap count: cards that qualify as both ramp and draw before the 0.5/0.5
+    /// Advisory-only overlap count, excluding commanders: cards that qualify as both ramp and draw before the 0.5/0.5
     /// split is applied to <see cref="RampPieceCount"/> and <see cref="DrawPieceCount"/>.
     /// Never feeds land target, color counts, castability, or health.
     /// </summary>
