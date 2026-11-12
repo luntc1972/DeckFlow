@@ -695,6 +695,8 @@ public static class CutLabCutRoundEngine
         // Why: a card's cuttability is bounded by its tightest role, so the conservative attribution is the
         // role with the least slack. Attributing the card to a roomier role would understate the cost of cutting it.
         => roles
+            // Why: only floor roles have headroom; floor-less roles cannot change attribution.
+            .Where(role => CutLabFloorRules.RoleKeys.Contains(role, StringComparer.OrdinalIgnoreCase))
             .Select(NormalizeRoleKey)
             .OrderBy(roleKey => HeadroomFor(roleKey, floorByRole, roleCounts))
             .ThenBy(RolePriority)

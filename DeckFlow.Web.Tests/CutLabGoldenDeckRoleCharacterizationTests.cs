@@ -70,10 +70,9 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
         Assert.Equal(ManabaseMode.Casual, Mode);
         Assert.Equal(129, facts.Count);
         Assert.Equal(106, nonlands.Length);
-        Assert.Equal(45, other.Length);
+        Assert.Equal(40, other.Length);
         Assert.Equal<string>(
         [
-            "Animate Dead",
             "Authority of the Consuls",
             "Bloodchief Ascension",
             "Bofur, Reliable Guardian // Concerted Care",
@@ -98,15 +97,11 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
             "MacCready, Lamplight Mayor",
             "March of Wretched Sorrow",
             "Martyr of Sands",
-            "Necromancy",
             "Ocelot Pride",
             "Orim's Chant",
             "Peace of Mind",
-            "Reanimate",
-            "Revival // Revenge",
             "Reward the Faithful",
             "Serra Ascendant",
-            "Shadow of the Grave",
             "Sheoldred, the Apocalypse",
             "Sickening Dreams",
             "Silence",

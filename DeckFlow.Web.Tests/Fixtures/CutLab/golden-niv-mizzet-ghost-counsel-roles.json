@@ -6,7 +6,7 @@
     "lands"
   ],
   "Animate Dead": [
-    "other"
+    "recursion"
   ],
   "Arcane Signet": [
     "ramp"
@@ -28,7 +28,8 @@
     "engines"
   ],
   "Black Sun\u0027s Twilight": [
-    "interaction-targeted"
+    "interaction-targeted",
+    "recursion"
   ],
   "Bleachbone Verge": [
     "lands"
@@ -231,7 +232,7 @@
     "protection"
   ],
   "Necromancy": [
-    "other"
+    "recursion"
   ],
   "Niv-Mizzet, Ghost Counsel": [
     "payoffs",
@@ -276,13 +277,13 @@
     "ramp"
   ],
   "Reanimate": [
-    "other"
+    "recursion"
   ],
   "Recruiter of the Guard": [
     "tutor"
   ],
   "Revival // Revenge": [
-    "other"
+    "recursion"
   ],
   "Reward the Faithful": [
     "other"
@@ -294,7 +295,7 @@
     "other"
   ],
   "Shadow of the Grave": [
-    "other"
+    "recursion"
   ],
   "Shadowy Backstreet": [
     "lands"
@@ -368,7 +369,8 @@
     "other"
   ],
   "The Soul Stone": [
-    "ramp"
+    "ramp",
+    "recursion"
   ],
   "Thraben Charm": [
     "interaction-targeted"

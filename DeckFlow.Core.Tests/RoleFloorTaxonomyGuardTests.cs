@@ -30,6 +30,16 @@ public sealed class RoleFloorTaxonomyGuardTests
 
     [Theory]
     [MemberData(nameof(Modes))]
+    public void ValidateTaxonomy_RoleGridAllShippedModes_ReturnsNull(ManabaseMode mode)
+    {
+        var runner = typeof(RoleFloorResearchCommandRunner).Assembly.GetType("DeckFlow.CLI.EdhrecRoleGridCommandRunner", throwOnError: true)!;
+        var targets = runner.GetMethod("GetTargetRoleKeys", BindingFlags.NonPublic | BindingFlags.Static)!;
+        var validate = runner.GetMethod("ValidateTaxonomy", BindingFlags.NonPublic | BindingFlags.Static)!;
+        Assert.Null(validate.Invoke(null, [mode, targets.Invoke(null, null)]));
+    }
+
+    [Theory]
+    [MemberData(nameof(Modes))]
     public void ValidateTaxonomyAgainstAssigner_AllShippedModes_ReturnsNull(ManabaseMode mode)
     {
         string? result = RoleFloorResearchCommandRunner.ValidateTaxonomyAgainstAssigner(mode);

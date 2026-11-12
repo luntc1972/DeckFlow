@@ -9,8 +9,8 @@ public static class CutLabRoleOverrideRules
     public const int MaxRoleOverrides = 200;
 
     /// <summary>Roles a user may edit, in picker order.</summary>
-    public static readonly IReadOnlyList<string> EditableRoleKeys = CutLabFloorRules.RoleKeys
-        .Where(role => role != "lands")
+    public static readonly IReadOnlyList<string> EditableRoleKeys = CutLabRoleKeys.Display
+        .Where(role => role != "lands" && role != CutLabRoleKeys.Residual)
         .ToArray();
 
     // Why: AssignRoles emits these keys in this order, so overrides retain classifier ordering.
@@ -26,6 +26,7 @@ public static class CutLabRoleOverrideRules
         "engines",
         "payoffs",
         "wincons",
+        .. CutLabRoleKeys.Floorless,
         "other",
     ];
 

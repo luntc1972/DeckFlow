@@ -83,14 +83,6 @@ public sealed record CutLabViewModel
     /// <summary>Shared primary-type display order used by Cut Lab groupings and advisory ranking.</summary>
     public static readonly string[] TypeGroupOrder = CutLabRoleAssigner.TypeGroupOrder;
 
-    // Display order for the structural role groups. This mirrors CutLabFloorRules.RoleKeys and
-    // appends the display-only fallback bucket.
-    private static readonly string[] RoleGroupDisplayOrder =
-    [
-        .. CutLabFloorRules.RoleKeys,
-        "other",
-    ];
-
     /// <summary>The active deck tool tab.</summary>
     public DeckPageTab ActiveTab { get; init; }
 
@@ -232,7 +224,7 @@ public sealed record CutLabViewModel
 
     // Why: the labels derive from constants, so every view model can share one dictionary instead of rebuilding it.
     private static readonly IReadOnlyDictionary<string, string> DefaultRoleLabelsByKey =
-        CutLabRoleOverrideRules.EditableRoleKeys.Concat(new[] { "lands", "other" })
+        CutLabRoleKeys.Display
             .ToDictionary(key => key, CutLabRoleAssigner.DisplayLabelFor, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Per-card raw role-key token strings for the pool table, keyed by card name.</summary>
@@ -536,7 +528,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabPoolCard> pool,
         IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
     {
-        return RoleGroupDisplayOrder
+        return CutLabRoleKeys.Display
             .Select(roleKey => BuildGroup(roleKey, DisplayLabelFor(roleKey),
                 pool.Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
                     && roles.Contains(roleKey, StringComparer.Ordinal)),

@@ -270,7 +270,7 @@ internal static class EdhrecRoleGridCommandRunner
             }
         }
 
-        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys!, roleKeys, emittedKeys, residualRoleKey: "other");
+        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys!, roleKeys, emittedKeys, residualRoleKey: "other", floorlessRoleKeys: CutLabRoleKeys.Floorless);
     }
 
     private static CardFact[] BuildTaxonomyProbes()
@@ -289,6 +289,14 @@ internal static class EdhrecRoleGridCommandRunner
                 Quantity = 1,
                 TypeLine = "Sorcery",
                 OracleText = "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",
+            },
+            // Why: the shipped tutor key needs deterministic startup probe coverage too.
+            new()
+            {
+                Name = "Wishclaw Talisman",
+                Quantity = 1,
+                TypeLine = "Artifact",
+                OracleText = "{1}, {T}, Remove a wish counter from Wishclaw Talisman: Search your library for a card, put it into your hand, then shuffle. An opponent gains control of Wishclaw Talisman. Activate only during your turn.",
             },
             new()
             {

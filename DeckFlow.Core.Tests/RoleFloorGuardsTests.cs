@@ -46,6 +46,34 @@ public sealed class RoleFloorGuardsTests
     }
 
     [Fact]
+    public void FindTaxonomyDrift_RecursionEmission_DeclaredFloorless_ReturnsNull()
+    {
+        string? result = RoleFloorGuards.FindTaxonomyDrift(
+            ShippedRoleKeys, ShippedRoleKeys, [.. ShippedRoleKeys, "recursion"], "other",
+            floorlessRoleKeys: ["recursion"]);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void FindTaxonomyDrift_RecursionEmission_UndeclaredFloorless_ReportsIt()
+    {
+        string? result = RoleFloorGuards.FindTaxonomyDrift(
+            ShippedRoleKeys, ShippedRoleKeys, [.. ShippedRoleKeys, "recursion"], "other",
+            floorlessRoleKeys: []);
+
+        Assert.Contains("recursion", Assert.IsType<string>(result));
+    }
+
+    [Fact]
+    public void FindTaxonomyDrift_FloorlessShippedKey_DoesNotRequireTargetOrProbe()
+    {
+        Assert.Null(RoleFloorGuards.FindTaxonomyDrift(
+            [.. ShippedRoleKeys, "recursion"], ShippedRoleKeys, ShippedRoleKeys, "other",
+            floorlessRoleKeys: ["recursion"]));
+    }
+
+    [Fact]
     public void TryReadShippedRoleKeys_PrivateStaticStringArray_ReturnsKeys()
     {
         string? result = RoleFloorGuards.TryReadShippedRoleKeys(

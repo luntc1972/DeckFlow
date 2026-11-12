@@ -25,7 +25,8 @@ public static class CutLabRoleAssigner
     private const string EnginesRole = "engines";
     private const string PayoffsRole = "payoffs";
     private const string WinconsRole = "wincons";
-    private const string OtherRole = "other";
+    private const string RecursionRole = CutLabRoleKeys.Recursion;
+    private const string OtherRole = CutLabRoleKeys.Residual;
 
     private static readonly string[] RoleKeys =
     [
@@ -68,6 +69,7 @@ public static class CutLabRoleAssigner
             ["engines"] = "Engines",
             ["payoffs"] = "Payoffs",
             ["wincons"] = "Win conditions",
+            ["recursion"] = "Recursion",
             ["other"] = "Other",
         };
 
@@ -202,6 +204,12 @@ public static class CutLabRoleAssigner
         if (DeckStatClassifier.IsClosingPowerCard(typeLine, oracle))
         {
             assigned.Add(WinconsRole);
+        }
+
+        if (DeckStatClassifier.IsRecursionCard(oracle)
+            || categories.Contains(RecursionRole, StringComparer.OrdinalIgnoreCase))
+        {
+            assigned.Add(RecursionRole);
         }
 
         if (assigned.Count == 0)

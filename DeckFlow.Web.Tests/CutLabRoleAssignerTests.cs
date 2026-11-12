@@ -321,7 +321,7 @@ public sealed class CutLabRoleAssignerTests
             Array.Empty<string>(),
             ManabaseMode.Casual);
 
-        Assert.Equal(["lands"], roles);
+        Assert.Equal(["lands", "recursion"], roles);
     }
 
     [Fact]
@@ -599,6 +599,44 @@ public sealed class CutLabRoleAssignerTests
     public void ResolveMode_Null_FallsBackToCasual()
     {
         Assert.Equal(ManabaseMode.Casual, CutLabRoleAssigner.ResolveMode(null));
+    }
+
+    [Fact]
+    public void AssignRoles_Reanimate_MatchesRecursionContract()
+    {
+        CardFact fact = Fact("Reanimate", "Sorcery", "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.");
+        Assert.Equal(["recursion"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void AssignRoles_TheSoulStone_MatchesRecursionContract()
+    {
+        CardFact fact = Fact("The Soul Stone", "Legendary Artifact — Infinity Stone", "Indestructible\n{T}: Add {B}.\n{6}{B}, {T}, Exile a creature you control: Harness The Soul Stone. (Once harnessed, its ∞ ability is active.)\n∞ — At the beginning of your upkeep, return target creature card from your graveyard to the battlefield.");
+        Assert.Equal(["ramp", "recursion"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void AssignRoles_BojukaBog_MatchesRecursionContract()
+    {
+        CardFact fact = Fact("Bojuka Bog", "Land", "This land enters tapped.\nWhen this land enters, exile target player's graveyard.\n{T}: Add {B}.");
+        Assert.Equal(["lands", "interaction-targeted"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void AssignRoles_RecursionTagOnly_EmitsRecursion()
+    {
+        Assert.Equal(["recursion"], CutLabRoleAssigner.AssignRoles(Fact("Category-only", "Artifact", ""), ["Recursion"], ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void AssignRoles_RecursionOnBackFace_DoesNotReadPastExplicitFront()
+    {
+        CardFact fact = Fact("Bala Ged Sanctuary // Bala Ged Recovery", "Land // Sorcery",
+            "{T}: Add {G}. // Return target card from your graveyard to your hand.") with
+        {
+            FrontFaceOracleText = "{T}: Add {G}.",
+        };
+        Assert.Equal(["lands"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
     }
 
     private static CardFact Fact(string name, string typeLine, string? oracle = null) => new()

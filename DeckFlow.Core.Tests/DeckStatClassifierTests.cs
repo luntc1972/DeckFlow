@@ -125,23 +125,73 @@ public sealed class DeckStatClassifierTests
     // IsRecursionCard
     // -----------------------------------------------------------------------
 
+    // Evidence labels identify fixtures for real cards; other rows use synthetic wording.
+    [Theory]
+    [InlineData("Accumulate Wisdom — avatar-facts.json", "Look at the top three cards of your library. Put one of those cards into your hand and the rest on the bottom of your library in any order. Put each of those cards into your hand instead if there are three or more Lesson cards in your graveyard.", false)]
+    [InlineData("Synthetic wording pattern — conditional bounce", "Return target creature to its owner's hand if there are seven or more cards in your graveyard.", false)]
+    [InlineData("Synthetic wording pattern — ongoing count", "Return target card to your hand as long as there are three cards in your graveyard.", false)]
+    [InlineData("Synthetic wording pattern — per-card count", "Return target creature to its owner's hand for each card in your graveyard.", false)]
+    [InlineData("Synthetic wording pattern — qualified source", "Put target creature card from your graveyard into your hand if there are seven or more cards in your graveyard.", true)]
+    [InlineData("Synthetic wording pattern — in-source", "Return all creature cards in your graveyard to your hand.", true)]
+    [InlineData("Alesha, Who Laughs at Fate — Manabase/fixtures/.manabase-arch-23563520-facts.json", "First strike\nWhenever Alesha attacks, put a +1/+1 counter on it.\nRaid — At the beginning of your end step, if you attacked this turn, return target creature card with mana value less than or equal to Alesha's power from your graveyard to the battlefield.", true)]
+    [InlineData("Synthetic wording pattern — comparison qualifier", "Return target creature card with mana value less than or equal to 2 from your graveyard to your hand.", true)]
+    [InlineData("Synthetic wording pattern — life count", "Return target creature to its owner's hand and you gain life equal to the number of cards in your graveyard.", false)]
+    public void IsRecursionCard_ConditionsAndComparisons_MatchesContract(string evidence, string oracleText, bool expected)
+    {
+        Assert.True(expected == DeckStatClassifier.IsRecursionCard(oracleText), evidence);
+    }
+
+    [Theory]
+    [InlineData("Animate Dead", "Enchant creature card in a graveyard\nWhen this Aura enters, if it's on the battlefield, it loses \"enchant creature card in a graveyard\" and gains \"enchant creature put onto the battlefield with this Aura.\" Return enchanted creature card to the battlefield under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature's controller sacrifices it.\nEnchanted creature gets -1/-0.", true)]
+    [InlineData("Reanimate", "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.", true)]
+    [InlineData("Necromancy", "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it's on the battlefield, it becomes an Aura with \"enchant creature put onto the battlefield with Necromancy.\" Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature's controller sacrifices it.", true)]
+    [InlineData("Revival // Revenge", "Return target creature card with mana value 3 or less from your graveyard to the battlefield.\nDouble your life total. Target opponent loses half their life, rounded up.", true)]
+    [InlineData("Shadow of the Grave", "Return to your hand all cards in your graveyard that you cycled or discarded this turn.", true)]
+    [InlineData("Black Sun's Twilight", "Up to one target creature gets -X/-X until end of turn. If X is 5 or more, return a creature card with mana value X or less from your graveyard to the battlefield tapped.", true)]
+    [InlineData("The Soul Stone", "Indestructible\n{T}: Add {B}.\n{6}{B}, {T}, Exile a creature you control: Harness The Soul Stone. (Once harnessed, its ∞ ability is active.)\n∞ — At the beginning of your upkeep, return target creature card from your graveyard to the battlefield.", true)]
+    [InlineData("Bojuka Bog", "This land enters tapped.\nWhen this land enters, exile target player's graveyard.\n{T}: Add {B}.", false)]
+    [InlineData("Boggart Trawler // Boggart Bog", "When this creature enters, exile target player's graveyard.\nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.", false)]
+    [InlineData("Thraben Charm", "Choose one —\n• Thraben Charm deals damage equal to twice the number of creatures you control to target creature.\n• Destroy target enchantment.\n• Exile any number of target players' graveyards.", false)]
+    [InlineData("Elixir of Immortality", "{2}, {T}: You gain 5 life. Shuffle this artifact and your graveyard into their owner's library.", false)]
+    [InlineData("Cabal Ritual", "Add {B}{B}{B}.\nThreshold — Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.", false)]
+    [InlineData("Shadowy Backstreet", "({T}: Add {W} or {B}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)", false)]
+    [InlineData("Bloodchief Ascension", "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\nWhenever a card is put into an opponent's graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life.", false)]
+    [InlineData("Ulamog, the Infinite Gyre", "When you cast this spell, destroy target permanent.\nIndestructible\nAnnihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their choice.)\nWhen Ulamog is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.", false)]
+    [InlineData("Lurrus of the Dream-Den", "Companion — Each permanent card in your starting deck has mana value 2 or less. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nLifelink\nOnce during each of your turns, you may cast a permanent spell with mana value 2 or less from your graveyard.", false)]
+    [InlineData("Enlightened Confidant", "Lifelink\nAt the beginning of your end step, if you gained life this turn, surveil 1. If you put a card with mana value less than or equal to the amount of life you gained this turn into your graveyard this way, put that card into your hand.", false)]
+    [InlineData("Starving Revenant", "When this creature enters, surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life.\nDescend 8 — Whenever you draw a card, if there are eight or more permanent cards in your graveyard, target opponent loses 1 life and you gain 1 life.", false)]
+    public void IsRecursionCard_GoldenCorpus_MatchesContract(string name, string oracleText, bool expected)
+    {
+        Assert.True(expected == DeckStatClassifier.IsRecursionCard(oracleText), name);
+    }
+
     [Theory]
     [InlineData("return target card from your graveyard to your hand.", true)]
     [InlineData("return all land cards from your graveyard to the battlefield.", true)]
     [InlineData("return target permanent card from your graveyard to the battlefield.", true)]
-    [InlineData("reanimate target creature card.", true)]
     [InlineData("put that card from your graveyard to your hand.", true)]
+    [InlineData("Return up to two target creature cards from your graveyard to your hand.", true)] // Synthetic wording pattern.
+    [InlineData("Return another target creature card from your graveyard to your hand.", true)] // Synthetic wording pattern.
+    [InlineData("Return two target cards from your graveyard to your hand.", true)] // Synthetic wording pattern.
+    [InlineData("Return X target creature cards from your graveyard to the battlefield.", true)] // Synthetic wording pattern.
+    [InlineData("Put up to one target creature card from a graveyard onto the battlefield under your control.", true)] // Synthetic wording pattern.
     public void IsRecursionCard_TrueCases(string oracleText, bool expected)
     {
-        Assert.Equal(expected, DeckStatClassifier.IsRecursionCard(oracleText));
+        Assert.True(expected == DeckStatClassifier.IsRecursionCard(oracleText), oracleText);
     }
 
     [Theory]
+    [InlineData("reanimate target creature card.", false)]
+    [InlineData("return this creature from your graveyard to your hand.", false)]
+    [InlineData("return this card from your graveyard to your hand.", false)]
+    [InlineData("Flying\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)\nWhenever you cast a spell with cascade, return this card from your graveyard to your hand.", false)]
     [InlineData("draw a card.", false)]
     [InlineData("destroy target creature.", false)]
+    [InlineData("Return Example Name from your graveyard to your hand.", false)] // Synthetic named self-return.
+    [InlineData("Put this card from your graveyard onto the battlefield.", false)] // Synthetic self-return.
     public void IsRecursionCard_FalseCases(string oracleText, bool expected)
     {
-        Assert.Equal(expected, DeckStatClassifier.IsRecursionCard(oracleText));
+        Assert.True(expected == DeckStatClassifier.IsRecursionCard(oracleText), oracleText);
     }
 
     // -----------------------------------------------------------------------

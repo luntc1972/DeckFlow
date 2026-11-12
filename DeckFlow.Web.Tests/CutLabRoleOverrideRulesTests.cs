@@ -7,6 +7,63 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabRoleOverrideRulesTests
 {
     [Fact]
+    public void RoleKeys_DisplayAndCanonicalOrder_PreserveExistingOrderAndSingleFloorlessSet()
+    {
+        Assert.Equal(CutLabFloorRules.RoleKeys.Concat(CutLabRoleKeys.Floorless).Append("other"), CutLabRoleKeys.Display);
+        Assert.Equal(new[] { "lands", "ramp", "draw", "tutor", "interaction-targeted", "interaction-mass", "protection", "engines", "payoffs", "wincons", "other" },
+            CutLabRoleOverrideRules.CanonicalOrder.Where(key => !CutLabRoleKeys.Floorless.Contains(key)));
+        Assert.Equal(CutLabRoleKeys.Floorless, CutLabRoleOverrideRules.CanonicalOrder.Skip(CutLabFloorRules.RoleKeys.Count).SkipLast(1));
+        foreach (string key in CutLabRoleKeys.Display)
+        {
+            Assert.NotEqual(key, CutLabRoleAssigner.DisplayLabelFor(key));
+        }
+    }
+
+    [Fact]
+    public void Sanitize_RecursionOverride_PreservesLoadAndFingerprint()
+    {
+        var state = new CutLabState
+        {
+            Pool = Pool(),
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card", Added = ["recursion", "unknown"] }],
+        };
+        var sanitized = CutLabRoleOverrideRules.Sanitize(state);
+        Assert.Equal(["recursion"], Assert.Single(sanitized.RoleOverrides!).Added);
+        Assert.Equal(CutLabRoleOverrideRules.Fingerprint(state.RoleOverrides), CutLabRoleOverrideRules.Fingerprint(sanitized.RoleOverrides));
+        Assert.NotEqual(CutLabRoleOverrideRules.Fingerprint([]), CutLabRoleOverrideRules.Fingerprint(sanitized.RoleOverrides));
+        Assert.Contains("recursion", CutLabRoleOverrideRules.EditableRoleKeys);
+        Assert.DoesNotContain("lands", CutLabRoleOverrideRules.EditableRoleKeys);
+        Assert.DoesNotContain("other", CutLabRoleOverrideRules.EditableRoleKeys);
+    }
+
+    [Fact]
+    public void Deserialize_RecursionOverride_PreservesNormalizedSavedOverride()
+    {
+        var saved = new CutLabState
+        {
+            Pool = Pool(),
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card", Added = ["recursion", "unknown"] }],
+        };
+
+        var loaded = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(saved));
+
+        var roleOverride = Assert.Single(loaded.RoleOverrides!);
+        Assert.Equal("Card", roleOverride.Name);
+        Assert.Equal(["recursion"], roleOverride.Added);
+    }
+
+    [Fact]
+    public void Fingerprint_ExistingRoles_PreservesLiteralSavedValue()
+    {
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "Card", Added = ["tutor", "draw"], Removed = ["wincons", "ramp"] },
+        ];
+
+        Assert.Equal("card:draw,tutor:ramp,wincons", CutLabRoleOverrideRules.Fingerprint(overrides));
+    }
+
+    [Fact]
     public void RoleOverrideSanitize_ExcessInput_IgnoresEntriesAfterCap()
     {
         var overrides = Enumerable.Range(0, 5000)

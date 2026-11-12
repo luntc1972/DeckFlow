@@ -3170,7 +3170,10 @@ public sealed class CutLabPageServiceTests
 
         Assert.True(result.HasResult);
         Assert.Equal(CutLabFloorRules.RoleKeys, result.ResolvedFloors.Select(floor => floor.Role).ToArray());
-        Assert.Equal([.. CutLabFloorRules.RoleKeys, "other"], model.RoleGroups.Select(group => group.RoleKey).ToArray());
+        Assert.Equal(CutLabRoleKeys.Display, model.RoleGroups.Select(group => group.RoleKey).ToArray());
+        Assert.Empty(model.RoleGroups.Single(group => group.RoleKey == "recursion").Members);
+        Assert.Contains(model.RoleOverrideRoleOptions, option => option.Key == "recursion" && option.Label == "Recursion");
+        Assert.DoesNotContain(model.RoleOverrideRoleOptions, option => option.Key is "lands" or "other");
         Assert.False(model.ComboDataUnavailable);
         Assert.False(model.CategoryDataUnavailable);
         Assert.NotEmpty(model.Findings);

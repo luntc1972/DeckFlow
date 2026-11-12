@@ -1008,7 +1008,7 @@ internal static class RoleFloorResearchCommandRunner
             }
         }
 
-        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys!, TargetRoles, emittedKeys, residualRoleKey: "other");
+        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys!, TargetRoles, emittedKeys, residualRoleKey: "other", floorlessRoleKeys: CutLabRoleKeys.Floorless);
     }
 
     private static Dictionary<string, RoleBaseline> BuildCorpusBaseline(IEnumerable<CommanderDeckSet> commanderDecks)
