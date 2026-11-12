@@ -81,17 +81,9 @@ public static class ManabaseVerdictSynthesizer
 
         if (budget is not null && budget.IsDrawLight)
         {
-            issues.Add(BuildBudgetIssue(
-                prefix: "Draw looks light",
-                countLabel: "draw",
-                count: budget.DrawCount,
-                targetRamp: budget.TargetRamp,
-                targetDrawMin: budget.TargetDrawMin,
-                targetDrawMax: budget.TargetDrawMax,
-                threshold: budget.Threshold,
-                thresholdSource: budget.ThresholdSource,
-                shortfall: budget.DrawShort,
-                example: "a repeatable card-draw enchantment"));
+            issues.Add(string.Create(
+                CultureInfo.InvariantCulture,
+                $"Draw looks light: ~{budget.DrawCount:0.#} draw pieces vs a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band - add ~{budget.DrawShort} (e.g. a repeatable card-draw enchantment). (community heuristic, not Karsten math)"));
         }
 
         if (issues.Count > 3)
@@ -156,17 +148,16 @@ public static class ManabaseVerdictSynthesizer
             return colorsClause + " and " + castRateClause + " - no changes needed.";
         }
 
-        // This no-issue path only runs when no ramp/draw SHORTFALL was collected (light side), so a
-        // not-balanced budget here is the heavy side (surplus ramp or draw). Don't claim it is "close
-        // enough" — that contradicts the same +/-2 deadband IsBalanced now uses. State it leans off
-        // the split; the trailing "no changes needed" already says a surplus is not worth fixing.
+        // No shortfall issue was collected, so an unbalanced budget here has surplus ramp or
+        // draw. Ramp uses a +/-2 deadband; draw uses the inclusive configured draw band.
+        // A surplus does not require changes, but must not be described as balanced.
         string budgetClause = budget.IsBalanced
             ? string.Create(
                 CultureInfo.InvariantCulture,
                 $"ramp/draw ({budget.RampCount:0.#} / {budget.DrawCount:0.#}) is in balance")
             : string.Create(
                 CultureInfo.InvariantCulture,
-                $"ramp/draw ({budget.RampCount:0.#} / {budget.DrawCount:0.#}) leans off the community split");
+                $"ramp/draw ({budget.RampCount:0.#} / {budget.DrawCount:0.#}) is outside the community ramp target / draw band");
 
         return colorsClause + " and " + castRateClause + " - and " + budgetClause + " - no changes needed.";
     }

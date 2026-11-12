@@ -311,7 +311,7 @@ Strict priority: **ColorSources** (largest `Deficit > 1`) → **Lands** (only if
 1. Per-color issues from `ColorIssueFindings` (the exact set the health band uses, so the verdict can't say "no changes needed" beside a Workable/Needs-work chip) — `VS:49-57`.
 2. Land line if `LandDelta < −1 && !LandShortfallCoveredByRamp` — `VS:59-64`.
 3. Ramp-light / draw-light budget lines, each tagged "(community heuristic, not Karsten math)" — `VS:66-92`.
-Per-color "add N sources" wording is now explicitly tagged as **heuristic guidance** on the page, in the `.txt` artifact, and in the swap prompt; the shortfall count is advisory wording only, not a new math path. The same shared helper also removed the last user-visible `(s)` artifacts from the summary / biggest-fix / lens surfaces. No-issue path: on the balanced budget → "in balance"; on a surplus/heavy side → "leans off the community split" (deliberately not "close enough") — `VS:157-165`. Verdict + budget are computed **only in Casual**; cEDH uses the flag as a UI-gloss gate — `MAS:328-331`.
+Per-color "add N sources" wording is now explicitly tagged as **heuristic guidance** on the page, in the `.txt` artifact, and in the swap prompt; the shortfall count is advisory wording only, not a new math path. The same shared helper also removed the last user-visible `(s)` artifacts from the summary / biggest-fix / lens surfaces. No-issue path: on the balanced budget → "in balance"; on a surplus/heavy side → "is outside the community ramp target / draw band" (deliberately not "close enough" or "in balance") — `VS:157-165`. Verdict + budget are computed **only in Casual**; cEDH uses the flag as a UI-gloss gate — `MAS:328-331`.
 
 ---
 

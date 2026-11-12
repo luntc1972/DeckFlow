@@ -74,7 +74,7 @@ public static class ManabaseRampDrawBudgetCalculator
     // Why: the Command Zone deckbuilding template draw band, adopted by user decision 2026-11-11
     // and also used by dan-blanchard/mtg-skills COMMANDER_TEMPLATE, replaces an uncited fixed-sum
     // 24-slot split that gave MV-3 commanders a 14-draw target. It is threshold-independent on
-    // purpose. Cut Lab's default draw floor reads DrawBandMin from Task 4 onward.
+    // purpose. Cut Lab's default draw floor (CutLabFloorDefaults) reads DrawBandMin.
     /// <summary>Minimum draw pieces in the threshold-independent Command Zone template band.</summary>
     public const int DrawBandMin = 10;
 

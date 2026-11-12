@@ -10,6 +10,24 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ManabaseVerdictSynthesizerTests
 {
+    [Theory]
+    [InlineData(8.5, 10, 12, 2)]
+    [InlineData(9.5, 11, 13, 2)]
+    public void Synthesize_DrawLightOnly_UsesConfiguredDrawBand(double drawCount, int drawMin, int drawMax, int drawShort)
+    {
+        ManabaseVerdict verdict = ManabaseVerdictSynthesizer.Synthesize(
+            CreateReport(actualLands: 37, targetLands: 37.0, avgOnCurvePercent: 87, colorFindings: []),
+            ManabaseMode.Casual,
+            CreateBudget(rampCount: 12.0, drawCount: drawCount, targetRamp: 12, threshold: 4.0,
+                overlapCount: 0, isDrawLight: true, drawShort: drawShort,
+                targetDrawMin: drawMin, targetDrawMax: drawMax));
+
+        Assert.Single(verdict.Lines);
+        Assert.Equal(
+            FormattableString.Invariant($"Draw looks light: ~{drawCount:0.#} draw pieces vs a {drawMin}-{drawMax} draw band - add ~{drawShort} (e.g. a repeatable card-draw enchantment). (community heuristic, not Karsten math)"),
+            verdict.Lines[0]);
+    }
+
     [Fact]
     public void Synthesize_ColorShortfall_PrioritizesLargestColorDeficitFirst()
     {
@@ -88,7 +106,7 @@ public sealed class ManabaseVerdictSynthesizerTests
     {
         // Draw-heavy, otherwise clean: no shortfall issue is collected (only light-side flags exist),
         // so this hits the no-issue path with IsBalanced=false. The copy must NOT say "in balance" or
-        // "close enough" — draw (16) is outside the same +/-2 deadband that defines balance.
+        // "close enough" — draw (16) is outside the inclusive draw band.
         ManabaseVerdict verdict = ManabaseVerdictSynthesizer.Synthesize(
             CreateReport(
                 actualLands: 37,
@@ -103,7 +121,7 @@ public sealed class ManabaseVerdictSynthesizerTests
             CreateBudget(rampCount: 12.0, drawCount: 16.0, targetRamp: 12, threshold: 4.0, overlapCount: 0, isBalanced: false, isDrawHeavy: true));
 
         Assert.False(verdict.HasIssues);
-        Assert.Contains("ramp/draw (12 / 16) leans off the community split", verdict.NoIssueReason);
+        Assert.Contains("ramp/draw (12 / 16) is outside the community ramp target / draw band", verdict.NoIssueReason);
         Assert.DoesNotContain("in balance", verdict.NoIssueReason);
         Assert.DoesNotContain("close enough", verdict.NoIssueReason);
     }
