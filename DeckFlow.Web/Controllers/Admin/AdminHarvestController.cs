@@ -196,8 +196,7 @@ public sealed class AdminHarvestController : Controller
         var requested = _maintenanceRunner.RequestStop();
         if (requested)
         {
-            var status = _maintenanceRunner.GetStatus() with { State = HarvestMaintenanceRunState.Running, StopRequested = true };
-            SetInfoBanner(HarvestMaintenanceStatusText.Describe(status, DateTimeOffset.UtcNow).Headline);
+            SetBanner(HarvestMaintenanceStatusText.StopRequestedHeadline, tone: "info");
         }
         else SetBanner("Nothing to stop.", isError: true);
         return RedirectToAction(nameof(Index));
@@ -269,14 +268,7 @@ public sealed class AdminHarvestController : Controller
         if (started) SetBanner($"{label} started. The Retention maintenance card shows its progress.");
         else
         {
-            var active = _maintenanceRunner.GetStatus();
-            var activeLabel = active.Operation.HasValue ? HarvestMaintenanceStatusText.Label(active.Operation.Value) : "Maintenance";
-            SetInfoBanner(active.State switch
-            {
-                HarvestMaintenanceRunState.Starting => $"{activeLabel} is already starting. Nothing new was started.",
-                HarvestMaintenanceRunState.Running => $"{activeLabel} is already running. Nothing new was started.",
-                _ => "A maintenance run is already starting or running. Nothing new was started.",
-            });
+            SetBanner(HarvestMaintenanceStatusText.AlreadyActive(_maintenanceRunner.GetStatus()), tone: "info");
         }
         return RedirectToAction(nameof(Index));
     }
@@ -816,16 +808,10 @@ public sealed class AdminHarvestController : Controller
     /// <summary>
     /// Stores the banner message and tone so an earlier unread tone never recolors a new message.
     /// </summary>
-    private void SetInfoBanner(string message)
+    private void SetBanner(string message, bool isError = false, string tone = "success")
     {
         TempData[BannerKey] = message;
-        TempData[BannerToneKey] = "info";
-    }
-
-    private void SetBanner(string message, bool isError = false)
-    {
-        TempData[BannerKey] = message;
-        TempData[BannerToneKey] = isError ? "danger" : "success";
+        TempData[BannerToneKey] = isError ? "danger" : tone;
     }
 
     /// <summary>Reports active harvest progress and recent-run revision to the polling admin dashboard.</summary>

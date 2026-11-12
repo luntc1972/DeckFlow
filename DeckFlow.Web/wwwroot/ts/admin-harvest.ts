@@ -230,8 +230,7 @@
       type MaintenancePayload = { state: string; tone: string; headline: string; details: string[]; isActive: boolean };
       let wasActive = maintenance.dataset.maintenanceActive === 'true';
       const pollMaintenance = async (): Promise<void> => {
-        if (!maintenance.isConnected || maintenance.hasAttribute('data-maintenance-reloading')) return;
-        let keepPolling = true;
+        if (!maintenance.isConnected) return;
         try {
           const payload = await fetchWithTimeout<MaintenancePayload>('/Admin/Harvest/maintenance/status', {
             credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' }
@@ -244,8 +243,7 @@
           maintenance.className = `admin-banner admin-banner--${tone}`;
           maintenance.dataset.maintenanceState = payload.state;
           maintenance.dataset.maintenanceActive = String(payload.isActive);
-          const headline = maintenance.querySelector<HTMLElement>('[data-maintenance-headline]');
-          if (headline) headline.textContent = payload.headline;
+          setText(maintenance, '[data-maintenance-headline]', payload.headline);
           const details = maintenance.querySelector<HTMLElement>('[data-maintenance-details]');
           if (details) {
             details.replaceChildren(...payload.details.map(text => {
@@ -260,13 +258,20 @@
             return;
           }
           wasActive = payload.isActive;
-          keepPolling = payload.isActive;
         } catch {
           // Preserve the last progress report and retry transient failures.
         }
-        if (keepPolling && maintenance.isConnected) window.setTimeout(() => { void pollMaintenance(); }, MAINTENANCE_POLL_INTERVAL_MS);
+        if (wasActive && maintenance.isConnected) window.setTimeout(() => { void pollMaintenance(); }, MAINTENANCE_POLL_INTERVAL_MS);
       };
-      void pollMaintenance();
+      document.querySelectorAll<HTMLFormElement>('form[data-maintenance-operation]').forEach(form => {
+        form.addEventListener('submit', () => {
+          const operation = form.dataset.maintenanceOperation;
+          if (!wasActive && operation !== 'stop' && operation !== 'preview' && form.querySelector<HTMLInputElement>('input[name="confirmed"]')?.checked) {
+            void pollMaintenance();
+          }
+        });
+      });
+      if (wasActive) void pollMaintenance();
     }
 
     const runKind = document.querySelector<HTMLSelectElement>('#runKind');

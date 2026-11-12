@@ -550,6 +550,7 @@ public sealed class AdminHarvestControllerTests
     {
         var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { LastBanner = "Banner <b>x</b>", LastBannerIsError = isError });
         Assert.Contains($"{modifier}\" role=\"{role}\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-harvest-action-banner", html, StringComparison.Ordinal);
         Assert.Contains("Banner &lt;b&gt;x&lt;/b&gt;", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<b>x</b>", html, StringComparison.Ordinal);
     }

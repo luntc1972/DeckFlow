@@ -5,8 +5,9 @@ const fetchStub = vi.fn();
 const reload = vi.fn();
 const payload = (isActive: boolean, headline = 'Running', tone = 'info') => ({ state: isActive ? 'running' : 'completed', tone, headline, details: ['Batch complete'], isActive });
 const respond = (value: ReturnType<typeof payload>) => ({ ok: true, json: async () => value });
-const start = async (active = false) => {
+const start = async (active = false, withStartForm = false) => {
   document.body.innerHTML = `<div id="harvest-maintenance-status" data-maintenance-active="${active}"><p data-maintenance-headline>Previous</p><ul data-maintenance-details></ul></div>`;
+  if (withStartForm) document.body.insertAdjacentHTML('beforeend', '<form data-maintenance-operation="drain"><input name="confirmed" type="checkbox" checked><button type="submit">Start</button></form>');
   document.dispatchEvent(new Event('DOMContentLoaded'));
   await vi.advanceTimersByTimeAsync(0);
 };
@@ -50,17 +51,17 @@ describe('maintenance feedback', () => {
       expect(button.textContent).toBe(text);
     }
   });
-  it('renders server markup as text and defaults unknown tones to info', async () => {
+  it('renders active-card server markup as text and defaults unknown tones to info', async () => {
     fetchStub.mockResolvedValue(respond(payload(false, '<img src=x>', 'unknown')));
-    await start();
+    await start(true);
     expect(document.querySelector('[data-maintenance-headline]')!.textContent).toBe('<img src=x>');
     expect(document.querySelector('img')).toBeNull();
     expect(document.querySelector('#harvest-maintenance-status')!.classList.contains('admin-banner--info')).toBe(true);
     expect(document.querySelector('[data-maintenance-details]')!.textContent).toBe('Batch complete');
   });
-  it('polls every 5000 ms while active and stops when inactive', async () => {
+  it('polls an initially active card every 5000 ms and stops when inactive', async () => {
     fetchStub.mockResolvedValueOnce(respond(payload(true))).mockResolvedValueOnce(respond(payload(true))).mockResolvedValue(respond(payload(false)));
-    await start();
+    await start(true);
     expect(fetchStub).toHaveBeenCalledTimes(1);
     expect(fetchStub.mock.calls[0][0]).toBe('/Admin/Harvest/maintenance/status');
     await vi.advanceTimersByTimeAsync(4999);
@@ -90,4 +91,25 @@ describe('maintenance feedback', () => {
     expect(fetchStub).toHaveBeenCalledTimes(3);
     expect(document.querySelector('[data-maintenance-headline]')!.textContent).toBe('New progress');
   });
+  it('does not fetch an idle card on load', async () => {
+    await start();
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(fetchStub).not.toHaveBeenCalled();
+  });
+  it('does not reschedule a fetch error while idle', async () => {
+    fetchStub.mockRejectedValue(new Error('offline'));
+    await start(false, true);
+    document.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await vi.advanceTimersByTimeAsync(15000);
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('[data-maintenance-headline]')!.textContent).toBe('Previous');
+  });
+  it('starts polling after a confirmed start on an idle card', async () => {
+    fetchStub.mockResolvedValue(respond(payload(true)));
+    await start(false, true);
+    document.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+  });
+
 });

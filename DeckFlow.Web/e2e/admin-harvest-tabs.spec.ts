@@ -100,8 +100,7 @@ test('admin harvest single URL form posts with antiforgery protection', async ({
   ]);
 
   expect(postResponse.status()).not.toBe(400);
-  // The maintenance status card also carries the admin-banner class.
-  const actionBanner = page.locator('.admin-banner:not(#harvest-maintenance-status)');
+  const actionBanner = page.locator('[data-harvest-action-banner]');
   await expect(actionBanner).toHaveText('URL must be an Archidekt deck URL.');
   await expect(actionBanner).toHaveClass(/admin-banner--danger/);
   await expect(actionBanner).toHaveAttribute('role', 'alert');

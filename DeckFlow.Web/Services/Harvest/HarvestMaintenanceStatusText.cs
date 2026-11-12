@@ -6,14 +6,26 @@ namespace DeckFlow.Web.Services.Harvest;
 /// <summary>Provides the canonical operator text for maintenance runs.</summary>
 public static class HarvestMaintenanceStatusText
 {
+    /// <summary>The headline shown after an operator requests a stop.</summary>
+    public const string StopRequestedHeadline = "Stop requested — finishing current batch.";
+
     /// <summary>Returns the operator label for an operation.</summary>
-    public static string Label(HarvestMaintenanceOperation operation) => operation switch
+    public static string Label(HarvestMaintenanceOperation? operation) => operation switch
     {
         HarvestMaintenanceOperation.Backfill => "Marker backfill",
         HarvestMaintenanceOperation.Purge => "Purge",
         HarvestMaintenanceOperation.Drain => "Retention drain",
         HarvestMaintenanceOperation.Refetch => "Refetch",
-        _ => operation.ToString(),
+        null => "Maintenance",
+        _ => operation.Value.ToString(),
+    };
+
+    /// <summary>Returns the message for a duplicate start request.</summary>
+    public static string AlreadyActive(HarvestMaintenanceStatus status) => status.State switch
+    {
+        HarvestMaintenanceRunState.Starting => $"{Label(status.Operation)} is already starting. Nothing new was started.",
+        HarvestMaintenanceRunState.Running => $"{Label(status.Operation)} is already running. Nothing new was started.",
+        _ => "A maintenance run is already starting or running. Nothing new was started.",
     };
 
     /// <summary>Describes a run at the supplied UTC time.</summary>
@@ -21,7 +33,7 @@ public static class HarvestMaintenanceStatusText
     {
         if (status.State is null) return new("idle", "info", "Preview counts before each rollout step.", Array.Empty<string>(), false);
 
-        var label = status.Operation.HasValue ? Label(status.Operation.Value) : "Maintenance";
+        var label = Label(status.Operation);
         var end = status.EndedUtc ?? status.LastProgressUtc ?? status.StartedUtc;
         var state = status.State switch
         {
@@ -54,7 +66,7 @@ public static class HarvestMaintenanceStatusText
             "starting" => $"Starting {label}…",
             "running" => $"{label} running.",
             "stalled" => $"{label}: no progress for more than 2 minutes.",
-            "stop-requested" => "Stop requested — finishing current batch.",
+            "stop-requested" => StopRequestedHeadline,
             "completed" => $"{label}: Done.",
             "disk-probe-unavailable" => $"{label}: Disk probe failed (transient Render API error); safe to restart.",
             "disk-floor" => $"{label}: Stopped at disk floor; free space needed.",

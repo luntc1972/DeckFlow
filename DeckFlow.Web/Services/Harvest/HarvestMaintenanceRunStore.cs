@@ -49,7 +49,7 @@ public sealed class HarvestMaintenanceRunStore : IHarvestMaintenanceRunStore
         try
         {
             if (_schemaReady) return;
-            await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+            await using var connection = await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
             await using var command = connection.CreateCommand();
             var time = _connectionInfo.IsPostgres ? "TIMESTAMPTZ" : "TEXT";
             var id = _connectionInfo.IsPostgres ? "UUID" : "TEXT";
@@ -77,7 +77,7 @@ public sealed class HarvestMaintenanceRunStore : IHarvestMaintenanceRunStore
     public async Task InsertAsync(HarvestMaintenanceStatus status, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-        await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.CommandText = "INSERT INTO harvest_maintenance_runs (run_id,operation,state,started_utc,last_progress_utc,ended_utc,decks_affected,batches,stop_reason,stop_requested,refusal_reason,preview_retention_excess,preview_purge_candidates,preview_refetch_candidates,preview_as_of_utc) VALUES (@id,@operation,@state,@started,@progress,@ended,@decks,@batches,@stop,@requested,@refusal,@retention,@purge,@refetch,@preview)";
         Bind(command, status);
@@ -88,7 +88,7 @@ public sealed class HarvestMaintenanceRunStore : IHarvestMaintenanceRunStore
     public async Task SaveAsync(HarvestMaintenanceStatus status, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-        await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         const string allowState = "state IN ('Starting','Running') OR @state IN ('Finished','Stopped','Failed','Refused')";
         command.CommandText = $"""
@@ -109,7 +109,7 @@ public sealed class HarvestMaintenanceRunStore : IHarvestMaintenanceRunStore
     public async Task<HarvestMaintenanceStatus?> GetLatestAsync(CancellationToken cancellationToken = default)
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
-        await using var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var connection = await _connectionInfo.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT * FROM harvest_maintenance_runs ORDER BY started_utc DESC LIMIT 1";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -146,11 +146,5 @@ public sealed class HarvestMaintenanceRunStore : IHarvestMaintenanceRunStore
         Add("@requested", status.StopRequested ? 1 : 0); Add("@refusal", status.RefusalReason);
         Add("@retention", status.PreviewAtStart?.RetentionExcessDecks); Add("@purge", status.PreviewAtStart?.PurgeCandidates);
         Add("@refetch", status.PreviewAtStart?.RefetchCandidates); Add("@preview", Time(status.PreviewAsOfUtc));
-    }
-    private async Task<DbConnection> OpenAsync(CancellationToken cancellationToken)
-    {
-        var connection = _connectionInfo.CreateConnection();
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        return connection;
     }
 }
