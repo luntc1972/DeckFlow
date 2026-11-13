@@ -9,13 +9,14 @@ public static class StaxProtectionCatalog
     {
         "Blood Moon",
         "Collector Ouphe",
+        "Damping Sphere",
         "Drannith Magistrate",
         "Grand Arbiter Augustin IV",
         "Root Maze",
         "Rule of Law",
         "Sphere of Resistance",
         "Static Orb",
-        "Thalia Guardian of Thraben",
+        "Thalia, Guardian of Thraben",
         "Trinisphere",
         "Winter Orb",
     };

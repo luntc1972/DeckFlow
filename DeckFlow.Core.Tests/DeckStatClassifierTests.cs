@@ -163,6 +163,14 @@ public sealed class DeckStatClassifierTests
     [InlineData("Synthetic reduction", "Spells cost {1} less to cast.", false)]
     [InlineData("Synthetic temporary", "Your opponents can't activate abilities until end of turn.", false)]
     [InlineData("Synthetic mixed duration", "Your opponents can't cast spells this turn.\nCreatures your opponents control enter tapped.", true)]
+    [InlineData("Avatar's Wrath", "Choose up to one target creature, then airbend all other creatures. (Exile them. While each one is exiled, its owner may cast it for {2} rather than its mana cost.)\nUntil your next turn, your opponents can't cast spells from anywhere other than their hands.\nExile Avatar's Wrath.", false)]
+    [InlineData("Synthetic next turn", "Until your next turn, your opponents can't cast spells.", false)]
+    [InlineData("Synthetic mixed next turn", "Until your next turn, your opponents can't cast spells.\nCreatures your opponents control enter tapped.", true)]
+    [InlineData("Defense Grid", "Each spell costs {3} more to cast except during its controller's turn.", true)]
+    [InlineData("Damping Sphere", "If a land is tapped for two or more mana, it produces {C} instead of any other type and amount.\nEach spell a player casts costs {1} more to cast for each other spell that player has cast this turn.", true)]
+    [InlineData("Synthetic opponent tax", "Spells your opponents cast cost {2} more to cast.", true)]
+    [InlineData("Synthetic each spell reduction", "Each spell costs {1} less to cast.", false)]
+    [InlineData("Synthetic opponent reduction", "Spells your opponents cast cost {1} less to cast.", false)]
     public void IsStaxCard_CorpusAndSyntheticCases_MatchesContract(string name, string oracleText, bool expected)
     {
         Assert.True(expected == DeckStatClassifier.IsStaxCard(name, oracleText), name);
@@ -171,13 +179,14 @@ public sealed class DeckStatClassifierTests
     [Theory]
     [InlineData("Blood Moon")]
     [InlineData("Collector Ouphe")]
+    [InlineData("Damping Sphere")]
     [InlineData("Drannith Magistrate")]
     [InlineData("Grand Arbiter Augustin IV")]
     [InlineData("Root Maze")]
     [InlineData("Rule of Law")]
     [InlineData("Sphere of Resistance")]
     [InlineData("Static Orb")]
-    [InlineData("Thalia Guardian of Thraben")]
+    [InlineData("Thalia, Guardian of Thraben")]
     [InlineData("Trinisphere")]
     [InlineData("Winter Orb")]
     public void IsStaxCard_CatalogNameWithoutOracle_ReturnsTrue(string name)

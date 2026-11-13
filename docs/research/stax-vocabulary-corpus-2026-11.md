@@ -2,7 +2,7 @@
 
 This corpus records the floor-less Cut Lab `stax` detector added in T2-S2.
 The source evidence is `DeckFlow.Web.Tests/Fixtures/CutLab/golden-niv-mizzet-ghost-counsel-facts.json`.
-Cut Lab passes the front oracle text to the detector. The existing stax name catalog is checked first and remains unchanged; the interaction audit retains its name-only bucket.
+Cut Lab passes the front oracle text to the detector. The stax name catalog is checked first; it includes Damping Sphere and the corrected name Thalia, Guardian of Thraben; the interaction audit reads the same name catalog (`InteractionAuditAggregator`), so both names now also appear in its stax and taxation bucket.
 
 ## Corpus outcomes
 
@@ -28,9 +28,11 @@ Cut Lab passes the front oracle text to the detector. The existing stax name cat
 - `your opponents can't activate`: the parallel direct activation wording is included in the vocabulary and covered synthetically.
 - `spells cost {`: accepted only when the same sentence also contains `more to cast`. Synthetic `Spells cost {1} more to cast.` supplies coverage absent from the fixture.
 - `each player can't cast more than`: synthetic `Each player can't cast more than one spell each turn.` supplies the spell-limit wording.
+- `each spell costs`: Defense Grid; accepted only with `more to cast` in the same sentence.
+- `spells your opponents cast cost`: synthetic opponent tax; accepted only with `more to cast` in the same sentence. Synthetic reducers cover both new tax needles.
 - `each player can cast only`: the parallel positive spell-limit wording is included and covered synthetically.
 
-Matching is case-insensitive. Each period-, newline-, or semicolon-delimited sentence is checked independently. A sentence containing `this turn` or `until end of turn` is rejected before needle matching, so temporary restrictions do not become stax. Other sentences on the same card do not suppress a continuing restriction.
+Matching is case-insensitive. Each period-, newline-, or semicolon-delimited sentence is checked independently. A sentence containing `this turn`, `until end of turn`, or `until your next turn` is rejected before needle matching, so temporary restrictions do not become stax. Other sentences on the same card do not suppress a continuing restriction.
 
 ## Needles rejected
 
@@ -47,3 +49,14 @@ Kambal, Consul of Allocation returns false: “Whenever an opponent casts a nonc
 Trouble in Pairs returns false: “If an opponent would begin an extra turn, that player skips that turn instead.” Its remaining draw trigger also imposes no matching restriction. Expanding the vocabulary to extra-turn replacement or adding a name would require an owner decision; neither is needed for the six-of-seven acceptance threshold.
 
 The detector is a deliberately bounded heuristic, not an oracle-text parser. Catalog positives remain authoritative even without oracle text. A case-insensitive `stax` crowd category independently grants the role. The role adds no floor, twin finding, or headroom, and `stax` categories are functional rather than stranded subthemes.
+
+## T2-S2R oracle checks
+
+Avatar's Wrath is false using its complete oracle text from `DeckFlow.Web.Tests/Manabase/avatar-facts.json`: "Until your next turn, your opponents can't cast spells from anywhere other than their hands." The temporary sentence is skipped. Synthetic coverage confirms that a separate permanent restriction still counts.
+
+`DeckFlow.Web/Data/commander-staples/latest.json` contains Defense Grid and Damping Sphere as names only, and no existing JSON fixture supplies their oracle text. The following exact text was verified against the Scryfall named-card API on 2026-11-12 rather than recalled from memory:
+
+- [Defense Grid](https://scryfall.com/card/9ed/293/defense-grid): "Each spell costs {3} more to cast except during its controller's turn." This matches `each spell costs` and the shared tax guard.
+- [Damping Sphere](https://scryfall.com/card/dmr/219/damping-sphere): "If a land is tapped for two or more mana, it produces {C} instead of any other type and amount.\nEach spell a player casts costs {1} more to cast for each other spell that player has cast this turn." Neither new needle matches its tax sentence, which is also excluded by `this turn`. Its catalog entry supplies stax without weakening the duration rule.
+
+Catalog-only coverage pins Damping Sphere and the exact name `Thalia, Guardian of Thraben`. All three tax needles share one explicit tax marker and require `more to cast`; reducers do not qualify.

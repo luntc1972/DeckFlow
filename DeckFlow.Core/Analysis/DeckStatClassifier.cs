@@ -118,18 +118,21 @@ public static class DeckStatClassifier
 
     // Authority, Blind Obedience, Dismantler: opponents' permanents enter tapped.
     // Linvala / Drana and Linvala: opponents' creature abilities cannot be activated.
-    // Voice of Victory: opponents cannot cast during your turn; synthetic tax / spell limits.
+    // Voice of Victory: opponents cannot cast during your turn; synthetic spell limits.
+    // Defense Grid and synthetic opponent taxes: tax needles require "more to cast", excluding reducers.
     // Rejected: bare "enters tapped", self-costs, life-loss triggers, extra-turn replacement,
-    // and temporary "this turn" / "until end of turn" restrictions (Silence, Orim's Chant, Bilbo's Gambit).
-    private static readonly string[] StaxOracleNeedles =
+    // and temporary "this turn" / "until end of turn" / "until your next turn" restrictions.
+    private static readonly (string Text, bool IsTax)[] StaxOracleNeedles =
     [
-        "your opponents control enter tapped",
-        "your opponents control can't be activated",
-        "your opponents can't cast",
-        "your opponents can't activate",
-        "spells cost {",
-        "each player can't cast more than",
-        "each player can cast only",
+        ("your opponents control enter tapped", false),
+        ("your opponents control can't be activated", false),
+        ("your opponents can't cast", false),
+        ("your opponents can't activate", false),
+        ("spells cost {", true),
+        ("each spell costs", true),
+        ("spells your opponents cast cost", true),
+        ("each player can't cast more than", false),
+        ("each player can cast only", false),
     ];
 
     /// <summary>Returns whether a catalog staple or continuing opponent restriction supplies stax.</summary>
@@ -148,15 +151,16 @@ public static class DeckStatClassifier
         foreach (string sentence in oracleText.Split(['.', '\n', ';']))
         {
             if (sentence.Contains("this turn", StringComparison.OrdinalIgnoreCase)
-                || sentence.Contains("until end of turn", StringComparison.OrdinalIgnoreCase))
+                || sentence.Contains("until end of turn", StringComparison.OrdinalIgnoreCase)
+                || sentence.Contains("until your next turn", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            foreach (string needle in StaxOracleNeedles)
+            foreach ((string needle, bool isTax) in StaxOracleNeedles)
             {
                 if (sentence.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                    && (needle != "spells cost {" || sentence.Contains("more to cast", StringComparison.OrdinalIgnoreCase)))
+                    && (!isTax || sentence.Contains("more to cast", StringComparison.OrdinalIgnoreCase)))
                 {
                     return true;
                 }

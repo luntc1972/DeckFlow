@@ -63,6 +63,7 @@ public sealed class RoleFloorGuardsTests
             floorlessRoleKeys: []);
 
         Assert.Contains("recursion", Assert.IsType<string>(result));
+        Assert.Contains("stax", Assert.IsType<string>(result));
     }
 
     [Fact]
