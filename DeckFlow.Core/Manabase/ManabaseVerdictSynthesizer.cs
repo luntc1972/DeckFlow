@@ -108,7 +108,7 @@ public static class ManabaseVerdictSynthesizer
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"Ramp looks light: the deck runs ~{budget.RampCount:0.#} ramp vs a ~{budget.TargetRamp} ramp target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}) and a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band - add ~{budget.RampShort} ramp {ManabaseWording.Pluralize("piece", budget.RampShort)} (e.g. a 2-mana rock). (community heuristic, not Karsten math)");
+            $"Ramp looks light: the deck runs ~{budget.RampCount:0.#} ramp vs a ~{budget.TargetRamp} ramp target for a ~MV{budget.Threshold:0.#} threshold ({ManabaseWording.BuildThresholdProxy(budget.ThresholdSource)}) and a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band - add ~{budget.RampShort} ramp {ManabaseWording.Pluralize("piece", budget.RampShort)} (e.g. a 2-mana rock). (community heuristic, not Karsten math)");
     }
 
     private static string BuildNoIssueReason(
@@ -162,10 +162,4 @@ public static class ManabaseVerdictSynthesizer
             + colors[^1]
             + " all clear their Karsten source targets";
     }
-
-    private static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
-    {
-        ManabaseRampDrawThresholdSource.CommanderManaValue => "the commander's mana value",
-        _ => "the curve's 75th-percentile mana value (no single commander)",
-    };
 }
