@@ -161,18 +161,24 @@ public sealed class CommanderCategoryNormsProviderTests
     public async Task CallerCancellation_Propagates_NotCached()
     {
         var store = new FakeCategoryKnowledgeStore { CommanderDeckCount = 12 };
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var service = new RecordingCommanderCategoryService(async (key, token, includeCount) =>
         {
+            entered.SetResult();
             await Task.Delay(Timeout.InfiniteTimeSpan, token);
             return Result(key);
         });
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var provider = CreateProvider(service, store, cache, timeout: TimeSpan.FromSeconds(1));
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        var provider = CreateProvider(service, store, cache, timeout: TimeSpan.FromMinutes(5));
+        using var cancellation = new CancellationTokenSource();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => provider.GetNormsAsync("Caller Cancel", cancellation.Token).WaitAsync(TimeSpan.FromSeconds(5)));
+        var lookup = provider.GetNormsAsync("Caller Cancel", cancellation.Token);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => lookup.WaitAsync(TimeSpan.FromSeconds(5)));
         service.Behavior = (key, token, includeCount) => Task.FromResult(Result(key));
-        Assert.NotNull(await provider.GetNormsAsync("Caller Cancel"));
+        Assert.NotNull(await provider.GetNormsAsync("Caller Cancel").WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Equal(2, service.LookupCalls);
     }
 
