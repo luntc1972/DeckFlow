@@ -49,6 +49,16 @@ You can also set configurable minimums per role. The default ramp floor scales w
 
 Role counts are deliberately generous, since they are a decision aid rather than a verdict: ramp includes mana-symbol producers (rocks and dorks, not just "add one mana" text), draw counts you-anchored card draw of any size plus clue/connive card-advantage, and the engines role is limited to repeatable permanents so a one-shot "draw two" spell is not mistaken for an engine. These Cut Lab role tallies are intentionally separate from the Commander Mana Base Analyzer tool's mana-source math, which is tuned for castability rather than counting.
 
+### Recursion, Stax, and Enablers
+
+- **Recursion** returns or puts cards from a graveyard into your hand or onto the battlefield, as Reanimate does; graveyard hate and effects that only return the card itself do not qualify.
+- **Stax** covers continuing restrictions or taxes on opponents, such as Authority of the Consuls making their creatures enter tapped; one-shot effects such as Silence stay Protection.
+- **Enablers** covers cards that make you gain life, such as Soul Warden, including cards with or granting lifelink; effects that only say "target player gains life" do not qualify.
+
+These three roles have no minimums and are not part of role floor checks. Stax cards now appear in a Stax role group rather than as a stranded-theme finding.
+
+Enablers appears only when your commander rewards you for gaining life, through a trigger (including "you gain or lose life") or a condition such as "if you gained life this turn". Lifegain is the only supported family today; a commander that only gains life or has lifelink does not activate it. Otherwise, both the Enablers group and its **Add a role** option are hidden. An Enablers edit saved on another deck has no effect in a deck without a matching commander.
+
 ## Correct a card's roles
 
 Select a card's name in the pool to open the card window. It shows the card's current roles as chips. Use a chip's remove button to remove that role, or expand **Add a role**, pick a missing role, and choose **Add**. The commander and view-only card windows show read-only chips with no edit controls. Edits save in place without reloading, one edit at a time. Prior cut decisions are kept; the Goals and Compare panels update on **Recalculate**. Lands is fixed, and Ramp is unavailable for lands. An **Edited** chip marks pool rows with role edits. Targeted removal and mass removal are mutually exclusive; a card with no remaining roles is shown as Other. Role edits are limited to 200 cards. Edits on a card that leaves the pool (for example when **Include maybeboard** is unticked) are kept and apply again when the card returns.

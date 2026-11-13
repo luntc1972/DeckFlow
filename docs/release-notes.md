@@ -6,6 +6,13 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Cut Lab roles (2026-11-13)
+
+- **New role groups:** Recursion, Stax, and Enablers help explain each card's job. All three have no role floor and are excluded from minimum checks.
+- **Lifegain enablers:** Enablers appears only for commanders that reward you for gaining life, including conditional rewards. Lifegain is the only supported family; the group and Add a role option are hidden otherwise, and saved Enablers edits have no effect in those decks.
+- **Stax findings:** Stax cards now appear in their role group; stax tags no longer produce stranded-subtheme findings.
+- **Deck analysis:** The "Stax or taxation" bucket now also lists non-catalog stax cards detected from their continuing restrictions or taxes.
+
 ### 2026.11.1 — Cut Lab discoverability (2026-11-10)
 
 - **Step order:** Process, Plan, Decide, Goals, Export is the new order, with Lock your pool and Packages at the end of Plan.
