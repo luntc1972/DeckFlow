@@ -263,7 +263,6 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             }
 
             frontOracleTexts.Add(frontOracleText);
-            rolesByCardName[entry.Name] = roles;
             analyzedCards.Add(new CutLabAnalyzedCard(
                 entry.Name,
                 manaValue,
@@ -285,14 +284,11 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
         for (int index = 0; index < analyzedCards.Count; index++)
         {
             CutLabAnalyzedCard analyzed = analyzedCards[index];
-            if (frontOracleTexts[index] is string frontOracleText)
+            analyzed = analyzed with
             {
-                analyzed = analyzed with
-                {
-                    Roles = CutLabEnablersPass.Apply(activeFamilies, frontOracleText, analyzed.Roles),
-                };
-                analyzedCards[index] = analyzed;
-            }
+                Roles = CutLabEnablersPass.Apply(activeFamilies, frontOracleTexts[index], analyzed.Roles),
+            };
+            analyzedCards[index] = analyzed;
 
             rolesByCardName[analyzed.Name] = analyzed.Roles;
             foreach (string role in analyzed.Roles)

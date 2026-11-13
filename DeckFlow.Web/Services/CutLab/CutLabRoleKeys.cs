@@ -3,6 +3,10 @@ namespace DeckFlow.Web.Services.CutLab;
 /// <summary>Defines display roles independently of the roles that carry floors.</summary>
 public static class CutLabRoleKeys
 {
+    /// <summary>Returns whether a role applies to the deck's active trigger families.</summary>
+    public static bool IsApplicable(string roleKey, IReadOnlyList<string> activeTriggerFamilies) =>
+        roleKey != Enablers || activeTriggerFamilies.Count > 0;
+
     /// <summary>Role key for graveyard recursion.</summary>
     public const string Recursion = "recursion";
 

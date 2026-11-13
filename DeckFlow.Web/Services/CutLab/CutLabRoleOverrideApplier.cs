@@ -13,9 +13,10 @@ internal static class CutLabRoleOverrideApplier
         }
 
         // Why: stored enablers overrides remain deck-independent in state and are inert on inactive decks.
-        IReadOnlyList<CutLabRoleOverride> applicable = context.ActiveTriggerFamilies.Count > 0
-            ? overrides
-            : overrides.Select(item => item with { Added = item.Added.Where(role => role != CutLabRoleKeys.Enablers).ToArray() }).ToArray();
+        IReadOnlyList<CutLabRoleOverride> applicable = context.ActiveTriggerFamilies.Count == 0
+            && overrides.Any(item => item.Added.Contains(CutLabRoleKeys.Enablers))
+            ? overrides.Select(item => item with { Added = item.Added.Where(role => CutLabRoleKeys.IsApplicable(role, context.ActiveTriggerFamilies)).ToArray() }).ToArray()
+            : overrides;
         CutLabAnalyzedCard[] cards = context.AnalyzedCards
             .Select(card => !card.IsCommander
                 && card.Roles.Count > 0

@@ -26,6 +26,15 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
 
     private static List<CardFact> LoadFacts() => CardFactFixtureFile.Load(FixturePath(FactsFile));
 
+    private static (List<CardFact> Facts, IReadOnlyList<string> Families) LoadEnablersFacts()
+    {
+        List<CardFact> facts = LoadFacts();
+        IReadOnlyList<string> families = DeckFlow.Core.Analysis.TriggerFamilyCatalog.GetActiveFamilies(
+            facts.Where(fact => fact.IsCommander).Select(fact => fact.FrontOracleText).ToArray());
+        Assert.NotEmpty(families);
+        return (facts, families);
+    }
+
     private static Dictionary<string, string[]> LoadRoles() =>
         JsonSerializer.Deserialize<Dictionary<string, string[]>>(File.ReadAllText(FixturePath(RolesFile)))!;
 
@@ -36,10 +45,7 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
     [Fact]
     public void Apply_GoldenDeck_PinsAllEnablers()
     {
-        List<CardFact> facts = LoadFacts();
-        IReadOnlyList<string> families = DeckFlow.Core.Analysis.TriggerFamilyCatalog.GetActiveFamilies(
-            facts.Where(fact => fact.IsCommander).Select(fact => fact.FrontOracleText).ToArray());
-        Assert.NotEmpty(families);
+        var (facts, families) = LoadEnablersFacts();
         string[] expected =
         [
             "Alseid of Life's Bounty",
@@ -88,16 +94,12 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
             .Select(fact => fact.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray();
 
         Assert.Equal(expected, actual);
-        Assert.DoesNotContain("Swords to Plowshares", actual);
     }
 
     [Fact]
     public void Apply_GoldenDeck_PinsRemainingNonlandOther()
     {
-        List<CardFact> facts = LoadFacts();
-        IReadOnlyList<string> families = DeckFlow.Core.Analysis.TriggerFamilyCatalog.GetActiveFamilies(
-            facts.Where(fact => fact.IsCommander).Select(fact => fact.FrontOracleText).ToArray());
-        Assert.NotEmpty(families);
+        var (facts, families) = LoadEnablersFacts();
         string[] expected =
         [
             "Bubbling Muck",

@@ -3,27 +3,27 @@ using System.Text.RegularExpressions;
 namespace DeckFlow.Core.Analysis;
 
 /// <summary>Detects commander trigger families and cards that enable them.</summary>
-public static class TriggerFamilyCatalog
+public static partial class TriggerFamilyCatalog
 {
     /// <summary>The family for commanders that care about their controller gaining life.</summary>
     public const string Lifegain = "lifegain";
 
-    private const RegexOptions PatternOptions = RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
+    private const RegexOptions PatternOptions = RegexOptions.IgnoreCase | RegexOptions.CultureInvariant;
 
     private static readonly TriggerFamily[] Families =
     [
         new(Lifegain,
         [
             // The recipient must be the controller; a gain effect alone is not a payoff.
-            new Regex(@"\bwhen(?:ever)? you gain(?: or lose)? life\b", PatternOptions),
+            LifegainTriggerRegex(),
             // End-step and other conditional rewards also care about an earlier gain.
-            new Regex(@"\b(?:if|as long as) you (?:gain|gained|have gained) life\b", PatternOptions),
+            LifegainConditionRegex(),
         ],
         [
             // Skip immediate trigger/condition prefixes so a payoff cannot enable itself.
-            new Regex(@"(?<!whenever )(?<!when )(?<!if )(?<!each time )\byou (?:may )?gain (?!control\b)(?:life\b|[^.,;:\r\n]*?\blife\b)", PatternOptions),
+            GainLifeRegex(),
             // Both printed and granted lifelink supply the event under this vocabulary.
-            new Regex(@"(?<!lose )(?<!loses )\blifelink\b", PatternOptions),
+            LifelinkRegex(),
         ]),
     ];
 
@@ -73,6 +73,18 @@ public static class TriggerFamilyCatalog
 
         return false;
     }
+
+    [GeneratedRegex(@"\bwhen(?:ever)? you gain(?: or lose)? life\b", PatternOptions)]
+    private static partial Regex LifegainTriggerRegex();
+
+    [GeneratedRegex(@"\b(?:if|as long as) you (?:gain|gained|have gained) life\b", PatternOptions)]
+    private static partial Regex LifegainConditionRegex();
+
+    [GeneratedRegex(@"(?<!whenever )(?<!when )(?<!if )(?<!each time )\byou (?:may )?gain (?!control\b)(?:life\b|[^.,;:\r\n]*?\blife\b)", PatternOptions)]
+    private static partial Regex GainLifeRegex();
+
+    [GeneratedRegex(@"(?<!lose )(?<!loses )\blifelink\b", PatternOptions)]
+    private static partial Regex LifelinkRegex();
 
     private static bool MatchesAny(string? oracleText, Regex[] patterns)
     {

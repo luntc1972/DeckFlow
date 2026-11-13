@@ -13,7 +13,7 @@ public static class CutLabEnablersPass
             return roles;
         }
 
-        return roles.Where(role => !string.Equals(role, "other", StringComparison.Ordinal))
+        return roles.Where(role => !string.Equals(role, CutLabRoleKeys.Residual, StringComparison.Ordinal))
             .Append(CutLabRoleKeys.Enablers).ToArray();
     }
 }

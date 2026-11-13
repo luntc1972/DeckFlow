@@ -6,6 +6,20 @@ namespace DeckFlow.Web.Tests;
 
 public sealed class CutLabRoleOverrideRulesTests
 {
+    [Theory]
+    [InlineData("enablers", false, false)]
+    [InlineData("enablers", true, true)]
+    [InlineData("recursion", false, true)]
+    [InlineData("recursion", true, true)]
+    [InlineData("other", false, true)]
+    [InlineData("unknown", false, true)]
+    public void IsApplicable_RoleAndActiveFamilies_PreservesDeckApplicability(string roleKey, bool active, bool expected)
+    {
+        IReadOnlyList<string> families = active ? ["lifegain"] : [];
+
+        Assert.Equal(expected, CutLabRoleKeys.IsApplicable(roleKey, families));
+    }
+
     [Fact]
     public void FloorlessRegistry_Entries_HaveDistinctLabelsUsedByAssigner()
     {

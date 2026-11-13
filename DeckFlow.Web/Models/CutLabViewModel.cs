@@ -379,7 +379,7 @@ public sealed record CutLabViewModel
         {
             RoleOverrideCardsByName = roleOverrideCardsByName,
             RoleOverrideRoleOptions = CutLabRoleOverrideRules.EditableRoleKeys
-                .Where(key => key != CutLabRoleKeys.Enablers || result.ActiveTriggerFamilies.Count > 0)
+                .Where(key => CutLabRoleKeys.IsApplicable(key, result.ActiveTriggerFamilies))
                 .Select(key => new CutLabRoleOptionView(key, CutLabRoleAssigner.DisplayLabelFor(key))).ToArray(),
             ActiveTab = DeckPageTab.CutLab,
             CheckedCommanderThemesAvailable = result.RoundPlan?.CheckedCommanderThemesAvailable,
@@ -531,7 +531,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<string> activeTriggerFamilies)
     {
         return CutLabRoleKeys.Display
-            .Where(key => key != CutLabRoleKeys.Enablers || activeTriggerFamilies.Count > 0)
+            .Where(key => CutLabRoleKeys.IsApplicable(key, activeTriggerFamilies))
             .Select(roleKey => BuildGroup(roleKey, DisplayLabelFor(roleKey),
                 pool.Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
                     && roles.Contains(roleKey, StringComparer.Ordinal)),

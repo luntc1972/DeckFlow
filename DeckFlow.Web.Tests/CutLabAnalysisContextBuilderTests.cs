@@ -43,10 +43,6 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Equal(active, context.RolesByCardName["Life"].Contains("enablers"));
         Assert.Equal(active, context.RolesByCardName["Miren"].Contains("enablers"));
         Assert.Equal(active ? 3 : 0, context.RoleCounts.GetValueOrDefault("enablers"));
-        if (!active)
-        {
-            Assert.All(context.AnalyzedCards, card => Assert.DoesNotContain("enablers", card.Roles));
-        }
     }
 
     [Fact]
