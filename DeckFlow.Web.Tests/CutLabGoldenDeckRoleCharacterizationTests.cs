@@ -34,6 +34,93 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
         CutLabRoleAssigner.AssignRoles(fact, [], Mode);
 
     [Fact]
+    public void Apply_GoldenDeck_PinsAllEnablers()
+    {
+        List<CardFact> facts = LoadFacts();
+        IReadOnlyList<string> families = DeckFlow.Core.Analysis.TriggerFamilyCatalog.GetActiveFamilies(
+            facts.Where(fact => fact.IsCommander).Select(fact => fact.FrontOracleText).ToArray());
+        Assert.NotEmpty(families);
+        string[] expected =
+        [
+            "Alseid of Life's Bounty",
+            "Authority of the Consuls",
+            "Belladonna Took",
+            "Blind Obedience",
+            "Bloodchief Ascension",
+            "Bofur, Reliable Guardian // Concerted Care",
+            "Chaplain's Blessing",
+            "Confessor",
+            "Crypt Ghast",
+            "Deathgreeter",
+            "Doctor Doom, Unrivaled",
+            "Dr. Pulaski, Cynical Clinician",
+            "Elixir of Immortality",
+            "Enlightened Confidant",
+            "Exsanguinate",
+            "Feast of Sanity",
+            "Kambal, Consul of Allocation",
+            "Kambal, Profiteering Mayor",
+            "Leonin Elder",
+            "Light of Hope",
+            "Liliana the Faultless",
+            "Lurrus of the Dream-Den",
+            "MacCready, Lamplight Mayor",
+            "March of Wretched Sorrow",
+            "Martyr of Sands",
+            "Miren, the Moaning Well",
+            "Niv-Mizzet, Ghost Counsel",
+            "Ocelot Pride",
+            "Peace of Mind",
+            "Professor Onyx",
+            "Serra Ascendant",
+            "Sheoldred, the Apocalypse",
+            "Soul Warden",
+            "Soul's Attendant",
+            "Starving Revenant",
+            "Tendrils of Agony",
+            "The Meathook Massacre",
+            "Twilight Prophet",
+            "Union of the Third Path",
+            "Zuran Orb",
+        ];
+        string[] actual = facts
+            .Where(fact => CutLabEnablersPass.Apply(families, fact.FrontOracleText, Assign(fact)).Contains("enablers"))
+            .Select(fact => fact.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(expected, actual);
+        Assert.DoesNotContain("Swords to Plowshares", actual);
+    }
+
+    [Fact]
+    public void Apply_GoldenDeck_PinsRemainingNonlandOther()
+    {
+        List<CardFact> facts = LoadFacts();
+        IReadOnlyList<string> families = DeckFlow.Core.Analysis.TriggerFamilyCatalog.GetActiveFamilies(
+            facts.Where(fact => fact.IsCommander).Select(fact => fact.FrontOracleText).ToArray());
+        Assert.NotEmpty(families);
+        string[] expected =
+        [
+            "Bubbling Muck",
+            "Chain of Smog",
+            "Delney, Streetwise Lookout",
+            "Enduring Tenacity",
+            "Imp's Mischief",
+            "Orim's Chant",
+            "Reward the Faithful",
+            "Sickening Dreams",
+            "Silence",
+            "The Queen of Dale",
+            "Tinybones, Pocket Nuisance",
+            "Toxic Deluge",
+        ];
+        string[] actual = facts
+            .Where(fact => CutLabEnablersPass.Apply(families, fact.FrontOracleText, Assign(fact)).Contains("other") && !fact.TypeLine.Contains("Land", StringComparison.Ordinal))
+            .Select(fact => fact.Name).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
     public void AssignRoles_GoldenDeck_MatchesAllRecordedOrderedRoles()
     {
         List<CardFact> facts = LoadFacts();

@@ -7,6 +7,41 @@ namespace DeckFlow.Web.Tests;
 
 public sealed class CutLabRoleOverrideApplierTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Apply_ConditionalEnablersAddition_PreservesOtherOverrideKeys(bool active)
+    {
+        CutLabAnalysisContext context = CreateContext([new CutLabAnalyzedCard("Card", 1, false, ["ramp"], [])])
+            with
+        {
+            ActiveTriggerFamilies = active ? ["lifegain"] : []
+        };
+        CutLabRoleOverride item = new() { Name = "Card", Added = ["enablers", "stax"] };
+
+        CutLabAnalysisContext result = CutLabRoleOverrideApplier.Apply(context, [item]);
+
+        Assert.Equal(active, result.RolesByCardName["Card"].Contains("enablers"));
+        Assert.Contains("stax", result.RolesByCardName["Card"]);
+        Assert.Contains("enablers", item.Added);
+        Assert.Equal(active ? 1 : 0, result.RoleCounts.GetValueOrDefault("enablers"));
+    }
+
+    [Fact]
+    public void Apply_ActiveFamilyRemoval_RemovesAssignedEnablers()
+    {
+        CutLabAnalysisContext context = CreateContext([new CutLabAnalyzedCard("Card", 1, false, ["ramp", "enablers"], [])])
+            with
+        {
+            ActiveTriggerFamilies = ["lifegain"]
+        };
+
+        CutLabAnalysisContext result = CutLabRoleOverrideApplier.Apply(context, [new CutLabRoleOverride { Name = "Card", Removed = ["enablers"] }]);
+
+        Assert.DoesNotContain("enablers", result.RolesByCardName["Card"]);
+        Assert.False(result.RoleCounts.ContainsKey("enablers"));
+    }
+
     [Fact]
     public void RoleOverrideApplier_EmptyOverrides_UsesExistingContext()
     {

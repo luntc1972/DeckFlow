@@ -20,13 +20,14 @@ public sealed class CutLabRoleOverrideRulesTests
     [Fact]
     public void FloorlessRegistry_Keys_PreserveLiteralOrder()
     {
-        Assert.Equal(new[] { "recursion", "stax" }, CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key));
+        Assert.Equal(new[] { "recursion", "stax", "enablers" }, CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key));
         Assert.Equal(CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key), CutLabRoleKeys.Floorless);
     }
 
     [Theory]
     [InlineData("recursion", "Recursion")]
     [InlineData("stax", "Stax")]
+    [InlineData("enablers", "Enablers")]
     public void FloorlessRegistry_KnownRole_PreservesLiteralLabel(string key, string label)
     {
         Assert.Equal(label, Assert.Single(CutLabRoleKeys.FloorlessRegistry, entry => entry.Key == key).Label);

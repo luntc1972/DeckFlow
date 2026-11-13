@@ -61,6 +61,9 @@ public sealed record CutLabProcessResult
     /// <summary>True when category lookup completed successfully for this result.</summary>
     public bool CategoryDataAvailable { get; init; }
 
+    /// <summary>Commander trigger families activated for this deck.</summary>
+    public IReadOnlyList<string> ActiveTriggerFamilies { get; init; } = [];
+
     /// <summary>Per-card structural role assignments keyed by card name.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> RoleAssignmentsByCardName { get; init; } =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
@@ -586,6 +589,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             ComboDataAvailable = analysisContext.Classification.ComboDataAvailable,
             CategoryDataAvailable = analysisContext.Classification.CategoryDataAvailable,
             RoleAssignmentsByCardName = analysisContext.RolesByCardName,
+            ActiveTriggerFamilies = analysisContext.ActiveTriggerFamilies,
             CardTextByCardName = cardTextByCardName,
             ComboBadgeByCardName = comboBadgeByCardName,
             ResolvedFloors = resolvedFloors,

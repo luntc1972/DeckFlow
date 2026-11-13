@@ -51,11 +51,11 @@ let heldLock: LockHandle | null = null;
 
 test.describe.configure({ mode: 'serial' });
 
-const importPool = async (page: Page): Promise<void> => {
+const importPool = async (page: Page, pool = oversizedPool, commander = 'Zur the Enchanter'): Promise<void> => {
   await page.goto('/cut-lab');
   await expect(page.locator('h1')).toHaveText('Cut Lab');
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
+  await page.locator('#cut-lab-deck-text').fill(pool);
   await clickManabasePillRadio(page, 'Bracket', '4');
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
@@ -65,7 +65,7 @@ const importPool = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-competes');
   await expandCutLabSection(page, 'cut-lab-section-structural');
   await expandCutLabSection(page, 'cut-lab-section-role-floors');
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
+  await expect(page.locator(`tr[data-cut-lab-card="${commander}"]`)).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
 const waitForCutRounds = async (page: Page, enhancedTabs = true): Promise<void> => {
@@ -166,6 +166,15 @@ test('renders the three structure sections with 13 collapsed role groups and 10 
   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(10);
   await expect(page.locator('.cutlab-findings-count')).toBeVisible();
   await expect(page.locator('.cutlab-finding__heading').filter({ hasText: 'Weak floor cases' })).toHaveCount(1);
+});
+
+test('renders 14 role groups and 10 floor inputs for a lifegain commander', async ({ page }) => {
+  const pool = ['Commander', '1 Karlov of the Ghost Council', '', 'Deck', '50 Plains', '50 Swamp', '1 Soul Warden'].join('\n');
+  await importPool(page, pool, 'Karlov of the Ghost Council');
+
+  await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]')).toHaveCount(14);
+  await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(10);
+  await expect(page.locator('details[data-cut-lab-group-role="enablers"]')).toHaveCount(1);
 });
 
 test('live-patches the structural findings section after a JS decide without a reload', async ({ page }) => {

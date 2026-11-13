@@ -26,6 +26,26 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabPageService"/> covering orchestration, validation, and state round-trip behavior.</summary>
 public sealed class CutLabPageServiceTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void From_ConditionalEnablers_ControlsGroupAndOverrideOption(bool active)
+    {
+        CutLabProcessResult result = new() { ActiveTriggerFamilies = active ? ["lifegain"] : [] };
+
+        CutLabViewModel model = CutLabViewModel.From(new CutLabRequest(), result);
+
+        Assert.Equal(CutLabRoleKeys.Display.Where(key => active || key != "enablers"), model.RoleGroups.Select(group => group.RoleKey));
+        Assert.Equal(active, model.RoleOverrideRoleOptions.Any(option => option.Key == "enablers"));
+        Assert.Equal("Enablers", model.RoleLabelsByKey["enablers"]);
+        if (active)
+        {
+            var group = Assert.Single(model.RoleGroups, group => group.RoleKey == "enablers");
+            Assert.Empty(group.Members);
+            Assert.True(group.IsLockable);
+        }
+    }
+
     [Fact]
     public async Task ProcessAsync_RoleOverride_ForwardsToSimulation()
     {
@@ -3170,7 +3190,7 @@ public sealed class CutLabPageServiceTests
 
         Assert.True(result.HasResult);
         Assert.Equal(CutLabFloorRules.RoleKeys, result.ResolvedFloors.Select(floor => floor.Role).ToArray());
-        Assert.Equal(CutLabRoleKeys.Display, model.RoleGroups.Select(group => group.RoleKey).ToArray());
+        Assert.Equal(CutLabRoleKeys.Display.Where(key => key != "enablers"), model.RoleGroups.Select(group => group.RoleKey).ToArray());
         Assert.Empty(model.RoleGroups.Single(group => group.RoleKey == "recursion").Members);
         Assert.Empty(model.RoleGroups.Single(group => group.RoleKey == "stax").Members);
         Assert.Contains(model.RoleOverrideRoleOptions, option => option.Key == "stax" && option.Label == "Stax");

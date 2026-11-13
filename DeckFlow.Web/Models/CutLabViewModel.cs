@@ -330,7 +330,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(pool, result.State?.Decisions ?? [], adjustments);
         IReadOnlyList<CutLabTunableRowView> workingListRows = BuildWorkingListRows(derivedWorkingList, pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<string> addableBasics = CutLabSharedHelpers.BuildAddableBasics(workingListRows.Select(row => row.Name));
-        IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
+        IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName, result.ActiveTriggerFamilies);
         IReadOnlyList<CutLabRoleGroupView> typeGroups = BuildTypeGroups(pool);
         IReadOnlyList<CutLabFindingView> findings = CutLabFindingPresenter.BuildFindings(result.Findings.Findings);
         IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
@@ -379,6 +379,7 @@ public sealed record CutLabViewModel
         {
             RoleOverrideCardsByName = roleOverrideCardsByName,
             RoleOverrideRoleOptions = CutLabRoleOverrideRules.EditableRoleKeys
+                .Where(key => key != CutLabRoleKeys.Enablers || result.ActiveTriggerFamilies.Count > 0)
                 .Select(key => new CutLabRoleOptionView(key, CutLabRoleAssigner.DisplayLabelFor(key))).ToArray(),
             ActiveTab = DeckPageTab.CutLab,
             CheckedCommanderThemesAvailable = result.RoundPlan?.CheckedCommanderThemesAvailable,
@@ -526,9 +527,11 @@ public sealed record CutLabViewModel
 
     private static IReadOnlyList<CutLabRoleGroupView> BuildRoleGroups(
         IReadOnlyList<CutLabPoolCard> pool,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName,
+        IReadOnlyList<string> activeTriggerFamilies)
     {
         return CutLabRoleKeys.Display
+            .Where(key => key != CutLabRoleKeys.Enablers || activeTriggerFamilies.Count > 0)
             .Select(roleKey => BuildGroup(roleKey, DisplayLabelFor(roleKey),
                 pool.Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
                     && roles.Contains(roleKey, StringComparer.Ordinal)),

@@ -18,6 +18,37 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabAnalysisContextBuilder"/> covering cache reuse, fail-open classification, and role analysis.</summary>
 public sealed class CutLabAnalysisContextBuilderTests
 {
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task BuildAsync_CommanderTriggerFamily_ControlsEnablersAndCounts(bool active, bool commanderNamed)
+    {
+        var resolver = new CountingResolver([
+            Spell("Commander", "Legendary Creature", oracleText: active ? "Whenever you gain life, draw a card." : "Whenever you draw a card, create a token."),
+            Spell("Life", "Creature", oracleText: "You gain 1 life."),
+            Spell("Miren", "Land", oracleText: "{T}: You gain 1 life."),
+        ]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
+            new LocalSpellbookService(), new FakeCategoryKnowledgeStore());
+
+        CutLabAnalysisContext context = await builder.BuildAsync([
+            PoolCard("Commander", "Legendary Creature", isCommander: true),
+            PoolCard("Life", "Creature", quantity: 2),
+            PoolCard("Miren", "Land"),
+        ], "Focused", commanderNamed ? ["Commander"] : []);
+
+        Assert.Equal(active, context.ActiveTriggerFamilies.Count > 0);
+        Assert.Equal(active, context.RolesByCardName["Life"].Contains("enablers"));
+        Assert.Equal(active, context.RolesByCardName["Miren"].Contains("enablers"));
+        Assert.Equal(active ? 3 : 0, context.RoleCounts.GetValueOrDefault("enablers"));
+        if (!active)
+        {
+            Assert.All(context.AnalyzedCards, card => Assert.DoesNotContain("enablers", card.Roles));
+        }
+    }
+
     [Fact]
     public async Task BuildAsync_ReturnsAnalyzedCardsAndRoleCounts()
     {

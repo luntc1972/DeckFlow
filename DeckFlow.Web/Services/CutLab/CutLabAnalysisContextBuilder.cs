@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Net;
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
@@ -80,7 +81,11 @@ public sealed record CutLabAnalysisContext(
     double CommanderManaValue,
     ManabaseMode Mode,
     CutLabClassificationContext Classification,
-    IReadOnlyList<ScryfallCardData> ResolvedCards);
+    IReadOnlyList<ScryfallCardData> ResolvedCards)
+{
+    /// <summary>Commander trigger families activated for this deck.</summary>
+    public IReadOnlyList<string> ActiveTriggerFamilies { get; init; } = [];
+}
 
 /// <summary>Per-card combo membership from Commander Spellbook.</summary>
 /// <param name="CompleteCombos">Resolved complete combos that contain the card.</param>
@@ -223,6 +228,8 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
         Dictionary<string, IReadOnlyList<string>> rolesByCardName = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, int> roleCounts = new(StringComparer.OrdinalIgnoreCase);
         List<CutLabAnalyzedCard> analyzedCards = new(workingList.Count);
+        List<string?> frontOracleTexts = new(workingList.Count);
+        List<string?> commanderTexts = [];
         double commanderManaValue = 0;
 
         foreach (CutLabPoolCard entry in workingList)
@@ -236,6 +243,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 : Array.Empty<string>();
             IReadOnlyList<string> roles = [];
             double manaValue = 0;
+            string? frontOracleText = null;
 
             if (cardsByName.TryGetValue(normalizedEntryName, out ScryfallCardData? card))
             {
@@ -245,20 +253,16 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                     categories,
                     mode);
                 manaValue = fact.ManaValue;
-
-                foreach (string role in roles)
-                {
-                    roleCounts[role] = roleCounts.TryGetValue(role, out int count)
-                        ? count + entry.Quantity
-                        : entry.Quantity;
-                }
+                frontOracleText = fact.FrontOracleText;
 
                 if (isCommander)
                 {
                     commanderManaValue = Math.Max(commanderManaValue, fact.ManaValue);
+                    commanderTexts.Add(frontOracleText);
                 }
             }
 
+            frontOracleTexts.Add(frontOracleText);
             rolesByCardName[entry.Name] = roles;
             analyzedCards.Add(new CutLabAnalyzedCard(
                 entry.Name,
@@ -277,6 +281,26 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             });
         }
 
+        IReadOnlyList<string> activeFamilies = TriggerFamilyCatalog.GetActiveFamilies(commanderTexts);
+        for (int index = 0; index < analyzedCards.Count; index++)
+        {
+            CutLabAnalyzedCard analyzed = analyzedCards[index];
+            if (frontOracleTexts[index] is string frontOracleText)
+            {
+                analyzed = analyzed with
+                {
+                    Roles = CutLabEnablersPass.Apply(activeFamilies, frontOracleText, analyzed.Roles),
+                };
+                analyzedCards[index] = analyzed;
+            }
+
+            rolesByCardName[analyzed.Name] = analyzed.Roles;
+            foreach (string role in analyzed.Roles)
+            {
+                roleCounts[role] = roleCounts.TryGetValue(role, out int count) ? count + analyzed.Quantity : analyzed.Quantity;
+            }
+        }
+
         return new CutLabAnalysisContext(
             analyzedCards,
             rolesByCardName,
@@ -284,7 +308,10 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             commanderManaValue,
             mode,
             classification,
-            resolvedCards);
+            resolvedCards)
+        {
+            ActiveTriggerFamilies = activeFamilies
+        };
     }
 
     /// <inheritdoc />

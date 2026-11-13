@@ -9,6 +9,9 @@ public static class CutLabRoleKeys
     /// <summary>Role key for continuing opponent restrictions and taxes.</summary>
     public const string Stax = "stax";
 
+    /// <summary>Cards that fire an active commander trigger family.</summary>
+    public const string Enablers = "enablers";
+
     /// <summary>Display-only fallback role key.</summary>
     public const string Residual = "other";
 
@@ -20,6 +23,7 @@ public static class CutLabRoleKeys
     {
         (Key: Recursion, Label: "Recursion"),
         (Key: Stax, Label: "Stax"),
+        (Key: Enablers, Label: "Enablers"),
     });
 
     /// <summary>Roles that may be displayed and assigned without a floor.</summary>
