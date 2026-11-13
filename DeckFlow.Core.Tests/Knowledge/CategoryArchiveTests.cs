@@ -1,4 +1,6 @@
 using System.Data.Common;
+using Dapper;
+using DeckFlow.Core.Models;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Storage;
 using Microsoft.Data.Sqlite;
@@ -10,6 +12,82 @@ namespace DeckFlow.Core.Tests.Knowledge;
 /// </summary>
 public sealed class CategoryArchiveTests
 {
+    [Fact]
+    public Task RetentionDrain_CardDeckTotalsUnchanged() => WithArchiveSqliteAsync("totals");
+
+    [Fact]
+    public Task NonRetentionRemoval_WritesNoArchive() => WithArchiveSqliteAsync("purge");
+
+    [Fact]
+    public Task RetentionDrain_Twice_WritesOneManifest() => WithArchiveSqliteAsync("twice");
+
+    private static async Task WithArchiveSqliteAsync(string scenario)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"archive_drain_{Guid.NewGuid():N}.db");
+        var info = new RelationalDatabaseConnection(RelationalDatabaseProvider.Sqlite,
+            new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ConnectionString);
+        try
+        {
+            await using var connection = new SqliteConnection(info.ConnectionString);
+            await connection.OpenAsync();
+            await VerifyDrainAsync(connection, info, scenario);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    internal static async Task VerifyDrainAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
+    {
+        var repository = new CategoryKnowledgeRepository(info);
+        await repository.EnsureSchemaAsync();
+        foreach (var deckId in new[] { "711", "712" })
+        {
+            await repository.AddDeckIdsAsync([deckId]);
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId,
+            [
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = "Ramp" },
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "sideboard", Category = "Artifact" }
+            ]);
+            await repository.MarkDeckProcessedAsync(deckId, "Test Commander", skip: false);
+        }
+        await repository.RunStoredLiveRowsBackfillBatchAsync(100);
+        var id = await connection.QuerySingleAsync<long>("SELECT id FROM deck_queue WHERE deck_id = '711';");
+        if (scenario == "purge")
+        {
+            Assert.Equal(1, await repository.RemoveStoredDecksAsync([(id, DeckSkipReasons.NotCommanderFormat)]));
+            foreach (var table in new[] { "card_category_archive", "card_deck_totals_archive", "card_category_deck_archive", "deck_category_archive_manifest" })
+            {
+                Assert.Equal(0, await connection.ExecuteScalarAsync<long>($"SELECT COUNT(*) FROM {table};"));
+            }
+            return;
+        }
+        var before = await repository.GetCardDeckTotalsAsync("Sol Ring");
+        var service = new DeckPruningService(repository,
+            new DeckPruningOptions { PerCommanderCap = 1, Pause = TimeSpan.Zero }, _ => Task.FromResult<long?>(long.MaxValue));
+        await service.RunRetentionAsync();
+        var after = await repository.GetCardDeckTotalsAsync("Sol Ring");
+        Assert.Equal(1, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM deck_queue WHERE skip_reason = 'retention';"));
+        if (scenario == "totals")
+        {
+            Assert.Equal(before.TotalDeckCount, after.TotalDeckCount);
+            Assert.Equal(before.BoardDeckCounts.OrderBy(row => row.Key), after.BoardDeckCounts.OrderBy(row => row.Key));
+            foreach (var board in before.BoardDeckCounts.Keys)
+            {
+                Assert.Equal(before.BoardDeckCounts[board], (await repository.GetCardDeckTotalsAsync("Sol Ring", board)).TotalDeckCount);
+            }
+        }
+        await service.RunRetentionAsync();
+        Assert.Equal(1, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM deck_category_archive_manifest;"));
+        Assert.Equal(2, await connection.ExecuteScalarAsync<long>("SELECT SUM(deck_count) FROM card_deck_totals_archive;"));
+        Assert.Equal(2, await connection.ExecuteScalarAsync<long>("SELECT SUM(raw_rows) FROM card_category_archive;"));
+        var payload = await connection.QuerySingleAsync<byte[]>("SELECT payload FROM deck_category_archive_manifest;");
+        var manifest = DeckCategoryArchiveManifest.Decode(1, payload);
+        Assert.Equal(2, manifest.Totals.Count);
+        Assert.Equal(2, manifest.Observations.Count);
+    }
+
     [Fact]
     public void Manifest_RoundTrip_And_UnknownVersionThrows()
     {

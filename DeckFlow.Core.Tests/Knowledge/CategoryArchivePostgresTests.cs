@@ -9,6 +9,15 @@ namespace DeckFlow.Core.Tests.Knowledge;
 public sealed class CategoryArchivePostgresTests
 {
     [CreatorSuppressionPostgresFact]
+    public Task RetentionDrain_CardDeckTotalsUnchanged() => VerifyAsync(false, "totals");
+
+    [CreatorSuppressionPostgresFact]
+    public Task NonRetentionRemoval_WritesNoArchive() => VerifyAsync(false, "purge");
+
+    [CreatorSuppressionPostgresFact]
+    public Task RetentionDrain_Twice_WritesOneManifest() => VerifyAsync(false, "twice");
+
+    [CreatorSuppressionPostgresFact]
     public async Task SchemaUpgrade_FromPre0717Populated_AddsArchiveAndArchivedRows()
     {
         await VerifyAsync(false);
@@ -20,7 +29,7 @@ public sealed class CategoryArchivePostgresTests
         await VerifyAsync(true);
     }
 
-    private static async Task VerifyAsync(bool ensureTwice)
+    private static async Task VerifyAsync(bool ensureTwice, string? scenario = null)
     {
         var schema = $"category_archive_{Guid.NewGuid():N}";
         var connectionString = Environment.GetEnvironmentVariable("DECKFLOW_TEST_POSTGRES")!;
@@ -38,7 +47,14 @@ public sealed class CategoryArchivePostgresTests
             var second = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, builder.ConnectionString);
             await using var connection = new NpgsqlConnection(first.ConnectionString);
             await connection.OpenAsync();
-            await CategoryArchiveTests.VerifyUpgradeAsync(connection, first, second, string.Empty, ensureTwice);
+            if (scenario is null)
+            {
+                await CategoryArchiveTests.VerifyUpgradeAsync(connection, first, second, string.Empty, ensureTwice);
+            }
+            else
+            {
+                await CategoryArchiveTests.VerifyDrainAsync(connection, first, scenario);
+            }
         }
         finally
         {
