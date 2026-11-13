@@ -34,7 +34,7 @@ internal sealed record DeckCategoryArchiveManifest(
             writer.Write(row.Board);
             writer.Write(row.DeckCount);
         }
-        // Why: reserve the contribution section in version 1 before the fold starts populating it.
+        // Why: preserve exact mode-split contributions so reversal never recomputes alias maxima.
         writer.Write(Contributions.Count);
         foreach (var row in Contributions)
         {

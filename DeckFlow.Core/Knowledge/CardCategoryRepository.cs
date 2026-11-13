@@ -169,33 +169,14 @@ internal sealed class CardCategoryRepository
             new { normalized = CardNormalizer.Normalize(cardName) },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
 
-        // Why: aliases in one source/card/board grain represent the same decks, so take their maximum before summing grains.
-        var observedCategories = rows
-            .Select(row => row.Category)
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-        var includedCategories = new HashSet<string>(
-            CategoryFilter.IncludedOrFallback(observedCategories),
-            StringComparer.OrdinalIgnoreCase);
-
-        return rows
-            .Where(row => includedCategories.Contains(row.Category))
-            .GroupBy(row => new
-            {
-                row.SourceId,
-                row.CardId,
-                row.Board,
-                CanonicalKey = CategoryCanonicalizer.CanonicalKey(row.Category)
-            })
-            .Select(group => new
-            {
-                group.Key.CanonicalKey,
-                DeckCount = group.Max(row => row.DeckCount)
-            })
-            .GroupBy(row => row.CanonicalKey, StringComparer.Ordinal)
-            .ToDictionary(
-                group => group.Key,
-                group => checked((int)group.Sum(row => row.DeckCount)),
-                StringComparer.Ordinal);
+        var archived = await connection.QueryAsync<CategoryDeckCountAggregation.ArchiveRow>(new CommandDefinition(
+            "SELECT a.card_id AS CardId, a.canonical_category AS CanonicalCategory, a.board AS Board, " +
+            "a.included_deck_count AS IncludedDeckCount, a.fallback_deck_count AS FallbackDeckCount, a.included_label_rows AS IncludedLabelRows " +
+            "FROM card_category_deck_archive a JOIN cards c ON c.id = a.card_id WHERE c.normalized_card_name = @normalized;",
+            new { normalized = CardNormalizer.Normalize(cardName) }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return CategoryDeckCountAggregation.Read(
+            rows.Select(row => new CategoryDeckCountAggregation.LiveRow(row.SourceId, row.CardId, row.Board, row.Category, row.DeckCount)).ToArray(),
+            archived.ToArray());
     }
 
     /// <summary>
@@ -636,9 +617,26 @@ internal sealed class CardCategoryRepository
                         "ON CONFLICT(card_id, category, board) DO UPDATE SET raw_rows = card_category_archive.raw_rows + 1;",
                         row, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 }
+                // Why: only observations with a matching totals grain participate in the live reader's JOIN.
+                var totalKeys = totals.Select(row => (row.SourceId, row.CardId, row.Board)).ToHashSet();
+                var contributions = CategoryDeckCountAggregation.Fold(observations
+                    .Where(row => totalKeys.Contains((row.SourceId, row.CardId, row.Board)))
+                    .Select(row => new CategoryDeckCountAggregation.LiveRow(row.SourceId, row.CardId, row.Board, row.Category, row.DeckCount)));
+                foreach (var row in contributions)
+                {
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "INSERT INTO card_category_deck_archive (card_id, canonical_category, board, included_deck_count, fallback_deck_count, included_label_rows) " +
+                        "VALUES (@CardId, @CanonicalCategory, @Board, @IncludedDeckCount, @FallbackDeckCount, @IncludedLabelRows) " +
+                        "ON CONFLICT(card_id, canonical_category, board) DO UPDATE SET " +
+                        "included_deck_count = card_category_deck_archive.included_deck_count + excluded.included_deck_count, " +
+                        "fallback_deck_count = card_category_deck_archive.fallback_deck_count + excluded.fallback_deck_count, " +
+                        "included_label_rows = card_category_deck_archive.included_label_rows + excluded.included_label_rows;",
+                        new { row.CardId, row.CanonicalCategory, row.Board, row.IncludedDeckCount, row.FallbackDeckCount, row.IncludedLabelRows },
+                        transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                }
                 var manifest = new DeckCategoryArchiveManifest(
                     observations.Select(row => (row.CardId, row.Category, row.Board, checked((int)row.DeckCount))).ToArray(),
-                    totals.Select(row => (row.CardId, row.Board, checked((int)row.DeckCount))).ToArray(), []);
+                    totals.Select(row => (row.CardId, row.Board, checked((int)row.DeckCount))).ToArray(), contributions);
                 await connection.ExecuteAsync(new CommandDefinition(
                     "INSERT INTO deck_category_archive_manifest (deck_queue_id, archived_utc, format_version, payload) " +
                     "VALUES (@deckQueueId, @archivedUtc, @formatVersion, @payload);",

@@ -29,6 +29,12 @@ public sealed class CategoryArchivePostgresTests
         await VerifyAsync(true);
     }
 
+    [CreatorSuppressionPostgresFact]
+    public Task R3H1_ArtifactOnlyDeckDrained_WithRampElsewhere_DeckCountsUnchanged() => VerifyAsync(false, "r3h1");
+
+    [CreatorSuppressionPostgresFact]
+    public Task AliasRows_ArchiveMax_NotSum() => VerifyAsync(false, "aliases");
+
     private static async Task VerifyAsync(bool ensureTwice, string? scenario = null)
     {
         var schema = $"category_archive_{Guid.NewGuid():N}";

@@ -21,6 +21,12 @@ public sealed class CategoryArchiveTests
     [Fact]
     public Task RetentionDrain_Twice_WritesOneManifest() => WithArchiveSqliteAsync("twice");
 
+    [Fact]
+    public Task R3H1_ArtifactOnlyDeckDrained_WithRampElsewhere_DeckCountsUnchanged() => WithArchiveSqliteAsync("r3h1");
+
+    [Fact]
+    public Task AliasRows_ArchiveMax_NotSum() => WithArchiveSqliteAsync("aliases");
+
     private static async Task WithArchiveSqliteAsync(string scenario)
     {
         var path = Path.Combine(Path.GetTempPath(), $"archive_drain_{Guid.NewGuid():N}.db");
@@ -42,6 +48,11 @@ public sealed class CategoryArchiveTests
     {
         var repository = new CategoryKnowledgeRepository(info);
         await repository.EnsureSchemaAsync();
+        if (scenario is "r3h1" or "aliases")
+        {
+            await VerifyDeckCountsAsync(connection, repository, scenario);
+            return;
+        }
         foreach (var deckId in new[] { "711", "712" })
         {
             await repository.AddDeckIdsAsync([deckId]);
@@ -88,6 +99,39 @@ public sealed class CategoryArchiveTests
         Assert.Equal(2, manifest.Observations.Count);
     }
 
+    private static async Task VerifyDeckCountsAsync(DbConnection connection, CategoryKnowledgeRepository repository, string scenario)
+    {
+        foreach (var deckId in new[] { "711", "712" })
+        {
+            await repository.AddDeckIdsAsync([deckId]);
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId,
+            [
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = scenario == "r3h1" && deckId == "711" ? "Artifact" : "Ramp" }
+            ]);
+            await repository.MarkDeckProcessedAsync(deckId, "Test Commander", skip: false);
+        }
+        if (scenario == "aliases")
+        {
+            await connection.ExecuteAsync("INSERT INTO card_category_observations (source_id, card_id, card_name, category, board, count, deck_count, last_seen_utc) SELECT source_id, card_id, card_name, 'ramp', board, count, deck_count, last_seen_utc FROM card_category_observations WHERE category = 'Ramp';");
+        }
+        await repository.RunStoredLiveRowsBackfillBatchAsync(100);
+        var before = await repository.GetCategoryDeckCountsAsync("Sol Ring");
+        Assert.Equal(scenario == "aliases" ? 2 : 1, before["ramp"]);
+        Assert.DoesNotContain("artifact", before.Keys);
+        foreach (var deckId in new[] { "711", "712" })
+        {
+            var id = await connection.QuerySingleAsync<long>("SELECT id FROM deck_queue WHERE deck_id = @deckId;", new { deckId });
+            Assert.Equal(1, await repository.RemoveStoredDecksAsync([(id, DeckSkipReasons.Retention)]));
+            Assert.Equal(before.OrderBy(row => row.Key), (await repository.GetCategoryDeckCountsAsync("Sol Ring")).OrderBy(row => row.Key));
+            var payload = await connection.QuerySingleAsync<byte[]>("SELECT payload FROM deck_category_archive_manifest WHERE deck_queue_id = @id;", new { id });
+            var manifest = DeckCategoryArchiveManifest.Decode(1, payload);
+            var contribution = Assert.Single(manifest.Contributions);
+            Assert.Equal(scenario == "r3h1" && deckId == "711" ? 0 : 1, contribution.IncludedDeckCount);
+            Assert.Equal(1, contribution.FallbackDeckCount);
+            Assert.Equal(scenario == "aliases" ? 2 : contribution.IncludedDeckCount, contribution.IncludedLabelRows);
+        }
+    }
+
     [Fact]
     public void Manifest_RoundTrip_And_UnknownVersionThrows()
     {
@@ -98,7 +142,8 @@ public sealed class CategoryArchiveTests
         var totals = new (long CardId, string Board, int DeckCount)[] { (1, "mainboard", 2), (2, "sideboard", 3) };
         var contributions = new (long CardId, string CanonicalCategory, string Board, int IncludedDeckCount, int FallbackDeckCount, int IncludedLabelRows)[]
         {
-            (1, "ramp", "mainboard", 2, 3, 4)
+            (1, "ramp", "mainboard", 2, 3, 4),
+            (2, "artifact", "sideboard", 0, 1, 0)
         };
         var manifest = new DeckCategoryArchiveManifest(observations, totals, contributions);
         var payload = manifest.Encode();
