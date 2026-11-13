@@ -108,6 +108,10 @@ public sealed class DeckStatClassifierTests
     [InlineData("destroy all enchantments.", true)]
     [InlineData("each creature gets -1/-1 until end of turn.", true)]  // each creature + gets -
     [InlineData("exile all nonland permanents.", true)]
+    [InlineData("All creatures get -X/-X until end of turn.", true)]
+    [InlineData("Sickening Dreams deals X damage to each creature and each player.", true)]
+    [InlineData("Pestilence deals 1 damage to each creature and each player.", true)]
+    [InlineData("deals 3 damage to each creature your opponents control.", true)]
     public void IsBoardWipeCard_TrueCases(string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsBoardWipeCard(oracleText));
@@ -116,6 +120,10 @@ public sealed class DeckStatClassifierTests
     [Theory]
     [InlineData("destroy target creature.", false)]    // single-target, not a wipe
     [InlineData("exile target artifact.", false)]      // single-target
+    [InlineData("Creatures you control get -1/-1 until end of turn.", false)]
+    [InlineData("deals 2 damage to each creature you control.", false)]
+    [InlineData("deals 1 damage to each opponent.", false)]
+    [InlineData("All creatures get +1/+1 until end of turn.", false)]
     public void IsBoardWipeCard_FalseCases(string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsBoardWipeCard(oracleText));

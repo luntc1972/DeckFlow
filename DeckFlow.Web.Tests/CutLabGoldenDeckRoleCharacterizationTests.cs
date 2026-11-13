@@ -109,11 +109,9 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
             "Imp's Mischief",
             "Orim's Chant",
             "Reward the Faithful",
-            "Sickening Dreams",
             "Silence",
             "The Queen of Dale",
             "Tinybones, Pocket Nuisance",
-            "Toxic Deluge",
         ];
         string[] actual = facts
             .Where(fact => CutLabEnablersPass.Apply(families, fact.FrontOracleText, Assign(fact)).Contains("other") && !fact.TypeLine.Contains("Land", StringComparison.Ordinal))
@@ -159,7 +157,7 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
         Assert.Equal(ManabaseMode.Casual, Mode);
         Assert.Equal(129, facts.Count);
         Assert.Equal(106, nonlands.Length);
-        Assert.Equal(35, other.Length);
+        Assert.Equal(33, other.Length);
         Assert.Equal<string>(
         [
             "Bloodchief Ascension",
@@ -188,14 +186,12 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
             "Reward the Faithful",
             "Serra Ascendant",
             "Sheoldred, the Apocalypse",
-            "Sickening Dreams",
             "Silence",
             "Soul Warden",
             "Soul's Attendant",
             "Tendrils of Agony",
             "The Queen of Dale",
             "Tinybones, Pocket Nuisance",
-            "Toxic Deluge",
             "Zuran Orb"
         ], other);
     }
