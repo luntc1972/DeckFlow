@@ -21,6 +21,7 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 - **Roles:** a card's roles are edited from its card window; the separate role editor and Edit roles links are gone.
 - **Categories:** the By category view and category editing are removed; imported categories still export as imported.
 - **Fewer Scryfall lookups:** re-caching a pool no longer forgets cards already known to be missing, so they are not looked up again.
+- **Interaction audit:** the deck-analysis "Stax or taxation" bucket now also lists cards with continuing restriction or tax wording, not only named staples.
 
 ### Unreleased — Deck Tendencies profile crawls (2026-10-27)
 

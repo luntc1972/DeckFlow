@@ -2,7 +2,7 @@
 
 This corpus records the floor-less Cut Lab `stax` detector added in T2-S2.
 The source evidence is `DeckFlow.Web.Tests/Fixtures/CutLab/golden-niv-mizzet-ghost-counsel-facts.json`.
-Cut Lab passes the front oracle text to the detector. The stax name catalog is checked first; it includes Damping Sphere and the corrected name Thalia, Guardian of Thraben; the interaction audit reads the same name catalog (`InteractionAuditAggregator`), so both names now also appear in its stax and taxation bucket.
+Cut Lab passes the front oracle text to the detector. The stax name catalog is checked first; it includes Damping Sphere and the corrected name Thalia, Guardian of Thraben; the interaction audit uses `DeckStatClassifier.IsStaxCard` (the name catalog plus continuing-restriction and tax oracle needles), so both names and cards with matching continuing wording appear in its stax and taxation bucket.
 
 ## Corpus outcomes
 

@@ -60,7 +60,7 @@ public static class InteractionAuditAggregator
                 protectionRecursionConfident.Add(interactionCard);
             }
 
-            if (StaxProtectionCatalog.IsStax(name))
+            if (DeckStatClassifier.IsStaxCard(name, oracleText))
             {
                 staxTaxationConfident.Add(interactionCard);
             }

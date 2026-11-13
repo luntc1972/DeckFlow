@@ -32,6 +32,45 @@ public sealed class InteractionAuditAggregatorTests
     }
 
     [Fact]
+    public void Compute_NonCatalogContinuingTax_IncludesConfidentStaxWithoutGap()
+    {
+        var audit = InteractionAuditAggregator.Compute(new[]
+        {
+            Card(1, "Invented Continuing Tax", "Enchantment", "Spells your opponents cast cost {1} more to cast.", "{2}"),
+        });
+
+        Assert.Contains(audit.StaxTaxation.Confident, card => card.Name == "Invented Continuing Tax");
+        Assert.Empty(audit.StaxTaxation.Review);
+        Assert.DoesNotContain("no stax or taxation", audit.CoverageGaps);
+    }
+
+    [Fact]
+    public void Compute_NonCatalogTemporaryRestriction_ExcludesStaxAndReportsGap()
+    {
+        var audit = InteractionAuditAggregator.Compute(new[]
+        {
+            Card(1, "Invented Temporary Restriction", "Instant", "Your opponents can't cast spells this turn.", "{W}"),
+        });
+
+        Assert.Empty(audit.StaxTaxation.Confident);
+        Assert.Empty(audit.StaxTaxation.Review);
+        Assert.Contains("no stax or taxation", audit.CoverageGaps);
+    }
+
+    [Fact]
+    public void Compute_CatalogNameWithEmptyOracleText_IncludesConfidentStaxWithoutGap()
+    {
+        var audit = InteractionAuditAggregator.Compute(new[]
+        {
+            Card(1, "Winter Orb", "Artifact", "", "{2}"),
+        });
+
+        Assert.Contains(audit.StaxTaxation.Confident, card => card.Name == "Winter Orb");
+        Assert.Empty(audit.StaxTaxation.Review);
+        Assert.DoesNotContain("no stax or taxation", audit.CoverageGaps);
+    }
+
+    [Fact]
     public void Compute_SelfTargetCardLandsInTargetedRemovalReview()
     {
         var audit = InteractionAuditAggregator.Compute(new[]
