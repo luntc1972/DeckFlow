@@ -162,5 +162,4 @@ public static class ManabaseVerdictSynthesizer
             + colors[^1]
             + " all clear their Karsten source targets";
     }
-
 }

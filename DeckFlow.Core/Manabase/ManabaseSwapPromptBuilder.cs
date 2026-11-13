@@ -174,5 +174,4 @@ public static class ManabaseSwapPromptBuilder
             sb.AppendLine(ManabaseWording.BuildBudgetLine(budget));
         }
     }
-
 }

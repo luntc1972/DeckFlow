@@ -412,5 +412,4 @@ public static class ManabaseReportTextBuilder
             sb.AppendLine(ManabaseWording.BuildBudgetLine(budget));
         }
     }
-
 }

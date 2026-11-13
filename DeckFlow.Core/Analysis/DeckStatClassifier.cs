@@ -72,9 +72,6 @@ public static class DeckStatClassifier
     }
 
     /// <summary>
-    /// Removes parenthesised reminder text from rules text.
-    /// </summary>
-    /// <summary>
     /// Returns <see langword="true"/> when the card has you-anchored literal card draw (any count),
     /// or is clue/connive card-advantage (investigate/connive). Role-tally draw signal.
     /// </summary>
