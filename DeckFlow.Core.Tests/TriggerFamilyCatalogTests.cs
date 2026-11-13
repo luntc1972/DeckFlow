@@ -44,6 +44,8 @@ public sealed class TriggerFamilyCatalogTests
     [InlineData("Each time you gain life, draw a card.", false)]
     [InlineData("Creatures your opponents control lose lifelink.", false)]
     [InlineData("Target creature loses lifelink until end of turn.", false)]
+    [InlineData("Creatures without lifelink get -1/-1.", false)]
+    [InlineData("Each creature without lifelink deals damage equal to its power to itself.", false)]
     [InlineData("You gain control of target creature if its owner has less life than you.", false)]
     [InlineData("Creatures you control have lifelink.", true)]
     [InlineData("Target creature you control gains lifelink until end of turn.", true)]

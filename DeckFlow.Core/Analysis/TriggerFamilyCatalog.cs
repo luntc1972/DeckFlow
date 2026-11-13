@@ -83,7 +83,7 @@ public static partial class TriggerFamilyCatalog
     [GeneratedRegex(@"(?<!whenever )(?<!when )(?<!if )(?<!each time )\byou (?:may )?gain (?!control\b)(?:life\b|[^.,;:\r\n]*?\blife\b)", PatternOptions)]
     private static partial Regex GainLifeRegex();
 
-    [GeneratedRegex(@"(?<!lose )(?<!loses )\blifelink\b", PatternOptions)]
+    [GeneratedRegex(@"(?<!lose )(?<!loses )(?<!without )\blifelink\b", PatternOptions)]
     private static partial Regex LifelinkRegex();
 
     private static bool MatchesAny(string? oracleText, Regex[] patterns)

@@ -54,6 +54,7 @@ Additional repair must-not cases:
 
 - `Whenever you gain life, you may pay {1}. If you do, draw a card.` is a trigger condition only and supplies no life gain.
 - `You may pay 2 life.` offers a payment, not a life gain.
+- `without lifelink` is a rejected needle: referring to creatures without the keyword does not supply lifegain.
 
 ## Needles kept
 
