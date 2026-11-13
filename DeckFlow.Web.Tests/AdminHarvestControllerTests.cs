@@ -1626,12 +1626,13 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public async Task IndexView_Idle_RendersBackfillFormFirst()
+    public async Task IndexView_Idle_RendersPreviewRowThenBackfillFirst()
     {
         var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = HarvestMaintenanceStatus.Idle });
         var backfill = html.IndexOf("data-maintenance-operation=\"backfill\"", StringComparison.Ordinal);
         var preview = html.IndexOf("data-maintenance-operation=\"preview\"", StringComparison.Ordinal);
-        Assert.True(backfill >= 0 && backfill < preview);
+        var purge = html.IndexOf("data-maintenance-operation=\"purge\"", StringComparison.Ordinal);
+        Assert.True(preview >= 0 && preview < backfill && backfill < purge);
         Assert.Contains("name=\"confirmed\"", html[backfill..html.IndexOf("</form>", backfill, StringComparison.Ordinal)]);
     }
 
