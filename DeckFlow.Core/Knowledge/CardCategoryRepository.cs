@@ -56,12 +56,18 @@ internal sealed class CardCategoryRepository
 
         var categories = await connection.QueryAsync<string>(new CommandDefinition(
             """
-            SELECT o.category
-            FROM card_category_observations o
-            JOIN cards c ON c.id = o.card_id
-            WHERE c.normalized_card_name = @normalized
-            GROUP BY o.category
-            ORDER BY LOWER(o.category), o.category
+            SELECT category FROM (
+                SELECT o.category
+                FROM card_category_observations o
+                JOIN cards c ON c.id = o.card_id
+                WHERE c.normalized_card_name = @normalized
+                UNION
+                SELECT a.category
+                FROM card_category_archive a
+                JOIN cards c ON c.id = a.card_id
+                WHERE c.normalized_card_name = @normalized
+            ) labels
+            ORDER BY LOWER(category), category
             """,
             new { normalized = CardNormalizer.Normalize(cardName) },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
@@ -285,16 +291,16 @@ internal sealed class CardCategoryRepository
         => $"""
             SELECT s.normalized_card_name AS NormalizedCardName,
                    s.category AS Category,
-                   s.observation_rows AS ObservationRows
+                   s.observation_rows + s.archived_rows AS ObservationRows
             FROM (
-                SELECT c.normalized_card_name, s.card_id, s.category, s.observation_rows,
-                    MAX(s.observation_rows) OVER (PARTITION BY s.card_id) AS top_observation_rows
+                SELECT c.normalized_card_name, s.card_id, s.category, s.observation_rows, s.archived_rows,
+                    MAX(s.observation_rows + s.archived_rows) OVER (PARTITION BY s.card_id) AS top_observation_rows
                 FROM {summaryTable} s
                 JOIN cards c ON c.id = s.card_id
                 WHERE c.normalized_card_name {membershipOperator}
-                  AND s.observation_rows >= @minObservationRows
+                  AND s.observation_rows + s.archived_rows >= @minObservationRows
             ) s
-            WHERE CAST(s.observation_rows AS BIGINT) * @shareDenominator >= s.top_observation_rows
+            WHERE (CAST(s.observation_rows AS BIGINT) + s.archived_rows) * @shareDenominator >= s.top_observation_rows
             ORDER BY s.normalized_card_name, LOWER(s.category), s.category
             """;
 
@@ -319,6 +325,7 @@ internal sealed class CardCategoryRepository
     /// <param name="cardName">Card name to query.</param>
     /// <param name="boardFilter">Optional board name to filter the category rows.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
+    // Why: live-only; CategoryKnowledgeRepository has the single call site and no other caller consumes these rows.
     internal async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCardAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
@@ -592,6 +599,7 @@ internal sealed class CardCategoryRepository
             }
             var sourcesByDeck = sourceRows.GroupBy(row => row.DeckQueueId).ToDictionary(group => group.Key, group => group.Select(row => row.SourceId).ToArray());
             var coreHashes = new Dictionary<long, string?>();
+            var deltas = new CategoryWriteOrder();
             foreach (var candidate in candidates.Where(row => reasons[row.Id] == DeckSkipReasons.Retention))
             {
                 var sourceIds = sourcesByDeck[candidate.Id];
@@ -634,6 +642,10 @@ internal sealed class CardCategoryRepository
                         new { row.CardId, row.CanonicalCategory, row.Board, row.IncludedDeckCount, row.FallbackDeckCount, row.IncludedLabelRows },
                         transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 }
+                foreach (var row in observations)
+                {
+                    deltas.AddArchived(row.CardId, row.Category, 1);
+                }
                 var manifest = new DeckCategoryArchiveManifest(
                     observations.Select(row => (row.CardId, row.Category, row.Board, checked((int)row.DeckCount))).ToArray(),
                     totals.Select(row => (row.CardId, row.Board, checked((int)row.DeckCount))).ToArray(), contributions);
@@ -649,7 +661,6 @@ internal sealed class CardCategoryRepository
                     }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
             }
 
-            var deltas = new CategoryWriteOrder();
             foreach (var source in sourceRows.OrderBy(row => row.SourceId))
             {
                 await DeleteCategoryObservationsForSourceAsync(connection, transaction, source.SourceId, deltas, cancellationToken);
@@ -1174,27 +1185,17 @@ internal sealed class CardCategoryRepository
     private static async Task ApplySummaryDeltasAsync(
         DbConnection connection, DbTransaction transaction, CategoryWriteOrder deltas, CancellationToken cancellationToken)
     {
-        foreach (var (cardId, category, delta) in deltas.Deltas())
+        foreach (var (cardId, category, delta, archivedDelta) in deltas.SummaryDeltas())
         {
-            if (delta > 0)
-            {
-                var observationRows = await connection.QuerySingleAsync<int>(new CommandDefinition(
-                    "INSERT INTO card_category_summary (card_id, category, observation_rows) VALUES (@cardId, @category, @delta) " +
-                    "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = card_category_summary.observation_rows + @delta " +
-                    "RETURNING observation_rows;",
-                    new { cardId, category, delta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                await ApplyQualifiedSummaryRowAsync(connection, transaction, cardId, category, observationRows, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                var observationRows = await connection.QuerySingleOrDefaultAsync<int?>(new CommandDefinition(
-                    "UPDATE card_category_summary SET observation_rows = observation_rows + @delta WHERE card_id = @cardId AND category = @category RETURNING observation_rows;",
-                    new { cardId, category, delta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                await connection.ExecuteAsync(new CommandDefinition(
-                    "DELETE FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows <= 0;",
-                    new { cardId, category }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                await ApplyQualifiedSummaryRowAsync(connection, transaction, cardId, category, observationRows, cancellationToken).ConfigureAwait(false);
-            }
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO card_category_summary (card_id, category, observation_rows, archived_rows) VALUES (@cardId, @category, @delta, @archivedDelta) " +
+                "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = card_category_summary.observation_rows + @delta, " +
+                "archived_rows = card_category_summary.archived_rows + @archivedDelta;",
+                new { cardId, category, delta, archivedDelta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows + archived_rows <= 0;",
+                new { cardId, category }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await ApplyQualifiedSummaryRowAsync(connection, transaction, cardId, category, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -1203,21 +1204,18 @@ internal sealed class CardCategoryRepository
         DbTransaction transaction,
         long cardId,
         string category,
-        int? observationRows,
         CancellationToken cancellationToken)
     {
-        if (observationRows >= CategoryCacheSchema.DefaultMinObservationRows)
-        {
-            await connection.ExecuteAsync(new CommandDefinition(
-                "INSERT INTO card_category_qualified (card_id, category, observation_rows) VALUES (@cardId, @category, @observationRows) " +
-                "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = excluded.observation_rows;",
-                new { cardId, category, observationRows }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-            return;
-        }
-
         await connection.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM card_category_qualified WHERE card_id = @cardId AND category = @category;",
-            new { cardId, category }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            "INSERT INTO card_category_qualified (card_id, category, observation_rows, archived_rows) " +
+            "SELECT card_id, category, observation_rows, archived_rows FROM card_category_summary " +
+            "WHERE card_id = @cardId AND category = @category AND observation_rows + archived_rows >= @minRows " +
+            "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = excluded.observation_rows, archived_rows = excluded.archived_rows;",
+            new { cardId, category, minRows = CategoryCacheSchema.DefaultMinObservationRows }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM card_category_qualified WHERE card_id = @cardId AND category = @category AND NOT EXISTS " +
+            "(SELECT 1 FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows + archived_rows >= @minRows);",
+            new { cardId, category, minRows = CategoryCacheSchema.DefaultMinObservationRows }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     private static async Task UpsertCardDeckTotalAsync(

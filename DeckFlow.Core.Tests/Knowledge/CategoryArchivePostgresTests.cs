@@ -35,6 +35,9 @@ public sealed class CategoryArchivePostgresTests
     [CreatorSuppressionPostgresFact]
     public Task AliasRows_ArchiveMax_NotSum() => VerifyAsync(false, "aliases");
 
+    [CreatorSuppressionPostgresFact]
+    public Task RetentionDrain_AllFourCardReadersUnchanged_CommanderReadersDrop() => VerifyAsync(false, "readers");
+
     private static async Task VerifyAsync(bool ensureTwice, string? scenario = null)
     {
         var schema = $"category_archive_{Guid.NewGuid():N}";

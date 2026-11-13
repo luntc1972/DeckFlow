@@ -22,6 +22,7 @@ internal static class CategoryDeckCountAggregation
     internal static IReadOnlyDictionary<string, int> Read(IReadOnlyList<LiveRow> live, IReadOnlyList<ArchiveRow> archive)
     {
         var included = live.Any(row => Passes(row.Category, true)) || archive.Sum(row => row.IncludedLabelRows) > 0;
+        // Why: aliases in one source/card/board grain represent the same decks, so take their maximum before summing grains.
         var liveCounts = live.Where(row => Passes(row.Category, included))
             .GroupBy(row => (row.SourceId, row.CardId, row.Board, CanonicalCategory: CategoryCanonicalizer.CanonicalKey(row.Category)))
             .Select(group => (group.Key.CanonicalCategory, DeckCount: group.Max(row => row.DeckCount)));

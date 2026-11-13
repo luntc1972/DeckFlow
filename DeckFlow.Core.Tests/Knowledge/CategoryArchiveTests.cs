@@ -27,6 +27,77 @@ public sealed class CategoryArchiveTests
     [Fact]
     public Task AliasRows_ArchiveMax_NotSum() => WithArchiveSqliteAsync("aliases");
 
+    [Fact]
+    public Task AliasLabels_PreservedByGetCategoriesAsync() => WithArchiveSqliteAsync("labels");
+
+    [Fact]
+    public Task SummaryRowAllLiveDrained_StaysQualifiedViaArchivedRows() => WithArchiveSqliteAsync("summary");
+
+    [Fact]
+    public Task QualifiedThreshold_CrossesFiveThroughArchivedRowsOnly() => WithArchiveSqliteAsync("threshold");
+
+    [Fact]
+    public Task RetentionDrain_AllFourCardReadersUnchanged_CommanderReadersDrop() => WithArchiveSqliteAsync("readers");
+
+    private static async Task VerifyCardReadersAsync(DbConnection connection, CategoryKnowledgeRepository repository, string scenario)
+    {
+        async Task AddAsync(int id)
+        {
+            var deckId = id.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await repository.AddDeckIdsAsync([deckId]);
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId,
+            new DeckEntry[]
+            {
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = scenario == "labels" && id == 711 ? "ramp" : "Ramp" },
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "sideboard", Category = "Ramp" }
+            }.Where(entry => scenario != "threshold" || entry.Board == "mainboard").ToArray());
+            await repository.MarkDeckProcessedAsync(deckId, "Test Commander", skip: false);
+        }
+        async Task DrainAsync()
+        {
+            await repository.RunStoredLiveRowsBackfillBatchAsync(100);
+            var ids = await connection.QueryAsync<long>("SELECT id FROM deck_queue WHERE has_stored_live_rows = 1;");
+            await repository.RemoveStoredDecksAsync(ids.Select(id => (id, DeckSkipReasons.Retention)).ToArray());
+        }
+        var count = scenario == "threshold" ? 4 : 5;
+        for (var id = 711; id < 711 + count; id++)
+        {
+            await AddAsync(id);
+        }
+        var labels = await repository.GetCategoriesAsync("Sol Ring");
+        var counts = await repository.GetCategoryDeckCountsAsync("Sol Ring");
+        var totals = await repository.GetCardDeckTotalsAsync("Sol Ring");
+        var qualified = await repository.GetCategoriesForNamesAsync(["Sol Ring"]);
+        var commanderRows = await repository.GetCategoryRowsForCommanderAsync("Test Commander");
+        var membership = await repository.GetCategoryDeckMembershipForCommanderAsync("Test Commander");
+        Assert.Equal(count, (await repository.GetGlobalCategoryBaselineAsync()).TotalDecks);
+        Assert.NotEmpty(commanderRows);
+        Assert.NotEmpty(membership);
+        await DrainAsync();
+        if (scenario == "threshold")
+        {
+            Assert.Empty((await repository.GetCategoriesForNamesAsync(["Sol Ring"]))["Sol Ring"]);
+            await AddAsync(720);
+            Assert.Contains("Ramp", (await repository.GetCategoriesForNamesAsync(["Sol Ring"]))["Sol Ring"]);
+            await DrainAsync();
+        }
+        else
+        {
+            Assert.Equal(labels, await repository.GetCategoriesAsync("Sol Ring"));
+            Assert.Equal(counts.OrderBy(row => row.Key), (await repository.GetCategoryDeckCountsAsync("Sol Ring")).OrderBy(row => row.Key));
+            var afterTotals = await repository.GetCardDeckTotalsAsync("Sol Ring");
+            Assert.Equal(totals.TotalDeckCount, afterTotals.TotalDeckCount);
+            Assert.Equal(totals.BoardDeckCounts.OrderBy(row => row.Key), afterTotals.BoardDeckCounts.OrderBy(row => row.Key));
+            var afterQualified = await repository.GetCategoriesForNamesAsync(["Sol Ring"]);
+            Assert.Equal(qualified["Sol Ring"], afterQualified["Sol Ring"]);
+        }
+        Assert.Equal(0, (await repository.GetGlobalCategoryBaselineAsync()).TotalDecks);
+        Assert.Empty(await repository.GetCategoryRowsForCommanderAsync("Test Commander"));
+        Assert.Empty(await repository.GetCategoryDeckMembershipForCommanderAsync("Test Commander"));
+        Assert.Equal(0, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM card_category_summary WHERE observation_rows <> 0;"));
+        Assert.Equal(scenario == "threshold" ? 5 : 10, await connection.ExecuteScalarAsync<long>("SELECT SUM(archived_rows) FROM card_category_summary;"));
+    }
+
     private static async Task WithArchiveSqliteAsync(string scenario)
     {
         var path = Path.Combine(Path.GetTempPath(), $"archive_drain_{Guid.NewGuid():N}.db");
@@ -48,6 +119,11 @@ public sealed class CategoryArchiveTests
     {
         var repository = new CategoryKnowledgeRepository(info);
         await repository.EnsureSchemaAsync();
+        if (scenario is "labels" or "summary" or "threshold" or "readers")
+        {
+            await VerifyCardReadersAsync(connection, repository, scenario);
+            return;
+        }
         if (scenario is "r3h1" or "aliases")
         {
             await VerifyDeckCountsAsync(connection, repository, scenario);
