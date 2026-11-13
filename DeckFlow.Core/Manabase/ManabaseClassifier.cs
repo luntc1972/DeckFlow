@@ -565,7 +565,7 @@ public static class ManabaseClassifier
         bool restrictedLands,
         CreatureComposition creatureComposition)
     {
-        string text = ReminderTextRegex.Replace(card.OracleText ?? string.Empty, string.Empty);
+        string text = OracleText.StripReminderText(card.OracleText ?? string.Empty);
         if (text.Length == 0)
         {
             return new LandSourceClassification
@@ -901,13 +901,9 @@ public static class ManabaseClassifier
             return false;
         }
 
-        string text = ReminderTextRegex.Replace(rawText, string.Empty);
+        string text = OracleText.StripReminderText(rawText);
         return ScryRegex.IsMatch(text);
     }
-
-    // Strips parenthesized reminder text ("(Treasure tokens are artifacts with ... Add one mana
-    // of any color.)") so token reminder wording never reads as the card's own mana ability.
-    private static readonly Regex ReminderTextRegex = new(@"\([^)]*\)", RegexOptions.Compiled);
 
     // Token effects must match without relying on their stripped reminder text.
     private const string TokenCountPattern = @"(?:a|one|two|three|four|five|six|seven|eight|nine|ten|x|that\s+many|a\s+number\s+of|[0-9]+)";
@@ -1114,7 +1110,7 @@ public static class ManabaseClassifier
             return null;
         }
 
-        string normalizedText = ReminderTextRegex.Replace(text, string.Empty);
+        string normalizedText = OracleText.StripReminderText(text);
 
         // Instant/sorcery rituals with any Sacrifice clause carry an additional cost or downside
         // the sim cannot model, so exclude them conservatively per SPEC §3.1.
@@ -1173,7 +1169,7 @@ public static class ManabaseClassifier
             return false;
         }
 
-        text = ReminderTextRegex.Replace(text, string.Empty);
+        text = OracleText.StripReminderText(text);
         foreach (string rawLine in text.Split('\n'))
         {
             // Quoted grants that include the card itself count as its own (conditional) mana
@@ -1386,7 +1382,7 @@ public static class ManabaseClassifier
             return true;
         }
 
-        string text = ReminderTextRegex.Replace(card.OracleText ?? string.Empty, string.Empty);
+        string text = OracleText.StripReminderText(card.OracleText ?? string.Empty);
         return text.Contains("{C}", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -1552,7 +1548,7 @@ public static class ManabaseClassifier
             return false;
         }
 
-        text = ReminderTextRegex.Replace(text, string.Empty);
+        text = OracleText.StripReminderText(text);
         // Anchor to the shockland replacement template ("you may pay N life. If you don't, it enters
         // tapped"). A bare "pay N life" would misfire on always-tapped lands with a life-payment
         // ACTIVATED ability (Boseiju Who Shelters All, Hall of the Bandit Lord, Untaidake) — those use
@@ -1570,7 +1566,7 @@ public static class ManabaseClassifier
     private static bool IsBondLand(CardFact card)
     {
         string? text = card.OracleText;
-        return text is not null && BondLandRegex.IsMatch(ReminderTextRegex.Replace(text, string.Empty));
+        return text is not null && BondLandRegex.IsMatch(OracleText.StripReminderText(text));
     }
 
     // The named basic land types a check land or Snarl keys off ("a Plains or an Island" / "reveal an
@@ -1585,7 +1581,7 @@ public static class ManabaseClassifier
             return Array.Empty<string>();
         }
 
-        text = ReminderTextRegex.Replace(text, string.Empty);
+        text = OracleText.StripReminderText(text);
         Match clause = Match.Empty;
         foreach (Regex template in ConditionalTypeTemplates)
         {
@@ -1863,7 +1859,7 @@ public static class ManabaseClassifier
             return false;
         }
 
-        text = ReminderTextRegex.Replace(text, string.Empty);
+        text = OracleText.StripReminderText(text);
         foreach (string line in text.Split('\n'))
         {
             int add = line.IndexOf("Add ", StringComparison.OrdinalIgnoreCase);
