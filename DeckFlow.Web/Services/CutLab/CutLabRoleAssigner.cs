@@ -70,10 +70,10 @@ public static class CutLabRoleAssigner
             ["engines"] = "Engines",
             ["payoffs"] = "Payoffs",
             ["wincons"] = "Win conditions",
-            ["recursion"] = "Recursion",
-            [StaxRole] = "Stax",
-            ["other"] = "Other",
-        };
+        }.Concat(CutLabRoleKeys.FloorlessRegistry.Select(entry =>
+            new KeyValuePair<string, string>(entry.Key, entry.Label)))
+        .Append(new KeyValuePair<string, string>("other", "Other"))
+        .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
 
     /// <summary>Maps the Cut Lab play-experience string to the shared classifier mode.</summary>
     /// <param name="playExperience">User-selected play-experience label.</param>

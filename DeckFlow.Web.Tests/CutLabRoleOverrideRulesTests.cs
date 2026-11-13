@@ -7,6 +7,40 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabRoleOverrideRulesTests
 {
     [Fact]
+    public void FloorlessRegistry_Entries_HaveDistinctLabelsUsedByAssigner()
+    {
+        foreach (var entry in CutLabRoleKeys.FloorlessRegistry)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(entry.Label));
+            Assert.NotEqual(entry.Key, entry.Label);
+            Assert.Equal(entry.Label, CutLabRoleAssigner.DisplayLabelFor(entry.Key));
+        }
+    }
+
+    [Fact]
+    public void FloorlessRegistry_Keys_PreserveLiteralOrder()
+    {
+        Assert.Equal(new[] { "recursion", "stax" }, CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key));
+        Assert.Equal(CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key), CutLabRoleKeys.Floorless);
+    }
+
+    [Theory]
+    [InlineData("recursion", "Recursion")]
+    [InlineData("stax", "Stax")]
+    public void FloorlessRegistry_KnownRole_PreservesLiteralLabel(string key, string label)
+    {
+        Assert.Equal(label, Assert.Single(CutLabRoleKeys.FloorlessRegistry, entry => entry.Key == key).Label);
+        Assert.Equal(label, CutLabRoleAssigner.DisplayLabelFor(key));
+    }
+
+    [Fact]
+    public void RoleKeys_FloorRoles_PreserveLiteralOrder()
+    {
+        Assert.Equal(new[] { "lands", "ramp", "draw", "interaction-targeted", "interaction-mass",
+            "protection", "engines", "payoffs", "wincons", "tutor" }, CutLabFloorRules.RoleKeys);
+    }
+
+    [Fact]
     public void RoleKeys_DisplayAndCanonicalOrder_PreserveExistingOrderAndSingleFloorlessSet()
     {
         Assert.Equal(CutLabFloorRules.RoleKeys.Concat(CutLabRoleKeys.Floorless).Append("other"), CutLabRoleKeys.Display);
