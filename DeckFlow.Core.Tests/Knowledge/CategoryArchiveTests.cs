@@ -98,6 +98,98 @@ public sealed class CategoryArchiveTests
         Assert.Equal(scenario == "threshold" ? 5 : 10, await connection.ExecuteScalarAsync<long>("SELECT SUM(archived_rows) FROM card_category_summary;"));
     }
 
+    [Fact]
+    public Task Reentry_ListingRefresh_UnarchivesAndWritesLive_NoDeckHasBoth() => WithArchiveSqliteAsync("reentry");
+
+    [Fact]
+    public Task Reentry_CanonicalizationChanged_RestoresExactly() => WithArchiveSqliteAsync("canonical");
+
+    [Fact]
+    public Task DrainThenRemoveArchived_ArchiveEqualsPreDrain() => WithArchiveSqliteAsync("remove");
+
+    [Fact]
+    public Task FaultMidUnarchive_RollsBackAll() => WithArchiveSqliteAsync("fault");
+
+    internal static async Task VerifyReentryAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
+    {
+        var repository = new CategoryKnowledgeRepository(info);
+        await repository.EnsureSchemaAsync();
+        await repository.AddDeckIdsAsync(["719"]);
+        const string source = "archidekt_live:719";
+        DeckEntry[] entries =
+        [
+            new() { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = "Ramp" },
+            new() { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "sideboard", Category = "Artifact" }
+        ];
+        foreach (var deckId in new[] { "720", "721", "722", "723", "718" })
+        {
+            await repository.AddDeckIdsAsync([deckId]);
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId, entries);
+            await repository.MarkDeckProcessedAsync(deckId, "Test Commander", skip: false);
+        }
+        if (scenario != "canonical")
+        {
+            var baselineId = await connection.QuerySingleAsync<long>("SELECT id FROM deck_queue WHERE deck_id = '718';");
+            Assert.Equal(1, await repository.RemoveStoredDecksAsync([(baselineId, DeckSkipReasons.Retention)]));
+        }
+        var tables = new[] { "card_deck_totals_archive", "card_category_archive", "card_category_deck_archive", "deck_category_archive_manifest" };
+        var before = new List<string>();
+        foreach (var table in tables)
+        {
+            before.Add(await ReadSnapshotAsync(connection, table));
+        }
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, source, entries);
+        await repository.MarkDeckProcessedAsync("719", "Test Commander", skip: false);
+        var id = await connection.QuerySingleAsync<long>("SELECT id FROM deck_queue WHERE deck_id = '719';");
+        Assert.Equal(1, await repository.RemoveStoredDecksAsync([(id, DeckSkipReasons.Retention)]));
+        if (scenario == "canonical")
+        {
+            // Why: a recorded key that today's canonicalizer would not produce proves exact reversal.
+            await connection.ExecuteAsync("UPDATE card_category_deck_archive SET canonical_category = 'historical-key';");
+            var row = await connection.QuerySingleAsync<(int Version, byte[] Payload)>("SELECT format_version, payload FROM deck_category_archive_manifest;");
+            var manifest = DeckCategoryArchiveManifest.Decode(row.Version, row.Payload);
+            var changed = manifest with { Contributions = manifest.Contributions.Select(value => (value.CardId, "historical-key", value.Board, value.IncludedDeckCount, value.FallbackDeckCount, value.IncludedLabelRows)).ToArray() };
+            await connection.ExecuteAsync("UPDATE deck_category_archive_manifest SET payload = @payload;", new { payload = changed.Encode() });
+        }
+        if (scenario == "remove")
+        {
+            await repository.RemoveArchivedDecksAsync([(id, DeckSkipReasons.NotCommanderFormat)]);
+            Assert.Equal(DeckSkipReasons.NotCommanderFormat, await connection.QuerySingleAsync<string>("SELECT skip_reason FROM deck_queue WHERE id = @id;", new { id }));
+            Assert.Null(await connection.ExecuteScalarAsync<string?>("SELECT retention_core_hash FROM deck_queue WHERE id = @id;", new { id }));
+        }
+        else if (scenario == "fault")
+        {
+            var cardRepository = (CardCategoryRepository)typeof(CategoryKnowledgeRepository).GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(repository)!;
+            var snapshots = new List<string>();
+            var rollbackTables = tables.Concat(new[] { "card_category_summary", "card_category_qualified", "card_category_observations", "card_deck_totals", "deck_queue" }).ToArray();
+            foreach (var table in rollbackTables)
+            {
+                snapshots.Add(await ReadSnapshotAsync(connection, table));
+            }
+            cardRepository.UnarchiveFault = () => throw new InvalidOperationException("Injected unarchive fault");
+            await Assert.ThrowsAsync<InvalidOperationException>(() => DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, source, entries));
+            for (var index = 0; index < rollbackTables.Length; index++)
+            {
+                Assert.Equal(snapshots[index], await ReadSnapshotAsync(connection, rollbackTables[index]));
+            }
+            return;
+        }
+        else
+        {
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, source, entries);
+            Assert.Equal(0, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM deck_category_archive_manifest m JOIN sources s ON s.deck_queue_id = m.deck_queue_id WHERE EXISTS (SELECT 1 FROM card_category_observations o WHERE o.source_id = s.id) OR EXISTS (SELECT 1 FROM card_deck_totals t WHERE t.source_id = s.id);"));
+            Assert.Equal(2, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM card_category_observations o JOIN sources s ON s.id = o.source_id WHERE s.source = @source;", new { source }));
+        }
+        for (var index = 0; index < tables.Length; index++)
+        {
+            Assert.Equal(before[index], await ReadSnapshotAsync(connection, tables[index]));
+        }
+        var expectedArchived = scenario == "canonical" ? 0 : 2;
+        Assert.Equal(expectedArchived, await connection.ExecuteScalarAsync<long>("SELECT COALESCE(SUM(archived_rows), 0) FROM card_category_summary;"));
+        Assert.Equal(expectedArchived, await connection.ExecuteScalarAsync<long>("SELECT COALESCE(SUM(archived_rows), 0) FROM card_category_qualified;"));
+        Assert.Equal(2, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM card_category_qualified;"));
+    }
+
     private static async Task WithArchiveSqliteAsync(string scenario)
     {
         var path = Path.Combine(Path.GetTempPath(), $"archive_drain_{Guid.NewGuid():N}.db");
@@ -117,6 +209,11 @@ public sealed class CategoryArchiveTests
 
     internal static async Task VerifyDrainAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
     {
+        if (scenario is "reentry" or "canonical" or "remove" or "fault")
+        {
+            await VerifyReentryAsync(connection, info, scenario);
+            return;
+        }
         var repository = new CategoryKnowledgeRepository(info);
         await repository.EnsureSchemaAsync();
         if (scenario is "labels" or "summary" or "threshold" or "readers")

@@ -18,6 +18,9 @@ public sealed class CategoryKnowledgeRepository
     private readonly DeckQueueRepository _deckQueue;
     private readonly CardCategoryRepository _cardCategory;
 
+    internal Task RemoveArchivedDecksAsync(IReadOnlyList<(long DeckQueueId, string SkipReason)> decks, CancellationToken cancellationToken = default)
+        => _cardCategory.RemoveArchivedDecksAsync(decks, cancellationToken);
+
     /// <summary>
     /// Initializes the repository for the provided SQLite database path.
     /// </summary>

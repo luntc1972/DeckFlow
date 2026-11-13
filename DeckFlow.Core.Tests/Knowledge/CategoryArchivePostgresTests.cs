@@ -38,6 +38,18 @@ public sealed class CategoryArchivePostgresTests
     [CreatorSuppressionPostgresFact]
     public Task RetentionDrain_AllFourCardReadersUnchanged_CommanderReadersDrop() => VerifyAsync(false, "readers");
 
+    [CreatorSuppressionPostgresFact]
+    public Task Reentry_ListingRefresh_UnarchivesAndWritesLive_NoDeckHasBoth() => VerifyAsync(false, "reentry");
+
+    [CreatorSuppressionPostgresFact]
+    public Task Reentry_CanonicalizationChanged_RestoresExactly() => VerifyAsync(false, "canonical");
+
+    [CreatorSuppressionPostgresFact]
+    public Task DrainThenRemoveArchived_ArchiveEqualsPreDrain() => VerifyAsync(false, "remove");
+
+    [CreatorSuppressionPostgresFact]
+    public Task FaultMidUnarchive_RollsBackAll() => VerifyAsync(false, "fault");
+
     private static async Task VerifyAsync(bool ensureTwice, string? scenario = null)
     {
         var schema = $"category_archive_{Guid.NewGuid():N}";
