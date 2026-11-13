@@ -213,23 +213,28 @@ else
             }
         </ul>
     </div>
-    @if (Model.Maintenance.IsRunning)
-    {
-        <form method="post" asp-action="MaintenanceStop" class="admin-action-form" data-maintenance-operation="stop">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Stop</button></form>
-    }
-    <form method="post" asp-action="MaintenanceBackfill" class="admin-action-form" data-maintenance-operation="backfill" data-maintenance-label="@DeckFlow.Web.Services.Harvest.HarvestMaintenanceStatusText.Label(DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Backfill)">
-        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Marker backfill</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Marker backfill</button>
-    </form>
-    <form method="post" asp-action="MaintenancePreview" class="admin-action-form" data-maintenance-operation="preview">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Preview</button></form>
-    <form method="post" asp-action="MaintenancePurge" class="admin-action-form" data-maintenance-operation="purge" data-maintenance-label="@DeckFlow.Web.Services.Harvest.HarvestMaintenanceStatusText.Label(DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Purge)">
-        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Purge</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Purge</button>
-    </form>
-    <form method="post" asp-action="MaintenanceDrain" class="admin-action-form" data-maintenance-operation="drain" data-maintenance-label="@DeckFlow.Web.Services.Harvest.HarvestMaintenanceStatusText.Label(DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain)">
-        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Retention drain</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Retention drain</button>
-    </form>
-    <form method="post" asp-action="MaintenanceRefetch" class="admin-action-form" data-maintenance-operation="refetch" data-maintenance-label="@DeckFlow.Web.Services.Harvest.HarvestMaintenanceStatusText.Label(DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Refetch)">
-        @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Refetch</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Refetch</button>
-    </form>
+    <div class="admin-maintenance__preview">
+        @if (Model.Maintenance.IsRunning)
+        {
+            <form method="post" asp-action="MaintenanceStop" class="admin-action-form" data-maintenance-operation="stop">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Stop</button></form>
+        }
+        <form method="post" asp-action="MaintenancePreview" class="admin-action-form" data-maintenance-operation="preview">@Html.AntiForgeryToken()<button class="admin-button" type="submit">Preview</button></form>
+        <span class="admin-maintenance__hint">Counts only; changes nothing.</span>
+    </div>
+    <div class="admin-maintenance__actions">
+        <form method="post" asp-action="MaintenanceBackfill" class="admin-action-form" data-maintenance-operation="backfill" data-maintenance-label="@DeckFlow.Web.Services.Harvest.HarvestMaintenanceStatusText.Label(DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Backfill)">
+            @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Marker backfill</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Marker backfill</button>
+        </form>
+        <form method="post" asp-action="MaintenancePurge" class="admin-action-form" data-maintenance-operation="purge" data-maintenance-label="@DeckFlow.Web.Services.Harvest.HarvestMaintenanceStatusText.Label(DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Purge)">
+            @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Purge</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Purge</button>
+        </form>
+        <form method="post" asp-action="MaintenanceDrain" class="admin-action-form" data-maintenance-operation="drain" data-maintenance-label="@DeckFlow.Web.Services.Harvest.HarvestMaintenanceStatusText.Label(DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Drain)">
+            @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Retention drain</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Retention drain</button>
+        </form>
+        <form method="post" asp-action="MaintenanceRefetch" class="admin-action-form" data-maintenance-operation="refetch" data-maintenance-label="@DeckFlow.Web.Services.Harvest.HarvestMaintenanceStatusText.Label(DeckFlow.Web.Services.Harvest.HarvestMaintenanceOperation.Refetch)">
+            @Html.AntiForgeryToken()<label><input type="checkbox" name="confirmed" value="true" /> Confirm Refetch</label><button class="admin-button admin-button--primary" type="submit" disabled="@(Model.Maintenance.IsRunning ? "disabled" : null)">Refetch</button>
+        </form>
+    </div>
 </section>
 
 <details id="harvest-import-panel" class="admin-card">

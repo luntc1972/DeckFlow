@@ -57,6 +57,11 @@
     margin-bottom: var(--space-sm);
   }
 
+  .admin-shell .admin-maintenance__actions input[type="checkbox"] {
+    width: auto;
+    margin-bottom: 0;
+  }
+
   .admin-shell .admin-action-form button {
     width: 100%;
   }

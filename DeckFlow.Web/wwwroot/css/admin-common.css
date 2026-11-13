@@ -256,6 +256,14 @@ a:hover { text-decoration: underline; }
 .admin-shell .admin-flags__desc { font-variant-numeric: normal; max-width: 46ch; white-space: normal; color: var(--muted, inherit); font-size: var(--text-label); line-height: var(--text-label-leading); }
 
 .admin-shell .admin-action-form { display: inline; }
+.admin-shell .admin-maintenance__preview,
+.admin-shell .admin-maintenance__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-md); }
+.admin-shell .admin-maintenance__preview { margin-top: var(--space-md); }
+.admin-shell .admin-maintenance__actions { margin-top: var(--space-lg); }
+.admin-shell .admin-maintenance__actions .admin-action-form { display: inline-flex; align-items: center; gap: var(--space-sm); }
+.admin-shell .admin-maintenance__actions label { display: inline-flex; align-items: center; min-height: 44px; gap: var(--space-xs); }
+.admin-shell .admin-maintenance__actions input[type="checkbox"] { min-height: 0; }
+.admin-shell .admin-maintenance__hint { color: var(--muted, inherit); font-size: var(--text-label); }
 .admin-shell .admin-harvest__export-form { display: inline-block; margin-left: var(--space-sm); }
 
 @media (max-width: 640px) {
