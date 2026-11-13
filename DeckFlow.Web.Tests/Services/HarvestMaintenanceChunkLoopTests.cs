@@ -109,7 +109,7 @@ public sealed class HarvestMaintenanceChunkLoopTests
         {
             calls++;
             return Task.FromResult(new DeckPruningResult(3, 2, DeckPruningStopReason.DiskProbeUnavailable));
-        }, new Progress<int>(progress.Add), Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, default);
+        }, new SynchronousProgress(progress), Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, default);
 
         Assert.Equal(1, calls);
         Assert.Equal(3, outcome.DecksAffected);
@@ -117,6 +117,14 @@ public sealed class HarvestMaintenanceChunkLoopTests
         Assert.Equal(DeckPruningStopReason.DiskProbeUnavailable, outcome.StopReason);
         Assert.Equal([3], progress);
         Assert.Equal(1, gate.CurrentCount);
+    }
+
+    private sealed class SynchronousProgress(List<int> values) : IProgress<int>
+    {
+        public void Report(int value)
+        {
+            values.Add(value);
+        }
     }
 
     private sealed class RecordingProgress(List<int> values, SemaphoreSlim gate) : IProgress<int>

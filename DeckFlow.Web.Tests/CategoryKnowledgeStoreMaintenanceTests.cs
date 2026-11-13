@@ -42,7 +42,7 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         await SeedStoredDeckAsync(repository, "missing-two", null, 3);
 
         var progress = new List<int>();
-        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge, new Progress<int>(progress.Add));
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Purge, new SynchronousProgress(progress));
 
         Assert.Equal(4, outcome.DecksAffected);
         Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
@@ -65,7 +65,7 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         Assert.Equal(new DeckState(1, 1, "retention", null), await ReadDeckStateAsync(store, "refresh-oldest"));
 
         var progress = new List<int>();
-        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, new Progress<int>(progress.Add));
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, new SynchronousProgress(progress));
 
         Assert.Equal(2, outcome.DecksAffected);
         Assert.Equal(0, outcome.Batches);
@@ -167,7 +167,7 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         await SeedTracerAsync(store);
         var progress = new List<int>();
 
-        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain, new Progress<int>(progress.Add));
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain, new SynchronousProgress(progress));
 
         Assert.Equal(0, outcome.DecksAffected);
         Assert.Equal(DeckPruningStopReason.DiskFloor, outcome.StopReason);
@@ -359,6 +359,14 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
     }
 
     private sealed record DeckState(int Processed, int Skipped, string? SkipReason, string? RefreshRequestedUtc);
+
+    private sealed class SynchronousProgress(List<int> values) : IProgress<int>
+    {
+        public void Report(int value)
+        {
+            values.Add(value);
+        }
+    }
 
     private sealed class PausingProgress(TaskCompletionSource firstReport, TaskCompletionSource resume) : IProgress<int>
     {
