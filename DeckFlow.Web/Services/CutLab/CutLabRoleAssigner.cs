@@ -214,8 +214,8 @@ public static class CutLabRoleAssigner
             assigned.Add(RecursionRole);
         }
 
-        if (DeckStatClassifier.IsStaxCard(fact.Name, oracle)
-            || categories.Contains(StaxRole, StringComparer.OrdinalIgnoreCase))
+        if (categories.Contains(StaxRole, StringComparer.OrdinalIgnoreCase)
+            || DeckStatClassifier.IsStaxCard(fact.Name, oracle))
         {
             assigned.Add(StaxRole);
         }

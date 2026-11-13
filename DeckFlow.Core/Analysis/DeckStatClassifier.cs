@@ -116,23 +116,30 @@ public static class DeckStatClassifier
             || oracleText.Contains("each creature", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("gets -", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("exile all", StringComparison.OrdinalIgnoreCase);
 
-    // Authority, Blind Obedience, Dismantler: opponents' permanents enter tapped.
-    // Linvala / Drana and Linvala: opponents' creature abilities cannot be activated.
-    // Voice of Victory: opponents cannot cast during your turn; synthetic spell limits.
-    // Defense Grid and synthetic opponent taxes: tax needles require "more to cast", excluding reducers.
-    // Rejected: bare "enters tapped", self-costs, life-loss triggers, extra-turn replacement,
-    // and temporary "this turn" / "until end of turn" / "until your next turn" restrictions.
-    private static readonly (string Text, bool IsTax)[] StaxOracleNeedles =
+    // Reject temporary restrictions and self-cost wordings; tax needles require "more to cast".
+    // Per-card corpus: docs/research/stax-vocabulary-corpus-2026-11.md.
+    private static readonly string[] StaxRestrictionNeedles =
     [
-        ("your opponents control enter tapped", false),
-        ("your opponents control can't be activated", false),
-        ("your opponents can't cast", false),
-        ("your opponents can't activate", false),
-        ("spells cost {", true),
-        ("each spell costs", true),
-        ("spells your opponents cast cost", true),
-        ("each player can't cast more than", false),
-        ("each player can cast only", false),
+        "your opponents control enter tapped",
+        "your opponents control can't be activated",
+        "your opponents can't cast",
+        "your opponents can't activate",
+        "each player can't cast more than",
+        "each player can cast only",
+    ];
+
+    private static readonly string[] StaxTaxNeedles =
+    [
+        "spells cost {",
+        "each spell costs",
+        "spells your opponents cast cost",
+    ];
+
+    private static readonly string[] StaxTemporaryDurationMarkers =
+    [
+        "this turn",
+        "until end of turn",
+        "until your next turn",
     ];
 
     /// <summary>Returns whether a catalog staple or continuing opponent restriction supplies stax.</summary>
@@ -150,20 +157,16 @@ public static class DeckStatClassifier
 
         foreach (string sentence in oracleText.Split(['.', '\n', ';']))
         {
-            if (sentence.Contains("this turn", StringComparison.OrdinalIgnoreCase)
-                || sentence.Contains("until end of turn", StringComparison.OrdinalIgnoreCase)
-                || sentence.Contains("until your next turn", StringComparison.OrdinalIgnoreCase))
+            if (ContainsAny(sentence, StaxTemporaryDurationMarkers))
             {
                 continue;
             }
 
-            foreach ((string needle, bool isTax) in StaxOracleNeedles)
+            if (ContainsAny(sentence, StaxRestrictionNeedles)
+                || ContainsAny(sentence, StaxTaxNeedles)
+                    && sentence.Contains("more to cast", StringComparison.OrdinalIgnoreCase))
             {
-                if (sentence.Contains(needle, StringComparison.OrdinalIgnoreCase)
-                    && (!isTax || sentence.Contains("more to cast", StringComparison.OrdinalIgnoreCase)))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
