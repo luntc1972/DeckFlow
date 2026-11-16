@@ -113,13 +113,24 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
             return null;
         }
 
-        var sentNames = await ResolveSentNamesAsync(main, cancellationToken).ConfigureAwait(false);
+        IReadOnlyDictionary<string, string> sentNames;
+        try
+        {
+            sentNames = await ResolveSentNamesAsync(main, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Why: Caller cancellation returns null, as it already does during the Spellbook POST.
+            return null;
+        }
         commanders = commanders
             .Select(n => sentNames.TryGetValue(n, out var sentName) && !string.IsNullOrWhiteSpace(sentName) ? sentName : n)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
         main = main
             .Select(n => sentNames.TryGetValue(n, out var sentName) && !string.IsNullOrWhiteSpace(sentName) ? sentName : n)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -174,6 +185,10 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         try
         {
             return await _canonicalCardNameResolver.ResolveCanonicalNamesAsync(names, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
