@@ -6,7 +6,6 @@ using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
 using DeckFlow.Core.Models;
-using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -834,7 +833,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
     {
         return entries.Select(entry =>
             oracleNameMap.TryGetValue(entry.Name.Trim(), out var canonical) && !string.IsNullOrWhiteSpace(canonical)
-                ? entry with { Name = canonical, NormalizedName = CardNormalizer.Normalize(canonical) }
+                ? entry with { Name = canonical }
                 : entry).ToList();
     }
 

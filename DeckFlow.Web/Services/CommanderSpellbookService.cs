@@ -134,7 +134,7 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         CommanderSpellbookResult? result;
         try
         {
-            result = ParseResponse(responseJson, new HashSet<string>(main.Select(CardNormalizer.Normalize), StringComparer.Ordinal));
+            result = ParseResponse(responseJson, main);
         }
         catch (Exception ex)
         {
@@ -170,9 +170,10 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
 
     /// <summary>Parses combos while preserving Spellbook's original card names.</summary>
     /// <param name="json">The Spellbook response JSON.</param>
-    /// <param name="deckCardNames">Owned card keys produced by <see cref="CardNormalizer.Normalize"/>.</param>
-    internal static CommanderSpellbookResult? ParseResponse(string json, HashSet<string> deckCardNames)
+    /// <param name="deckCardNames">Raw owned card names, normalized internally with <see cref="CardNormalizer.Normalize"/>.</param>
+    internal static CommanderSpellbookResult? ParseResponse(string json, IReadOnlyList<string> deckCardNames)
     {
+        var deckCardKeys = new HashSet<string>(deckCardNames.Select(CardNormalizer.Normalize), StringComparer.Ordinal);
         using var doc = JsonDocument.Parse(json);
         if (!doc.RootElement.TryGetProperty("results", out var results))
         {
@@ -184,7 +185,7 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
             : [];
 
         var almostIncluded = results.TryGetProperty("almostIncluded", out var almost)
-            ? ParseAlmostVariants(almost, deckCardNames).Take(MaxAlmostIncluded).ToList()
+            ? ParseAlmostVariants(almost, deckCardKeys).Take(MaxAlmostIncluded).ToList()
             : [];
 
         return new CommanderSpellbookResult(included, almostIncluded);
@@ -246,8 +247,13 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
                 continue;
             }
 
-            var missing = allCards.Where(c => !deckCardNames.Contains(CardNormalizer.Normalize(c))).ToList();
-            var inDeck = allCards.Where(c => deckCardNames.Contains(CardNormalizer.Normalize(c))).ToList();
+            var missing = new List<string>();
+            var inDeck = new List<string>();
+            foreach (var card in allCards)
+            {
+                var destination = deckCardNames.Contains(CardNormalizer.Normalize(card)) ? inDeck : missing;
+                destination.Add(card);
+            }
 
             // Only include if exactly one card is missing (one card away)
             if (missing.Count != 1)

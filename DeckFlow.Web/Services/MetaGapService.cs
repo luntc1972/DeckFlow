@@ -725,13 +725,7 @@ public sealed class MetaGapService : IMetaGapService
             return string.Empty;
         }
 
-        var trimmed = cardName.Trim();
-        if (oracleNameMap is not null && oracleNameMap.TryGetValue(trimmed, out var resolvedName) && !string.IsNullOrWhiteSpace(resolvedName))
-        {
-            return GetBaseCardDisplayName(resolvedName);
-        }
-
-        return GetBaseCardDisplayName(trimmed);
+        return GetBaseCardDisplayName(ResolveOracleCardName(cardName, oracleNameMap));
     }
 
     // Phase 15-02: promoted from private static to internal static for use by MetaGap variant classes.
