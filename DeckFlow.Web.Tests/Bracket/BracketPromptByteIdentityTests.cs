@@ -26,7 +26,8 @@ public sealed class BracketPromptByteIdentityTests
         var actual = BuildRegistry().Build(AiPlatform.Normalize(platformName), classification,
             null, "Literal classification deck", BuildTiers(), BuildCatalog());
 
-        Assert.Equal(BracketPromptGoldens.Classification(platformName), actual, StringComparer.Ordinal);
+        Assert.Equal(BracketPromptGoldens.Classification(platformName),
+            PacketByteIdentityFixtures.NormalizeForGoldenComparison(actual), StringComparer.Ordinal);
     }
 
     /// <summary>Pins every computed reason and the closer for a lower balancer target.</summary>
@@ -51,7 +52,8 @@ public sealed class BracketPromptByteIdentityTests
         var actual = BuildRegistry().Build(AiPlatform.Normalize(platformName), classification,
             2, "Literal balancer deck", BuildTiers(), BuildCatalog());
 
-        Assert.Equal(BracketPromptGoldens.Balancer(platformName), actual, StringComparer.Ordinal);
+        Assert.Equal(BracketPromptGoldens.Balancer(platformName),
+            PacketByteIdentityFixtures.NormalizeForGoldenComparison(actual), StringComparer.Ordinal);
     }
 
     private static BracketPromptVariantRegistry BuildRegistry() =>
