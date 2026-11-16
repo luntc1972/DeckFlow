@@ -271,6 +271,13 @@ public static class CutLabRoleAssigner
                 return true;
             }
 
+            // Why: Redirecting a targeted spell is interaction even when it does not counter or remove anything.
+            if (clause.Contains("change the target of target spell", StringComparison.OrdinalIgnoreCase)
+                || clause.Contains("new targets for target spell", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
             if (clause.Contains("target", StringComparison.OrdinalIgnoreCase)
                 && !clause.Contains("graveyard", StringComparison.OrdinalIgnoreCase)
                 && !clause.Contains("you control", StringComparison.OrdinalIgnoreCase))

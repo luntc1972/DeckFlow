@@ -106,7 +106,6 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
             "Chain of Smog",
             "Delney, Streetwise Lookout",
             "Enduring Tenacity",
-            "Imp's Mischief",
             "Orim's Chant",
             "Reward the Faithful",
             "Silence",
@@ -157,7 +156,7 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
         Assert.Equal(ManabaseMode.Casual, Mode);
         Assert.Equal(129, facts.Count);
         Assert.Equal(106, nonlands.Length);
-        Assert.Equal(33, other.Length);
+        Assert.Equal(32, other.Length);
         Assert.Equal<string>(
         [
             "Bloodchief Ascension",
@@ -173,7 +172,6 @@ public sealed class CutLabGoldenDeckRoleCharacterizationTests
             "Enduring Tenacity",
             "Enlightened Confidant",
             "Feast of Sanity",
-            "Imp's Mischief",
             "Kambal, Consul of Allocation",
             "Leonin Elder",
             "Lurrus of the Dream-Den",

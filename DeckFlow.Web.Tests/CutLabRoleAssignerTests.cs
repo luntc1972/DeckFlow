@@ -71,6 +71,20 @@ public sealed class CutLabRoleAssignerTests
         Assert.Contains("interaction-targeted", roles);
     }
 
+    [Theory]
+    [InlineData("Change the target of target spell with a single target. You lose life equal to that spell's mana value.", true)]
+    [InlineData("You may choose new targets for target spell or ability.", true)]
+    [InlineData("Change the target of target spell or ability with a single target.", true)]
+    [InlineData("Copy target instant or sorcery spell. You may choose new targets for the copy.", false)]
+    public void AssignRoles_SpellRedirectionOracleInCasual_MapsOnlyRedirectsToTargetedInteraction(string oracle, bool expected)
+    {
+        CardFact fact = Fact("Spell redirection", "Instant", oracle: oracle);
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
+
+        Assert.Equal(expected, roles.Contains("interaction-targeted"));
+    }
+
     [Fact]
     public void AssignRoles_RegrowthOracleInCasual_DoesNotMapToTargetedInteraction()
     {
