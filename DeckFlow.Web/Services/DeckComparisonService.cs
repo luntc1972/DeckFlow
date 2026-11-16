@@ -224,8 +224,8 @@ public sealed class DeckComparisonService : IDeckComparisonService
         var deckBListText = PacketTextAssembler.BuildSectionedDecklistText(deckB.PlayableEntries, deckB.OptionalEntries, includeVersions: false, deckBLookup.OracleNameMap);
 
         var comboLookupStopwatch = Stopwatch.StartNew();
-        var deckACombos = await _commanderSpellbookService.FindCombosAsync(deckA.PlayableEntries, cancellationToken).ConfigureAwait(false);
-        var deckBCombos = await _commanderSpellbookService.FindCombosAsync(deckB.PlayableEntries, cancellationToken).ConfigureAwait(false);
+        var deckACombos = await _commanderSpellbookService.FindCombosAsync(ApplyOracleNames(deckA.PlayableEntries, deckALookup.OracleNameMap), cancellationToken).ConfigureAwait(false);
+        var deckBCombos = await _commanderSpellbookService.FindCombosAsync(ApplyOracleNames(deckB.PlayableEntries, deckBLookup.OracleNameMap), cancellationToken).ConfigureAwait(false);
         timings.Add((
             "Commander Spellbook",
             comboLookupStopwatch.ElapsedMilliseconds,
@@ -827,6 +827,14 @@ public sealed class DeckComparisonService : IDeckComparisonService
         {
             throw new InvalidOperationException($"{deckLabel}'s commander parsed as the section keyword \"{commander.Trim()}\" — this means the deck list was pasted without a `Commander` section header. Re-paste the deck with a `Commander` line above the commander card, or use an Archidekt/Moxfield URL where the commander is explicitly assigned.");
         }
+    }
+
+    private static IReadOnlyList<DeckEntry> ApplyOracleNames(IReadOnlyList<DeckEntry> entries, IReadOnlyDictionary<string, string> oracleNameMap)
+    {
+        return entries.Select(entry =>
+            oracleNameMap.TryGetValue(entry.Name.Trim(), out var canonical) && !string.IsNullOrWhiteSpace(canonical)
+                ? entry with { Name = canonical }
+                : entry).ToList();
     }
 
     private static string ResolveDeckName(string requestedName, string commanderName, string fallback)

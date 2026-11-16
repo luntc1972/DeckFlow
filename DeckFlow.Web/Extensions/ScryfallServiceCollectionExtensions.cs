@@ -66,6 +66,7 @@ public static class ScryfallServiceCollectionExtensions
         services.AddSingleton(sp => new ScryfallReferenceResolver(
             sp.GetRequiredService<IScryfallCollectionProtocol>(),
             sp.GetRequiredService<ScryfallCollectionCardCache>()));
+        services.AddSingleton<ICanonicalCardNameResolver, ScryfallCanonicalCardNameResolver>();
         services.AddSingleton<IMechanicLookupService, WotcMechanicLookupService>();
         services.AddSingleton<ICommanderBanListService>(sp =>
             new CommanderBanListService(
@@ -77,6 +78,7 @@ public static class ScryfallServiceCollectionExtensions
                 sp.GetRequiredService<IHttpClientFactory>(),
                 sp.GetRequiredService<ResiliencePipelineProvider<string>>(),
                 sp.GetRequiredService<IMemoryCache>(),
+                sp.GetRequiredService<ICanonicalCardNameResolver>(),
                 sp.GetService<ILogger<CommanderSpellbookService>>()));
         services.AddSingleton<IScryfallSetService>(sp =>
             new ScryfallSetService(

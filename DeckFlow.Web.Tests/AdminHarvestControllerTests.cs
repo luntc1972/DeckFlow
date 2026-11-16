@@ -550,6 +550,7 @@ public sealed class AdminHarvestControllerTests
     {
         var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { LastBanner = "Banner <b>x</b>", LastBannerIsError = isError });
         Assert.Contains($"{modifier}\" role=\"{role}\"", html, StringComparison.Ordinal);
+        Assert.Contains("data-harvest-action-banner", html, StringComparison.Ordinal);
         Assert.Contains("Banner &lt;b&gt;x&lt;/b&gt;", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<b>x</b>", html, StringComparison.Ordinal);
     }
@@ -675,26 +676,178 @@ public sealed class AdminHarvestControllerTests
                 : null,
         };
 
-    [Fact] public async Task MaintenanceDrain_Confirmed_StartsDrain() { var store = Preview(10, 0, 5); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(store, maintenanceRunner: runner); var result = await controller.MaintenanceDrain(true, default); Assert.Equal(new[] { HarvestMaintenanceOperation.Drain }, runner.Started); AssertRedirect(result); Assert.StartsWith("Retention drain started", Banner(controller)); }
-    [Fact] public async Task MaintenanceDrain_PurgePending_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(10, 3, 5), maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceDrain(true, default)); Assert.Empty(runner.Started); Assert.Contains("Run the purge first: 3 decks", Banner(controller)); AssertRefusal(logger, HarvestMaintenanceOperation.Drain, "purge_pending"); }
-    [Fact] public async Task MaintenanceDrain_PreviewUnavailable_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(null), maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceDrain(true, default)); Assert.Empty(runner.Started); Assert.Equal("Maintenance counts are unavailable. Nothing was started.", Banner(controller)); AssertRefusal(logger, HarvestMaintenanceOperation.Drain, "preview_unavailable"); }
-    [Fact] public async Task MaintenanceDrain_PreviewReadFails_RefusesWithoutStarting() { var logger = new CapturingLogger<AdminHarvestController>(); var runner = new StubHarvestMaintenanceRunner(); var store = Preview(); store.MaintenancePreviewException = new InvalidOperationException("database unavailable"); var controller = Build(store, maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceDrain(true, default)); Assert.Empty(runner.Started); Assert.Equal("Maintenance counts are unavailable. Nothing was started.", Banner(controller)); AssertRefusal(logger, HarvestMaintenanceOperation.Drain, "preview_unavailable"); }
-    [Fact] public async Task MaintenanceDrain_NotConfirmed_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var store = Preview(10, 0, 5); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(store, maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceDrain(false, default)); Assert.Empty(runner.Started); Assert.Equal("Tick the confirmation box to start Retention drain.", Banner(controller)); Assert.Equal(0, store.MaintenancePreviewCalls); AssertRefusal(logger, HarvestMaintenanceOperation.Drain, "not_confirmed"); }
-    [Fact] public async Task MaintenanceDrain_CrossOrigin_Returns403() { var runner = new StubHarvestMaintenanceRunner(); var result = await Build(Preview(0, 0, 0), crossOrigin: true, maintenanceRunner: runner).MaintenanceDrain(true, default); AssertForbidden(result); Assert.Empty(runner.Started); }
+    [Fact] public async Task MaintenanceDrain_Confirmed_StartsDrain() { var store = Preview(10, 0, 5); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(store, maintenanceRunner: runner); var result = await controller.MaintenanceDrain(true); Assert.Equal(new[] { HarvestMaintenanceOperation.Drain }, runner.Started); AssertRedirect(result); Assert.Equal(0, store.MaintenancePreviewCalls); Assert.Equal("Retention drain started. The Retention maintenance card shows its progress.", Banner(controller)); }
+    [Fact] public async Task MaintenanceDrain_NotConfirmed_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var store = Preview(10, 0, 5); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(store, maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceDrain(false)); Assert.Empty(runner.Started); Assert.Equal("Tick the confirmation box to start Retention drain.", Banner(controller)); Assert.Equal(0, store.MaintenancePreviewCalls); AssertRefusal(logger, HarvestMaintenanceOperation.Drain, "not_confirmed"); }
+    [Fact] public async Task MaintenanceDrain_CrossOrigin_Returns403() { var runner = new StubHarvestMaintenanceRunner(); var result = await Build(Preview(0, 0, 0), crossOrigin: true, maintenanceRunner: runner).MaintenanceDrain(true); AssertForbidden(result); Assert.Empty(runner.Started); }
     [Fact] public void MaintenanceDrain_IsPostWithAntiforgery() { var method = typeof(AdminHarvestController).GetMethod("MaintenanceDrain")!; Assert.Contains(method.GetCustomAttributes(typeof(HttpPostAttribute), false), attribute => ((HttpPostAttribute)attribute).Template == "maintenance/drain"); Assert.Single(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), false)); }
-    [Fact] public async Task Index_PassesMaintenanceStatus() { var status = new HarvestMaintenanceStatus(true, HarvestMaintenanceOperation.Drain, DateTimeOffset.UtcNow, null, 4, null, false, false); var result = await Build(NewStore(0), maintenanceRunner: new StubHarvestMaintenanceRunner { Status = status }).Index(); Assert.Same(status, Assert.IsType<AdminHarvestViewModel>(Assert.IsType<ViewResult>(result).Model).Maintenance); }
+    [Fact] public async Task Index_MaintenanceState_PassesRunnerStatus() { var status = MaintenanceStatusFixtures.For("running", DateTimeOffset.UtcNow); var result = await Build(NewStore(0), maintenanceRunner: new StubHarvestMaintenanceRunner { Status = status }).Index(); var model = Assert.IsType<AdminHarvestViewModel>(Assert.IsType<ViewResult>(result).Model); Assert.Same(status, model.Maintenance); Assert.InRange(model.MaintenanceAsOfUtc, DateTimeOffset.UtcNow.AddSeconds(-5), DateTimeOffset.UtcNow.AddSeconds(5)); }
+    [Theory]
+    [InlineData("idle")]
+    [InlineData("starting")]
+    [InlineData("running")]
+    [InlineData("stalled")]
+    [InlineData("stop-requested")]
+    [InlineData("completed")]
+    [InlineData("disk-probe-unavailable")]
+    [InlineData("disk-floor")]
+    [InlineData("marker-backfill-pending")]
+    [InlineData("no-progress")]
+    [InlineData("stopped")]
+    [InlineData("interrupted")]
+    [InlineData("failed")]
+    [InlineData("refused")]
+    public async Task IndexView_MaintenanceState_RendersOperatorText(string token)
+    {
+        var now = MaintenanceStatusFixtures.CanonicalNow(token);
+        var status = MaintenanceStatusFixtures.For(token, now);
+        var text = HarvestMaintenanceStatusText.Describe(status, now);
+        var html = System.Net.WebUtility.HtmlDecode(await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = status, MaintenanceAsOfUtc = now }));
+        Assert.Contains($"data-maintenance-state=\"{token}\"", html);
+        Assert.Contains($"data-maintenance-active=\"{text.IsActive.ToString().ToLowerInvariant()}\"", html);
+        Assert.Contains($"admin-banner--{text.Tone}", html);
+        Assert.Contains(text.Headline, html);
+        foreach (var detail in text.Details) Assert.Contains(detail, html);
+    }
     [Fact] public async Task IndexView_Idle_RendersMaintenanceCardWithDrainForm() { var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = HarvestMaintenanceStatus.Idle }); Assert.Contains("id=\"harvest-maintenance\"", html); Assert.Contains("data-maintenance-state=\"idle\"", html); Assert.Contains("data-maintenance-operation=\"drain\"", html); Assert.Contains("name=\"confirmed\"", html); }
-    [Fact] public void MaintenancePurge_Confirmed_StartsPurge() { var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(10, 3, 5), maintenanceRunner: runner); AssertRedirect(controller.MaintenancePurge(true)); Assert.Equal(new[] { HarvestMaintenanceOperation.Purge }, runner.Started); }
-    [Fact] public async Task MaintenanceRefetch_Confirmed_StartsRefetch() { var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(0, 0, 16000), maintenanceRunner: runner); AssertRedirect(await controller.MaintenanceRefetch(true, default)); Assert.Equal(new[] { HarvestMaintenanceOperation.Refetch }, runner.Started); Assert.StartsWith("Refetch started", Banner(controller)); }
-    [Fact] public async Task MaintenanceRefetch_PurgePending_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(0, 3, 16000), maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceRefetch(true, default)); Assert.Empty(runner.Started); Assert.Contains("Run the purge first: 3 decks", Banner(controller)); AssertRefusal(logger, HarvestMaintenanceOperation.Refetch, "purge_pending"); }
-    [Fact] public async Task MaintenanceRefetch_RetentionPending_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(7, 0, 16000), maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceRefetch(true, default)); Assert.Empty(runner.Started); Assert.Contains("Finish the retention drain first: 7 decks", Banner(controller)); AssertRefusal(logger, HarvestMaintenanceOperation.Refetch, "retention_pending"); }
-    [Fact] public async Task MaintenanceRefetch_PreviewUnavailable_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(null), maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceRefetch(true, default)); Assert.Empty(runner.Started); Assert.Equal("Maintenance counts are unavailable. Nothing was started.", Banner(controller)); AssertRefusal(logger, HarvestMaintenanceOperation.Refetch, "preview_unavailable"); }
-    [Fact] public void MaintenancePurge_NotConfirmed_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var store = Preview(0, 0, 16000); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(store, maintenanceRunner: runner, logger: logger); AssertRedirect(controller.MaintenancePurge(false)); Assert.Empty(runner.Started); Assert.Equal("Tick the confirmation box to start Purge.", Banner(controller)); Assert.Equal(0, store.MaintenancePreviewCalls); AssertRefusal(logger, HarvestMaintenanceOperation.Purge, "not_confirmed"); }
-    [Fact] public async Task MaintenanceRefetch_NotConfirmed_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var store = Preview(0, 0, 16000); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(store, maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceRefetch(false, default)); Assert.Empty(runner.Started); Assert.Equal("Tick the confirmation box to start Refetch.", Banner(controller)); Assert.Equal(0, store.MaintenancePreviewCalls); AssertRefusal(logger, HarvestMaintenanceOperation.Refetch, "not_confirmed"); }
-    [Fact] public async Task MaintenanceStart_RunnerBusy_ShowsBusyBanner() { var runner = new StubHarvestMaintenanceRunner { TryStartResult = false }; var controller = Build(Preview(0, 0, 0), maintenanceRunner: runner); AssertRedirect(await controller.MaintenanceDrain(true, default)); Assert.Empty(runner.Started); Assert.Contains("A maintenance run is already in progress", Banner(controller)); }
-    [Fact] public void MaintenanceStop_Running_RequestsStop() { var runner = new StubHarvestMaintenanceRunner { Status = new HarvestMaintenanceStatus(true, HarvestMaintenanceOperation.Drain, DateTimeOffset.UtcNow, null, 0, null, false, false) }; var controller = Build(NewStore(0), maintenanceRunner: runner); AssertRedirect(controller.MaintenanceStop()); Assert.Equal(1, runner.RequestStopCalls); Assert.Equal("Stop requested.", Banner(controller)); }
+    [Fact] public async Task MaintenancePurge_Confirmed_StartsPurge() { var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(10, 3, 5), maintenanceRunner: runner); AssertRedirect(await controller.MaintenancePurge(true)); Assert.Equal(new[] { HarvestMaintenanceOperation.Purge }, runner.Started); }
+    [Fact] public async Task MaintenanceRefetch_Confirmed_StartsRefetch() { var runner = new StubHarvestMaintenanceRunner(); var store = Preview(0, 0, 16000); var controller = Build(store, maintenanceRunner: runner); AssertRedirect(await controller.MaintenanceRefetch(true)); Assert.Equal(new[] { HarvestMaintenanceOperation.Refetch }, runner.Started); Assert.Equal(0, store.MaintenancePreviewCalls); Assert.Equal("Refetch started. The Retention maintenance card shows its progress.", Banner(controller)); }
+    [Fact] public async Task MaintenancePurge_NotConfirmed_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var store = Preview(0, 0, 16000); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(store, maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenancePurge(false)); Assert.Empty(runner.Started); Assert.Equal("Tick the confirmation box to start Purge.", Banner(controller)); Assert.Equal(0, store.MaintenancePreviewCalls); AssertRefusal(logger, HarvestMaintenanceOperation.Purge, "not_confirmed"); }
+    [Fact] public async Task MaintenanceRefetch_NotConfirmed_DoesNotStart() { var logger = new CapturingLogger<AdminHarvestController>(); var store = Preview(0, 0, 16000); var runner = new StubHarvestMaintenanceRunner(); var controller = Build(store, maintenanceRunner: runner, logger: logger); AssertRedirect(await controller.MaintenanceRefetch(false)); Assert.Empty(runner.Started); Assert.Equal("Tick the confirmation box to start Refetch.", Banner(controller)); Assert.Equal(0, store.MaintenancePreviewCalls); AssertRefusal(logger, HarvestMaintenanceOperation.Refetch, "not_confirmed"); }
+    [Theory]
+    [InlineData(true, "Purge is already running. Nothing new was started.")]
+    [InlineData(false, "A maintenance run is already starting or running. Nothing new was started.")]
+    public async Task MaintenanceStart_RunnerBusy_ShowsInfoBanner(bool running, string expected)
+    {
+        var runner = new StubHarvestMaintenanceRunner { TryStartResult = HarvestMaintenanceStartResult.AlreadyActive, Status = running ? new HarvestMaintenanceStatus { State = HarvestMaintenanceRunState.Running, Operation = HarvestMaintenanceOperation.Purge } : HarvestMaintenanceStatus.Idle };
+        var controller = Build(Preview(), maintenanceRunner: runner);
+        AssertRedirect(await controller.MaintenanceDrain(true));
+        Assert.Empty(runner.Started);
+        Assert.Equal(expected, Banner(controller));
+        Assert.Equal("info", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Fact]
+    public async Task MaintenanceStart_RunnerBusyStarting_ShowsStartingBanner()
+    {
+        var runner = new StubHarvestMaintenanceRunner { TryStartResult = HarvestMaintenanceStartResult.AlreadyActive, Status = MaintenanceStatusFixtures.For("starting", MaintenanceStatusFixtures.CanonicalNow("starting")) };
+        var controller = Build(Preview(), maintenanceRunner: runner);
+        AssertRedirect(await controller.MaintenanceDrain(true));
+        Assert.Empty(runner.Started);
+        Assert.Equal("Retention drain is already starting. Nothing new was started.", Banner(controller));
+        Assert.Equal("info", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    [Fact]
+    public async Task HarvestIndex_InfoBanner_RendersInfoToneWithStatusRole()
+    {
+        var controller = Build(Preview());
+        controller.TempData["AdminHarvestBanner"] = "Already starting.";
+        controller.TempData["AdminHarvestBannerTone"] = "info";
+        var result = Assert.IsType<ViewResult>(await controller.Index(default));
+        var model = Assert.IsType<AdminHarvestViewModel>(result.Model);
+        Assert.True(model.LastBannerIsInfo);
+        var html = await RenderPartialViewAsync("Index", model);
+        Assert.Contains("admin-banner--info", html);
+        Assert.Contains("role=\"status\">Already starting.</div>", html);
+    }
+
+    [Fact] public void MaintenanceStop_Running_RequestsStop() { var runner = new StubHarvestMaintenanceRunner { Status = new HarvestMaintenanceStatus { State = HarvestMaintenanceRunState.Running, Operation = HarvestMaintenanceOperation.Drain, StartedUtc = DateTimeOffset.UtcNow } }; var controller = Build(NewStore(0), maintenanceRunner: runner); AssertRedirect(controller.MaintenanceStop()); Assert.Equal(1, runner.RequestStopCalls); Assert.Equal("Stop requested — finishing current batch.", Banner(controller)); Assert.Equal("info", controller.TempData["AdminHarvestBannerTone"]); }
     [Fact] public void MaintenanceStop_Idle_ShowsNothingToStop() { var runner = new StubHarvestMaintenanceRunner(); var controller = Build(NewStore(0), maintenanceRunner: runner); AssertRedirect(controller.MaintenanceStop()); Assert.Equal(1, runner.RequestStopCalls); Assert.Equal("Nothing to stop.", Banner(controller)); }
-    [Fact] public async Task MaintenancePreview_ShowsThreeCounts() { var controller = Build(Preview(176000, 11000, 16000)); AssertRedirect(await controller.MaintenancePreview(default)); Assert.Contains("176000", Banner(controller)); Assert.Contains("11000", Banner(controller)); Assert.Contains("16000", Banner(controller)); }
+    [Fact]
+    public async Task MaintenancePreview_ShowsThreeCountsWithAsOfTime()
+    {
+        var controller = Build(Preview(176000, 11000, 16000));
+        AssertRedirect(await controller.MaintenancePreview(default));
+        Assert.Matches(@"^Retention excess: 176000; purge candidates: 11000; refetch candidates: 16000 \(counts as of \d{2}:\d{2}:\d{2} UTC\)\.$", Banner(controller));
+    }
+
+    [Fact]
+    public async Task MaintenancePreview_Timeout_ShowsTimedOutAfterSeconds()
+    {
+        await AssertPreviewTimeoutAsync(new Exception("wrapped", new TimeoutException()));
+    }
+
+    [Fact]
+    public async Task MaintenancePreview_SqlStateQueryCanceled_ShowsTimedOut()
+    {
+        await AssertPreviewTimeoutAsync(new Exception("wrapped", new FakeDbException()));
+    }
+
+    private static async Task AssertPreviewTimeoutAsync(Exception exception)
+    {
+        var store = Preview();
+        store.MaintenancePreviewException = exception;
+        var controller = Build(store);
+        AssertRedirect(await controller.MaintenancePreview(default));
+        Assert.Matches(@"^Preview timed out after \d+ s\.$", Banner(controller));
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+    }
+
+    private sealed class FakeDbException : System.Data.Common.DbException
+    {
+        public override string SqlState => "57014";
+    }
+
+    [Theory]
+    [InlineData("idle")]
+    [InlineData("starting")]
+    [InlineData("running")]
+    [InlineData("stalled")]
+    [InlineData("stop-requested")]
+    [InlineData("completed")]
+    [InlineData("disk-probe-unavailable")]
+    [InlineData("disk-floor")]
+    [InlineData("marker-backfill-pending")]
+    [InlineData("no-progress")]
+    [InlineData("stopped")]
+    [InlineData("interrupted")]
+    [InlineData("failed")]
+    [InlineData("refused")]
+    public async Task MaintenanceStatus_State_ReturnsDescribedJson(string token)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var status = MaintenanceStatusFixtures.For(token, now);
+        var controller = Build(Preview(), maintenanceRunner: new StubHarvestMaintenanceRunner { Status = status });
+        var value = Assert.IsType<HarvestMaintenanceStatusView>(Assert.IsType<JsonResult>(await controller.MaintenanceStatus(default)).Value);
+        var expected = HarvestMaintenanceStatusText.Describe(status, now);
+        Assert.Equal(token, value.State);
+        Assert.Equal(expected.Tone, value.Tone);
+        Assert.Equal(expected.Headline, value.Headline);
+        Assert.Equal(expected.Details, value.Details);
+        Assert.Equal(expected.IsActive, value.IsActive);
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(value, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.Equal(new[] { "details", "headline", "isActive", "state", "tone" }, json.EnumerateObject().Select(property => property.Name).OrderBy(name => name));
+    }
+
+    [Fact]
+    public async Task MaintenanceStatus_CrossOrigin_Returns403()
+    {
+        AssertForbidden(await Build(Preview(), crossOrigin: true).MaintenanceStatus(default));
+    }
+
+    [Fact]
+    public async Task MaintenanceStatus_IsGetWithNoStore()
+    {
+        var method = typeof(AdminHarvestController).GetMethod("MaintenanceStatus")!;
+        var attribute = Assert.Single(method.GetCustomAttributes(typeof(HttpGetAttribute), false).Cast<HttpGetAttribute>());
+        Assert.Equal("maintenance/status", attribute.Template);
+        var controller = Build(Preview());
+        await controller.MaintenanceStatus(default);
+        Assert.Equal("no-store", controller.Response.Headers.CacheControl.ToString());
+    }
+
+    [Fact]
+    public async Task IndexView_StartForms_CarryOperatorLabel()
+    {
+        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = HarvestMaintenanceStatus.Idle });
+        var document = new HtmlParser().ParseDocument(html);
+        var forms = document.QuerySelectorAll("form[data-maintenance-label]");
+        Assert.Equal(4, forms.Length);
+        foreach (var pair in new[] { ("backfill", "Marker backfill"), ("purge", "Purge"), ("drain", "Retention drain"), ("refetch", "Refetch") })
+        {
+            Assert.Equal(pair.Item2, Assert.Single(forms, form => form.GetAttribute("data-maintenance-operation") == pair.Item1).GetAttribute("data-maintenance-label"));
+        }
+    }
     [Fact] public async Task MaintenancePreview_Unavailable_ShowsError() { var controller = Build(Preview(null)); AssertRedirect(await controller.MaintenancePreview(default)); Assert.Equal("Maintenance counts are unavailable.", Banner(controller)); Assert.True((bool)controller.TempData["AdminHarvestBannerTone"]!.Equals("danger")); }
     [Fact]
     public void MaintenanceActions_ArePostWithAntiforgery()
@@ -706,10 +859,8 @@ public sealed class AdminHarvestControllerTests
             Assert.Single(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), false));
         }
     }
-    [Fact] public async Task MaintenanceActions_CrossOrigin_Return403() { var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(0, 0, 0), crossOrigin: true, maintenanceRunner: runner); foreach (var result in new IActionResult[] { controller.MaintenancePurge(true), await controller.MaintenanceRefetch(true, default), controller.MaintenanceStop(), await controller.MaintenancePreview(default) }) AssertForbidden(result); Assert.Empty(runner.Started); Assert.Equal(0, runner.RequestStopCalls); }
-    [Fact] public async Task IndexView_Running_ShowsStopAndDisablesStarts() { var status = new HarvestMaintenanceStatus(true, HarvestMaintenanceOperation.Drain, new DateTimeOffset(2026, 10, 16, 7, 0, 0, TimeSpan.Zero), null, 42, null, false, false); var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = status }); Assert.Contains("data-maintenance-state=\"running\"", html); Assert.Contains("42 decks so far; started 2026-10-16 07:00 UTC", html); Assert.Contains("data-maintenance-operation=\"stop\"", html); Assert.Equal(4, Regex.Matches(html, "disabled=\"disabled\"").Count); }
-    [Fact] public async Task IndexView_Failed_ShowsSeeLogs() { var status = new HarvestMaintenanceStatus(false, HarvestMaintenanceOperation.Refetch, null, new DateTimeOffset(2026, 10, 16, 8, 5, 0, TimeSpan.Zero), 37, null, false, true); var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = status }); Assert.Contains("data-maintenance-state=\"failed\"", html); Assert.Contains("see the logs", html); Assert.Contains("Refetch: 37 decks", html); Assert.Contains("2026-10-16 08:05 UTC", html); }
-    [Fact] public async Task IndexView_Ended_ShowsCompletedReasonOrStopped() { var completed = new HarvestMaintenanceStatus(false, HarvestMaintenanceOperation.Drain, null, new DateTimeOffset(2026, 10, 16, 7, 30, 0, TimeSpan.Zero), 120, DeckPruningStopReason.DiskFloor, false, false); var stopped = new HarvestMaintenanceStatus(false, HarvestMaintenanceOperation.Purge, null, new DateTimeOffset(2026, 10, 16, 7, 45, 0, TimeSpan.Zero), 9, null, true, false); var completedHtml = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = completed }); var stoppedHtml = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = stopped }); Assert.Contains("data-maintenance-state=\"DiskFloor\"", completedHtml); Assert.Contains("Retention drain: 120 decks; DiskFloor 2026-10-16 07:30 UTC", completedHtml); Assert.Contains("data-maintenance-state=\"stopped\"", stoppedHtml); Assert.Contains("Purge: 9 decks; stopped 2026-10-16 07:45 UTC", stoppedHtml); Assert.DoesNotContain("data-maintenance-operation=\"stop\"", completedHtml); Assert.DoesNotContain("data-maintenance-operation=\"stop\"", stoppedHtml); }
+    [Fact] public async Task MaintenanceActions_CrossOrigin_Return403() { var runner = new StubHarvestMaintenanceRunner(); var controller = Build(Preview(0, 0, 0), crossOrigin: true, maintenanceRunner: runner); foreach (var result in new IActionResult[] { await controller.MaintenancePurge(true), await controller.MaintenanceRefetch(true), controller.MaintenanceStop(), await controller.MaintenancePreview(default) }) AssertForbidden(result); Assert.Empty(runner.Started); Assert.Equal(0, runner.RequestStopCalls); }
+    [Fact] public async Task IndexView_Running_ShowsStopAndDisablesStarts() { var now = MaintenanceStatusFixtures.CanonicalNow("running"); var html = System.Net.WebUtility.HtmlDecode(await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = MaintenanceStatusFixtures.For("running", now), MaintenanceAsOfUtc = now })); Assert.Contains("data-maintenance-state=\"running\"", html); Assert.Contains("Retention drain running.", html); Assert.Contains("data-maintenance-operation=\"stop\"", html); Assert.Equal(4, Regex.Matches(html, "disabled=\"disabled\"").Count); }
 
     [Fact]
     public void Commanders_Sort_NextDirectionUsesAscendingForInactiveNameColumn()
@@ -990,7 +1141,27 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public async Task SubmitUrl_LegalDeck_PersistsAndMarksProcessed()
+    public async Task UrlImport_ArchivedOutcome_ShowsArchivedBanner_RunFailed_NoMarkProcessed()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 0);
+        store.UrlImportArchived = true;
+        var runStore = new StubHarvestRunStore();
+        var importer = new StubArchidektDeckImporter { Entries = LegalCommanderDeck.Complete(new[] { new DeckEntry { Name = "Sol Ring", NormalizedName = "Sol Ring", Category = "Ramp", Quantity = 1, Board = "mainboard" } }) };
+        var controller = Build(store, importer: importer, runStore: runStore);
+
+        await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
+
+        Assert.Equal("Deck is archived; re-harvest via listings.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+        Assert.Equal((HarvestRunState.Failed, "Rejected: archived"), runStore.StateUpdates.Last());
+        Assert.Null(store.LastUrlDeckId);
+        Assert.Equal(0, store.PersistObservedCategoriesCalls);
+        Assert.Empty(store.RejectedUrlDecks);
+        Assert.Equal("https://archidekt.com/decks/123", Assert.Single(store.UrlImportCalls).Url);
+    }
+
+    [Fact]
+    public async Task UrlImport_NotArchived_PersistsAndMarksProcessed()
     {
         var store = NewStore(distinctProcessedCommanderCount: 0);
         var importer = new StubArchidektDeckImporter { Entries = LegalCommanderDeck.Complete(new[] { new DeckEntry { Name = "Sol Ring", NormalizedName = "Sol Ring", Category = "Ramp", Quantity = 1, Board = "mainboard" } }) };
@@ -999,7 +1170,7 @@ public sealed class AdminHarvestControllerTests
 
         await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
 
-        Assert.True(store.PersistObservedCategoriesCalls > 0);
+        Assert.Same(importer.Entries, Assert.Single(store.UrlImportCalls).Entries);
         Assert.Empty(store.RejectedUrlDecks);
         Assert.Equal("123", store.LastUrlDeckId);
         Assert.Equal(HarvestRunState.Succeeded, runStore.StateUpdates.Last().State);
@@ -1425,24 +1596,24 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public void MaintenanceBackfill_Confirmed_StartsBackfill()
+    public async Task MaintenanceBackfill_Confirmed_StartsBackfill()
     {
         var store = Preview();
         var runner = new StubHarvestMaintenanceRunner();
         var controller = Build(store, maintenanceRunner: runner);
-        AssertRedirect(controller.MaintenanceBackfill(true));
+        AssertRedirect(await controller.MaintenanceBackfill(true));
         Assert.Equal([HarvestMaintenanceOperation.Backfill], runner.Started);
         Assert.StartsWith("Marker backfill started", Banner(controller));
         Assert.Equal(0, store.MaintenancePreviewCalls);
     }
 
     [Fact]
-    public void MaintenanceBackfill_NotConfirmed_DoesNotStart()
+    public async Task MaintenanceBackfill_NotConfirmed_DoesNotStart()
     {
         var logger = new CapturingLogger<AdminHarvestController>();
         var runner = new StubHarvestMaintenanceRunner();
         var controller = Build(Preview(), maintenanceRunner: runner, logger: logger);
-        AssertRedirect(controller.MaintenanceBackfill(false));
+        AssertRedirect(await controller.MaintenanceBackfill(false));
         Assert.Empty(runner.Started);
         Assert.Equal("Tick the confirmation box to start Marker backfill.", Banner(controller));
         AssertRefusal(logger, HarvestMaintenanceOperation.Backfill, "not_confirmed");
@@ -1457,39 +1628,11 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public void MaintenanceBackfill_CrossOrigin_Returns403()
+    public async Task MaintenanceBackfill_CrossOrigin_Returns403()
     {
         var runner = new StubHarvestMaintenanceRunner();
-        AssertForbidden(Build(Preview(), crossOrigin: true, maintenanceRunner: runner).MaintenanceBackfill(true));
+        AssertForbidden(await Build(Preview(), crossOrigin: true, maintenanceRunner: runner).MaintenanceBackfill(true));
         Assert.Empty(runner.Started);
-    }
-
-    [Fact]
-    public async Task MaintenanceDrain_MarkerBackfillPending_DoesNotStart()
-    {
-        var logger = new CapturingLogger<AdminHarvestController>();
-        var store = Preview();
-        store.MaintenancePreview = new HarvestMaintenancePreview(0, 0, 0) { MarkerBackfillPending = true };
-        var runner = new StubHarvestMaintenanceRunner();
-        var controller = Build(store, maintenanceRunner: runner, logger: logger);
-        AssertRedirect(await controller.MaintenanceDrain(true, default));
-        Assert.Empty(runner.Started);
-        Assert.Equal("Run Marker backfill first: maintenance counts wait for it. Nothing was started.", Banner(controller));
-        AssertRefusal(logger, HarvestMaintenanceOperation.Drain, "marker_backfill_pending");
-    }
-
-    [Fact]
-    public async Task MaintenanceRefetch_MarkerBackfillPending_DoesNotStart()
-    {
-        var logger = new CapturingLogger<AdminHarvestController>();
-        var store = Preview();
-        store.MaintenancePreview = new HarvestMaintenancePreview(0, 0, 0) { MarkerBackfillPending = true };
-        var runner = new StubHarvestMaintenanceRunner();
-        var controller = Build(store, maintenanceRunner: runner, logger: logger);
-        AssertRedirect(await controller.MaintenanceRefetch(true, default));
-        Assert.Empty(runner.Started);
-        Assert.Equal("Run Marker backfill first: maintenance counts wait for it. Nothing was started.", Banner(controller));
-        AssertRefusal(logger, HarvestMaintenanceOperation.Refetch, "marker_backfill_pending");
     }
 
     [Fact]
@@ -1503,32 +1646,36 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public async Task IndexView_Idle_RendersBackfillFormFirst()
+    public async Task IndexView_Idle_RendersPreviewRowThenBackfillFirst()
     {
         var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = HarvestMaintenanceStatus.Idle });
         var backfill = html.IndexOf("data-maintenance-operation=\"backfill\"", StringComparison.Ordinal);
         var preview = html.IndexOf("data-maintenance-operation=\"preview\"", StringComparison.Ordinal);
-        Assert.True(backfill >= 0 && backfill < preview);
+        var purge = html.IndexOf("data-maintenance-operation=\"purge\"", StringComparison.Ordinal);
+        Assert.True(preview >= 0 && preview < backfill && backfill < purge);
         Assert.Contains("name=\"confirmed\"", html[backfill..html.IndexOf("</form>", backfill, StringComparison.Ordinal)]);
     }
 
     [Fact]
-    public async Task IndexView_RunningBackfill_ShowsMarkerBackfillLabel()
+    public async Task MaintenanceStart_NotRecorded_ShowsDangerBanner()
     {
-        var status = new HarvestMaintenanceStatus(true, HarvestMaintenanceOperation.Backfill, DateTimeOffset.UtcNow, null, 42, null, false, false);
-        var html = await RenderPartialViewAsync("Index", CreateHarvestViewModel(Array.Empty<HarvestRunRow>(), false) with { Maintenance = status });
-        Assert.Contains("data-maintenance-state=\"running\">Marker backfill: 42 decks so far", html);
+        var runner = new StubHarvestMaintenanceRunner { TryStartResult = HarvestMaintenanceStartResult.NotRecorded };
+        var controller = Build(Preview(0, 0, 0), maintenanceRunner: runner);
+        AssertRedirect(await controller.MaintenanceBackfill(true));
+        Assert.Empty(runner.Started);
+        Assert.Equal("Marker backfill was not started: its run record could not be saved. Nothing was changed; see the logs.", Banner(controller));
     }
 
     private sealed class StubHarvestMaintenanceRunner : IHarvestMaintenanceRunner
     {
         public List<HarvestMaintenanceOperation> Started { get; } = [];
         public HarvestMaintenanceStatus Status { get; set; } = HarvestMaintenanceStatus.Idle;
-        public bool TryStartResult { get; set; } = true;
+        public HarvestMaintenanceStartResult TryStartResult { get; set; } = HarvestMaintenanceStartResult.Started;
         public int RequestStopCalls { get; private set; }
-        public bool TryStart(HarvestMaintenanceOperation operation) { if (TryStartResult) Started.Add(operation); return TryStartResult; }
+        public Task<HarvestMaintenanceStartResult> TryStartAsync(HarvestMaintenanceOperation operation, CancellationToken cancellationToken = default) { if (TryStartResult == HarvestMaintenanceStartResult.Started) Started.Add(operation); return Task.FromResult(TryStartResult); }
         public bool RequestStop() { RequestStopCalls++; return Status.IsRunning; }
         public HarvestMaintenanceStatus GetStatus() => Status;
+        public Task<HarvestMaintenanceStatus> GetStatusAsync(CancellationToken cancellationToken = default) => Task.FromResult(Status);
     }
 
     private static FakeCategoryKnowledgeStore Preview(int? retentionExcess = 0, int purgeCandidates = 0, int refetchCandidates = 0)

@@ -68,10 +68,13 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         _logger = logger;
         _retentionOptions = retentionOptions?.Value ?? new HarvestRetentionOptions();
         // Both services share Render sample pacing through the same probe instance.
-        var freeDiskProbe = SelectFreeDiskProbe(_connectionInfo, renderDiskProbe, logger);
+        var freeDiskProbe = CreateFreeDiskProbe(_connectionInfo, renderDiskProbe, logger);
         _deckPruningService = new DeckPruningService(_repository, _retentionOptions.ToPruningOptions(), freeDiskProbe);
         _markerBackfillService = new StoredLiveRowsBackfillService(_repository, _retentionOptions.ToPruningOptions(), freeDiskProbe);
     }
+
+    internal static Func<CancellationToken, Task<long?>> CreateFreeDiskProbe(RelationalDatabaseConnection connectionInfo, RenderDiskHeadroomProbe? renderDiskProbe, ILogger? logger)
+        => new RetryingFreeDiskProbe(SelectFreeDiskProbe(connectionInfo, renderDiskProbe, logger), logger).GetFreeBytesAsync;
 
     internal static Func<CancellationToken, Task<long?>> SelectFreeDiskProbe(RelationalDatabaseConnection connectionInfo, RenderDiskHeadroomProbe? renderDiskProbe, ILogger? logger)
         => connectionInfo.IsPostgres && renderDiskProbe is not null
@@ -99,7 +102,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     }
 
     /// <inheritdoc/>
-    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<DeckPruningProgress>? progress = null, Func<bool>? stopBeforeBatch = null, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         if (operation == HarvestMaintenanceOperation.Refetch)
@@ -112,7 +115,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                     return new HarvestMaintenanceOutcome(operation, 0, 0, DeckPruningStopReason.MarkerBackfillPending);
                 }
                 var marked = await _repository.MarkMetadataLessDecksForRefreshAsync(cancellationToken).ConfigureAwait(false);
-                progress?.Report(marked);
+                progress?.Report(new(marked, 0));
                 return new HarvestMaintenanceOutcome(operation, marked, 0, null);
             }
             finally
@@ -123,18 +126,44 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 
         if (operation is not HarvestMaintenanceOperation.Drain and not HarvestMaintenanceOperation.Purge and not HarvestMaintenanceOperation.Backfill) throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
         ILogger logger = _logger is null ? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance : _logger;
+        var removed = 0;
         var outcome = await HarvestMaintenanceChunkLoop.RunAsync(
             operation,
             _sweepGate,
             _retentionOptions.MaintenanceChunkDecks,
-            (deckCount, token) => operation switch
+            async (deckCount, batchProgress, stop, token) =>
             {
-                HarvestMaintenanceOperation.Drain => _deckPruningService.RunRetentionAsync(deckCount, token),
-                HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, token),
-                _ => _markerBackfillService.RunAsync(deckCount, token)
+                if (operation == HarvestMaintenanceOperation.Drain)
+                {
+                    if (_retentionOptions.MaintenanceMaxDecksPerRun > 0)
+                    {
+                        var remaining = _retentionOptions.MaintenanceMaxDecksPerRun - removed;
+                        deckCount = Math.Min(deckCount, remaining);
+                    }
+                    var result = await _deckPruningService.RunRetentionAsync(deckCount, batchProgress, stop, token).ConfigureAwait(false);
+                    removed += result.DecksRemoved;
+                    if (_retentionOptions.MaintenanceMaxDecksPerRun > 0 && removed >= _retentionOptions.MaintenanceMaxDecksPerRun &&
+                        result.StopReason is DeckPruningStopReason.MaxDecksReached or DeckPruningStopReason.Completed)
+                    {
+                        var excess = await _repository.CountRetentionExcessAsync(_retentionOptions.PerCommanderCap, token).ConfigureAwait(false);
+                        if (excess > 0)
+                        {
+                            logger.LogInformation("Harvest.Maintenance.RunCapReached cap={Cap}", _retentionOptions.MaintenanceMaxDecksPerRun);
+                            return result with { StopReason = DeckPruningStopReason.PerRunCapReached };
+                        }
+                        return result with { StopReason = DeckPruningStopReason.Completed };
+                    }
+                    return result;
+                }
+                return await (operation switch
+                {
+                    HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, batchProgress, stop, token),
+                    _ => _markerBackfillService.RunAsync(deckCount, batchProgress, stop, token)
+                }).ConfigureAwait(false);
             },
             progress,
             logger,
+            stopBeforeBatch,
             cancellationToken).ConfigureAwait(false);
         _logger?.LogInformation("Harvest.Maintenance.Completed operation={Operation} decksAffected={DecksAffected} batches={Batches} stopReason={StopReason}", outcome.Operation, outcome.DecksAffected, outcome.Batches, outcome.StopReason);
         return outcome;
@@ -222,6 +251,18 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 elapsedMs,
                 nameCount),
             cancellationToken: cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> entries, CancellationToken cancellationToken = default)
+    {
+        if (!ArchidektApiUrl.TryGetDeckId(url, out var deckId))
+        {
+            throw new ArgumentException("Invalid Archidekt deck URL.", nameof(url));
+        }
+
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.PersistUrlImportDeckAsync(deckId, ArchidektApiUrl.BuildUrlSource(url), entries, cancellationToken);
     }
 
     /// <summary>

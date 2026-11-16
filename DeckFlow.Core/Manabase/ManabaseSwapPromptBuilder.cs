@@ -171,17 +171,7 @@ public static class ManabaseSwapPromptBuilder
 
         if (budget is not null)
         {
-            sb.AppendLine(BuildBudgetLine(budget));
+            sb.AppendLine(ManabaseWording.BuildBudgetLine(budget));
         }
     }
-
-    private static string BuildBudgetLine(ManabaseRampDrawBudget budget) => string.Create(
-        CultureInfo.InvariantCulture,
-        $"Ramp/draw: ~{budget.RampCount:0.#} ramp / ~{budget.DrawCount:0.#} draw vs a ~{budget.TargetRamp} ramp target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}) and a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band (Command Zone template); ({budget.OverlapCount} do both). community heuristic, not Karsten math.");
-
-    private static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
-    {
-        ManabaseRampDrawThresholdSource.CommanderManaValue => "the commander's mana value",
-        _ => "the curve's 75th-percentile mana value (no single commander)",
-    };
 }

@@ -13,6 +13,16 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 - **Stax findings:** Stax cards now appear in their role group; stax tags no longer produce stranded-subtheme findings.
 - **Deck analysis:** The "Stax or taxation" bucket now also lists non-catalog stax cards detected from their continuing restrictions or taxes.
 
+### Unreleased — Commander Spellbook double-faced card names (2026-11-16)
+
+- **Front-face names:** Cards entered by their front-face name only (for example, `Valki, God of Lies`) are now looked up under their full name too, so their combos are no longer silently missing.
+- **Combo lookup:** Meta Gap, deck comparison and every other combo lookup now send double-faced, split and adventure cards to Commander Spellbook under their full `A // B` name, so combos that need one of those cards are no longer silently missing. Prompt decklists keep their front-face display.
+- **Near-combos:** a card you own under its front-face or `A / B` spelling is no longer reported as the missing piece of a near-combo.
+
+### DeckFlow Bridge 0.1.2 — Moxfield v3 imports (2026-11-16)
+
+- **Moxfield imports:** DeckFlow Bridge now imports Moxfield v3 deck payloads, preserving card printings, author tags, and supported deck zones.
+
 ### 2026.11.1 — Cut Lab discoverability (2026-11-10)
 
 - **Step order:** Process, Plan, Decide, Goals, Export is the new order, with Lock your pool and Packages at the end of Plan.
@@ -40,6 +50,7 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 ### Unreleased — Legal-Commander harvest and per-commander retention
 
+- **Maintenance feedback:** the Admin/Harvest card shows live progress and stop, refusal, and disk-probe retry feedback; persisted runs appear as Interrupted after a restart, and Stop finishes the current batch.
 - **Marker backfill:** Admin/Harvest prepares legacy stored-live markers in confirmed, disk-gated 500-deck batches before maintenance counts and operations become available; stopped runs resume from the saved cursor.
 - **Legal-Commander harvest:** bulk, update, and admin URL harvests keep only legal Commander decks, record skip reasons, and use Commander-only discovery filters.
 - **Per-commander retention:** each completed harvest retains the newest decks per commander up to the configured cap. A pruned deck returns only after its commander or main deck changes; sideboard or maybeboard edits leave it pruned.

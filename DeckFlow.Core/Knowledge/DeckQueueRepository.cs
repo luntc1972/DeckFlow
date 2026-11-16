@@ -29,7 +29,9 @@ internal sealed class DeckQueueRepository
     // Why: defense in depth on a cold cache, not the fix.
     internal const int MaintenanceCommandTimeoutSeconds = 120;
     private const string RetentionCandidateSql = "q.processed = 1 AND q.skipped = 0 AND q.commander_name IS NOT NULL AND " + StoredLiveRowsSql;
-    private const string PurgeCandidateSql = "NOT (q.processed = 0 AND q.skipped = 0) AND q.archidekt_metadata_captured_utc IS NOT NULL AND (q.archidekt_deck_format IS NULL OR q.archidekt_deck_format <> 3 OR q.commander_name IS NULL) AND " + StoredLiveRowsSql;
+    private const string PurgeLegalitySql = "NOT (q.processed = 0 AND q.skipped = 0) AND q.archidekt_metadata_captured_utc IS NOT NULL AND (q.archidekt_deck_format IS NULL OR q.archidekt_deck_format <> 3 OR q.commander_name IS NULL)";
+    private const string ArchivedRowsSql = "EXISTS (SELECT 1 FROM deck_category_archive_manifest m WHERE m.deck_queue_id = q.id)";
+    private const string PurgeCandidateSql = PurgeLegalitySql + " AND " + StoredLiveRowsSql;
     private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND " + StoredLiveRowsSql;
     // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
     private readonly RelationalDatabaseConnection _connectionInfo;
@@ -135,13 +137,25 @@ internal sealed class DeckQueueRepository
         return rows.Select(row => (row.DeckQueueId, row.DeckFormat != 3 ? DeckSkipReasons.NotCommanderFormat : DeckSkipReasons.NoCommander)).ToArray();
     }
 
+    internal async Task<IReadOnlyList<(long DeckQueueId, string SkipReason)>> GetArchivedPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        var rows = await connection.QueryAsync<PurgeCandidateRow>(new CommandDefinition(
+            $"SELECT q.id AS DeckQueueId, q.archidekt_deck_format AS DeckFormat, q.commander_name AS CommanderName FROM deck_queue q WHERE {PurgeLegalitySql} AND {ArchivedRowsSql} ORDER BY q.id;",
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return rows.Select(row => (row.DeckQueueId, row.DeckFormat != 3 ? DeckSkipReasons.NotCommanderFormat : DeckSkipReasons.NoCommander)).ToArray();
+    }
+
     internal async Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
     {
         await _schema.EnsureSchemaAsync(cancellationToken);
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            $"SELECT COUNT(1) FROM deck_queue q WHERE {PurgeCandidateSql};",
+            $"SELECT COUNT(1) FROM deck_queue q WHERE {PurgeLegalitySql} AND ({StoredLiveRowsSql} OR {ArchivedRowsSql});",
             commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }

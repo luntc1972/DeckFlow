@@ -41,4 +41,16 @@ public static class ManabaseWording
     public static string DrawHeavyLine(ManabaseRampDrawBudget budget) => string.Create(
         CultureInfo.InvariantCulture,
         $"Draw looks heavy: ~{budget.DrawCount:0.#} draw pieces vs a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band. (community heuristic, not Karsten math)");
+
+    /// <summary>Format the community heuristic ramp and draw budget line.</summary>
+    public static string BuildBudgetLine(ManabaseRampDrawBudget budget) => string.Create(
+        CultureInfo.InvariantCulture,
+        $"Ramp/draw: ~{budget.RampCount:0.#} ramp / ~{budget.DrawCount:0.#} draw vs a ~{budget.TargetRamp} ramp target for a ~MV{budget.Threshold:0.#} threshold ({BuildThresholdProxy(budget.ThresholdSource)}) and a {budget.TargetDrawMin}-{budget.TargetDrawMax} draw band (Command Zone template); ({budget.OverlapCount} do both). community heuristic, not Karsten math.");
+
+    /// <summary>Describe the mana-value proxy used for the ramp threshold.</summary>
+    public static string BuildThresholdProxy(ManabaseRampDrawThresholdSource thresholdSource) => thresholdSource switch
+    {
+        ManabaseRampDrawThresholdSource.CommanderManaValue => "the commander's mana value",
+        _ => "the curve's 75th-percentile mana value (no single commander)",
+    };
 }

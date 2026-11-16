@@ -142,6 +142,11 @@ internal sealed class CategoryCacheSchema
         await CreateCardCategorySummaryTableAsync(connection, cancellationToken);
         await CreateCardCategoryQualifiedTableAsync(connection, cancellationToken);
         await CreateCardDeckTotalsTableAsync(connection, _connectionInfo.IsPostgres, cancellationToken);
+        await CreateCategoryArchiveTablesAsync(connection, _connectionInfo.IsPostgres, cancellationToken);
+        foreach (var table in new[] { "card_category_summary", "card_category_qualified" })
+        {
+            await AddMissingColumnsAsync(connection, table, new[] { ("archived_rows", "INTEGER NOT NULL DEFAULT 0") }, cancellationToken);
+        }
         if (_connectionInfo.IsSqlite)
         {
             await BackfillCardCategorySummaryAsync(connection, cancellationToken);
@@ -522,6 +527,42 @@ internal sealed class CategoryCacheSchema
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private static async Task CreateCategoryArchiveTablesAsync(DbConnection connection, bool isPostgres, CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            CREATE TABLE IF NOT EXISTS card_category_archive (
+                card_id INTEGER NOT NULL,
+                category TEXT NOT NULL,
+                board TEXT NOT NULL,
+                raw_rows INTEGER NOT NULL,
+                PRIMARY KEY (card_id, category, board)
+            );
+            CREATE TABLE IF NOT EXISTS card_category_deck_archive (
+                card_id INTEGER NOT NULL,
+                canonical_category TEXT NOT NULL,
+                board TEXT NOT NULL,
+                included_deck_count INTEGER NOT NULL,
+                fallback_deck_count INTEGER NOT NULL,
+                included_label_rows INTEGER NOT NULL,
+                PRIMARY KEY (card_id, canonical_category, board)
+            );
+            CREATE TABLE IF NOT EXISTS card_deck_totals_archive (
+                card_id INTEGER NOT NULL,
+                board TEXT NOT NULL,
+                deck_count INTEGER NOT NULL,
+                PRIMARY KEY (card_id, board)
+            );
+            CREATE TABLE IF NOT EXISTS deck_category_archive_manifest (
+                deck_queue_id {(isPostgres ? "BIGINT" : "INTEGER")} NOT NULL PRIMARY KEY,
+                archived_utc TEXT NOT NULL,
+                format_version INTEGER NOT NULL,
+                payload {(isPostgres ? "BYTEA" : "BLOB")} NOT NULL
+            );
+            """;
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private static async Task CreateCardCategorySummaryTableAsync(DbConnection connection, CancellationToken cancellationToken)
     {
         var command = connection.CreateCommand();
@@ -530,6 +571,7 @@ internal sealed class CategoryCacheSchema
                 card_id INTEGER NOT NULL,
                 category TEXT NOT NULL,
                 observation_rows INTEGER NOT NULL,
+                archived_rows INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (card_id, category)
             );
             """;
@@ -544,6 +586,7 @@ internal sealed class CategoryCacheSchema
                 card_id INTEGER NOT NULL,
                 category TEXT NOT NULL,
                 observation_rows INTEGER NOT NULL,
+                archived_rows INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (card_id, category)
             );
             """;
@@ -597,10 +640,10 @@ internal sealed class CategoryCacheSchema
             }
 
             command.CommandText = """
-                INSERT INTO card_category_qualified (card_id, category, observation_rows)
-                SELECT card_id, category, observation_rows
+                INSERT INTO card_category_qualified (card_id, category, observation_rows, archived_rows)
+                SELECT card_id, category, observation_rows, archived_rows
                 FROM card_category_summary
-                WHERE observation_rows >= @minObservationRows
+                WHERE observation_rows + archived_rows >= @minObservationRows
                   AND NOT EXISTS (SELECT 1 FROM card_category_qualified)
                 ON CONFLICT (card_id, category) DO NOTHING;
                 """;
@@ -614,10 +657,10 @@ internal sealed class CategoryCacheSchema
         }
 
         command.CommandText = """
-            INSERT INTO card_category_qualified (card_id, category, observation_rows)
-            SELECT card_id, category, observation_rows
+            INSERT INTO card_category_qualified (card_id, category, observation_rows, archived_rows)
+            SELECT card_id, category, observation_rows, archived_rows
             FROM card_category_summary
-            WHERE observation_rows >= @minObservationRows
+            WHERE observation_rows + archived_rows >= @minObservationRows
               AND NOT EXISTS (SELECT 1 FROM card_category_qualified)
             ON CONFLICT (card_id, category) DO NOTHING;
             """;

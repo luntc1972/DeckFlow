@@ -10,6 +10,9 @@ namespace DeckFlow.Web.Models.Admin;
 /// </summary>
 public sealed record AdminHarvestViewModel
 {
+    /// <summary>Gets the time used to describe maintenance progress.</summary>
+    public DateTimeOffset MaintenanceAsOfUtc { get; init; }
+
     /// <summary>Current or most recent retention-maintenance operation.</summary>
     public HarvestMaintenanceStatus Maintenance { get; init; } = HarvestMaintenanceStatus.Idle;
     /// <summary>Default number of harvested commander rows shown per page.</summary>
@@ -73,6 +76,9 @@ public sealed record AdminHarvestViewModel
 
     /// <summary>Whether the last operator-facing banner represents an error.</summary>
     public bool LastBannerIsError { get; init; }
+
+    /// <summary>Whether the last banner conveys informational feedback.</summary>
+    public bool LastBannerIsInfo { get; init; }
 
     /// <summary>Selectable harvest interval options in hours.</summary>
     public IReadOnlyList<int> IntervalOptions { get; init; } = AllowedIntervalHours;

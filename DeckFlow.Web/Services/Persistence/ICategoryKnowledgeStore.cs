@@ -16,7 +16,7 @@ public interface ICategoryKnowledgeStore
     Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
         => Task.FromResult<HarvestMaintenancePreview?>(null);
     /// <summary>Runs an operator-requested harvest maintenance operation.</summary>
-    Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<DeckPruningProgress>? progress = null, Func<bool>? stopBeforeBatch = null, CancellationToken cancellationToken = default)
         // Why: a double that cannot run maintenance must not report a completed run.
         => Task.FromException<HarvestMaintenanceOutcome>(new NotSupportedException());
 
@@ -80,6 +80,16 @@ public interface ICategoryKnowledgeStore
 
     /// <summary>Returns category names narrowed by caller-supplied noise-reduction limits.</summary>
     Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CategoryLookupOptions options, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists URL-import observations atomically unless the deck is archived.
+    /// </summary>
+    /// <param name="url">Archidekt deck URL.</param>
+    /// <param name="entries">Imported deck entries.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Whether the deck was archived and the import refused.</returns>
+    Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> entries, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Stores category observations discovered during lookup or harvest work.
     /// </summary>

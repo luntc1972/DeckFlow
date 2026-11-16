@@ -29,7 +29,11 @@ public sealed class StoredLiveRowsBackfillService
 
     /// <summary>Rechecks linked decks until complete or limited by disk or the requested allowance.</summary>
     /// <remarks>The result's DecksRemoved counts decks rechecked; no decks are removed.</remarks>
-    public async Task<DeckPruningResult> RunAsync(int? maxDecks = null, CancellationToken cancellationToken = default)
+    public Task<DeckPruningResult> RunAsync(int? maxDecks = null, CancellationToken cancellationToken = default)
+        => RunAsync(maxDecks, null, null, cancellationToken);
+
+    /// <summary>Runs batches with synchronous progress and an optional stop check before each disk probe.</summary>
+    public async Task<DeckPruningResult> RunAsync(int? maxDecks, IProgress<DeckPruningProgress>? batchProgress, Func<bool>? stopBeforeBatch, CancellationToken cancellationToken = default)
     {
         if (maxDecks is < 1) throw new ArgumentOutOfRangeException(nameof(maxDecks));
         if (await _repository.IsStoredLiveRowsMarkerReadyAsync(cancellationToken).ConfigureAwait(false))
@@ -41,6 +45,11 @@ public sealed class StoredLiveRowsBackfillService
         var batches = 0;
         while (!maxDecks.HasValue || rechecked < maxDecks.Value)
         {
+            if (stopBeforeBatch?.Invoke() == true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new OperationCanceledException();
+            }
             long? freeBytes;
             try { freeBytes = await _freeDiskBytesAsync(cancellationToken).ConfigureAwait(false); }
             catch { return new DeckPruningResult(rechecked, batches, DeckPruningStopReason.DiskProbeUnavailable); }
@@ -50,6 +59,7 @@ public sealed class StoredLiveRowsBackfillService
             var batch = await _repository.RunStoredLiveRowsBackfillBatchAsync(take, cancellationToken).ConfigureAwait(false);
             rechecked += batch.DecksRechecked;
             batches++;
+            batchProgress?.Report(new(rechecked, batches));
             if (batch.Completed) return new DeckPruningResult(rechecked, batches, DeckPruningStopReason.Completed);
             if (!maxDecks.HasValue || rechecked < maxDecks.Value) await _delayAsync(_options.Pause, cancellationToken).ConfigureAwait(false);
         }

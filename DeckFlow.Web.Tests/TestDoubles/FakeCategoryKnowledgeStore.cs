@@ -27,6 +27,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
 
     public HarvestMaintenancePreview? MaintenancePreview { get; set; }
 
+    public bool MaintenancePreviewBlocksUntilCancelled { get; set; }
+
     public int MaintenancePreviewCalls { get; private set; }
 
     public Exception? MaintenancePreviewException { get; set; }
@@ -66,6 +68,8 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
     public HarvestMaintenanceOutcome RunMaintenanceOutcome { get; set; } = new(HarvestMaintenanceOperation.Drain, 0, 0, DeckPruningStopReason.Completed);
 
     public Exception? RunMaintenanceException { get; set; }
+
+    public Func<HarvestMaintenanceOperation, IProgress<DeckPruningProgress>?, Func<bool>?, CancellationToken, Task<HarvestMaintenanceOutcome>>? RunMaintenanceHandler { get; set; }
 
     public int? RunMaintenanceProgress { get; set; }
 
@@ -191,11 +195,12 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return RunUpdateSweepResult;
     }
 
-    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<DeckPruningProgress>? progress = null, Func<bool>? stopBeforeBatch = null, CancellationToken cancellationToken = default)
     {
         RunMaintenanceCalls++;
         LastMaintenanceOperation = operation;
-        if (RunMaintenanceProgress is not null) progress?.Report(RunMaintenanceProgress.Value);
+        if (RunMaintenanceHandler is not null) return await RunMaintenanceHandler(operation, progress, stopBeforeBatch, cancellationToken);
+        if (RunMaintenanceProgress is not null) progress?.Report(new(RunMaintenanceProgress.Value, 1));
         if (RunMaintenanceBlocksUntilCancelled) await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
         if (RunMaintenanceException is not null) throw RunMaintenanceException;
         return RunMaintenanceOutcome;
@@ -238,6 +243,16 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         }
 
         return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(result);
+    }
+
+    public bool UrlImportArchived { get; set; }
+
+    public List<(string Url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> Entries)> UrlImportCalls { get; } = new();
+
+    public Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> entries, CancellationToken cancellationToken = default)
+    {
+        UrlImportCalls.Add((url, entries));
+        return Task.FromResult(new UrlImportPersistResult(UrlImportArchived));
     }
 
     public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
@@ -329,10 +344,11 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult(CommanderDeckCount);
     }
 
-    public Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
+    public async Task<HarvestMaintenancePreview?> GetMaintenancePreviewAsync(CancellationToken cancellationToken = default)
     {
         MaintenancePreviewCalls++;
         if (MaintenancePreviewException is not null) throw MaintenancePreviewException;
-        return Task.FromResult(MaintenancePreview);
+        if (MaintenancePreviewBlocksUntilCancelled) await Task.Delay(Timeout.Infinite, cancellationToken);
+        return MaintenancePreview;
     }
 }

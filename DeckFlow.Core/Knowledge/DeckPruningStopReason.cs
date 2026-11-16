@@ -13,4 +13,6 @@ public enum DeckPruningStopReason
     MaxDecksReached,
     /// <summary>The stored-live-rows marker backfill has not completed, so nothing was read or removed.</summary>
     MarkerBackfillPending,
+    /// <summary>The maintenance run reached its configured total deck cap with excess remaining.</summary>
+    PerRunCapReached,
 }

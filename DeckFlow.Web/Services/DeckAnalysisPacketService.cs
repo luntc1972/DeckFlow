@@ -633,12 +633,11 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
             {
                 var validatedCommanderName = await ValidateCommanderAsync(entries, commanderName, cancellationToken).ConfigureAwait(false);
                 commanderName = validatedCommanderName;
+                // Why: every commander-board entry here was inferred under the one validated name, so none is displaced.
                 entries = entries
                     .Select(entry => string.Equals(entry.Name, validatedCommanderName, StringComparison.OrdinalIgnoreCase)
                         ? entry with { Board = "commander" }
-                        : string.Equals(entry.Board, "commander", StringComparison.OrdinalIgnoreCase)
-                            ? entry with { Board = "main" }
-                            : entry)
+                        : entry)
                     .ToList();
             }
             else

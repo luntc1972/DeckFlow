@@ -100,8 +100,9 @@ test('admin harvest single URL form posts with antiforgery protection', async ({
   ]);
 
   expect(postResponse.status()).not.toBe(400);
-  await expect(page.locator('.admin-banner')).toHaveText('URL must be an Archidekt deck URL.');
-  await expect(page.locator('.admin-banner')).toHaveClass(/admin-banner--danger/);
-  await expect(page.locator('.admin-banner')).toHaveAttribute('role', 'alert');
+  const actionBanner = page.locator('[data-harvest-action-banner]');
+  await expect(actionBanner).toHaveText('URL must be an Archidekt deck URL.');
+  await expect(actionBanner).toHaveClass(/admin-banner--danger/);
+  await expect(actionBanner).toHaveAttribute('role', 'alert');
   await expect(page.locator('.admin-page-header__lede')).toHaveText('Run and monitor deck-knowledge harvest jobs and view stats.');
 });
