@@ -1,9 +1,11 @@
+using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CommanderCategoryNorms;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
 using DeckFlow.Web.Services.PromptBuilders.Primer;
@@ -118,9 +120,24 @@ public sealed class GeminiVariantSizeTests
             + "    rule: Tutors and draw improve access to key cards.\n"
             + "Cross-check: Consistent with the computed cEDH bracket.\n"
             + "(These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)";
-        var bracketFacts = "Computed bracket: cEDH\n"
-            + "Game Changers: 5; two-card combos: 2; extra-turn cards: 0; mass land denial: 0.\n"
-            + "Use the supplied deck evidence when assessing these facts.";
+        var classification = new BracketClassification(
+            5,
+            ["Demonic Tutor", "Vampiric Tutor", "Mystical Tutor", "Rhystic Study", "Underworld Breach"],
+            ["Armageddon"],
+            ["Time Warp"],
+            [
+                new TwoCardCombo(["Thassa's Oracle", "Demonic Consultation"], ["Win the game"]),
+                new TwoCardCombo(["Thassa's Oracle", "Tainted Pact"], ["Win the game"]),
+                new TwoCardCombo(["Isochron Scepter", "Dramatic Reversal"], ["Infinite mana"]),
+                new TwoCardCombo(["Heliod, Sun-Crowned", "Walking Ballista"], ["Infinite damage"]),
+                new TwoCardCombo(["Underworld Breach", "Lion's Eye Diamond", "Brain Freeze"], ["Mill the library"]),
+            ],
+            true,
+            "2026-11-16");
+        // Production passes the renderer output directly; the variant adds the facts framing.
+        var bracketFacts = BracketClassificationFactsRenderer.Render(
+            classification,
+            [new BracketTier(5, "cEDH", "Bracket 5", "Competitive decks", "Any turn", -1)]);
         var variant = new GeminiAnalysisPromptVariant();
         var prompt = variant.Build(
             new DeckAnalysisRequest

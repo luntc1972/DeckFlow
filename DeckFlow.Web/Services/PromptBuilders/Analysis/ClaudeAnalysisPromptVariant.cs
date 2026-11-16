@@ -212,7 +212,7 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("For each add, give at least two synergy links, defining each as a specific interaction with the commander or a named card already in the deck.");
         builder.AppendLine("Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.");
         builder.AppendLine("For each add, identify the card it replaces and explain their shared role.");
-        builder.AppendLine("Give each add a source tag: [supplied] for a card appearing in data supplied in the prompt, or [memory] for the model's own knowledge; mark every [memory] add verify on Scryfall.");
+        builder.AppendLine("Give each add a source tag: [supplied] for a card appearing in data supplied in the prompt, or [memory] for your own knowledge; mark every [memory] add verify on Scryfall.");
         builder.AppendLine("For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.");
         builder.AppendLine();
 

@@ -54,7 +54,7 @@ public sealed class AnalysisAddsCutsContractParityTests
         Assert.Contains("each add", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("data supplied in the prompt", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("[memory]", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("model's own knowledge", source, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("your own knowledge", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("every [memory] add", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("verify on Scryfall", source, StringComparison.OrdinalIgnoreCase);
     }
