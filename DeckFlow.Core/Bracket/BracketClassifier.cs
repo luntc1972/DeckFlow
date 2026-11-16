@@ -48,18 +48,20 @@ public static class BracketClassifier
 
         // Why: Deck sources use front-face, A / B, or A // B names, with or without commas.
         // The catalog stores Scryfall's name; CardNormalizer reduces both to one front-face key.
+        bool ContainsCard(string name) => deckNames.Contains(CardNormalizer.Normalize(name));
+
         var detectedGCs = catalog.GameChangers
-            .Where(gc => deckNames.Contains(CardNormalizer.Normalize(gc)))
+            .Where(ContainsCard)
             .ToList();
 
         var detectedMld = catalog.MassLandDenialCards
-            .Where(c => deckNames.Contains(CardNormalizer.Normalize(c)))
+            .Where(ContainsCard)
             .ToList();
 
         // Extra-turn detection is informational only — populated in the result but never
         // used as a B4 hard floor per the current WotC rubric (scrollvault.net cross-check).
         var detectedExtraTurns = catalog.ExtraTurnCards
-            .Where(c => deckNames.Contains(CardNormalizer.Normalize(c)))
+            .Where(ContainsCard)
             .ToList();
 
         bool comboAvailable = twoCardCombos is not null;

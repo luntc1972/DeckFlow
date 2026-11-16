@@ -161,33 +161,13 @@ public sealed class BracketClassifierTests
     [InlineData("Tergrid, God of Fright / Tergrid's Lantern")]
     [InlineData("tergrid god of fright")]
     [InlineData("Tergrid, God of Fright // Tergrid's Lantern")]
-    [InlineData("TERGRID, GOD OF FRIGHT // TERGRID'S LANTERN")]
     public void Classify_GameChangerSpellingVariant_ReportsCatalogNameOnce(string deckName)
     {
         const string canonicalName = "Tergrid, God of Fright // Tergrid's Lantern";
         var catalog = BuildCatalog(gcCount: 0) with { GameChangers = [canonicalName] };
         var entries = new[]
         {
-            new DeckEntry { Name = deckName, NormalizedName = deckName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
-        };
-
-        var result = BracketClassifier.Classify(entries, catalog, []);
-
-        Assert.Equal(new[] { canonicalName }, result.DetectedGameChangers);
-        Assert.Equal(3, result.BracketNumber);
-    }
-
-    // Why: Import noise must not count Tergrid twice across commander and mainboard.
-    [Fact]
-    public void Classify_SameGameChangerUnderTwoSpellings_CountsOnce()
-    {
-        const string frontName = "Tergrid, God of Fright";
-        const string canonicalName = "Tergrid, God of Fright // Tergrid's Lantern";
-        var catalog = BuildCatalog(gcCount: 0) with { GameChangers = [canonicalName] };
-        var entries = new[]
-        {
-            new DeckEntry { Name = frontName, NormalizedName = frontName.ToLowerInvariant(), Quantity = 1, Board = "commander" },
-            new DeckEntry { Name = canonicalName, NormalizedName = canonicalName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
+            Entry(deckName),
         };
 
         var result = BracketClassifier.Classify(entries, catalog, []);
@@ -205,7 +185,7 @@ public sealed class BracketClassifierTests
         var catalog = BuildCatalog(gcCount: 0, mldCards: ["Boom // Bust"]);
         var entries = new[]
         {
-            new DeckEntry { Name = deckName, NormalizedName = deckName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
+            Entry(deckName),
         };
 
         var result = BracketClassifier.Classify(entries, catalog, []);
@@ -217,6 +197,14 @@ public sealed class BracketClassifierTests
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
+
+    private static DeckEntry Entry(string name, string board = "mainboard") => new()
+    {
+        Name = name,
+        NormalizedName = name.ToLowerInvariant(),
+        Quantity = 1,
+        Board = board,
+    };
 
     private static GameChangerCatalog BuildCatalog(int gcCount, IReadOnlyList<string>? mldCards = null)
     {

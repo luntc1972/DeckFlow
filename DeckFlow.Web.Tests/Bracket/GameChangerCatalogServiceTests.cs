@@ -30,6 +30,20 @@ public sealed class GameChangerCatalogServiceTests
     private static IMemoryCache NewCache() =>
         new MemoryCache(new MemoryCacheOptions());
 
+    private static DeckEntry Entry(string name, string board = "mainboard") => new()
+    {
+        Name = name,
+        NormalizedName = name.ToLowerInvariant(),
+        Quantity = 1,
+        Board = board,
+    };
+
+    private static GameChangerCatalog LoadShippedCatalog()
+    {
+        using var cache = NewCache();
+        return new GameChangerCatalogService(DataFilePath, cache).GetCatalog();
+    }
+
     // Why: Shipped misspellings and front-face imports previously hid real Game Changers.
     [Theory]
     [InlineData("Braids, Cabal Minion", "Braids, Cabal Minion")]
@@ -38,11 +52,10 @@ public sealed class GameChangerCatalogServiceTests
     [InlineData("Tergrid, God of Fright // Tergrid's Lantern", "Tergrid, God of Fright // Tergrid's Lantern")]
     public void Classify_ShippedCatalogRealCardName_DetectsCanonicalName(string deckName, string expectedName)
     {
-        using var cache = NewCache();
-        var catalog = new GameChangerCatalogService(DataFilePath, cache).GetCatalog();
+        var catalog = LoadShippedCatalog();
         var entries = new[]
         {
-            new DeckEntry { Name = deckName, NormalizedName = deckName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
+            Entry(deckName),
         };
 
         var result = BracketClassifier.Classify(entries, catalog, []);
@@ -57,12 +70,11 @@ public sealed class GameChangerCatalogServiceTests
     {
         const string frontName = "Tergrid, God of Fright";
         const string canonicalName = "Tergrid, God of Fright // Tergrid's Lantern";
-        using var cache = NewCache();
-        var catalog = new GameChangerCatalogService(DataFilePath, cache).GetCatalog();
+        var catalog = LoadShippedCatalog();
         var entries = new[]
         {
-            new DeckEntry { Name = frontName, NormalizedName = frontName.ToLowerInvariant(), Quantity = 1, Board = "commander" },
-            new DeckEntry { Name = canonicalName, NormalizedName = canonicalName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
+            Entry(frontName, "commander"),
+            Entry(canonicalName),
         };
 
         var result = BracketClassifier.Classify(entries, catalog, []);
@@ -74,8 +86,7 @@ public sealed class GameChangerCatalogServiceTests
     [Fact]
     public void GetCatalog_ShippedGameChangers_UseScryfallSpellings()
     {
-        using var cache = NewCache();
-        var catalog = new GameChangerCatalogService(DataFilePath, cache).GetCatalog();
+        var catalog = LoadShippedCatalog();
         string[] canonicalNames = ["Braids, Cabal Minion", "Narset, Parter of Veils", "Tergrid, God of Fright // Tergrid's Lantern"];
         string[] misspellings = ["Braids Cabal Minion", "Narset Parter of Veils", "Tergrid God of Fright"];
 
