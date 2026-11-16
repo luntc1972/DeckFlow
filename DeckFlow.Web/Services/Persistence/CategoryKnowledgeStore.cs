@@ -228,6 +228,18 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             cancellationToken: cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public async Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> entries, CancellationToken cancellationToken = default)
+    {
+        if (!ArchidektApiUrl.TryGetDeckId(url, out var deckId))
+        {
+            throw new ArgumentException("Invalid Archidekt deck URL.", nameof(url));
+        }
+
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.PersistUrlImportDeckAsync(deckId, $"archidekt_url:{url}", entries, cancellationToken);
+    }
+
     /// <summary>
     /// Persists observed categories emitted during runtime lookups.
     /// </summary>

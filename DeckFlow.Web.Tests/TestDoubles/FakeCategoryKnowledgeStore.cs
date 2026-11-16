@@ -245,6 +245,16 @@ public sealed class FakeCategoryKnowledgeStore : ICategoryKnowledgeStore
         return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<string>>>(result);
     }
 
+    public bool UrlImportArchived { get; set; }
+
+    public List<(string Url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> Entries)> UrlImportCalls { get; } = new();
+
+    public Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> entries, CancellationToken cancellationToken = default)
+    {
+        UrlImportCalls.Add((url, entries));
+        return Task.FromResult(new UrlImportPersistResult(UrlImportArchived));
+    }
+
     public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
     {
         PersistObservedCategoriesCalls++;

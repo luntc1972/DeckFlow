@@ -572,7 +572,22 @@ public sealed class AdminHarvestController : Controller
                 return RedirectToAction(nameof(Index));
             }
 
-            await PersistImportedDeckEntriesAsync(url, entries, cancellationToken).ConfigureAwait(false);
+            var persistResult = await _categoryStore.PersistUrlImportDeckAsync(url, entries, cancellationToken).ConfigureAwait(false);
+            if (persistResult.Archived)
+            {
+                await _runStore.UpdateStateAsync(
+                    runId,
+                    HarvestRunState.Failed,
+                    startedUtc: null,
+                    completedUtc: DateTimeOffset.UtcNow,
+                    decksProcessed: null,
+                    additionalDecksFound: null,
+                    errorMessage: "Rejected: archived",
+                    cancellationToken).ConfigureAwait(false);
+
+                SetBanner("Deck is archived; re-harvest via listings.", isError: true);
+                return RedirectToAction(nameof(Index));
+            }
 
             var commanderName = DeckCommanderResolver.ResolveCommanderName(entries);
 
@@ -763,47 +778,7 @@ public sealed class AdminHarvestController : Controller
                 new { Message = "This endpoint only accepts same-origin browser requests." });
     }
 
-    private async Task PersistImportedDeckEntriesAsync(string url, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken)
-    {
-        var source = UrlSourceFor(url);
-        var counts = new Dictionary<(string CardName, string Category, string Board), int>();
-
-        foreach (var entry in entries)
-        {
-            foreach (var category in CategoryKnowledgeReporter.SplitCategories(entry.Category))
-            {
-                var board = NormalizeBoard(entry.Board);
-                var key = (entry.Name, category, board);
-                counts[key] = counts.TryGetValue(key, out var existing)
-                    ? existing + entry.Quantity
-                    : entry.Quantity;
-            }
-        }
-
-        foreach (var item in counts)
-        {
-            await _categoryStore.PersistObservedCategoriesAsync(
-                source,
-                item.Key.CardName,
-                new[] { item.Key.Category },
-                quantity: item.Value,
-                board: item.Key.Board,
-                deckCountIncrement: 1,
-                cancellationToken).ConfigureAwait(false);
-        }
-    }
-
     private static string UrlSourceFor(string url) => $"archidekt_url:{url}";
-
-    private static string NormalizeBoard(string? board)
-    {
-        if (string.IsNullOrWhiteSpace(board))
-        {
-            return "mainboard";
-        }
-
-        return board.Trim().ToLowerInvariant();
-    }
 
     /// <summary>
     /// Stores the banner message and tone so an earlier unread tone never recolors a new message.

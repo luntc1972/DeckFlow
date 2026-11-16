@@ -1141,7 +1141,27 @@ public sealed class AdminHarvestControllerTests
     }
 
     [Fact]
-    public async Task SubmitUrl_LegalDeck_PersistsAndMarksProcessed()
+    public async Task UrlImport_ArchivedOutcome_ShowsArchivedBanner_RunFailed_NoMarkProcessed()
+    {
+        var store = NewStore(distinctProcessedCommanderCount: 0);
+        store.UrlImportArchived = true;
+        var runStore = new StubHarvestRunStore();
+        var importer = new StubArchidektDeckImporter { Entries = LegalCommanderDeck.Complete(new[] { new DeckEntry { Name = "Sol Ring", NormalizedName = "Sol Ring", Category = "Ramp", Quantity = 1, Board = "mainboard" } }) };
+        var controller = Build(store, importer: importer, runStore: runStore);
+
+        await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
+
+        Assert.Equal("Deck is archived; re-harvest via listings.", controller.TempData["AdminHarvestBanner"]);
+        Assert.Equal("danger", controller.TempData["AdminHarvestBannerTone"]);
+        Assert.Equal((HarvestRunState.Failed, "Rejected: archived"), runStore.StateUpdates.Last());
+        Assert.Null(store.LastUrlDeckId);
+        Assert.Equal(0, store.PersistObservedCategoriesCalls);
+        Assert.Empty(store.RejectedUrlDecks);
+        Assert.Equal("https://archidekt.com/decks/123", Assert.Single(store.UrlImportCalls).Url);
+    }
+
+    [Fact]
+    public async Task UrlImport_NotArchived_PersistsAndMarksProcessed()
     {
         var store = NewStore(distinctProcessedCommanderCount: 0);
         var importer = new StubArchidektDeckImporter { Entries = LegalCommanderDeck.Complete(new[] { new DeckEntry { Name = "Sol Ring", NormalizedName = "Sol Ring", Category = "Ramp", Quantity = 1, Board = "mainboard" } }) };
@@ -1150,7 +1170,7 @@ public sealed class AdminHarvestControllerTests
 
         await controller.SubmitUrl("https://archidekt.com/decks/123", CancellationToken.None);
 
-        Assert.True(store.PersistObservedCategoriesCalls > 0);
+        Assert.Same(importer.Entries, Assert.Single(store.UrlImportCalls).Entries);
         Assert.Empty(store.RejectedUrlDecks);
         Assert.Equal("123", store.LastUrlDeckId);
         Assert.Equal(HarvestRunState.Succeeded, runStore.StateUpdates.Last().State);

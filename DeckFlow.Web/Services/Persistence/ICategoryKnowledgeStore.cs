@@ -80,6 +80,16 @@ public interface ICategoryKnowledgeStore
 
     /// <summary>Returns category names narrowed by caller-supplied noise-reduction limits.</summary>
     Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CategoryLookupOptions options, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists URL-import observations atomically unless the deck is archived.
+    /// </summary>
+    /// <param name="url">Archidekt deck URL.</param>
+    /// <param name="entries">Imported deck entries.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Whether the deck was archived and the import refused.</returns>
+    Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> entries, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Stores category observations discovered during lookup or harvest work.
     /// </summary>
