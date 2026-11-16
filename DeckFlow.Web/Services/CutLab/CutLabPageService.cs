@@ -463,11 +463,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, baselineResult.CastabilityByCardName),
                 };
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 _logger.LogWarning(exception, "Cut Lab: baseline snapshot failed; continuing without D-12 baseline.");
                 warnings.Add("Baseline snapshot unavailable right now - continuing without original-pool metrics.");
@@ -514,11 +510,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, currentResult.CastabilityByCardName),
                 };
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 _logger.LogWarning(exception, "Cut Lab: current working snapshot failed; continuing without current metrics.");
                 warnings.Add("Current working snapshot unavailable right now - continuing without live metrics.");
@@ -540,11 +532,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 _logger.LogWarning(exception, "Cut Lab: proposal deltas failed for {CardName}; continuing without deltas.", roundPlan.NextProposal.CardName);
                 warnings.Add("Proposal delta preview unavailable right now - continuing without cut-impact metrics.");
@@ -607,8 +595,6 @@ internal sealed class CutLabPageService : ICutLabPageService
         };
     }
 
-    // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
-    // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
     private async Task<(CutLabState PreAnalysisState, IReadOnlyList<CutLabPoolCard> DerivedWorkingList, IReadOnlyList<ScryfallCardData> PreResolvedCards, CutLabAnalysisContext AnalysisContext, IReadOnlyList<ScryfallCardData> FinalResolvedCards, IReadOnlyList<string> StillUnresolvedNames, string PoolKey)> RunAnalysisPassAsync(
         CutLabState priorState,
         IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
@@ -669,6 +655,8 @@ internal sealed class CutLabPageService : ICutLabPageService
         return (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey);
     }
 
+    // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
+    // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
     private bool IsFlagOn(string key)
         => _featureFlags.IsExplicitlyEnabled(key);
 
@@ -697,8 +685,7 @@ internal sealed class CutLabPageService : ICutLabPageService
 
         IReadOnlyDictionary<string, ScryfallCardData> cachedCardsByName = CutLabCardNames.ToLastWinsDictionary(
             resolvedCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
 
         var resolvedEntries = new List<ResolvedCutLabEntry>(entries.Count);
 
@@ -1074,8 +1061,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     {
         IReadOnlyDictionary<string, ScryfallCardData> resolvedByName = CutLabCardNames.ToLastWinsDictionary(
             preResolvedCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
         Dictionary<string, CutLabCardTextView> cardTextByCardName = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (CutLabPoolCard card in pool)
@@ -1170,8 +1156,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         var present = entries
             .Select(entry => entry.Name)
             .Where(name => bannedSet.Contains(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .DistinctAndOrderNames()
             .ToArray();
 
         if (present.Length > 0)

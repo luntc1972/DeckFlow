@@ -469,8 +469,7 @@ public static class CutLabStructuralFindings
                 .ToArray();
             string[] missingCards = variants
                 .Select(combo => combo.MissingCard)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase)
+                .DistinctAndOrderNames()
                 .ToArray();
 
             // Why: the single-partner sentence is preserved byte-for-byte so the existing lead-copy
@@ -480,7 +479,7 @@ public static class CutLabStructuralFindings
             yield return new CutLabFinding(
                 CutLabFindingKind.EnablerStarved,
                 "Enabler-starved cards",
-                $"{CutLabSharedHelpers.JoinCardNames(cardsInDeck)} are missing their {partnerLabel}: {CutLabSharedHelpers.JoinCardNames(missingCards)}.",
+                $"{CutLabCardNames.JoinCardNames(cardsInDeck)} are missing their {partnerLabel}: {CutLabCardNames.JoinCardNames(missingCards)}.",
                 cardsInDeck.Select(cardName => new CutLabFindingEvidence(cardName, null)).ToArray());
         }
     }
@@ -675,8 +674,8 @@ public static class CutLabStructuralFindings
                 continue;
             }
 
-            string comboResults = CutLabSharedHelpers.JoinCardNames(combo.Results);
-            string lead = $"{CutLabSharedHelpers.JoinCardNames(cardsInPool)} are Combo piece cards for {comboResults}.";
+            string comboResults = CutLabCardNames.JoinCardNames(combo.Results);
+            string lead = $"{CutLabCardNames.JoinCardNames(cardsInPool)} are Combo piece cards for {comboResults}.";
             // Why: advisory copy is already authored in this detector tier for every other Lead string,
             // so keeping the round-1 guidance here avoids inventing a one-off presenter rule.
             lead = $"{lead} Cutting this in round 1 is inadvisable.";
@@ -709,19 +708,17 @@ public static class CutLabStructuralFindings
                 .ToArray();
             string[] missingCards = variants
                 .Select(combo => combo.MissingCard)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase)
+                .DistinctAndOrderNames()
                 .ToArray();
             string[] results = variants
                 .SelectMany(combo => combo.Results)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
+                .DistinctAndOrderNames()
                 .ToArray();
 
             yield return new CutLabFinding(
                 CutLabFindingKind.ComboProtected,
                 "Combo-protected cards",
-                $"{CutLabSharedHelpers.JoinCardNames(cardsInDeck)} are Needs {CutLabSharedHelpers.JoinCardNames(missingCards)} combo cards for {CutLabSharedHelpers.JoinCardNames(results)}.",
+                $"{CutLabCardNames.JoinCardNames(cardsInDeck)} are Needs {CutLabCardNames.JoinCardNames(missingCards)} combo cards for {CutLabCardNames.JoinCardNames(results)}.",
                 cardsInDeck
                     .Select(cardName =>
                     {

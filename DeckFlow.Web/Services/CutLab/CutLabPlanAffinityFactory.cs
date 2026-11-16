@@ -210,11 +210,7 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
             EdhrecThemeCardNamesResult result = await _themeService.GetThemeCardNamesAsync(commanderName, themeSlug, cancellationToken).ConfigureAwait(false);
             return (result.Names, result.Succeeded);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger?.LogWarning(exception, "Cut Lab: EDHREC theme card fetch failed for {ThemeSlug}", themeSlug);
             return ([], false);

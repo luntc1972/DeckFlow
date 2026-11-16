@@ -21,6 +21,16 @@ internal static class CutLabCardNames
         return CardNormalizer.Normalize(cardName);
     }
 
+    internal static IOrderedEnumerable<string> DistinctAndOrderNames(this IEnumerable<string> names)
+        => names
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase);
+
+    public static Dictionary<string, TSource> ToLastWinsDictionary<TSource>(
+        IEnumerable<TSource> source,
+        Func<TSource, string> keySelector)
+        => ToLastWinsDictionary(source, keySelector, item => item);
+
     public static Dictionary<string, TValue> ToLastWinsDictionary<TSource, TValue>(
         IEnumerable<TSource> source,
         Func<TSource, string> keySelector,
@@ -38,4 +48,13 @@ internal static class CutLabCardNames
 
         return dictionary;
     }
+
+    internal static string JoinCardNames(IReadOnlyList<string> cardNames)
+        => cardNames.Count switch
+        {
+            0 => string.Empty,
+            1 => cardNames[0],
+            2 => $"{cardNames[0]} and {cardNames[1]}",
+            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
+        };
 }

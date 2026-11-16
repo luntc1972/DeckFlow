@@ -131,11 +131,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             _memoryCache.Set(cacheKey, parsed, CacheDuration);
             return parsed;
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger?.LogWarning(ex, "EDHREC commander page had an unexpected JSON shape");
             return CacheUnavailableResult(cacheKey);
@@ -209,11 +205,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             _memoryCache.Set(cacheKey, parsed, parsed.Count > 0 ? CacheDuration : EmptyThemeCardCacheDuration);
             return new(parsed, true);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger?.LogWarning(ex, "EDHREC theme page had an unexpected JSON shape");
             return new([], false);
@@ -272,11 +264,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             WriteCache(cachePath, new CacheEntry(response.Content, eTag, DateTimeOffset.UtcNow));
             return new(response.Content, true);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger?.LogWarning(ex, "EDHREC fetch failed for {Resource}", resource);
             return FromCachedBody(cached);

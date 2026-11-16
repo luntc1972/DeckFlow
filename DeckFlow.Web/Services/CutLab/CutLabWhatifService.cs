@@ -308,8 +308,7 @@ public sealed class CutLabWhatifService : ICutLabWhatifService
     {
         IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
             sourceCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
         IReadOnlyList<ScryfallCardData> subset = targetPool
             .Select(card => sourceByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out ScryfallCardData? resolvedCard) ? resolvedCard : null)
             .Where(card => card is not null)

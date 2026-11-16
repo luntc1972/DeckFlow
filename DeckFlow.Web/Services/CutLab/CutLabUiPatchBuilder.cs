@@ -62,8 +62,7 @@ internal static class CutLabSharedHelpers
         => workingList
             .Where(card => !card.IsLocked && !card.IsCommander)
             .Select(card => card.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .DistinctAndOrderNames()
             .ToArray();
 
     internal static IReadOnlyList<string> BuildWhatifCardInOptions(
@@ -74,8 +73,7 @@ internal static class CutLabSharedHelpers
         return pool
             .Where(card => accepted.Contains(card.Name))
             .Select(card => card.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .DistinctAndOrderNames()
             .ToArray();
     }
 
@@ -83,17 +81,16 @@ internal static class CutLabSharedHelpers
     {
         if (membership.CompleteCombos.Count > 0)
         {
-            return (ComboBadgeState.CompletePiece, CutLabSharedHelpers.JoinCardNames(
+            return (ComboBadgeState.CompletePiece, CutLabCardNames.JoinCardNames(
                     membership.CompleteCombos
                         .SelectMany(combo => combo.Results)
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
+                        .DistinctAndOrderNames()
                         .ToArray()));
         }
 
         if (membership.NearCombos.Count > 0)
         {
-            return (ComboBadgeState.NeedsPartner, $"Needs {CutLabSharedHelpers.JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}");
+            return (ComboBadgeState.NeedsPartner, $"Needs {CutLabCardNames.JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).DistinctAndOrderNames().ToArray())}");
         }
 
         return null;
@@ -135,15 +132,6 @@ internal static class CutLabSharedHelpers
             .ToArray();
     }
 
-    internal static string JoinCardNames(IReadOnlyList<string> cardNames)
-        => cardNames.Count switch
-        {
-            0 => string.Empty,
-            1 => cardNames[0],
-            2 => $"{cardNames[0]} and {cardNames[1]}",
-            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
-        };
-
     internal static async Task<EdhrecThemeResult> FetchPlanThemeResultAsync(
         IEdhrecCommanderThemeService themeService,
         ILogger logger,
@@ -160,11 +148,7 @@ internal static class CutLabSharedHelpers
         {
             return await themeService.GetCommanderThemesAsync(commanderName, cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogWarning(exception, "Cut Lab: plan EDHREC theme lookup failed; continuing unavailable.");
             return new EdhrecThemeResult([], true);
@@ -535,8 +519,8 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             workingList,
             originalPoolNames,
             currentCount,
-            Math.Max(currentCount - 100, 0),
-            currentCount == 100,
+            Math.Max(currentCount - CutLabCutRoundEngine.TargetDeckSize, 0),
+            currentCount == CutLabCutRoundEngine.TargetDeckSize,
             whatifCardOutOptions,
             whatifCardInOptions,
             addableBasics);
@@ -594,9 +578,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
 
         return result;
     }
-
-    private static string DisplayLabelFor(string roleKey)
-        => CutLabRoleAssigner.DisplayLabelFor(roleKey);
 
     /// <summary>Collects derived deck counts and card options needed to render a Cut Lab working-list patch.</summary>
     private sealed record WorkingListProjection(

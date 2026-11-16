@@ -242,7 +242,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             cedhContext: cedhContext,
             trialsOverride: trialsOverride);
 
-        IReadOnlyList<CutLabMetricValue> metrics = BuildMetrics(report, deck, facts, mode, goals);
+        IReadOnlyList<CutLabMetricValue> metrics = BuildMetrics(report, deck, facts, goals);
         return new CutLabSimulationResult
         {
             Snapshot = new CutLabMetricSnapshot { Metrics = metrics },
@@ -359,8 +359,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         {
             IReadOnlyDictionary<string, ScryfallCardData> cardsByName = CutLabCardNames.ToLastWinsDictionary(
                 cachedCards,
-                card => card.Name,
-                card => card);
+                card => card.Name);
             cards = workingList
                 .Select(poolCard =>
                 {
@@ -388,7 +387,6 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         ManabaseReport report,
         ManabaseDeck deck,
         IReadOnlyList<CardFact> facts,
-        ManabaseMode mode,
         CutLabGoalSettings? goals)
     {
         goals ??= new CutLabGoalSettings();
@@ -456,8 +454,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     {
         IReadOnlyDictionary<string, CardFact> factsByName = CutLabCardNames.ToLastWinsDictionary(
             facts,
-            fact => fact.Name,
-            fact => fact);
+            fact => fact.Name);
         return deck with
         {
             Spells = deck.Spells

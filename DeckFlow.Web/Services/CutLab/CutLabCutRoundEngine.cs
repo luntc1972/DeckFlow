@@ -83,7 +83,7 @@ public sealed record CutLabLockedOvershootAdvisory(
 /// <summary>Builds Cut Lab's fixed-order cut proposal sequence from the derived working list.</summary>
 public static class CutLabCutRoundEngine
 {
-    private const int TargetDeckSize = 100;
+    internal const int TargetDeckSize = 100;
 
     /// <summary>Stable round key for obvious-cut proposals.</summary>
     public const string Round1Key = "round-1";
@@ -381,8 +381,7 @@ public static class CutLabCutRoundEngine
     {
         IReadOnlyDictionary<string, CutLabAnalyzedCard> analyzedByName = CutLabCardNames.ToLastWinsDictionary(
             analyzedCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
 
         return workingList
             .Select(card =>

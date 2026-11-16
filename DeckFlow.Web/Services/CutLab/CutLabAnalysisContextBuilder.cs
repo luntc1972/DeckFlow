@@ -222,8 +222,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             .ToHashSet(CutLabCardNames.Comparer);
         IReadOnlyDictionary<string, ScryfallCardData> cardsByName = CutLabCardNames.ToLastWinsDictionary(
             resolvedCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
         ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
         Dictionary<string, IReadOnlyList<string>> rolesByCardName = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, int> roleCounts = new(StringComparer.OrdinalIgnoreCase);
@@ -335,8 +334,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
     {
         IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
             sourceCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
         return targetPool
             .Select(card => sourceByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out ScryfallCardData? resolvedCard) ? resolvedCard : null)
             .Where(card => card is not null)
@@ -356,8 +354,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
 
         IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
             sourceCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
         List<ScryfallCardData> filteredCards = new(workingList.Count);
         HashSet<string> seen = new(CutLabCardNames.Comparer);
 
@@ -482,8 +479,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
         {
             IReadOnlyDictionary<string, ScryfallCardData> preResolvedByName = CutLabCardNames.ToLastWinsDictionary(
                 preResolvedCards,
-                card => card.Name,
-                card => card);
+                card => card.Name);
             IReadOnlyList<ScryfallCardData> preResolvedForPool = AugmentResolvedCardsWithSyntheticBasics(
                 workingList,
                 BuildOrderedResolvedCards(workingList, preResolvedByName));
@@ -553,11 +549,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                     _logger.LogWarning("Cut Lab analysis context could not resolve {CardName}; continuing without card facts.", unresolvedName);
                 }
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 if (!failOpenOnLookupErrors && !IsTransientRateLimit(exception))
                 {
@@ -762,11 +754,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger.LogWarning(exception, "Cut Lab: Commander Spellbook fetch failed; continuing without combo roles.");
         }
@@ -795,11 +783,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 await _categoryKnowledge.GetCategoriesForNamesAsync(cardNames, CategoryLookupOptions.CutLabMeaningful, cancellationToken: cancellationToken).ConfigureAwait(false);
             return new CategoryLookupResult(categories, true);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger.LogWarning(exception, "Cut Lab: batch category lookup failed; using heuristics only.");
             return new CategoryLookupResult(EmptyCategories, false);
