@@ -56,6 +56,15 @@ public sealed class CategoryArchivePostgresTests
     [CreatorSuppressionPostgresFact]
     public Task FaultMidUnarchive_RollsBackAll() => VerifyAsync(false, "fault");
 
+    [CreatorSuppressionPostgresFact]
+    public Task UrlImport_ArchivedDeck_RefusedAndNothingWritten() => VerifyAsync(false, "url-archived");
+
+    [CreatorSuppressionPostgresFact]
+    public Task Pg_FoldHoldsLock_UrlImportWaitsThenRefuses() => VerifyAsync(false, "url-fold-first");
+
+    [CreatorSuppressionPostgresFact]
+    public Task Pg_UrlImportInWindow_FoldWaitsUntilUrlCommits() => VerifyAsync(false, "url-import-first");
+
     private static async Task VerifyAsync(bool ensureTwice, string? scenario = null)
     {
         var schema = $"category_archive_{Guid.NewGuid():N}";
@@ -68,7 +77,7 @@ public sealed class CategoryArchivePostgresTests
         }
         try
         {
-            var builder = new NpgsqlConnectionStringBuilder(connectionString) { SearchPath = schema, Pooling = false };
+            var builder = new NpgsqlConnectionStringBuilder(connectionString) { SearchPath = schema, Pooling = false, ApplicationName = schema };
             var first = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, builder.ConnectionString);
             builder.ApplicationName = schema;
             var second = new RelationalDatabaseConnection(RelationalDatabaseProvider.Postgres, builder.ConnectionString);

@@ -19,6 +19,8 @@ internal sealed class CardCategoryRepository
     // Why: tests inject a transaction failure after archive subtraction has begun.
     internal Action? UnarchiveFault { get; set; }
     internal Action? FoldFault { get; set; }
+    internal Func<Task>? UrlImportBeforeWrite { get; set; }
+    internal Func<Task>? FoldAfterArchiveLocks { get; set; }
 
     internal const string ArchidektLiveSourcePrefix = "archidekt_live:";
     private readonly RelationalDatabaseConnection _connectionInfo;
@@ -585,6 +587,11 @@ internal sealed class CardCategoryRepository
                 }
             }
 
+            if (FoldAfterArchiveLocks is not null)
+            {
+                await FoldAfterArchiveLocks().ConfigureAwait(false);
+            }
+
             var candidateIds = candidates.Select(row => row.Id).ToArray();
             var sourceRows = (await connection.QueryAsync<StoredLiveSourceRow>(new CommandDefinition(
                 $"SELECT s.id AS SourceId, {IntegerProjection("s.deck_queue_id", "DeckQueueId", _connectionInfo.IsPostgres)} FROM sources s WHERE s.deck_queue_id {membership} AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix ORDER BY s.id" + (_connectionInfo.IsPostgres ? " FOR UPDATE;" : ";"),
@@ -734,6 +741,75 @@ internal sealed class CardCategoryRepository
             await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId }, _connectionInfo.IsPostgres, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
+    }
+
+    /// <summary>
+    /// Persists URL-import observations atomically, refusing decks already archived by retention.
+    /// </summary>
+    public async Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string archidektDeckId, string source, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
+        var result = new UrlImportPersistResult(false);
+        await DeadlockRetry.ExecuteAsync(async () =>
+        {
+            await using var connection = CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var deckQueueId = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
+                "SELECT id FROM deck_queue WHERE deck_id = @archidektDeckId;",
+                new { archidektDeckId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (deckQueueId is not null)
+            {
+                await LockArchiveAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+                var archived = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                    "SELECT COUNT(*) FROM deck_category_archive_manifest WHERE deck_queue_id = @deckQueueId;",
+                    new { deckQueueId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                if (archived != 0)
+                {
+                    result = new UrlImportPersistResult(true);
+                    return;
+                }
+            }
+
+            if (UrlImportBeforeWrite is not null)
+            {
+                await UrlImportBeforeWrite().ConfigureAwait(false);
+            }
+
+            var counts = new Dictionary<(string CardName, string Category, string Board), int>();
+            foreach (var entry in entries)
+            {
+                foreach (var category in CategoryKnowledgeReporter.SplitCategories(entry.Category))
+                {
+                    var key = (entry.Name, category, NormalizeBoard(entry.Board));
+                    counts[key] = counts.TryGetValue(key, out var existing) ? existing + entry.Quantity : entry.Quantity;
+                }
+            }
+            var observations = counts.Where(item => !string.IsNullOrWhiteSpace(item.Key.CardName) && item.Value > 0).ToArray();
+            if (!string.IsNullOrWhiteSpace(source) && observations.Length > 0)
+            {
+                // Why: URL sources stay independent of listing sources and must never invoke unarchive on resolution.
+                var sourceId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                    "INSERT INTO sources (source) VALUES (@source) ON CONFLICT(source) DO UPDATE SET source = excluded.source RETURNING id;",
+                    new { source }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                var cardIds = await ResolveCardIdsAsync(connection, transaction, observations.Select(item => item.Key.CardName).ToArray(), cancellationToken);
+                var deltas = new CategoryWriteOrder();
+                var lastSeenUtc = DateTime.UtcNow;
+                foreach (var item in observations.OrderBy(item => cardIds[CardNormalizer.Normalize(item.Key.CardName)])
+                             .ThenBy(item => item.Key.Category, StringComparer.Ordinal)
+                             .ThenBy(item => item.Key.Board, StringComparer.Ordinal))
+                {
+                    await UpsertCategoryObservationAsync(connection, transaction, sourceId,
+                        cardIds[CardNormalizer.Normalize(item.Key.CardName)], item.Key.CardName, item.Key.Category,
+                        item.Key.Board, item.Value, 1, lastSeenUtc, deltas, cancellationToken);
+                }
+                await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+                await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId }, _connectionInfo.IsPostgres, cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+        }, _schema.Logger, cancellationToken);
+        return result;
     }
 
     /// <summary>

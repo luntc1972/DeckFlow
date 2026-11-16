@@ -284,6 +284,133 @@ public sealed class CategoryArchiveTests
         }
     }
 
+    [Fact]
+    public Task UrlImport_ArchivedDeck_RefusedAndNothingWritten() => WithArchiveSqliteAsync("url-archived");
+
+    [Fact]
+    public Task UrlImport_NonArchivedDeck_MatchesControllerWrites() => WithArchiveSqliteAsync("url-happy");
+
+    internal static async Task VerifyUrlImportAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var cancellationToken = timeout.Token;
+        var repository = new CategoryKnowledgeRepository(info);
+        await repository.EnsureSchemaAsync(cancellationToken);
+        await repository.AddDeckIdsAsync(["719"], cancellationToken);
+        DeckEntry[] entries =
+        [
+            new() { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 2, Board = " Mainboard ", Category = "Ramp, Artifact" },
+            new() { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = "Ramp" },
+            new() { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "SIDEBOARD", Category = "Artifact" }
+        ];
+        const string source = "archidekt_url:https://archidekt.com/decks/719";
+        if (scenario == "url-happy")
+        {
+            var counts = new Dictionary<(string Name, string Category, string Board), int>();
+            foreach (var entry in entries)
+            {
+                foreach (var category in DeckFlow.Core.Reporting.CategoryKnowledgeReporter.SplitCategories(entry.Category))
+                {
+                    var key = (entry.Name, category, entry.Board.Trim().ToLowerInvariant());
+                    counts[key] = counts.GetValueOrDefault(key) + entry.Quantity;
+                }
+            }
+            foreach (var item in counts)
+            {
+                await repository.PersistObservedCategoriesAsync("expected", item.Key.Name, [item.Key.Category], item.Value, item.Key.Board, 1, cancellationToken);
+            }
+            Assert.False((await repository.PersistUrlImportDeckAsync("719", source, entries, cancellationToken)).Archived);
+            const string sql = "SELECT o.card_name, o.category, o.board, o.count, o.deck_count FROM card_category_observations o JOIN sources s ON s.id = o.source_id WHERE s.source = @source ORDER BY o.card_name, o.category, o.board;";
+            var expected = (await connection.QueryAsync(sql, new { source = "expected" })).Select(row => System.Text.Json.JsonSerializer.Serialize((object)row)).ToArray();
+            var actual = (await connection.QueryAsync(sql, new { source })).Select(row => System.Text.Json.JsonSerializer.Serialize((object)row)).ToArray();
+            Assert.NotEmpty(expected);
+            Assert.Equal(expected, actual);
+            Assert.Equal(0, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM card_deck_totals;"));
+            Assert.Null(await connection.ExecuteScalarAsync<long?>("SELECT deck_queue_id FROM sources WHERE source = @source;", new { source }));
+            return;
+        }
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:719", entries, cancellationToken);
+        await repository.MarkDeckProcessedAsync("719", "Test Commander", skip: false, cancellationToken: cancellationToken);
+        var id = await connection.QuerySingleAsync<long>("SELECT id FROM deck_queue WHERE deck_id = '719';");
+        if (scenario == "url-archived")
+        {
+            Assert.Equal(1, await repository.RemoveStoredDecksAsync([(id, DeckSkipReasons.Retention)], cancellationToken));
+            var tables = new[] { "card_category_archive", "card_category_deck_archive", "card_deck_totals_archive", "deck_category_archive_manifest", "card_category_summary", "card_category_qualified" };
+            var before = new List<string>();
+            foreach (var table in tables)
+            {
+                before.Add(await ReadSnapshotAsync(connection, table));
+            }
+            Assert.True((await repository.PersistUrlImportDeckAsync("719", source, entries, cancellationToken)).Archived);
+            for (var index = 0; index < tables.Length; index++)
+            {
+                Assert.Equal(before[index], await ReadSnapshotAsync(connection, tables[index]));
+            }
+        }
+        else
+        {
+            var cardRepository = (CardCategoryRepository)typeof(CategoryKnowledgeRepository).GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(repository)!;
+            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            async Task PauseAsync()
+            {
+                entered.TrySetResult();
+                await release.Task.WaitAsync(cancellationToken);
+            }
+            var foldFirst = scenario == "url-fold-first";
+            if (foldFirst)
+            {
+                cardRepository.FoldAfterArchiveLocks = PauseAsync;
+            }
+            else
+            {
+                cardRepository.UrlImportBeforeWrite = PauseAsync;
+            }
+            Task<int>? fold = null;
+            Task<UrlImportPersistResult>? import = null;
+            try
+            {
+                if (foldFirst)
+                {
+                    fold = repository.RemoveStoredDecksAsync([(id, DeckSkipReasons.Retention)], cancellationToken);
+                }
+                else
+                {
+                    import = repository.PersistUrlImportDeckAsync("719", source, entries, cancellationToken);
+                }
+                await entered.Task.WaitAsync(cancellationToken);
+                fold ??= repository.RemoveStoredDecksAsync([(id, DeckSkipReasons.Retention)], cancellationToken);
+                import ??= repository.PersistUrlImportDeckAsync("719", source, entries, cancellationToken);
+                // Observe the second transaction waiting on the archive lock before releasing the first.
+                while (!await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                    "SELECT EXISTS (SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE l.locktype = 'advisory' AND l.classid::bigint = @lockClass AND l.objid::bigint = @id AND l.objsubid = 2 AND a.application_name = current_setting('application_name') AND NOT l.granted);",
+                    new { lockClass = CardCategoryRepository.DeckArchiveLockClass, id }, cancellationToken: cancellationToken)))
+                {
+                    await Task.Delay(20, cancellationToken);
+                }
+                Assert.False(foldFirst ? import.IsCompleted : fold.IsCompleted);
+            }
+            finally
+            {
+                release.TrySetResult();
+                if (fold is not null)
+                {
+                    await fold.WaitAsync(cancellationToken);
+                }
+                if (import is not null)
+                {
+                    await import.WaitAsync(cancellationToken);
+                }
+            }
+            Assert.Equal(1, await fold!);
+            Assert.Equal(foldFirst, (await import!).Archived);
+        }
+        Assert.Equal(1, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM deck_category_archive_manifest;"));
+        Assert.Equal(scenario == "url-import-first" ? 1 : 0, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM sources WHERE source = @source;", new { source }));
+        Assert.Equal(scenario == "url-import-first" ? 1 : 0, await connection.ExecuteScalarAsync<int>("SELECT CASE WHEN COUNT(*) > 0 THEN 1 ELSE 0 END FROM card_category_observations o JOIN sources s ON s.id = o.source_id WHERE s.source = @source;", new { source }));
+        Assert.Equal(0, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM card_deck_totals t JOIN sources s ON s.id = t.source_id WHERE s.source = @source;", new { source }));
+    }
+
     private static async Task WithArchiveSqliteAsync(string scenario)
     {
         var path = Path.Combine(Path.GetTempPath(), $"archive_drain_{Guid.NewGuid():N}.db");
@@ -303,6 +430,11 @@ public sealed class CategoryArchiveTests
 
     internal static async Task VerifyDrainAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
     {
+        if (scenario.StartsWith("url-", StringComparison.Ordinal))
+        {
+            await VerifyUrlImportAsync(connection, info, scenario);
+            return;
+        }
         if (scenario is "archived-purge" or "archived-count" or "archived-max" or "recompute" or "fold-fault")
         {
             await VerifyArchivedPurgeAsync(connection, info, scenario);
