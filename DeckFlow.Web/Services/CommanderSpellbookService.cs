@@ -179,8 +179,7 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
     {
         var names = main.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var nameMapKey = "spellbook-names:" + string.Join('|', names
-            .Select(name => ToSpellbookName(name).ToUpperInvariant())
-            .Distinct(StringComparer.Ordinal)
+            .Select(name => name.ToUpperInvariant())
             .Order(StringComparer.Ordinal));
         // Why: canonical names are stable, and resolving them repeatedly adds avoidable Scryfall latency.
         if (_memoryCache.TryGetValue<Dictionary<string, string>>(nameMapKey, out var cached) && cached is not null)
