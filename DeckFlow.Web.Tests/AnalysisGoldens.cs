@@ -776,9 +776,13 @@ target_bracket: Bracket 3: Upgraded
 
 DECK SCORE (coarse 0-5 bands - magnitude, not quality)
   Power:       0/5  None      (0 Game Changers, combo data unavailable, 0 fast-mana sources)
+    rule: None of the higher-band rules matched.
   Speed:       2/5  Modest    (avg MV 1.33, 0 fast-mana, 3 ramp/draw under 3 MV)
+    rule: average mana value <= 3.5 and 3+ ramp/draw under 3 MV
   Control:     0/5  None      (0 interaction pieces, 0 board wipes, 0 counters)
+    rule: None of the higher-band rules matched.
   Consistency: 0/5  None      (0 tutors, combo data unavailable, avg mana value 1.33)
+    rule: None of the higher-band rules matched.
 Cross-check: Score aligns with the Bracket 2 classification.
 (These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)
 ## EVIDENCE RULES
@@ -1534,9 +1538,13 @@ target_bracket: Bracket 3: Upgraded
 
 DECK SCORE (coarse 0-5 bands - magnitude, not quality)
   Power:       0/5  None      (0 Game Changers, combo data unavailable, 0 fast-mana sources)
+    rule: None of the higher-band rules matched.
   Speed:       2/5  Modest    (avg MV 1.33, 0 fast-mana, 3 ramp/draw under 3 MV)
+    rule: average mana value <= 3.5 and 3+ ramp/draw under 3 MV
   Control:     0/5  None      (0 interaction pieces, 0 board wipes, 0 counters)
+    rule: None of the higher-band rules matched.
   Consistency: 0/5  None      (0 tutors, combo data unavailable, avg mana value 1.33)
+    rule: None of the higher-band rules matched.
 Cross-check: Score aligns with the Bracket 2 classification.
 (These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)
 

@@ -1407,9 +1407,25 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         var builder = new StringBuilder();
         builder.AppendLine("DECK SCORE (coarse 0-5 bands - magnitude, not quality)");
         builder.AppendLine(FormatScoreAxisLine("Power", score.PowerBand, score.PowerRationale.SignalText));
+        if (score.PowerRationale.RuleText is { } powerRule)
+        {
+            builder.AppendLine($"    rule: {powerRule}");
+        }
         builder.AppendLine(FormatScoreAxisLine("Speed", score.SpeedBand, score.SpeedRationale.SignalText));
+        if (score.SpeedRationale.RuleText is { } speedRule)
+        {
+            builder.AppendLine($"    rule: {speedRule}");
+        }
         builder.AppendLine(FormatScoreAxisLine("Control", score.ControlBand, score.ControlRationale.SignalText));
+        if (score.ControlRationale.RuleText is { } controlRule)
+        {
+            builder.AppendLine($"    rule: {controlRule}");
+        }
         builder.AppendLine(FormatScoreAxisLine("Consistency", score.ConsistencyBand, score.ConsistencyRationale.SignalText));
+        if (score.ConsistencyRationale.RuleText is { } consistencyRule)
+        {
+            builder.AppendLine($"    rule: {consistencyRule}");
+        }
         builder.AppendLine($"Cross-check: {score.BracketCrossCheckText}");
         builder.Append("(These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)");
         return builder.ToString();

@@ -34,4 +34,5 @@ public sealed record DeckMultiAxisScore(
 
 /// <summary>The signals that produced a single axis band, as a terse ASCII signal line.</summary>
 /// <param name="SignalText">Comma-separated signal values, ASCII only (no em/en dashes), paste-safe.</param>
-public sealed record DeckScoreRationale(string SignalText);
+/// <param name="RuleText">The fired band rule, ASCII only; null for scores saved before rule reporting.</param>
+public sealed record DeckScoreRationale(string SignalText, string? RuleText = null);

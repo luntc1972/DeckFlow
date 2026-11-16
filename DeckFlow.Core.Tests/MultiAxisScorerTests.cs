@@ -235,4 +235,66 @@ public sealed class MultiAxisScorerTests
         Assert.Throws<ArgumentNullException>(
             () => MultiAxisScorer.Score(null!, 0, 0, true, 1));
     }
+
+    [Theory]
+    [InlineData(0, 0, 0, 0, "4", 0, 0, 0, 0, 0)]
+    [InlineData(1, 0, 0, 1, "4", 1, 1, 0, 0, 1)]
+    [InlineData(2, 1, 0, 0, "3.5", 3, 4, 0, 0, 2)]
+    [InlineData(3, 1, 1, 3, "3", 5, 8, 1, 0, 5)]
+    [InlineData(4, 4, 2, 5, "2.5", 8, 13, 0, 3, 8)]
+    [InlineData(5, 10, 3, 8, "1.9", 12, 19, 5, 6, 12)]
+    public void Score_EachAxis_ReportsFiredRule(int band, int gc, int combos, int fast,
+        string mv, int early, int interaction, int wipes, int counters, int tutors)
+    {
+        var stats = new DeckStatSummary(99, 30, 20,
+            decimal.Parse(mv, System.Globalization.CultureInfo.InvariantCulture), Curve(),
+            0, 0, interaction, wipes, 0, 0)
+        {
+            FastMana = fast,
+            RampDrawUnderThreeMv = early,
+            Counters = counters,
+            Tutors = tutors,
+        };
+        var score = MultiAxisScorer.Score(stats, gc, combos, true, 3);
+        Assert.Equal(new[] { band, band, band, band },
+            new[] { score.PowerBand, score.SpeedBand, score.ControlBand, score.ConsistencyBand });
+        foreach (var rationale in new[] { score.PowerRationale, score.SpeedRationale,
+            score.ControlRationale, score.ConsistencyRationale })
+        {
+            Assert.False(string.IsNullOrWhiteSpace(rationale.RuleText));
+            Assert.All(rationale.RuleText!, c => Assert.InRange((int)c, 32, 126));
+        }
+    }
+
+    [Theory]
+    [InlineData("Power", 10, 5, "10")]
+    [InlineData("Speed", 8, 5, "8")]
+    [InlineData("Control", 19, 5, "19")]
+    [InlineData("Consistency", 12, 5, "12")]
+    public void Score_RuleText_CarriesBoundaryThreshold(string axis, int threshold, int band, string digits)
+    {
+        DeckMultiAxisScore At(int value)
+        {
+            var stats = new DeckStatSummary(99, 30, 20, 1.9m, Curve(), 0, 0,
+                axis == "Control" ? value : 0, 5, 0, 0)
+            {
+                FastMana = axis == "Speed" ? value : 0,
+                RampDrawUnderThreeMv = 12,
+                Counters = 6,
+                Tutors = axis == "Consistency" ? value : 0,
+            };
+            return MultiAxisScorer.Score(stats, axis == "Power" ? value : 0, 3, true, 3);
+        }
+        (int Band, DeckScoreRationale Rationale) Axis(DeckMultiAxisScore score) => axis switch
+        {
+            "Power" => (score.PowerBand, score.PowerRationale),
+            "Speed" => (score.SpeedBand, score.SpeedRationale),
+            "Control" => (score.ControlBand, score.ControlRationale),
+            _ => (score.ConsistencyBand, score.ConsistencyRationale),
+        };
+        var exact = Axis(At(threshold));
+        Assert.Equal(band, exact.Band);
+        Assert.Contains(digits, exact.Rationale.RuleText);
+        Assert.True(Axis(At(threshold - 1)).Band < band);
+    }
 }
