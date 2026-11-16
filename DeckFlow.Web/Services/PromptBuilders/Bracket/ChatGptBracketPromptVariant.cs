@@ -61,6 +61,7 @@ internal sealed class ChatGptBracketPromptVariant : IBracketPromptVariant
         // Effective-date stamp (BRACKET-05) — hand-coded per ADR-0001
         builder.AppendLine($"Game Changers list effective {classification.EffectiveDate}. " +
             "Re-confirm Game Changers membership before suggesting swaps.");
+        builder.AppendLine("Recommend only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.");
         builder.AppendLine();
 
         // Combo-unavailable disclosure (BRACKET-03, T-76-07) — hand-coded per ADR-0001

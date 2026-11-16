@@ -59,6 +59,7 @@ internal sealed class ClaudeBracketPromptVariant : IBracketPromptVariant
         builder.AppendLine("<effective_date_note>");
         builder.AppendLine($"Game Changers list effective {classification.EffectiveDate}. " +
             "Re-confirm Game Changers membership before suggesting swaps.");
+        builder.AppendLine("When recommending cards, choose only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.");
         builder.AppendLine("</effective_date_note>");
 
         // Combo-unavailable disclosure (BRACKET-03, T-76-07) — hand-coded per ADR-0001

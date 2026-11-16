@@ -24,6 +24,7 @@ internal static class BracketPromptGoldens
             "- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.\n" +
             "\n" +
             "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "Recommend only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.\n" +
             "\n",
         "Claude" =>
             "<bracket_classification>\n" +
@@ -42,6 +43,7 @@ internal static class BracketPromptGoldens
             "\n" +
             "<effective_date_note>\n" +
             "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "When recommending cards, choose only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.\n" +
             "</effective_date_note>\n" +
             "</bracket_classification>\n",
         "Gemini" =>
@@ -62,6 +64,7 @@ internal static class BracketPromptGoldens
             "- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.\n" +
             "\n" +
             "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "Suggest only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.\n" +
             "\n",
         _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, "Unknown platform."),
     };
@@ -86,6 +89,7 @@ internal static class BracketPromptGoldens
             "- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.\n" +
             "\n" +
             "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "Recommend only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.\n" +
             "\n" +
             "## FLOOR VIOLATIONS — cards that exceed B2 Core\n" +
             "\n" +
@@ -128,6 +132,7 @@ internal static class BracketPromptGoldens
             "\n" +
             "<effective_date_note>\n" +
             "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "When recommending cards, choose only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.\n" +
             "</effective_date_note>\n" +
             "\n" +
             "<balancer>\n" +
@@ -174,6 +179,7 @@ internal static class BracketPromptGoldens
             "- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.\n" +
             "\n" +
             "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "Suggest only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.\n" +
             "\n" +
             "## FLOOR VIOLATIONS — cards that exceed B2 Core\n" +
             "\n" +
@@ -217,6 +223,7 @@ internal static class BracketPromptGoldens
             "- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.\n" +
             "\n" +
             "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "Recommend only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.\n" +
             "\n" +
             "Note: combo detection was temporarily unavailable. A two-card win combo could place this deck a bracket higher than shown — please double-check for combos.\n" +
             "\n",
@@ -236,6 +243,7 @@ internal static class BracketPromptGoldens
             "\n" +
             "<effective_date_note>\n" +
             "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "When recommending cards, choose only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.\n" +
             "</effective_date_note>\n" +
             "\n" +
             "<combo_detection_note>\n" +
@@ -259,6 +267,7 @@ internal static class BracketPromptGoldens
             "- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.\n" +
             "\n" +
             "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "Suggest only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.\n" +
             "\n" +
             "Note: combo detection was temporarily unavailable. A two-card win combo could place this deck a bracket higher than shown — please double-check for combos.\n" +
             "\n",
