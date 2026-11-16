@@ -178,9 +178,22 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         CancellationToken cancellationToken)
     {
         var names = main.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var nameMapKey = "spellbook-names:" + string.Join('|', names
+            .Select(name => ToSpellbookName(name).ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal));
+        // Why: canonical names are stable, and resolving them repeatedly adds avoidable Scryfall latency.
+        if (_memoryCache.TryGetValue<Dictionary<string, string>>(nameMapKey, out var cached) && cached is not null)
+        {
+            return cached;
+        }
+
         try
         {
-            return await _canonicalCardNameResolver.ResolveCanonicalNamesAsync(names, cancellationToken).ConfigureAwait(false);
+            var resolved = await _canonicalCardNameResolver.ResolveCanonicalNamesAsync(names, cancellationToken).ConfigureAwait(false);
+            var copy = new Dictionary<string, string>(resolved, StringComparer.OrdinalIgnoreCase);
+            _memoryCache.Set(nameMapKey, copy, CacheDuration);
+            return copy;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

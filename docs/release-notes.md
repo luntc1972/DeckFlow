@@ -11,6 +11,7 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 - **Front-face names:** Cards entered by their front-face name only (for example, `Valki, God of Lies`) are now looked up under their full name too, so their combos are no longer silently missing.
 - **Combo lookup:** Meta Gap, deck comparison and every other combo lookup now send double-faced, split and adventure cards to Commander Spellbook under their full `A // B` name, so combos that need one of those cards are no longer silently missing. Prompt decklists keep their front-face display.
 - **Near-combos:** a card you own under its front-face or `A / B` spelling is no longer reported as the missing piece of a near-combo.
+- **Lookup performance:** Commander Spellbook lookups reuse resolved card names for 30 minutes instead of resolving them on every request.
 
 ### DeckFlow Bridge 0.1.2 — Moxfield v3 imports (2026-11-16)
 
