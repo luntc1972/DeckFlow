@@ -175,7 +175,11 @@ public sealed class DeckStatClassifierTests
     [InlineData("Synthetic next turn", "Until your next turn, your opponents can't cast spells.", false)]
     [InlineData("Synthetic mixed next turn", "Until your next turn, your opponents can't cast spells.\nCreatures your opponents control enter tapped.", true)]
     [InlineData("Defense Grid", "Each spell costs {3} more to cast except during its controller's turn.", true)]
-    [InlineData("Damping Sphere", "If a land is tapped for two or more mana, it produces {C} instead of any other type and amount.\nEach spell a player casts costs {1} more to cast for each other spell that player has cast this turn.", true)]
+    // Why: the temporary "this turn" tax is skipped by needles; Damping Sphere is caught by the catalog.
+    [InlineData("Synthetic Damping Sphere wording", "If a land is tapped for two or more mana, it produces {C} instead of any other type and amount.\nEach spell a player casts costs {1} more to cast for each other spell that player has cast this turn.", false)]
+    [InlineData("Synthetic each opponent spell tax", "Each spell your opponents cast costs {1} more to cast.", true)]
+    [InlineData("Synthetic opponent turn tax", "Spells your opponents cast during your turn cost {1} more to cast.", true)]
+    [InlineData("Synthetic each opponent spell reduction", "Each spell your opponents cast costs {1} less to cast.", false)]
     [InlineData("Synthetic opponent tax", "Spells your opponents cast cost {2} more to cast.", true)]
     [InlineData("Synthetic each spell reduction", "Each spell costs {1} less to cast.", false)]
     [InlineData("Synthetic opponent reduction", "Spells your opponents cast cost {1} less to cast.", false)]

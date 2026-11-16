@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DeckFlow.Core.Analysis;
 
 namespace DeckFlow.Core.Tests;
@@ -7,6 +8,17 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class StaxProtectionCatalogTests
 {
+    [Fact]
+    public void CatalogNames_MatchScryfallSnapshot_ExactlyOrdinal()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "stax-protection-catalog-names.json");
+        using var snapshot = JsonDocument.Parse(File.ReadAllText(path));
+        var expected = snapshot.RootElement.GetProperty("names").EnumerateArray()
+            .Select(name => name.GetString()!).Order(StringComparer.Ordinal);
+
+        Assert.Equal(expected, StaxProtectionCatalog.AllNames.Order(StringComparer.Ordinal));
+    }
+
     [Theory]
     [InlineData("Rule of Law", true)]
     [InlineData("Winter Orb", true)]

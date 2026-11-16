@@ -121,7 +121,10 @@ public static class DeckStatClassifier
                 && !oracleText.Contains("damage to each creature you control", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("exile all", StringComparison.OrdinalIgnoreCase);
 
-    // Reject temporary restrictions and self-cost wordings; tax needles require "more to cast".
+    // Temporary wordings ("this turn", "until end of turn", "until your next turn") are not continuing stax.
+    // Self-cost wordings ("This spell costs") tax only the card itself; requiring "more to cast" excludes cost reductions.
+    // Bare "enters tapped" would flag self-tapped lands; life-loss triggers and extra-turn replacement
+    // neither prohibit a cast nor add a casting cost, so they match no restriction needle.
     // Per-card corpus: docs/research/stax-vocabulary-corpus-2026-11.md.
     private static readonly string[] StaxRestrictionNeedles =
     [
@@ -137,6 +140,8 @@ public static class DeckStatClassifier
     [
         "spells cost {",
         "each spell costs",
+        "each spell your opponents cast costs",
+        "spells your opponents cast during your turn cost",
         "spells your opponents cast cost",
     ];
 

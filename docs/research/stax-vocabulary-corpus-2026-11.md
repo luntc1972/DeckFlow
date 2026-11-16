@@ -30,6 +30,8 @@ Cut Lab passes the front oracle text to the detector. The stax name catalog is c
 - `each player can't cast more than`: synthetic `Each player can't cast more than one spell each turn.` supplies the spell-limit wording.
 - `each spell costs`: Defense Grid; accepted only with `more to cast` in the same sentence.
 - `spells your opponents cast cost`: synthetic opponent tax; accepted only with `more to cast` in the same sentence. Synthetic reducers cover both new tax needles.
+- `each spell your opponents cast costs`: synthetic per-spell opponent tax (STAXR-F5, 2026-11-16); accepted only with `more to cast` in the same sentence.
+- `spells your opponents cast during your turn cost`: synthetic your-turn opponent tax (STAXR-F5, 2026-11-16); accepted only with `more to cast` in the same sentence.
 - `each player can cast only`: the parallel positive spell-limit wording is included and covered synthetically.
 
 Matching is case-insensitive. Each period-, newline-, or semicolon-delimited sentence is checked independently. A sentence containing `this turn`, `until end of turn`, or `until your next turn` is rejected before needle matching, so temporary restrictions do not become stax. Other sentences on the same card do not suppress a continuing restriction.
@@ -59,4 +61,4 @@ Avatar's Wrath is false using its complete oracle text from `DeckFlow.Web.Tests/
 - [Defense Grid](https://scryfall.com/card/9ed/293/defense-grid): "Each spell costs {3} more to cast except during its controller's turn." This matches `each spell costs` and the shared tax guard.
 - [Damping Sphere](https://scryfall.com/card/dmr/219/damping-sphere): "If a land is tapped for two or more mana, it produces {C} instead of any other type and amount.\nEach spell a player casts costs {1} more to cast for each other spell that player has cast this turn." Neither new needle matches its tax sentence, which is also excluded by `this turn`. Its catalog entry supplies stax without weakening the duration rule.
 
-Catalog-only coverage pins Damping Sphere and the exact name `Thalia, Guardian of Thraben`. All three tax needles share one explicit tax marker and require `more to cast`; reducers do not qualify.
+Catalog-only coverage pins Damping Sphere and the exact name `Thalia, Guardian of Thraben`. All five tax needles share one explicit tax marker and require `more to cast`; reducers do not qualify.

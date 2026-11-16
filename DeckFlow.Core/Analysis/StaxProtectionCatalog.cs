@@ -32,6 +32,9 @@ public static class StaxProtectionCatalog
         "Veil of Summer",
     };
 
+    /// <summary>Gets every curated stax and protection name for exact-name snapshot validation.</summary>
+    internal static IReadOnlyList<string> AllNames => [.. StaxCards, .. ProtectionCards];
+
     /// <summary>
     /// Returns <see langword="true"/> when the supplied card name is a curated stax or taxation staple.
     /// </summary>

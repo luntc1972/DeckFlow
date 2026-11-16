@@ -29,6 +29,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>Fixtures/salubrious-snail-transcript.txt</TargetPath>
     </None>
+    <None Include="Fixtures/stax-protection-catalog-names.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Content Include="Fixtures\cedh-drift\*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="TestData\quote-cap-fixtures.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
