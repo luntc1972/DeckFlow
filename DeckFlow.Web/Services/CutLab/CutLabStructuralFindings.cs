@@ -299,9 +299,7 @@ public static class CutLabStructuralFindings
             .OrderBy(group => group.First().DisplayName, StringComparer.Ordinal))
         {
             string displayName = group.First().DisplayName;
-            CutLabAnalyzedCard[] cards = group
-                .GroupBy(entry => CutLabCardNames.Normalize(entry.Card.Name), CutLabCardNames.Comparer)
-                .Select(identity => identity.OrderBy(entry => entry.Card.Name, StringComparer.Ordinal).First().Card)
+            CutLabAnalyzedCard[] cards = DistinctByIdentity(group.Select(entry => entry.Card))
                 .OrderByDescending(card => card.ManaValue)
                 .ThenBy(card => card.Name, StringComparer.Ordinal)
                 .ToArray();
@@ -509,13 +507,7 @@ public static class CutLabStructuralFindings
                 .GroupBy(card => (ManaValue: card.Card.ManaValue, card.PrimaryType)))
             {
                 // Why: Three copies of one card present no choice whether they arrive as one entry with quantity: 3 or as three separate entries, so neither quantity nor raw entry count is the threshold; ComputeCurveCongestion sums quantity because curve share is about slots, a different question.
-                CutLabAnalyzedCard[] distinctCards = group
-                    .GroupBy(card => CutLabCardNames.Normalize(card.Card.Name), CutLabCardNames.Comparer)
-                    // Why: Select the ordinally-first raw Name for each identity because an arbitrary First() over a GroupBy is stable in practice but not contractually, and CutLabEngineDeterminismTests requires identical output between identical runs.
-                    .Select(identity => identity
-                        .OrderBy(card => card.Card.Name, StringComparer.Ordinal)
-                        .First()
-                        .Card)
+                CutLabAnalyzedCard[] distinctCards = DistinctByIdentity(group.Select(card => card.Card))
                     .ToArray();
                 if (distinctCards.Length < TwinGroupMinimumCards)
                 {
@@ -526,27 +518,27 @@ public static class CutLabStructuralFindings
             }
         }
 
-        List<(string RoleKeys, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)> canonicalGroups = qualifyingGroups
+        List<(string[] RoleKeys, double ManaValue, string PrimaryType, CutLabAnalyzedCard[] Cards)> canonicalGroups = qualifyingGroups
             .GroupBy(group => group.Cards.Select(card => CutLabCardNames.Normalize(card.Name)).OrderBy(name => name, StringComparer.Ordinal).ToArray(), NormalizedNameSetComparer.Instance)
             .Select(groups => (
-                string.Join("|", groups.OrderBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKey)).Select(group => group.RoleKey)),
+                groups.OrderBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKey)).Select(group => group.RoleKey).ToArray(),
                 groups.First().ManaValue,
                 groups.First().PrimaryType,
                 groups.First().Cards))
             .ToList();
 
         // Why: A normalized evidence-card set is one disclosure even when its cards share several roles.
-        foreach ((string roleKey, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in canonicalGroups
+        foreach ((string[] roleKeys, double manaValue, string primaryType, CutLabAnalyzedCard[] cards) in canonicalGroups
             .OrderByDescending(group => group.ManaValue)
             .ThenBy(group => Array.IndexOf(CutLabRoleAssigner.TypeGroupOrder, group.PrimaryType))
-            .ThenBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKeys.Split('|')[0])))
+            .ThenBy(group => Array.IndexOf(TwinEligibleRoleKeys, group.RoleKeys[0])))
         {
             // Why: D-04/T-041-03. roleLabels is the structured, presenter/view-facing channel for
             // enumerating every shared role (CutLabFindingView.Roles) so consumers never need to
             // parse Lead's prose; Lead still names the same role(s) for the plain-text reader, but
             // states only the safe, disclosure-only contract (role, type, exact mana value, review
             // candidate) without claiming functional equivalence or that any member is costlier.
-            string[] roleLabels = roleKey.Split('|').Select(CutLabRoleAssigner.DisplayLabelFor).ToArray();
+            string[] roleLabels = roleKeys.Select(CutLabRoleAssigner.DisplayLabelFor).ToArray();
             string roleLabel = string.Join(", ", roleLabels);
 
             yield return new CutLabFinding(
@@ -562,6 +554,12 @@ public static class CutLabStructuralFindings
         }
     }
 
+    // Why (WR-05): First() over a GroupBy is not contractually stable, and CutLabEngineDeterminismTests
+    // requires identical runs, so select the ordinally-first raw name per normalized identity.
+    private static IEnumerable<CutLabAnalyzedCard> DistinctByIdentity(IEnumerable<CutLabAnalyzedCard> cards)
+        => cards.GroupBy(card => CutLabCardNames.Normalize(card.Name), CutLabCardNames.Comparer)
+            .Select(identity => identity.OrderBy(card => card.Name, StringComparer.Ordinal).First());
+
     private static IEnumerable<CutLabFinding> ComputeProvenEquivalence(IReadOnlyList<CutLabAnalyzedCard> pool)
     {
         CutLabAnalyzedCard[] eligible = pool.Where(card => !string.IsNullOrWhiteSpace(card.Name) && IsCompleteProfile(card.SemanticProfile)).ToArray();
@@ -575,15 +573,7 @@ public static class CutLabStructuralFindings
             .GroupBy(card => SemanticKey(card, card.SemanticProfile!), StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.Ordinal))
         {
-            // Why (WR-05): an arbitrary First() over a GroupBy is stable in practice but not
-            // contractually, and CutLabEngineDeterminismTests requires identical output between
-            // identical runs -- ComputeFunctionalTwins already documents and fixes this exact pattern
-            // above; select the ordinally-first raw Name for each identity instead. Also matches every
-            // other Cut Lab dedup by passing CutLabCardNames.Comparer (currently the same object as
-            // StringComparer.Ordinal, but this keeps the single point of change intact).
-            CutLabAnalyzedCard[] cards = group
-                .GroupBy(card => CutLabCardNames.Normalize(card.Name), CutLabCardNames.Comparer)
-                .Select(identity => identity.OrderBy(card => card.Name, StringComparer.Ordinal).First())
+            CutLabAnalyzedCard[] cards = DistinctByIdentity(group)
                 .OrderBy(card => card.Name, StringComparer.Ordinal)
                 .ToArray();
 
@@ -668,6 +658,12 @@ public static class CutLabStructuralFindings
             .Select(card => CutLabCardNames.Normalize(card.Name))
             .ToHashSet(CutLabCardNames.Comparer);
 
+        Dictionary<string, CutLabAnalyzedCard> cardsByName = new(StringComparer.OrdinalIgnoreCase);
+        foreach (CutLabAnalyzedCard card in pool)
+        {
+            cardsByName.TryAdd(card.Name, card);
+        }
+
         foreach (SpellbookCombo combo in completeCombos)
         {
             string[] cardsInPool = combo.CardNames
@@ -692,8 +688,7 @@ public static class CutLabStructuralFindings
                 cardsInPool
                     .Select(cardName =>
                     {
-                        CutLabAnalyzedCard? poolCard = pool.FirstOrDefault(card =>
-                            string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase));
+                        CutLabAnalyzedCard? poolCard = cardsByName.GetValueOrDefault(cardName);
                         return new CutLabFindingEvidence(cardName, poolCard?.ManaValue, ComboBadgeState.CompletePiece);
                     })
                     .ToArray());
@@ -730,8 +725,7 @@ public static class CutLabStructuralFindings
                 cardsInDeck
                     .Select(cardName =>
                     {
-                        CutLabAnalyzedCard? poolCard = pool.FirstOrDefault(card =>
-                            string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase));
+                        CutLabAnalyzedCard? poolCard = cardsByName.GetValueOrDefault(cardName);
                         return new CutLabFindingEvidence(cardName, poolCard?.ManaValue, ComboBadgeState.NeedsPartner);
                     })
                     .ToArray());
