@@ -420,6 +420,52 @@ public sealed class CommanderSpellbookServiceTests
         Assert.Contains(DoubleFaced, SentNames(bodies[1], "main"));
     }
 
+    [Fact]
+    public async Task FindCombosAsync_ResolverCallerCancellation_ReturnsNullWithoutWarningOrPost()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var resolver = new ThrowingCanonicalCardNameResolver(new OperationCanceledException(cancellation.Token));
+        var logger = new FakeLogger<CommanderSpellbookService>();
+        var postCalls = 0;
+        var service = TestServiceFactory.CreateCommanderSpellbookService(
+            new FakeHttpClientFactory(new Dictionary<string, HttpMessageHandler>()),
+            new MemoryCache(new MemoryCacheOptions()),
+            logger: logger,
+            postJsonAsync: (_, _) =>
+            {
+                postCalls++;
+                return Task.FromResult<string?>(EmptyResponse);
+            },
+            canonicalCardNameResolver: resolver);
+
+        var result = await service.FindCombosAsync([MainboardEntry(FrontFace)], cancellation.Token);
+
+        Assert.Equal(1, resolver.CallCount);
+        Assert.Equal(0, postCalls);
+        Assert.DoesNotContain(logger.Entries, entry =>
+            entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning
+            && entry.Message.Contains("Card-name canonicalization failed", StringComparison.Ordinal));
+        Assert.Null(result);
+    }
+
+    [Theory]
+    [InlineData("main")]
+    [InlineData("commanders")]
+    public async Task FindCombosAsync_AliasNames_SendCanonicalNameExactlyOnce(string section)
+    {
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, EmptyResponse, CanonicalResolver());
+        DeckEntry[] entries = section == "main"
+            ? [MainboardEntry(FrontFace), MainboardEntry(DoubleFaced)]
+            : [CommanderEntry(FrontFace), CommanderEntry(DoubleFaced)];
+
+        await service.FindCombosAsync(entries);
+
+        var names = SentNames(Assert.Single(bodies), section);
+        Assert.Single(names, name => string.Equals(name, DoubleFaced, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static FakeCanonicalCardNameResolver CanonicalResolver()
     {
         var resolver = new FakeCanonicalCardNameResolver();
