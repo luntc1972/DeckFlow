@@ -203,6 +203,34 @@ public sealed class CategoryArchiveTests
     public Task RecomputeInvariant_LivePlusArchive_EqualsFromScratch() => WithArchiveSqliteAsync("recompute");
 
     [Fact]
+    public Task CategoryCounts_ConcurrentFold_DoesNotDoubleCount() => WithArchiveSqliteAsync("counts-race");
+
+    [Fact]
+    public Task MultipleLiveSources_RejectFold() => WithArchiveSqliteAsync("multi-source");
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("unsupported")]
+    [InlineData("retention")]
+    [InlineData("duplicate")]
+    public async Task RemoveArchivedDecks_InvalidInput_Throws(string scenario)
+    {
+        var repository = new CategoryKnowledgeRepository("unused-invalid-input.db");
+        if (scenario == "null")
+            await Assert.ThrowsAsync<ArgumentNullException>(() => repository.RemoveArchivedDecksAsync(null!));
+        else
+        {
+            IReadOnlyList<(long DeckQueueId, string SkipReason)> decks = scenario switch
+            {
+                "unsupported" => [(1, "invalid")],
+                "retention" => [(1, DeckSkipReasons.Retention)],
+                _ => [(1, DeckSkipReasons.NoCommander), (1, DeckSkipReasons.NotCommanderFormat)]
+            };
+            await Assert.ThrowsAsync<ArgumentException>(() => repository.RemoveArchivedDecksAsync(decks));
+        }
+    }
+
+    [Fact]
     public Task FaultMidFold_RollsBackAll() => WithArchiveSqliteAsync("fold-fault");
 
     [Fact]
@@ -303,6 +331,22 @@ public sealed class CategoryArchiveTests
         var totals = await repository.GetCardDeckTotalsAsync("Sol Ring");
         var qualified = (await repository.GetCategoriesForNamesAsync(["Sol Ring"]))["Sol Ring"];
         var ids = (await connection.QueryAsync<long>("SELECT id FROM deck_queue ORDER BY id;")).ToArray();
+        if (scenario is "counts-race" or "multi-source")
+        {
+            var cardRepository = (CardCategoryRepository)typeof(CategoryKnowledgeRepository).GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(repository)!;
+            if (scenario == "multi-source")
+            {
+                await connection.ExecuteAsync("INSERT INTO sources (source, deck_queue_id) VALUES ('archidekt_live:duplicate', @id);", new { id = ids[0] });
+                await Assert.ThrowsAsync<InvalidOperationException>(() => repository.RemoveStoredDecksAsync([(ids[0], DeckSkipReasons.Retention)]));
+            }
+            else
+            {
+                cardRepository.CategoryCountsRead = async () => { await repository.RemoveStoredDecksAsync([(ids[0], DeckSkipReasons.Retention)]); };
+                var actual = await repository.GetCategoryDeckCountsAsync("Sol Ring");
+                Assert.Equal(counts.OrderBy(row => row.Key), actual.OrderBy(row => row.Key));
+            }
+            return;
+        }
         if (scenario == "fold-fault")
         {
             var snapshots = new List<string>();
@@ -311,7 +355,12 @@ public sealed class CategoryArchiveTests
                 snapshots.Add(await ReadSnapshotAsync(connection, table));
             }
             var cardRepository = (CardCategoryRepository)typeof(CategoryKnowledgeRepository).GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(repository)!;
-            cardRepository.FoldFault = () => throw new InvalidOperationException("Injected fold fault");
+            cardRepository.FoldFault = (foldConnection, transaction) =>
+            {
+                Assert.Equal(0, foldConnection.ExecuteScalar<long>("SELECT COUNT(*) FROM card_category_observations o JOIN sources s ON s.id = o.source_id WHERE s.deck_queue_id = @id;", new { id = ids[0] }, transaction));
+                Assert.Equal(0, foldConnection.ExecuteScalar<long>("SELECT COUNT(*) FROM card_deck_totals t JOIN sources s ON s.id = t.source_id WHERE s.deck_queue_id = @id;", new { id = ids[0] }, transaction));
+                throw new InvalidOperationException("Injected fold fault");
+            };
             await Assert.ThrowsAsync<InvalidOperationException>(() => repository.RemoveStoredDecksAsync([(ids[0], DeckSkipReasons.Retention)]));
             for (var index = 0; index < tables.Length; index++)
             {
@@ -512,7 +561,7 @@ public sealed class CategoryArchiveTests
             await VerifyUrlImportAsync(connection, info, scenario);
             return;
         }
-        if (scenario is "archived-purge" or "archived-count" or "archived-max" or "recompute" or "fold-fault")
+        if (scenario is "archived-purge" or "archived-count" or "archived-max" or "recompute" or "fold-fault" or "counts-race" or "multi-source")
         {
             await VerifyArchivedPurgeAsync(connection, info, scenario);
             return;

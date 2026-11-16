@@ -18,7 +18,8 @@ internal sealed class CardCategoryRepository
 
     // Why: tests inject a transaction failure after archive subtraction has begun.
     internal Action? UnarchiveFault { get; set; }
-    internal Action? FoldFault { get; set; }
+    internal Action<System.Data.Common.DbConnection, System.Data.Common.DbTransaction>? FoldFault { get; set; }
+    internal Func<Task>? CategoryCountsRead { get; set; }
     internal Func<Task>? UrlImportBeforeWrite { get; set; }
     internal Func<Task>? FoldAfterArchiveLocks { get; set; }
 
@@ -166,9 +167,9 @@ internal sealed class CardCategoryRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
-        var rows = await connection.QueryAsync<CategoryDeckCountRow>(new CommandDefinition(
+        var rows = (await connection.QueryAsync<CategoryDeckCountRow>(new CommandDefinition(
             """
-            SELECT o.source_id AS SourceId, o.card_id AS CardId, o.board AS Board, o.category AS Category, SUM(o.deck_count) AS DeckCount
+            SELECT o.source_id AS SourceId, o.card_id AS CardId, o.board AS Board, o.category AS Category, SUM(o.deck_count) AS DeckCount, 0 AS IsArchive, 0 AS IncludedDeckCount, 0 AS FallbackDeckCount, 0 AS IncludedLabelRows
             FROM card_category_observations o
             JOIN cards c ON c.id = o.card_id
             JOIN card_deck_totals t
@@ -176,19 +177,28 @@ internal sealed class CardCategoryRepository
              AND t.card_id = o.card_id
              AND t.board = o.board
             WHERE c.normalized_card_name = @normalized
-            GROUP BY o.source_id, o.card_id, o.board, o.category;
+            GROUP BY o.source_id, o.card_id, o.board, o.category
+            UNION ALL
+            SELECT 0 AS SourceId, a.card_id AS CardId, a.board AS Board, a.canonical_category AS Category, 0 AS DeckCount,
+                   1 AS IsArchive, a.included_deck_count AS IncludedDeckCount, a.fallback_deck_count AS FallbackDeckCount, a.included_label_rows AS IncludedLabelRows
+            FROM card_category_deck_archive a JOIN cards c ON c.id = a.card_id
+            WHERE c.normalized_card_name = @normalized;
             """,
             new { normalized = CardNormalizer.Normalize(cardName) },
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
+            cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
 
-        var archived = await connection.QueryAsync<CategoryDeckCountAggregation.ArchiveRow>(new CommandDefinition(
-            "SELECT a.card_id AS CardId, a.canonical_category AS CanonicalCategory, a.board AS Board, " +
-            "a.included_deck_count AS IncludedDeckCount, a.fallback_deck_count AS FallbackDeckCount, a.included_label_rows AS IncludedLabelRows " +
-            "FROM card_category_deck_archive a JOIN cards c ON c.id = a.card_id WHERE c.normalized_card_name = @normalized;",
-            new { normalized = CardNormalizer.Normalize(cardName) }, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (CategoryCountsRead is { } afterRead) await afterRead();
         return CategoryDeckCountAggregation.Read(
-            rows.Select(row => new CategoryDeckCountAggregation.LiveRow(row.SourceId, row.CardId, row.Board, row.Category, row.DeckCount)).ToArray(),
-            archived.ToArray());
+            rows.Where(row => row.IsArchive == 0).Select(row => new CategoryDeckCountAggregation.LiveRow(row.SourceId, row.CardId, row.Board, row.Category, row.DeckCount)).ToArray(),
+            rows.Where(row => row.IsArchive == 1).Select(row => new CategoryDeckCountAggregation.ArchiveRow
+            {
+                CardId = row.CardId,
+                CanonicalCategory = row.Category,
+                Board = row.Board,
+                IncludedDeckCount = row.IncludedDeckCount,
+                FallbackDeckCount = row.FallbackDeckCount,
+                IncludedLabelRows = row.IncludedLabelRows
+            }).ToArray());
     }
 
     /// <summary>
@@ -613,7 +623,11 @@ internal sealed class CardCategoryRepository
             var deltas = new CategoryWriteOrder();
             foreach (var candidate in candidates.Where(row => reasons[row.Id] == DeckSkipReasons.Retention))
             {
-                var sourceIds = sourcesByDeck[candidate.Id];
+                var sourceIds = sourcesByDeck.GetValueOrDefault(candidate.Id) ?? [];
+                if (sourceIds.Length != 1)
+                {
+                    throw new InvalidOperationException($"Deck {candidate.Id} has {sourceIds.Length} live sources; refusing to archive.");
+                }
                 var observations = await connection.QueryAsync<RetentionCoreObservationRow>(new CommandDefinition(
                     $"SELECT {IntegerProjection("o.card_id", "CardId", _connectionInfo.IsPostgres)}, {IntegerProjection("o.source_id", "SourceId", _connectionInfo.IsPostgres)}, {IntegerProjection("o.deck_count", "DeckCount", _connectionInfo.IsPostgres)}, c.normalized_card_name AS CardName, o.category AS Category, o.board AS Board, {IntegerProjection("o.count", "Quantity", _connectionInfo.IsPostgres)} FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE o.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
                     new { sourceIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
@@ -670,7 +684,6 @@ internal sealed class CardCategoryRepository
                         formatVersion = DeckCategoryArchiveManifest.FormatVersion,
                         payload = manifest.Encode()
                     }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                FoldFault?.Invoke();
             }
 
             foreach (var source in sourceRows.OrderBy(row => row.SourceId))
@@ -680,6 +693,7 @@ internal sealed class CardCategoryRepository
             }
 
             await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            FoldFault?.Invoke(connection, transaction);
             foreach (var candidate in candidates)
             {
                 var reason = reasons[candidate.Id];
@@ -1201,6 +1215,15 @@ internal sealed class CardCategoryRepository
 
     internal async Task RemoveArchivedDecksAsync(IReadOnlyList<(long DeckQueueId, string SkipReason)> decks, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(decks);
+        var ids = new HashSet<long>();
+        foreach (var deck in decks)
+        {
+            if (deck.SkipReason is not (DeckSkipReasons.NotCommanderFormat or DeckSkipReasons.NoCommander))
+                throw new ArgumentException($"Unsupported skip reason: {deck.SkipReason}", nameof(decks));
+            if (!ids.Add(deck.DeckQueueId))
+                throw new ArgumentException($"Duplicate deck queue ID: {deck.DeckQueueId}", nameof(decks));
+        }
         if (decks.Count == 0)
         {
             return;
@@ -1212,7 +1235,7 @@ internal sealed class CardCategoryRepository
             await using var connection = CreateConnection();
             await connection.OpenAsync(cancellationToken);
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-            var ordered = decks.DistinctBy(row => row.DeckQueueId).OrderBy(row => row.DeckQueueId).ToArray();
+            var ordered = decks.OrderBy(row => row.DeckQueueId).ToArray();
             foreach (var deck in ordered)
             {
                 await LockArchiveAsync(connection, transaction, deck.DeckQueueId, cancellationToken);
@@ -1278,9 +1301,6 @@ internal sealed class CardCategoryRepository
         CancellationToken cancellationToken)
     {
         var deckQueueId = await ResolveDeckQueueIdForSourceAsync(connection, transaction, source, cancellationToken);
-        deckQueueId ??= await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
-            "SELECT deck_queue_id FROM sources WHERE source = @source;",
-            new { source }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
         if (deckQueueId is not null)
         {
             await LockArchiveAsync(connection, transaction, deckQueueId.Value, cancellationToken);
@@ -1552,6 +1572,10 @@ internal sealed class CardCategoryRepository
     /// <summary>Maps persisted source, card, board, and category counts returned from category queries.</summary>
     private sealed class CategoryDeckCountRow
     {
+        public int IsArchive { get; init; }
+        public long IncludedDeckCount { get; init; }
+        public long FallbackDeckCount { get; init; }
+        public long IncludedLabelRows { get; init; }
         public long SourceId { get; init; }
         public long CardId { get; init; }
         public string Board { get; init; } = string.Empty;

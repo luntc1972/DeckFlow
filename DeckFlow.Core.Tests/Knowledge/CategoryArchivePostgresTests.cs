@@ -9,6 +9,15 @@ namespace DeckFlow.Core.Tests.Knowledge;
 public sealed class CategoryArchivePostgresTests
 {
     [CreatorSuppressionPostgresFact]
+    public Task FaultMidFold_RollsBackAll() => VerifyAsync(false, "fold-fault");
+
+    [CreatorSuppressionPostgresFact]
+    public Task CategoryCounts_ConcurrentFold_DoesNotDoubleCount() => VerifyAsync(false, "counts-race");
+
+    [CreatorSuppressionPostgresFact]
+    public Task MultipleLiveSources_RejectFold() => VerifyAsync(false, "multi-source");
+
+    [CreatorSuppressionPostgresFact]
     public Task LegalityPurge_OfArchivedDeck_RestoresArchive() => VerifyAsync(false, "archived-purge");
 
     [CreatorSuppressionPostgresFact]
