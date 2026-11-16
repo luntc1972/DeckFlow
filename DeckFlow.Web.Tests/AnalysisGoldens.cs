@@ -815,7 +815,6 @@ These computed bracket facts are supplied as input for your own bracket judgment
 - 0 Game Changers (B2 has no cap).
 - 0 mass land denial.
 - 0 extra-turn cards (informational only; does not affect bracket number).
-
 ## EVIDENCE RULES
 - Use the mechanic definitions and card reference supplied below as authoritative. Read all supplied card entries before beginning the analysis.
 - Do not invent card text or rules.
@@ -1584,7 +1583,6 @@ These computed bracket facts are supplied as input for your own bracket judgment
 - 0 Game Changers (B2 has no cap).
 - 0 mass land denial.
 - 0 extra-turn cards (informational only; does not affect bracket number).
-
 
 INTERACTION AUDIT (DeckFlow heuristic first pass - verify against the cards)
   Targeted removal: approximately 0 confident - none found

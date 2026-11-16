@@ -2063,8 +2063,8 @@ Commander
         });
 
         Assert.NotNull(result.Score);
+        Assert.Contains("- 0 mass land denial.", result.AnalysisPromptText, StringComparison.Ordinal);
         Assert.Contains(platform == "Claude" ? "<bracket_facts>" : "## Computed bracket facts", result.AnalysisPromptText, StringComparison.Ordinal);
-        Assert.Contains("Game Changer", result.AnalysisPromptText, StringComparison.Ordinal);
         Assert.Contains("extra-turn", result.AnalysisPromptText, StringComparison.Ordinal);
         Assert.DoesNotContain("0 combos", result.AnalysisPromptText, StringComparison.OrdinalIgnoreCase);
     }

@@ -118,7 +118,7 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
             builder.AppendLine();
             builder.AppendLine("## Computed bracket facts");
             builder.AppendLine("These computed bracket facts are supplied as input for your own bracket judgment. The computed bracket is not a minimum or floor.");
-            builder.AppendLine(bracketFactsText);
+            builder.AppendLine(bracketFactsText.TrimEnd());
         }
 
         // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.

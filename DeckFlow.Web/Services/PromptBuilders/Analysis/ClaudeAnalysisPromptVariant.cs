@@ -82,7 +82,7 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
             builder.AppendLine();
             builder.AppendLine("<bracket_facts>");
             builder.AppendLine("Use these supplied computed bracket facts as input to your own bracket judgment. Treat the computed bracket as evidence, not a minimum or floor.");
-            builder.AppendLine(bracketFactsText);
+            builder.AppendLine(bracketFactsText.TrimEnd());
             builder.AppendLine("</bracket_facts>");
         }
 
