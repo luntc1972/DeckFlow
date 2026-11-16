@@ -56,11 +56,9 @@ describe('DeckFlow Bridge Moxfield parser', () => {
     }
   });
 
-  it('rejects main metadata alone and empty v3 boards', () => {
+  it('rejects main metadata alone and missing zone containers', () => {
     expect(hasDeckZones({ main: { count: 100 } })).toBe(false);
-    expect(hasDeckZones({ boards: Object.fromEntries(
-      ['commanders', 'mainboard', 'sideboard', 'maybeboard'].map(zone => [zone, { cards: {} }])
-    ) })).toBe(false);
+    expect(hasDeckZones({ boards: { mainboard: {} } })).toBe(false);
     expect(hasDeckZones({})).toBe(false);
     expect(hasDeckZones(null)).toBe(false);
   });
@@ -75,6 +73,30 @@ describe('DeckFlow Bridge Moxfield parser', () => {
     expect(buildExportBundle({ mainboard: { 'Fallback Card': { quantity: 0 } } }, 'abc')).toEqual({
       deckName: 'moxfield-abc', cardCount: 1, moxfieldText: '1 Fallback Card\n'
     });
+  });
+
+  it.each(['commanders', 'mainboard', 'sideboard', 'maybeboard'])('recognizes empty v2 and v3 %s containers and preserves the exact empty-deck error', (zone) => {
+    for (const payload of [{ [zone]: {} }, { boards: { [zone]: { cards: {} } } }]) {
+      expect(hasDeckZones(payload)).toBe(true);
+      expect(() => buildExportBundle(payload, 'fallback')).toThrow(new Error(
+        'No commander, mainboard, sideboard, or maybeboard cards were found.'
+      ));
+    }
+  });
+
+  it.each([undefined, null, 123, '', '   '])('skips v3 entries with invalid card.name %s without exporting their ids', (name) => {
+    const cards = {
+      'valid-entry-id': mainCard,
+      'nameless-entry-id': { quantity: 1, card: { name } },
+      'missing-card-entry-id': { quantity: 1, name: 'Entry metadata is not a card name' }
+    };
+    const result = buildExportBundle({ boards: { mainboard: { cards } } }, 'fallback');
+    expect(result).toEqual({
+      deckName: 'moxfield-fallback', cardCount: 1,
+      moxfieldText: '2 Sol Ring (cmm) 396\n'
+    });
+    expect(result.moxfieldText).not.toContain('nameless-entry-id');
+    expect(result.moxfieldText).not.toContain('missing-card-entry-id');
   });
 
   it('preserves the empty-deck error', () => {
