@@ -45,7 +45,8 @@ public interface ICommanderSpellbookService
 {
     /// <summary>
     /// Returns combos that are fully in the deck and combos that are one card away,
-    /// within the deck's color identity. Returns null if the API call fails.
+    /// within the deck's color identity. Entries are sent under canonical Scryfall names when resolvable.
+    /// Returns null if the API call fails.
     /// </summary>
     Task<CommanderSpellbookResult?> FindCombosAsync(
         IReadOnlyList<DeckEntry> entries,
@@ -65,6 +66,7 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ResiliencePipeline<RestResponse> _resiliencePipeline;
     private readonly IMemoryCache _memoryCache;
+    private readonly ICanonicalCardNameResolver _canonicalCardNameResolver;
     private readonly ILogger<CommanderSpellbookService> _logger;
     private readonly Func<string, CancellationToken, Task<string?>> _postJsonAsync;
 
@@ -72,15 +74,18 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         IHttpClientFactory httpClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
         IMemoryCache memoryCache,
+        ICanonicalCardNameResolver canonicalCardNameResolver,
         ILogger<CommanderSpellbookService>? logger = null,
         Func<string, CancellationToken, Task<string?>>? postJsonAsync = null)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
         ArgumentNullException.ThrowIfNull(memoryCache);
+        ArgumentNullException.ThrowIfNull(canonicalCardNameResolver);
         _httpClientFactory = httpClientFactory;
         _resiliencePipeline = pipelineProvider.GetPipeline<RestResponse>("spellbook") ?? ResiliencePipeline<RestResponse>.Empty;
         _memoryCache = memoryCache;
+        _canonicalCardNameResolver = canonicalCardNameResolver;
         _logger = logger ?? NullLogger<CommanderSpellbookService>.Instance;
         _postJsonAsync = postJsonAsync ?? PostJsonAsync;
     }
@@ -93,14 +98,12 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         var commanders = entries
             .Where(e => string.Equals(e.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .Select(e => ToSpellbookName(e.Name))
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var main = entries
             .Where(e => string.Equals(e.Board, "mainboard", StringComparison.OrdinalIgnoreCase)
                      || string.Equals(e.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .Select(e => ToSpellbookName(e.Name))
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (main.Count == 0)
@@ -108,6 +111,26 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
             return null;
         }
 
+        IReadOnlyDictionary<string, string> sentNames;
+        try
+        {
+            sentNames = await ResolveSentNamesAsync(main, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Why: Caller cancellation returns null, as it already does during the Spellbook POST.
+            return null;
+        }
+        List<string> RemapNames(IEnumerable<string> names) => names
+            .Select(n => sentNames.TryGetValue(n, out var sentName) && !string.IsNullOrWhiteSpace(sentName) ? sentName : n)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        commanders = RemapNames(commanders);
+        main = RemapNames(main);
+
+        // Why: Results depend on sent names, so aliases share cached results and resolved calls bypass fail-open entries.
         var cacheKey = $"spellbook:{string.Join("|", commanders)}::{string.Join("|", main)}";
         if (_memoryCache.TryGetValue<CommanderSpellbookResult>(cacheKey, out var cached) && cached is not null)
         {
@@ -148,6 +171,27 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         }
 
         return result;
+    }
+
+    private async Task<IReadOnlyDictionary<string, string>> ResolveSentNamesAsync(
+        IReadOnlyList<string> main,
+        CancellationToken cancellationToken)
+    {
+        var names = main.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        try
+        {
+            return await _canonicalCardNameResolver.ResolveCanonicalNamesAsync(names, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Why: A Scryfall outage must not hide combos; null still means Spellbook is unavailable.
+            _logger.LogWarning(ex, "Card-name canonicalization failed; sending {CardCount} Commander Spellbook names unresolved.", names.Count);
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     internal static string BuildRequestJson(IReadOnlyList<string> commanders, IReadOnlyList<string> main)

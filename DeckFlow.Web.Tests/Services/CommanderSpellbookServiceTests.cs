@@ -328,16 +328,167 @@ public sealed class CommanderSpellbookServiceTests
         Assert.NotNull(result);
         Assert.Single(result.IncludedCombos);
     }
-    private static CommanderSpellbookService BuildRecordingService(List<string> bodies, string response)
+    private const string FrontFace = "Valki, God of Lies";
+    private const string DoubleFaced = "Valki, God of Lies // Tibalt, Cosmic Impostor";
+    private const string EmptyResponse = "{\"results\":{\"included\":[],\"almostIncluded\":[]}}";
+
+    [Fact]
+    public async Task FindCombosAsync_FrontFaceOnlyName_SendsCanonicalName()
+    {
+        var resolver = CanonicalResolver();
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, EmptyResponse, resolver);
+
+        await service.FindCombosAsync([MainboardEntry(FrontFace), MainboardEntry("Sol Ring")]);
+
+        var names = SentNames(Assert.Single(bodies), "main");
+        Assert.Contains(DoubleFaced, names);
+        Assert.DoesNotContain(FrontFace, names);
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_CommanderFrontFaceName_SendsCanonicalCommanderAndDedupesMain()
+    {
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, EmptyResponse, CanonicalResolver());
+
+        await service.FindCombosAsync([CommanderEntry(FrontFace), MainboardEntry(DoubleFaced), MainboardEntry("Sol Ring")]);
+
+        var body = Assert.Single(bodies);
+        Assert.Equal([DoubleFaced], SentNames(body, "commanders"));
+        Assert.DoesNotContain(DoubleFaced, SentNames(body, "main"));
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_SingleFacedAndUnresolvableNames_SentUnchanged()
+    {
+        var resolver = new FakeCanonicalCardNameResolver();
+        resolver.Map["Sol Ring"] = "Sol Ring";
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, EmptyResponse, resolver);
+
+        await service.FindCombosAsync([MainboardEntry("Sol Ring"), MainboardEntry("Notacard Xyzzy")]);
+
+        var requested = Assert.Single(resolver.RequestedNames);
+        Assert.Equal(["Notacard Xyzzy", "Sol Ring"], requested.OrderBy(name => name, StringComparer.Ordinal).ToArray());
+        Assert.Equal(["Notacard Xyzzy", "Sol Ring"], SentNames(Assert.Single(bodies), "main"));
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_ResolverThrows_SendsUnresolvedNamesAndReturnsCombos()
+    {
+        var resolver = new FakeCanonicalCardNameResolver { ThrowOnResolve = new HttpRequestException("Scryfall unavailable") };
+        var bodies = new List<string>();
+        const string response = """
+            {"results":{"included":[{"uses":[{"card":{"name":"Sol Ring"}},{"card":{"name":"Valki, God of Lies"}}],"produces":[{"feature":{"name":"Infinite mana"}}]}],"almostIncluded":[]}}
+            """;
+        var service = BuildRecordingService(bodies, response, resolver);
+
+        var result = await service.FindCombosAsync([MainboardEntry(FrontFace), MainboardEntry("Sol Ring")]);
+
+        Assert.Equal(1, resolver.CallCount);
+        Assert.NotNull(result);
+        Assert.Single(result.IncludedCombos);
+        Assert.Contains(FrontFace, SentNames(Assert.Single(bodies), "main"));
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_FrontFaceAndFullSpellings_ShareOneCachedLookup()
+    {
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, EmptyResponse, CanonicalResolver());
+
+        await service.FindCombosAsync([MainboardEntry(FrontFace)]);
+        await service.FindCombosAsync([MainboardEntry(DoubleFaced)]);
+
+        Assert.Single(bodies);
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_FailOpenResult_NotServedToLaterResolvedCall()
+    {
+        var bodies = new List<string>();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var serviceA = BuildRecordingService(bodies, EmptyResponse, new FakeCanonicalCardNameResolver { ThrowOnResolve = new HttpRequestException("Scryfall unavailable") }, cache);
+        var serviceB = BuildRecordingService(bodies, EmptyResponse, CanonicalResolver(), cache);
+        var entries = new[] { MainboardEntry(FrontFace), MainboardEntry("Sol Ring") };
+
+        await serviceA.FindCombosAsync(entries);
+        await serviceB.FindCombosAsync(entries);
+
+        Assert.Equal(2, bodies.Count);
+        Assert.Contains(DoubleFaced, SentNames(bodies[1], "main"));
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_ResolverCallerCancellation_ReturnsNullWithoutWarningOrPost()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var resolver = new FakeCanonicalCardNameResolver { ThrowOnResolve = new OperationCanceledException(cancellation.Token) };
+        var logger = new FakeLogger<CommanderSpellbookService>();
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, EmptyResponse, resolver, logger: logger);
+
+        var result = await service.FindCombosAsync([MainboardEntry(FrontFace)], cancellation.Token);
+
+        Assert.Equal(1, resolver.CallCount);
+        Assert.Empty(bodies);
+        Assert.DoesNotContain(logger.Entries, entry =>
+            entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning
+            && entry.Message.Contains("Card-name canonicalization failed", StringComparison.Ordinal));
+        Assert.Null(result);
+    }
+
+    [Theory]
+    [InlineData("main")]
+    [InlineData("commanders")]
+    public async Task FindCombosAsync_AliasNames_SendCanonicalNameExactlyOnce(string section)
+    {
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, EmptyResponse, CanonicalResolver());
+        DeckEntry[] entries = section == "main"
+            ? [MainboardEntry(FrontFace), MainboardEntry(DoubleFaced)]
+            : [CommanderEntry(FrontFace), CommanderEntry(DoubleFaced)];
+
+        await service.FindCombosAsync(entries);
+
+        var names = SentNames(Assert.Single(bodies), section);
+        Assert.Single(names, name => string.Equals(name, DoubleFaced, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static FakeCanonicalCardNameResolver CanonicalResolver()
+    {
+        var resolver = new FakeCanonicalCardNameResolver();
+        resolver.Map[FrontFace] = DoubleFaced;
+        resolver.Map[DoubleFaced] = DoubleFaced;
+        return resolver;
+    }
+
+    private static string[] SentNames(string body, string section)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(body);
+        return document.RootElement.GetProperty(section).EnumerateArray()
+            .Select(entry => entry.GetProperty("card").GetString()!).ToArray();
+    }
+
+    private static CommanderSpellbookService BuildRecordingService(
+        List<string> bodies,
+        string response,
+        DeckFlow.Web.Services.Scryfall.ICanonicalCardNameResolver? canonicalCardNameResolver = null,
+        IMemoryCache? cache = null,
+        Microsoft.Extensions.Logging.ILogger<CommanderSpellbookService>? logger = null)
     {
         return TestServiceFactory.CreateCommanderSpellbookService(
             new FakeHttpClientFactory(new Dictionary<string, HttpMessageHandler>()),
-            new MemoryCache(new MemoryCacheOptions()),
+            cache ?? new MemoryCache(new MemoryCacheOptions()),
+            logger: logger,
             postJsonAsync: (body, _) =>
             {
                 bodies.Add(body);
                 return Task.FromResult<string?>(response);
-            });
+            },
+            canonicalCardNameResolver: canonicalCardNameResolver);
     }
 
     [Theory]
