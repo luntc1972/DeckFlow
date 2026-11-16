@@ -913,6 +913,15 @@ internal sealed class CardCategoryRepository
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
             var validObservations = observations.Where(row => !string.IsNullOrWhiteSpace(row.CardName) && row.Quantity > 0).ToArray();
             var validTotals = cardBoardTotals.Where(row => !string.IsNullOrWhiteSpace(row.CardName)).ToArray();
+            if (validObservations.Length == 0 && validTotals.Length == 0)
+            {
+                var deckQueueId = await ResolveDeckQueueIdForSourceAsync(connection, transaction, source, cancellationToken);
+                if (deckQueueId is not null)
+                {
+                    await LockArchiveAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+                    await UnarchiveDeckAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+                }
+            }
             var sourceId = validObservations.Length == 0 && validTotals.Length == 0
                 ? await ResolveSourceIdForWriteAsync(connection, transaction, source, cancellationToken)
                 : await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
@@ -982,6 +991,14 @@ internal sealed class CardCategoryRepository
             await using var connection = CreateConnection();
             await connection.OpenAsync(cancellationToken);
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var deckQueueId = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
+                "SELECT id FROM deck_queue WHERE deck_id = @deckId;",
+                new { deckId = contentHashWrite.DeckId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (deckQueueId is not null)
+            {
+                await LockArchiveAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+                await UnarchiveDeckAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+            }
             var deltas = new CategoryWriteOrder();
             var sourceIds = new List<long>();
             foreach (var source in sources.Where(source => !string.IsNullOrWhiteSpace(source)).Distinct(StringComparer.Ordinal))
@@ -1130,14 +1147,14 @@ internal sealed class CardCategoryRepository
         }
     }
 
-    private async Task UnarchiveDeckAsync(DbConnection connection, DbTransaction transaction, long deckQueueId, CancellationToken cancellationToken)
+    private async Task<bool> UnarchiveDeckAsync(DbConnection connection, DbTransaction transaction, long deckQueueId, CancellationToken cancellationToken)
     {
         var stored = await connection.QuerySingleOrDefaultAsync<ArchiveManifestRow>(new CommandDefinition(
             "SELECT format_version AS FormatVersion, payload AS Payload FROM deck_category_archive_manifest WHERE deck_queue_id = @deckQueueId;",
             new { deckQueueId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
         if (stored is null)
         {
-            return;
+            return false;
         }
         var manifest = DeckCategoryArchiveManifest.Decode(stored.FormatVersion, stored.Payload);
         foreach (var row in manifest.Totals.OrderBy(row => row.CardId).ThenBy(row => row.Board, StringComparer.Ordinal))
@@ -1172,6 +1189,7 @@ internal sealed class CardCategoryRepository
         await connection.ExecuteAsync(new CommandDefinition(
             "DELETE FROM deck_category_archive_manifest WHERE deck_queue_id = @deckQueueId;",
             new { deckQueueId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return true;
     }
 
     private sealed class ArchiveManifestRow
@@ -1202,7 +1220,10 @@ internal sealed class CardCategoryRepository
             var commanders = new List<string>();
             foreach (var deck in ordered)
             {
-                await UnarchiveDeckAsync(connection, transaction, deck.DeckQueueId, cancellationToken);
+                if (!await UnarchiveDeckAsync(connection, transaction, deck.DeckQueueId, cancellationToken))
+                {
+                    continue;
+                }
                 var commander = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
                     "SELECT commander_name FROM deck_queue WHERE id = @id;",
                     new { id = deck.DeckQueueId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);

@@ -205,6 +205,78 @@ public sealed class CategoryArchiveTests
     [Fact]
     public Task FaultMidFold_RollsBackAll() => WithArchiveSqliteAsync("fold-fault");
 
+    [Fact]
+    public Task IllegalUrlRejection_ArchivedDeck_ReversesArchive() => WithArchiveSqliteAsync("reject-url");
+
+    [Fact]
+    public Task IllegalHarvestReplacement_ArchivedDeck_ReversesArchive() => WithArchiveSqliteAsync("reject-harvest");
+
+    [Fact]
+    public Task ArchivedPurge_ReharvestedDeck_PreservesLiveState() => WithArchiveSqliteAsync("stale-purge");
+
+    [Fact]
+    public Task ArchivedPurge_ResetDeck_PreservesLiveState() => WithArchiveSqliteAsync("stale-reset");
+
+    private static async Task VerifyArchiveRejectionAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
+    {
+        var repository = new CategoryKnowledgeRepository(info);
+        await repository.EnsureSchemaAsync();
+        var archiveTables = new[] { "card_category_archive", "card_category_deck_archive", "card_deck_totals_archive", "deck_category_archive_manifest" };
+        var baseline = new List<string>();
+        foreach (var table in archiveTables)
+        {
+            baseline.Add(await ReadSnapshotAsync(connection, table));
+        }
+        const string deckId = "891";
+        const string source = "archidekt_live:" + deckId;
+        DeckEntry[] entries = [new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = "Ramp" }];
+        await repository.AddDeckIdsAsync([deckId]);
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, source, entries);
+        await repository.MarkDeckProcessedAsync(deckId, "Test Commander", skip: false);
+        await repository.RunStoredLiveRowsBackfillBatchAsync(100);
+        var id = await connection.ExecuteScalarAsync<long>("SELECT id FROM deck_queue WHERE deck_id = @deckId;", new { deckId });
+        await repository.RemoveStoredDecksAsync([(id, DeckSkipReasons.Retention)]);
+        Assert.Equal(1, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM deck_category_archive_manifest;"));
+        if (scenario.StartsWith("stale-", StringComparison.Ordinal))
+        {
+            // Reproduce a candidate selected before another transaction re-harvested the deck.
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, source, entries);
+            await repository.MarkDeckProcessedAsync(deckId, "Test Commander", skip: false);
+            await connection.ExecuteAsync("UPDATE deck_queue SET content_hash = 'fresh', processed = @processed, skipped = 0 WHERE id = @id;", new { id, processed = scenario == "stale-reset" ? 0 : 1 });
+            var tables = new[] { "deck_queue", "card_category_observations", "card_deck_totals", "card_category_summary", "card_category_qualified" };
+            var snapshots = new List<string>();
+            foreach (var table in tables)
+            {
+                snapshots.Add(await ReadSnapshotAsync(connection, table));
+            }
+            await repository.RemoveArchivedDecksAsync([(id, DeckSkipReasons.NotCommanderFormat)]);
+            for (var index = 0; index < tables.Length; index++)
+            {
+                Assert.Equal(snapshots[index], await ReadSnapshotAsync(connection, tables[index]));
+            }
+            return;
+        }
+        if (scenario == "reject-url")
+        {
+            await repository.RejectUrlDeckAsync("archidekt_url:https://archidekt.com/decks/891", deckId, "Test Commander", null, DeckSkipReasons.WrongSize);
+        }
+        else
+        {
+            // The harvest legality gate writes an empty batch before marking the deck skipped.
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, source, Array.Empty<DeckEntry>());
+            await repository.MarkDeckProcessedAsync(deckId, "Test Commander", skip: true, skipReason: DeckSkipReasons.WrongSize);
+        }
+        for (var index = 0; index < archiveTables.Length; index++)
+        {
+            Assert.Equal(baseline[index], await ReadSnapshotAsync(connection, archiveTables[index]));
+        }
+        Assert.Equal(0, await connection.ExecuteScalarAsync<long>("SELECT COALESCE(SUM(archived_rows), 0) FROM card_category_summary;"));
+        Assert.Equal(0, await connection.ExecuteScalarAsync<long>("SELECT COALESCE(SUM(archived_rows), 0) FROM card_category_qualified;"));
+        Assert.Empty(await repository.GetCategoriesAsync("Sol Ring"));
+        Assert.Empty(await repository.GetCategoryDeckCountsAsync("Sol Ring"));
+        Assert.Equal(0, (await repository.GetCardDeckTotalsAsync("Sol Ring")).TotalDeckCount);
+    }
+
     internal static async Task VerifyArchivedPurgeAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
     {
         var repository = new CategoryKnowledgeRepository(info);
@@ -430,6 +502,11 @@ public sealed class CategoryArchiveTests
 
     internal static async Task VerifyDrainAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
     {
+        if (scenario is "reject-url" or "reject-harvest" or "stale-purge" or "stale-reset")
+        {
+            await VerifyArchiveRejectionAsync(connection, info, scenario);
+            return;
+        }
         if (scenario.StartsWith("url-", StringComparison.Ordinal))
         {
             await VerifyUrlImportAsync(connection, info, scenario);

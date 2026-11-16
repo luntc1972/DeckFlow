@@ -65,6 +65,18 @@ public sealed class CategoryArchivePostgresTests
     [CreatorSuppressionPostgresFact]
     public Task Pg_UrlImportInWindow_FoldWaitsUntilUrlCommits() => VerifyAsync(false, "url-import-first");
 
+    [CreatorSuppressionPostgresFact]
+    public Task IllegalUrlRejection_ArchivedDeck_ReversesArchive() => VerifyAsync(false, "reject-url");
+
+    [CreatorSuppressionPostgresFact]
+    public Task IllegalHarvestReplacement_ArchivedDeck_ReversesArchive() => VerifyAsync(false, "reject-harvest");
+
+    [CreatorSuppressionPostgresFact]
+    public Task ArchivedPurge_ReharvestedDeck_PreservesLiveState() => VerifyAsync(false, "stale-purge");
+
+    [CreatorSuppressionPostgresFact]
+    public Task ArchivedPurge_ResetDeck_PreservesLiveState() => VerifyAsync(false, "stale-reset");
+
     private static async Task VerifyAsync(bool ensureTwice, string? scenario = null)
     {
         var schema = $"category_archive_{Guid.NewGuid():N}";
