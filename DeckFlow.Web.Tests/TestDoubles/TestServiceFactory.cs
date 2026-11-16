@@ -88,11 +88,13 @@ internal static class TestServiceFactory
         IHttpClientFactory httpClientFactory,
         IMemoryCache memoryCache,
         ILogger<CommanderSpellbookService>? logger = null,
-        Func<string, CancellationToken, Task<string?>>? postJsonAsync = null)
+        Func<string, CancellationToken, Task<string?>>? postJsonAsync = null,
+        ICanonicalCardNameResolver? canonicalCardNameResolver = null)
         => new(
             httpClientFactory,
             new FakeResiliencePipelineProvider(),
             memoryCache,
+            canonicalCardNameResolver ?? new FakeCanonicalCardNameResolver(),
             logger,
             postJsonAsync);
 
@@ -242,6 +244,20 @@ internal static class TestServiceFactory
         {
             BaseAddress = new Uri("https://api.scryfall.com/")
         });
+
+    public static ScryfallCanonicalCardNameResolver CreateScryfallCanonicalCardNameResolver(
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>> executeCollectionAsync,
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> executeSearchAsync)
+    {
+        var cache = new ScryfallCollectionCardCache();
+        var cardResolver = new ScryfallCardResolver(
+            CreateScryfallRestClientFactory(),
+            new FakeResiliencePipelineProvider(),
+            executeCollectionAsyncOverride: executeCollectionAsync,
+            executeSearchAsyncOverride: executeSearchAsync,
+            collectionCardCache: cache);
+        return new ScryfallCanonicalCardNameResolver(new ScryfallReferenceResolver(cardResolver, cache), cardResolver);
+    }
 
     private static ScryfallCardResolver CreateScryfallCardResolver(
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync,

@@ -72,12 +72,14 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         IHttpClientFactory httpClientFactory,
         ResiliencePipelineProvider<string> pipelineProvider,
         IMemoryCache memoryCache,
+        ICanonicalCardNameResolver canonicalCardNameResolver,
         ILogger<CommanderSpellbookService>? logger = null,
         Func<string, CancellationToken, Task<string?>>? postJsonAsync = null)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
         ArgumentNullException.ThrowIfNull(memoryCache);
+        ArgumentNullException.ThrowIfNull(canonicalCardNameResolver);
         _httpClientFactory = httpClientFactory;
         _resiliencePipeline = pipelineProvider.GetPipeline<RestResponse>("spellbook") ?? ResiliencePipeline<RestResponse>.Empty;
         _memoryCache = memoryCache;
