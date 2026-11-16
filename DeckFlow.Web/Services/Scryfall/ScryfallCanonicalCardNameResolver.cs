@@ -4,7 +4,7 @@ namespace DeckFlow.Web.Services.Scryfall;
 internal sealed class ScryfallCanonicalCardNameResolver : ICanonicalCardNameResolver
 {
     private readonly ScryfallReferenceResolver _referenceResolver;
-    private readonly IScryfallCardResolver _scryfallCardResolver;
+    private readonly Func<string, CancellationToken, Task<ScryfallCard?>> _fallbackStrategy;
 
     /// <summary>Creates a canonical-name resolver using the supplied Scryfall resolvers.</summary>
     public ScryfallCanonicalCardNameResolver(
@@ -14,7 +14,7 @@ internal sealed class ScryfallCanonicalCardNameResolver : ICanonicalCardNameReso
         ArgumentNullException.ThrowIfNull(referenceResolver);
         ArgumentNullException.ThrowIfNull(scryfallCardResolver);
         _referenceResolver = referenceResolver;
-        _scryfallCardResolver = scryfallCardResolver;
+        _fallbackStrategy = scryfallCardResolver.ResolveSingleAsync;
     }
 
     /// <inheritdoc/>
@@ -25,7 +25,7 @@ internal sealed class ScryfallCanonicalCardNameResolver : ICanonicalCardNameReso
         // Why: single-card fallback accepts a cached DFC by its front face, avoiding another Scryfall call.
         var resolution = await _referenceResolver.ResolveBatchAsync(
             cardNames,
-            (name, ct) => _scryfallCardResolver.ResolveSingleAsync(name, ct),
+            _fallbackStrategy,
             normalizeForScryfall: false,
             cancellationToken: cancellationToken,
             batchFallbackStrategy: null);

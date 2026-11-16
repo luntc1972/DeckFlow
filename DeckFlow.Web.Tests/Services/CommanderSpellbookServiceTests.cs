@@ -377,7 +377,7 @@ public sealed class CommanderSpellbookServiceTests
     [Fact]
     public async Task FindCombosAsync_ResolverThrows_SendsUnresolvedNamesAndReturnsCombos()
     {
-        var resolver = new ThrowingCanonicalCardNameResolver();
+        var resolver = new FakeCanonicalCardNameResolver { ThrowOnResolve = new HttpRequestException("Scryfall unavailable") };
         var bodies = new List<string>();
         const string response = """
             {"results":{"included":[{"uses":[{"card":{"name":"Sol Ring"}},{"card":{"name":"Valki, God of Lies"}}],"produces":[{"feature":{"name":"Infinite mana"}}]}],"almostIncluded":[]}}
@@ -409,7 +409,7 @@ public sealed class CommanderSpellbookServiceTests
     {
         var bodies = new List<string>();
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var serviceA = BuildRecordingService(bodies, EmptyResponse, new ThrowingCanonicalCardNameResolver(), cache);
+        var serviceA = BuildRecordingService(bodies, EmptyResponse, new FakeCanonicalCardNameResolver { ThrowOnResolve = new HttpRequestException("Scryfall unavailable") }, cache);
         var serviceB = BuildRecordingService(bodies, EmptyResponse, CanonicalResolver(), cache);
         var entries = new[] { MainboardEntry(FrontFace), MainboardEntry("Sol Ring") };
 
@@ -425,24 +425,15 @@ public sealed class CommanderSpellbookServiceTests
     {
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        var resolver = new ThrowingCanonicalCardNameResolver(new OperationCanceledException(cancellation.Token));
+        var resolver = new FakeCanonicalCardNameResolver { ThrowOnResolve = new OperationCanceledException(cancellation.Token) };
         var logger = new FakeLogger<CommanderSpellbookService>();
-        var postCalls = 0;
-        var service = TestServiceFactory.CreateCommanderSpellbookService(
-            new FakeHttpClientFactory(new Dictionary<string, HttpMessageHandler>()),
-            new MemoryCache(new MemoryCacheOptions()),
-            logger: logger,
-            postJsonAsync: (_, _) =>
-            {
-                postCalls++;
-                return Task.FromResult<string?>(EmptyResponse);
-            },
-            canonicalCardNameResolver: resolver);
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, EmptyResponse, resolver, logger: logger);
 
         var result = await service.FindCombosAsync([MainboardEntry(FrontFace)], cancellation.Token);
 
         Assert.Equal(1, resolver.CallCount);
-        Assert.Equal(0, postCalls);
+        Assert.Empty(bodies);
         Assert.DoesNotContain(logger.Entries, entry =>
             entry.Level == Microsoft.Extensions.Logging.LogLevel.Warning
             && entry.Message.Contains("Card-name canonicalization failed", StringComparison.Ordinal));
@@ -485,11 +476,13 @@ public sealed class CommanderSpellbookServiceTests
         List<string> bodies,
         string response,
         DeckFlow.Web.Services.Scryfall.ICanonicalCardNameResolver? canonicalCardNameResolver = null,
-        IMemoryCache? cache = null)
+        IMemoryCache? cache = null,
+        Microsoft.Extensions.Logging.ILogger<CommanderSpellbookService>? logger = null)
     {
         return TestServiceFactory.CreateCommanderSpellbookService(
             new FakeHttpClientFactory(new Dictionary<string, HttpMessageHandler>()),
             cache ?? new MemoryCache(new MemoryCacheOptions()),
+            logger: logger,
             postJsonAsync: (body, _) =>
             {
                 bodies.Add(body);

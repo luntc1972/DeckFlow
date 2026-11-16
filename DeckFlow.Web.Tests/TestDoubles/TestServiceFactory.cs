@@ -250,26 +250,23 @@ internal static class TestServiceFactory
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>> executeSearchAsync)
     {
         var cache = new ScryfallCollectionCardCache();
-        var cardResolver = new ScryfallCardResolver(
-            CreateScryfallRestClientFactory(),
-            new FakeResiliencePipelineProvider(),
-            executeCollectionAsyncOverride: executeCollectionAsync,
-            executeSearchAsyncOverride: executeSearchAsync,
-            collectionCardCache: cache);
+        var cardResolver = CreateScryfallCardResolver(executeCollectionAsync, executeSearchAsync, collectionCardCache: cache);
         return new ScryfallCanonicalCardNameResolver(new ScryfallReferenceResolver(cardResolver, cache), cardResolver);
     }
 
     private static ScryfallCardResolver CreateScryfallCardResolver(
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync,
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCard>>>? executeNamedAsync = null,
+        ScryfallCollectionCardCache? collectionCardCache = null)
         => new(
             CreateScryfallRestClientFactory(),
             new FakeResiliencePipelineProvider(),
             null,
             executeCollectionAsync,
             executeSearchAsync,
-            executeNamedAsync);
+            executeNamedAsync,
+            collectionCardCache);
 
     private static DeckEntryLoader CreateDeckEntryLoader(
         IMoxfieldDeckImporter moxfieldDeckImporter,

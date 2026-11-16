@@ -98,14 +98,12 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         var commanders = entries
             .Where(e => string.Equals(e.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .Select(e => ToSpellbookName(e.Name))
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var main = entries
             .Where(e => string.Equals(e.Board, "mainboard", StringComparison.OrdinalIgnoreCase)
                      || string.Equals(e.Board, "commander", StringComparison.OrdinalIgnoreCase))
             .Select(e => ToSpellbookName(e.Name))
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (main.Count == 0)
@@ -123,16 +121,14 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
             // Why: Caller cancellation returns null, as it already does during the Spellbook POST.
             return null;
         }
-        commanders = commanders
+        List<string> RemapNames(IEnumerable<string> names) => names
             .Select(n => sentNames.TryGetValue(n, out var sentName) && !string.IsNullOrWhiteSpace(sentName) ? sentName : n)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        main = main
-            .Select(n => sentNames.TryGetValue(n, out var sentName) && !string.IsNullOrWhiteSpace(sentName) ? sentName : n)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+
+        commanders = RemapNames(commanders);
+        main = RemapNames(main);
 
         // Why: Results depend on sent names, so aliases share cached results and resolved calls bypass fail-open entries.
         var cacheKey = $"spellbook:{string.Join("|", commanders)}::{string.Join("|", main)}";
