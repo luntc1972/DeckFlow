@@ -343,7 +343,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson, request.Bracket);
         EdhrecThemeResult planThemeResult = await CutLabSharedHelpers.FetchPlanThemeResultAsync(_themeService, _logger, commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<string> initialCommanderNames = commanderResolution.CommanderNames;
-        var (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
+        var (preAnalysisState, derivedWorkingList, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
 
         List<ResolvedCutLabEntry> finalResolvedEntries = ReconcileResolvedEntries(resolvedEntries, finalResolvedCards);
         bool recoveredDuringBuild = resolvedEntries.Zip(finalResolvedEntries, (before, after) => before.Card is null && after.Card is not null).Any(static recovered => recovered);
@@ -378,7 +378,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             // commander-dependent value retained from the earlier resolution snapshot.
             resolvedEntries = finalResolvedEntries;
 
-            (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
+            (preAnalysisState, derivedWorkingList, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
         }
 
         // W-1 (round-1 review): a swallowed transient lookup failure leaves a card with no facts --
@@ -595,7 +595,15 @@ internal sealed class CutLabPageService : ICutLabPageService
         };
     }
 
-    private async Task<(CutLabState PreAnalysisState, IReadOnlyList<CutLabPoolCard> DerivedWorkingList, IReadOnlyList<ScryfallCardData> PreResolvedCards, CutLabAnalysisContext AnalysisContext, IReadOnlyList<ScryfallCardData> FinalResolvedCards, IReadOnlyList<string> StillUnresolvedNames, string PoolKey)> RunAnalysisPassAsync(
+    private sealed record AnalysisPass(
+        CutLabState PreAnalysisState,
+        IReadOnlyList<CutLabPoolCard> DerivedWorkingList,
+        CutLabAnalysisContext AnalysisContext,
+        IReadOnlyList<ScryfallCardData> FinalResolvedCards,
+        IReadOnlyList<string> StillUnresolvedNames,
+        string PoolKey);
+
+    private async Task<AnalysisPass> RunAnalysisPassAsync(
         CutLabState priorState,
         IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
         IReadOnlyList<string> commanderNames,
@@ -652,7 +660,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             .Where(name => !resolvedAfterBuild.Contains(CutLabCardNames.Normalize(name)))
             .ToArray();
 
-        return (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey);
+        return new AnalysisPass(preAnalysisState, derivedWorkingList, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey);
     }
 
     // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
@@ -712,8 +720,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     {
         IReadOnlyDictionary<string, ScryfallCardData> recoveredCardsByName = CutLabCardNames.ToLastWinsDictionary(
             recoveredCards.Where(card => card is not null).Cast<ScryfallCardData>(),
-            card => card.Name,
-            card => card);
+            card => card.Name);
         return entries
             .Select(entry => recoveredCardsByName.TryGetValue(CutLabCardNames.Normalize(entry.Name), out ScryfallCardData? card)
                 ? entry with { TypeLine = card.TypeLine ?? string.Empty, Card = card }

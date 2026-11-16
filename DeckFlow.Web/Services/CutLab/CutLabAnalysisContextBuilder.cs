@@ -328,7 +328,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             && unattemptedNames.Count > 0;
     }
 
-    internal static IReadOnlyList<ScryfallCardData>? BuildPartialResolvedSubset(
+    internal static IReadOnlyList<ScryfallCardData> BuildPartialResolvedSubset(
         IReadOnlyList<CutLabPoolCard> targetPool,
         IReadOnlyList<ScryfallCardData> sourceCards)
     {

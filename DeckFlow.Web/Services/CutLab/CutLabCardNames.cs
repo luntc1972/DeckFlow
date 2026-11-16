@@ -21,11 +21,23 @@ internal static class CutLabCardNames
         return CardNormalizer.Normalize(cardName);
     }
 
+    /// <summary>
+    /// Returns distinct card names ordered using ordinal, case-insensitive comparison.
+    /// </summary>
+    /// <param name="names">The card names to deduplicate and order.</param>
+    /// <returns>The distinct names in ordinal, case-insensitive order.</returns>
     internal static IOrderedEnumerable<string> DistinctAndOrderNames(this IEnumerable<string> names)
         => names
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Indexes source items by normalized card name, retaining the last item for each key.
+    /// </summary>
+    /// <typeparam name="TSource">The source item type.</typeparam>
+    /// <param name="source">The items to index in enumeration order.</param>
+    /// <param name="keySelector">Selects the card name to normalize for each item.</param>
+    /// <returns>A dictionary of source items using the shared card-name comparer.</returns>
     public static Dictionary<string, TSource> ToLastWinsDictionary<TSource>(
         IEnumerable<TSource> source,
         Func<TSource, string> keySelector)
