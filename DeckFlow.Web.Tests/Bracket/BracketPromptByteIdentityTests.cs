@@ -56,6 +56,28 @@ public sealed class BracketPromptByteIdentityTests
             PacketByteIdentityFixtures.NormalizeForGoldenComparison(actual), StringComparer.Ordinal);
     }
 
+    /// <summary>Pins unavailable combo detection and the singular extra-turn reason.</summary>
+    [Theory]
+    [InlineData("ChatGPT")]
+    [InlineData("Claude")]
+    [InlineData("Gemini")]
+    public void ComboDetectionUnavailable_MatchesGolden(string platformName)
+    {
+        var classification = new BracketClassification(
+            BracketNumber: 3,
+            DetectedGameChangers: [],
+            DetectedMassLandDenial: [],
+            DetectedExtraTurnCards: ["Time Warp"],
+            TwoCardCombos: [],
+            ComboDetectionAvailable: false,
+            EffectiveDate: "2026-02-09");
+        var actual = BuildRegistry().Build(AiPlatform.Normalize(platformName), classification,
+            null, "Literal unavailable combo deck", BuildTiers(), BuildCatalog());
+
+        Assert.Equal(BracketPromptGoldens.ComboDetectionUnavailable(platformName),
+            PacketByteIdentityFixtures.NormalizeForGoldenComparison(actual), StringComparer.Ordinal);
+    }
+
     private static BracketPromptVariantRegistry BuildRegistry() =>
         new(new IBracketPromptVariant[]
         {

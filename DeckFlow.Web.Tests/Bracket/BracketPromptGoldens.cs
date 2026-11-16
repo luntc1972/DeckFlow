@@ -1,8 +1,8 @@
 namespace DeckFlow.Web.Tests;
 
 /// <summary>
-/// Complete prompts captured from six placeholder-test failures on Windows .NET.
-/// Explicit CRLF escapes preserve the emitted bytes independently of this source file's LF endings.
+/// Complete prompts captured from placeholder-test failures on Windows .NET.
+/// LF goldens match emitted prompts after NormalizeForGoldenComparison normalizes line endings.
 /// </summary>
 internal static class BracketPromptGoldens
 {
@@ -197,6 +197,71 @@ internal static class BracketPromptGoldens
             "- Trim 4 of: Mana Crypt, The One Ring, Jeweled Lotus, Cyclonic Rift — B2 allows up to 0 Game Changers; you run 4.\n" +
             "\n" +
             "A starting point, not a verdict — use an AI to turn these into power-equivalent swaps.\n",
+        _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, "Unknown platform."),
+    };
+
+    public static string ComboDetectionUnavailable(string platform) => platform switch
+    {
+        "ChatGPT" =>
+            "EXECUTE NOW — perform the entire task defined below and output the complete result in this reply. Do not ask which task to run, do not ask for confirmation, and do not wait for further instructions; the full task is specified below.\n" +
+            "\n" +
+            "## Bracket Classification: Literal unavailable combo deck\n" +
+            "\n" +
+            "This deck classifies as **Bracket 3: Upgraded** (Upgraded).\n" +
+            "\n" +
+            "## WHY THIS BRACKET\n" +
+            "\n" +
+            "- 0 Game Changers (B3 allows up to 3).\n" +
+            "- 0 mass land denial.\n" +
+            "- 1 extra-turn card (informational only; does not affect bracket number).\n" +
+            "- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.\n" +
+            "\n" +
+            "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "\n" +
+            "Note: combo detection was temporarily unavailable. A two-card win combo could place this deck a bracket higher than shown — please double-check for combos.\n" +
+            "\n",
+        "Claude" =>
+            "<bracket_classification>\n" +
+            "<deck_name>Literal unavailable combo deck</deck_name>\n" +
+            "<verdict>This deck classifies as Bracket 3: Upgraded (Upgraded).</verdict>\n" +
+            "\n" +
+            "<why_this_bracket>\n" +
+            "WHY THIS BRACKET\n" +
+            "\n" +
+            "- 0 Game Changers (B3 allows up to 3).\n" +
+            "- 0 mass land denial.\n" +
+            "- 1 extra-turn card (informational only; does not affect bracket number).\n" +
+            "- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.\n" +
+            "</why_this_bracket>\n" +
+            "\n" +
+            "<effective_date_note>\n" +
+            "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "</effective_date_note>\n" +
+            "\n" +
+            "<combo_detection_note>\n" +
+            "Note: combo detection was temporarily unavailable. A two-card win combo could place this deck a bracket higher than shown — please double-check for combos.\n" +
+            "</combo_detection_note>\n" +
+            "</bracket_classification>\n",
+        "Gemini" =>
+            "You are an expert Commander deck analyst. Review the following bracket classification and provide guidance.\n" +
+            "\n" +
+            "Think carefully through the evidence before responding.\n" +
+            "\n" +
+            "## Bracket Classification: Literal unavailable combo deck\n" +
+            "\n" +
+            "This deck classifies as **Bracket 3: Upgraded** (Upgraded).\n" +
+            "\n" +
+            "## WHY THIS BRACKET\n" +
+            "\n" +
+            "- 0 Game Changers (B3 allows up to 3).\n" +
+            "- 0 mass land denial.\n" +
+            "- 1 extra-turn card (informational only; does not affect bracket number).\n" +
+            "- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.\n" +
+            "\n" +
+            "Game Changers list effective 2026-02-09. Re-confirm Game Changers membership before suggesting swaps.\n" +
+            "\n" +
+            "Note: combo detection was temporarily unavailable. A two-card win combo could place this deck a bracket higher than shown — please double-check for combos.\n" +
+            "\n",
         _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, "Unknown platform."),
     };
 }
