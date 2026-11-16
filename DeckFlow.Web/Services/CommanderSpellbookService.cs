@@ -7,6 +7,8 @@ using Polly;
 using Polly.Registry;
 using RestSharp;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
+using DeckFlow.Web.Services.Scryfall;
 
 namespace DeckFlow.Web.Services;
 
@@ -90,14 +92,14 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
     {
         var commanders = entries
             .Where(e => string.Equals(e.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            .Select(e => e.Name)
+            .Select(e => ToSpellbookName(e.Name))
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         var main = entries
             .Where(e => string.Equals(e.Board, "mainboard", StringComparison.OrdinalIgnoreCase)
                      || string.Equals(e.Board, "commander", StringComparison.OrdinalIgnoreCase))
-            .Select(e => e.Name)
+            .Select(e => ToSpellbookName(e.Name))
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -132,7 +134,7 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         CommanderSpellbookResult? result;
         try
         {
-            result = ParseResponse(responseJson, new HashSet<string>(main, StringComparer.OrdinalIgnoreCase));
+            result = ParseResponse(responseJson, new HashSet<string>(main.Select(CardNormalizer.Normalize), StringComparer.Ordinal));
         }
         catch (Exception ex)
         {
@@ -160,6 +162,15 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         return JsonSerializer.Serialize(obj);
     }
 
+    private static string ToSpellbookName(string name)
+    {
+        // Why: Spellbook uses the same combined face-name form as Scryfall.
+        return ScryfallCardResolver.NormalizeForScryfall(name.Trim());
+    }
+
+    /// <summary>Parses combos while preserving Spellbook's original card names.</summary>
+    /// <param name="json">The Spellbook response JSON.</param>
+    /// <param name="deckCardNames">Owned card keys produced by <see cref="CardNormalizer.Normalize"/>.</param>
     internal static CommanderSpellbookResult? ParseResponse(string json, HashSet<string> deckCardNames)
     {
         using var doc = JsonDocument.Parse(json);
@@ -235,8 +246,8 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
                 continue;
             }
 
-            var missing = allCards.Where(c => !deckCardNames.Contains(c)).ToList();
-            var inDeck = allCards.Where(c => deckCardNames.Contains(c)).ToList();
+            var missing = allCards.Where(c => !deckCardNames.Contains(CardNormalizer.Normalize(c))).ToList();
+            var inDeck = allCards.Where(c => deckCardNames.Contains(CardNormalizer.Normalize(c))).ToList();
 
             // Only include if exactly one card is missing (one card away)
             if (missing.Count != 1)

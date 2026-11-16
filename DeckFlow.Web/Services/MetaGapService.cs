@@ -597,7 +597,7 @@ public sealed class MetaGapService : IMetaGapService
             .Where(entry => !string.IsNullOrWhiteSpace(entry.Name))
             .Select(entry =>
             {
-                var resolvedName = ResolvePromptCardName(entry.Name, oracleNameMap);
+                var resolvedName = ResolveOracleCardName(entry.Name, oracleNameMap);
                 return new DeckEntry
                 {
                     Name = resolvedName,
@@ -614,7 +614,7 @@ public sealed class MetaGapService : IMetaGapService
         var entries = new List<DeckEntry>();
         if (!string.IsNullOrWhiteSpace(commanderName))
         {
-            var resolvedCommanderName = ResolvePromptCardName(commanderName, oracleNameMap);
+            var resolvedCommanderName = ResolveOracleCardName(commanderName, oracleNameMap);
             entries.Add(new DeckEntry
             {
                 Name = resolvedCommanderName,
@@ -626,7 +626,7 @@ public sealed class MetaGapService : IMetaGapService
 
         foreach (var card in entry.MainDeck.Where(card => !string.IsNullOrWhiteSpace(card.Name)))
         {
-            var resolvedName = ResolvePromptCardName(card.Name, oracleNameMap);
+            var resolvedName = ResolveOracleCardName(card.Name, oracleNameMap);
             entries.Add(new DeckEntry
             {
                 Name = resolvedName,
@@ -707,6 +707,15 @@ public sealed class MetaGapService : IMetaGapService
         }
 
         return trimmed;
+    }
+
+    private static string ResolveOracleCardName(string? cardName, IReadOnlyDictionary<string, string>? oracleNameMap)
+    {
+        // Why: Spellbook needs the full name; the prompt display path cuts it separately.
+        var trimmed = cardName?.Trim() ?? string.Empty;
+        return oracleNameMap is not null && oracleNameMap.TryGetValue(trimmed, out var resolvedName) && !string.IsNullOrWhiteSpace(resolvedName)
+            ? resolvedName
+            : trimmed;
     }
 
     private static string ResolvePromptCardName(string? cardName, IReadOnlyDictionary<string, string>? oracleNameMap)
