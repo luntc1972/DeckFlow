@@ -190,6 +190,100 @@ public sealed class CategoryArchiveTests
         Assert.Equal(2, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM card_category_qualified;"));
     }
 
+    [Fact]
+    public Task LegalityPurge_OfArchivedDeck_RestoresArchive() => WithArchiveSqliteAsync("archived-purge");
+
+    [Fact]
+    public Task CountPurgeCandidates_IncludesArchivedIllegalDecks() => WithArchiveSqliteAsync("archived-count");
+
+    [Fact]
+    public Task RunPurge_MaxDecksSpansLiveAndArchived_NoOvershoot() => WithArchiveSqliteAsync("archived-max");
+
+    [Fact]
+    public Task RecomputeInvariant_LivePlusArchive_EqualsFromScratch() => WithArchiveSqliteAsync("recompute");
+
+    [Fact]
+    public Task FaultMidFold_RollsBackAll() => WithArchiveSqliteAsync("fold-fault");
+
+    internal static async Task VerifyArchivedPurgeAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
+    {
+        var repository = new CategoryKnowledgeRepository(info);
+        await repository.EnsureSchemaAsync();
+        var tables = new[] { "card_category_observations", "card_deck_totals", "card_category_summary", "card_category_qualified", "card_category_archive", "card_category_deck_archive", "card_deck_totals_archive", "deck_category_archive_manifest", "deck_queue" };
+        var baseline = new List<string>();
+        foreach (var table in tables.Skip(4).Take(4))
+        {
+            baseline.Add(await ReadSnapshotAsync(connection, table));
+        }
+        foreach (var deckId in new[] { "801", "802", "803" })
+        {
+            await repository.AddDeckIdsAsync([deckId]);
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId,
+            [
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = deckId == "802" ? "Artifact" : "Ramp" },
+                new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "sideboard", Category = "Artifact" }
+            ]);
+            await repository.MarkDeckProcessedAsync(deckId, "Test Commander", skip: false);
+        }
+        await repository.RunStoredLiveRowsBackfillBatchAsync(100);
+        var labels = await repository.GetCategoriesAsync("Sol Ring");
+        var counts = await repository.GetCategoryDeckCountsAsync("Sol Ring");
+        var totals = await repository.GetCardDeckTotalsAsync("Sol Ring");
+        var qualified = (await repository.GetCategoriesForNamesAsync(["Sol Ring"]))["Sol Ring"];
+        var ids = (await connection.QueryAsync<long>("SELECT id FROM deck_queue ORDER BY id;")).ToArray();
+        if (scenario == "fold-fault")
+        {
+            var snapshots = new List<string>();
+            foreach (var table in tables)
+            {
+                snapshots.Add(await ReadSnapshotAsync(connection, table));
+            }
+            var cardRepository = (CardCategoryRepository)typeof(CategoryKnowledgeRepository).GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(repository)!;
+            cardRepository.FoldFault = () => throw new InvalidOperationException("Injected fold fault");
+            await Assert.ThrowsAsync<InvalidOperationException>(() => repository.RemoveStoredDecksAsync([(ids[0], DeckSkipReasons.Retention)]));
+            for (var index = 0; index < tables.Length; index++)
+            {
+                Assert.Equal(snapshots[index], await ReadSnapshotAsync(connection, tables[index]));
+            }
+            return;
+        }
+        await repository.RemoveStoredDecksAsync([(ids[1], DeckSkipReasons.Retention)]);
+        await repository.RemoveStoredDecksAsync([(ids[2], DeckSkipReasons.Retention)]);
+        if (scenario == "recompute")
+        {
+            Assert.Equal(labels, await repository.GetCategoriesAsync("Sol Ring"));
+            Assert.Equal(counts.OrderBy(row => row.Key), (await repository.GetCategoryDeckCountsAsync("Sol Ring")).OrderBy(row => row.Key));
+            var after = await repository.GetCardDeckTotalsAsync("Sol Ring");
+            Assert.Equal(totals.TotalDeckCount, after.TotalDeckCount);
+            Assert.Equal(totals.BoardDeckCounts.OrderBy(row => row.Key), after.BoardDeckCounts.OrderBy(row => row.Key));
+            Assert.Equal(qualified, (await repository.GetCategoriesForNamesAsync(["Sol Ring"]))["Sol Ring"]);
+            Assert.Equal(0, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM deck_category_archive_manifest m JOIN sources s ON s.deck_queue_id = m.deck_queue_id JOIN card_category_observations o ON o.source_id = s.id WHERE s.source LIKE 'archidekt_live:%';"));
+            return;
+        }
+        await connection.ExecuteAsync("UPDATE deck_queue SET archidekt_metadata_captured_utc = '2026-01-01T00:00:00Z', archidekt_deck_format = 2;");
+        if (scenario == "archived-count")
+        {
+            await connection.ExecuteAsync("UPDATE deck_queue SET archidekt_deck_format = 3 WHERE id = @id;", new { id = ids[2] });
+            Assert.Equal(2, await repository.CountPurgeCandidatesAsync());
+            Assert.Equal(ids[0], Assert.Single(await repository.GetPurgeCandidatesAsync()).DeckQueueId);
+            return;
+        }
+        var service = new DeckPruningService(repository, new DeckPruningOptions { BatchSize = 10, Pause = TimeSpan.Zero }, _ => Task.FromResult<long?>(long.MaxValue));
+        var result = await service.RunPurgeAsync(scenario == "archived-max" ? 2 : null);
+        Assert.Equal(scenario == "archived-max" ? 2 : 3, result.DecksRemoved);
+        Assert.Equal(scenario == "archived-max" ? DeckPruningStopReason.MaxDecksReached : DeckPruningStopReason.Completed, result.StopReason);
+        Assert.Equal(scenario == "archived-max" ? 1 : 0, await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM deck_category_archive_manifest;"));
+        if (scenario == "archived-purge")
+        {
+            for (var index = 0; index < 4; index++)
+            {
+                Assert.Equal(baseline[index], await ReadSnapshotAsync(connection, tables[index + 4]));
+            }
+            Assert.Empty(await repository.GetCategoriesAsync("Sol Ring"));
+            Assert.Equal(0, await repository.CountPurgeCandidatesAsync());
+        }
+    }
+
     private static async Task WithArchiveSqliteAsync(string scenario)
     {
         var path = Path.Combine(Path.GetTempPath(), $"archive_drain_{Guid.NewGuid():N}.db");
@@ -209,6 +303,11 @@ public sealed class CategoryArchiveTests
 
     internal static async Task VerifyDrainAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
     {
+        if (scenario is "archived-purge" or "archived-count" or "archived-max" or "recompute" or "fold-fault")
+        {
+            await VerifyArchivedPurgeAsync(connection, info, scenario);
+            return;
+        }
         if (scenario is "reentry" or "canonical" or "remove" or "fault")
         {
             await VerifyReentryAsync(connection, info, scenario);

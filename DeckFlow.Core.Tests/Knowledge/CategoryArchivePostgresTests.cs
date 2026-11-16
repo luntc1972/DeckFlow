@@ -9,6 +9,12 @@ namespace DeckFlow.Core.Tests.Knowledge;
 public sealed class CategoryArchivePostgresTests
 {
     [CreatorSuppressionPostgresFact]
+    public Task LegalityPurge_OfArchivedDeck_RestoresArchive() => VerifyAsync(false, "archived-purge");
+
+    [CreatorSuppressionPostgresFact]
+    public Task CountPurgeCandidates_IncludesArchivedIllegalDecks() => VerifyAsync(false, "archived-count");
+
+    [CreatorSuppressionPostgresFact]
     public Task RetentionDrain_CardDeckTotalsUnchanged() => VerifyAsync(false, "totals");
 
     [CreatorSuppressionPostgresFact]

@@ -18,6 +18,7 @@ internal sealed class CardCategoryRepository
 
     // Why: tests inject a transaction failure after archive subtraction has begun.
     internal Action? UnarchiveFault { get; set; }
+    internal Action? FoldFault { get; set; }
 
     internal const string ArchidektLiveSourcePrefix = "archidekt_live:";
     private readonly RelationalDatabaseConnection _connectionInfo;
@@ -662,6 +663,7 @@ internal sealed class CardCategoryRepository
                         formatVersion = DeckCategoryArchiveManifest.FormatVersion,
                         payload = manifest.Encode()
                     }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                FoldFault?.Invoke();
             }
 
             foreach (var source in sourceRows.OrderBy(row => row.SourceId))

@@ -163,6 +163,9 @@ public sealed class CategoryKnowledgeRepository
     internal Task<IReadOnlyList<(long DeckQueueId, string SkipReason)>> GetPurgeCandidatesAsync(CancellationToken cancellationToken = default)
         => _deckQueue.GetPurgeCandidatesAsync(cancellationToken);
 
+    internal Task<IReadOnlyList<(long DeckQueueId, string SkipReason)>> GetArchivedPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.GetArchivedPurgeCandidatesAsync(cancellationToken);
+
     internal Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
         => _deckQueue.CountPurgeCandidatesAsync(cancellationToken);
 
