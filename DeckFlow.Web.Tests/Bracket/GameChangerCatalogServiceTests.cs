@@ -1,3 +1,6 @@
+using DeckFlow.Core.Bracket;
+using DeckFlow.Core.Models;
+using DeckFlow.Core.Normalization;
 using DeckFlow.Web.Services.Bracket;
 using Microsoft.Extensions.Caching.Memory;
 using Xunit;
@@ -26,6 +29,68 @@ public sealed class GameChangerCatalogServiceTests
 
     private static IMemoryCache NewCache() =>
         new MemoryCache(new MemoryCacheOptions());
+
+    // Why: Shipped misspellings and front-face imports previously hid real Game Changers.
+    [Theory]
+    [InlineData("Braids, Cabal Minion", "Braids, Cabal Minion")]
+    [InlineData("Narset, Parter of Veils", "Narset, Parter of Veils")]
+    [InlineData("Tergrid, God of Fright", "Tergrid, God of Fright // Tergrid's Lantern")]
+    [InlineData("Tergrid, God of Fright // Tergrid's Lantern", "Tergrid, God of Fright // Tergrid's Lantern")]
+    public void Classify_ShippedCatalogRealCardName_DetectsCanonicalName(string deckName, string expectedName)
+    {
+        using var cache = NewCache();
+        var catalog = new GameChangerCatalogService(DataFilePath, cache).GetCatalog();
+        var entries = new[]
+        {
+            new DeckEntry { Name = deckName, NormalizedName = deckName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
+        };
+
+        var result = BracketClassifier.Classify(entries, catalog, []);
+
+        Assert.Equal(new[] { expectedName }, result.DetectedGameChangers, StringComparer.Ordinal);
+        Assert.Equal(3, result.BracketNumber);
+    }
+
+    // Why: The shipped catalog must count Tergrid once across imported spellings.
+    [Fact]
+    public void Classify_ShippedCatalogTergridUnderTwoSpellings_CountsOnce()
+    {
+        const string frontName = "Tergrid, God of Fright";
+        const string canonicalName = "Tergrid, God of Fright // Tergrid's Lantern";
+        using var cache = NewCache();
+        var catalog = new GameChangerCatalogService(DataFilePath, cache).GetCatalog();
+        var entries = new[]
+        {
+            new DeckEntry { Name = frontName, NormalizedName = frontName.ToLowerInvariant(), Quantity = 1, Board = "commander" },
+            new DeckEntry { Name = canonicalName, NormalizedName = canonicalName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
+        };
+
+        var result = BracketClassifier.Classify(entries, catalog, []);
+
+        Assert.Equal(new[] { canonicalName }, result.DetectedGameChangers, StringComparer.Ordinal);
+    }
+
+    // Why: Canonical spellings prevent misleading output and duplicate normalized entries.
+    [Fact]
+    public void GetCatalog_ShippedGameChangers_UseScryfallSpellings()
+    {
+        using var cache = NewCache();
+        var catalog = new GameChangerCatalogService(DataFilePath, cache).GetCatalog();
+        string[] canonicalNames = ["Braids, Cabal Minion", "Narset, Parter of Veils", "Tergrid, God of Fright // Tergrid's Lantern"];
+        string[] misspellings = ["Braids Cabal Minion", "Narset Parter of Veils", "Tergrid God of Fright"];
+
+        foreach (string name in canonicalNames)
+        {
+            Assert.Contains(name, catalog.GameChangers, StringComparer.Ordinal);
+        }
+
+        foreach (string name in misspellings)
+        {
+            Assert.DoesNotContain(name, catalog.GameChangers, StringComparer.Ordinal);
+        }
+
+        Assert.Equal(catalog.GameChangers.Count, catalog.GameChangers.Select(CardNormalizer.Normalize).Distinct(StringComparer.Ordinal).Count());
+    }
 
     [Fact]
     public void GetCatalog_ReturnsCorrectGameChangerCount()

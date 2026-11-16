@@ -155,6 +155,65 @@ public sealed class BracketClassifierTests
         Assert.Empty(result.DetectedMassLandDenial);
     }
 
+    // Why: Importers use front-face, slash, punctuation-free, and full Tergrid names.
+    [Theory]
+    [InlineData("Tergrid, God of Fright")]
+    [InlineData("Tergrid, God of Fright / Tergrid's Lantern")]
+    [InlineData("tergrid god of fright")]
+    [InlineData("Tergrid, God of Fright // Tergrid's Lantern")]
+    [InlineData("TERGRID, GOD OF FRIGHT // TERGRID'S LANTERN")]
+    public void Classify_GameChangerSpellingVariant_ReportsCatalogNameOnce(string deckName)
+    {
+        const string canonicalName = "Tergrid, God of Fright // Tergrid's Lantern";
+        var catalog = BuildCatalog(gcCount: 0) with { GameChangers = [canonicalName] };
+        var entries = new[]
+        {
+            new DeckEntry { Name = deckName, NormalizedName = deckName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
+        };
+
+        var result = BracketClassifier.Classify(entries, catalog, []);
+
+        Assert.Equal(new[] { canonicalName }, result.DetectedGameChangers);
+        Assert.Equal(3, result.BracketNumber);
+    }
+
+    // Why: Import noise must not count Tergrid twice across commander and mainboard.
+    [Fact]
+    public void Classify_SameGameChangerUnderTwoSpellings_CountsOnce()
+    {
+        const string frontName = "Tergrid, God of Fright";
+        const string canonicalName = "Tergrid, God of Fright // Tergrid's Lantern";
+        var catalog = BuildCatalog(gcCount: 0) with { GameChangers = [canonicalName] };
+        var entries = new[]
+        {
+            new DeckEntry { Name = frontName, NormalizedName = frontName.ToLowerInvariant(), Quantity = 1, Board = "commander" },
+            new DeckEntry { Name = canonicalName, NormalizedName = canonicalName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
+        };
+
+        var result = BracketClassifier.Classify(entries, catalog, []);
+
+        Assert.Equal(new[] { canonicalName }, result.DetectedGameChangers);
+        Assert.Equal(3, result.BracketNumber);
+    }
+
+    // Why: Split-card import spellings must retain the mass-land-denial floor.
+    [Theory]
+    [InlineData("Boom")]
+    [InlineData("Boom / Bust")]
+    public void Classify_MassLandDenialSplitCardVariant_ForcesBracketFour(string deckName)
+    {
+        var catalog = BuildCatalog(gcCount: 0, mldCards: ["Boom // Bust"]);
+        var entries = new[]
+        {
+            new DeckEntry { Name = deckName, NormalizedName = deckName.ToLowerInvariant(), Quantity = 1, Board = "mainboard" },
+        };
+
+        var result = BracketClassifier.Classify(entries, catalog, []);
+
+        Assert.Equal(new[] { "Boom // Bust" }, result.DetectedMassLandDenial);
+        Assert.Equal(4, result.BracketNumber);
+    }
+
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
