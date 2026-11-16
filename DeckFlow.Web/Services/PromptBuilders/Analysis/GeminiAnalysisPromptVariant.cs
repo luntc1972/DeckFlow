@@ -105,6 +105,7 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         {
             builder.AppendLine();
             builder.AppendLine(scoreBlockText);
+            builder.AppendLine("Review the Power, Speed, Control, and Consistency scores against the actual deck.");
         }
 
         if (!string.IsNullOrWhiteSpace(bracketFactsText))

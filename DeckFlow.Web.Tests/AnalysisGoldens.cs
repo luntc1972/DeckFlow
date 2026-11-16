@@ -848,7 +848,7 @@ Before beginning the analysis:
 2. Validate every interaction count.
 3. Validate every tutor count.
 4. Validate every fast mana source.
-5. Validate the estimated power/speed scores.
+5. Validate the Power, Speed, Control, and Consistency scores against the actual deck.
 6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.
 7. Use the validated results for the remainder of the analysis.
 
@@ -1650,7 +1650,7 @@ Before beginning the analysis:
 2. Validate every interaction count.
 3. Validate every tutor count.
 4. Validate every fast mana source.
-5. Validate the estimated power/speed scores.
+5. Validate the Power, Speed, Control, and Consistency scores against the actual deck.
 6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.
 7. Use the validated results for the remainder of the analysis.
 

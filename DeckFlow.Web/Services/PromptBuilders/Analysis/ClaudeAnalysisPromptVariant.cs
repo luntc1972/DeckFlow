@@ -75,6 +75,7 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         {
             builder.AppendLine();
             builder.AppendLine(scoreBlockText);
+            builder.AppendLine("Check the Power, Speed, Control, and Consistency scores against the actual deck.");
         }
 
         if (!string.IsNullOrWhiteSpace(bracketFactsText))

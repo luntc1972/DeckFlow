@@ -172,7 +172,9 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
             builder.AppendLine("2. Validate every interaction count.");
             builder.AppendLine("3. Validate every tutor count.");
             builder.AppendLine("4. Validate every fast mana source.");
-            builder.AppendLine("5. Validate the estimated power/speed scores.");
+            builder.AppendLine(!string.IsNullOrWhiteSpace(scoreBlockText)
+                ? "5. Validate the Power, Speed, Control, and Consistency scores against the actual deck."
+                : "5. Validate the estimated power/speed scores.");
             builder.AppendLine("6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.");
             builder.AppendLine("7. Use the validated results for the remainder of the analysis.");
             builder.AppendLine();
