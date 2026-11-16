@@ -289,8 +289,7 @@ public static class CutLabRoleAssigner
                     || (clause.Contains("return target", StringComparison.OrdinalIgnoreCase)
                         && clause.Contains("hand", StringComparison.OrdinalIgnoreCase))
                     || (clause.Contains("target creature", StringComparison.OrdinalIgnoreCase)
-                        && clause.Contains("gets -", StringComparison.OrdinalIgnoreCase))
-                    || clause.Contains("counter target", StringComparison.OrdinalIgnoreCase))
+                        && clause.Contains("gets -", StringComparison.OrdinalIgnoreCase)))
                 {
                     return true;
                 }
