@@ -8,7 +8,7 @@ namespace DeckFlow.Core.Analysis;
 /// <param name="PowerBand">Power magnitude band, 0-5 (Game Changers + combo density + fast mana).</param>
 /// <param name="SpeedBand">Speed magnitude band, 0-5 (avg mana value + fast mana + early ramp/draw).</param>
 /// <param name="ControlBand">Control magnitude band, 0-5 (interaction + board wipes + counters).</param>
-/// <param name="ConsistencyBand">Consistency magnitude band, 0-5 (tutors + combo redundancy + curve smoothness).</param>
+/// <param name="ConsistencyBand">Consistency magnitude band, 0-5 (tutors + combo redundancy + low average mana value).</param>
 /// <param name="PowerRationale">Signals that produced <paramref name="PowerBand"/>.</param>
 /// <param name="SpeedRationale">Signals that produced <paramref name="SpeedBand"/>.</param>
 /// <param name="ControlRationale">Signals that produced <paramref name="ControlBand"/>.</param>
