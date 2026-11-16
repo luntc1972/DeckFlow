@@ -1,15 +1,25 @@
 (function () {
   'use strict';
 
+  const ZONES = [
+    { name: 'commanders', tag: 'Commander' },
+    { name: 'mainboard', tag: null },
+    { name: 'sideboard', tag: 'Sideboard' },
+    { name: 'maybeboard', tag: 'Maybeboard' }
+  ];
+
+  function isObject(value) {
+    return value !== null && typeof value === 'object';
+  }
+
   function buildExportBundle(deckPayload, fallbackDeckId) {
     const deckName = (typeof deckPayload.name === 'string' && deckPayload.name.trim()) || `moxfield-${fallbackDeckId}`;
     const authorTags = deckPayload.authorTags || {};
     const cards = [];
 
-    appendZone(cards, deckPayload, 'commanders', 'Commander', authorTags);
-    appendZone(cards, deckPayload, 'mainboard', null, authorTags);
-    appendZone(cards, deckPayload, 'sideboard', 'Sideboard', authorTags);
-    appendZone(cards, deckPayload, 'maybeboard', 'Maybeboard', authorTags);
+    for (const { name, tag } of ZONES) {
+      appendZone(cards, deckPayload, name, tag, authorTags);
+    }
 
     if (cards.length === 0) {
       throw new Error('No commander, mainboard, sideboard, or maybeboard cards were found.');
@@ -24,26 +34,28 @@
 
   function getZone(payload, zoneName) {
     const cards = payload?.boards?.[zoneName]?.cards;
-    return cards && typeof cards === 'object' ? cards : payload?.[zoneName];
+    if (isObject(cards)) {
+      return { cards, isV3: true };
+    }
+
+    const zone = payload?.[zoneName];
+    return isObject(zone) ? { cards: zone, isV3: false } : null;
   }
 
   function hasDeckZones(payload) {
-    return ['commanders', 'mainboard', 'sideboard', 'maybeboard'].some((zoneName) => {
-      const zone = getZone(payload, zoneName);
-      return zone && typeof zone === 'object';
-    });
+    return ZONES.some(({ name }) => getZone(payload, name) !== null);
   }
 
   function appendZone(target, payload, zoneName, boardTag, authorTags) {
     const zone = getZone(payload, zoneName);
-    if (!zone || typeof zone !== 'object') {
+    if (!zone) {
       return;
     }
 
-    const isV3 = zone === payload?.boards?.[zoneName]?.cards;
+    const { cards, isV3 } = zone;
 
-    for (const [fallbackName, rawEntry] of Object.entries(zone)) {
-      if (!rawEntry || typeof rawEntry !== 'object') {
+    for (const [fallbackName, rawEntry] of Object.entries(cards)) {
+      if (!isObject(rawEntry)) {
         continue;
       }
 
@@ -51,7 +63,7 @@
         continue;
       }
 
-      const card = rawEntry.card && typeof rawEntry.card === 'object' ? rawEntry.card : rawEntry;
+      const card = isObject(rawEntry.card) ? rawEntry.card : rawEntry;
       const cardName = card.name || fallbackName;
       const tags = normalizeTags(authorTags[cardName], boardTag);
       target.push({
@@ -84,7 +96,7 @@
       }
     }
 
-    return Array.from(new Set(tags.map((tag) => tag.trim()).filter(Boolean)));
+    return Array.from(new Set(tags));
   }
 
   function formatMoxfieldLine(entry) {

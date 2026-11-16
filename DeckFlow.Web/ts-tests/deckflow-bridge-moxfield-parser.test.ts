@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const { buildExportBundle, getZone, hasDeckZones } = require('../../browser-extensions/deckflow-bridge/moxfield-deck-parser.js');
 
+const ZONES = ['commanders', 'mainboard', 'sideboard', 'maybeboard'];
+const EMPTY_DECK_ERROR = 'No commander, mainboard, sideboard, or maybeboard cards were found.';
+
 const commander = { quantity: 1, card: { name: 'Tymna the Weaver' } };
 const mainCard = { quantity: 2, card: { name: 'Sol Ring', set: 'CMM', cn: '396' } };
 const authorTags = {
@@ -50,7 +53,7 @@ describe('DeckFlow Bridge Moxfield parser', () => {
   });
 
   it('recognizes each supported v2 and v3 zone', () => {
-    for (const zone of ['commanders', 'mainboard', 'sideboard', 'maybeboard']) {
+    for (const zone of ZONES) {
       expect(hasDeckZones({ [zone]: { card: mainCard } })).toBe(true);
       expect(hasDeckZones({ boards: { [zone]: { cards: { id: mainCard } } } })).toBe(true);
     }
@@ -64,9 +67,17 @@ describe('DeckFlow Bridge Moxfield parser', () => {
   });
 
   it('prefers v3 cards, including empty boards, and falls back to v2 for invalid cards', () => {
-    expect(getZone({ ...v2, boards: v3.boards }, 'mainboard')).toBe(v3.boards.mainboard.cards);
-    expect(getZone({ ...v2, boards: { mainboard: { cards: {} } } }, 'mainboard')).toEqual({});
-    expect(getZone({ ...v2, boards: { mainboard: { cards: null } } }, 'mainboard')).toBe(v2.mainboard);
+    const zone = getZone({ ...v2, boards: v3.boards }, 'mainboard');
+    expect(zone).toEqual({ cards: v3.boards.mainboard.cards, isV3: true });
+    expect(zone.cards).toBe(v3.boards.mainboard.cards);
+    expect(getZone({ ...v2, boards: { mainboard: { cards: {} } } }, 'mainboard')).toEqual({ cards: {}, isV3: true });
+    const fallback = getZone({ ...v2, boards: { mainboard: { cards: null } } }, 'mainboard');
+    expect(fallback).toEqual({ cards: v2.mainboard, isV3: false });
+    expect(fallback.cards).toBe(v2.mainboard);
+  });
+
+  it.each([undefined, null, 123, 'invalid'])('returns null for invalid zone containers %s', (cards) => {
+    expect(getZone({ mainboard: cards, boards: { mainboard: { cards } } }, 'mainboard')).toBeNull();
   });
 
   it('keeps v2 fallback names, default quantity and fallback deck name', () => {
@@ -75,11 +86,11 @@ describe('DeckFlow Bridge Moxfield parser', () => {
     });
   });
 
-  it.each(['commanders', 'mainboard', 'sideboard', 'maybeboard'])('recognizes empty v2 and v3 %s containers and preserves the exact empty-deck error', (zone) => {
+  it.each(ZONES)('recognizes empty v2 and v3 %s containers and preserves the exact empty-deck error', (zone) => {
     for (const payload of [{ [zone]: {} }, { boards: { [zone]: { cards: {} } } }]) {
       expect(hasDeckZones(payload)).toBe(true);
       expect(() => buildExportBundle(payload, 'fallback')).toThrow(new Error(
-        'No commander, mainboard, sideboard, or maybeboard cards were found.'
+        EMPTY_DECK_ERROR
       ));
     }
   });
@@ -101,7 +112,7 @@ describe('DeckFlow Bridge Moxfield parser', () => {
 
   it('preserves the empty-deck error', () => {
     expect(() => buildExportBundle({}, 'fallback')).toThrow(
-      'No commander, mainboard, sideboard, or maybeboard cards were found.'
+      EMPTY_DECK_ERROR
     );
   });
 });
