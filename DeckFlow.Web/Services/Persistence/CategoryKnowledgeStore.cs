@@ -138,14 +138,21 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                     if (_retentionOptions.MaintenanceMaxDecksPerRun > 0)
                     {
                         var remaining = _retentionOptions.MaintenanceMaxDecksPerRun - removed;
-                        if (remaining == 0)
-                        {
-                            return new DeckPruningResult(0, 0, DeckPruningStopReason.Completed);
-                        }
                         deckCount = Math.Min(deckCount, remaining);
                     }
                     var result = await _deckPruningService.RunRetentionAsync(deckCount, batchProgress, stop, token).ConfigureAwait(false);
                     removed += result.DecksRemoved;
+                    if (_retentionOptions.MaintenanceMaxDecksPerRun > 0 && removed >= _retentionOptions.MaintenanceMaxDecksPerRun &&
+                        result.StopReason is DeckPruningStopReason.MaxDecksReached or DeckPruningStopReason.Completed)
+                    {
+                        var excess = await _repository.CountRetentionExcessAsync(_retentionOptions.PerCommanderCap, token).ConfigureAwait(false);
+                        if (excess > 0)
+                        {
+                            logger.LogInformation("Harvest.Maintenance.RunCapReached cap={Cap}", _retentionOptions.MaintenanceMaxDecksPerRun);
+                            return result with { StopReason = DeckPruningStopReason.PerRunCapReached };
+                        }
+                        return result with { StopReason = DeckPruningStopReason.Completed };
+                    }
                     return result;
                 }
                 return await (operation switch

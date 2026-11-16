@@ -47,6 +47,7 @@ public static class HarvestMaintenanceStatusText
                 DeckPruningStopReason.DiskFloor => "disk-floor",
                 DeckPruningStopReason.MarkerBackfillPending => "marker-backfill-pending",
                 DeckPruningStopReason.MaxDecksReached => "no-progress",
+                DeckPruningStopReason.PerRunCapReached => "per-run-cap-reached",
                 _ => "completed",
             },
             HarvestMaintenanceRunState.Stopped => "stopped",
@@ -58,7 +59,7 @@ public static class HarvestMaintenanceStatusText
         {
             "completed" => "success",
             "disk-floor" or "failed" or "refused" => "danger",
-            "stalled" or "stop-requested" or "disk-probe-unavailable" or "marker-backfill-pending" or "no-progress" or "interrupted" => "warning",
+            "stalled" or "stop-requested" or "disk-probe-unavailable" or "marker-backfill-pending" or "no-progress" or "per-run-cap-reached" or "interrupted" => "warning",
             _ => "info",
         };
         var headline = state switch
@@ -71,6 +72,7 @@ public static class HarvestMaintenanceStatusText
             "disk-probe-unavailable" => $"{label}: Disk probe failed (transient Render API error); safe to restart.",
             "disk-floor" => $"{label}: Stopped at disk floor; free space needed.",
             "marker-backfill-pending" => $"{label}: waits for the marker backfill. Run Marker backfill first.",
+            "per-run-cap-reached" => $"{label}: Stopped at the per-run deck cap; excess decks remain. Review the cap before restarting.",
             "no-progress" => $"{label}: a chunk changed no decks; see the logs, then press {label} again.",
             "stopped" => $"Stopped by operator at {Time(end)}.",
             "interrupted" => FormattableString.Invariant($"{label} interrupted by restart at {Time(end)}, {status.DecksAffected} decks done — press {label} to resume."),
@@ -103,7 +105,7 @@ public static class HarvestMaintenanceStatusText
         }
 
         if (state == "stalled") details.Add("It may be ranking candidates or waiting for a fresh disk sample; pressing Stop is safe.");
-        if (state is "completed" or "disk-probe-unavailable" or "disk-floor" or "marker-backfill-pending" or "no-progress" or "failed" or "refused") details.Add($"Ended {Time(status.EndedUtc)}.");
+        if (state is "completed" or "disk-probe-unavailable" or "disk-floor" or "marker-backfill-pending" or "no-progress" or "per-run-cap-reached" or "failed" or "refused") details.Add($"Ended {Time(status.EndedUtc)}.");
         if (state == "stopped") details.Add($"Press {label} to resume; completed batches are not repeated.");
         return new(state, tone, headline, details, status.IsRunning);
     }

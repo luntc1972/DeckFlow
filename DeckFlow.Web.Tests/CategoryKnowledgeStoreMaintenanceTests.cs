@@ -27,7 +27,11 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain);
 
         Assert.Equal(5, outcome.DecksAffected);
-        Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
+        Assert.Equal("PerRunCapReached", outcome.StopReason.ToString());
+        Assert.Equal("per-run-cap-reached", HarvestMaintenanceStatusText.Describe(new HarvestMaintenanceStatus { State = HarvestMaintenanceRunState.Finished, StopReason = outcome.StopReason }, DateTimeOffset.UtcNow).State);
+        var status = HarvestMaintenanceStatusText.Describe(new HarvestMaintenanceStatus { State = HarvestMaintenanceRunState.Finished, Operation = HarvestMaintenanceOperation.Drain, StopReason = outcome.StopReason }, DateTimeOffset.UtcNow);
+        Assert.Equal("warning", status.Tone);
+        Assert.Contains("Stopped at the per-run deck cap", status.Headline);
         var remaining = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain);
         Assert.Equal(3, remaining.DecksAffected);
         Assert.Equal(DeckPruningStopReason.Completed, remaining.StopReason);
