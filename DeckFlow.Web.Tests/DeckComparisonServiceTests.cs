@@ -305,6 +305,52 @@ Deck
     }
 
     [Fact]
+    public async Task BuildAsync_Step2_SendsCanonicalOracleNamesToSpellbook()
+    {
+        var spellbook = new FakeCommanderSpellbookService();
+        var service = CreateService(
+            spellbook: spellbook,
+            executeCollectionAsync: (request, _) => Task.FromResult(CreateCollectionResponseForRequestedCardsOnly(request)),
+            executeSearchAsync: (request, _) => Task.FromResult(CreateFallbackSearchResponse(request)));
+
+        var result = await service.BuildAsync(new DeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckAName = "Renamed Cards",
+            DeckABracket = "Upgraded",
+            DeckASource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Ya viene el coco
+1 El Senor Presidente
+1 Sol Ring
+""",
+            DeckBName = "Partners",
+            DeckBBracket = "Optimized",
+            DeckBSource = """
+Commander
+1 Atraxa, Praetors' Voice
+
+Deck
+1 Sol Ring
+1 Counterspell
+"""
+        });
+
+        Assert.Equal(2, spellbook.RecordedDecks.Count);
+        var names = spellbook.RecordedDecks[0].Select(entry => entry.Name).ToArray();
+        Assert.Contains("Perfect Defense // Denting Blows", names);
+        Assert.Contains("Commander's Authority", names);
+        Assert.DoesNotContain("Ya viene el coco", names);
+        Assert.DoesNotContain("El Senor Presidente", names);
+        Assert.Contains("1 Perfect Defense // Denting Blows [printed as: Ya viene el coco]", result.DeckAListText);
+        Assert.Contains("1 Commander's Authority [printed as: El Senor Presidente]", result.DeckAListText);
+        Assert.DoesNotContain("Perfect Defense // Denting Blows [printed as: El Senor Presidente]", result.DeckAListText);
+    }
+
+    [Fact]
     public async Task BuildAsync_FallbackResolvedCard_AnnotatesOnlyTheRenamedCard()
     {
         // Why: locks the post-83-04 ScryfallReferenceResolver migration — within the SAME batch, a
@@ -552,14 +598,15 @@ Deck
 
     private static DeckComparisonService CreateService(
         Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallCollectionResponse>>>? executeCollectionAsync = null,
-        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null)
+        Func<RestRequest, CancellationToken, Task<RestResponse<ScryfallSearchResponse>>>? executeSearchAsync = null,
+        ICommanderSpellbookService? spellbook = null)
     {
         return TestServiceFactory.CreateDeckComparisonService(
             new FakeMoxfieldDeckImporter(),
             new FakeArchidektDeckImporter(),
             new MoxfieldParser(),
             new ArchidektParser(),
-            new FakeCommanderSpellbookService(),
+            spellbook ?? new FakeCommanderSpellbookService(),
             executeCollectionAsync: executeCollectionAsync ?? ((request, _) => Task.FromResult(CreateCollectionResponse(request))),
             executeSearchAsync: executeSearchAsync ?? ((request, _) => Task.FromResult(CreateSearchResponse(request))));
     }
@@ -669,8 +716,11 @@ Deck
 
     private sealed class FakeCommanderSpellbookService : ICommanderSpellbookService
     {
+        public List<IReadOnlyList<DeckEntry>> RecordedDecks { get; } = new();
+
         public Task<CommanderSpellbookResult?> FindCombosAsync(IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken = default)
         {
+            RecordedDecks.Add(entries.ToArray());
             var names = entries.Select(entry => entry.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
             if (names.Contains("Atraxa, Praetors' Voice"))
             {
