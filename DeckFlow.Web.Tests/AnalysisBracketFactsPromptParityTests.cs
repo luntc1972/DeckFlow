@@ -100,6 +100,22 @@ public sealed class AnalysisBracketFactsPromptParityTests
     }
 
     [Theory]
+    [InlineData("ChatGPT", "\n")]
+    [InlineData("Claude", "\n")]
+    [InlineData("Gemini", "\n")]
+    [InlineData("ChatGPT", "\r\n")]
+    [InlineData("Claude", "\r\n")]
+    [InlineData("Gemini", "\r\n")]
+    public void BracketFacts_TrailingNewline_ByteIdenticalToTrimmed_AllVariants(string platformName, string trailingNewline)
+    {
+        var facts = "BRACKET_FACTS_SENTINEL" + trailingNewline;
+        var withTrailingNewline = Build(platformName, facts);
+        var trimmed = Build(platformName, facts.TrimEnd());
+
+        Assert.Equal(trimmed, withTrailingNewline);
+    }
+
+    [Theory]
     [InlineData("ChatGPT")]
     [InlineData("Claude")]
     [InlineData("Gemini")]
