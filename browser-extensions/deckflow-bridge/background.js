@@ -1,3 +1,5 @@
+importScripts('moxfield-deck-parser.js');
+
 const API_ENDPOINTS = [
   'https://api.moxfield.com/v2/decks/all/',
   'https://api2.moxfield.com/v3/decks/all/'
@@ -35,7 +37,7 @@ async function fetchDeckPayload(deckId) {
       }
 
       const payload = await response.json();
-      if (payload && typeof payload === 'object' && (payload.mainboard || payload.commanders || payload.main)) {
+      if (payload && typeof payload === 'object' && DeckFlowMoxfieldParser.hasDeckZones(payload)) {
         return { ok: true, payload, sourceUrl: url };
       }
 
