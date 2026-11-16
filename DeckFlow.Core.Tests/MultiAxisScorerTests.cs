@@ -156,6 +156,15 @@ public sealed class MultiAxisScorerTests
     }
 
     [Fact]
+    public void Score_ConsistencyRationale_DoesNotClaimSmoothCurve()
+    {
+        var score = MultiAxisScorer.Score(CasualStats(), 0, 0, true, 2);
+
+        Assert.Contains("3.8", score.ConsistencyRationale.SignalText, StringComparison.Ordinal);
+        Assert.DoesNotContain("smooth", score.ConsistencyRationale.SignalText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Score_AllBandsWithinZeroToFive()
     {
         var score = MultiAxisScorer.Score(CedhStats(), 25, 9, true, 5);

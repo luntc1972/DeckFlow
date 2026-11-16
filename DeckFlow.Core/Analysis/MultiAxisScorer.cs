@@ -123,7 +123,7 @@ public static class MultiAxisScorer
             controlBand = 0;
         }
 
-        // Consistency: tutors + combo redundancy + curve smoothness (low avg mana value).
+        // Consistency: tutors + combo redundancy + low average mana value.
         int consistencyBand;
         if (stats.Tutors >= 12 && twoCardComboCount >= 3 && avgMv < 2.0m)
         {
@@ -162,7 +162,7 @@ public static class MultiAxisScorer
         var controlRationale = new DeckScoreRationale(
             $"{stats.Interaction} interaction pieces, {stats.Wipes} board wipes, {stats.Counters} counters");
         var consistencyRationale = new DeckScoreRationale(
-            $"{stats.Tutors} tutors, {comboText}, smooth {avgMvText} curve");
+            $"{stats.Tutors} tutors, {comboText}, avg mana value {avgMvText}");
 
         // Bracket cross-check: a high Power band with a low bracket (or vice versa) is a contradiction
         // worth surfacing so a miscalibrated band degrades into an AI correction, not a silent error.
