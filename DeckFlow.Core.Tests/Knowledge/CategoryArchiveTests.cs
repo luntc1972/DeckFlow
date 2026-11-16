@@ -13,6 +13,29 @@ namespace DeckFlow.Core.Tests.Knowledge;
 public sealed class CategoryArchiveTests
 {
     [Fact]
+    public void Read_LiveOnlyZeroCountCategory_ReturnsCategory()
+    {
+        var live = new[] { new CategoryDeckCountAggregation.LiveRow(1, 1, "mainboard", "Ramp", 0) };
+
+        var counts = CategoryDeckCountAggregation.Read(live, []);
+
+        Assert.Equal(0, Assert.Single(counts).Value);
+        Assert.Contains("ramp", counts.Keys);
+    }
+
+    [Fact]
+    public void Read_ArchiveRowsNettingToZero_OmitsCategory()
+    {
+        var archive = new[]
+        {
+            new CategoryDeckCountAggregation.ArchiveRow { CanonicalCategory = "ramp", IncludedDeckCount = 2, IncludedLabelRows = 1 },
+            new CategoryDeckCountAggregation.ArchiveRow { CanonicalCategory = "ramp", IncludedDeckCount = -2, IncludedLabelRows = 1 }
+        };
+
+        Assert.Empty(CategoryDeckCountAggregation.Read([], archive));
+    }
+
+    [Fact]
     public Task RetentionDrain_CardDeckTotalsUnchanged() => WithArchiveSqliteAsync("totals");
 
     [Fact]

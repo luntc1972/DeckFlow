@@ -26,9 +26,11 @@ internal static class CategoryDeckCountAggregation
         var liveCounts = live.Where(row => Passes(row.Category, included))
             .GroupBy(row => (row.SourceId, row.CardId, row.Board, CanonicalCategory: CategoryCanonicalizer.CanonicalKey(row.Category)))
             .Select(group => (group.Key.CanonicalCategory, DeckCount: group.Max(row => row.DeckCount)));
-        return liveCounts.Concat(archive.Select(row => (row.CanonicalCategory, DeckCount: included ? row.IncludedDeckCount : row.FallbackDeckCount)))
+        var archiveCounts = archive.GroupBy(row => row.CanonicalCategory, StringComparer.Ordinal)
+            .Select(group => (CanonicalCategory: group.Key, DeckCount: group.Sum(row => included ? row.IncludedDeckCount : row.FallbackDeckCount)))
+            .Where(row => row.DeckCount > 0);
+        return liveCounts.Concat(archiveCounts)
             .GroupBy(row => row.CanonicalCategory, StringComparer.Ordinal)
-            .Where(group => group.Sum(row => row.DeckCount) > 0)
             .ToDictionary(group => group.Key, group => checked((int)group.Sum(row => row.DeckCount)), StringComparer.Ordinal);
     }
 
