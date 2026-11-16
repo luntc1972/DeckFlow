@@ -696,7 +696,7 @@ public static class CutLabCutRoundEngine
         // role with the least slack. Attributing the card to a roomier role would understate the cost of cutting it.
         => roles
             // Why: only floor roles have headroom; floor-less roles cannot change attribution.
-            .Where(role => CutLabFloorRules.RoleKeys.Contains(role, StringComparer.OrdinalIgnoreCase))
+            .Where(role => CutLabFloorRules.TryGetCanonicalRole(role, out _))
             .Select(NormalizeRoleKey)
             .OrderBy(roleKey => HeadroomFor(roleKey, floorByRole, roleCounts))
             .ThenBy(RolePriority)

@@ -2213,27 +2213,6 @@ public sealed class CutLabApiControllerTests
             };
     }
 
-    private sealed class ProposalPatchBuilder : ICutLabUiPatchBuilder
-    {
-        public CutLabUiPatchDto BuildAdjustPatch(CutLabState state, IReadOnlyList<string> commanderNames)
-            => Patch;
-
-        public CutLabUiPatchDto Patch { get; init; } = new();
-
-        public Task<CutLabUiPatchDto> BuildAsync(
-            CutLabState state,
-            string playExperience,
-            IReadOnlyList<string> commanderNames,
-            bool twinsEnabled,
-            IReadOnlyList<ScryfallCardData>? preResolvedCards,
-            string? poolKey,
-            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
-            IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities,
-            bool checkedCommanderThemesAvailable = false,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult(Patch);
-    }
-
     private sealed class ThrowingPatchBuilder : ICutLabUiPatchBuilder
     {
         public CutLabUiPatchDto BuildAdjustPatch(CutLabState state, IReadOnlyList<string> commanderNames)

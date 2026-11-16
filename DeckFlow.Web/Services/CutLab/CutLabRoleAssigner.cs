@@ -209,7 +209,7 @@ public static class CutLabRoleAssigner
         }
 
         if (DeckStatClassifier.IsRecursionCard(oracle)
-            || categories.Contains(RecursionRole, StringComparer.OrdinalIgnoreCase))
+            || HasRecursionCategoryTag(categories))
         {
             assigned.Add(RecursionRole);
         }
@@ -226,6 +226,11 @@ public static class CutLabRoleAssigner
         }
 
         return assigned;
+    }
+
+    private static bool HasRecursionCategoryTag(IReadOnlyList<string> categories)
+    {
+        return categories.Contains(RecursionRole, StringComparer.OrdinalIgnoreCase);
     }
 
     private static bool HasWipeCategoryTag(IReadOnlyList<string> categories)

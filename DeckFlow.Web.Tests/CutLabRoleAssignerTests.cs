@@ -637,6 +637,17 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
+    public void AssignRoles_MultipleRolesIncludingRecursion_UsesCanonicalOrder()
+    {
+        CardFact fact = Fact("Mind Stone", "Artifact", "{T}: Add {C}.\n{1}, {T}, Sacrifice Mind Stone: Draw a card.");
+
+        var roles = CutLabRoleAssigner.AssignRoles(fact, ["Recursion"], ManabaseMode.Casual);
+
+        Assert.Equal(["ramp", "draw", "engines", "recursion"], roles);
+        Assert.Equal(CutLabRoleOverrideRules.CanonicalOrder.Where(roles.Contains), roles);
+    }
+
+    [Fact]
     public void AssignRoles_RecursionTagOnly_EmitsRecursion()
     {
         Assert.Equal(["recursion"], CutLabRoleAssigner.AssignRoles(Fact("Category-only", "Artifact", ""), ["Recursion"], ManabaseMode.Casual));

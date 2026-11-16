@@ -21,6 +21,16 @@ public sealed class CutLabRoleOverrideRulesTests
     }
 
     [Fact]
+    public void FloorlessRegistry_Keys_AreDisjointFromFloorKeysAndResidual()
+    {
+        string[] keys = CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key).ToArray();
+
+        Assert.Empty(keys.Intersect(CutLabFloorRules.RoleKeys, StringComparer.OrdinalIgnoreCase));
+        Assert.DoesNotContain(CutLabRoleKeys.Residual, keys, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(keys.Length, keys.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Fact]
     public void FloorlessRegistry_Entries_HaveDistinctLabelsUsedByAssigner()
     {
         foreach (var entry in CutLabRoleKeys.FloorlessRegistry)

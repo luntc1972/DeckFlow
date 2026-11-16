@@ -7,6 +7,9 @@ public static class CutLabRoleKeys
     public static bool IsApplicable(string roleKey, IReadOnlyList<string> activeTriggerFamilies) =>
         roleKey != Enablers || activeTriggerFamilies.Count > 0;
 
+    /// <summary>Role key for lands.</summary>
+    public const string Lands = "lands";
+
     /// <summary>Role key for graveyard recursion.</summary>
     public const string Recursion = "recursion";
 

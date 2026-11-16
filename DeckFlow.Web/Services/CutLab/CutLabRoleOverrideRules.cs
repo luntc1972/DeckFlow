@@ -10,7 +10,7 @@ public static class CutLabRoleOverrideRules
 
     /// <summary>Roles a user may edit, in picker order.</summary>
     public static readonly IReadOnlyList<string> EditableRoleKeys = CutLabRoleKeys.Display
-        .Where(role => role != "lands" && role != CutLabRoleKeys.Residual)
+        .Where(role => role != CutLabRoleKeys.Lands && role != CutLabRoleKeys.Residual)
         .ToArray();
 
     // Why: AssignRoles emits these keys in this order, so overrides retain classifier ordering.
@@ -124,12 +124,12 @@ public static class CutLabRoleOverrideRules
         }
 
         HashSet<string> roles = baseRoles
-            .Where(role => role != "other")
+            .Where(role => role != CutLabRoleKeys.Residual)
             .ToHashSet(StringComparer.Ordinal);
 
         foreach (string role in roleOverride.Removed ?? [])
         {
-            if (role != "lands")
+            if (role != CutLabRoleKeys.Lands)
             {
                 roles.Remove(role);
             }
@@ -137,7 +137,7 @@ public static class CutLabRoleOverrideRules
 
         foreach (string role in roleOverride.Added ?? [])
         {
-            if (role != "lands" && !(role == "ramp" && roles.Contains("lands")))
+            if (role != CutLabRoleKeys.Lands && !(role == "ramp" && roles.Contains(CutLabRoleKeys.Lands)))
             {
                 roles.Add(role);
             }
@@ -151,7 +151,7 @@ public static class CutLabRoleOverrideRules
         }
 
         string[] ordered = CanonicalOrder.Where(roles.Contains).ToArray();
-        return ordered.Length == 0 ? ["other"] : ordered;
+        return ordered.Length == 0 ? [CutLabRoleKeys.Residual] : ordered;
     }
 
     /// <summary>Applies a requested edit to session state.</summary>
@@ -195,7 +195,7 @@ public static class CutLabRoleOverrideRules
             string? key = EditableRoleKeys.FirstOrDefault(candidate =>
                 string.Equals(candidate, role, StringComparison.OrdinalIgnoreCase));
 
-            if (string.Equals(role, "lands", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(role, CutLabRoleKeys.Lands, StringComparison.OrdinalIgnoreCase))
             {
                 return Refuse(CutLabMessages.RoleOverrideLandsLockedMessage, out error);
             }
@@ -271,7 +271,7 @@ public static class CutLabRoleOverrideRules
     private static IReadOnlyList<string> Canonicalize(IEnumerable<string>? values)
     {
         return CanonicalOrder
-            .Where(key => key != "lands" && key != "other"
+            .Where(key => key != CutLabRoleKeys.Lands && key != CutLabRoleKeys.Residual
                 && (values ?? []).Any(value => string.Equals(value, key, StringComparison.OrdinalIgnoreCase)))
             .ToArray();
     }

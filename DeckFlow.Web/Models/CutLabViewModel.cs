@@ -371,7 +371,7 @@ public sealed record CutLabViewModel
             .DistinctBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(card => new CutLabRoleOverrideCardView(
                 card.Name,
-                result.RoleAssignmentsByCardName[card.Name].Contains("lands"),
+                result.RoleAssignmentsByCardName[card.Name].Contains(CutLabRoleKeys.Lands),
                 CutLabRoleOverrideRules.Find(result.State?.RoleOverrides ?? [], card.Name) is not null))
             .ToDictionary(card => card.Name, StringComparer.OrdinalIgnoreCase);
 
@@ -535,7 +535,7 @@ public sealed record CutLabViewModel
             .Select(roleKey => BuildGroup(roleKey, DisplayLabelFor(roleKey),
                 pool.Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
                     && roles.Contains(roleKey, StringComparer.Ordinal)),
-                !string.Equals(roleKey, "other", StringComparison.Ordinal)))
+                !string.Equals(roleKey, CutLabRoleKeys.Residual, StringComparison.Ordinal)))
             .ToArray();
     }
 
