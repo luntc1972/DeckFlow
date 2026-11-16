@@ -153,7 +153,13 @@ internal sealed class ChatGptMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("8. META POSITIONING");
         builder.AppendLine("- Determine if MY_DECK is faster or slower than the field, more or less interactive.");
         builder.AppendLine("- Identify which archetype it most resembles (turbo, midrange, control, stax).");
-        builder.AppendLine("- Assign a 1-10 cEDH readiness score with 2-sentence justification.");
+        builder.AppendLine("Assign a 1-10 cEDH readiness_score from the filled meta_gap evidence: core_convergence overlap, missing_staples priorities, speed and interaction versus REF averages, and win_lines. Decimals are allowed; readiness_justification must name the values that determine the score in two sentences.");
+        builder.AppendLine("9-10: nearly the entire core is present, no high-priority staples missing, and speed and interaction meet or exceed the REF averages.");
+        builder.AppendLine("7-8: most core cards are present, a few staples missing, within about one turn of REF speed, and interaction close to the REF average.");
+        builder.AppendLine("5-6: roughly half the core is present, or several high-priority staples missing, or a full turn slower, or clearly fewer interaction cards.");
+        builder.AppendLine("3-4: few core cards are present, with MY_DECK both slower and less interactive than REF.");
+        builder.AppendLine("1-2: no shared core and no win line comparable to REF consensus.");
+        builder.AppendLine("If there is only one REF deck or the REF decks have little card overlap, choose the lower band and state that evidence limitation in readiness_justification.");
         builder.AppendLine();
 
         builder.AppendLine("OUTPUT CONTRACT:");
