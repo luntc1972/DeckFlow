@@ -198,7 +198,11 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine();
         builder.AppendLine("B. After the question answers, include these recommendation sections:");
         builder.AppendLine("   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.");
-        builder.AppendLine("   - Top Cuts: 5-10 cards with one sentence of reasoning per card.");
+        builder.AppendLine("   For each add, name at least two synergy links: each must describe a specific interaction with the commander or a named card already in the deck.");
+        builder.AppendLine("   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.");
+        builder.AppendLine("   For each add, name the card it replaces and state their shared role.");
+        builder.AppendLine("   Label each add [supplied] if the card appears in data supplied in the prompt, or [memory] if drawn from the model's own knowledge; mark every [memory] add verify on Scryfall.");
+        builder.AppendLine("   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.");
         if (requiresFullDecklists)
         {
             builder.AppendLine();

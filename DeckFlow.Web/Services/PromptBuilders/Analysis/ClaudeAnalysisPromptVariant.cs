@@ -209,6 +209,11 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("Answer every numbered question in <questions> with 6-12 sentences of detailed reasoning that cites specific cards from <deck> or <reference>. Do not skip, merge, or partially answer any question.");
         builder.AppendLine("After writing the readable analysis, copy every answer into the JSON object's question_answers array with the same numbering and the same full answer text expanded to JSON form.");
         builder.AppendLine("Return a Requested Question Answers section first, then recommendation sections for Top Adds and Top Cuts before the final structured output.");
+        builder.AppendLine("For each add, give at least two synergy links, defining each as a specific interaction with the commander or a named card already in the deck.");
+        builder.AppendLine("Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.");
+        builder.AppendLine("For each add, identify the card it replaces and explain their shared role.");
+        builder.AppendLine("Give each add a source tag: [supplied] for a card appearing in data supplied in the prompt, or [memory] for the model's own knowledge; mark every [memory] add verify on Scryfall.");
+        builder.AppendLine("For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.");
         builder.AppendLine();
 
         if (requiresFullDecklists)

@@ -102,6 +102,51 @@ public sealed class GeminiVariantSizeTests
     }
 
     [Fact]
+    public void GeminiAnalysis_ScoreOnWithMaxNorms_MeasuresPromptSize()
+    {
+        var normsBlock = CommanderCategoryNormsBlock.Build(
+            PacketByteIdentityFixtures.MaxCommanderCategoryNorms(),
+            multiCommanderDeck: true);
+        var scoreBlock = "DECK SCORE (coarse 0-5 bands - magnitude, not quality)\n"
+            + "  Power: 4/5 High (compact wins and efficient tutors)\n"
+            + "    rule: Compact wins and tutors increase power.\n"
+            + "  Speed: 4/5 High (fast mana and early threats)\n"
+            + "    rule: Fast mana accelerates the deck's plan.\n"
+            + "  Control: 3/5 Moderate (cheap interaction)\n"
+            + "    rule: Efficient answers support stack interaction.\n"
+            + "  Consistency: 4/5 High (draw and redundant tutors)\n"
+            + "    rule: Tutors and draw improve access to key cards.\n"
+            + "Cross-check: Consistent with the computed cEDH bracket.\n"
+            + "(These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)";
+        var bracketFacts = "Computed bracket: cEDH\n"
+            + "Game Changers: 5; two-card combos: 2; extra-turn cards: 0; mass land denial: 0.\n"
+            + "Use the supplied deck evidence when assessing these facts.";
+        var variant = new GeminiAnalysisPromptVariant();
+        var prompt = variant.Build(
+            new DeckAnalysisRequest
+            {
+                Format = "Commander",
+                DeckName = "Kraum / Tymna cEDH Primer",
+                TargetCommanderBracket = "cEDH"
+            },
+            RepresentativeDecklistText(),
+            RepresentativeReferenceText(),
+            RepresentativeSchemaJson(),
+            "Kraum, Ludevic's Opus",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            RepresentativeComboResult(),
+            includeCardVersions: false,
+            enrichments: new AnalysisPromptEnrichments(
+                ScoreBlockText: scoreBlock,
+                CommanderCategoryNormsText: normsBlock,
+                BracketFactsText: bracketFacts));
+
+        EmitMeasurement("analysis-score-on-max-norms", prompt.Length);
+        Assert.False(string.IsNullOrWhiteSpace(prompt));
+    }
+
+    [Fact]
     public void GeminiComparison_RepresentativeDeck_MeasuresPromptSize()
     {
         var variant = new GeminiComparisonPromptVariant();

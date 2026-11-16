@@ -92,7 +92,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for the model's own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -288,6 +292,11 @@ Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoratio
 Answer every numbered question in <questions> with 6-12 sentences of detailed reasoning that cites specific cards from <deck> or <reference>. Do not skip, merge, or partially answer any question.
 After writing the readable analysis, copy every answer into the JSON object's question_answers array with the same numbering and the same full answer text expanded to JSON form.
 Return a Requested Question Answers section first, then recommendation sections for Top Adds and Top Cuts before the final structured output.
+For each add, give at least two synergy links, defining each as a specific interaction with the commander or a named card already in the deck.
+Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+For each add, identify the card it replaces and explain their shared role.
+Give each add a source tag: [supplied] for a card appearing in data supplied in the prompt, or [memory] for the model's own knowledge; mark every [memory] add verify on Scryfall.
+For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 
 After the full analysis, return a JSON object matching <output_schema> with one question_answers entry per question, in the same order as <questions>.
@@ -368,7 +377,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   For each add, name at least two synergy links: each must describe a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   For each add, name the card it replaces and state their shared role.
+   Label each add [supplied] if the card appears in data supplied in the prompt, or [memory] if drawn from the model's own knowledge; mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -699,7 +712,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for the model's own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -866,7 +883,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for the model's own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1024,7 +1045,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for the model's own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1178,7 +1203,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for the model's own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1317,7 +1346,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for the model's own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1456,7 +1489,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for the model's own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1648,7 +1685,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for the model's own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1792,7 +1833,11 @@ A. Start with a section titled Requested Question Answers.
 
 B. After the question answers, include these recommendation sections:
    - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for the model's own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 C. Full decklist output requirements:
    For every requested deck-version or upgrade-path question, output the full 100-card Commander decklist.
