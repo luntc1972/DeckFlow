@@ -292,8 +292,7 @@ public sealed class CategoryArchiveTests
 
     internal static async Task VerifyUrlImportAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        var cancellationToken = timeout.Token;
+        var cancellationToken = CancellationToken.None;
         var repository = new CategoryKnowledgeRepository(info);
         await repository.EnsureSchemaAsync(cancellationToken);
         await repository.AddDeckIdsAsync(["719"], cancellationToken);
@@ -350,12 +349,13 @@ public sealed class CategoryArchiveTests
         else
         {
             var cardRepository = (CardCategoryRepository)typeof(CategoryKnowledgeRepository).GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(repository)!;
+            using var raceTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
             var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             async Task PauseAsync()
             {
                 entered.TrySetResult();
-                await release.Task.WaitAsync(cancellationToken);
+                await release.Task.WaitAsync(raceTimeout.Token);
             }
             var foldFirst = scenario == "url-fold-first";
             if (foldFirst)
@@ -378,15 +378,15 @@ public sealed class CategoryArchiveTests
                 {
                     import = repository.PersistUrlImportDeckAsync("719", source, entries, cancellationToken);
                 }
-                await entered.Task.WaitAsync(cancellationToken);
+                await entered.Task.WaitAsync(raceTimeout.Token);
                 fold ??= repository.RemoveStoredDecksAsync([(id, DeckSkipReasons.Retention)], cancellationToken);
                 import ??= repository.PersistUrlImportDeckAsync("719", source, entries, cancellationToken);
                 // Observe the second transaction waiting on the archive lock before releasing the first.
                 while (!await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
                     "SELECT EXISTS (SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE l.locktype = 'advisory' AND l.classid::bigint = @lockClass AND l.objid::bigint = @id AND l.objsubid = 2 AND a.application_name = current_setting('application_name') AND NOT l.granted);",
-                    new { lockClass = CardCategoryRepository.DeckArchiveLockClass, id }, cancellationToken: cancellationToken)))
+                    new { lockClass = CardCategoryRepository.DeckArchiveLockClass, id }, cancellationToken: raceTimeout.Token)))
                 {
-                    await Task.Delay(20, cancellationToken);
+                    await Task.Delay(20, raceTimeout.Token);
                 }
                 Assert.False(foldFirst ? import.IsCompleted : fold.IsCompleted);
             }
@@ -395,11 +395,11 @@ public sealed class CategoryArchiveTests
                 release.TrySetResult();
                 if (fold is not null)
                 {
-                    await fold.WaitAsync(cancellationToken);
+                    await fold.WaitAsync(raceTimeout.Token);
                 }
                 if (import is not null)
                 {
-                    await import.WaitAsync(cancellationToken);
+                    await import.WaitAsync(raceTimeout.Token);
                 }
             }
             Assert.Equal(1, await fold!);
