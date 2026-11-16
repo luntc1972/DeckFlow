@@ -547,7 +547,7 @@ public sealed class AdminHarvestController : Controller
                 var rejectedCommanderName = DeckCommanderResolver.ResolveCommanderName(entries);
                 var skipReason = legality.SkipReason!;
                 await _categoryStore.RejectUrlDeckAsync(
-                    UrlSourceFor(url),
+                    ArchidektApiUrl.BuildUrlSource(url),
                     deckId,
                     rejectedCommanderName,
                     result.Metadata,
@@ -777,8 +777,6 @@ public sealed class AdminHarvestController : Controller
                 StatusCodes.Status403Forbidden,
                 new { Message = "This endpoint only accepts same-origin browser requests." });
     }
-
-    private static string UrlSourceFor(string url) => $"archidekt_url:{url}";
 
     /// <summary>
     /// Stores the banner message and tone so an earlier unread tone never recolors a new message.

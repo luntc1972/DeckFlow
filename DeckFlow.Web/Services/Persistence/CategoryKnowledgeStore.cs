@@ -262,7 +262,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         }
 
         await EnsureSchemaReadyAsync(cancellationToken);
-        return await _repository.PersistUrlImportDeckAsync(deckId, $"archidekt_url:{url}", entries, cancellationToken);
+        return await _repository.PersistUrlImportDeckAsync(deckId, ArchidektApiUrl.BuildUrlSource(url), entries, cancellationToken);
     }
 
     /// <summary>
