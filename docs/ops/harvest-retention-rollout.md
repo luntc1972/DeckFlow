@@ -25,6 +25,7 @@ Scope: `HarvestRetention__` overrides, including the `HarvestRetention__PostHarv
 | `MaxAgeDays` | null | `HarvestRetention__MaxAgeDays`: a null binding value means unset, so the optional age limit is off and excluded from the Preview over-cap count. |
 | `PostHarvestMaxDecks` | 500 | `HarvestRetention__PostHarvestMaxDecks`: maximum automatic removals after a harvest; 0 is the post-harvest kill switch. |
 | `MaintenanceChunkDecks` | 1000 | `HarvestRetention__MaintenanceChunkDecks`: decks processed per maintenance sweep-gate hold. |
+| `MaintenanceMaxDecksPerRun` | 0 | `HarvestRetention__MaintenanceMaxDecksPerRun`: maximum decks removed by one maintenance Drain run; 0 is unbounded. Purge, Backfill, and post-harvest retention are unaffected. |
 
 ## Step 1 — Deploy gate and filters
 
@@ -56,7 +57,17 @@ To reset the backfill, keep harvest paused and wait until no maintenance run is 
 
 Deploy the Retention maintenance card, then press Preview. Planning estimates are 341,656 total decks, about 187,000 decks over the cap, about 11,000 purge candidates, and about 16,000 refetch candidates; the live Preview counts are authoritative. Stop and report a difference of an order of magnitude.
 
-Tick the confirmation box and run Purge. Wait for completion, then Preview again until purge candidates are 0. Next, tick the confirmation box and run Drain. The server refuses Drain while purge candidates remain. Repeat Preview and Drain after recoverable stops until the status shows completed and Preview shows 0 decks over the cap. If a Drain stopped with `Completed` and the over-cap count remains above 0, stop the rollout and report that it made no progress. For `DiskFloor`, `DiskProbeUnavailable`, or `MaxDecksReached`, resolve the displayed stop reason, press Preview, and run Drain again before Refetch.
+Tick the confirmation box and run Purge. Wait for completion, then Preview again until purge candidates are 0. Next, tick the confirmation box and run Drain. The server refuses Drain while purge candidates remain. Repeat Preview and Drain after recoverable stops until the status shows completed and Preview shows 0 decks over the cap. With `MaintenanceMaxDecksPerRun=0`, if a Drain stopped with `Completed` and the over-cap count remains above 0, stop the rollout and report that it made no progress. A bounded pilot intentionally completes at its configured cap with excess decks still present. For `DiskFloor`, `DiskProbeUnavailable`, or `MaxDecksReached`, resolve the displayed stop reason, press Preview, and run Drain again before Refetch.
+
+## Archive pilot and full-drain release
+
+Follow [07-18-PLAN.md](../../.planning/phases/07-legal-commander-harvest-per-commander-retention/07-18-PLAN.md), Tasks 3–5, for the canonical numbered gates. These are operator-run production steps. Task 3 requires an explicit proceed or hold decision before the one-way archive deployment. A hold keeps the drain stopped and records a deviation in the 07-14 evidence.
+
+For Task 4, keep both harvest schedules paused and ensure no maintenance run is active. Pass the fresh Render disk check in Task 4 step (1); the in-app disk floor alone does not satisfy it. Set `HarvestRetention__MaintenanceMaxDecksPerRun=100`, then deploy the approved SHA using the required push confirmations. Follow steps (4)–(6) to capture baseline and post-pilot manifest counts, database bytes, WAL position, five pilot-card category lookups, live and archive heap tuple bytes, write counters, batch durations, and lock waits. Do not run URL imports or other admin writes during this window. Run Drain and require `Harvest.Maintenance.Completed operation=Drain decksAffected=100`.
+
+Evaluate every Task 4 step (7) gate: unchanged card lookups, manifest count 100, O4 archive growth at most one tenth of live tuple bytes freed, unchanged live-table insert/update counters, and no lock wait or batch timeout. Use heap tuple bytes on both sides of O4; relation sizes are disk tracking only. If write counters changed, discard the O4 measurement and re-measure on the next pilot batch. If O4 fails, keep Drain stopped and return to the user for Option A or a `category_dictionary`. Set BatchSize or the stop threshold from measured results and record all evidence in `scratch/07-17-pilot-evidence.md` in the context tree.
+
+Only after the pilot gates pass, follow Task 5: set `HarvestRetention__MaintenanceMaxDecksPerRun=0` and the measured BatchSize, redeploy, and repeat the Task 4 step (1) disk check with a fresh reading. Run Drain; Preview must show retention excess falling to 0, purge candidates 0, and unchanged pilot-card lookups. After Drain completes with `stopReason Completed`, resume both schedules per 07-14-PLAN.md:254 and re-enable Render autoDeploy. Release the hold only when retention excess is 0, both schedule cards show Paused: No, and the first post-harvest `Harvest.Retention.Completed` is logged. Append the evidence.
 
 ## Step 4 — Refetch
 

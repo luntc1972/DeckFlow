@@ -59,6 +59,8 @@ DeckFlow feature highlights.
 
 ### Deck harvest (admin-only)
 
+Card-level category knowledge survives retention in a compact archive, while retained deck lists remain available for deck-level analysis. Admin URL import refuses archived decks and displays a refusal banner, preventing an archived deck from being counted again.
+
 - **Legal-Commander gate:** bulk, update, and admin URL harvests keep only Commander-format decks with a commander and legal Commander deck size. Illegal or repeatedly failed decks stay recorded with a skip reason, while any harvested category rows for a deck that becomes illegal are removed.
 - **Commander-only discovery:** Archidekt discovery requests Commander-format listings and does not queue listing rows smaller than 100 cards.
 - **Per-commander retention:** after every successful harvest, DeckFlow keeps each commander's newest decks up to the configured cap. A pruned deck returns only after its owner changes its commander or main deck; sideboard or maybeboard edits leave it pruned.

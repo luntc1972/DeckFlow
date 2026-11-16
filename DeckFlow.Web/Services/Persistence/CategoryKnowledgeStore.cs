@@ -126,15 +126,33 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 
         if (operation is not HarvestMaintenanceOperation.Drain and not HarvestMaintenanceOperation.Purge and not HarvestMaintenanceOperation.Backfill) throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
         ILogger logger = _logger is null ? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance : _logger;
+        var removed = 0;
         var outcome = await HarvestMaintenanceChunkLoop.RunAsync(
             operation,
             _sweepGate,
             _retentionOptions.MaintenanceChunkDecks,
-            (deckCount, batchProgress, stop, token) => operation switch
+            async (deckCount, batchProgress, stop, token) =>
             {
-                HarvestMaintenanceOperation.Drain => _deckPruningService.RunRetentionAsync(deckCount, batchProgress, stop, token),
-                HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, batchProgress, stop, token),
-                _ => _markerBackfillService.RunAsync(deckCount, batchProgress, stop, token)
+                if (operation == HarvestMaintenanceOperation.Drain)
+                {
+                    if (_retentionOptions.MaintenanceMaxDecksPerRun > 0)
+                    {
+                        var remaining = _retentionOptions.MaintenanceMaxDecksPerRun - removed;
+                        if (remaining == 0)
+                        {
+                            return new DeckPruningResult(0, 0, DeckPruningStopReason.Completed);
+                        }
+                        deckCount = Math.Min(deckCount, remaining);
+                    }
+                    var result = await _deckPruningService.RunRetentionAsync(deckCount, batchProgress, stop, token).ConfigureAwait(false);
+                    removed += result.DecksRemoved;
+                    return result;
+                }
+                return await (operation switch
+                {
+                    HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, batchProgress, stop, token),
+                    _ => _markerBackfillService.RunAsync(deckCount, batchProgress, stop, token)
+                }).ConfigureAwait(false);
             },
             progress,
             logger,
