@@ -23,9 +23,13 @@ namespace DeckFlow.Web.Services.PromptBuilders.Analysis;
 /// off.
 /// </param>
 /// <param name="CommanderCategoryNormsText">Pre-built harvested commander-category norms block; null or empty when the commander-category-norms flag (Phase 5) is off, no provider is wired, the provider returned nothing, or the commander is below the 10-deck floor.</param>
+/// <param name="BracketFactsText">
+/// Pre-built computed bracket facts; null/empty when the multi-axis-score flag (Phase 77) is off.
+/// </param>
 internal sealed record AnalysisPromptEnrichments(
     string? CompanionName = null,
     string? ScoreBlockText = null,
     string? InteractionAuditText = null,
     string? WinConMapText = null,
-    string? CommanderCategoryNormsText = null);
+    string? CommanderCategoryNormsText = null,
+    string? BracketFactsText = null);

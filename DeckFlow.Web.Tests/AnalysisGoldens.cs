@@ -13,6 +13,30 @@ internal static class AnalysisGoldens
 {
     private const string ChatGptImmediateHeader = PacketByteIdentityFixtures.ChatGptImmediateHeader;
 
+    public static string BracketFactsBlock(string platform) => platform switch
+    {
+        "ChatGPT" => """
+## Computed bracket facts
+These computed bracket facts are supplied as input for your own bracket judgment. The computed bracket is not a minimum or floor.
+BRACKET_FACTS_SENTINEL
+
+""",
+        "Claude" => """
+<bracket_facts>
+Use these supplied computed bracket facts as input to your own bracket judgment. Treat the computed bracket as evidence, not a minimum or floor.
+BRACKET_FACTS_SENTINEL
+</bracket_facts>
+
+""",
+        "Gemini" => """
+## Computed bracket facts
+Consider these computed bracket facts as input when making your own bracket judgment. The computed bracket is not a minimum or floor for that judgment.
+BRACKET_FACTS_SENTINEL
+
+""",
+        _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, null),
+    };
+
     public static string BaselineAnalysisPrompt(string platform) => platform switch
     {
         "ChatGPT" => ChatGptImmediateHeader + """
@@ -785,6 +809,13 @@ DECK SCORE (coarse 0-5 bands - magnitude, not quality)
     rule: None of the higher-band rules matched.
 Cross-check: Score aligns with the Bracket 2 classification.
 (These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)
+
+## Computed bracket facts
+These computed bracket facts are supplied as input for your own bracket judgment. The computed bracket is not a minimum or floor.
+- 0 Game Changers (B2 has no cap).
+- 0 mass land denial.
+- 0 extra-turn cards (informational only; does not affect bracket number).
+
 ## EVIDENCE RULES
 - Use the mechanic definitions and card reference supplied below as authoritative. Read all supplied card entries before beginning the analysis.
 - Do not invent card text or rules.
@@ -1547,6 +1578,13 @@ DECK SCORE (coarse 0-5 bands - magnitude, not quality)
     rule: None of the higher-band rules matched.
 Cross-check: Score aligns with the Bracket 2 classification.
 (These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)
+
+## Computed bracket facts
+These computed bracket facts are supplied as input for your own bracket judgment. The computed bracket is not a minimum or floor.
+- 0 Game Changers (B2 has no cap).
+- 0 mass land denial.
+- 0 extra-turn cards (informational only; does not affect bracket number).
+
 
 INTERACTION AUDIT (DeckFlow heuristic first pass - verify against the cards)
   Targeted removal: approximately 0 confident - none found

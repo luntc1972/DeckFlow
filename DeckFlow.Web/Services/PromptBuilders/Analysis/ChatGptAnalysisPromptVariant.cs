@@ -36,6 +36,7 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         ArgumentNullException.ThrowIfNull(enrichments);
         var companionName = enrichments.CompanionName;
         var scoreBlockText = enrichments.ScoreBlockText;
+        var bracketFactsText = enrichments.BracketFactsText;
         var interactionAuditText = enrichments.InteractionAuditText;
         var winConMapText = enrichments.WinConMapText;
         var commanderCategoryNormsText = enrichments.CommanderCategoryNormsText;
@@ -50,6 +51,7 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         var requiresCategoryOutput = AnalysisQuestionCatalog.RequiresCategoryOutput(selectedQuestionIds);
         var hasHeuristicContentToValidate =
             !string.IsNullOrWhiteSpace(scoreBlockText)
+            || !string.IsNullOrWhiteSpace(bracketFactsText)
             || !string.IsNullOrWhiteSpace(interactionAuditText)
             || !string.IsNullOrWhiteSpace(winConMapText)
             || !string.IsNullOrWhiteSpace(commanderCategoryNormsText)
@@ -109,6 +111,14 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         {
             builder.AppendLine();
             builder.AppendLine(scoreBlockText);
+        }
+
+        if (!string.IsNullOrWhiteSpace(bracketFactsText))
+        {
+            builder.AppendLine();
+            builder.AppendLine("## Computed bracket facts");
+            builder.AppendLine("These computed bracket facts are supplied as input for your own bracket judgment. The computed bracket is not a minimum or floor.");
+            builder.AppendLine(bracketFactsText);
         }
 
         // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.

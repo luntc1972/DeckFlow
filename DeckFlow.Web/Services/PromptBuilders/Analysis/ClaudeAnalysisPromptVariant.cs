@@ -38,6 +38,7 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         ArgumentNullException.ThrowIfNull(enrichments);
         var companionName = enrichments.CompanionName;
         var scoreBlockText = enrichments.ScoreBlockText;
+        var bracketFactsText = enrichments.BracketFactsText;
         var interactionAuditText = enrichments.InteractionAuditText;
         var winConMapText = enrichments.WinConMapText;
         var commanderCategoryNormsText = enrichments.CommanderCategoryNormsText;
@@ -74,6 +75,15 @@ internal sealed class ClaudeAnalysisPromptVariant : IAnalysisPromptVariant
         {
             builder.AppendLine();
             builder.AppendLine(scoreBlockText);
+        }
+
+        if (!string.IsNullOrWhiteSpace(bracketFactsText))
+        {
+            builder.AppendLine();
+            builder.AppendLine("<bracket_facts>");
+            builder.AppendLine("Use these supplied computed bracket facts as input to your own bracket judgment. Treat the computed bracket as evidence, not a minimum or floor.");
+            builder.AppendLine(bracketFactsText);
+            builder.AppendLine("</bracket_facts>");
         }
 
         // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.

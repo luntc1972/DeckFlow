@@ -38,6 +38,7 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         ArgumentNullException.ThrowIfNull(enrichments);
         var companionName = enrichments.CompanionName;
         var scoreBlockText = enrichments.ScoreBlockText;
+        var bracketFactsText = enrichments.BracketFactsText;
         var interactionAuditText = enrichments.InteractionAuditText;
         var winConMapText = enrichments.WinConMapText;
         var commanderCategoryNormsText = enrichments.CommanderCategoryNormsText;
@@ -104,6 +105,14 @@ internal sealed class GeminiAnalysisPromptVariant : IAnalysisPromptVariant
         {
             builder.AppendLine();
             builder.AppendLine(scoreBlockText);
+        }
+
+        if (!string.IsNullOrWhiteSpace(bracketFactsText))
+        {
+            builder.AppendLine();
+            builder.AppendLine("## Computed bracket facts");
+            builder.AppendLine("Consider these computed bracket facts as input when making your own bracket judgment. The computed bracket is not a minimum or floor for that judgment.");
+            builder.AppendLine(bracketFactsText);
         }
 
         // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.

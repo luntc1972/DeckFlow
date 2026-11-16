@@ -24,6 +24,7 @@ using DeckFlow.Web.Models;
 using CoreScryfallCollectionIdentifier = DeckFlow.Core.Normalization.ScryfallCollectionIdentifier;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.PromptBuilders.SetUpgrade;
 using DeckFlow.Web.Services.Scryfall;
 
@@ -831,6 +832,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // null combo result (API unavailable) from an empty one (ran, found none) so the scorer
                 // never reports "0 combos" when detection simply failed (Pitfall 1).
                 string? scoreBlockText = null;
+                string? bracketFactsText = null;
                 if (scoreEnabled)
                 {
                     currentDeckNonCommanderCards ??= cardReferenceBundle.CardReferences
@@ -847,8 +849,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                             .Select(combo => new TwoCardCombo(combo.CardNames, combo.Results))
                             .ToList();
 
+                    var catalog = _catalogService.GetCatalog();
                     var bracketClassification = BracketClassifier.Classify(
-                        deckEntries, _catalogService.GetCatalog(), scoreTwoCardCombos);
+                        deckEntries, catalog, scoreTwoCardCombos);
+                    bracketFactsText = BracketClassificationFactsRenderer.Render(bracketClassification, catalog.Tiers);
 
                     computedScore = MultiAxisScorer.Score(
                         scoreStats,
@@ -940,7 +944,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 // Keep the prompt-side combo-reference gate intact: only emit combo text when a combo
                 // question was selected, so widening the fetch for the score never changes prompt output.
                 var promptComboResult = requiresComboLookup ? comboResult : null;
-                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, promptComboResult, includeCardVersions, companionName, scoreBlockText, interactionAuditText, winConMapText, commanderCategoryNormsText);
+                analysisPromptText = BuildAnalysisPrompt(request, analysisDecklistText, referenceText, deckProfileSchemaJson, commanderName, selectedQuestions, bannedCards, promptComboResult, includeCardVersions, companionName, scoreBlockText, interactionAuditText, winConMapText, commanderCategoryNormsText, bracketFactsText);
                 if (wantsSetUpgradePacket)
                 {
                     var oracleResolvedDecklistText = PacketTextAssembler.BuildSectionedDecklistText(deckEntries, possibleIncludeEntries, oracleNameMap: cardReferenceBundle.OracleNameMap);
@@ -1360,9 +1364,9 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// Internal for test access — per-AI dispatcher exercised by the AI result contract tests.
     /// </summary>
     // Phase 15-02: converted from internal static to instance method; dispatches via injected AnalysisPromptVariantRegistry.
-    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null, string? scoreBlockText = null, string? interactionAuditText = null, string? winConMapText = null, string? commanderCategoryNormsText = null)
+    internal string BuildAnalysisPrompt(DeckAnalysisRequest request, string decklistText, string referenceText, string deckProfileSchemaJson, string? commanderName, IReadOnlyList<string> selectedQuestionIds, IReadOnlyList<string> bannedCards, CommanderSpellbookResult? comboResult = null, bool includeCardVersions = false, string? companionName = null, string? scoreBlockText = null, string? interactionAuditText = null, string? winConMapText = null, string? commanderCategoryNormsText = null, string? bracketFactsText = null)
     {
-        var enrichments = new AnalysisPromptEnrichments(companionName, scoreBlockText, interactionAuditText, winConMapText, commanderCategoryNormsText);
+        var enrichments = new AnalysisPromptEnrichments(companionName, scoreBlockText, interactionAuditText, winConMapText, commanderCategoryNormsText, bracketFactsText);
         return _analysisPromptRegistry.Build(
             AiPlatform.Normalize(request.TargetAiPlatform),
             request, decklistText, referenceText, deckProfileSchemaJson,
