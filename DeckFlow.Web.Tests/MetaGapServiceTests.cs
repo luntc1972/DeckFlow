@@ -948,4 +948,67 @@ public sealed class MetaGapServiceTests
                 .ToList();
         }
     }
+    [Fact]
+    public async Task BuildAsync_SendsFullDoubleFacedNamesToSpellbookForUserAndReferenceDecks()
+    {
+        var spellbook = await BuildDoubleFacedNameScenarioAsync("Kinnan, Bonder Prodigy");
+        Assert.Equal(2, spellbook.RecordedDecks.Count);
+        foreach (var deck in spellbook.RecordedDecks)
+        {
+            Assert.Contains(deck, entry => entry.Name == "Delver of Secrets // Insectile Aberration");
+            Assert.DoesNotContain(deck, entry => entry.Name == "Delver of Secrets");
+            Assert.Contains(deck, entry => entry.Name == "Fire // Ice");
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_ReferenceDeckCommanderEntry_KeepsFullDoubleFacedName()
+    {
+        var spellbook = await BuildDoubleFacedNameScenarioAsync("Esika, God of the Tree // The Prismatic Bridge");
+        Assert.Equal(2, spellbook.RecordedDecks.Count);
+        foreach (var deck in spellbook.RecordedDecks)
+        {
+            Assert.Contains(deck, entry => entry.Board == "commander" && entry.Name == "Esika, God of the Tree // The Prismatic Bridge");
+        }
+    }
+
+    private static async Task<FakeCommanderSpellbookService> BuildDoubleFacedNameScenarioAsync(string commanderName)
+    {
+        var importer = new FakeMoxfieldDeckImporter(new List<DeckEntry>
+        {
+            CreateDeckEntry(commanderName, "commander"),
+            CreateDeckEntry("Delver of Secrets // Insectile Aberration"),
+            CreateDeckEntry("Fire / Ice")
+        });
+
+        var edhTop16Client = new FakeEdhTop16Client(
+            new EdhTop16Entry
+            {
+                Standing = 1,
+                PlayerName = "Pilot",
+                TournamentDate = new DateOnly(2026, 4, 10),
+                MainDeck = new[]
+                {
+                    new EdhTop16Card { Name = "Delver of Secrets // Insectile Aberration", Type = "Creature" },
+                    new EdhTop16Card { Name = "Fire / Ice", Type = "Instant" }
+                }
+            });
+
+        var spellbook = new FakeCommanderSpellbookService();
+        var scryfall = new FakeScryfallResolver();
+        scryfall.CollectionNameMap["Fire / Ice"] = "Fire // Ice";
+        scryfall.MissingFromCollection.Add("Fire / Ice");
+        var service = CreateService(importer, new FakeArchidektDeckImporter(), edhTop16Client, spellbook, scryfall);
+
+        await service.BuildAsync(new MetaGapRequest
+        {
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-list",
+            SelectedReferenceIndexes = new List<int> { 0 }
+        });
+
+
+        return spellbook;
+    }
+
 }

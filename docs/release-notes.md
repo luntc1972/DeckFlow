@@ -6,6 +6,15 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Commander Spellbook double-faced card names (2026-11-16)
+
+- **Combo lookup:** Meta Gap, deck comparison and every other combo lookup now send double-faced, split and adventure cards to Commander Spellbook under their full `A // B` name, so combos that need one of those cards are no longer silently missing. Prompt decklists keep their front-face display.
+- **Near-combos:** a card you own under its front-face or `A / B` spelling is no longer reported as the missing piece of a near-combo.
+
+### DeckFlow Bridge 0.1.2 — Moxfield v3 imports (2026-11-16)
+
+- **Moxfield imports:** DeckFlow Bridge now imports Moxfield v3 deck payloads, preserving card printings, author tags, and supported deck zones.
+
 ### 2026.11.1 — Cut Lab discoverability (2026-11-10)
 
 - **Step order:** Process, Plan, Decide, Goals, Export is the new order, with Lock your pool and Packages at the end of Plan.

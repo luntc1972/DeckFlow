@@ -328,4 +328,89 @@ public sealed class CommanderSpellbookServiceTests
         Assert.NotNull(result);
         Assert.Single(result.IncludedCombos);
     }
+    private static CommanderSpellbookService BuildRecordingService(List<string> bodies, string response)
+    {
+        return TestServiceFactory.CreateCommanderSpellbookService(
+            new FakeHttpClientFactory(new Dictionary<string, HttpMessageHandler>()),
+            new MemoryCache(new MemoryCacheOptions()),
+            postJsonAsync: (body, _) =>
+            {
+                bodies.Add(body);
+                return Task.FromResult<string?>(response);
+            });
+    }
+
+    [Theory]
+    [InlineData("Valki, God of Lies / Tibalt, Cosmic Impostor")]
+    [InlineData("Valki, God of Lies // Tibalt, Cosmic Impostor")]
+    public async Task FindCombosAsync_SlashName_SendsDoubleSlashInRequestBody(string name)
+    {
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, "{\"results\":{\"included\":[],\"almostIncluded\":[]}}");
+        await service.FindCombosAsync(new[] { MainboardEntry(name), CommanderEntry("Kenrith, the Returned King") });
+        using var body = System.Text.Json.JsonDocument.Parse(Assert.Single(bodies));
+        var main = body.RootElement.GetProperty("main").EnumerateArray().Select(card => card.GetProperty("card").GetString()).ToArray();
+        Assert.Equal(new[] { "Valki, God of Lies // Tibalt, Cosmic Impostor" }, main);
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_SingleSlashCommander_SentAsDoubleSlashAndNotDuplicatedInMain()
+    {
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, "{\"results\":{\"included\":[],\"almostIncluded\":[]}}");
+        await service.FindCombosAsync(new[] { CommanderEntry("Esika, God of the Tree / The Prismatic Bridge") });
+        using var body = System.Text.Json.JsonDocument.Parse(Assert.Single(bodies));
+        Assert.Equal("Esika, God of the Tree // The Prismatic Bridge", body.RootElement.GetProperty("commanders")[0].GetProperty("card").GetString());
+        Assert.Equal(1, body.RootElement.GetProperty("commanders").GetArrayLength());
+        Assert.Equal(0, body.RootElement.GetProperty("main").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_SingleAndDoubleSlashSpellings_ShareOneCacheEntry()
+    {
+        var bodies = new List<string>();
+        var service = BuildRecordingService(bodies, "{\"results\":{\"included\":[],\"almostIncluded\":[]}}");
+        await service.FindCombosAsync(new[] { MainboardEntry("A / B") });
+        await service.FindCombosAsync(new[] { MainboardEntry("A // B") });
+        Assert.Single(bodies);
+    }
+
+    private const string NearComboResponse = """
+        {"results":{"included":[],"almostIncluded":[{"uses":[{"card":{"name":"Valki, God of Lies // Tibalt, Cosmic Impostor"}},{"card":{"name":"Thassa's Oracle"}},{"card":{"name":"Demonic Consultation"}}],"produces":[{"feature":{"name":"Win the game"}}],"description":"Win."}]}}
+        """;
+
+    [Theory]
+    [InlineData("Valki, God of Lies")]
+    [InlineData("Valki, God of Lies / Tibalt, Cosmic Impostor")]
+    [InlineData("Valki, God of Lies // Tibalt, Cosmic Impostor")]
+    public async Task FindCombosAsync_AlmostIncluded_OwnedCardUnderAnotherSpelling_IsNotReportedMissing(string name)
+    {
+        var service = BuildRecordingService(new List<string>(), NearComboResponse);
+        var result = await service.FindCombosAsync(new[] { MainboardEntry(name), MainboardEntry("Thassa's Oracle") });
+        Assert.NotNull(result);
+        var combo = Assert.Single(result.AlmostIncludedCombos);
+        Assert.Equal("Demonic Consultation", combo.MissingCard);
+        Assert.Equal(new[] { "Valki, God of Lies // Tibalt, Cosmic Impostor", "Thassa's Oracle" }, combo.CardsInDeck);
+    }
+
+    [Theory]
+    [InlineData("Valki, God of Lies")]
+    [InlineData("Valki, God of Lies / Tibalt, Cosmic Impostor")]
+    [InlineData("Valki, God of Lies // Tibalt, Cosmic Impostor")]
+    public async Task FindCombosAsync_AlmostIncluded_AllCardsOwnedUnderFrontFace_IsNotReportedAsMissingPiece(string name)
+    {
+        var service = BuildRecordingService(new List<string>(), NearComboResponse);
+        var result = await service.FindCombosAsync(new[] { MainboardEntry(name), MainboardEntry("Thassa's Oracle"), MainboardEntry("Demonic Consultation") });
+        Assert.NotNull(result);
+        Assert.Empty(result.AlmostIncludedCombos);
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_AlmostIncluded_GenuinelyTwoMissing_StillDropped()
+    {
+        var service = BuildRecordingService(new List<string>(), NearComboResponse);
+        var result = await service.FindCombosAsync(new[] { MainboardEntry("Thassa's Oracle") });
+        Assert.NotNull(result);
+        Assert.Empty(result.AlmostIncludedCombos);
+    }
 }
