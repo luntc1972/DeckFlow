@@ -270,7 +270,7 @@ internal static class EdhrecRoleGridCommandRunner
             }
         }
 
-        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys!, roleKeys, emittedKeys, residualRoleKey: "other", floorlessRoleKeys: CutLabRoleKeys.Floorless);
+        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys!, roleKeys, emittedKeys, residualRoleKey: CutLabRoleKeys.Residual, floorlessRoleKeys: CutLabRoleKeys.Floorless);
     }
 
     private static CardFact[] BuildTaxonomyProbes()

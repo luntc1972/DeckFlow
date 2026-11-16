@@ -58,25 +58,26 @@ public static class RoleFloorGuards
     /// <param name="targetRoles">The role keys the harness will measure.</param>
     /// <param name="emittedKeys">The union of role keys emitted by the startup probes.</param>
     /// <param name="residualRoleKey">The residual fallback role that is tolerated when emitted.</param>
-    /// <param name="floorlessRoleKeys">Roles tolerated without targets or probe coverage.</param>
+    /// <param name="floorlessRoleKeys">Roles tolerated without targets or probe coverage; pass an empty collection when no role is floor-less.</param>
     /// <returns>A drift message naming every failing category, or <see langword="null"/> when clean.</returns>
     public static string? FindTaxonomyDrift(
         IReadOnlyCollection<string> shippedRoleKeys,
         IReadOnlyCollection<string> targetRoles,
         IReadOnlyCollection<string> emittedKeys,
         string residualRoleKey,
-        IReadOnlyCollection<string>? floorlessRoleKeys = null)
+        IReadOnlyCollection<string> floorlessRoleKeys)
     {
         ArgumentNullException.ThrowIfNull(shippedRoleKeys);
         ArgumentNullException.ThrowIfNull(targetRoles);
         ArgumentNullException.ThrowIfNull(emittedKeys);
+        ArgumentNullException.ThrowIfNull(floorlessRoleKeys);
         ArgumentException.ThrowIfNullOrWhiteSpace(residualRoleKey);
 
         var shippedSet = new HashSet<string>(shippedRoleKeys, StringComparer.Ordinal);
         var targetSet = new HashSet<string>(targetRoles, StringComparer.Ordinal);
         var emittedSet = new HashSet<string>(emittedKeys, StringComparer.Ordinal);
         // Why: floor-less display roles do not participate in research taxonomy coverage.
-        var floorlessSet = new HashSet<string>(floorlessRoleKeys ?? [], StringComparer.Ordinal);
+        var floorlessSet = new HashSet<string>(floorlessRoleKeys, StringComparer.Ordinal);
         shippedSet.ExceptWith(floorlessSet);
         targetSet.ExceptWith(floorlessSet);
         emittedSet.ExceptWith(floorlessSet);

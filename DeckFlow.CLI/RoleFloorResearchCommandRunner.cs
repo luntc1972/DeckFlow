@@ -114,7 +114,7 @@ internal static class RoleFloorResearchCommandRunner
     private static readonly string[] ProtectionConsumers =
     [
         "InteractionAuditAggregator.cs:58",
-        "CutLabRoleAssigner.cs:165",
+        "CutLabRoleAssigner.cs:184",
         "PlanRoleClassifier.cs:236",
     ];
     private static readonly string[] CorpusHygieneUnparsedPayloadFields =
@@ -1008,7 +1008,7 @@ internal static class RoleFloorResearchCommandRunner
             }
         }
 
-        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys!, TargetRoles, emittedKeys, residualRoleKey: "other", floorlessRoleKeys: CutLabRoleKeys.Floorless);
+        return RoleFloorGuards.FindTaxonomyDrift(shippedRoleKeys!, TargetRoles, emittedKeys, residualRoleKey: CutLabRoleKeys.Residual, floorlessRoleKeys: CutLabRoleKeys.Floorless);
     }
 
     private static Dictionary<string, RoleBaseline> BuildCorpusBaseline(IEnumerable<CommanderDeckSet> commanderDecks)

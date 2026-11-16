@@ -129,13 +129,27 @@ public sealed class RoleFloorGuardsTests
     }
 
     [Fact]
+    public void FindTaxonomyDrift_NullFloorlessRoleKeys_Throws()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => RoleFloorGuards.FindTaxonomyDrift(
+            ShippedRoleKeys,
+            ShippedRoleKeys,
+            ShippedRoleKeys,
+            residualRoleKey: "other",
+            floorlessRoleKeys: null!));
+
+        Assert.Equal("floorlessRoleKeys", exception.ParamName);
+    }
+
+    [Fact]
     public void FindTaxonomyDrift_CleanInputs_ReturnsNull()
     {
         string? result = RoleFloorGuards.FindTaxonomyDrift(
             ShippedRoleKeys,
             ShippedRoleKeys,
             ShippedRoleKeys,
-            residualRoleKey: "other");
+            residualRoleKey: "other",
+            floorlessRoleKeys: []);
 
         Assert.Null(result);
     }
@@ -161,7 +175,8 @@ public sealed class RoleFloorGuardsTests
             ShippedRoleKeys,
             ShippedRoleKeys.Where(role => !string.Equals(role, "wincons", StringComparison.Ordinal)).ToArray(),
             ShippedRoleKeys,
-            residualRoleKey: "other");
+            residualRoleKey: "other",
+            floorlessRoleKeys: []);
 
         Assert.NotNull(result);
         Assert.Contains("shipped keys missing from TargetRoles: wincons", result, StringComparison.Ordinal);
@@ -174,7 +189,8 @@ public sealed class RoleFloorGuardsTests
             ShippedRoleKeys,
             ["interaction"],
             ShippedRoleKeys,
-            residualRoleKey: "other");
+            residualRoleKey: "other",
+            floorlessRoleKeys: []);
 
         Assert.NotNull(result);
         Assert.Contains("TargetRoles entries not shipped by Cut Lab: interaction", result, StringComparison.Ordinal);
@@ -187,7 +203,8 @@ public sealed class RoleFloorGuardsTests
             ShippedRoleKeys,
             ShippedRoleKeys,
             ShippedRoleKeys.Concat(["surprise-role"]).ToArray(),
-            residualRoleKey: "other");
+            residualRoleKey: "other",
+            floorlessRoleKeys: []);
 
         Assert.NotNull(result);
         Assert.Contains("probe-emitted keys outside TargetRoles and residual 'other': surprise-role", result, StringComparison.Ordinal);
@@ -200,7 +217,8 @@ public sealed class RoleFloorGuardsTests
             ShippedRoleKeys,
             ShippedRoleKeys,
             ShippedRoleKeys.Where(role => !string.Equals(role, "wincons", StringComparison.Ordinal)).ToArray(),
-            residualRoleKey: "other");
+            residualRoleKey: "other",
+            floorlessRoleKeys: []);
 
         Assert.NotNull(result);
         Assert.Contains("shipped keys with no probe coverage: wincons", result, StringComparison.Ordinal);
@@ -213,7 +231,8 @@ public sealed class RoleFloorGuardsTests
             ShippedRoleKeys,
             ShippedRoleKeys,
             ShippedRoleKeys.Concat(["other"]).ToArray(),
-            residualRoleKey: "other");
+            residualRoleKey: "other",
+            floorlessRoleKeys: []);
 
         Assert.Null(result);
     }
