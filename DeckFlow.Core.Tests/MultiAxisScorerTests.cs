@@ -449,27 +449,36 @@ public sealed class MultiAxisScorerTests
         }
     }
 
+    /// <summary>Typed inputs for one shared scorer-band scenario.</summary>
+    public sealed record ScorerCase(int Band, int GameChangers, int Combos, int FastMana,
+        decimal AverageManaValue, int EarlyRampDraw, int Interaction, int Wipes, int Counters, int Tutors);
+
+    /// <summary>Preserves the six original scenarios with decimal mana values.</summary>
+    public static IEnumerable<object[]> FiredRuleCases()
+    {
+        yield return [new ScorerCase(0, 0, 0, 0, 4m, 0, 0, 0, 0, 0)];
+        yield return [new ScorerCase(1, 0, 0, 1, 4m, 1, 1, 0, 0, 1)];
+        yield return [new ScorerCase(2, 1, 0, 0, 3.5m, 3, 4, 0, 0, 2)];
+        yield return [new ScorerCase(3, 1, 1, 3, 3m, 5, 8, 1, 0, 5)];
+        yield return [new ScorerCase(4, 4, 2, 5, 2.5m, 8, 13, 0, 3, 8)];
+        yield return [new ScorerCase(5, 10, 3, 8, 1.9m, 12, 19, 5, 6, 12)];
+    }
+
     [Theory]
-    [InlineData(0, 0, 0, 0, "4", 0, 0, 0, 0, 0)]
-    [InlineData(1, 0, 0, 1, "4", 1, 1, 0, 0, 1)]
-    [InlineData(2, 1, 0, 0, "3.5", 3, 4, 0, 0, 2)]
-    [InlineData(3, 1, 1, 3, "3", 5, 8, 1, 0, 5)]
-    [InlineData(4, 4, 2, 5, "2.5", 8, 13, 0, 3, 8)]
-    [InlineData(5, 10, 3, 8, "1.9", 12, 19, 5, 6, 12)]
-    public void Score_EachAxis_ReportsFiredRule(int band, int gc, int combos, int fast,
-        string mv, int early, int interaction, int wipes, int counters, int tutors)
+    [MemberData(nameof(FiredRuleCases), DisableDiscoveryEnumeration = true)]
+    public void Score_EachAxis_ReportsFiredRule(ScorerCase scenario)
     {
         var stats = new DeckStatSummary(99, 30, 20,
-            decimal.Parse(mv, System.Globalization.CultureInfo.InvariantCulture), Curve(),
-            0, 0, interaction, wipes, 0, 0)
+            scenario.AverageManaValue, Curve(),
+            0, 0, scenario.Interaction, scenario.Wipes, 0, 0)
         {
-            FastMana = fast,
-            RampDrawUnderThreeMv = early,
-            Counters = counters,
-            Tutors = tutors,
+            FastMana = scenario.FastMana,
+            RampDrawUnderThreeMv = scenario.EarlyRampDraw,
+            Counters = scenario.Counters,
+            Tutors = scenario.Tutors,
         };
-        var score = MultiAxisScorer.Score(stats, gc, combos, true, 3);
-        Assert.Equal(new[] { band, band, band, band },
+        var score = MultiAxisScorer.Score(stats, scenario.GameChangers, scenario.Combos, true, 3);
+        Assert.Equal(new[] { scenario.Band, scenario.Band, scenario.Band, scenario.Band },
             new[] { score.PowerBand, score.SpeedBand, score.ControlBand, score.ConsistencyBand });
         foreach (var rationale in new[] { score.PowerRationale, score.SpeedRationale,
             score.ControlRationale, score.ConsistencyRationale })
