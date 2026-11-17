@@ -182,8 +182,8 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         var misses = new List<string>();
         foreach (var name in names)
         {
-            var key = "spellbook-canonical-name:" + name.ToUpperInvariant();
-            if (_memoryCache.TryGetValue<string>(key, out var canonical))
+            // Why: Per-name entries let decks that differ by a few cards (Cut Lab decide) reuse earlier resolutions instead of calling Scryfall.
+            if (_memoryCache.TryGetValue<string>(CanonicalNameCacheKey(name), out var canonical))
             {
                 if (!string.IsNullOrEmpty(canonical))
                 {
@@ -206,9 +206,8 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
             var resolved = await _canonicalCardNameResolver.ResolveCanonicalNamesAsync(misses, cancellationToken).ConfigureAwait(false);
             foreach (var name in misses)
             {
-                var key = "spellbook-canonical-name:" + name.ToUpperInvariant();
                 resolved.TryGetValue(name, out var canonical);
-                _memoryCache.Set(key, canonical ?? string.Empty, CacheDuration);
+                _memoryCache.Set(CanonicalNameCacheKey(name), canonical ?? string.Empty, CacheDuration);
                 if (!string.IsNullOrEmpty(canonical))
                 {
                     result[name] = canonical;
@@ -240,6 +239,8 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         };
         return JsonSerializer.Serialize(obj);
     }
+
+    private static string CanonicalNameCacheKey(string name) => "spellbook-canonical-name:" + name.ToUpperInvariant();
 
     private static string ToSpellbookName(string name)
     {
