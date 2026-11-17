@@ -17,10 +17,11 @@ internal static class CutLabRoleOverrideApplier
             && overrides.Any(item => item.Added.Contains(CutLabRoleKeys.Enablers))
             ? overrides.Select(item => item with { Added = item.Added.Where(role => CutLabRoleKeys.IsApplicable(role, context.ActiveTriggerFamilies)).ToArray() }).ToArray()
             : overrides;
+        var overridesByName = CutLabRoleOverrideRules.BuildLookup(applicable);
         CutLabAnalyzedCard[] cards = context.AnalyzedCards
             .Select(card => !card.IsCommander
                 && card.Roles.Count > 0
-                && CutLabRoleOverrideRules.Find(applicable, card.Name) is { } item
+                && overridesByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out CutLabRoleOverride? item)
                     ? card with { Roles = CutLabRoleOverrideRules.ApplyToRoles(card.Roles, item) }
                     : card)
             .ToArray();

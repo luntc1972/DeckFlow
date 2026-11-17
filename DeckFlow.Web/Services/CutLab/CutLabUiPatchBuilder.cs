@@ -562,6 +562,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         IReadOnlyList<CutLabRoleOverride> overrides)
     {
         Dictionary<string, IReadOnlyList<string>> result = new(StringComparer.OrdinalIgnoreCase);
+        var overridesByName = CutLabRoleOverrideRules.BuildLookup(overrides);
         foreach (CutLabPoolCard card in workingList)
         {
             if (CutLabBasicLands.Contains(card.Name)
@@ -569,7 +570,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             {
                 // Why: this bypass skips the analysis context, so it applies overrides itself to land rows.
                 // Nonland rows stay blank for the I-8 client carry-forward (D-02).
-                result[card.Name] = CutLabRoleOverrideRules.ApplyToRoles(["lands"], CutLabRoleOverrideRules.Find(overrides, card.Name));
+                result[card.Name] = CutLabRoleOverrideRules.ApplyToRoles(["lands"], overridesByName.GetValueOrDefault(CutLabCardNames.Normalize(card.Name)));
                 continue;
             }
 

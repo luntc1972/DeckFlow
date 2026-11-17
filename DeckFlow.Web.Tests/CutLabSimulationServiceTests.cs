@@ -467,6 +467,32 @@ public sealed class CutLabSimulationServiceTests
     }
 
     [Fact]
+    public void TagPlanRoles_DuplicateNormalizedOverrides_LastWins()
+    {
+        TestPool pool = BuildCedhPool();
+        DeckCardEntry[] entries = pool.Cards.Select(card => new DeckCardEntry
+        {
+            Card = ScryfallCardDataMapper.ToCardData(card),
+            Quantity = 1,
+        }).ToArray();
+        IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(entries);
+        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "VALUE ENGINE", Added = ["engines"], Removed = ["tutor"] },
+            new() { Name = "value-engine", Removed = ["engines", "draw"], Added = ["tutor"] },
+        ];
+        var method = typeof(CutLabSimulationService).GetMethod("TagPlanRoles",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+
+        var actual = (ManabaseDeck)method.Invoke(null, [deck, facts, ManabaseMode.Cedh, overrides])!;
+
+        var spell = Assert.Single(actual.Spells, spell => spell.Name == "Value Engine");
+        Assert.False((spell.PlanRoles & PlanRole.Engine) != 0);
+        Assert.True((spell.PlanRoles & PlanRole.TutorCombo) != 0);
+    }
+
+    [Fact]
     public async Task BuildSnapshotResult_RoleOverrideResimulatesWithSharedCache()
     {
         TestPool pool = BuildCedhPool();
@@ -633,6 +659,45 @@ public sealed class CutLabSimulationServiceTests
 
         Assert.NotEqual(earlyGoal.Deltas, lateGoal.Deltas);
         Assert.Equal(4, analysisCounter.CallCount);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_CachedPool_ReusesLookupAndPreservesEntries()
+    {
+        TestPool pool = BuildCedhPool();
+        var cards = new EnumerationCountingList<ScryfallCardData>(pool.Cards.Select(ScryfallCardDataMapper.ToCardData).ToArray());
+        var cache = new CutLabResolvedCardCache();
+        string key = CutLabResolvedCardCache.ComputePoolKey(pool.WorkingList);
+        cache.Set(key, cards);
+        cards.Enumerations = 0;
+        var observed = new List<IReadOnlyList<DeckCardEntry>>();
+        var service = new CutLabSimulationService(cache, new CutLabDeltaCache(), new FakeResolver(pool.Cards),
+            NullLogger<CutLabSimulationService>.Instance,
+            (entries, _, _, _, _) => { observed.Add(entries); return new(); });
+
+        await service.BuildSnapshot(pool.WorkingList, "cEDH", 100, key);
+        await service.BuildSnapshot(pool.WorkingList.Reverse().ToArray(), "cEDH", 200, key);
+
+        Assert.Equal(1, cards.Enumerations);
+        Assert.Equal(pool.WorkingList.Select(card => (card.Name, card.Quantity, card.IsCommander)),
+            observed[0].Select(entry => (entry.Card.Name, entry.Quantity, entry.IsCommander)));
+        Assert.Equal(observed[0].Reverse().Select(entry => entry.Card), observed[1].Select(entry => entry.Card));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildSnapshot(
+            [new CutLabPoolCard { Name = "Absent", Quantity = 1 }], "cEDH", 300, key));
+        Assert.Equal($"Cut Lab resolved-card cache was missing 'Absent' for pool {key}.", error.Message);
+    }
+
+    private sealed class EnumerationCountingList<T>(IReadOnlyList<T> items) : IReadOnlyList<T>
+    {
+        public int Enumerations { get; set; }
+        public int Count => items.Count;
+        public T this[int index] => items[index];
+        public IEnumerator<T> GetEnumerator()
+        {
+            Enumerations++;
+            return items.GetEnumerator();
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private static CutLabSimulationService CreateService(FakeResolver resolver)

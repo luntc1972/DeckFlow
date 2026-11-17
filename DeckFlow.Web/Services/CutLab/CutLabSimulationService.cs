@@ -354,9 +354,9 @@ internal sealed class CutLabSimulationService : ICutLabSimulationService
         string poolKey,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<ScryfallCardData>? cachedCards;
+        IReadOnlyDictionary<string, ScryfallCardData>? cardsByName;
         IReadOnlyList<ScryfallCardData> cards;
-        if (!_resolvedCardCache.TryGet(poolKey, out cachedCards) || cachedCards is null)
+        if (!_resolvedCardCache.TryGetLookup(poolKey, out cardsByName) || cardsByName is null)
         {
             try
             {
@@ -402,9 +402,6 @@ internal sealed class CutLabSimulationService : ICutLabSimulationService
         }
         else
         {
-            IReadOnlyDictionary<string, ScryfallCardData> cardsByName = CutLabCardNames.ToLastWinsDictionary(
-                cachedCards,
-                card => card.Name);
             cards = workingList
                 .Select(poolCard =>
                 {
@@ -500,6 +497,7 @@ internal sealed class CutLabSimulationService : ICutLabSimulationService
         IReadOnlyDictionary<string, CardFact> factsByName = CutLabCardNames.ToLastWinsDictionary(
             facts,
             fact => fact.Name);
+        var overridesByName = CutLabRoleOverrideRules.BuildLookup(roleOverrides);
         return deck with
         {
             Spells = deck.Spells
@@ -515,7 +513,7 @@ internal sealed class CutLabSimulationService : ICutLabSimulationService
                     // heuristic fallback tier and leave the richer upstream sources fail-open.
                     PlanRole roles = PlanRoleClassifier.Classify(fact, [], false, mode, out bool interactionMeritPreGate);
                     SpellRequirement classifiedSpell = spell with { PlanRoles = roles, IsInteractionSpell = interactionMeritPreGate };
-                    CutLabRoleOverride? roleOverride = CutLabRoleOverrideRules.Find(roleOverrides ?? [], CutLabCardNames.Normalize(fact.Name));
+                    CutLabRoleOverride? roleOverride = overridesByName.GetValueOrDefault(CutLabCardNames.Normalize(fact.Name));
                     return roleOverride is null
                         ? classifiedSpell
                         : CutLabRoleOverridePlanRoles.Apply(classifiedSpell, fact, mode, roleOverride);

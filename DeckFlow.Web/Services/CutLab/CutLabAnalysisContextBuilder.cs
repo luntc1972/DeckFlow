@@ -500,6 +500,23 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             {
                 knownMissingNames = cachedMissingNames;
             }
+
+            // Why: a canonical full hit only needs its absolute expiry renewed. Keep partial pools
+            // on the resolution path so transiently unattempted names are retried.
+            if (_resolvedCardCache.TryGetLookup(poolKey, out var lookup) && lookup is not null
+                && workingList.All(card => lookup.ContainsKey(CutLabCardNames.Normalize(card.Name))
+                    || (!CutLabBasicLands.Contains(card.Name)
+                        && knownMissingNames.Contains(CutLabCardNames.Normalize(card.Name))))
+                && cachedCards.SequenceEqual(workingList
+                    .Select(card => CutLabCardNames.Normalize(card.Name))
+                    .Distinct(CutLabCardNames.Comparer)
+                    .Where(lookup.ContainsKey)
+                    .Select(name => lookup[name]))
+                && _resolvedCardCache.Refresh(poolKey))
+            {
+                _unattemptedNamesByPoolKey.Remove(poolKey);
+                return cachedCards;
+            }
         }
 
         foreach (ScryfallCardData resolvedCard in AugmentResolvedCardsWithSyntheticBasics(workingList, resolvedByName.Values.ToArray()))

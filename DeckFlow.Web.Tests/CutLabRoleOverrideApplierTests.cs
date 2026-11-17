@@ -83,6 +83,40 @@ public sealed class CutLabRoleOverrideApplierTests
         Assert.False(result.RoleCounts.ContainsKey("ramp"));
     }
 
+    [Fact]
+    public void Apply_MultipleCards_NormalizesOverridesOnceWithLastWins()
+    {
+        CutLabAnalysisContext context = CreateContext([
+            new CutLabAnalyzedCard("Card", 2, false, ["ramp"], []) { Quantity = 2 },
+            new CutLabAnalyzedCard("Other", 1, false, ["draw"], []),
+            new CutLabAnalyzedCard("Third", 1, false, ["stax"], [])]);
+        var overrides = new CountingOverrides([
+            new() { Name = " card ", Added = ["draw"] },
+            new() { Name = "CARD", Added = ["stax"], Removed = ["ramp"] },
+            new() { Name = "other", Added = ["ramp"] }]);
+
+        CutLabAnalysisContext result = CutLabRoleOverrideApplier.Apply(context, overrides);
+
+        Assert.Equal(2, overrides.Enumerations);
+        Assert.Equal(new[] { "Card", "Other", "Third" }, result.AnalyzedCards.Select(card => card.Name));
+        Assert.Equal(new[] { "stax" }, result.AnalyzedCards[0].Roles);
+        Assert.Equal(3, result.RoleCounts["stax"]);
+        Assert.Equal(1, result.RoleCounts["ramp"]);
+    }
+
+    private sealed class CountingOverrides(IReadOnlyList<CutLabRoleOverride> items) : IReadOnlyList<CutLabRoleOverride>
+    {
+        public int Enumerations { get; private set; }
+        public int Count => items.Count;
+        public CutLabRoleOverride this[int index] => items[index];
+        public IEnumerator<CutLabRoleOverride> GetEnumerator()
+        {
+            Enumerations++;
+            return items.GetEnumerator();
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
     private static CutLabAnalysisContext CreateContext(IReadOnlyList<CutLabAnalyzedCard> cards)
     {
         return new CutLabAnalysisContext(
