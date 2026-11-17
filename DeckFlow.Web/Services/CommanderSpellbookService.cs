@@ -178,21 +178,44 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         CancellationToken cancellationToken)
     {
         var names = main.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var nameMapKey = "spellbook-names:" + string.Join('|', names
-            .Select(name => name.ToUpperInvariant())
-            .Order(StringComparer.Ordinal));
-        // Why: canonical names are stable, and resolving them repeatedly adds avoidable Scryfall latency.
-        if (_memoryCache.TryGetValue<Dictionary<string, string>>(nameMapKey, out var cached) && cached is not null)
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var misses = new List<string>();
+        foreach (var name in names)
         {
-            return cached;
+            var key = "spellbook-canonical-name:" + name.ToUpperInvariant();
+            if (_memoryCache.TryGetValue<string>(key, out var canonical))
+            {
+                if (!string.IsNullOrEmpty(canonical))
+                {
+                    result[name] = canonical;
+                }
+            }
+            else
+            {
+                misses.Add(name);
+            }
+        }
+
+        if (misses.Count == 0)
+        {
+            return result;
         }
 
         try
         {
-            var resolved = await _canonicalCardNameResolver.ResolveCanonicalNamesAsync(names, cancellationToken).ConfigureAwait(false);
-            var copy = new Dictionary<string, string>(resolved, StringComparer.OrdinalIgnoreCase);
-            _memoryCache.Set(nameMapKey, copy, CacheDuration);
-            return copy;
+            var resolved = await _canonicalCardNameResolver.ResolveCanonicalNamesAsync(misses, cancellationToken).ConfigureAwait(false);
+            foreach (var name in misses)
+            {
+                var key = "spellbook-canonical-name:" + name.ToUpperInvariant();
+                resolved.TryGetValue(name, out var canonical);
+                _memoryCache.Set(key, canonical ?? string.Empty, CacheDuration);
+                if (!string.IsNullOrEmpty(canonical))
+                {
+                    result[name] = canonical;
+                }
+            }
+
+            return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -201,8 +224,8 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         catch (Exception ex)
         {
             // Why: A Scryfall outage must not hide combos; null still means Spellbook is unavailable.
-            _logger.LogWarning(ex, "Card-name canonicalization failed; sending {CardCount} Commander Spellbook names unresolved.", names.Count);
-            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _logger.LogWarning(ex, "Card-name canonicalization failed; sending {CardCount} Commander Spellbook names unresolved.", misses.Count);
+            return result;
         }
     }
 

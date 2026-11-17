@@ -484,6 +484,7 @@ public sealed class CommanderSpellbookServiceTests
         Assert.Contains(DoubleFaced, SentNames(bodies[1], "main"));
     }
 
+    [Fact]
     public async Task FindCombosAsync_DifferentDeck_ResolvesAgain()
     {
         var resolver = CanonicalResolver();
