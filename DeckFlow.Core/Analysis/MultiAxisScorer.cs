@@ -14,6 +14,8 @@ namespace DeckFlow.Core.Analysis;
 /// </remarks>
 public static class MultiAxisScorer
 {
+    private const string NoRuleMatched = "None of the higher-band rules matched.";
+
     private const int Power5GameChangerCount = 10;
     private const int Power4GameChangerCount = 4;
     private const int Power4TwoCardComboCount = 1;
@@ -90,7 +92,7 @@ public static class MultiAxisScorer
 
         // Power: GC-dominant, with combo density and fast mana as modifiers.
         int powerBand;
-        var powerRule = "None of the higher-band rules matched.";
+        var powerRule = NoRuleMatched;
         if (gameChangerCount >= Power5GameChangerCount)
         {
             powerBand = 5;
@@ -124,7 +126,7 @@ public static class MultiAxisScorer
 
         // Speed: low avg mana value + fast mana + early ramp/draw push the band up.
         int speedBand;
-        var speedRule = "None of the higher-band rules matched.";
+        var speedRule = NoRuleMatched;
         if (avgMv < Speed5AvgMv && stats.FastMana >= Speed5FastMana && stats.RampDrawUnderThreeMv >= Speed5RampDrawUnderThreeMv)
         {
             speedBand = 5;
@@ -157,7 +159,7 @@ public static class MultiAxisScorer
 
         // Control: interaction pieces + board wipes + counters.
         int controlBand;
-        var controlRule = "None of the higher-band rules matched.";
+        var controlRule = NoRuleMatched;
         if (stats.Interaction >= Control5Interaction && stats.Wipes >= Control5Wipes && stats.Counters >= Control5Counters)
         {
             controlBand = 5;
@@ -190,7 +192,7 @@ public static class MultiAxisScorer
 
         // Consistency: tutors + combo redundancy + low average mana value.
         int consistencyBand;
-        var consistencyRule = "None of the higher-band rules matched.";
+        var consistencyRule = NoRuleMatched;
         if (stats.Tutors >= Consistency5Tutors && twoCardComboCount >= Consistency5TwoCardComboCount && avgMv < Consistency5AvgMv)
         {
             consistencyBand = 5;

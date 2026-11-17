@@ -35,17 +35,14 @@ internal static class BracketClassificationFactsRenderer
             builder.AppendLine("- No two-card win combos detected.");
         }
 
-        var mldCount = classification.DetectedMassLandDenial.Count;
-        if (mldCount > 0)
-        {
-            foreach (var mld in classification.DetectedMassLandDenial)
-            {
-                builder.AppendLine($"- 1 mass land denial: {mld}.");
-            }
-        }
-        else
+        if (classification.DetectedMassLandDenial.Count == 0)
         {
             builder.AppendLine("- 0 mass land denial.");
+        }
+
+        foreach (var mld in classification.DetectedMassLandDenial)
+        {
+            builder.AppendLine($"- 1 mass land denial: {mld}.");
         }
 
         var extraTurnCount = classification.DetectedExtraTurnCards.Count;
