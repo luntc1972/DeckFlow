@@ -24,7 +24,7 @@ public sealed class CutLabLegalityTests
     [InlineData("Rat Colony")]
     [InlineData("Shadowborn Apostle")]
     [InlineData("Slime Against Humanity")]
-    [InlineData("Templar Knights")]
+    [InlineData("Templar Knight")]
     [InlineData("Nazgûl")]
     [InlineData("Seven Dwarves")]
     public void IsLegalMultiple_RecognizedCards_ReturnsTrue(string name)
@@ -49,5 +49,24 @@ public sealed class CutLabLegalityTests
     public void LegalMax_Singleton_ReturnsOne()
     {
         Assert.Equal(1, CutLabLegality.LegalMax("Sol Ring"));
+    }
+
+    // Why: Typed pool names must retain the legal-multiple cap across case and punctuation variants.
+    [Theory]
+    [InlineData("plains")]
+    [InlineData("SNOW-COVERED ISLAND")]
+    [InlineData("snow covered island")]
+    [InlineData("Dragon\u2019s Approach")]
+    [InlineData("relentless rats")]
+    public void IsLegalMultiple_CaseOrPunctuationVariant_ReturnsTrue(string name)
+    {
+        Assert.True(CutLabLegality.IsLegalMultiple(name));
+    }
+
+    // Why: Lowercase typed basics must receive the same copy cap as canonical names.
+    [Fact]
+    public void LegalMax_LowercaseBasic_MatchesCanonicalCap()
+    {
+        Assert.Equal(CutLabLegality.LegalMax("Plains"), CutLabLegality.LegalMax("plains"));
     }
 }

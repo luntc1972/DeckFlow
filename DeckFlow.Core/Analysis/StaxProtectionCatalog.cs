@@ -1,3 +1,5 @@
+using DeckFlow.Core.Normalization;
+
 namespace DeckFlow.Core.Analysis;
 
 /// <summary>
@@ -5,8 +7,9 @@ namespace DeckFlow.Core.Analysis;
 /// </summary>
 public static class StaxProtectionCatalog
 {
-    private static readonly HashSet<string> StaxCards = new(StringComparer.OrdinalIgnoreCase)
-    {
+    // Why: Scryfall, pasted or foil-marked deck names and listed names reduce to one CardNormalizer key.
+    private static readonly string[] StaxNames =
+    [
         "Blood Moon",
         "Collector Ouphe",
         "Damping Sphere",
@@ -19,10 +22,10 @@ public static class StaxProtectionCatalog
         "Thalia, Guardian of Thraben",
         "Trinisphere",
         "Winter Orb",
-    };
+    ];
 
-    private static readonly HashSet<string> ProtectionCards = new(StringComparer.OrdinalIgnoreCase)
-    {
+    private static readonly string[] ProtectionNames =
+    [
         "Boros Charm",
         "Clever Concealment",
         "Deflecting Swat",
@@ -30,10 +33,13 @@ public static class StaxProtectionCatalog
         "Heroic Intervention",
         "Teferi's Protection",
         "Veil of Summer",
-    };
+    ];
+
+    private static readonly NormalizedCardNameSet StaxCards = new(StaxNames);
+    private static readonly NormalizedCardNameSet ProtectionCards = new(ProtectionNames);
 
     /// <summary>Gets every curated stax and protection name for exact-name snapshot validation.</summary>
-    internal static IReadOnlyList<string> AllNames => [.. StaxCards, .. ProtectionCards];
+    internal static IReadOnlyList<string> AllNames => [.. StaxNames, .. ProtectionNames];
 
     /// <summary>
     /// Returns <see langword="true"/> when the supplied card name is a curated stax or taxation staple.

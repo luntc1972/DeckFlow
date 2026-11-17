@@ -109,6 +109,13 @@ internal sealed class ClaudeMetaGapPromptVariant : IMetaGapPromptVariant
         builder.AppendLine("- CONSISTENCY & REDUNDANCY");
         builder.AppendLine("- TOP IMPROVEMENTS");
         builder.AppendLine("- META POSITIONING");
+        builder.AppendLine("Assign a 1-10 cEDH readiness_score from the filled meta_gap evidence: core_convergence overlap, missing_staples priorities, speed and interaction versus REF averages, and win_lines. Decimals are allowed; readiness_justification must name the values that determine the score in two sentences.");
+        builder.AppendLine("9-10: nearly the entire core is present, no high-priority staples missing, and speed and interaction meet or exceed the REF averages.");
+        builder.AppendLine("7-8: most core cards are present, a few staples missing, within about one turn of REF speed, and interaction close to the REF average.");
+        builder.AppendLine("5-6: roughly half the core is present, or several high-priority staples missing, or a full turn slower, or clearly fewer interaction cards.");
+        builder.AppendLine("3-4: few core cards are present, with MY_DECK both slower and less interactive than REF.");
+        builder.AppendLine("1-2: no shared core and no win line comparable to REF consensus.");
+        builder.AppendLine("If there is only one REF deck or the REF decks have little card overlap, choose the lower band and state that evidence limitation in readiness_justification.");
         builder.AppendLine("After the readable summary, return a single JSON object matching <output_schema>.");
         builder.AppendLine("Return the JSON inside a fenced ```json code block (triple-backtick json) whose top-level object is meta_gap. Do not return raw JSON outside a code block.");
         builder.AppendLine("Return the complete meta_gap JSON in a single response. Do NOT refuse, claim the output is too long, ask to continue, or offer to split it or reduce the schema - a fully-populated meta_gap object is only a few kilobytes and fits well within one response.");

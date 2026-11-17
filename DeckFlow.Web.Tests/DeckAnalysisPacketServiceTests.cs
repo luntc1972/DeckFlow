@@ -2043,6 +2043,55 @@ Commander
         Assert.NotNull(result.Score);
     }
 
+    [Theory]
+    [InlineData("ChatGPT")]
+    [InlineData("Claude")]
+    [InlineData("Gemini")]
+    public async Task BuildAsync_ScoreFlagOn_EmitsBracketFacts(string platform)
+    {
+        var service = CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(CreateCompanionFixtureEntries(includeBackgroundCommander: true)),
+            flagCache: new FakeFeatureFlagCache(new Dictionary<string, bool> { ["analysis.multi-axis-score"] = true }));
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-bracket-facts",
+            TargetCommanderBracket = "Upgraded",
+            TargetAiPlatform = platform,
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        });
+
+        Assert.NotNull(result.Score);
+        Assert.Contains("- 0 mass land denial.", result.AnalysisPromptText, StringComparison.Ordinal);
+        Assert.Contains(platform == "Claude" ? "<bracket_facts>" : "## Computed bracket facts", result.AnalysisPromptText, StringComparison.Ordinal);
+        Assert.Contains("extra-turn", result.AnalysisPromptText, StringComparison.Ordinal);
+        Assert.DoesNotContain("0 combos", result.AnalysisPromptText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("ChatGPT")]
+    [InlineData("Claude")]
+    [InlineData("Gemini")]
+    public async Task BuildAsync_ScoreFlagOff_OmitsBracketFacts(string platform)
+    {
+        var service = CreateService(
+            moxfieldDeckImporter: new FakeMoxfieldDeckImporter(CreateCompanionFixtureEntries(includeBackgroundCommander: true)));
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            DeckInputSource = DeckInputSource.PublicUrl,
+            WorkflowStep = 2,
+            DeckSource = "https://www.moxfield.com/decks/test-bracket-facts",
+            TargetCommanderBracket = "Upgraded",
+            TargetAiPlatform = platform,
+            SelectedAnalysisQuestions = ["strengths-weaknesses"]
+        });
+
+        Assert.Null(result.Score);
+        Assert.DoesNotContain("<bracket_facts>", result.AnalysisPromptText, StringComparison.Ordinal);
+        Assert.DoesNotContain("## Computed bracket facts", result.AnalysisPromptText, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Counts FindCombosAsync invocations to prove the combo fetch is not duplicated when both the
     /// score flag and a combo question are active. Returns an empty result (detection ran, no combos).

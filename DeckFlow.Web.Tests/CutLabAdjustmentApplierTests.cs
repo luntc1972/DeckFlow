@@ -194,4 +194,19 @@ public sealed class CutLabAdjustmentApplierTests
                 Bracket = 3,
             },
         };
+    // Why: Lowercase typed basics must preserve legal multiple-copy counts when adding or removing.
+    [Theory]
+    [InlineData(-1, 11)]
+    [InlineData(1, 13)]
+    public void Apply_LowercaseTypedBasic_AdjustsCopyCount(int delta, int expectedQuantity)
+    {
+        CutLabState state = BuildState(new CutLabPoolCard { Name = "plains", Quantity = 12, TypeLine = "Basic Land — Plains" });
+        CutLabState updatedState = CutLabAdjustmentApplier.Apply(state, "plains", delta, isAddedBasic: false);
+        CutLabQuantityAdjustment adjustment = Assert.Single(updatedState.QuantityAdjustments);
+        Assert.Equal("plains", adjustment.Name);
+        Assert.Equal(delta, adjustment.Delta);
+        Assert.False(adjustment.IsAddedBasic);
+        CutLabPoolCard card = Assert.Single(CutLabWorkingList.Derive(updatedState.Pool, updatedState.Decisions, updatedState.QuantityAdjustments), card => card.Name == "plains");
+        Assert.Equal(expectedQuantity, card.Quantity);
+    }
 }

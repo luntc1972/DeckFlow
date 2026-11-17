@@ -1,4 +1,5 @@
 using DeckFlow.Core.Manabase;
+using DeckFlow.Core.Normalization;
 
 namespace DeckFlow.Web.Services.CutLab;
 
@@ -21,6 +22,9 @@ public static class CutLabBasicLands
             ["Wastes"] = new("Basic Land", [], ["C"]),
         };
 
+    // Why: Pool names are typed text; normalized lookups preserve canonical display keys in Definitions.
+    private static readonly NormalizedCardNameSet DefinitionNames = new(Definitions.Keys);
+
     /// <summary>Resolved metadata for one known added-basic entry.</summary>
     /// <param name="TypeLine">Type line used for role assignment and land checks.</param>
     /// <param name="ColorIdentity">Deckbuilding color identity for the land.</param>
@@ -34,24 +38,25 @@ public static class CutLabBasicLands
     public static IReadOnlyCollection<string> Names { get; } = Definitions.Keys.ToArray();
 
     /// <summary>True when the provided card name is one of the known basic-land constants.</summary>
-    /// <param name="name">Display card name.</param>
+    /// <param name="name">Any spelling sharing a CardNormalizer key with a basic land.</param>
     /// <returns><see langword="true"/> when the name resolves in the constants table.</returns>
     public static bool Contains(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
 
-        return Definitions.ContainsKey(name);
+        return DefinitionNames.Contains(name);
     }
 
     /// <summary>Attempts to resolve a known basic land into its synthetic metadata row.</summary>
-    /// <param name="name">Display card name.</param>
+    /// <param name="name">Any spelling sharing a CardNormalizer key with a basic land.</param>
     /// <param name="definition">Resolved definition when found.</param>
     /// <returns><see langword="true"/> when the name is a supported basic-land constant.</returns>
     public static bool TryResolve(string name, out Definition? definition)
     {
         ArgumentNullException.ThrowIfNull(name);
 
-        return Definitions.TryGetValue(name, out definition);
+        definition = null;
+        return DefinitionNames.TryGetCanonicalName(name, out string? canonicalName) && Definitions.TryGetValue(canonicalName, out definition);
     }
 
     /// <summary>Builds a synthetic Scryfall land payload for a known added basic.</summary>

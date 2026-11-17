@@ -47,7 +47,11 @@ internal sealed class ClaudeBracketPromptVariant : IBracketPromptVariant
         builder.AppendLine("<why_this_bracket>");
         builder.AppendLine("WHY THIS BRACKET");
         builder.AppendLine();
-        AppendClassificationReasons(builder, classification, tiers);
+        builder.Append(BracketClassificationFactsRenderer.Render(classification, tiers));
+        // Why: FIX A — no separate tutor-count gate; the October 2025 update dropped the old
+        // "count your tutors" rule, but specific high-impact tutors remain on the Game Changers
+        // list and DO count toward the GC total.
+        builder.AppendLine("- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.");
         builder.AppendLine("</why_this_bracket>");
         builder.AppendLine();
 
@@ -55,6 +59,7 @@ internal sealed class ClaudeBracketPromptVariant : IBracketPromptVariant
         builder.AppendLine("<effective_date_note>");
         builder.AppendLine($"Game Changers list effective {classification.EffectiveDate}. " +
             "Re-confirm Game Changers membership before suggesting swaps.");
+        builder.AppendLine("When recommending cards, choose only real, Commander-legal cards you are sure exist. If unsure of a card's name or text, say so plainly; do not guess.");
         builder.AppendLine("</effective_date_note>");
 
         // Combo-unavailable disclosure (BRACKET-03, T-76-07) — hand-coded per ADR-0001
@@ -92,50 +97,6 @@ internal sealed class ClaudeBracketPromptVariant : IBracketPromptVariant
         builder.AppendLine("</bracket_classification>");
 
         return builder.ToString();
-    }
-
-    private static void AppendClassificationReasons(
-        StringBuilder builder,
-        BracketClassification classification,
-        IReadOnlyList<BracketTier> tiers)
-    {
-        var gcCount = classification.DetectedGameChangers.Count;
-        var classifiedTier = tiers.FirstOrDefault(t => t.Number == classification.BracketNumber);
-        var gcCap = classifiedTier is { MaxGameChangers: >= 0 } ct ? $"B{ct.Number} allows up to {ct.MaxGameChangers}" : $"B{classification.BracketNumber} has no cap";
-
-        builder.AppendLine($"- {gcCount} Game Changer{(gcCount != 1 ? "s" : "")} ({gcCap}).");
-
-        if (classification.TwoCardCombos is { Count: > 0 } combos)
-        {
-            foreach (var combo in combos)
-            {
-                builder.AppendLine($"- {combo.CardNames.Count}-card win combo: {string.Join(" + ", combo.CardNames)}.");
-            }
-        }
-        else if (classification.ComboDetectionAvailable)
-        {
-            builder.AppendLine("- No two-card win combos detected.");
-        }
-
-        var mldCount = classification.DetectedMassLandDenial.Count;
-        if (mldCount > 0)
-        {
-            foreach (var mld in classification.DetectedMassLandDenial)
-            {
-                builder.AppendLine($"- 1 mass land denial: {mld}.");
-            }
-        }
-        else
-        {
-            builder.AppendLine("- 0 mass land denial.");
-        }
-
-        var extraTurnCount = classification.DetectedExtraTurnCards.Count;
-        builder.AppendLine($"- {extraTurnCount} extra-turn card{(extraTurnCount != 1 ? "s" : "")} (informational only; does not affect bracket number).");
-        // Why: FIX A — no separate tutor-count gate; the October 2025 update dropped the old
-        // "count your tutors" rule, but specific high-impact tutors remain on the Game Changers
-        // list and DO count toward the GC total.
-        builder.AppendLine("- No separate tutor-count gate: the October 2025 update dropped the old tutor-density rule, but specific powerful tutors (Demonic Tutor, Vampiric Tutor, Worldly Tutor, etc.) remain on the official Game Changers list and still count as Game Changers.");
     }
 
     // Why: FIX C — tier-aware violations via the FloorViolations domain method.
