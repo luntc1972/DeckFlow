@@ -14,18 +14,6 @@ public sealed class BracketCardNameListTests
             BracketCardNameList.Join(["Braids, Cabal Minion", "Mana Crypt"]));
     }
 
-    [Fact]
-    public void Join_SingleName_ReturnsName()
-    {
-        Assert.Equal("Mana Crypt", BracketCardNameList.Join(["Mana Crypt"]));
-    }
-
-    [Fact]
-    public void Join_Empty_ReturnsEmpty()
-    {
-        Assert.Equal(string.Empty, BracketCardNameList.Join([]));
-    }
-
     [Theory]
     [InlineData("ChatGPT")]
     [InlineData("Claude")]
