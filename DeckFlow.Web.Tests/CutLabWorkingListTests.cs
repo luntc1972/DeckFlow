@@ -11,7 +11,7 @@ public sealed class CutLabWorkingListTests
     public void Derive_NoAdjustments_PreservesCardInstancesAndOrder()
     {
         CutLabPoolCard[] pool = [new() { Name = "Sol Ring" }, new() { Name = "Arcane Signet" }];
-        var result = CutLabWorkingList.Derive(pool, [], []);
+        var result = CutLabWorkingList.Derive(pool, [], new CountOnlyEmptyAdjustments());
         Assert.Equal(pool.Length, result.Count);
         Assert.Same(pool[0], result[0]);
         Assert.Same(pool[1], result[1]);
@@ -353,6 +353,15 @@ public sealed class CutLabWorkingListTests
 
         Assert.DoesNotContain(workingList, card => card.Name == "Brainstorm");
         Assert.Equal("Island", workingList[^1].Name);
+    }
+
+    private sealed class CountOnlyEmptyAdjustments : IReadOnlyList<CutLabQuantityAdjustment>
+    {
+        public int Count => 0;
+        public CutLabQuantityAdjustment this[int index] => throw new ArgumentOutOfRangeException(nameof(index));
+        public IEnumerator<CutLabQuantityAdjustment> GetEnumerator()
+            => throw new InvalidOperationException("Empty adjustments must bypass folding and enumeration.");
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private static IReadOnlyList<CutLabPoolCard> CreatePool()

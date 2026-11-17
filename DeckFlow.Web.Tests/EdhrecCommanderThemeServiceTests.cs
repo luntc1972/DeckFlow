@@ -16,6 +16,116 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "deckflow-edhrec-tests", Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public async Task GetThemeCardNamesAsync_FlightTimeout_ReleasesCapacityAndAllowsRetryWithoutCacheWrite()
+    {
+        var clock = new TestDoubles.ManualFlightTimeProvider();
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new RecordingHandler(Response(HttpStatusCode.OK, """{"container":{"json_dict":{"cardlists":[]}}}""")) { BeforeResponse = release.Task };
+        var service = CreateService(handler, timeProvider: clock);
+        var first = service.GetThemeCardNamesAsync("Atraxa", "counters");
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(TimeSpan.FromSeconds(30), clock.LastDueTime);
+        clock.Advance(TimeSpan.FromSeconds(29));
+        Assert.False(first.IsCompleted);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        var result = await first.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(result.Succeeded);
+        Assert.Empty(result.Names);
+        AssertFlightCapacityReleased(service);
+        Assert.False(Directory.Exists(Path.Combine(_root, "artifacts", "edhrec-themes")));
+        release.SetResult();
+        Assert.True((await service.GetThemeCardNamesAsync("Atraxa", "counters")).Succeeded);
+        Assert.Equal(2, handler.CallCount);
+        AssertFlightCapacityReleased(service);
+    }
+
+    [Fact]
+    public async Task GetThemeCardNamesAsync_LateWaiterWithLiveToken_FailsOpenWhenFlightTimesOut()
+    {
+        var clock = new TestDoubles.ManualFlightTimeProvider();
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new RecordingHandler(Response(HttpStatusCode.OK, """{"container":{"json_dict":{"cardlists":[]}}}""")) { BeforeResponse = release.Task };
+        using var service = CreateService(handler, timeProvider: clock);
+        using var cancellation = new CancellationTokenSource();
+        var first = service.GetThemeCardNamesAsync("Atraxa", "counters");
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        clock.Advance(TimeSpan.FromSeconds(29));
+        var lateWaiter = service.GetThemeCardNamesAsync("Atraxa", "counters", cancellation.Token);
+        Assert.False(lateWaiter.IsCompleted);
+        Assert.Equal(1, handler.CallCount);
+
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        var result = await lateWaiter.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(cancellation.IsCancellationRequested);
+        Assert.False(result.Succeeded);
+        Assert.Empty(result.Names);
+        Assert.False((await first.WaitAsync(TimeSpan.FromSeconds(5))).Succeeded);
+        AssertFlightCapacityReleased(service);
+        Assert.False(Directory.Exists(Path.Combine(_root, "artifacts", "edhrec-themes")));
+        release.SetResult();
+        Assert.True((await service.GetThemeCardNamesAsync("Atraxa", "counters")).Succeeded);
+        Assert.Equal(2, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task GetThemeCardNamesAsync_Dispose_FailsOpenAndReleasesCapacityWithoutCacheWrite()
+    {
+        var handler = new RecordingHandler { BeforeResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously).Task };
+        var service = CreateService(handler);
+        var lifetime = Assert.IsAssignableFrom<IDisposable>(service);
+        var flight = service.GetThemeCardNamesAsync("Atraxa", "counters");
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        lifetime.Dispose();
+        lifetime.Dispose();
+        var result = await flight.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(result.Succeeded);
+        Assert.Empty(result.Names);
+        AssertFlightCapacityReleased(service);
+        Assert.False(Directory.Exists(Path.Combine(_root, "artifacts", "edhrec-themes")));
+    }
+
+    [Fact]
+    public void EdhrecRegistration_PrimaryHandler_RotatesConnectionsAfterFiveMinutes()
+    {
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        DeckFlow.Web.Extensions.HttpClientServiceCollectionExtensions.AddDeckFlowHttpClients(services);
+        using var provider = Microsoft.Extensions.DependencyInjection.ServiceCollectionContainerBuilderExtensions.BuildServiceProvider(services);
+        var options = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<Microsoft.Extensions.Http.HttpClientFactoryOptions>>(provider).Get("edhrec");
+        var builder = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<Microsoft.Extensions.Http.HttpMessageHandlerBuilder>(provider);
+        builder.Name = "edhrec";
+        foreach (var configure in options.HttpMessageHandlerBuilderActions) configure(builder);
+        using var handler = Assert.IsType<SocketsHttpHandler>(builder.PrimaryHandler);
+        Assert.Equal(TimeSpan.FromMinutes(5), handler.PooledConnectionLifetime);
+    }
+
+    private static void AssertFlightCapacityReleased(EdhrecCommanderThemeService service)
+    {
+        var capacity = (SemaphoreSlim)typeof(EdhrecCommanderThemeService)
+            .GetField("_themeFlightCapacity", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(service)!;
+        Assert.Equal(32, capacity.CurrentCount);
+        var flights = (System.Collections.IDictionary)typeof(EdhrecCommanderThemeService)
+            .GetField("_themeFlights", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(service)!;
+        Assert.Empty(flights);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetThemeCardNamesAsync_InvalidCommander_PreservesExceptionAndCapacity(string? commander)
+    {
+        var service = CreateService(new RecordingHandler());
+        var expected = Assert.ThrowsAny<ArgumentException>(() => DeckFlow.Core.Integration.EdhrecCardLookup.Slugify(commander!));
+        var actual = await Assert.ThrowsAnyAsync<ArgumentException>(() => service.GetThemeCardNamesAsync(commander!, "counters"));
+        Assert.Equal(expected.GetType(), actual.GetType());
+        Assert.Equal(expected.Message, actual.Message);
+        var capacity = (SemaphoreSlim)typeof(EdhrecCommanderThemeService)
+            .GetField("_themeFlightCapacity", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(service)!;
+        Assert.Equal(32, capacity.CurrentCount);
+    }
+
+    [Fact]
     public async Task GetThemeCardNamesAsync_ConcurrentSameTheme_SharesFetchAndIsolatesWaiterCancellation()
     {
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -348,8 +458,8 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
 
-    private EdhrecCommanderThemeService CreateService(RecordingHandler handler, string? contentRoot = null)
-        => new(new TestHttpClientFactory(handler), new FakeResiliencePipelineProvider(), new MemoryCache(new MemoryCacheOptions()), new TestWebHostEnvironment(contentRoot ?? Path.Combine(_root, "content")));
+    private EdhrecCommanderThemeService CreateService(RecordingHandler handler, string? contentRoot = null, TimeProvider? timeProvider = null)
+        => new(new TestHttpClientFactory(handler), new FakeResiliencePipelineProvider(), new MemoryCache(new MemoryCacheOptions()), new TestWebHostEnvironment(contentRoot ?? Path.Combine(_root, "content")), timeProvider ?? TimeProvider.System);
 
     private static CutLabCommanderTheme Theme(string slug, int deckCount) => new() { Slug = slug, DisplayName = slug, DeckCount = deckCount };
     private static HttpResponseMessage Response(HttpStatusCode statusCode, string body, string? etag = null)

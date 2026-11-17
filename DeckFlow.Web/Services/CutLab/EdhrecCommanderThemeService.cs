@@ -33,7 +33,7 @@ public interface IEdhrecCommanderThemeService
 }
 
 /// <summary>Fail-open EDHREC theme source with bounded response parsing and memory caching.</summary>
-public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeService
+public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeService, IDisposable
 {
     // Why: planning retained these product defaults for unobtrusive initial selection.
     internal const double PreselectMinimumShare = 0.05;
@@ -48,6 +48,11 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     // Why: transient upstream failures should retain a recently known-good disk response, but never indefinitely stale EDHREC data.
     internal static readonly TimeSpan DiskCacheFallbackMaxAge = TimeSpan.FromDays(7);
     private static readonly TimeSpan DiskCacheSweepMinimumInterval = TimeSpan.FromMinutes(5);
+    // Why: bound total shared work across HTTP retries even after every waiter leaves.
+    internal static readonly TimeSpan ThemeFlightTimeout = TimeSpan.FromSeconds(30);
+    private readonly TimeProvider _timeProvider;
+    private readonly CancellationTokenSource _serviceCancellation = new();
+    private int _disposed;
     private readonly RestClient _client;
 
     // Why: Bound transient flight bookkeeping independently of request volume.
@@ -69,11 +74,18 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
     /// <summary>Creates an EDHREC service using the named client and resilience pipeline.</summary>
     public EdhrecCommanderThemeService(IHttpClientFactory httpClientFactory, ResiliencePipelineProvider<string> pipelineProvider, IMemoryCache memoryCache, IWebHostEnvironment environment, ILogger<EdhrecCommanderThemeService>? logger = null)
+        : this(httpClientFactory, pipelineProvider, memoryCache, environment, TimeProvider.System, logger)
+    {
+    }
+
+    internal EdhrecCommanderThemeService(IHttpClientFactory httpClientFactory, ResiliencePipelineProvider<string> pipelineProvider, IMemoryCache memoryCache, IWebHostEnvironment environment, TimeProvider timeProvider, ILogger<EdhrecCommanderThemeService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
         ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        _timeProvider = timeProvider;
         _client = new RestClient(httpClientFactory.CreateClient("edhrec"));
         _pipeline = pipelineProvider.GetPipeline<RestResponse>("edhrec") ?? ResiliencePipeline<RestResponse>.Empty;
         _memoryCache = memoryCache;
@@ -153,8 +165,9 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     /// <inheritdoc />
     public async Task<EdhrecThemeCardNamesResult> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
     {
-        await _themeFlightCapacity.WaitAsync(cancellationToken).ConfigureAwait(false);
         string key = $"{EdhrecCardLookup.Slugify(commanderName)}:{themeSlug}";
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        await _themeFlightCapacity.WaitAsync(cancellationToken).ConfigureAwait(false);
         Task<EdhrecThemeCardNamesResult> flight;
         TaskCompletionSource<EdhrecThemeCardNamesResult>? owner = null;
         lock (_themeFlights)
@@ -183,13 +196,18 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     private async Task CompleteThemeFlightAsync(string key, string commanderName, string themeSlug,
         TaskCompletionSource<EdhrecThemeCardNamesResult> completion)
     {
+        EdhrecThemeCardNamesResult? result = null;
+        Exception? failure = null;
         try
         {
-            completion.TrySetResult(await LoadThemeCardNamesAsync(commanderName, themeSlug, CancellationToken.None).ConfigureAwait(false));
+            using var timeout = new CancellationTokenSource(ThemeFlightTimeout, _timeProvider);
+            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(_serviceCancellation.Token, timeout.Token);
+            result = await LoadThemeCardNamesAsync(commanderName, themeSlug, lifetime.Token).ConfigureAwait(false);
+            lifetime.Token.ThrowIfCancellationRequested();
         }
         catch (Exception exception)
         {
-            completion.TrySetException(exception);
+            failure = exception;
         }
         finally
         {
@@ -200,6 +218,30 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
             _themeFlightCapacity.Release();
         }
+
+        // Why: callers observing completion must also observe released capacity and no stale flight.
+        if (failure is OperationCanceledException)
+        {
+            // Why: only a waiter's own token may cancel it; service-owned cancellation fails open.
+            completion.TrySetResult(new([], false));
+        }
+        else if (failure is not null)
+        {
+            completion.TrySetException(failure);
+        }
+        else
+        {
+            completion.TrySetResult(result!);
+        }
+    }
+
+    /// <summary>Cancels service-owned work when the application disposes this singleton.</summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _serviceCancellation.Cancel();
+        _serviceCancellation.Dispose();
+        _client.Dispose();
     }
 
     private async Task<EdhrecThemeCardNamesResult> LoadThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken)
@@ -257,6 +299,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
                 return new([], false);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             // Why: a parsed empty card list is a legitimate result; cache it briefly to avoid request storms.
             _memoryCache.Set(cacheKey, parsed, parsed.Count > 0 ? CacheDuration : EmptyThemeCardCacheDuration);
             return new(parsed, true);
@@ -289,6 +332,8 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
             var response = await _pipeline.ExecuteAsync(async ct => await _client.ExecuteAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             if ((int)response.StatusCode == 304 && cached is not null)
             {
                 // Why: revalidation confirms this entry remains fresh, so retain its offline fallback.
@@ -316,6 +361,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
                 .FirstOrDefault(header => string.Equals(header.Name, "ETag", StringComparison.OrdinalIgnoreCase))?
                 .Value?
                 .ToString();
+            cancellationToken.ThrowIfCancellationRequested();
             WriteCache(cachePath, new CacheEntry(response.Content, eTag, DateTimeOffset.UtcNow));
             return new(response.Content, true);
         }
