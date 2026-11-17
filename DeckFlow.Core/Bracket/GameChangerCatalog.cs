@@ -25,7 +25,8 @@ public sealed record BracketTier(
 /// </summary>
 /// <param name="EffectiveDate">Date this version of the catalog took effect.</param>
 /// <param name="GameChangers">
-/// Alphabetically sorted list of Game Changer card names, compared OrdinalIgnoreCase.
+/// Alphabetically sorted list of Game Changer card names, matched by CardNormalizer key.
+/// Matching ignores case and punctuation; double-faced or split cards match on their front face.
 /// </param>
 /// <param name="MassLandDenialCards">
 /// Curated list of mass-land-denial card names; any match forces Bracket 4 or higher.
