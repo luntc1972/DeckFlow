@@ -528,8 +528,8 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                     // moments earlier, so re-POSTing via ResolveSingleAsync is dead weight -- the
                     // live probe in 111.1-REVIEWS.md §0 proves the removed POST rescues nothing that
                     // SearchFallbackCardAsync does not also resolve. ResolveSingleAsync stays
-                    // untouched: CutLabSimulationService and ManabaseAnalysisService call it as
-                    // their ONLY collection attempt, where the POST is not redundant.
+                    // untouched: ManabaseAnalysisService uses it as its only collection attempt;
+                    // CutLabSimulationService batches first and retains it for fallback resolution.
                     (name, ct) => _cardResolver.SearchFallbackCardAsync(name, ct),
                     cancellationToken: cancellationToken,
                     batchFallbackStrategy: (names, ct) => _cardResolver.SearchFallbackCardsAsync(names, ct)).ConfigureAwait(false);

@@ -1287,10 +1287,12 @@ public sealed class CutLabPageServiceTests
                 },
             ],
         };
+        var banList = new ThrowingBanListService(new HttpRequestException("banlist down"));
+        var resolver = new FakeResolver(cards) { OnCollection = () => Assert.True(banList.Called) };
         var service = new CutLabPageService(
             new FakeLoader(entries),
-            new FakeResolver(cards),
-            new ThrowingBanListService(new HttpRequestException("banlist down")),
+            resolver,
+            banList,
             logger: logger);
         var request = new CutLabRequest
         {
@@ -3715,8 +3717,11 @@ public sealed class CutLabPageServiceTests
         /// </summary>
         public int TransientCollectionFailures { get; set; }
 
+        public Action? OnCollection { get; init; }
+
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
         {
+            OnCollection?.Invoke();
             if (TransientCollectionFailures > 0)
             {
                 TransientCollectionFailures--;
@@ -3938,8 +3943,12 @@ public sealed class CutLabPageServiceTests
 
     private sealed class ThrowingBanListService(Exception exception) : ICommanderBanListService
     {
+        public bool Called { get; private set; }
         public Task<IReadOnlyList<string>> GetBannedCardsAsync(CancellationToken cancellationToken = default)
-            => Task.FromException<IReadOnlyList<string>>(exception);
+        {
+            Called = true;
+            return Task.FromException<IReadOnlyList<string>>(exception);
+        }
     }
 
     private sealed class FakeSpellbookService : ICommanderSpellbookService

@@ -278,6 +278,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             return Error("No mainboard or commander cards were found in that deck.", warnings);
         }
 
+        Task<(IReadOnlyList<string> Cards, Exception? Error)> banListTask = LoadBanListAsync(cancellationToken);
         List<ResolvedCutLabEntry> resolvedEntries;
         try
         {
@@ -327,7 +328,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<string> bannedCardsPresent;
         try
         {
-            bannedCardsPresent = await ResolveBannedCardsPresentAsync(resolvedEntries, cancellationToken).ConfigureAwait(false);
+            bannedCardsPresent = await ResolveBannedCardsPresentAsync(resolvedEntries, banListTask).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -1154,11 +1155,28 @@ internal sealed class CutLabPageService : ICutLabPageService
         return comboBadgeByCardName;
     }
 
+    private async Task<(IReadOnlyList<string> Cards, Exception? Error)> LoadBanListAsync(CancellationToken cancellationToken)
+    {
+        // Capture failures so an early resolution return cannot leave a faulted task unobserved.
+        try
+        {
+            return (await _banListService.GetBannedCardsAsync(cancellationToken).ConfigureAwait(false), null);
+        }
+        catch (Exception exception)
+        {
+            return ([], exception);
+        }
+    }
+
     private async Task<IReadOnlyList<string>> ResolveBannedCardsPresentAsync(
         IReadOnlyList<ResolvedCutLabEntry> entries,
-        CancellationToken cancellationToken)
+        Task<(IReadOnlyList<string> Cards, Exception? Error)> banListTask)
     {
-        IReadOnlyList<string> bannedCards = await _banListService.GetBannedCardsAsync(cancellationToken).ConfigureAwait(false);
+        var (bannedCards, error) = await banListTask.ConfigureAwait(false);
+        if (error is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
+        }
         var bannedSet = bannedCards.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var present = entries
             .Select(entry => entry.Name)
