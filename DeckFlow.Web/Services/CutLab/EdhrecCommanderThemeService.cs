@@ -421,12 +421,13 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     {
         try
         {
-            // Why: a zero-byte marker extends fallback without serializing the cached response again.
+            // Why: touch the body first so a failed touch cannot leave a fresh marker over stale data.
+            // A zero-byte marker extends fallback without serializing the cached response again.
             string freshnessPath = path + ".fresh";
-            using (File.Open(freshnessPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite)) { }
             DateTime now = DateTime.UtcNow;
-            File.SetLastWriteTimeUtc(freshnessPath, now);
             File.SetLastWriteTimeUtc(path, now);
+            using (File.Open(freshnessPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite)) { }
+            File.SetLastWriteTimeUtc(freshnessPath, now);
             SweepExpiredCacheEntries();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

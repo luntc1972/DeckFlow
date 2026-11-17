@@ -6,6 +6,23 @@ namespace DeckFlow.Web.Tests;
 
 public sealed class CutLabRoleOverrideRulesTests
 {
+    /// <summary>Unsanitized names do not prevent lookup of real card overrides.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void BuildLookup_InvalidNameAndValidOverride_ReturnsOnlyValidOverride(string? invalidName)
+    {
+        var valid = new CutLabRoleOverride { Name = "Arcane Signet", Added = ["ramp"] };
+
+        var lookup = CutLabRoleOverrideRules.BuildLookup(
+            [new CutLabRoleOverride { Name = invalidName! }, valid]);
+
+        var entry = Assert.Single(lookup);
+        Assert.Equal(CutLabCardNames.Normalize(valid.Name), entry.Key);
+        Assert.Same(valid, entry.Value);
+    }
+
     [Theory]
     [InlineData("enablers", false, false)]
     [InlineData("enablers", true, true)]

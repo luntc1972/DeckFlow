@@ -93,15 +93,23 @@ public sealed class CutLabResolvedCardCache
         return true;
     }
 
-    internal bool TryGetLookup(string poolKey, out IReadOnlyDictionary<string, ScryfallCardData>? cardsByName)
+    internal bool TryGetLookup(string poolKey, out IReadOnlyDictionary<string, ScryfallCardData>? cardsByName, bool logCacheEvent = true)
     {
         if (_cache.TryGetValue(poolKey, out CachedEntry? entry) && entry is not null)
         {
             cardsByName = entry.Lookup.Value;
+            if (logCacheEvent)
+            {
+                LogCacheEvent("hit", poolKey, entry.SizeBytes);
+            }
             return true;
         }
 
         cardsByName = null;
+        if (logCacheEvent)
+        {
+            LogCacheEvent("miss", poolKey, 0);
+        }
         return false;
     }
 
@@ -199,6 +207,10 @@ public sealed class CutLabResolvedCardCache
         int total = 0;
         foreach (var card in cards)
         {
+            // Why: reserve the lazy lookup up front so materialization cannot exceed the admitted budget.
+            // Estimate each normalized key as a 24-byte string header plus UTF-16 characters,
+            // with 32 bytes for its dictionary entry, bucket, and capacity overhead.
+            total += 24 + (CutLabCardNames.Normalize(card.Name).Length * sizeof(char)) + 32;
             total += card.Name.Length;
             total += card.ManaCost?.Length ?? 0;
             total += card.TypeLine?.Length ?? 0;

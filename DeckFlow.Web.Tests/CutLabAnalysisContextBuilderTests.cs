@@ -9,6 +9,7 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.Scryfall;
+using DeckFlow.Web.Tests.TestDoubles;
 using Microsoft.Extensions.Logging;
 using RestSharp;
 using Xunit;
@@ -1178,6 +1179,29 @@ public sealed class CutLabAnalysisContextBuilderTests
     }
 
     [Fact]
+    public async Task ResolvePoolCardsAsync_CanonicalFullHit_LogsExactlyOneHit()
+    {
+        var logger = new CapturingLogger<CutLabResolvedCardCache>();
+        var cache = new CutLabResolvedCardCache(logger);
+        IReadOnlyList<CutLabPoolCard> pool = [PoolCard("Arcane Signet", "Artifact")];
+        IReadOnlyList<ScryfallCardData> cards = [new ScryfallCardData { Name = "Arcane Signet" }];
+        cache.Set(CutLabResolvedCardCache.ComputePoolKey(pool), cards);
+        logger.Entries.Clear();
+        var resolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache,
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+
+        var result = await builder.ResolvePoolCardsAsync(pool);
+
+        Assert.Same(cards, result);
+        Assert.Equal(0, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+        Assert.Equal(0, resolver.SearchFallbackCalls);
+        Assert.Single(logger.Entries.ToArray(), entry =>
+            entry.Any(value => value.Key == "Outcome" && Equals(value.Value, "hit")));
+    }
+
+    [Fact]
     public async Task ResolvePoolCardsAsync_FullHit_RefreshesExpiryWithoutCopying()
     {
         var clock = new RefreshClock();
@@ -1191,6 +1215,7 @@ public sealed class CutLabAnalysisContextBuilderTests
         IReadOnlyList<ScryfallCardData> cards = [new ScryfallCardData { Name = "Arcane Signet" }];
         string key = CutLabResolvedCardCache.ComputePoolKey(pool);
         cache.Set(key, cards, ["Typo"]);
+        var originalSize = memory.GetCurrentStatistics()!.CurrentEstimatedSize;
         Assert.True(cache.TryGetKnownMissingNames(key, out var missing));
         var resolver = new CountingResolver([]);
         var builder = new CutLabAnalysisContextBuilder(resolver, cache,
@@ -1204,7 +1229,7 @@ public sealed class CutLabAnalysisContextBuilderTests
         Assert.Same(cards, refreshed);
         Assert.True(cache.TryGetKnownMissingNames(key, out var refreshedMissing));
         Assert.Same(missing, refreshedMissing);
-        Assert.Equal(cards.Sum(card => card.Name.Length), memory.GetCurrentStatistics()!.CurrentEstimatedSize);
+        Assert.Equal(originalSize, memory.GetCurrentStatistics()!.CurrentEstimatedSize);
         clock.UtcNow += TimeSpan.FromMinutes(2);
         Assert.True(cache.TryGet(key, out _));
         clock.UtcNow += TimeSpan.FromMinutes(28);

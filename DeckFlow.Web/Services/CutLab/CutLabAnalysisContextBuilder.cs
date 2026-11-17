@@ -503,7 +503,8 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
 
             // Why: a canonical full hit only needs its absolute expiry renewed. Keep partial pools
             // on the resolution path so transiently unattempted names are retried.
-            if (_resolvedCardCache.TryGetLookup(poolKey, out var lookup) && lookup is not null
+            // Why: TryGet above already logged this consultation; the lookup is a second read.
+            if (_resolvedCardCache.TryGetLookup(poolKey, out var lookup, logCacheEvent: false) && lookup is not null
                 && workingList.All(card => lookup.ContainsKey(CutLabCardNames.Normalize(card.Name))
                     || (!CutLabBasicLands.Contains(card.Name)
                         && knownMissingNames.Contains(CutLabCardNames.Normalize(card.Name))))

@@ -39,7 +39,7 @@ public static class CutLabRoleOverrideRules
 
     /// <summary>Builds the normalized last-wins lookup for one operation.</summary>
     internal static IReadOnlyDictionary<string, CutLabRoleOverride> BuildLookup(IReadOnlyList<CutLabRoleOverride>? overrides)
-        => CutLabCardNames.ToLastWinsDictionary((overrides ?? []).Where(item => item is not null), item => item.Name);
+        => CutLabCardNames.ToLastWinsDictionary((overrides ?? []).Where(item => item is not null && !string.IsNullOrWhiteSpace(item.Name)), item => item.Name);
 
     /// <summary>Canonicalizes persisted overrides in session state.</summary>
     public static CutLabState Sanitize(CutLabState state)
