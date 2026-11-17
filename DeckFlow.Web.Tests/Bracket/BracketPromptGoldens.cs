@@ -110,7 +110,7 @@ internal static class BracketPromptGoldens
             "- Cut Thassa's Oracle or Tainted Pact — breaks the two-card win combo.\n" +
             "- Cut Armageddon — no mass land denial at B2.\n" +
             "- Cut Ravages of War — no mass land denial at B2.\n" +
-            "- Trim 4 of: Mana Crypt, The One Ring, Jeweled Lotus, Cyclonic Rift — B2 allows up to 0 Game Changers; you run 4.\n" +
+            "- Trim 4 of: Mana Crypt; The One Ring; Jeweled Lotus; Cyclonic Rift — B2 allows up to 0 Game Changers; you run 4.\n" +
             "\n" +
             "A starting point, not a verdict — use an AI to turn these into power-equivalent swaps.\n",
         "Claude" =>
@@ -154,7 +154,7 @@ internal static class BracketPromptGoldens
             "- Cut Thassa's Oracle or Tainted Pact — breaks the two-card win combo.\n" +
             "- Cut Armageddon — no mass land denial at B2.\n" +
             "- Cut Ravages of War — no mass land denial at B2.\n" +
-            "- Trim 4 of: Mana Crypt, The One Ring, Jeweled Lotus, Cyclonic Rift — B2 allows up to 0 Game Changers; you run 4.\n" +
+            "- Trim 4 of: Mana Crypt; The One Ring; Jeweled Lotus; Cyclonic Rift — B2 allows up to 0 Game Changers; you run 4.\n" +
             "A starting point, not a verdict — use an AI to turn these into power-equivalent swaps.\n" +
             "</starter_cuts>\n" +
             "</balancer>\n" +
@@ -200,7 +200,7 @@ internal static class BracketPromptGoldens
             "- Cut Thassa's Oracle or Tainted Pact — breaks the two-card win combo.\n" +
             "- Cut Armageddon — no mass land denial at B2.\n" +
             "- Cut Ravages of War — no mass land denial at B2.\n" +
-            "- Trim 4 of: Mana Crypt, The One Ring, Jeweled Lotus, Cyclonic Rift — B2 allows up to 0 Game Changers; you run 4.\n" +
+            "- Trim 4 of: Mana Crypt; The One Ring; Jeweled Lotus; Cyclonic Rift — B2 allows up to 0 Game Changers; you run 4.\n" +
             "\n" +
             "A starting point, not a verdict — use an AI to turn these into power-equivalent swaps.\n",
         _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, "Unknown platform."),
