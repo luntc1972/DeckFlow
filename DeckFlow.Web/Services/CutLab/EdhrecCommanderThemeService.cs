@@ -220,7 +220,8 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         }
 
         // Why: callers observing completion must also observe released capacity and no stale flight.
-        if (failure is OperationCanceledException)
+        if (failure is OperationCanceledException ||
+            failure is ObjectDisposedException && Volatile.Read(ref _disposed) != 0)
         {
             // Why: only a waiter's own token may cancel it; service-owned cancellation fails open.
             completion.TrySetResult(new([], false));
@@ -337,7 +338,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             if ((int)response.StatusCode == 304 && cached is not null)
             {
                 // Why: revalidation confirms this entry remains fresh, so retain its offline fallback.
-                WriteCache(cachePath, cached with { WrittenAtUtc = DateTimeOffset.UtcNow });
+                RefreshCacheFreshness(cachePath);
                 return new(cached.Body, true);
             }
 
@@ -399,12 +400,38 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     {
         try
         {
-            return File.Exists(path) ? JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(path)) : null;
+            CacheEntry? entry = File.Exists(path) ? JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(path)) : null;
+            string freshnessPath = path + ".fresh";
+            if (entry is not null && File.Exists(freshnessPath))
+            {
+                DateTimeOffset freshness = File.GetLastWriteTimeUtc(freshnessPath);
+                if (freshness > entry.WrittenAtUtc) entry = entry with { WrittenAtUtc = freshness };
+            }
+
+            return entry;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
             _logger?.LogWarning(ex, "Unable to read EDHREC disk cache");
             return null;
+        }
+    }
+
+    private void RefreshCacheFreshness(string path)
+    {
+        try
+        {
+            // Why: a zero-byte marker extends fallback without serializing the cached response again.
+            string freshnessPath = path + ".fresh";
+            using (File.Open(freshnessPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite)) { }
+            DateTime now = DateTime.UtcNow;
+            File.SetLastWriteTimeUtc(freshnessPath, now);
+            File.SetLastWriteTimeUtc(path, now);
+            SweepExpiredCacheEntries();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger?.LogDebug(ex, "Unable to refresh EDHREC disk cache freshness");
         }
     }
 
@@ -445,7 +472,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
         try
         {
-            foreach (var cachePath in Directory.EnumerateFiles(_cacheRoot, "*.json").Concat(Directory.EnumerateFiles(_cacheRoot, "*.tmp")))
+            foreach (var cachePath in Directory.EnumerateFiles(_cacheRoot, "*.json").Concat(Directory.EnumerateFiles(_cacheRoot, "*.tmp")).Concat(Directory.EnumerateFiles(_cacheRoot, "*.fresh")))
             {
                 try
                 {

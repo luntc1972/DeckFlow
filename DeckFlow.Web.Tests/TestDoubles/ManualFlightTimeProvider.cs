@@ -4,10 +4,12 @@ namespace DeckFlow.Web.Tests.TestDoubles;
 internal sealed class ManualFlightTimeProvider : TimeProvider
 {
     private readonly List<ManualTimer> _timers = [];
+    public Action? OnCreateTimer { get; init; }
     public TimeSpan LastDueTime { get; private set; }
 
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
+        OnCreateTimer?.Invoke();
         LastDueTime = dueTime;
         var timer = new ManualTimer(callback, state, dueTime);
         _timers.Add(timer);

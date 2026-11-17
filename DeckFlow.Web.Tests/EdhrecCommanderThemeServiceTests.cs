@@ -16,6 +16,20 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "deckflow-edhrec-tests", Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public async Task GetThemeCardNamesAsync_DisposeBeforeTokenAccess_FailsOpen()
+    {
+        EdhrecCommanderThemeService? service = null;
+        var clock = new TestDoubles.ManualFlightTimeProvider { OnCreateTimer = () => service!.Dispose() };
+        using var ownedService = service = CreateService(new RecordingHandler(), timeProvider: clock);
+
+        var result = await service.GetThemeCardNamesAsync("Atraxa", "counters");
+
+        Assert.False(result.Succeeded);
+        Assert.Empty(result.Names);
+        AssertFlightCapacityReleased(service);
+    }
+
+    [Fact]
     public async Task GetThemeCardNamesAsync_FlightTimeout_ReleasesCapacityAndAllowsRetryWithoutCacheWrite()
     {
         var clock = new TestDoubles.ManualFlightTimeProvider();
@@ -310,6 +324,70 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
         Assert.True(first.Succeeded);
         Assert.True(second.Succeeded);
         Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
+    public async Task GetThemeCardNamesAsync_SuccessThenTimeout_DoesNotWriteEitherCache()
+    {
+        var clock = new TestDoubles.ManualFlightTimeProvider();
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        bool responseCompleted = false;
+        var handler = new RecordingHandler(Response(HttpStatusCode.OK,
+            """{"container":{"json_dict":{"cardlists":[{"cardviews":[{"name":"Sol Ring"}]}]}}}"""));
+        var pipeline = new TestDoubles.AfterResponsePipelineProvider(() =>
+        {
+            responseCompleted = true;
+            clock.Advance(TimeSpan.FromSeconds(30));
+        });
+        using var service = new EdhrecCommanderThemeService(new TestHttpClientFactory(handler), pipeline,
+            memory, new TestWebHostEnvironment(Path.Combine(_root, "content")), clock);
+
+        var result = await service.GetThemeCardNamesAsync("Atraxa", "counters");
+
+        Assert.True(responseCompleted);
+        Assert.Equal(1, handler.CallCount);
+        Assert.False(result.Succeeded);
+        Assert.Empty(result.Names);
+        Assert.False(memory.TryGetValue("cutlab:edhrec:themecards:atraxa:counters", out _));
+        Assert.False(Directory.Exists(Path.Combine(_root, "artifacts", "edhrec-themes")));
+        AssertFlightCapacityReleased(service);
+    }
+
+    [Fact]
+    public async Task DiskCache_NotModified_PreservesBytesAndExtendsFallbackAndSweepLifetime()
+    {
+        string directory = Path.Combine(_root, "artifacts", "edhrec-themes");
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "atraxa.json");
+        byte[] original = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            Body = Taglinks(("counters", "Counters", 12)),
+            ETag = "etag-1",
+            WrittenAtUtc = DateTimeOffset.UtcNow - EdhrecCommanderThemeService.DiskCacheFallbackMaxAge - TimeSpan.FromDays(1)
+        });
+        await File.WriteAllBytesAsync(path, original);
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow - TimeSpan.FromDays(8));
+        using var revalidator = CreateService(new RecordingHandler(new HttpResponseMessage(HttpStatusCode.NotModified)));
+
+        var revalidated = await revalidator.GetCommanderThemesAsync("Atraxa");
+
+        Assert.Single(revalidated.Themes);
+        Assert.Equal(original, await File.ReadAllBytesAsync(path));
+        using var offline = CreateService(new RecordingHandler(Response(HttpStatusCode.InternalServerError, "offline")));
+        Assert.Single((await offline.GetCommanderThemesAsync("Atraxa")).Themes);
+        using var writer = CreateService(new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("tokens", "Tokens", 1)))));
+        await writer.GetCommanderThemesAsync("Krenko");
+        Assert.True(File.Exists(path));
+        Assert.Equal(original, await File.ReadAllBytesAsync(path));
+
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow - TimeSpan.FromDays(8));
+        File.SetLastWriteTimeUtc(path + ".fresh", DateTime.UtcNow - TimeSpan.FromDays(8));
+        using var expired = CreateService(new RecordingHandler(Response(HttpStatusCode.InternalServerError, "offline")));
+        Assert.Empty((await expired.GetCommanderThemesAsync("Atraxa")).Themes);
+        using var sweeper = CreateService(new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("tokens", "Tokens", 1)))));
+        await sweeper.GetCommanderThemesAsync("Krenko");
+        Assert.False(File.Exists(path));
+        Assert.False(File.Exists(path + ".fresh"));
     }
 
     [Fact]
