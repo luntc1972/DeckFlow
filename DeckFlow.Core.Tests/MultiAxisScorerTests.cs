@@ -266,35 +266,87 @@ public sealed class MultiAxisScorerTests
         }
     }
 
-    [Theory]
-    [InlineData("Power", 10, 5, "10")]
-    [InlineData("Speed", 8, 5, "8")]
-    [InlineData("Control", 19, 5, "19")]
-    [InlineData("Consistency", 12, 5, "12")]
-    public void Score_RuleText_CarriesBoundaryThreshold(string axis, int threshold, int band, string digits)
+    [Fact]
+    public void Score_PowerRuleText_CarriesBoundaryThreshold()
     {
         DeckMultiAxisScore At(int value)
         {
             var stats = new DeckStatSummary(99, 30, 20, 1.9m, Curve(), 0, 0,
-                axis == "Control" ? value : 0, 5, 0, 0)
+                0, 5, 0, 0)
             {
-                FastMana = axis == "Speed" ? value : 0,
+                FastMana = 0,
                 RampDrawUnderThreeMv = 12,
                 Counters = 6,
-                Tutors = axis == "Consistency" ? value : 0,
+                Tutors = 0,
             };
-            return MultiAxisScorer.Score(stats, axis == "Power" ? value : 0, 3, true, 3);
+            return MultiAxisScorer.Score(stats, value, 3, true, 3);
         }
-        (int Band, DeckScoreRationale Rationale) Axis(DeckMultiAxisScore score) => axis switch
+        var exact = At(10);
+        Assert.Equal(5, exact.PowerBand);
+        Assert.Contains("10", exact.PowerRationale.RuleText);
+        Assert.True(At(9).PowerBand < 5);
+    }
+
+    [Fact]
+    public void Score_SpeedRuleText_CarriesBoundaryThreshold()
+    {
+        DeckMultiAxisScore At(int value)
         {
-            "Power" => (score.PowerBand, score.PowerRationale),
-            "Speed" => (score.SpeedBand, score.SpeedRationale),
-            "Control" => (score.ControlBand, score.ControlRationale),
-            _ => (score.ConsistencyBand, score.ConsistencyRationale),
-        };
-        var exact = Axis(At(threshold));
-        Assert.Equal(band, exact.Band);
-        Assert.Contains(digits, exact.Rationale.RuleText);
-        Assert.True(Axis(At(threshold - 1)).Band < band);
+            var stats = new DeckStatSummary(99, 30, 20, 1.9m, Curve(), 0, 0,
+                0, 5, 0, 0)
+            {
+                FastMana = value,
+                RampDrawUnderThreeMv = 12,
+                Counters = 6,
+                Tutors = 0,
+            };
+            return MultiAxisScorer.Score(stats, 0, 3, true, 3);
+        }
+        var exact = At(8);
+        Assert.Equal(5, exact.SpeedBand);
+        Assert.Contains("8", exact.SpeedRationale.RuleText);
+        Assert.True(At(7).SpeedBand < 5);
+    }
+
+    [Fact]
+    public void Score_ControlRuleText_CarriesBoundaryThreshold()
+    {
+        DeckMultiAxisScore At(int value)
+        {
+            var stats = new DeckStatSummary(99, 30, 20, 1.9m, Curve(), 0, 0,
+                value, 5, 0, 0)
+            {
+                FastMana = 0,
+                RampDrawUnderThreeMv = 12,
+                Counters = 6,
+                Tutors = 0,
+            };
+            return MultiAxisScorer.Score(stats, 0, 3, true, 3);
+        }
+        var exact = At(19);
+        Assert.Equal(5, exact.ControlBand);
+        Assert.Contains("19", exact.ControlRationale.RuleText);
+        Assert.True(At(18).ControlBand < 5);
+    }
+
+    [Fact]
+    public void Score_ConsistencyRuleText_CarriesBoundaryThreshold()
+    {
+        DeckMultiAxisScore At(int value)
+        {
+            var stats = new DeckStatSummary(99, 30, 20, 1.9m, Curve(), 0, 0,
+                0, 5, 0, 0)
+            {
+                FastMana = 0,
+                RampDrawUnderThreeMv = 12,
+                Counters = 6,
+                Tutors = value,
+            };
+            return MultiAxisScorer.Score(stats, 0, 3, true, 3);
+        }
+        var exact = At(12);
+        Assert.Equal(5, exact.ConsistencyBand);
+        Assert.Contains("12", exact.ConsistencyRationale.RuleText);
+        Assert.True(At(11).ConsistencyBand < 5);
     }
 }

@@ -3,7 +3,6 @@
 // SCORE-04: the four-axis score block must appear in all three paste artifacts, the same band
 // figures must be present in each, and the flag-OFF (null scoreBlockText) path must stay byte-identical.
 using System.Text.RegularExpressions;
-using DeckFlow.Web.Models;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using Xunit;
 
@@ -17,45 +16,9 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class AnalysisScorePromptParityTests
 {
-    // Why: ADR-0001 — no shared helper; concrete variants instantiated inline.
-    private static AnalysisPromptVariantRegistry BuildRegistry() =>
-        new(new IAnalysisPromptVariant[]
-        {
-            new ChatGptAnalysisPromptVariant(),
-            new ClaudeAnalysisPromptVariant(),
-            new GeminiAnalysisPromptVariant(),
-        });
-
-    private static DeckAnalysisRequest BuildMinimalRequest() =>
-        new()
-        {
-            Format = "Commander",
-            TargetCommanderBracket = "cEDH",
-        };
-
-    private static string BuildDecklistText() => "1 Sol Ring";
-
-    private static string BuildReferenceText() => "Reference text";
-
-    private static string BuildSchemaJson() => "{}";
-
     private static string Build(string platformName, string? scoreBlockText, string? interactionAuditText = null)
-    {
-        var registry = BuildRegistry();
-        var platform = AiPlatform.Normalize(platformName);
-        return registry.Build(
-            platform,
-            BuildMinimalRequest(),
-            BuildDecklistText(),
-            BuildReferenceText(),
-            BuildSchemaJson(),
-            commanderName: null,
-            selectedQuestionIds: [],
-            bannedCards: [],
-            comboResult: null,
-            includeCardVersions: false,
-            enrichments: new AnalysisPromptEnrichments(ScoreBlockText: scoreBlockText, InteractionAuditText: interactionAuditText));
-    }
+        => AnalysisPromptParityHarness.Build(platformName,
+            new AnalysisPromptEnrichments(ScoreBlockText: scoreBlockText, InteractionAuditText: interactionAuditText));
 
     private const string FourAxisValidationPattern =
         @"(?im)^[^\r\n]*\bPower\b[^\r\n]*\bSpeed\b[^\r\n]*\bControl\b[^\r\n]*\bConsistency\b[^.\r\n]*\bdeck\b[^.\r\n]*\.";

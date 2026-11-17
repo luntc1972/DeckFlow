@@ -1,4 +1,3 @@
-using DeckFlow.Web.Models;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
 using Xunit;
 
@@ -86,19 +85,6 @@ public sealed class AnalysisAddsCutsContractParityTests
     private static string[] Sentences(string prompt) =>
         prompt.Split(["\r\n", "\n", ". "], StringSplitOptions.RemoveEmptyEntries);
 
-    private static string Build(string platformName)
-    {
-        var registry = new AnalysisPromptVariantRegistry(new IAnalysisPromptVariant[]
-        {
-            new ChatGptAnalysisPromptVariant(),
-            new ClaudeAnalysisPromptVariant(),
-            new GeminiAnalysisPromptVariant(),
-        });
-        return registry.Build(
-            AiPlatform.Normalize(platformName),
-            new DeckAnalysisRequest { Format = "Commander", TargetCommanderBracket = "cEDH" },
-            "1 Sol Ring", "Reference text", "{}", commanderName: null,
-            selectedQuestionIds: [], bannedCards: [], comboResult: null,
-            includeCardVersions: false, enrichments: new AnalysisPromptEnrichments());
-    }
+    private static string Build(string platformName) =>
+        AnalysisPromptParityHarness.Build(platformName, new AnalysisPromptEnrichments());
 }
