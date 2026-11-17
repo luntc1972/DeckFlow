@@ -41,3 +41,12 @@ change silently altering another platform's output.
   /simplify pass).
 - Wording may legitimately differ between variants where it serves the platform's prompt
   format; only semantic divergence (different rules or thresholds) is a defect.
+
+## Addendum 2026-11-16 — computed-facts renderers
+
+Computed-facts renderers may be shared across prompt variants when they render only
+lines derived from data, such as counts and detected cards, without guidance prose.
+Guidance prose remains independently maintained in each variant under the original
+decision. The first instance is `BracketClassificationFactsRenderer`, which renders
+the computed classification facts for all three Bracket variants. The tutor-gate
+sentence is guidance prose and remains hand-written in each variant.

@@ -46,6 +46,10 @@ public sealed class HarvestRetentionOptions
     [Range(1, int.MaxValue)]
     public int MaintenanceChunkDecks { get; set; } = DefaultMaintenanceChunkDecks;
 
+    /// <summary>Gets or sets the maximum decks removed by one maintenance Drain run; zero is unbounded.</summary>
+    [Range(0, int.MaxValue)]
+    public int MaintenanceMaxDecksPerRun { get; set; }
+
     /// <summary>Converts bound web settings to validated core pruning settings.</summary>
     public DeckPruningOptions ToPruningOptions()
         => new(PerCommanderCap, BatchSize, TimeSpan.FromMilliseconds(PauseMilliseconds), MinFreeDiskBytes, MaxAgeDays is null ? null : TimeSpan.FromDays(MaxAgeDays.Value));

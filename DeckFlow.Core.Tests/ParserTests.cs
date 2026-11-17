@@ -35,6 +35,15 @@ public sealed class ParserTests
         Assert.Equal("https://api2.moxfield.com/v3/decks/all/fNC0NaQftkO8uWFMD8O49g", MoxfieldApiUrl.BuildDeckApiUri(deckId).ToString());
     }
 
+    [Theory]
+    [InlineData("https://archidekt.com/decks/123")]
+    [InlineData(" HTTPS://archidekt.com/decks/123?view=list#cards ")]
+    [InlineData("")]
+    public void BuildUrlSource_OriginalUrl_PreservesInputVerbatim(string url)
+    {
+        Assert.Equal($"archidekt_url:{url}", ArchidektApiUrl.BuildUrlSource(url));
+    }
+
     [Fact]
     public void ArchidektApiUrl_ExtractsDeckIdFromPublicUrl()
     {

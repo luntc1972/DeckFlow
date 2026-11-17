@@ -57,4 +57,56 @@ public sealed class CutLabBasicLandsTests
         Assert.True(CutLabLockRules.IsLand(card.TypeLine));
         Assert.NotNull(card.OracleText);
     }
+
+    // Why: Case and punctuation variants must resolve canonical basic-land metadata.
+    [Theory]
+    [InlineData("plains", "Basic Land — Plains")]
+    [InlineData("SNOW-COVERED FOREST", "Basic Snow Land — Forest")]
+    [InlineData("Snow Covered Forest", "Basic Snow Land — Forest")]
+    [InlineData("wastes", "Basic Land")]
+    public void TryResolve_CaseOrPunctuationVariant_ReturnsCanonicalDefinition(string name, string expectedTypeLine)
+    {
+        Assert.True(CutLabBasicLands.TryResolve(name, out CutLabBasicLands.Definition? definition));
+        Assert.NotNull(definition);
+        Assert.Equal(expectedTypeLine, definition.TypeLine);
+    }
+
+    // Why: Lowercase typed basics must be recognized by the membership lookup.
+    [Theory]
+    [InlineData("island")]
+    [InlineData("snow-covered swamp")]
+    public void Contains_CaseVariant_ReturnsTrue(string name)
+    {
+        Assert.True(CutLabBasicLands.Contains(name));
+    }
+
+    // Why: Synthetic basics must preserve typed names while resolving canonical metadata.
+    [Fact]
+    public void SyntheticCardData_LowercaseBasic_KeepsTypedNameAndResolvesMetadata()
+    {
+        ScryfallCardData card = CutLabBasicLands.SyntheticCardData("island");
+        Assert.Equal("island", card.Name);
+        Assert.Equal("Basic Land — Island", card.TypeLine);
+    }
+
+    // Why: Normalized lookups must not change canonical display spellings or their order.
+    [Fact]
+    public void Names_KeepCanonicalSpellingsInOrder()
+    {
+        Assert.Equal(new[]
+        {
+            "Plains", "Island", "Swamp", "Mountain", "Forest", "Snow-Covered Plains",
+            "Snow-Covered Island", "Snow-Covered Swamp", "Snow-Covered Mountain",
+            "Snow-Covered Forest", "Wastes",
+        }, CutLabBasicLands.Names);
+    }
+
+    // Why: Normalized membership must not accept nonbasics or blank pool names.
+    [Theory]
+    [InlineData("Sol Ring")]
+    [InlineData("  ")]
+    public void Contains_NonBasicOrBlank_ReturnsFalse(string name)
+    {
+        Assert.False(CutLabBasicLands.Contains(name));
+    }
 }

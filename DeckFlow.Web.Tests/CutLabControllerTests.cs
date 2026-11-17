@@ -957,6 +957,32 @@ public sealed class CutLabControllerTests
         Assert.Equal(CutLabMessages.NoChangeMessage, model.ErrorMessage);
     }
 
+    // Why: Removing one lowercase typed basic must rerender eleven copies rather than collapse to one.
+    [Fact]
+    public async Task Adjust_RemoveOneCopyOfLowercaseTypedBasic_RerendersElevenCopies()
+    {
+        CutLabState baseState = CreateAdjustmentState();
+        CutLabState state = baseState with
+        {
+            Pool = [.. baseState.Pool, new CutLabPoolCard { Name = "plains", Quantity = 12, TypeLine = "Basic Land — Plains" }],
+        };
+        int before = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments).Sum(c => c.Quantity);
+        var service = new AdjustmentStateAwareCutLabPageService();
+        var controller = CreateController(service);
+        var request = new CutLabRequest { CutLabStateJson = CutLabStateSerializer.Serialize(state) };
+
+        var result = await controller.Adjust(request, "plains", -1, false);
+
+        var view = Assert.IsType<ViewResult>(result);
+        Assert.Equal("CutLab", view.ViewName);
+        var model = Assert.IsType<CutLabViewModel>(view.Model);
+        Assert.Equal(before - 1, model.CardCount);
+        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        CutLabQuantityAdjustment adjustment = Assert.Single(updatedState.QuantityAdjustments);
+        Assert.Equal("plains", adjustment.Name);
+        Assert.Equal(-1, adjustment.Delta);
+    }
+
     [Fact]
     public async Task Adjust_AddBasic_RehydratesStateAndRerendersUpdatedCount()
     {

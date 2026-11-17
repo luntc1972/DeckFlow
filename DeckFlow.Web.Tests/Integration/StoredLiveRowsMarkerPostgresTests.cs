@@ -50,7 +50,7 @@ public sealed class StoredLiveRowsMarkerPostgresTests : IClassFixture<PostgresCo
 
         var rejectId = prefix + "-reject";
         await StoreAsync(repository, rejectId);
-        await repository.RejectUrlDeckAsync("archidekt_url:https://archidekt.com/decks/" + rejectId, rejectId, "Atraxa", null, DeckSkipReasons.NotCommanderFormat);
+        await repository.RejectUrlDeckAsync(ArchidektApiUrl.BuildUrlSource("https://archidekt.com/decks/" + rejectId), rejectId, "Atraxa", null, DeckSkipReasons.NotCommanderFormat);
         await AssertMarkerAsync(rejectId, 0L);
 
         var removeId = prefix + "-remove";

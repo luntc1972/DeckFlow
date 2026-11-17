@@ -85,6 +85,8 @@ public sealed class DeckPruningService
         while (!maxDecks.HasValue || removed < maxDecks.Value)
         {
             var candidates = await _repository.GetPurgeCandidatesAsync(cancellationToken).ConfigureAwait(false);
+            var archived = candidates.Count == 0;
+            if (archived) candidates = await _repository.GetArchivedPurgeCandidatesAsync(cancellationToken).ConfigureAwait(false);
             if (candidates.Count == 0) return new DeckPruningResult(removed, batches, DeckPruningStopReason.Completed);
             if (stopBeforeBatch?.Invoke() == true)
             {
@@ -98,7 +100,14 @@ public sealed class DeckPruningService
             if (freeBytes.Value < _options.MinFreeDiskBytes) return new DeckPruningResult(removed, batches, DeckPruningStopReason.DiskFloor);
             var take = Math.Min(_options.BatchSize, candidates.Count);
             if (maxDecks.HasValue) take = Math.Min(take, maxDecks.Value - removed);
-            await _repository.RemoveStoredDecksAsync(candidates.Take(take).ToArray(), cancellationToken).ConfigureAwait(false);
+            if (archived)
+            {
+                await _repository.RemoveArchivedDecksAsync(candidates.Take(take).ToArray(), cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await _repository.RemoveStoredDecksAsync(candidates.Take(take).ToArray(), cancellationToken).ConfigureAwait(false);
+            }
             removed += take;
             batches++;
             batchProgress?.Report(new(removed, batches));

@@ -788,7 +788,7 @@ public sealed class CategoryKnowledgeRepositoryTests : IDisposable
     public async Task GetCategoriesForNamesAsync_ManySubMinimumTags_PreservesQualifyingTags()
     {
         var sql = CardCategoryRepository.BuildCategoryLookupSql("IN @normalized");
-        var minFilter = sql.IndexOf("s.observation_rows >= @minObservationRows", StringComparison.Ordinal);
+        var minFilter = sql.IndexOf("s.observation_rows + s.archived_rows >= @minObservationRows", StringComparison.Ordinal);
         var subqueryEnd = sql.IndexOf(") s\n", StringComparison.Ordinal);
         Assert.InRange(minFilter, 0, subqueryEnd - 1);
 

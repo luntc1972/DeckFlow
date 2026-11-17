@@ -7,6 +7,7 @@ using DeckFlow.Web.Configuration;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.Harvest;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -18,6 +19,52 @@ namespace DeckFlow.Web.Tests;
 [Collection("CategoryKnowledgeStoreTests")]
 public sealed class CategoryKnowledgeStoreMaintenanceTests
 {
+    [Fact]
+    public async Task Drain_WithMaxDecksPerRun_StopsAtCap_NoOvershoot()
+    {
+        var store = await CreatePilotStoreAsync(5);
+
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain);
+
+        Assert.Equal(5, outcome.DecksAffected);
+        Assert.Equal("PerRunCapReached", outcome.StopReason.ToString());
+        Assert.Equal("per-run-cap-reached", HarvestMaintenanceStatusText.Describe(new HarvestMaintenanceStatus { State = HarvestMaintenanceRunState.Finished, StopReason = outcome.StopReason }, DateTimeOffset.UtcNow).State);
+        var status = HarvestMaintenanceStatusText.Describe(new HarvestMaintenanceStatus { State = HarvestMaintenanceRunState.Finished, Operation = HarvestMaintenanceOperation.Drain, StopReason = outcome.StopReason }, DateTimeOffset.UtcNow);
+        Assert.Equal("warning", status.Tone);
+        Assert.Contains("Stopped at the per-run deck cap", status.Headline);
+        var remaining = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain);
+        Assert.Equal(3, remaining.DecksAffected);
+        Assert.Equal(DeckPruningStopReason.Completed, remaining.StopReason);
+    }
+
+    [Fact]
+    public async Task MaxDecksPerRun_Zero_IsUnbounded()
+    {
+        var store = await CreatePilotStoreAsync(0);
+
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Drain);
+
+        Assert.Equal(8, outcome.DecksAffected);
+        Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
+    }
+
+    private static async Task<CategoryKnowledgeStore> CreatePilotStoreAsync(int cap)
+    {
+        var options = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["MaintenanceMaxDecksPerRun"] = cap.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        }).Build().Get<HarvestRetentionOptions>()!;
+        options.PerCommanderCap = 2;
+        options.BatchSize = 2;
+        options.MaintenanceChunkDecks = 3;
+        options.PauseMilliseconds = 0;
+        options.MinFreeDiskBytes = 0;
+        var store = CreateStore(options);
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDecksAsync(repository, 10, "Alpha", 0);
+        return store;
+    }
+
     [Fact]
     public async Task RunMaintenanceAsync_Drain_RemovesOverCapDecksAcrossChunks()
     {

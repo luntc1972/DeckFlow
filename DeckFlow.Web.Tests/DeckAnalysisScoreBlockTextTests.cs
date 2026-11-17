@@ -77,4 +77,28 @@ public sealed class DeckAnalysisScoreBlockTextTests
         Assert.DoesNotContain('–', block); // en dash
         Assert.All(block, ch => Assert.True(ch < 128, $"non-ASCII char U+{(int)ch:X4} in score block"));
     }
+
+    [Fact]
+    public void BuildScoreBlockText_PrintsFiredRulePerAxis()
+    {
+        var sample = Sample();
+        var score = sample with
+        {
+            PowerRationale = new DeckScoreRationale("power", "10+ Game Changers"),
+            SpeedRationale = new DeckScoreRationale("speed", "5+ fast mana"),
+            ControlRationale = new DeckScoreRationale("control", "8+ interaction"),
+            ConsistencyRationale = new DeckScoreRationale("consistency", "2+ tutors"),
+        };
+        var lines = DeckAnalysisPacketService.BuildScoreBlockText(score).Split(Environment.NewLine);
+        Assert.Equal("    rule: 10+ Game Changers", lines[2]);
+        Assert.Equal("    rule: 5+ fast mana", lines[4]);
+        Assert.Equal("    rule: 8+ interaction", lines[6]);
+        Assert.Equal("    rule: 2+ tutors", lines[8]);
+    }
+
+    [Fact]
+    public void BuildScoreBlockText_OmitsRuleLine_WhenRationaleHasNone()
+    {
+        Assert.DoesNotContain("rule:", DeckAnalysisPacketService.BuildScoreBlockText(Sample()));
+    }
 }

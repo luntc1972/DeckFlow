@@ -66,6 +66,24 @@ internal static class PacketByteIdentityFixtures
         "6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.",
         "7. Use the validated results for the remainder of the analysis.") + Environment.NewLine + Environment.NewLine;
 
+    /// <summary>
+    /// The ChatGPT-only heuristic-validation section the analysis variant emits when the prompt
+    /// carries a multi-axis score block.
+    /// Built with Environment.NewLine because the parity tests compare in-process builder output,
+    /// which is CRLF under Windows dotnet.exe and LF on CI.
+    /// </summary>
+    public static readonly string ChatGptHeuristicValidationBlockWithScore = string.Join(
+        Environment.NewLine,
+        "## HEURISTIC VALIDATION",
+        "Before beginning the analysis:",
+        "1. Validate every proposed combo.",
+        "2. Validate every interaction count.",
+        "3. Validate every tutor count.",
+        "4. Validate every fast mana source.",
+        "5. Validate the Power, Speed, Control, and Consistency scores against the actual deck.",
+        "6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.",
+        "7. Use the validated results for the remainder of the analysis.") + Environment.NewLine + Environment.NewLine;
+
     /// <summary>The 3 AI platforms every byte-identity suite sweeps (mirrors ResultContractTests.cs:25).</summary>
     public static readonly string[] AiPlatforms = [ChatGpt, Claude, Gemini];
 

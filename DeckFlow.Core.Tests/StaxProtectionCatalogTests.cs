@@ -39,4 +39,35 @@ public sealed class StaxProtectionCatalogTests
     {
         Assert.Equal(expected, StaxProtectionCatalog.IsProtection(name));
     }
+
+    // Why: Scryfall punctuation must match the curated stax spelling.
+    [Theory]
+    [InlineData("Thalia, Guardian of Thraben")]
+    [InlineData("THALIA, GUARDIAN OF THRABEN")]
+    [InlineData("Thalia Guardian of Thraben")]
+    [InlineData("Grand Arbiter Augustin IV")]
+    public void IsStax_ScryfallOrCaseVariant_ReturnsTrue(string name)
+    {
+        Assert.True(StaxProtectionCatalog.IsStax(name));
+    }
+
+    // Why: Protection lookups must accept pasted apostrophes and foil markers.
+    [Theory]
+    [InlineData("Teferi\u2019s Protection")]
+    [InlineData("Boros Charm *F*")]
+    [InlineData("veil of summer")]
+    public void IsProtection_PunctuationOrMarkerVariant_ReturnsTrue(string name)
+    {
+        Assert.True(StaxProtectionCatalog.IsProtection(name));
+    }
+
+    // Why: Normalized membership must preserve null and whitespace rejection.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("  ")]
+    public void IsStaxAndIsProtection_NullOrWhitespace_ReturnFalse(string? name)
+    {
+        Assert.False(StaxProtectionCatalog.IsStax(name!));
+        Assert.False(StaxProtectionCatalog.IsProtection(name!));
+    }
 }

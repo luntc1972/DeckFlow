@@ -1,3 +1,5 @@
+using DeckFlow.Core.Normalization;
+
 namespace DeckFlow.Web.Services.CutLab;
 
 /// <summary>Cut Lab legality helpers for cards that can appear in multiple copies.</summary>
@@ -5,19 +7,19 @@ public static class CutLabLegality
 {
     private const int LegalMultipleCap = 150;
 
-    private static readonly IReadOnlySet<string> AnyNumberNames =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
+    // Why: Cut Lab keeps raw typed pool names, so this list must match on the CardNormalizer key.
+    private static readonly NormalizedCardNameSet AnyNumberNames = new(
+        [
             "Persistent Petitioners",
             "Dragon's Approach",
             "Relentless Rats",
             "Rat Colony",
             "Shadowborn Apostle",
             "Slime Against Humanity",
-            "Templar Knights",
+            "Templar Knight",
             "Nazgûl",
             "Seven Dwarves",
-        };
+        ]);
 
     /// <summary>True when the provided card name can legally appear in multiple copies.</summary>
     /// <param name="cardName">Display card name.</param>

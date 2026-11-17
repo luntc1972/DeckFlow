@@ -428,7 +428,7 @@ public sealed class PostgresStorageTests : IClassFixture<PostgresContainerFixtur
         var unique = Guid.NewGuid().ToString("N");
         var deckId = $"pg-non-live-{unique}";
         var commander = $"Postgres Isolation {unique}";
-        var urlSource = $"archidekt_url:https://archidekt.com/decks/{unique}/test";
+        var urlSource = ArchidektApiUrl.BuildUrlSource($"https://archidekt.com/decks/{unique}/test");
         var edhrecCardName = $"Edhrec Test Card {unique}";
         var urlCardName = $"Url Test Card {unique}";
 

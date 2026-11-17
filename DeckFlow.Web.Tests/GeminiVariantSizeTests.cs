@@ -1,9 +1,11 @@
+using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CommanderCategoryNorms;
 using DeckFlow.Web.Services.PromptBuilders.Analysis;
+using DeckFlow.Web.Services.PromptBuilders.Bracket;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.MetaGap;
 using DeckFlow.Web.Services.PromptBuilders.Primer;
@@ -98,6 +100,66 @@ public sealed class GeminiVariantSizeTests
             enrichments: new AnalysisPromptEnrichments(CommanderCategoryNormsText: normsBlock));
 
         EmitMeasurement("analysis-max-norms", prompt.Length);
+        Assert.False(string.IsNullOrWhiteSpace(prompt));
+    }
+
+    [Fact]
+    public void GeminiAnalysis_ScoreOnWithMaxNorms_MeasuresPromptSize()
+    {
+        var normsBlock = CommanderCategoryNormsBlock.Build(
+            PacketByteIdentityFixtures.MaxCommanderCategoryNorms(),
+            multiCommanderDeck: true);
+        var scoreBlock = "DECK SCORE (coarse 0-5 bands - magnitude, not quality)\n"
+            + "  Power: 4/5 High (compact wins and efficient tutors)\n"
+            + "    rule: Compact wins and tutors increase power.\n"
+            + "  Speed: 4/5 High (fast mana and early threats)\n"
+            + "    rule: Fast mana accelerates the deck's plan.\n"
+            + "  Control: 3/5 Moderate (cheap interaction)\n"
+            + "    rule: Efficient answers support stack interaction.\n"
+            + "  Consistency: 4/5 High (draw and redundant tutors)\n"
+            + "    rule: Tutors and draw improve access to key cards.\n"
+            + "Cross-check: Consistent with the computed cEDH bracket.\n"
+            + "(These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)";
+        var classification = new BracketClassification(
+            5,
+            ["Demonic Tutor", "Vampiric Tutor", "Mystical Tutor", "Rhystic Study", "Underworld Breach"],
+            ["Armageddon"],
+            ["Time Warp"],
+            [
+                new TwoCardCombo(["Thassa's Oracle", "Demonic Consultation"], ["Win the game"]),
+                new TwoCardCombo(["Thassa's Oracle", "Tainted Pact"], ["Win the game"]),
+                new TwoCardCombo(["Isochron Scepter", "Dramatic Reversal"], ["Infinite mana"]),
+                new TwoCardCombo(["Heliod, Sun-Crowned", "Walking Ballista"], ["Infinite damage"]),
+                new TwoCardCombo(["Underworld Breach", "Lion's Eye Diamond", "Brain Freeze"], ["Mill the library"]),
+            ],
+            true,
+            "2026-11-16");
+        // Production passes the renderer output directly; the variant adds the facts framing.
+        var bracketFacts = BracketClassificationFactsRenderer.Render(
+            classification,
+            [new BracketTier(5, "cEDH", "Bracket 5", "Competitive decks", "Any turn", -1)]);
+        var variant = new GeminiAnalysisPromptVariant();
+        var prompt = variant.Build(
+            new DeckAnalysisRequest
+            {
+                Format = "Commander",
+                DeckName = "Kraum / Tymna cEDH Primer",
+                TargetCommanderBracket = "cEDH"
+            },
+            RepresentativeDecklistText(),
+            RepresentativeReferenceText(),
+            RepresentativeSchemaJson(),
+            "Kraum, Ludevic's Opus",
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            RepresentativeComboResult(),
+            includeCardVersions: false,
+            enrichments: new AnalysisPromptEnrichments(
+                ScoreBlockText: scoreBlock,
+                CommanderCategoryNormsText: normsBlock,
+                BracketFactsText: bracketFacts));
+
+        EmitMeasurement("analysis-score-on-max-norms", prompt.Length);
         Assert.False(string.IsNullOrWhiteSpace(prompt));
     }
 

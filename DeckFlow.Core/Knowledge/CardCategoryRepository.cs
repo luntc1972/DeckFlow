@@ -14,6 +14,15 @@ namespace DeckFlow.Core.Knowledge;
 /// </summary>
 internal sealed class CardCategoryRepository
 {
+    internal const int DeckArchiveLockClass = 717;
+
+    // Why: tests inject a transaction failure after archive subtraction has begun.
+    internal Action? UnarchiveFault { get; set; }
+    internal Action<System.Data.Common.DbConnection, System.Data.Common.DbTransaction>? FoldFault { get; set; }
+    internal Func<Task>? CategoryCountsRead { get; set; }
+    internal Func<Task>? UrlImportBeforeWrite { get; set; }
+    internal Func<Task>? FoldAfterArchiveLocks { get; set; }
+
     internal const string ArchidektLiveSourcePrefix = "archidekt_live:";
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
@@ -54,12 +63,18 @@ internal sealed class CardCategoryRepository
 
         var categories = await connection.QueryAsync<string>(new CommandDefinition(
             """
-            SELECT o.category
-            FROM card_category_observations o
-            JOIN cards c ON c.id = o.card_id
-            WHERE c.normalized_card_name = @normalized
-            GROUP BY o.category
-            ORDER BY LOWER(o.category), o.category
+            SELECT category FROM (
+                SELECT o.category
+                FROM card_category_observations o
+                JOIN cards c ON c.id = o.card_id
+                WHERE c.normalized_card_name = @normalized
+                UNION
+                SELECT a.category
+                FROM card_category_archive a
+                JOIN cards c ON c.id = a.card_id
+                WHERE c.normalized_card_name = @normalized
+            ) labels
+            ORDER BY LOWER(category), category
             """,
             new { normalized = CardNormalizer.Normalize(cardName) },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
@@ -152,9 +167,9 @@ internal sealed class CardCategoryRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
 
-        var rows = await connection.QueryAsync<CategoryDeckCountRow>(new CommandDefinition(
+        var rows = (await connection.QueryAsync<CategoryDeckCountRow>(new CommandDefinition(
             """
-            SELECT o.source_id AS SourceId, o.card_id AS CardId, o.board AS Board, o.category AS Category, SUM(o.deck_count) AS DeckCount
+            SELECT o.source_id AS SourceId, o.card_id AS CardId, o.board AS Board, o.category AS Category, SUM(o.deck_count) AS DeckCount, 0 AS IsArchive, 0 AS IncludedDeckCount, 0 AS FallbackDeckCount, 0 AS IncludedLabelRows
             FROM card_category_observations o
             JOIN cards c ON c.id = o.card_id
             JOIN card_deck_totals t
@@ -162,38 +177,28 @@ internal sealed class CardCategoryRepository
              AND t.card_id = o.card_id
              AND t.board = o.board
             WHERE c.normalized_card_name = @normalized
-            GROUP BY o.source_id, o.card_id, o.board, o.category;
+            GROUP BY o.source_id, o.card_id, o.board, o.category
+            UNION ALL
+            SELECT 0 AS SourceId, a.card_id AS CardId, a.board AS Board, a.canonical_category AS Category, 0 AS DeckCount,
+                   1 AS IsArchive, a.included_deck_count AS IncludedDeckCount, a.fallback_deck_count AS FallbackDeckCount, a.included_label_rows AS IncludedLabelRows
+            FROM card_category_deck_archive a JOIN cards c ON c.id = a.card_id
+            WHERE c.normalized_card_name = @normalized;
             """,
             new { normalized = CardNormalizer.Normalize(cardName) },
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
+            cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
 
-        // Why: aliases in one source/card/board grain represent the same decks, so take their maximum before summing grains.
-        var observedCategories = rows
-            .Select(row => row.Category)
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-        var includedCategories = new HashSet<string>(
-            CategoryFilter.IncludedOrFallback(observedCategories),
-            StringComparer.OrdinalIgnoreCase);
-
-        return rows
-            .Where(row => includedCategories.Contains(row.Category))
-            .GroupBy(row => new
+        if (CategoryCountsRead is { } afterRead) await afterRead();
+        return CategoryDeckCountAggregation.Read(
+            rows.Where(row => row.IsArchive == 0).Select(row => new CategoryDeckCountAggregation.LiveRow(row.SourceId, row.CardId, row.Board, row.Category, row.DeckCount)).ToArray(),
+            rows.Where(row => row.IsArchive == 1).Select(row => new CategoryDeckCountAggregation.ArchiveRow
             {
-                row.SourceId,
-                row.CardId,
-                row.Board,
-                CanonicalKey = CategoryCanonicalizer.CanonicalKey(row.Category)
-            })
-            .Select(group => new
-            {
-                group.Key.CanonicalKey,
-                DeckCount = group.Max(row => row.DeckCount)
-            })
-            .GroupBy(row => row.CanonicalKey, StringComparer.Ordinal)
-            .ToDictionary(
-                group => group.Key,
-                group => checked((int)group.Sum(row => row.DeckCount)),
-                StringComparer.Ordinal);
+                CardId = row.CardId,
+                CanonicalCategory = row.Category,
+                Board = row.Board,
+                IncludedDeckCount = row.IncludedDeckCount,
+                FallbackDeckCount = row.FallbackDeckCount,
+                IncludedLabelRows = row.IncludedLabelRows
+            }).ToArray());
     }
 
     /// <summary>
@@ -302,16 +307,16 @@ internal sealed class CardCategoryRepository
         => $"""
             SELECT s.normalized_card_name AS NormalizedCardName,
                    s.category AS Category,
-                   s.observation_rows AS ObservationRows
+                   s.observation_rows + s.archived_rows AS ObservationRows
             FROM (
-                SELECT c.normalized_card_name, s.card_id, s.category, s.observation_rows,
-                    MAX(s.observation_rows) OVER (PARTITION BY s.card_id) AS top_observation_rows
+                SELECT c.normalized_card_name, s.card_id, s.category, s.observation_rows, s.archived_rows,
+                    MAX(s.observation_rows + s.archived_rows) OVER (PARTITION BY s.card_id) AS top_observation_rows
                 FROM {summaryTable} s
                 JOIN cards c ON c.id = s.card_id
                 WHERE c.normalized_card_name {membershipOperator}
-                  AND s.observation_rows >= @minObservationRows
+                  AND s.observation_rows + s.archived_rows >= @minObservationRows
             ) s
-            WHERE CAST(s.observation_rows AS BIGINT) * @shareDenominator >= s.top_observation_rows
+            WHERE (CAST(s.observation_rows AS BIGINT) + s.archived_rows) * @shareDenominator >= s.top_observation_rows
             ORDER BY s.normalized_card_name, LOWER(s.category), s.category
             """;
 
@@ -336,6 +341,7 @@ internal sealed class CardCategoryRepository
     /// <param name="cardName">Card name to query.</param>
     /// <param name="boardFilter">Optional board name to filter the category rows.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
+    // Why: live-only; CategoryKnowledgeRepository has the single call site and no other caller consumes these rows.
     internal async Task<IReadOnlyList<CategoryKnowledgeRow>> GetCategoryRowsForCardAsync(string cardName, string? boardFilter = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(cardName);
@@ -580,6 +586,22 @@ internal sealed class CardCategoryRepository
                 return;
             }
 
+            if (_connectionInfo.IsPostgres)
+            {
+                foreach (var candidate in candidates.Where(row => reasons[row.Id] == DeckSkipReasons.Retention))
+                {
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "SELECT pg_advisory_xact_lock(@lockClass, @deckQueueId);",
+                        new { lockClass = DeckArchiveLockClass, deckQueueId = checked((int)candidate.Id) },
+                        transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                }
+            }
+
+            if (FoldAfterArchiveLocks is not null)
+            {
+                await FoldAfterArchiveLocks().ConfigureAwait(false);
+            }
+
             var candidateIds = candidates.Select(row => row.Id).ToArray();
             var sourceRows = (await connection.QueryAsync<StoredLiveSourceRow>(new CommandDefinition(
                 $"SELECT s.id AS SourceId, {IntegerProjection("s.deck_queue_id", "DeckQueueId", _connectionInfo.IsPostgres)} FROM sources s WHERE s.deck_queue_id {membership} AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix ORDER BY s.id" + (_connectionInfo.IsPostgres ? " FOR UPDATE;" : ";"),
@@ -598,20 +620,72 @@ internal sealed class CardCategoryRepository
             }
             var sourcesByDeck = sourceRows.GroupBy(row => row.DeckQueueId).ToDictionary(group => group.Key, group => group.Select(row => row.SourceId).ToArray());
             var coreHashes = new Dictionary<long, string?>();
+            var deltas = new CategoryWriteOrder();
             foreach (var candidate in candidates.Where(row => reasons[row.Id] == DeckSkipReasons.Retention))
             {
-                var sourceIds = sourcesByDeck[candidate.Id];
+                var sourceIds = sourcesByDeck.GetValueOrDefault(candidate.Id) ?? [];
+                if (sourceIds.Length != 1)
+                {
+                    throw new InvalidOperationException($"Deck {candidate.Id} has {sourceIds.Length} live sources; refusing to archive.");
+                }
                 var observations = await connection.QueryAsync<RetentionCoreObservationRow>(new CommandDefinition(
-                    $"SELECT c.normalized_card_name AS CardName, o.category AS Category, o.board AS Board, {IntegerProjection("o.count", "Quantity", _connectionInfo.IsPostgres)} FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE o.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
+                    $"SELECT {IntegerProjection("o.card_id", "CardId", _connectionInfo.IsPostgres)}, {IntegerProjection("o.source_id", "SourceId", _connectionInfo.IsPostgres)}, {IntegerProjection("o.deck_count", "DeckCount", _connectionInfo.IsPostgres)}, c.normalized_card_name AS CardName, o.category AS Category, o.board AS Board, {IntegerProjection("o.count", "Quantity", _connectionInfo.IsPostgres)} FROM card_category_observations o JOIN cards c ON c.id = o.card_id WHERE o.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
                     new { sourceIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 var totals = await connection.QueryAsync<RetentionCoreTotalRow>(new CommandDefinition(
-                    $"SELECT c.normalized_card_name AS CardName, t.board AS Board FROM card_deck_totals t JOIN cards c ON c.id = t.card_id WHERE t.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
+                    $"SELECT {IntegerProjection("t.card_id", "CardId", _connectionInfo.IsPostgres)}, {IntegerProjection("t.source_id", "SourceId", _connectionInfo.IsPostgres)}, {IntegerProjection("t.deck_count", "DeckCount", _connectionInfo.IsPostgres)}, c.normalized_card_name AS CardName, t.board AS Board FROM card_deck_totals t JOIN cards c ON c.id = t.card_id WHERE t.source_id {(_connectionInfo.IsPostgres ? "= ANY(@sourceIds)" : "IN @sourceIds")};",
                     new { sourceIds }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 coreHashes[candidate.Id] = DeckCategoryCacheWriter.ComputeCoreFingerprint(
                     observations.Select(row => (row.CardName, row.Category, row.Board, checked((int)row.Quantity))), totals.Select(row => (row.CardName, row.Board)));
+                foreach (var row in totals)
+                {
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "INSERT INTO card_deck_totals_archive (card_id, board, deck_count) VALUES (@CardId, @Board, @DeckCount) " +
+                        "ON CONFLICT(card_id, board) DO UPDATE SET deck_count = card_deck_totals_archive.deck_count + excluded.deck_count;",
+                        row, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                }
+                foreach (var row in observations)
+                {
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "INSERT INTO card_category_archive (card_id, category, board, raw_rows) VALUES (@CardId, @Category, @Board, 1) " +
+                        "ON CONFLICT(card_id, category, board) DO UPDATE SET raw_rows = card_category_archive.raw_rows + 1;",
+                        row, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                }
+                // Why: only observations with a matching totals grain participate in the live reader's JOIN.
+                var totalKeys = totals.Select(row => (row.SourceId, row.CardId, row.Board)).ToHashSet();
+                var contributions = CategoryDeckCountAggregation.Fold(observations
+                    .Where(row => totalKeys.Contains((row.SourceId, row.CardId, row.Board)))
+                    .Select(row => new CategoryDeckCountAggregation.LiveRow(row.SourceId, row.CardId, row.Board, row.Category, row.DeckCount)));
+                foreach (var row in contributions)
+                {
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "INSERT INTO card_category_deck_archive (card_id, canonical_category, board, included_deck_count, fallback_deck_count, included_label_rows) " +
+                        "VALUES (@CardId, @CanonicalCategory, @Board, @IncludedDeckCount, @FallbackDeckCount, @IncludedLabelRows) " +
+                        "ON CONFLICT(card_id, canonical_category, board) DO UPDATE SET " +
+                        "included_deck_count = card_category_deck_archive.included_deck_count + excluded.included_deck_count, " +
+                        "fallback_deck_count = card_category_deck_archive.fallback_deck_count + excluded.fallback_deck_count, " +
+                        "included_label_rows = card_category_deck_archive.included_label_rows + excluded.included_label_rows;",
+                        new { row.CardId, row.CanonicalCategory, row.Board, row.IncludedDeckCount, row.FallbackDeckCount, row.IncludedLabelRows },
+                        transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                }
+                foreach (var row in observations)
+                {
+                    deltas.AddArchived(row.CardId, row.Category, 1);
+                }
+                var manifest = new DeckCategoryArchiveManifest(
+                    observations.Select(row => (row.CardId, row.Category, row.Board, checked((int)row.DeckCount))).ToArray(),
+                    totals.Select(row => (row.CardId, row.Board, checked((int)row.DeckCount))).ToArray(), contributions);
+                await connection.ExecuteAsync(new CommandDefinition(
+                    "INSERT INTO deck_category_archive_manifest (deck_queue_id, archived_utc, format_version, payload) " +
+                    "VALUES (@deckQueueId, @archivedUtc, @formatVersion, @payload);",
+                    new
+                    {
+                        deckQueueId = candidate.Id,
+                        archivedUtc = DateTimeOffset.UtcNow.ToString("O"),
+                        formatVersion = DeckCategoryArchiveManifest.FormatVersion,
+                        payload = manifest.Encode()
+                    }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
             }
 
-            var deltas = new CategoryWriteOrder();
             foreach (var source in sourceRows.OrderBy(row => row.SourceId))
             {
                 await DeleteCategoryObservationsForSourceAsync(connection, transaction, source.SourceId, deltas, cancellationToken);
@@ -619,6 +693,7 @@ internal sealed class CardCategoryRepository
             }
 
             await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+            FoldFault?.Invoke(connection, transaction);
             foreach (var candidate in candidates)
             {
                 var reason = reasons[candidate.Id];
@@ -680,6 +755,75 @@ internal sealed class CardCategoryRepository
             await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId }, _connectionInfo.IsPostgres, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }, _schema.Logger, cancellationToken);
+    }
+
+    /// <summary>
+    /// Persists URL-import observations atomically, refusing decks already archived by retention.
+    /// </summary>
+    public async Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string archidektDeckId, string source, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
+        var result = new UrlImportPersistResult(false);
+        await DeadlockRetry.ExecuteAsync(async () =>
+        {
+            await using var connection = CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var deckQueueId = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
+                "SELECT id FROM deck_queue WHERE deck_id = @archidektDeckId;",
+                new { archidektDeckId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (deckQueueId is not null)
+            {
+                await LockArchiveAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+                var archived = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                    "SELECT COUNT(*) FROM deck_category_archive_manifest WHERE deck_queue_id = @deckQueueId;",
+                    new { deckQueueId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                if (archived != 0)
+                {
+                    result = new UrlImportPersistResult(true);
+                    return;
+                }
+            }
+
+            if (UrlImportBeforeWrite is not null)
+            {
+                await UrlImportBeforeWrite().ConfigureAwait(false);
+            }
+
+            var counts = new Dictionary<(string CardName, string Category, string Board), int>();
+            foreach (var entry in entries)
+            {
+                foreach (var category in CategoryKnowledgeReporter.SplitCategories(entry.Category))
+                {
+                    var key = (entry.Name, category, NormalizeBoard(entry.Board));
+                    counts[key] = counts.TryGetValue(key, out var existing) ? existing + entry.Quantity : entry.Quantity;
+                }
+            }
+            var observations = counts.Where(item => !string.IsNullOrWhiteSpace(item.Key.CardName) && item.Value > 0).ToArray();
+            if (!string.IsNullOrWhiteSpace(source) && observations.Length > 0)
+            {
+                // Why: URL sources stay independent of listing sources and must never invoke unarchive on resolution.
+                var sourceId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                    "INSERT INTO sources (source) VALUES (@source) ON CONFLICT(source) DO UPDATE SET source = excluded.source RETURNING id;",
+                    new { source }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                var cardIds = await ResolveCardIdsAsync(connection, transaction, observations.Select(item => item.Key.CardName).ToArray(), cancellationToken);
+                var deltas = new CategoryWriteOrder();
+                var lastSeenUtc = DateTime.UtcNow;
+                foreach (var item in observations.OrderBy(item => cardIds[CardNormalizer.Normalize(item.Key.CardName)])
+                             .ThenBy(item => item.Key.Category, StringComparer.Ordinal)
+                             .ThenBy(item => item.Key.Board, StringComparer.Ordinal))
+                {
+                    await UpsertCategoryObservationAsync(connection, transaction, sourceId,
+                        cardIds[CardNormalizer.Normalize(item.Key.CardName)], item.Key.CardName, item.Key.Category,
+                        item.Key.Board, item.Value, 1, lastSeenUtc, deltas, cancellationToken);
+                }
+                await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+                await DeckQueueRepository.RecomputeStoredLiveRowsMarkerForSourcesAsync(connection, transaction, new[] { sourceId }, _connectionInfo.IsPostgres, cancellationToken);
+            }
+            await transaction.CommitAsync(cancellationToken);
+        }, _schema.Logger, cancellationToken);
+        return result;
     }
 
     /// <summary>
@@ -783,6 +927,15 @@ internal sealed class CardCategoryRepository
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
             var validObservations = observations.Where(row => !string.IsNullOrWhiteSpace(row.CardName) && row.Quantity > 0).ToArray();
             var validTotals = cardBoardTotals.Where(row => !string.IsNullOrWhiteSpace(row.CardName)).ToArray();
+            if (validObservations.Length == 0 && validTotals.Length == 0)
+            {
+                var deckQueueId = await ResolveDeckQueueIdForSourceAsync(connection, transaction, source, cancellationToken);
+                if (deckQueueId is not null)
+                {
+                    await LockArchiveAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+                    await UnarchiveDeckAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+                }
+            }
             var sourceId = validObservations.Length == 0 && validTotals.Length == 0
                 ? await ResolveSourceIdForWriteAsync(connection, transaction, source, cancellationToken)
                 : await ResolveSourceIdAsync(connection, transaction, source, cancellationToken);
@@ -852,6 +1005,14 @@ internal sealed class CardCategoryRepository
             await using var connection = CreateConnection();
             await connection.OpenAsync(cancellationToken);
             await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var deckQueueId = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
+                "SELECT id FROM deck_queue WHERE deck_id = @deckId;",
+                new { deckId = contentHashWrite.DeckId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            if (deckQueueId is not null)
+            {
+                await LockArchiveAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+                await UnarchiveDeckAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+            }
             var deltas = new CategoryWriteOrder();
             var sourceIds = new List<long>();
             foreach (var source in sources.Where(source => !string.IsNullOrWhiteSpace(source)).Distinct(StringComparer.Ordinal))
@@ -893,7 +1054,11 @@ internal sealed class CardCategoryRepository
         var rows = await connection.QueryAsync<BoardDeckTotalRow>(new CommandDefinition(
             $"""
             SELECT t.board, SUM(t.deck_count) AS total
-            FROM card_deck_totals t
+            FROM (
+                SELECT card_id, board, deck_count FROM card_deck_totals
+                UNION ALL
+                SELECT card_id, board, deck_count FROM card_deck_totals_archive
+            ) t
             JOIN cards c ON c.id = t.card_id
             WHERE c.normalized_card_name = @normalized
             {filterClause}
@@ -985,6 +1150,127 @@ internal sealed class CardCategoryRepository
         return ids;
     }
 
+    private async Task LockArchiveAsync(DbConnection connection, DbTransaction transaction, long deckQueueId, CancellationToken cancellationToken)
+    {
+        if (_connectionInfo.IsPostgres)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "SELECT pg_advisory_xact_lock(@lockClass, @deckQueueId);",
+                new { lockClass = DeckArchiveLockClass, deckQueueId = checked((int)deckQueueId) },
+                transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<bool> UnarchiveDeckAsync(DbConnection connection, DbTransaction transaction, long deckQueueId, CancellationToken cancellationToken)
+    {
+        var stored = await connection.QuerySingleOrDefaultAsync<ArchiveManifestRow>(new CommandDefinition(
+            "SELECT format_version AS FormatVersion, payload AS Payload FROM deck_category_archive_manifest WHERE deck_queue_id = @deckQueueId;",
+            new { deckQueueId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        if (stored is null)
+        {
+            return false;
+        }
+        var manifest = DeckCategoryArchiveManifest.Decode(stored.FormatVersion, stored.Payload);
+        foreach (var row in manifest.Totals.OrderBy(row => row.CardId).ThenBy(row => row.Board, StringComparer.Ordinal))
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "UPDATE card_deck_totals_archive SET deck_count = deck_count - @DeckCount WHERE card_id = @CardId AND board = @Board; " +
+                "DELETE FROM card_deck_totals_archive WHERE card_id = @CardId AND board = @Board AND deck_count <= 0;",
+                new { row.CardId, row.Board, row.DeckCount }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+        UnarchiveFault?.Invoke();
+        var deltas = new CategoryWriteOrder();
+        foreach (var row in manifest.Observations.OrderBy(row => row.CardId).ThenBy(row => row.Category, StringComparer.Ordinal).ThenBy(row => row.Board, StringComparer.Ordinal))
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "UPDATE card_category_archive SET raw_rows = raw_rows - 1 WHERE card_id = @CardId AND category = @Category AND board = @Board; " +
+                "DELETE FROM card_category_archive WHERE card_id = @CardId AND category = @Category AND board = @Board AND raw_rows <= 0;",
+                new { row.CardId, row.Category, row.Board }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            deltas.AddArchived(row.CardId, row.Category, -1);
+        }
+        foreach (var row in manifest.Contributions.OrderBy(row => row.CardId).ThenBy(row => row.CanonicalCategory, StringComparer.Ordinal).ThenBy(row => row.Board, StringComparer.Ordinal))
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "UPDATE card_category_deck_archive SET included_deck_count = included_deck_count - @IncludedDeckCount, " +
+                "fallback_deck_count = fallback_deck_count - @FallbackDeckCount, included_label_rows = included_label_rows - @IncludedLabelRows " +
+                "WHERE card_id = @CardId AND canonical_category = @CanonicalCategory AND board = @Board; " +
+                "DELETE FROM card_category_deck_archive WHERE card_id = @CardId AND canonical_category = @CanonicalCategory AND board = @Board " +
+                "AND included_deck_count <= 0 AND fallback_deck_count <= 0 AND included_label_rows <= 0;",
+                new { row.CardId, row.CanonicalCategory, row.Board, row.IncludedDeckCount, row.FallbackDeckCount, row.IncludedLabelRows },
+                transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        }
+        await ApplySummaryDeltasAsync(connection, transaction, deltas, cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM deck_category_archive_manifest WHERE deck_queue_id = @deckQueueId;",
+            new { deckQueueId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return true;
+    }
+
+    private sealed class ArchiveManifestRow
+    {
+        public int FormatVersion { get; init; }
+
+        public byte[] Payload { get; init; } = [];
+    }
+
+    internal async Task RemoveArchivedDecksAsync(IReadOnlyList<(long DeckQueueId, string SkipReason)> decks, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(decks);
+        var ids = new HashSet<long>();
+        foreach (var deck in decks)
+        {
+            if (deck.SkipReason is not (DeckSkipReasons.NotCommanderFormat or DeckSkipReasons.NoCommander))
+                throw new ArgumentException($"Unsupported skip reason: {deck.SkipReason}", nameof(decks));
+            if (!ids.Add(deck.DeckQueueId))
+                throw new ArgumentException($"Duplicate deck queue ID: {deck.DeckQueueId}", nameof(decks));
+        }
+        if (decks.Count == 0)
+        {
+            return;
+        }
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await _schema.EnsureCardCategoryQualifiedBackfilledAsync(cancellationToken);
+        await DeadlockRetry.ExecuteAsync(async () =>
+        {
+            await using var connection = CreateConnection();
+            await connection.OpenAsync(cancellationToken);
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            var ordered = decks.OrderBy(row => row.DeckQueueId).ToArray();
+            foreach (var deck in ordered)
+            {
+                await LockArchiveAsync(connection, transaction, deck.DeckQueueId, cancellationToken);
+            }
+            var commanders = new List<string>();
+            foreach (var deck in ordered)
+            {
+                if (!await UnarchiveDeckAsync(connection, transaction, deck.DeckQueueId, cancellationToken))
+                {
+                    continue;
+                }
+                var commander = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+                    "SELECT commander_name FROM deck_queue WHERE id = @id;",
+                    new { id = deck.DeckQueueId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                if (commander is not null)
+                {
+                    commanders.Add(commander);
+                }
+                var changed = await connection.ExecuteAsync(new CommandDefinition(
+                    "UPDATE deck_queue SET processed = 1, skipped = 1, skip_reason = @reason, content_hash = NULL, retention_core_hash = NULL " +
+                    "WHERE id = @id AND NOT (processed = 0 AND skipped = 0);",
+                    new { id = deck.DeckQueueId, reason = deck.SkipReason }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                if (changed == 0)
+                {
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "UPDATE deck_queue SET content_hash = NULL, retention_core_hash = NULL WHERE id = @id AND processed = 0 AND skipped = 0;",
+                        new { id = deck.DeckQueueId }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                }
+            }
+            await DeckQueueRepository.RefreshCommanderSummaryAsync(connection, transaction, commanders, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+            await DeckQueueRepository.RecomputeStoredLiveRowsMarkerAsync(connection, transaction, ordered.Select(row => row.DeckQueueId).ToArray(), _connectionInfo.IsPostgres, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }, _schema.Logger, cancellationToken);
+    }
+
     private async Task<long?> ResolveSourceIdForWriteAsync(
         DbConnection connection, DbTransaction transaction, string source, CancellationToken cancellationToken)
     {
@@ -1008,13 +1294,18 @@ internal sealed class CardCategoryRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
-    private static async Task<long> ResolveSourceIdAsync(
+    private async Task<long> ResolveSourceIdAsync(
         DbConnection connection,
         DbTransaction transaction,
         string source,
         CancellationToken cancellationToken)
     {
         var deckQueueId = await ResolveDeckQueueIdForSourceAsync(connection, transaction, source, cancellationToken);
+        if (deckQueueId is not null)
+        {
+            await LockArchiveAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+            await UnarchiveDeckAsync(connection, transaction, deckQueueId.Value, cancellationToken);
+        }
         return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
             """
             INSERT INTO sources (source, deck_queue_id)
@@ -1132,27 +1423,17 @@ internal sealed class CardCategoryRepository
     private static async Task ApplySummaryDeltasAsync(
         DbConnection connection, DbTransaction transaction, CategoryWriteOrder deltas, CancellationToken cancellationToken)
     {
-        foreach (var (cardId, category, delta) in deltas.Deltas())
+        foreach (var (cardId, category, delta, archivedDelta) in deltas.SummaryDeltas())
         {
-            if (delta > 0)
-            {
-                var observationRows = await connection.QuerySingleAsync<int>(new CommandDefinition(
-                    "INSERT INTO card_category_summary (card_id, category, observation_rows) VALUES (@cardId, @category, @delta) " +
-                    "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = card_category_summary.observation_rows + @delta " +
-                    "RETURNING observation_rows;",
-                    new { cardId, category, delta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                await ApplyQualifiedSummaryRowAsync(connection, transaction, cardId, category, observationRows, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                var observationRows = await connection.QuerySingleOrDefaultAsync<int?>(new CommandDefinition(
-                    "UPDATE card_category_summary SET observation_rows = observation_rows + @delta WHERE card_id = @cardId AND category = @category RETURNING observation_rows;",
-                    new { cardId, category, delta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                await connection.ExecuteAsync(new CommandDefinition(
-                    "DELETE FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows <= 0;",
-                    new { cardId, category }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-                await ApplyQualifiedSummaryRowAsync(connection, transaction, cardId, category, observationRows, cancellationToken).ConfigureAwait(false);
-            }
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO card_category_summary (card_id, category, observation_rows, archived_rows) VALUES (@cardId, @category, @delta, @archivedDelta) " +
+                "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = card_category_summary.observation_rows + @delta, " +
+                "archived_rows = card_category_summary.archived_rows + @archivedDelta;",
+                new { cardId, category, delta, archivedDelta }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await connection.ExecuteAsync(new CommandDefinition(
+                "DELETE FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows + archived_rows <= 0;",
+                new { cardId, category }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            await ApplyQualifiedSummaryRowAsync(connection, transaction, cardId, category, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -1161,21 +1442,18 @@ internal sealed class CardCategoryRepository
         DbTransaction transaction,
         long cardId,
         string category,
-        int? observationRows,
         CancellationToken cancellationToken)
     {
-        if (observationRows >= CategoryCacheSchema.DefaultMinObservationRows)
-        {
-            await connection.ExecuteAsync(new CommandDefinition(
-                "INSERT INTO card_category_qualified (card_id, category, observation_rows) VALUES (@cardId, @category, @observationRows) " +
-                "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = excluded.observation_rows;",
-                new { cardId, category, observationRows }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
-            return;
-        }
-
         await connection.ExecuteAsync(new CommandDefinition(
-            "DELETE FROM card_category_qualified WHERE card_id = @cardId AND category = @category;",
-            new { cardId, category }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+            "INSERT INTO card_category_qualified (card_id, category, observation_rows, archived_rows) " +
+            "SELECT card_id, category, observation_rows, archived_rows FROM card_category_summary " +
+            "WHERE card_id = @cardId AND category = @category AND observation_rows + archived_rows >= @minRows " +
+            "ON CONFLICT(card_id, category) DO UPDATE SET observation_rows = excluded.observation_rows, archived_rows = excluded.archived_rows;",
+            new { cardId, category, minRows = CategoryCacheSchema.DefaultMinObservationRows }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM card_category_qualified WHERE card_id = @cardId AND category = @category AND NOT EXISTS " +
+            "(SELECT 1 FROM card_category_summary WHERE card_id = @cardId AND category = @category AND observation_rows + archived_rows >= @minRows);",
+            new { cardId, category, minRows = CategoryCacheSchema.DefaultMinObservationRows }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     private static async Task UpsertCardDeckTotalAsync(
@@ -1260,9 +1538,9 @@ internal sealed class CardCategoryRepository
 
     private sealed record StoredLiveSourceRow(long SourceId, long DeckQueueId);
 
-    private sealed record RetentionCoreObservationRow(string CardName, string Category, string Board, long Quantity);
+    private sealed record RetentionCoreObservationRow(long CardId, long SourceId, long DeckCount, string CardName, string Category, string Board, long Quantity);
 
-    private sealed record RetentionCoreTotalRow(string CardName, string Board);
+    private sealed record RetentionCoreTotalRow(long CardId, long SourceId, long DeckCount, string CardName, string Board);
 
     private DbConnection CreateConnection() => _connectionInfo.CreateConnection();
 
@@ -1294,6 +1572,10 @@ internal sealed class CardCategoryRepository
     /// <summary>Maps persisted source, card, board, and category counts returned from category queries.</summary>
     private sealed class CategoryDeckCountRow
     {
+        public int IsArchive { get; init; }
+        public long IncludedDeckCount { get; init; }
+        public long FallbackDeckCount { get; init; }
+        public long IncludedLabelRows { get; init; }
         public long SourceId { get; init; }
         public long CardId { get; init; }
         public string Board { get; init; } = string.Empty;

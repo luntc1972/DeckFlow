@@ -1391,6 +1391,9 @@ public sealed class CutLabAnalysisContextBuilderTests
         public Task<IReadOnlyDictionary<string, IReadOnlyList<string>>> GetCategoriesForNamesAsync(IReadOnlyCollection<string> cardNames, CancellationToken cancellationToken = default)
             => Task.FromException<IReadOnlyDictionary<string, IReadOnlyList<string>>>(exception);
 
+        public Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> entries, CancellationToken cancellationToken = default)
+            => throw exception;
+
         public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 

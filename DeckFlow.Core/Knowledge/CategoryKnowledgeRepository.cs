@@ -1,3 +1,4 @@
+using DeckFlow.Core.Models;
 using Microsoft.Extensions.Logging;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Core.Storage;
@@ -17,6 +18,9 @@ public sealed class CategoryKnowledgeRepository
     private readonly CategoryCacheSchema _schema;
     private readonly DeckQueueRepository _deckQueue;
     private readonly CardCategoryRepository _cardCategory;
+
+    internal Task RemoveArchivedDecksAsync(IReadOnlyList<(long DeckQueueId, string SkipReason)> decks, CancellationToken cancellationToken = default)
+        => _cardCategory.RemoveArchivedDecksAsync(decks, cancellationToken);
 
     /// <summary>
     /// Initializes the repository for the provided SQLite database path.
@@ -160,6 +164,9 @@ public sealed class CategoryKnowledgeRepository
     internal Task<IReadOnlyList<(long DeckQueueId, string SkipReason)>> GetPurgeCandidatesAsync(CancellationToken cancellationToken = default)
         => _deckQueue.GetPurgeCandidatesAsync(cancellationToken);
 
+    internal Task<IReadOnlyList<(long DeckQueueId, string SkipReason)>> GetArchivedPurgeCandidatesAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.GetArchivedPurgeCandidatesAsync(cancellationToken);
+
     internal Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
         => _deckQueue.CountPurgeCandidatesAsync(cancellationToken);
 
@@ -269,6 +276,12 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task PersistObservedCategoriesAsync(string source, string cardName, IReadOnlyList<string> categories, int quantity = 1, string board = "mainboard", int deckCountIncrement = 0, CancellationToken cancellationToken = default)
         => _cardCategory.PersistObservedCategoriesAsync(source, cardName, categories, quantity, board, deckCountIncrement, cancellationToken);
+
+    /// <summary>
+    /// Persists URL-import observations atomically unless the deck is archived.
+    /// </summary>
+    public Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string archidektDeckId, string source, IReadOnlyList<DeckEntry> entries, CancellationToken cancellationToken = default)
+        => _cardCategory.PersistUrlImportDeckAsync(archidektDeckId, source, entries, cancellationToken);
 
     /// <summary>
     /// Persists the number of decks that contain the given card on the specified board.

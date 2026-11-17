@@ -126,15 +126,40 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
 
         if (operation is not HarvestMaintenanceOperation.Drain and not HarvestMaintenanceOperation.Purge and not HarvestMaintenanceOperation.Backfill) throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
         ILogger logger = _logger is null ? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance : _logger;
+        var removed = 0;
         var outcome = await HarvestMaintenanceChunkLoop.RunAsync(
             operation,
             _sweepGate,
             _retentionOptions.MaintenanceChunkDecks,
-            (deckCount, batchProgress, stop, token) => operation switch
+            async (deckCount, batchProgress, stop, token) =>
             {
-                HarvestMaintenanceOperation.Drain => _deckPruningService.RunRetentionAsync(deckCount, batchProgress, stop, token),
-                HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, batchProgress, stop, token),
-                _ => _markerBackfillService.RunAsync(deckCount, batchProgress, stop, token)
+                if (operation == HarvestMaintenanceOperation.Drain)
+                {
+                    if (_retentionOptions.MaintenanceMaxDecksPerRun > 0)
+                    {
+                        var remaining = _retentionOptions.MaintenanceMaxDecksPerRun - removed;
+                        deckCount = Math.Min(deckCount, remaining);
+                    }
+                    var result = await _deckPruningService.RunRetentionAsync(deckCount, batchProgress, stop, token).ConfigureAwait(false);
+                    removed += result.DecksRemoved;
+                    if (_retentionOptions.MaintenanceMaxDecksPerRun > 0 && removed >= _retentionOptions.MaintenanceMaxDecksPerRun &&
+                        result.StopReason is DeckPruningStopReason.MaxDecksReached or DeckPruningStopReason.Completed)
+                    {
+                        var excess = await _repository.CountRetentionExcessAsync(_retentionOptions.PerCommanderCap, token).ConfigureAwait(false);
+                        if (excess > 0)
+                        {
+                            logger.LogInformation("Harvest.Maintenance.RunCapReached cap={Cap}", _retentionOptions.MaintenanceMaxDecksPerRun);
+                            return result with { StopReason = DeckPruningStopReason.PerRunCapReached };
+                        }
+                        return result with { StopReason = DeckPruningStopReason.Completed };
+                    }
+                    return result;
+                }
+                return await (operation switch
+                {
+                    HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, batchProgress, stop, token),
+                    _ => _markerBackfillService.RunAsync(deckCount, batchProgress, stop, token)
+                }).ConfigureAwait(false);
             },
             progress,
             logger,
@@ -226,6 +251,18 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 elapsedMs,
                 nameCount),
             cancellationToken: cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<UrlImportPersistResult> PersistUrlImportDeckAsync(string url, IReadOnlyList<DeckFlow.Core.Models.DeckEntry> entries, CancellationToken cancellationToken = default)
+    {
+        if (!ArchidektApiUrl.TryGetDeckId(url, out var deckId))
+        {
+            throw new ArgumentException("Invalid Archidekt deck URL.", nameof(url));
+        }
+
+        await EnsureSchemaReadyAsync(cancellationToken);
+        return await _repository.PersistUrlImportDeckAsync(deckId, ArchidektApiUrl.BuildUrlSource(url), entries, cancellationToken);
     }
 
     /// <summary>

@@ -11,6 +11,18 @@ namespace DeckFlow.Web.Tests;
 public sealed class HarvestRetentionOptionsTests
 {
     [Fact]
+    public void MaxDecksPerRun_DefaultBindAndRange()
+    {
+        Assert.Equal(0, new HarvestRetentionOptions().MaintenanceMaxDecksPerRun);
+
+        using var validProvider = CreateProvider(new Dictionary<string, string?> { ["HarvestRetention:MaintenanceMaxDecksPerRun"] = "100" });
+        Assert.Equal(100, validProvider.GetRequiredService<IOptions<HarvestRetentionOptions>>().Value.MaintenanceMaxDecksPerRun);
+
+        using var invalidProvider = CreateProvider(new Dictionary<string, string?> { ["HarvestRetention:MaintenanceMaxDecksPerRun"] = "-1" });
+        Assert.Throws<OptionsValidationException>(() => invalidProvider.GetRequiredService<IOptions<HarvestRetentionOptions>>().Value);
+    }
+
+    [Fact]
     public void MaintenanceChunkDecks_DefaultBindAndRange()
     {
         Assert.Equal(HarvestRetentionOptions.DefaultMaintenanceChunkDecks, new HarvestRetentionOptions().MaintenanceChunkDecks);

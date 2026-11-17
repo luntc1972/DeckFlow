@@ -6,6 +6,13 @@ namespace DeckFlow.Core.Integration;
 public static class ArchidektApiUrl
 {
     /// <summary>
+    /// Builds the source label used to persist or reject an Archidekt URL import.
+    /// </summary>
+    /// <param name="url">The original import URL, preserved verbatim.</param>
+    /// <returns>The source label for the URL import.</returns>
+    public static string BuildUrlSource(string url) => $"archidekt_url:{url}";
+
+    /// <summary>
     /// Tries to extract a deck identifier from an Archidekt URL or raw identifier.
     /// </summary>
     /// <param name="input">Archidekt deck URL or raw identifier text.</param>
