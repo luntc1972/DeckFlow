@@ -7,6 +7,51 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabPlanAffinityFactoryTests
 {
     [Fact]
+    public async Task BuildAsync_OutOfOrderFetches_PreservesResultsAndBoundsConcurrency()
+    {
+        var themes = Enumerable.Range(0, 5).Select(index => Theme($"theme-{index}", $"Theme {index}")).ToArray();
+        var releases = themes.Select(_ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).ToArray();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+        var service = new FakeEdhrecCommanderThemeService
+        {
+            ThemesResult = new(themes, false),
+            CardsBySlug = themes.ToDictionary(theme => theme.Slug, _ => (IReadOnlyList<string>)["Member"]),
+            BeforeThemeFetch = async slug =>
+            {
+                int index = Array.FindIndex(themes, theme => theme.Slug == slug);
+                if (Interlocked.Increment(ref calls) == 4)
+                {
+                    started.TrySetResult();
+                }
+
+                await releases[index].Task;
+            },
+        };
+        var profile = Profile(themes: [themes[0], themes[1]]);
+        var cards = new[] { Card("Member"), Card("Other") };
+        var pending = new CutLabPlanAffinityFactory(service).BuildAsync(profile, cards, ["Atraxa"]);
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(4, Volatile.Read(ref calls));
+            Assert.False(pending.IsCompleted);
+        }
+        finally
+        {
+            for (int index = releases.Length - 1; index >= 0; index--)
+            {
+                releases[index].TrySetResult();
+            }
+        }
+
+        var result = await pending;
+        var expected = CutLabPlanAffinityResolver.ResolveAll(cards, profile, service.CardsBySlug, themes);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(expected), System.Text.Json.JsonSerializer.Serialize(result.Affinities));
+        Assert.Equal(themes.Select(theme => theme.Slug), service.ThemeCardCalls.Select(call => call.ThemeSlug));
+    }
+
+    [Fact]
     public async Task BuildAsync_CheckedThemeFetchSucceeds_ReportsThemesAvailableAndMarksOnlyThemeMembers()
     {
         var themeService = new FakeEdhrecCommanderThemeService
@@ -349,6 +394,8 @@ internal sealed class FakeEdhrecCommanderThemeService : IEdhrecCommanderThemeSer
 
     public bool BlockThemeFetch { get; set; }
 
+    public Func<string, Task>? BeforeThemeFetch { get; set; }
+
     public Task<EdhrecThemeResult> GetCommanderThemesAsync(string commanderName, CancellationToken cancellationToken = default)
     {
         CommanderThemeCalls.Add(commanderName);
@@ -358,6 +405,10 @@ internal sealed class FakeEdhrecCommanderThemeService : IEdhrecCommanderThemeSer
     public async Task<EdhrecThemeCardNamesResult> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
     {
         ThemeCardCalls.Add((commanderName, themeSlug));
+        if (BeforeThemeFetch is not null)
+        {
+            await BeforeThemeFetch(themeSlug);
+        }
         if (BlockThemeFetch || (BlockAfterFirstThemeFetch && ThemeCardCalls.Count > 1))
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);

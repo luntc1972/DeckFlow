@@ -16,6 +16,34 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "deckflow-edhrec-tests", Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public async Task GetThemeCardNamesAsync_ConcurrentSameTheme_SharesFetchAndIsolatesWaiterCancellation()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new RecordingHandler(Response(HttpStatusCode.OK, """{"container":{"json_dict":{"cardlists":[]}}}"""))
+        {
+            BeforeResponse = release.Task,
+        };
+        var service = CreateService(handler);
+        using var cancellation = new CancellationTokenSource();
+        var first = service.GetThemeCardNamesAsync("Atraxa", "counters", cancellation.Token);
+        await handler.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var second = service.GetThemeCardNamesAsync("Atraxa", "counters");
+        try
+        {
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+            Assert.Equal(1, handler.CallCount);
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+
+        Assert.True((await second).Succeeded);
+        Assert.Equal(1, handler.CallCount);
+    }
+
+    [Fact]
     public async Task GetCommanderThemesAsync_SuccessfulFetch_ParsesTaglinksOrderedByDeckCount()
     {
         var handler = new RecordingHandler(Response(HttpStatusCode.OK, Taglinks(("zeta", "Zeta", 4), ("alpha", "Alpha", 9))));
@@ -343,14 +371,22 @@ public sealed class EdhrecCommanderThemeServiceTests : IDisposable
     {
         private readonly Queue<HttpResponseMessage> _responses = new(responses);
         public int CallCount { get; private set; }
+        public Task? BeforeResponse { get; init; }
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public List<(Uri? Uri, string? IfNoneMatch)> Requests { get; } = [];
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             CallCount++;
+            Started.TrySetResult();
             Requests.Add((request.RequestUri, request.Headers.IfNoneMatch.FirstOrDefault()?.Tag?.Trim('"')));
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(_responses.Count > 0 ? _responses.Dequeue() : Response(HttpStatusCode.NotFound, string.Empty));
+            if (BeforeResponse is not null)
+            {
+                await BeforeResponse.WaitAsync(cancellationToken);
+            }
+
+            return _responses.Count > 0 ? _responses.Dequeue() : Response(HttpStatusCode.NotFound, string.Empty);
         }
     }
 

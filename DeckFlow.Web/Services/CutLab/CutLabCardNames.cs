@@ -18,7 +18,26 @@ internal static class CutLabCardNames
     {
         ArgumentNullException.ThrowIfNull(cardName);
 
-        return CardNormalizer.Normalize(cardName);
+        // Why: Canonical ASCII names need neither regex passes nor string rewrites.
+        bool alreadyNormal = true;
+        for (int index = 0; index < cardName.Length; index++)
+        {
+            char character = cardName[index];
+            if (character is >= 'a' and <= 'z' or >= '0' and <= '9')
+            {
+                continue;
+            }
+
+            if (character == ' ' && index > 0 && index < cardName.Length - 1 && cardName[index - 1] != ' ')
+            {
+                continue;
+            }
+
+            alreadyNormal = false;
+            break;
+        }
+
+        return alreadyNormal ? cardName : CardNormalizer.Normalize(cardName);
     }
 
     /// <summary>

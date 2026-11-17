@@ -140,7 +140,7 @@ public sealed class CutLabApiController : ControllerBase
 
             IReadOnlyList<CutLabPoolCard> afterWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
             string afterPoolKey = CutLabResolvedCardCache.ComputePoolKey(afterWorkingList);
-            IReadOnlyList<ScryfallCardData>? afterPreResolvedCards = TryBuildAfterPreResolvedCards(
+            IReadOnlyList<ScryfallCardData> afterPreResolvedCards = TryBuildAfterPreResolvedCards(
                 fullPool,
                 afterWorkingList,
                 beforeContext.ResolvedCards);
@@ -570,7 +570,7 @@ public sealed class CutLabApiController : ControllerBase
     private bool IsFlagOn(string key)
         => _featureFlags.IsExplicitlyEnabled(key);
 
-    private IReadOnlyList<ScryfallCardData>? TryBuildAfterPreResolvedCards(
+    private IReadOnlyList<ScryfallCardData> TryBuildAfterPreResolvedCards(
         IReadOnlyList<CutLabPoolCard> fullPool,
         IReadOnlyList<CutLabPoolCard> afterWorkingList,
         IReadOnlyList<ScryfallCardData> beforeResolvedCards)

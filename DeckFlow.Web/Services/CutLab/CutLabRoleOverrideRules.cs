@@ -58,7 +58,7 @@ public static class CutLabRoleOverrideRules
     {
         // Why: A card may occur in multiple boards; match Cut Lab's last-wins lookup semantics.
         Dictionary<string, CutLabPoolCard> cards = CutLabCardNames.ToLastWinsDictionary(
-            pool.Where(card => !string.IsNullOrWhiteSpace(card.Name)), card => card.Name, card => card);
+            pool.Where(card => !string.IsNullOrWhiteSpace(card.Name)), card => card.Name);
         HashSet<string> commanders = commanderNames
             .Select(CutLabCardNames.Normalize)
             .ToHashSet(CutLabCardNames.Comparer);

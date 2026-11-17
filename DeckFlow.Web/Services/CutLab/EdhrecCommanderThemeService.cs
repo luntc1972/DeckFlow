@@ -48,7 +48,12 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     // Why: transient upstream failures should retain a recently known-good disk response, but never indefinitely stale EDHREC data.
     internal static readonly TimeSpan DiskCacheFallbackMaxAge = TimeSpan.FromDays(7);
     private static readonly TimeSpan DiskCacheSweepMinimumInterval = TimeSpan.FromMinutes(5);
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly RestClient _client;
+
+    // Why: Bound transient flight bookkeeping independently of request volume.
+    private readonly SemaphoreSlim _themeFlightCapacity = new(32, 32);
+
+    private readonly Dictionary<string, Task<EdhrecThemeCardNamesResult>> _themeFlights = new(StringComparer.Ordinal);
 
     private readonly ResiliencePipeline<RestResponse> _pipeline;
 
@@ -69,7 +74,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         ArgumentNullException.ThrowIfNull(pipelineProvider);
         ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(environment);
-        _httpClientFactory = httpClientFactory;
+        _client = new RestClient(httpClientFactory.CreateClient("edhrec"));
         _pipeline = pipelineProvider.GetPipeline<RestResponse>("edhrec") ?? ResiliencePipeline<RestResponse>.Empty;
         _memoryCache = memoryCache;
         _logger = logger;
@@ -148,6 +153,57 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     /// <inheritdoc />
     public async Task<EdhrecThemeCardNamesResult> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
     {
+        await _themeFlightCapacity.WaitAsync(cancellationToken).ConfigureAwait(false);
+        string key = $"{EdhrecCardLookup.Slugify(commanderName)}:{themeSlug}";
+        Task<EdhrecThemeCardNamesResult> flight;
+        TaskCompletionSource<EdhrecThemeCardNamesResult>? owner = null;
+        lock (_themeFlights)
+        {
+            if (_themeFlights.TryGetValue(key, out flight!))
+            {
+                _themeFlightCapacity.Release();
+            }
+            else
+            {
+                owner = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                flight = owner.Task;
+                _themeFlights.Add(key, flight);
+            }
+        }
+
+        if (owner is not null)
+        {
+            _ = CompleteThemeFlightAsync(key, commanderName, themeSlug, owner);
+        }
+
+        // Why: A cancelled waiter must not cancel another request's shared fetch.
+        return await flight.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task CompleteThemeFlightAsync(string key, string commanderName, string themeSlug,
+        TaskCompletionSource<EdhrecThemeCardNamesResult> completion)
+    {
+        try
+        {
+            completion.TrySetResult(await LoadThemeCardNamesAsync(commanderName, themeSlug, CancellationToken.None).ConfigureAwait(false));
+        }
+        catch (Exception exception)
+        {
+            completion.TrySetException(exception);
+        }
+        finally
+        {
+            lock (_themeFlights)
+            {
+                _themeFlights.Remove(key);
+            }
+
+            _themeFlightCapacity.Release();
+        }
+    }
+
+    private async Task<EdhrecThemeCardNamesResult> LoadThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         string commanderSlug = EdhrecCardLookup.Slugify(commanderName);
 
@@ -225,14 +281,13 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         {
             var cachePath = GetCachePath(fileName);
             cached = ReadCache(cachePath);
-            var client = new RestClient(_httpClientFactory.CreateClient("edhrec"));
             var request = new RestRequest(resource, Method.Get);
             if (!string.IsNullOrWhiteSpace(cached?.ETag))
             {
                 request.AddHeader("If-None-Match", cached.ETag);
             }
 
-            var response = await _pipeline.ExecuteAsync(async ct => await client.ExecuteAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+            var response = await _pipeline.ExecuteAsync(async ct => await _client.ExecuteAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
 
             if ((int)response.StatusCode == 304 && cached is not null)
             {

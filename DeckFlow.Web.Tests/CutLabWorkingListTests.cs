@@ -8,6 +8,16 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabWorkingListTests
 {
     [Fact]
+    public void Derive_NoAdjustments_PreservesCardInstancesAndOrder()
+    {
+        CutLabPoolCard[] pool = [new() { Name = "Sol Ring" }, new() { Name = "Arcane Signet" }];
+        var result = CutLabWorkingList.Derive(pool, [], []);
+        Assert.Equal(pool.Length, result.Count);
+        Assert.Same(pool[0], result[0]);
+        Assert.Same(pool[1], result[1]);
+    }
+
+    [Fact]
     public void Derive_WithoutDecisions_ReturnsFullPoolUnchanged()
     {
         var pool = CreatePool();

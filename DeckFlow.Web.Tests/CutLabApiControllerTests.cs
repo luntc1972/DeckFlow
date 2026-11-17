@@ -20,6 +20,16 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabApiControllerTests
 {
     [Fact]
+    public void TryBuildAfterPreResolvedCards_ReturnContract_IsNonNullable()
+    {
+        var method = typeof(CutLabApiController).GetMethod("TryBuildAfterPreResolvedCards",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        Assert.Equal(System.Reflection.NullabilityState.NotNull,
+            new System.Reflection.NullabilityInfoContext().Create(method.ReturnParameter).ReadState);
+    }
+
+    [Fact]
     public async Task PostDecideAsync_RoleOverride_EffectiveRoleDeterminesFloorWarning()
     {
         CutLabState state = CreateState(

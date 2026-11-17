@@ -21,6 +21,16 @@ public sealed class CutLabRoleOverrideRulesTests
     }
 
     [Fact]
+    public void RoleOverrideSanitize_NormalizedDuplicatePoolNames_PreservesLastCardSpelling()
+    {
+        var result = CutLabRoleOverrideRules.Sanitize(
+            [new CutLabRoleOverride { Name = "Card's Name", Added = ["draw"] }],
+            [new() { Name = "Card's Name", IsCommander = true }, new() { Name = "CARD S NAME" }], []);
+
+        Assert.Equal("CARD S NAME", Assert.Single(result).Name);
+    }
+
+    [Fact]
     public void FloorlessRegistry_Keys_AreDisjointFromFloorKeysAndResidual()
     {
         string[] keys = CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key).ToArray();
