@@ -177,14 +177,6 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.CountRetentionExcessAsync(perCommanderCap, cancellationToken);
 
     /// <summary>
-    /// Marks stored decks without captured metadata for refresh.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Number of marked decks.</returns>
-    public Task<int> MarkMetadataLessDecksForRefreshAsync(CancellationToken cancellationToken = default)
-        => _deckQueue.MarkMetadataLessDecksForRefreshAsync(cancellationToken);
-
-    /// <summary>
     /// Counts stored decks without captured metadata eligible for refresh.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>

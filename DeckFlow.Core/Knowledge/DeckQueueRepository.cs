@@ -174,37 +174,6 @@ internal sealed class DeckQueueRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
-    internal async Task<int> MarkMetadataLessDecksForRefreshAsync(CancellationToken cancellationToken = default)
-    {
-        await _schema.EnsureSchemaAsync(cancellationToken);
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
-
-        var affectedCommanderNames = await connection.QueryAsync<string?>(new CommandDefinition(
-            $"SELECT q.commander_name FROM deck_queue q WHERE {RefetchCandidateSql};",
-            commandTimeout: MaintenanceCommandTimeoutSeconds,
-            transaction: transaction,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-        var marked = await connection.ExecuteAsync(new CommandDefinition(
-            $"""
-            UPDATE deck_queue
-            SET processed = 0,
-                skipped = 0,
-                transient_failure_count = 0,
-                skip_reason = NULL,
-                refresh_requested_utc = @refreshRequestedUtc
-            WHERE id IN (SELECT q.id FROM deck_queue q WHERE {RefetchCandidateSql});
-            """,
-            new { refreshRequestedUtc = DateTime.UtcNow },
-            transaction: transaction,
-            commandTimeout: MaintenanceCommandTimeoutSeconds,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-        await RefreshCommanderSummaryAsync(connection, transaction, affectedCommanderNames, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken);
-        return marked;
-    }
-
     internal async Task<RefetchMarkBatch> RunRefetchMarkBatchAsync(int maxDecks, CancellationToken cancellationToken = default)
     {
         if (maxDecks < 1) throw new ArgumentOutOfRangeException(nameof(maxDecks));
