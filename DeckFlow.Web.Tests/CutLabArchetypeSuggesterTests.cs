@@ -140,12 +140,60 @@ public sealed class CutLabArchetypeSuggesterTests
     }
 
     [Fact]
-    public void Suggest_Archetype_CategoryDataUnavailable_SkipsTutorAndStaxRules()
+    public void Suggest_Archetype_StaxWithEmptyCategories_UsesStaxRole()
     {
-        var result = Suggest([.. TurboCards(), .. Cards(5, categories: ["stax"])], Classification(categoryDataAvailable: false, comboNames: ["Tutor 1"]));
+        var result = Suggest(Cards(5, roles: ["stax"]));
 
-        Assert.Equal("midrange-combo", result.Slug);
+        Assert.Equal("stax", result.Slug);
+    }
+
+    [Fact]
+    public void Suggest_Archetype_TutorsWithEmptyCategories_UsesTutorRole()
+    {
+        var cards = Enumerable.Range(1, 8).Select(index => Card($"Tutor {index}", roles: ["ramp", "tutor"])).ToArray();
+
+        var result = Suggest(cards, Classification(comboNames: ["Tutor 1"]));
+
+        Assert.Equal("turbo-combo", result.Slug);
+    }
+
+    [Fact]
+    public void Suggest_Archetype_CategoryDataUnavailable_UsesStaxRoleWithLowConfidence()
+    {
+        var result = Suggest(Cards(5, roles: ["stax"]), Classification(categoryDataAvailable: false));
+
+        Assert.Equal("stax", result.Slug);
         Assert.Equal(CutLabArchetypeConfidence.Low, result.Confidence);
+        Assert.DoesNotContain("were not checked", result.Reason);
+        Assert.Contains("counted from card text", result.Reason);
+    }
+
+    [Fact]
+    public void Suggest_Archetype_CategoryDataUnavailable_IgnoresNonMatchingCategoriesAndUsesStaxRole()
+    {
+        var result = Suggest(Cards(5, roles: ["stax"], categories: ["ramp"]), Classification(categoryDataAvailable: false));
+
+        Assert.Equal("stax", result.Slug);
+        Assert.Equal(CutLabArchetypeConfidence.Low, result.Confidence);
+    }
+
+    [Fact]
+    public void Suggest_Archetype_CategoryDataUnavailable_UsesTutorRole()
+    {
+        var cards = Enumerable.Range(1, 8).Select(index => Card($"Tutor {index}", roles: ["ramp", "tutor"])).ToArray();
+
+        var result = Suggest(cards, Classification(categoryDataAvailable: false, comboNames: ["Tutor 1"]));
+
+        Assert.Equal("turbo-combo", result.Slug);
+        Assert.Equal(CutLabArchetypeConfidence.Low, result.Confidence);
+    }
+
+    [Fact]
+    public void Suggest_Archetype_StaxRoleWithNonMatchingCategories_UsesCategories()
+    {
+        var result = Suggest(Cards(5, roles: ["stax"], categories: ["ramp"]));
+
+        Assert.NotEqual("stax", result.Slug);
     }
 
     [Fact]

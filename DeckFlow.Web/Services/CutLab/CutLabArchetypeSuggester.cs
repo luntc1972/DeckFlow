@@ -23,8 +23,10 @@ public static class CutLabArchetypeSuggester
         IReadOnlyList<CutLabAnalyzedCard> nonCommanderCards = cards.Where(card => !card.IsCommander).ToArray();
         // Why: fast mana here deliberately means non-land ramp with mana value <= 1 (Sol Ring, mana dorks, rituals), not DeckStatClassifier.IsFastManaCard (zero-MV mana artifacts only), because the turbo-combo fastMana >= 8 threshold depends on this broader definition.
         int fastMana = Count(nonCommanderCards, card => !card.IsLand && HasRole(card, "ramp") && card.ManaValue <= 1);
-        int tutors = classification.CategoryDataAvailable ? Count(nonCommanderCards, card => HasCategory(card, "tutor")) : 0;
-        int staxPieces = classification.CategoryDataAvailable ? CountStax(nonCommanderCards) : 0;
+        int tutors = Count(nonCommanderCards, card => HasUsableCategories(card, classification.CategoryDataAvailable)
+            ? HasCategory(card, "tutor")
+            : HasRole(card, "tutor"));
+        int staxPieces = CountStax(nonCommanderCards, classification.CategoryDataAvailable);
         int stormCards = Count(nonCommanderCards, card => card.SemanticProfile?.Keywords?.Contains("Storm", StringComparer.OrdinalIgnoreCase) == true);
         int spells = Count(nonCommanderCards, card => HasType(card, "Instant") || HasType(card, "Sorcery"));
         int voltronCards = Count(nonCommanderCards, card => HasType(card, "Equipment") || HasType(card, "Aura"));
@@ -35,7 +37,6 @@ public static class CutLabArchetypeSuggester
         double? averageManaValue = AverageManaValue(nonCommanderCards);
         // Why: T5 ranks turbo-combo first when combo, tutor, fast-mana, and average-MV thresholds all match.
         if (classification.ComboDataAvailable
-            && classification.CategoryDataAvailable
             && comboPresent
             && tutors >= 8
             && fastMana >= 8
@@ -45,7 +46,7 @@ public static class CutLabArchetypeSuggester
         }
 
         // Why: T5 classifies five or more stax pieces as stax after turbo-combo has priority.
-        if (classification.CategoryDataAvailable && staxPieces >= 5)
+        if (staxPieces >= 5)
         {
             return Create("stax", $"{staxPieces} stax pieces.", classification);
         }
@@ -92,7 +93,7 @@ public static class CutLabArchetypeSuggester
 
         if (!classification.CategoryDataAvailable)
         {
-            reason = $"{reason} Category data was unavailable, so tutor and stax archetypes were not checked.";
+            reason = $"{reason} Category data was unavailable, so tutors and stax pieces were counted from card text.";
         }
 
         return new CutLabArchetypeSuggestion(slug, lowConfidence ? CutLabArchetypeConfidence.Low : CutLabArchetypeConfidence.High, reason);
@@ -101,15 +102,21 @@ public static class CutLabArchetypeSuggester
     private static int Count(IEnumerable<CutLabAnalyzedCard> cards, Func<CutLabAnalyzedCard, bool> predicate)
         => cards.Where(predicate).Sum(card => Math.Max(0, card.Quantity));
 
-    private static int CountStax(IReadOnlyList<CutLabAnalyzedCard> cards)
+    private static int CountStax(IReadOnlyList<CutLabAnalyzedCard> cards, bool categoryDataAvailable)
     {
         if (!DeckPlanStrategyCatalog.TryGetBySlug("stax", out DeckPlanStrategyEntry stax))
         {
             return 0;
         }
 
-        return Count(cards, card => DeckPlanStrategyCatalog.MatchesCategories(stax, card.Categories));
+        return Count(cards, card => HasUsableCategories(card, categoryDataAvailable)
+            ? DeckPlanStrategyCatalog.MatchesCategories(stax, card.Categories)
+            : HasRole(card, CutLabRoleKeys.Stax));
     }
+
+    // Why: crowd categories take precedence when available for the card, and roles cover gaps in that data.
+    private static bool HasUsableCategories(CutLabAnalyzedCard card, bool categoryDataAvailable)
+        => categoryDataAvailable && card.Categories.Count > 0;
 
     private static bool HasCompleteCombo(IReadOnlyList<CutLabAnalyzedCard> cards, CutLabClassificationContext classification)
         => cards.Any(card => classification.CardComboMembership.TryGetValue(CutLabCardNames.Normalize(card.Name), out CutLabCardComboMembership? membership)
