@@ -62,6 +62,9 @@ public sealed class CategoryKnowledgeRepository
     internal Task<StoredLiveRowsBackfillBatch> RunStoredLiveRowsBackfillBatchAsync(int maxDecks, CancellationToken cancellationToken = default)
         => _deckQueue.RunStoredLiveRowsBackfillBatchAsync(maxDecks, cancellationToken);
 
+    internal Task<RefetchMarkBatch> RunRefetchMarkBatchAsync(int maxDecks, CancellationToken cancellationToken = default)
+        => _deckQueue.RunRefetchMarkBatchAsync(maxDecks, cancellationToken);
+
     /// <summary>
     /// Ensures the database schema and required tables exist.
     /// </summary>

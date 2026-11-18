@@ -115,9 +115,9 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, new InlineProgress(progress.Add));
 
         Assert.Equal(2, outcome.DecksAffected);
-        Assert.Equal(0, outcome.Batches);
-        Assert.Null(outcome.StopReason);
-        Assert.Equal([new DeckPruningProgress(2, 0)], progress);
+        Assert.Equal(1, outcome.Batches);
+        Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
+        Assert.Equal([new DeckPruningProgress(2, 1)], progress);
         var middle = await ReadDeckStateAsync(store, "refresh-middle");
         var newest = await ReadDeckStateAsync(store, "refresh-newest");
         var oldest = await ReadDeckStateAsync(store, "refresh-oldest");

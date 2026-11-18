@@ -40,6 +40,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     private readonly HarvestRetentionOptions _retentionOptions;
     private readonly DeckPruningService _deckPruningService;
     private readonly StoredLiveRowsBackfillService _markerBackfillService;
+    private readonly RefetchMarkService _refetchMarkService;
     private volatile bool _schemaReady;
 
     internal SemaphoreSlim SweepGate => _sweepGate;
@@ -71,6 +72,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         var freeDiskProbe = CreateFreeDiskProbe(_connectionInfo, renderDiskProbe, logger);
         _deckPruningService = new DeckPruningService(_repository, _retentionOptions.ToPruningOptions(), freeDiskProbe);
         _markerBackfillService = new StoredLiveRowsBackfillService(_repository, _retentionOptions.ToPruningOptions(), freeDiskProbe);
+        _refetchMarkService = new RefetchMarkService(_repository, _retentionOptions.ToPruningOptions(), freeDiskProbe);
     }
 
     internal static Func<CancellationToken, Task<long?>> CreateFreeDiskProbe(RelationalDatabaseConnection connectionInfo, RenderDiskHeadroomProbe? renderDiskProbe, ILogger? logger)
@@ -105,26 +107,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     public async Task<HarvestMaintenanceOutcome> RunMaintenanceAsync(HarvestMaintenanceOperation operation, IProgress<DeckPruningProgress>? progress = null, Func<bool>? stopBeforeBatch = null, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
-        if (operation == HarvestMaintenanceOperation.Refetch)
-        {
-            await _sweepGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                if (!await _repository.IsStoredLiveRowsMarkerReadyAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    return new HarvestMaintenanceOutcome(operation, 0, 0, DeckPruningStopReason.MarkerBackfillPending);
-                }
-                var marked = await _repository.MarkMetadataLessDecksForRefreshAsync(cancellationToken).ConfigureAwait(false);
-                progress?.Report(new(marked, 0));
-                return new HarvestMaintenanceOutcome(operation, marked, 0, null);
-            }
-            finally
-            {
-                _sweepGate.Release();
-            }
-        }
-
-        if (operation is not HarvestMaintenanceOperation.Drain and not HarvestMaintenanceOperation.Purge and not HarvestMaintenanceOperation.Backfill) throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
+        if (operation is not HarvestMaintenanceOperation.Drain and not HarvestMaintenanceOperation.Purge and not HarvestMaintenanceOperation.Backfill and not HarvestMaintenanceOperation.Refetch) throw new ArgumentOutOfRangeException(nameof(operation), operation, null);
         ILogger logger = _logger is null ? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance : _logger;
         var removed = 0;
         var outcome = await HarvestMaintenanceChunkLoop.RunAsync(
@@ -158,6 +141,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 return await (operation switch
                 {
                     HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, batchProgress, stop, token),
+                    HarvestMaintenanceOperation.Refetch => RunRefetchChunkAsync(deckCount, batchProgress, stop, token),
                     _ => _markerBackfillService.RunAsync(deckCount, batchProgress, stop, token)
                 }).ConfigureAwait(false);
             },
@@ -167,6 +151,14 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             cancellationToken).ConfigureAwait(false);
         _logger?.LogInformation("Harvest.Maintenance.Completed operation={Operation} decksAffected={DecksAffected} batches={Batches} stopReason={StopReason}", outcome.Operation, outcome.DecksAffected, outcome.Batches, outcome.StopReason);
         return outcome;
+    }
+
+    private async Task<DeckPruningResult> RunRefetchChunkAsync(int deckCount, IProgress<DeckPruningProgress>? batchProgress, Func<bool>? stop, CancellationToken cancellationToken)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var result = await _refetchMarkService.RunAsync(deckCount, batchProgress, stop, cancellationToken).ConfigureAwait(false);
+        _logger?.LogInformation("Harvest.Maintenance.RefetchChunk decksAffected={DecksAffected} batches={Batches} stopReason={StopReason} elapsedMs={ElapsedMs}", result.DecksRemoved, result.Batches, result.StopReason, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        return result;
     }
 
     /// <inheritdoc/>
