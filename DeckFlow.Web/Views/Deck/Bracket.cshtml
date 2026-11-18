@@ -1,6 +1,7 @@
 @using DeckFlow.Core.Bracket
 @using DeckFlow.Web.Configuration
 @using DeckFlow.Web.Models
+@using DeckFlow.Web.Services.PromptBuilders.Bracket
 @using DeckFlow.Web.Services.Tools
 @using Microsoft.Extensions.Options
 @model DeckFlow.Web.Models.BracketViewModel
@@ -231,7 +232,7 @@
                     if (violations.GameChangerViolations.Count > 0 && targetTier.MaxGameChangers >= 0)
                     {
                         var excessCount = violations.GameChangerCount - targetTier.MaxGameChangers;
-                        var gcListStr = string.Join(", ", violations.GameChangerViolations);
+                        var gcListStr = BracketCardNameList.Join(violations.GameChangerViolations);
                         starterCuts.Add("Trim " + excessCount.ToString() + " of: " + gcListStr
                             + " — B" + targetTier.Number.ToString() + " allows up to " + targetTier.MaxGameChangers.ToString()
                             + " Game Changer" + (targetTier.MaxGameChangers != 1 ? "s" : string.Empty)

@@ -163,7 +163,7 @@ internal sealed class GeminiBracketPromptVariant : IBracketPromptVariant
         if (violations.GameChangerViolations.Count > 0 && targetTier.MaxGameChangers >= 0)
         {
             var excess = violations.GameChangerCount - targetTier.MaxGameChangers;
-            var gcList = string.Join(", ", violations.GameChangerViolations);
+            var gcList = BracketCardNameList.Join(violations.GameChangerViolations);
             builder.AppendLine(
                 $"- Trim {excess} of: {gcList} — B{targetTier.Number} allows up to {targetTier.MaxGameChangers} Game Changer{(targetTier.MaxGameChangers != 1 ? "s" : "")}; you run {violations.GameChangerCount}.");
         }
