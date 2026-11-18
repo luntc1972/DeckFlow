@@ -21,13 +21,13 @@ public sealed class DeckQueueRefetchMarkTests : IDisposable
     }
 
     [Fact]
-    public async Task MarkMetadataLessDecksForRefreshAsync_StoredMetadataLessDeck_Queued()
+    public async Task RunRefetchMarkBatchAsync_StoredMetadataLessDeck_Queued()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await SeedStoredDeckAsync(repository, "missing-metadata", "Delta", metadata: null);
         var insertedUtc = await GetValueAsync<string>("SELECT inserted_utc FROM deck_queue WHERE deck_id = 'missing-metadata';");
 
-        var marked = await repository.MarkMetadataLessDecksForRefreshAsync();
+        var marked = await RunAllBatchesAsync(repository);
 
         Assert.Equal(1, marked);
         await AssertQueuedAsync("missing-metadata", insertedUtc);
@@ -36,7 +36,7 @@ public sealed class DeckQueueRefetchMarkTests : IDisposable
     }
 
     [Fact]
-    public async Task MarkMetadataLessDecksForRefreshAsync_NoStoredRowsOrPending_Untouched()
+    public async Task RunRefetchMarkBatchAsync_NoStoredRowsOrPending_Untouched()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await repository.AddDeckIdsAsync(["no-source"]);
@@ -45,7 +45,7 @@ public sealed class DeckQueueRefetchMarkTests : IDisposable
         await ExecuteAsync("UPDATE deck_queue SET skip_reason = 'retention', retention_core_hash = 'core' WHERE deck_id = 'pruned';");
         await repository.DeleteSourceDataAsync("archidekt_live:pruned");
 
-        var marked = await repository.MarkMetadataLessDecksForRefreshAsync();
+        var marked = await RunAllBatchesAsync(repository);
 
         Assert.Equal(0, marked);
         await AssertQueueStateAsync("no-source", 0, 0, null, null);
@@ -55,12 +55,12 @@ public sealed class DeckQueueRefetchMarkTests : IDisposable
     }
 
     [Fact]
-    public async Task MarkMetadataLessDecksForRefreshAsync_SkippedStoredDeck_Requeued()
+    public async Task RunRefetchMarkBatchAsync_SkippedStoredDeck_Requeued()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await SeedStoredDeckAsync(repository, "skipped", "Delta", metadata: null, skipped: true);
 
-        var marked = await repository.MarkMetadataLessDecksForRefreshAsync();
+        var marked = await RunAllBatchesAsync(repository);
 
         Assert.Equal(1, marked);
         await AssertQueuedAsync("skipped", await GetValueAsync<string>("SELECT inserted_utc FROM deck_queue WHERE deck_id = 'skipped';"));
@@ -69,48 +69,64 @@ public sealed class DeckQueueRefetchMarkTests : IDisposable
     }
 
     [Fact]
-    public async Task MarkMetadataLessDecksForRefreshAsync_DeckWithMetadata_Untouched()
+    public async Task RunRefetchMarkBatchAsync_DeckWithMetadata_Untouched()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await SeedStoredDeckAsync(repository, "captured", "Delta", new ArchidektDeckMetadata(null, 3, false, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
 
-        Assert.Equal(0, await repository.MarkMetadataLessDecksForRefreshAsync());
+        Assert.Equal(0, await RunAllBatchesAsync(repository));
         await AssertQueueStateAsync("captured", 1, 0, null, null);
     }
 
     [Fact]
-    public async Task MarkMetadataLessDecksForRefreshAsync_RefreshesCommanderSummary()
+    public async Task RunRefetchMarkBatchAsync_RefreshesCommanderSummary()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await SeedStoredDeckAsync(repository, "missing", "Delta", metadata: null);
         await SeedStoredDeckAsync(repository, "captured", "Delta", new ArchidektDeckMetadata(null, 3, false, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
 
-        await repository.MarkMetadataLessDecksForRefreshAsync();
+        await RunAllBatchesAsync(repository);
 
         Assert.Equal(1, await repository.GetCommanderDeckCountAsync("Delta"));
         Assert.Equal(1L, await GetValueAsync<long>("SELECT deck_count FROM processed_commander_summary WHERE LOWER(commander_name) = 'delta';"));
     }
 
     [Fact]
-    public async Task MarkMetadataLessDecksForRefreshAsync_SecondCall_ReturnsZero()
+    public async Task RunRefetchMarkBatchAsync_SecondCall_ReturnsZero()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await SeedStoredDeckAsync(repository, "missing", "Delta", metadata: null);
 
-        Assert.Equal(1, await repository.MarkMetadataLessDecksForRefreshAsync());
-        Assert.Equal(0, await repository.MarkMetadataLessDecksForRefreshAsync());
+        Assert.Equal(1, await RunAllBatchesAsync(repository));
+        Assert.Equal(0, await RunAllBatchesAsync(repository));
     }
 
     [Fact]
-    public async Task CountRefetchCandidatesAsync_MatchesMarkSelector()
+    public async Task RunRefetchMarkBatchAsync_CountRefetchCandidatesMatchesMarkSelector()
     {
         var repository = new CategoryKnowledgeRepository(_databasePath);
         await SeedStoredDeckAsync(repository, "one", "Delta", metadata: null);
         await SeedStoredDeckAsync(repository, "two", "Delta", metadata: null, skipped: true);
 
         Assert.Equal(2, await repository.CountRefetchCandidatesAsync());
-        Assert.Equal(2, await repository.MarkMetadataLessDecksForRefreshAsync());
+        Assert.Equal(2, await RunAllBatchesAsync(repository));
         Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
+    }
+
+    [Fact]
+    public async Task RunRefetchMarkBatchAsync_MaxDecksOne_MarksLowestIdFirst()
+    {
+        var repository = new CategoryKnowledgeRepository(_databasePath);
+        await SeedStoredDeckAsync(repository, "first", "Delta", metadata: null);
+        await SeedStoredDeckAsync(repository, "second", "Delta", metadata: null);
+
+        var batch = await repository.RunRefetchMarkBatchAsync(1);
+
+        Assert.Equal(1, batch.DecksSelected);
+        Assert.Equal(1, batch.DecksMarked);
+        Assert.False(batch.Completed);
+        await AssertQueuedAsync("first", await GetValueAsync<string>("SELECT inserted_utc FROM deck_queue WHERE deck_id = 'first';"));
+        await AssertQueueStateAsync("second", 1, 0, null, expectedRefreshRequested: false);
     }
 
     public void Dispose()
@@ -119,6 +135,17 @@ public sealed class DeckQueueRefetchMarkTests : IDisposable
         if (Directory.Exists(_tempDirectory))
         {
             Directory.Delete(_tempDirectory, recursive: true);
+        }
+    }
+
+    private static async Task<int> RunAllBatchesAsync(CategoryKnowledgeRepository repository)
+    {
+        var marked = 0;
+        while (true)
+        {
+            var batch = await repository.RunRefetchMarkBatchAsync(500);
+            marked += batch.DecksMarked;
+            if (batch.Completed) return marked;
         }
     }
 
