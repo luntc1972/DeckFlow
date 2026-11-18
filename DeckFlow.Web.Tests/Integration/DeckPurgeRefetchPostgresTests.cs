@@ -43,7 +43,7 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
     }
 
     [PostgresFact]
-    public async Task MarkMetadataLessDecksForRefreshAsync_Postgres_MarksOnlyStoredDecks()
+    public async Task RunRefetchMarkBatchAsync_Postgres_MarksOnlyStoredDecks()
     {
         await using var database = await CreateDatabaseAsync();
         var repository = await RepositoryAsync(database.ConnectionString);
@@ -56,7 +56,7 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
 
         Assert.Equal(1L, await ScalarAsync<long>(database.ConnectionString, "SELECT COUNT(1) FROM processed_commander_summary WHERE LOWER(commander_name) = 'delta';"));
 
-        var marked = await repository.MarkMetadataLessDecksForRefreshAsync();
+        var marked = await MarkAllRefetchCandidatesAsync(repository);
 
         Assert.Equal(2, marked);
         Assert.Equal(["skipped", "stored"], (await repository.GetNextRefreshDeckIdsAsync(10)).Order());
@@ -77,10 +77,128 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
         Assert.Equal(1, await repository.CountPurgeCandidatesAsync());
         Assert.Equal(1, await repository.CountRefetchCandidatesAsync());
         Assert.Equal(1, (await service.RunPurgeAsync()).DecksRemoved);
-        Assert.Equal(1, await repository.MarkMetadataLessDecksForRefreshAsync());
+        Assert.Equal(1, await MarkAllRefetchCandidatesAsync(repository));
         Assert.Equal(0, await repository.CountPurgeCandidatesAsync());
         Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
     }
+
+    [PostgresFact]
+    public async Task RefetchMarkService_Postgres_BatchesCommitIndependently()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var repository = await RepositoryAsync(database.ConnectionString);
+        for (var index = 0; index < 5; index++)
+        {
+            await SeedStoredDeckAsync(repository, database.ConnectionString, $"deck-{index}", "Alpha", metadata: null);
+        }
+
+        var result = await RefetchService(repository, batchDecks: 2).RunAsync(null, null, null);
+
+        Assert.Equal(new DeckPruningResult(5, 3, DeckPruningStopReason.Completed), result);
+        Assert.Equal(0, await repository.GetCommanderDeckCountAsync("Alpha"));
+        Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
+    }
+
+    [PostgresFact]
+    public async Task RunRefetchMarkBatchAsync_Postgres_RenameDuringUpdate_RefreshesSelectedCommander()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var repository = await SeedRenameScenarioAsync(database.ConnectionString, summariesAlreadyRenamed: false);
+
+        await ExecuteSqlAsync(database.ConnectionString, "CREATE FUNCTION rename_refetch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.deck_id = 'candidate' AND NEW.refresh_requested_utc IS NOT NULL THEN NEW.commander_name := 'B'; END IF; RETURN NEW; END; $$; CREATE TRIGGER rename_refetch BEFORE UPDATE ON deck_queue FOR EACH ROW EXECUTE FUNCTION rename_refetch();");
+        var batch = await repository.RunRefetchMarkBatchAsync(1);
+
+        Assert.Equal(new RefetchMarkBatch(1, 1, true), batch);
+        await AssertRenameSummariesAsync(database.ConnectionString);
+    }
+
+    [PostgresFact]
+    public async Task RunRefetchMarkBatchAsync_Postgres_RenameCommittedBeforeUpdate_RefreshesReturnedCommander()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var repository = await SeedRenameScenarioAsync(database.ConnectionString, summariesAlreadyRenamed: true);
+
+        await ExecuteSqlAsync(database.ConnectionString, "CREATE FUNCTION rename_refetch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.deck_id = 'candidate' AND NEW.refresh_requested_utc IS NOT NULL THEN NEW.commander_name := 'B'; END IF; RETURN NEW; END; $$; CREATE TRIGGER rename_refetch BEFORE UPDATE ON deck_queue FOR EACH ROW EXECUTE FUNCTION rename_refetch();");
+        var batch = await repository.RunRefetchMarkBatchAsync(1);
+
+        Assert.Equal(new RefetchMarkBatch(1, 1, true), batch);
+        await AssertRenameSummariesAsync(database.ConnectionString);
+    }
+
+    [PostgresFact]
+    public async Task RefetchMarkService_Postgres_FailureMidRun_KeepsEarlierBatches()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var repository = await RepositoryAsync(database.ConnectionString);
+        for (var index = 0; index < 5; index++)
+        {
+            await SeedStoredDeckAsync(repository, database.ConnectionString, $"deck-{index}", "Alpha", metadata: null);
+        }
+
+        await ExecuteSqlAsync(database.ConnectionString, "CREATE FUNCTION poison_refetch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.deck_id = 'deck-2' AND NEW.refresh_requested_utc IS NOT NULL THEN RAISE EXCEPTION 'poison'; END IF; RETURN NEW; END; $$; CREATE TRIGGER poison_refetch BEFORE UPDATE ON deck_queue FOR EACH ROW EXECUTE FUNCTION poison_refetch();");
+
+        await Assert.ThrowsAsync<PostgresException>(() => RefetchService(repository, batchDecks: 2).RunAsync(null, null, null));
+        Assert.Equal(3, await repository.CountRefetchCandidatesAsync());
+        Assert.Equal(3, await repository.GetCommanderDeckCountAsync("Alpha"));
+
+        await ExecuteSqlAsync(database.ConnectionString, "DROP TRIGGER poison_refetch ON deck_queue; DROP FUNCTION poison_refetch();");
+        Assert.Equal(3, (await RefetchService(repository, batchDecks: 2).RunAsync(null, null, null)).DecksRemoved);
+        Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
+    }
+
+    [PostgresFact]
+    public async Task RefetchMarkService_Postgres_StopBetweenBatches()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var repository = await RepositoryAsync(database.ConnectionString);
+        for (var index = 0; index < 5; index++)
+        {
+            await SeedStoredDeckAsync(repository, database.ConnectionString, $"deck-{index}", "Alpha", metadata: null);
+        }
+
+        var calls = 0;
+        await Assert.ThrowsAsync<OperationCanceledException>(() => RefetchService(repository, batchDecks: 2).RunAsync(null, null, () => ++calls > 1));
+
+        Assert.Equal(3, await repository.CountRefetchCandidatesAsync());
+        Assert.Equal(3, await repository.GetCommanderDeckCountAsync("Alpha"));
+    }
+
+    private static RefetchMarkService RefetchService(CategoryKnowledgeRepository repository, int batchDecks)
+        => new(repository, new DeckPruningOptions { Pause = TimeSpan.Zero }, static _ => Task.FromResult<long?>(long.MaxValue), static (_, _) => Task.CompletedTask, batchDecks);
+
+    private static async Task<int> MarkAllRefetchCandidatesAsync(CategoryKnowledgeRepository repository)
+    {
+        var marked = 0;
+        while (true)
+        {
+            var batch = await repository.RunRefetchMarkBatchAsync(500);
+            marked += batch.DecksMarked;
+            if (batch.Completed) return marked;
+        }
+    }
+
+    private static async Task<CategoryKnowledgeRepository> SeedRenameScenarioAsync(string connectionString, bool summariesAlreadyRenamed)
+    {
+        var repository = await RepositoryAsync(connectionString);
+        await SeedStoredDeckAsync(repository, connectionString, "candidate", "A", metadata: null);
+        await SeedStoredDeckAsync(repository, connectionString, "a-live", "A", metadata: Metadata());
+        await SeedStoredDeckAsync(repository, connectionString, "b-live", "B", metadata: Metadata());
+        if (summariesAlreadyRenamed)
+        {
+            await ExecuteSqlAsync(connectionString, "UPDATE processed_commander_summary SET deck_count = CASE LOWER(commander_name) WHEN 'a' THEN 1 WHEN 'b' THEN 2 END WHERE LOWER(commander_name) IN ('a', 'b');");
+        }
+
+        return repository;
+    }
+
+    private static async Task AssertRenameSummariesAsync(string connectionString)
+    {
+        Assert.Equal(1L, await ScalarAsync<long>(connectionString, "SELECT deck_count FROM processed_commander_summary WHERE LOWER(commander_name) = 'a';"));
+        Assert.Equal(1L, await ScalarAsync<long>(connectionString, "SELECT deck_count FROM processed_commander_summary WHERE LOWER(commander_name) = 'b';"));
+    }
+
+    private static ArchidektDeckMetadata Metadata()
+        => new(null, 3, false, null, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
 
     private static async Task SeedStoredDeckAsync(CategoryKnowledgeRepository repository, string connectionString, string deckId, string? commander, int? format = null, ArchidektDeckMetadata? metadata = null, bool processed = true, bool skipped = false)
     {
@@ -99,6 +217,14 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(sql, connection);
         command.Parameters.AddWithValue("id", deckId);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task ExecuteSqlAsync(string connectionString, string sql)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(sql, connection);
         await command.ExecuteNonQueryAsync();
     }
 
