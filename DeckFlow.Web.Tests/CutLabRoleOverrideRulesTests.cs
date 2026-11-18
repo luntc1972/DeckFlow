@@ -6,6 +6,182 @@ namespace DeckFlow.Web.Tests;
 
 public sealed class CutLabRoleOverrideRulesTests
 {
+    /// <summary>Unsanitized names do not prevent lookup of real card overrides.</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void BuildLookup_InvalidNameAndValidOverride_ReturnsOnlyValidOverride(string? invalidName)
+    {
+        var valid = new CutLabRoleOverride { Name = "Arcane Signet", Added = ["ramp"] };
+
+        var lookup = CutLabRoleOverrideRules.BuildLookup(
+            [new CutLabRoleOverride { Name = invalidName! }, valid]);
+
+        var entry = Assert.Single(lookup);
+        Assert.Equal(CutLabCardNames.Normalize(valid.Name), entry.Key);
+        Assert.Same(valid, entry.Value);
+    }
+
+    [Theory]
+    [InlineData("enablers", false, false)]
+    [InlineData("enablers", true, true)]
+    [InlineData("recursion", false, true)]
+    [InlineData("recursion", true, true)]
+    [InlineData("other", false, true)]
+    [InlineData("unknown", false, true)]
+    public void IsApplicable_RoleAndActiveFamilies_PreservesDeckApplicability(string roleKey, bool active, bool expected)
+    {
+        IReadOnlyList<string> families = active ? ["lifegain"] : [];
+
+        Assert.Equal(expected, CutLabRoleKeys.IsApplicable(roleKey, families));
+    }
+
+    [Fact]
+    public void RoleOverrideSanitize_NormalizedDuplicatePoolNames_PreservesLastCardSpelling()
+    {
+        var result = CutLabRoleOverrideRules.Sanitize(
+            [new CutLabRoleOverride { Name = "Card's Name", Added = ["draw"] }],
+            [new() { Name = "Card's Name", IsCommander = true }, new() { Name = "CARD S NAME" }], []);
+
+        Assert.Equal("CARD S NAME", Assert.Single(result).Name);
+    }
+
+    [Fact]
+    public void FloorlessRegistry_Keys_AreDisjointFromFloorKeysAndResidual()
+    {
+        string[] keys = CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key).ToArray();
+
+        Assert.Empty(keys.Intersect(CutLabFloorRules.RoleKeys, StringComparer.OrdinalIgnoreCase));
+        Assert.DoesNotContain(CutLabRoleKeys.Residual, keys, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(keys.Length, keys.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Fact]
+    public void FloorlessRegistry_Entries_HaveDistinctLabelsUsedByAssigner()
+    {
+        foreach (var entry in CutLabRoleKeys.FloorlessRegistry)
+        {
+            Assert.False(string.IsNullOrWhiteSpace(entry.Label));
+            Assert.NotEqual(entry.Key, entry.Label);
+            Assert.Equal(entry.Label, CutLabRoleAssigner.DisplayLabelFor(entry.Key));
+        }
+    }
+
+    [Fact]
+    public void FloorlessRegistry_Keys_PreserveLiteralOrder()
+    {
+        Assert.Equal(new[] { "recursion", "stax", "enablers" }, CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key));
+        Assert.Equal(CutLabRoleKeys.FloorlessRegistry.Select(entry => entry.Key), CutLabRoleKeys.Floorless);
+    }
+
+    [Theory]
+    [InlineData("recursion", "Recursion")]
+    [InlineData("stax", "Stax")]
+    [InlineData("enablers", "Enablers")]
+    public void FloorlessRegistry_KnownRole_PreservesLiteralLabel(string key, string label)
+    {
+        Assert.Equal(label, Assert.Single(CutLabRoleKeys.FloorlessRegistry, entry => entry.Key == key).Label);
+        Assert.Equal(label, CutLabRoleAssigner.DisplayLabelFor(key));
+    }
+
+    [Fact]
+    public void RoleKeys_FloorRoles_PreserveLiteralOrder()
+    {
+        Assert.Equal(new[] { "lands", "ramp", "draw", "interaction-targeted", "interaction-mass",
+            "protection", "engines", "payoffs", "wincons", "tutor" }, CutLabFloorRules.RoleKeys);
+    }
+
+    [Fact]
+    public void RoleKeys_DisplayAndCanonicalOrder_PreserveExistingOrderAndSingleFloorlessSet()
+    {
+        Assert.Equal(CutLabFloorRules.RoleKeys.Concat(CutLabRoleKeys.Floorless).Append("other"), CutLabRoleKeys.Display);
+        Assert.Equal(new[] { "lands", "ramp", "draw", "tutor", "interaction-targeted", "interaction-mass", "protection", "engines", "payoffs", "wincons", "other" },
+            CutLabRoleOverrideRules.CanonicalOrder.Where(key => !CutLabRoleKeys.Floorless.Contains(key)));
+        Assert.Equal(CutLabRoleKeys.Floorless, CutLabRoleOverrideRules.CanonicalOrder.Skip(CutLabFloorRules.RoleKeys.Count).SkipLast(1));
+        foreach (string key in CutLabRoleKeys.Display)
+        {
+            Assert.NotEqual(key, CutLabRoleAssigner.DisplayLabelFor(key));
+        }
+    }
+
+    [Fact]
+    public void Sanitize_RecursionOverride_PreservesLoadAndFingerprint()
+    {
+        var state = new CutLabState
+        {
+            Pool = Pool(),
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card", Added = ["recursion", "unknown"] }],
+        };
+        var sanitized = CutLabRoleOverrideRules.Sanitize(state);
+        Assert.Equal(["recursion"], Assert.Single(sanitized.RoleOverrides!).Added);
+        Assert.Equal(CutLabRoleOverrideRules.Fingerprint(state.RoleOverrides), CutLabRoleOverrideRules.Fingerprint(sanitized.RoleOverrides));
+        Assert.NotEqual(CutLabRoleOverrideRules.Fingerprint([]), CutLabRoleOverrideRules.Fingerprint(sanitized.RoleOverrides));
+        Assert.Contains("recursion", CutLabRoleOverrideRules.EditableRoleKeys);
+        Assert.DoesNotContain("lands", CutLabRoleOverrideRules.EditableRoleKeys);
+        Assert.DoesNotContain("other", CutLabRoleOverrideRules.EditableRoleKeys);
+    }
+
+    [Fact]
+    public void Sanitize_StaxOverride_PreservesLoadAndFingerprint()
+    {
+        var state = new CutLabState
+        {
+            Pool = Pool(),
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card", Added = ["stax", "unknown"] }],
+        };
+        var sanitized = CutLabRoleOverrideRules.Sanitize(state);
+        Assert.Equal(["stax"], Assert.Single(sanitized.RoleOverrides!).Added);
+        Assert.Equal(CutLabRoleOverrideRules.Fingerprint(state.RoleOverrides), CutLabRoleOverrideRules.Fingerprint(sanitized.RoleOverrides));
+        Assert.NotEqual(CutLabRoleOverrideRules.Fingerprint([]), CutLabRoleOverrideRules.Fingerprint(sanitized.RoleOverrides));
+        Assert.Contains("stax", CutLabRoleOverrideRules.EditableRoleKeys);
+        Assert.DoesNotContain("lands", CutLabRoleOverrideRules.EditableRoleKeys);
+        Assert.DoesNotContain("other", CutLabRoleOverrideRules.EditableRoleKeys);
+    }
+
+    [Fact]
+    public void Deserialize_RecursionOverride_PreservesNormalizedSavedOverride()
+    {
+        var saved = new CutLabState
+        {
+            Pool = Pool(),
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card", Added = ["recursion", "unknown"] }],
+        };
+
+        var loaded = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(saved));
+
+        var roleOverride = Assert.Single(loaded.RoleOverrides!);
+        Assert.Equal("Card", roleOverride.Name);
+        Assert.Equal(["recursion"], roleOverride.Added);
+    }
+
+    [Fact]
+    public void Deserialize_StaxOverride_PreservesNormalizedSavedOverride()
+    {
+        var saved = new CutLabState
+        {
+            Pool = Pool(),
+            RoleOverrides = [new CutLabRoleOverride { Name = "Card", Added = ["stax", "unknown"] }],
+        };
+
+        var loaded = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(saved));
+
+        var roleOverride = Assert.Single(loaded.RoleOverrides!);
+        Assert.Equal("Card", roleOverride.Name);
+        Assert.Equal(["stax"], roleOverride.Added);
+    }
+
+    [Fact]
+    public void Fingerprint_ExistingRoles_PreservesLiteralSavedValue()
+    {
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "Card", Added = ["tutor", "draw"], Removed = ["wincons", "ramp"] },
+        ];
+
+        Assert.Equal("card:draw,tutor:ramp,wincons", CutLabRoleOverrideRules.Fingerprint(overrides));
+    }
+
     [Fact]
     public void RoleOverrideSanitize_ExcessInput_IgnoresEntriesAfterCap()
     {

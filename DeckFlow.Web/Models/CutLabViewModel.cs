@@ -83,14 +83,6 @@ public sealed record CutLabViewModel
     /// <summary>Shared primary-type display order used by Cut Lab groupings and advisory ranking.</summary>
     public static readonly string[] TypeGroupOrder = CutLabRoleAssigner.TypeGroupOrder;
 
-    // Display order for the structural role groups. This mirrors CutLabFloorRules.RoleKeys and
-    // appends the display-only fallback bucket.
-    private static readonly string[] RoleGroupDisplayOrder =
-    [
-        .. CutLabFloorRules.RoleKeys,
-        "other",
-    ];
-
     /// <summary>The active deck tool tab.</summary>
     public DeckPageTab ActiveTab { get; init; }
 
@@ -232,7 +224,7 @@ public sealed record CutLabViewModel
 
     // Why: the labels derive from constants, so every view model can share one dictionary instead of rebuilding it.
     private static readonly IReadOnlyDictionary<string, string> DefaultRoleLabelsByKey =
-        CutLabRoleOverrideRules.EditableRoleKeys.Concat(new[] { "lands", "other" })
+        CutLabRoleKeys.Display
             .ToDictionary(key => key, CutLabRoleAssigner.DisplayLabelFor, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Per-card raw role-key token strings for the pool table, keyed by card name.</summary>
@@ -338,7 +330,7 @@ public sealed record CutLabViewModel
         IReadOnlyList<CutLabPoolCard> derivedWorkingList = CutLabWorkingList.Derive(pool, result.State?.Decisions ?? [], adjustments);
         IReadOnlyList<CutLabTunableRowView> workingListRows = BuildWorkingListRows(derivedWorkingList, pool, result.RoleAssignmentsByCardName);
         IReadOnlyList<string> addableBasics = CutLabSharedHelpers.BuildAddableBasics(workingListRows.Select(row => row.Name));
-        IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName);
+        IReadOnlyList<CutLabRoleGroupView> roleGroups = BuildRoleGroups(pool, result.RoleAssignmentsByCardName, result.ActiveTriggerFamilies);
         IReadOnlyList<CutLabRoleGroupView> typeGroups = BuildTypeGroups(pool);
         IReadOnlyList<CutLabFindingView> findings = CutLabFindingPresenter.BuildFindings(result.Findings.Findings);
         IReadOnlyList<CutLabFindingGroupView> findingGroups = CutLabFindingPresenter.BuildFindingGroups(findings);
@@ -379,7 +371,7 @@ public sealed record CutLabViewModel
             .DistinctBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
             .Select(card => new CutLabRoleOverrideCardView(
                 card.Name,
-                result.RoleAssignmentsByCardName[card.Name].Contains("lands"),
+                result.RoleAssignmentsByCardName[card.Name].Contains(CutLabRoleKeys.Lands),
                 CutLabRoleOverrideRules.Find(result.State?.RoleOverrides ?? [], card.Name) is not null))
             .ToDictionary(card => card.Name, StringComparer.OrdinalIgnoreCase);
 
@@ -387,6 +379,7 @@ public sealed record CutLabViewModel
         {
             RoleOverrideCardsByName = roleOverrideCardsByName,
             RoleOverrideRoleOptions = CutLabRoleOverrideRules.EditableRoleKeys
+                .Where(key => CutLabRoleKeys.IsApplicable(key, result.ActiveTriggerFamilies))
                 .Select(key => new CutLabRoleOptionView(key, CutLabRoleAssigner.DisplayLabelFor(key))).ToArray(),
             ActiveTab = DeckPageTab.CutLab,
             CheckedCommanderThemesAvailable = result.RoundPlan?.CheckedCommanderThemesAvailable,
@@ -534,13 +527,15 @@ public sealed record CutLabViewModel
 
     private static IReadOnlyList<CutLabRoleGroupView> BuildRoleGroups(
         IReadOnlyList<CutLabPoolCard> pool,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName)
+        IReadOnlyDictionary<string, IReadOnlyList<string>> roleAssignmentsByCardName,
+        IReadOnlyList<string> activeTriggerFamilies)
     {
-        return RoleGroupDisplayOrder
+        return CutLabRoleKeys.Display
+            .Where(key => CutLabRoleKeys.IsApplicable(key, activeTriggerFamilies))
             .Select(roleKey => BuildGroup(roleKey, DisplayLabelFor(roleKey),
                 pool.Where(card => roleAssignmentsByCardName.TryGetValue(card.Name, out IReadOnlyList<string>? roles)
                     && roles.Contains(roleKey, StringComparer.Ordinal)),
-                !string.Equals(roleKey, "other", StringComparison.Ordinal)))
+                !string.Equals(roleKey, CutLabRoleKeys.Residual, StringComparison.Ordinal)))
             .ToArray();
     }
 
@@ -834,9 +829,7 @@ public sealed record CutLabViewModel
             .Select(kind => findingHeadingsByKind[kind])
             .ToArray();
         IReadOnlyList<string> floorWarnings = BuildFloorWarnings(nextProposal.CardName, state, resolvedFloors, roleAssignmentsByCardName, countsByRole);
-        string findingSummary = nextProposal.FindingCount > 0
-            ? $"Flagged by {nextProposal.FindingCount} finding kind(s):"
-            : "No structural finding flags this card — it's a preference call.";
+        string findingSummary = nextProposal.FindingSummary;
         if (proposalDeltas is null)
         {
             return new CutLabProposalView
@@ -845,7 +838,7 @@ public sealed record CutLabViewModel
                 CardName = nextProposal.CardName,
                 RoundKey = nextProposal.RoundKey,
                 RoundLabel = nextProposal.RoundLabel,
-                RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable),
+                RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable, nextProposal.PlanSignalAvailable),
                 FindingCount = nextProposal.FindingCount,
                 FindingSummary = findingSummary,
                 FindingChips = findingChips,
@@ -866,7 +859,7 @@ public sealed record CutLabViewModel
             CardName = nextProposal.CardName,
             RoundKey = nextProposal.RoundKey,
             RoundLabel = nextProposal.RoundLabel,
-            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable),
+            RoundBannerBody = CutLabCutRoundEngine.RoundBannerBodyFor(nextProposal.RoundKey, nextProposal.CheckedCommanderThemesAvailable, nextProposal.PlanSignalAvailable),
             FindingCount = nextProposal.FindingCount,
             FindingSummary = findingSummary,
             FindingChips = findingChips,

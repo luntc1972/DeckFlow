@@ -26,6 +26,26 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabPageService"/> covering orchestration, validation, and state round-trip behavior.</summary>
 public sealed class CutLabPageServiceTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void From_ConditionalEnablers_ControlsGroupAndOverrideOption(bool active)
+    {
+        CutLabProcessResult result = new() { ActiveTriggerFamilies = active ? ["lifegain"] : [] };
+
+        CutLabViewModel model = CutLabViewModel.From(new CutLabRequest(), result);
+
+        Assert.Equal(CutLabRoleKeys.Display.Where(key => active || key != "enablers"), model.RoleGroups.Select(group => group.RoleKey));
+        Assert.Equal(active, model.RoleOverrideRoleOptions.Any(option => option.Key == "enablers"));
+        Assert.Equal("Enablers", model.RoleLabelsByKey["enablers"]);
+        if (active)
+        {
+            var group = Assert.Single(model.RoleGroups, group => group.RoleKey == "enablers");
+            Assert.Empty(group.Members);
+            Assert.True(group.IsLockable);
+        }
+    }
+
     [Fact]
     public async Task ProcessAsync_RoleOverride_ForwardsToSimulation()
     {
@@ -1267,10 +1287,12 @@ public sealed class CutLabPageServiceTests
                 },
             ],
         };
+        var banList = new ThrowingBanListService(new HttpRequestException("banlist down"));
+        var resolver = new FakeResolver(cards) { OnCollection = () => Assert.True(banList.Called) };
         var service = new CutLabPageService(
             new FakeLoader(entries),
-            new FakeResolver(cards),
-            new ThrowingBanListService(new HttpRequestException("banlist down")),
+            resolver,
+            banList,
             logger: logger);
         var request = new CutLabRequest
         {
@@ -2276,6 +2298,48 @@ public sealed class CutLabPageServiceTests
     }
 
     [Fact]
+    public async Task BuildFindingsAndRoundPlan_InteractionFloor_AcceptedCutHoldsRemainingInteraction()
+    {
+        IReadOnlyDictionary<string, int> floors = CutLabFloorDefaults.ResolveDefaults(
+            3, "", 4, [], null, null, null, []).ToDictionary(floor => floor.Role, floor => floor.DefaultValue);
+        int floor = floors["interaction-targeted"];
+        Assert.True(floor > 0);
+        CutLabPoolCard[] pool =
+        [
+            new() { Name = "Remaining", Quantity = floor, TypeLine = "Instant" },
+            new() { Name = "Accepted", Quantity = 1, TypeLine = "Instant" },
+            new() { Name = "Locked filler", Quantity = 100, TypeLine = "Land", IsLocked = true },
+        ];
+        var resolver = new FakeResolver([
+            Spell("Remaining", "Instant", oracleText: "Exile target creature.", cmc: 1),
+            Spell("Accepted", "Instant", oracleText: "Exile target creature.", cmc: 1),
+            Spell("Locked filler", "Land"),
+        ]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+        CutLabDecision[] decisions =
+        [
+            new() { CardName = "Accepted", Kind = CutLabDecisionKind.Accepted,
+                Round = CutLabCutRoundEngine.Round1Key, Ordinal = 1 },
+        ];
+        CutLabAnalysisContext before = await builder.BuildAsync(pool, "", []);
+        Assert.Equal(floor + 1, before.RoleCounts["interaction-targeted"]);
+        var initial = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
+            pool, before, floors, [], twinsEnabled: false, checkedCommanderThemesAvailable: true);
+        Assert.All(initial.RoundPlan.Queue, item => Assert.Equal(CutLabCutRoundEngine.Round1Key, item.RoundKey));
+
+        IReadOnlyList<CutLabPoolCard> working = CutLabWorkingList.Derive(pool, decisions);
+        CutLabAnalysisContext after = await builder.BuildAsync(working, "", []);
+        Assert.Equal(floor, after.RoleCounts["interaction-targeted"]);
+        var result = CutLabCutRoundEngine.BuildFindingsAndRoundPlan(
+            working, after, floors, decisions, twinsEnabled: false, checkedCommanderThemesAvailable: true);
+
+        CutLabRoundQueueItem remaining = Assert.Single(result.RoundPlan.Queue);
+        Assert.Equal("Remaining", remaining.CardName);
+        Assert.NotEqual(CutLabCutRoundEngine.Round1Key, remaining.RoundKey);
+    }
+
+    [Fact]
     public async Task ProcessAsync_WithAcceptedCutsAtTarget_ReturnsNothingToCutPlan()
     {
         var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
@@ -2681,9 +2745,69 @@ public sealed class CutLabPageServiceTests
     }
 
     [Theory]
-    [InlineData(false, "Cards flagged by exactly one structural finding kind.")]
-    [InlineData(true, "On-theme cards flagged by 1 or more structural finding kinds.")]
-    public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage(bool themesAvailable, string expectedBody)
+    [InlineData("round-2", false, true, 0, "No structural finding flags this card, but it is off your plan.")]
+    [InlineData("round-3", false, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("round-2", false, false, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("round-2", true, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("infrastructure", false, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("second-pass-deferred", false, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("second-pass-rejected", false, true, 0, "No structural finding flags this card — it's a preference call.")]
+    [InlineData("round-2", false, true, 1, "Flagged by 1 finding kind(s):")]
+    public void From_ProposalEvidence_UsesOffPlanSentenceOnlyForEligibleRound2(string round, bool themes, bool signal, int count, string expected)
+    {
+        foreach (bool withDeltas in new[] { false, true })
+        {
+            var result = new CutLabProcessResult
+            {
+                HasResult = true,
+                State = new CutLabState { Pool = [new CutLabPoolCard { Name = "Candidate", Quantity = 1 }] },
+                Findings = new CutLabStructuralFindingsResult([], true, true),
+                RoundPlan = new CutLabRoundPlan
+                {
+                    Queue = [],
+                    NextProposal = new CutLabRoundQueueItem("Candidate", round, "Round", count, [], themes, signal),
+                    CardsRemainingToTarget = 1,
+                },
+                InitialProposalDeltas = withDeltas ? BuildDeltas("Candidate") : null,
+            };
+
+            Assert.Equal(expected, CutLabViewModel.From(new CutLabRequest(), result).Proposal.FindingSummary);
+        }
+    }
+
+    [Theory]
+    [InlineData(true, "round-2", "No structural finding flags this card, but it is off your plan.")]
+    [InlineData(false, "round-3", "No structural finding flags this card — it's a preference call.")]
+    public async Task BuildPatch_ProposalEvidence_UsesServerSentence(bool signal, string expectedRound, string expected)
+    {
+        var state = new CutLabState
+        {
+            Pool = [new CutLabPoolCard { Name = "Candidate", Quantity = 1 }, new CutLabPoolCard { Name = "On Plan", Quantity = 101 }],
+        };
+        var builder = new CutLabUiPatchBuilder(
+            new FakeAnalysisContextBuilder((workingList, _, commanderNames) => BuildAnalysisContext(workingList, commanderNames)),
+            new FakeSimulationService(),
+            new CutLabFloorResolver(null, null, null, null));
+        var affinities = new Dictionary<string, CutLabPlanAffinity>
+        {
+            [CutLabCardNames.Normalize("On Plan")] = new CutLabPlanAffinity([], signal ? 1 : 0),
+        };
+
+        CutLabUiPatchDto patch = await builder.BuildAsync(state, "cEDH", [], false, planAffinities: affinities);
+
+        Assert.NotNull(patch.NextProposal);
+        Assert.Equal("Candidate", patch.NextProposal.CardName);
+        Assert.Equal(expectedRound, patch.NextProposal.RoundKey);
+        using var json = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(patch.NextProposal));
+        Assert.True(json.RootElement.TryGetProperty("FindingSummary", out var summary), "Next-proposal payload must carry FindingSummary.");
+        Assert.Equal(expected, summary.GetString());
+    }
+
+    [Theory]
+    [InlineData(false, true, "Cards with one reason to cut: a stranded subtheme, or off your plan.")]
+    [InlineData(true, true, "On-theme cards in a stranded subtheme.")]
+    [InlineData(false, false, "Cards in a stranded subtheme.")]
+    public void From_WhenProposalDeltasUnavailable_StillBuildsProposalCardWithFallbackMessage(bool themesAvailable, bool planSignalAvailable, string expectedBody)
     {
         var request = new CutLabRequest();
         var result = new CutLabProcessResult
@@ -2706,9 +2830,9 @@ public sealed class CutLabPageServiceTests
             {
                 Queue =
                 [
-                    new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable),
+                    new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable, planSignalAvailable),
                 ],
-                NextProposal = new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable),
+                NextProposal = new CutLabRoundQueueItem("Arcane Signet", CutLabCutRoundEngine.Round2Key, CutLabCutRoundEngine.Round2Label, 1, [], themesAvailable, planSignalAvailable),
                 CardsRemainingToTarget = 1,
                 CheckedCommanderThemesAvailable = themesAvailable,
             },
@@ -3068,7 +3192,12 @@ public sealed class CutLabPageServiceTests
 
         Assert.True(result.HasResult);
         Assert.Equal(CutLabFloorRules.RoleKeys, result.ResolvedFloors.Select(floor => floor.Role).ToArray());
-        Assert.Equal([.. CutLabFloorRules.RoleKeys, "other"], model.RoleGroups.Select(group => group.RoleKey).ToArray());
+        Assert.Equal(CutLabRoleKeys.Display.Where(key => key != "enablers"), model.RoleGroups.Select(group => group.RoleKey).ToArray());
+        Assert.Empty(model.RoleGroups.Single(group => group.RoleKey == "recursion").Members);
+        Assert.Empty(model.RoleGroups.Single(group => group.RoleKey == "stax").Members);
+        Assert.Contains(model.RoleOverrideRoleOptions, option => option.Key == "stax" && option.Label == "Stax");
+        Assert.Contains(model.RoleOverrideRoleOptions, option => option.Key == "recursion" && option.Label == "Recursion");
+        Assert.DoesNotContain(model.RoleOverrideRoleOptions, option => option.Key is "lands" or "other");
         Assert.False(model.ComboDataUnavailable);
         Assert.False(model.CategoryDataUnavailable);
         Assert.NotEmpty(model.Findings);
@@ -3588,8 +3717,11 @@ public sealed class CutLabPageServiceTests
         /// </summary>
         public int TransientCollectionFailures { get; set; }
 
+        public Action? OnCollection { get; init; }
+
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
         {
+            OnCollection?.Invoke();
             if (TransientCollectionFailures > 0)
             {
                 TransientCollectionFailures--;
@@ -3811,8 +3943,12 @@ public sealed class CutLabPageServiceTests
 
     private sealed class ThrowingBanListService(Exception exception) : ICommanderBanListService
     {
+        public bool Called { get; private set; }
         public Task<IReadOnlyList<string>> GetBannedCardsAsync(CancellationToken cancellationToken = default)
-            => Task.FromException<IReadOnlyList<string>>(exception);
+        {
+            Called = true;
+            return Task.FromException<IReadOnlyList<string>>(exception);
+        }
     }
 
     private sealed class FakeSpellbookService : ICommanderSpellbookService

@@ -281,7 +281,7 @@ public static class CutLabFloorRules
         return normalized;
     }
 
-    private static bool TryGetCanonicalRole(string? role, out string canonicalRole)
+    internal static bool TryGetCanonicalRole(string? role, out string canonicalRole)
     {
         foreach (string candidate in RoleKeys)
         {

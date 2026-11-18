@@ -89,6 +89,7 @@ public sealed class ProtectionVocabularyBlastRadiusTests
         "Damn",
         "Dawnbringer Cleric",
         "Deadly Rollick",
+        "Deflecting Swat",
         "Disdainful Stroke",
         "Dispatch",
         "Dovin's Veto",
@@ -216,10 +217,10 @@ public sealed class ProtectionVocabularyBlastRadiusTests
             .ToArray();
 
         // Cut Lab targeted removal no longer inherits any-instant or protection signals (ll8).
-        Assert.Equal(53, afterNames.Length);
+        Assert.Equal(54, afterNames.Length);
         Assert.Equal(ExpectedCutLabInteractionTargetedNames, afterNames);
         Assert.Single(afterNames.Intersect(ExpectedInteractionTargetedWideningNames));
-        Assert.Equal(52, afterNames.Except(ExpectedInteractionTargetedWideningNames).Count());
+        Assert.Equal(53, afterNames.Except(ExpectedInteractionTargetedWideningNames).Count());
     }
 
     [Fact]

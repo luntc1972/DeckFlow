@@ -140,6 +140,8 @@ public static class ManabaseSwapPromptBuilder
             "Please recommend SPECIFIC lands to add and specific weak lands or cards to cut to fix these " +
             "deficits, without raising the deck's average mana value. Keep suggestions Commander-legal and on-color.");
 
+        sb.AppendLine("Suggest only real, Commander-legal cards you are certain exist. If unsure about a card's name or text, state that uncertainty plainly; never guess.");
+
         if (!string.IsNullOrWhiteSpace(decklistText))
         {
             sb.AppendLine();

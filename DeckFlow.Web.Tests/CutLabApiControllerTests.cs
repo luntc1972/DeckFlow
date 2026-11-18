@@ -2,6 +2,7 @@ using System.Reflection;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Controllers.Api;
 using DeckFlow.Web.Infrastructure;
+using DeckFlow.Web.Models;
 using DeckFlow.Web.Models.Api;
 using DeckFlow.Web.Models.CutLab;
 using DeckFlow.Web.Services;
@@ -18,6 +19,16 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabApiController"/> covering same-origin, rebuild, and response-shaping behavior.</summary>
 public sealed class CutLabApiControllerTests
 {
+    [Fact]
+    public void TryBuildAfterPreResolvedCards_ReturnContract_IsNonNullable()
+    {
+        var method = typeof(CutLabApiController).GetMethod("TryBuildAfterPreResolvedCards",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        Assert.Equal(System.Reflection.NullabilityState.NotNull,
+            new System.Reflection.NullabilityInfoContext().Create(method.ReturnParameter).ReadState);
+    }
+
     [Fact]
     public async Task PostDecideAsync_RoleOverride_EffectiveRoleDeterminesFloorWarning()
     {
@@ -270,6 +281,8 @@ public sealed class CutLabApiControllerTests
         Assert.Equal("Counterspell", payload.NextProposal.CardName);
         CutLabDecideNextProposalDto patchNextProposal = Assert.IsType<CutLabDecideNextProposalDto>(payload.Patch.NextProposal);
         Assert.Equal("Counterspell", patchNextProposal.CardName);
+        Assert.Equal(payload.NextProposal, patchNextProposal);
+        AssertComposedGlance(payload.Patch);
         Assert.Equal("Counterspell", payload.ProposalDeltas!.CardName);
         Assert.Equal(payload.Patch.ProposalDeltas!.CardName, payload.ProposalDeltas.CardName);
         Assert.Equal(payload.Patch.FloorWarnings, payload.FloorWarnings);
@@ -994,36 +1007,9 @@ public sealed class CutLabApiControllerTests
     public async Task PostWhatifCommitAsync_WhenPatchHasProposalDeltas_ComposesTheProposalGlanceLine()
     {
         CutLabState state = CreateState();
-        ProposalPatchBuilder patchBuilder = new ProposalPatchBuilder
-        {
-            Patch = new CutLabUiPatchDto
-            {
-                CutLabStateJson = CutLabStateSerializer.Serialize(state),
-                NextProposal = new CutLabDecideNextProposalDto
-                {
-                    CardName = "Working Card",
-                    RoundKey = CutLabCutRoundEngine.WhatifSwapKey,
-                },
-                ProposalDeltas = new CutLabDecideProposalDeltasDto
-                {
-                    ChangedFamilyCount = 3,
-                    Deltas =
-                    [
-                        new CutLabDecideMetricDeltaDto
-                        {
-                            Label = "Castability",
-                            Delta = -2,
-                            Unit = CutLabMetricUnit.Percent,
-                            IsMeaningful = true,
-                        },
-                    ],
-                },
-            },
-        };
         CutLabApiController controller = CreateController(
             new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
             new FakeSimulationService(),
-            patchBuilder,
             whatifService: new FakeCutLabWhatifService
             {
                 CommitResultFactory = (_, cardOut, cardIn) => new CutLabWhatifCommitResult
@@ -1049,30 +1035,16 @@ public sealed class CutLabApiControllerTests
         CutLabDecideNextProposalDto nextProposal = Assert.IsType<CutLabDecideNextProposalDto>(payload.Patch!.NextProposal);
         string glanceLine = nextProposal.GlanceLine;
         Assert.False(string.IsNullOrWhiteSpace(glanceLine));
-        Assert.StartsWith("3 of 7 deck numbers move", glanceLine);
-        Assert.Contains("Castability", glanceLine);
+        AssertComposedGlance(payload.Patch);
     }
 
     [Fact]
     public async Task PostWhatifCommitAsync_WhenPatchHasNoProposalDeltas_UsesNoChangeGlanceLine()
     {
-        CutLabState state = CreateState();
-        ProposalPatchBuilder patchBuilder = new ProposalPatchBuilder
-        {
-            Patch = new CutLabUiPatchDto
-            {
-                CutLabStateJson = CutLabStateSerializer.Serialize(state),
-                NextProposal = new CutLabDecideNextProposalDto
-                {
-                    CardName = "Working Card",
-                    RoundKey = CutLabCutRoundEngine.WhatifSwapKey,
-                },
-            },
-        };
+        CutLabState state = CreateState(pool: [Card("Commander", isCommander: true, isLocked: true), Card("Basic Filler", quantity: 99, isLocked: true)]);
         CutLabApiController controller = CreateController(
             new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)),
             new FakeSimulationService(),
-            patchBuilder,
             whatifService: new FakeCutLabWhatifService
             {
                 CommitResultFactory = (_, cardOut, cardIn) => new CutLabWhatifCommitResult
@@ -1096,6 +1068,8 @@ public sealed class CutLabApiControllerTests
         OkObjectResult ok = Assert.IsType<OkObjectResult>(response.Result);
         CutLabWhatifApiResponse payload = Assert.IsType<CutLabWhatifApiResponse>(ok.Value);
         CutLabDecideNextProposalDto nextProposal = Assert.IsType<CutLabDecideNextProposalDto>(payload.Patch!.NextProposal);
+        Assert.True(nextProposal.IsTerminal);
+        Assert.Null(payload.Patch.ProposalDeltas);
         Assert.Equal(CutLabMessages.NoChangeMessage, nextProposal.GlanceLine);
     }
 
@@ -1701,6 +1675,49 @@ public sealed class CutLabApiControllerTests
     }
 
     [Fact]
+    public async Task PostRoleOverrideAsync_NonTerminalNextProposal_ReturnsComposedGlanceLine()
+    {
+        var controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+        var response = await controller.PostRoleOverrideAsync(RoleRequest(), default);
+        var payload = Assert.IsType<CutLabRoleOverrideApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.False(payload.Unchanged);
+        Assert.True(payload.RoleEdited);
+        Assert.Contains("draw", payload.RoleKeys);
+        AssertComposedGlance(Assert.IsType<CutLabUiPatchDto>(payload.Patch));
+    }
+
+    [Fact]
+    public async Task PostPlanApplyAsync_NonTerminalNextProposal_ReturnsComposedGlanceLine()
+    {
+        var controller = CreateController(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)), new FakeSimulationService());
+        var response = await controller.PostPlanApplyAsync(new CutLabPlanApplyApiRequest
+        {
+            CutLabStateJson = RoleRequest().CutLabStateJson,
+        }, default);
+        var payload = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        AssertComposedGlance(payload.Patch);
+    }
+
+    private static void AssertComposedGlance(CutLabUiPatchDto patch)
+    {
+        var proposal = Assert.IsType<CutLabDecideNextProposalDto>(patch.NextProposal);
+        Assert.False(proposal.IsTerminal);
+        Assert.False(string.IsNullOrWhiteSpace(proposal.GlanceLine));
+        var deltas = Assert.IsType<CutLabDecideProposalDeltasDto>(patch.ProposalDeltas);
+        Assert.Equal(CutLabViewModel.ComposeProposalGlance(new CutLabProposalDeltas
+        {
+            ChangedFamilyCount = deltas.ChangedFamilyCount,
+            Deltas = deltas.Deltas.Select(delta => new CutLabMetricDelta
+            {
+                Label = delta.Label,
+                Delta = delta.Delta,
+                Unit = delta.Unit,
+                IsMeaningful = delta.IsMeaningful,
+            }).ToArray(),
+        }, CutLabMessages.NoChangeMessage), proposal.GlanceLine);
+    }
+
+    [Fact]
     public async Task PostRoleOverrideAsync_AddRole_ReturnsPatchRolesAndEditedFlag()
     {
         await AssertRolePatchAsync(false);
@@ -2204,27 +2221,6 @@ public sealed class CutLabApiControllerTests
                     RoundKey = CutLabCutRoundEngine.Round1Key,
                 },
             };
-    }
-
-    private sealed class ProposalPatchBuilder : ICutLabUiPatchBuilder
-    {
-        public CutLabUiPatchDto BuildAdjustPatch(CutLabState state, IReadOnlyList<string> commanderNames)
-            => Patch;
-
-        public CutLabUiPatchDto Patch { get; init; } = new();
-
-        public Task<CutLabUiPatchDto> BuildAsync(
-            CutLabState state,
-            string playExperience,
-            IReadOnlyList<string> commanderNames,
-            bool twinsEnabled,
-            IReadOnlyList<ScryfallCardData>? preResolvedCards,
-            string? poolKey,
-            IReadOnlyList<CutLabDecideFloorWarningDto>? floorWarnings,
-            IReadOnlyDictionary<string, CutLabPlanAffinity>? planAffinities,
-            bool checkedCommanderThemesAvailable = false,
-            CancellationToken cancellationToken = default)
-            => Task.FromResult(Patch);
     }
 
     private sealed class ThrowingPatchBuilder : ICutLabUiPatchBuilder

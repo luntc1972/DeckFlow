@@ -163,4 +163,24 @@ public sealed partial class DeckAnalysisPacketServiceTests
         Assert.NotNull(result.AnalysisResponse);
         Assert.Null(result.Score);
     }
+
+    [Fact]
+    public async Task SavedScore_WithoutRuleText_StillValid()
+    {
+        var service = CreateService(
+            flagCache: ScoreFlag(true),
+            executeCollectionAsync: (_, _) => throw new InvalidOperationException("Saved scores must not trigger lookup."));
+        var score = SampleScore();
+        var json = JsonSerializer.Serialize(score).Replace(
+            ",\"RuleText\":null", "", StringComparison.Ordinal);
+        Assert.DoesNotContain("RuleText", json);
+        var result = await service.BuildAsync(new DeckAnalysisRequest
+        {
+            WorkflowStep = 3,
+            DeckProfileJson = SavedDeckProfileJson,
+            ScoreJson = json
+        });
+        Assert.Equal(score, result.Score);
+        Assert.Null(result.Score!.PowerRationale.RuleText);
+    }
 }

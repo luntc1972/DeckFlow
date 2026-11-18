@@ -61,6 +61,9 @@ public sealed record CutLabProcessResult
     /// <summary>True when category lookup completed successfully for this result.</summary>
     public bool CategoryDataAvailable { get; init; }
 
+    /// <summary>Commander trigger families activated for this deck.</summary>
+    public IReadOnlyList<string> ActiveTriggerFamilies { get; init; } = [];
+
     /// <summary>Per-card structural role assignments keyed by card name.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> RoleAssignmentsByCardName { get; init; } =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
@@ -275,6 +278,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             return Error("No mainboard or commander cards were found in that deck.", warnings);
         }
 
+        Task<(IReadOnlyList<string> Cards, Exception? Error)> banListTask = LoadBanListAsync(cancellationToken);
         List<ResolvedCutLabEntry> resolvedEntries;
         try
         {
@@ -324,7 +328,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         IReadOnlyList<string> bannedCardsPresent;
         try
         {
-            bannedCardsPresent = await ResolveBannedCardsPresentAsync(resolvedEntries, cancellationToken).ConfigureAwait(false);
+            bannedCardsPresent = await ResolveBannedCardsPresentAsync(resolvedEntries, banListTask).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -340,7 +344,7 @@ internal sealed class CutLabPageService : ICutLabPageService
         var priorState = CutLabStateSerializer.Deserialize(request.CutLabStateJson, request.Bracket);
         EdhrecThemeResult planThemeResult = await CutLabSharedHelpers.FetchPlanThemeResultAsync(_themeService, _logger, commanderResolution.CommanderNames, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<string> initialCommanderNames = commanderResolution.CommanderNames;
-        var (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
+        var (preAnalysisState, derivedWorkingList, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
 
         List<ResolvedCutLabEntry> finalResolvedEntries = ReconcileResolvedEntries(resolvedEntries, finalResolvedCards);
         bool recoveredDuringBuild = resolvedEntries.Zip(finalResolvedEntries, (before, after) => before.Card is null && after.Card is not null).Any(static recovered => recovered);
@@ -375,7 +379,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             // commander-dependent value retained from the earlier resolution snapshot.
             resolvedEntries = finalResolvedEntries;
 
-            (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
+            (preAnalysisState, derivedWorkingList, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey) = await RunAnalysisPassAsync(priorState, resolvedEntries, commanderResolution.CommanderNames, request, planThemeResult, resolutionPool, cancellationToken).ConfigureAwait(false);
         }
 
         // W-1 (round-1 review): a swallowed transient lookup failure leaves a card with no facts --
@@ -460,11 +464,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, baselineResult.CastabilityByCardName),
                 };
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 _logger.LogWarning(exception, "Cut Lab: baseline snapshot failed; continuing without D-12 baseline.");
                 warnings.Add("Baseline snapshot unavailable right now - continuing without original-pool metrics.");
@@ -511,11 +511,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     Pool = CutLabSimulationResult.ApplySimulationCardData(state.Pool, currentResult.CastabilityByCardName),
                 };
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 _logger.LogWarning(exception, "Cut Lab: current working snapshot failed; continuing without current metrics.");
                 warnings.Add("Current working snapshot unavailable right now - continuing without live metrics.");
@@ -537,11 +533,7 @@ internal sealed class CutLabPageService : ICutLabPageService
                     roleOverrides: state.RoleOverrides,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 _logger.LogWarning(exception, "Cut Lab: proposal deltas failed for {CardName}; continuing without deltas.", roundPlan.NextProposal.CardName);
                 warnings.Add("Proposal delta preview unavailable right now - continuing without cut-impact metrics.");
@@ -586,6 +578,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             ComboDataAvailable = analysisContext.Classification.ComboDataAvailable,
             CategoryDataAvailable = analysisContext.Classification.CategoryDataAvailable,
             RoleAssignmentsByCardName = analysisContext.RolesByCardName,
+            ActiveTriggerFamilies = analysisContext.ActiveTriggerFamilies,
             CardTextByCardName = cardTextByCardName,
             ComboBadgeByCardName = comboBadgeByCardName,
             ResolvedFloors = resolvedFloors,
@@ -603,9 +596,15 @@ internal sealed class CutLabPageService : ICutLabPageService
         };
     }
 
-    // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
-    // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
-    private async Task<(CutLabState PreAnalysisState, IReadOnlyList<CutLabPoolCard> DerivedWorkingList, IReadOnlyList<ScryfallCardData> PreResolvedCards, CutLabAnalysisContext AnalysisContext, IReadOnlyList<ScryfallCardData> FinalResolvedCards, IReadOnlyList<string> StillUnresolvedNames, string PoolKey)> RunAnalysisPassAsync(
+    private sealed record AnalysisPass(
+        CutLabState PreAnalysisState,
+        IReadOnlyList<CutLabPoolCard> DerivedWorkingList,
+        CutLabAnalysisContext AnalysisContext,
+        IReadOnlyList<ScryfallCardData> FinalResolvedCards,
+        IReadOnlyList<string> StillUnresolvedNames,
+        string PoolKey);
+
+    private async Task<AnalysisPass> RunAnalysisPassAsync(
         CutLabState priorState,
         IReadOnlyList<ResolvedCutLabEntry> resolvedEntries,
         IReadOnlyList<string> commanderNames,
@@ -662,9 +661,11 @@ internal sealed class CutLabPageService : ICutLabPageService
             .Where(name => !resolvedAfterBuild.Contains(CutLabCardNames.Normalize(name)))
             .ToArray();
 
-        return (preAnalysisState, derivedWorkingList, preResolvedCards, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey);
+        return new AnalysisPass(preAnalysisState, derivedWorkingList, analysisContext, finalResolvedCards, stillUnresolvedNames, poolKey);
     }
 
+    // True only when the named flag exists in the snapshot AND is enabled. Fail-safe OFF: a missing
+    // key returns false (unlike IFeatureFlagCache.IsEnabled, which defaults missing keys ON).
     private bool IsFlagOn(string key)
         => _featureFlags.IsExplicitlyEnabled(key);
 
@@ -693,8 +694,7 @@ internal sealed class CutLabPageService : ICutLabPageService
 
         IReadOnlyDictionary<string, ScryfallCardData> cachedCardsByName = CutLabCardNames.ToLastWinsDictionary(
             resolvedCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
 
         var resolvedEntries = new List<ResolvedCutLabEntry>(entries.Count);
 
@@ -721,8 +721,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     {
         IReadOnlyDictionary<string, ScryfallCardData> recoveredCardsByName = CutLabCardNames.ToLastWinsDictionary(
             recoveredCards.Where(card => card is not null).Cast<ScryfallCardData>(),
-            card => card.Name,
-            card => card);
+            card => card.Name);
         return entries
             .Select(entry => recoveredCardsByName.TryGetValue(CutLabCardNames.Normalize(entry.Name), out ScryfallCardData? card)
                 ? entry with { TypeLine = card.TypeLine ?? string.Empty, Card = card }
@@ -1070,8 +1069,7 @@ internal sealed class CutLabPageService : ICutLabPageService
     {
         IReadOnlyDictionary<string, ScryfallCardData> resolvedByName = CutLabCardNames.ToLastWinsDictionary(
             preResolvedCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
         Dictionary<string, CutLabCardTextView> cardTextByCardName = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (CutLabPoolCard card in pool)
@@ -1157,17 +1155,33 @@ internal sealed class CutLabPageService : ICutLabPageService
         return comboBadgeByCardName;
     }
 
+    private async Task<(IReadOnlyList<string> Cards, Exception? Error)> LoadBanListAsync(CancellationToken cancellationToken)
+    {
+        // Capture failures so an early resolution return cannot leave a faulted task unobserved.
+        try
+        {
+            return (await _banListService.GetBannedCardsAsync(cancellationToken).ConfigureAwait(false), null);
+        }
+        catch (Exception exception)
+        {
+            return ([], exception);
+        }
+    }
+
     private async Task<IReadOnlyList<string>> ResolveBannedCardsPresentAsync(
         IReadOnlyList<ResolvedCutLabEntry> entries,
-        CancellationToken cancellationToken)
+        Task<(IReadOnlyList<string> Cards, Exception? Error)> banListTask)
     {
-        IReadOnlyList<string> bannedCards = await _banListService.GetBannedCardsAsync(cancellationToken).ConfigureAwait(false);
+        var (bannedCards, error) = await banListTask.ConfigureAwait(false);
+        if (error is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
+        }
         var bannedSet = bannedCards.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var present = entries
             .Select(entry => entry.Name)
             .Where(name => bannedSet.Contains(name))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .DistinctAndOrderNames()
             .ToArray();
 
         if (present.Length > 0)

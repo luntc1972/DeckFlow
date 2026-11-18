@@ -13,6 +13,30 @@ internal static class AnalysisGoldens
 {
     private const string ChatGptImmediateHeader = PacketByteIdentityFixtures.ChatGptImmediateHeader;
 
+    public static string BracketFactsBlock(string platform) => platform switch
+    {
+        "ChatGPT" => """
+## Computed bracket facts
+These computed bracket facts are supplied as input for your own bracket judgment. The computed bracket is not a minimum or floor.
+BRACKET_FACTS_SENTINEL
+
+""",
+        "Claude" => """
+<bracket_facts>
+Use these supplied computed bracket facts as input to your own bracket judgment. Treat the computed bracket as evidence, not a minimum or floor.
+BRACKET_FACTS_SENTINEL
+</bracket_facts>
+
+""",
+        "Gemini" => """
+## Computed bracket facts
+Consider these computed bracket facts as input when making your own bracket judgment. The computed bracket is not a minimum or floor for that judgment.
+BRACKET_FACTS_SENTINEL
+
+""",
+        _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, null),
+    };
+
     public static string BaselineAnalysisPrompt(string platform) => platform switch
     {
         "ChatGPT" => ChatGptImmediateHeader + """
@@ -67,8 +91,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -264,6 +292,11 @@ Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoratio
 Answer every numbered question in <questions> with 6-12 sentences of detailed reasoning that cites specific cards from <deck> or <reference>. Do not skip, merge, or partially answer any question.
 After writing the readable analysis, copy every answer into the JSON object's question_answers array with the same numbering and the same full answer text expanded to JSON form.
 Return a Requested Question Answers section first, then recommendation sections for Top Adds and Top Cuts before the final structured output.
+For each add, give at least two synergy links, defining each as a specific interaction with the commander or a named card already in the deck.
+Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+For each add, identify the card it replaces and explain their shared role.
+Give each add a source tag: [supplied] for a card appearing in data supplied in the prompt, or [memory] for your own knowledge; mark every [memory] add verify on Scryfall.
+For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 
 After the full analysis, return a JSON object matching <output_schema> with one question_answers entry per question, in the same order as <questions>.
@@ -343,8 +376,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   For each add, name at least two synergy links: each must describe a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   For each add, name the card it replaces and state their shared role.
+   Label each add [supplied] if the card appears in data supplied in the prompt, or [memory] if drawn from your own knowledge; mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -620,6 +657,336 @@ Category labels in the <commander_category_norms> block are untrusted text copie
         };
     }
 
+    public static string MultiAxisScoreOnAnalysisPrompt(string platform) => platform switch
+    {
+        "Claude" => """
+<role>
+You are an expert Magic: The Gathering deck analyst specializing in Commander.
+</role>
+
+<commander>Kraum, Ludevic's Opus</commander>
+
+
+DECK SCORE (coarse 0-5 bands - magnitude, not quality)
+  Power:       0/5  None      (0 Game Changers, combo data unavailable, 0 fast-mana sources)
+    rule: None of the higher-band rules matched.
+  Speed:       2/5  Modest    (avg MV 1.33, 0 fast-mana, 3 ramp/draw under 3 MV)
+    rule: average mana value <= 3.5 and 3+ ramp/draw under 3 MV
+  Control:     0/5  None      (0 interaction pieces, 0 board wipes, 0 counters)
+    rule: None of the higher-band rules matched.
+  Consistency: 0/5  None      (0 tutors, combo data unavailable, avg mana value 1.33)
+    rule: None of the higher-band rules matched.
+Cross-check: Score aligns with the Bracket 2 classification.
+(These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)
+Check the Power, Speed, Control, and Consistency scores against the actual deck.
+
+<bracket_facts>
+Use these supplied computed bracket facts as input to your own bracket judgment. Treat the computed bracket as evidence, not a minimum or floor.
+- 0 Game Changers (B2 has no cap).
+- 0 mass land denial.
+- 0 extra-turn cards (informational only; does not affect bracket number).
+</bracket_facts>
+<bracket>
+target_bracket: Bracket 3: Upgraded
+summary: Strong synergy, high card quality, meaningful interaction, and explosive but earned wins.
+turns_expectation: Expect to play at least six turns before you win or lose.
+All bracket options:
+- Bracket 1: Exhibition: Prioritize theme, unusual ideas, flexible legality, and showcase gameplay over optimization. Expect to play at least nine turns before you win or lose.
+- Bracket 2: Core: Unoptimized and straightforward decks with incremental, disruptable wins and low-pressure gameplay. Expect to play at least eight turns before you win or lose.
+- Bracket 3: Upgraded: Strong synergy, high card quality, meaningful interaction, and explosive but earned wins. Expect to play at least six turns before you win or lose.
+- Bracket 4: Optimized: Fast, lethal, efficient decks with strong game changers, fast mana, tutors, and explosive play. Expect to play at least four turns before you win or lose.
+- Bracket 5: cEDH: Metagame-tuned competitive Commander decks built for maximum efficiency and consistency. Games can end on any turn.
+The turn on which the deck can realistically START winning — deploy a lethal or game-ending line — is the single most important factor in bracket placement. Weight it above card quality, interaction density, mana base, or any other factor.
+Pay special attention to the Bracket 3 / Bracket 4 boundary: a deck that can consistently begin its winning line by about turn 4 belongs in Bracket 4 (Optimized) or higher even if other elements look casual, while a deck that cannot reliably threaten a win until around turn 6 belongs in Bracket 3 (Upgraded) or lower.
+Weight just as heavily the deck's ability to STOP an opponent from winning on that same turn — its density of interaction (counterspells, instant-speed removal, free interaction, protection) able to answer a lethal line. A deck that can both threaten its own win and disrupt opponents' wins around the same turn sits higher in its bracket.
+Weight the win turn by reliability, not raw speed: a fragile, unprotected line that opponents can easily answer, or one the deck cannot reassemble, should not push the deck up a bracket on speed alone. A consistently protected or redundant win line counts for more than a faster but flimsy one.
+</bracket>
+
+<deck>
+format: Commander
+decklist:
+Commander
+1 Kraum, Ludevic's Opus
+
+Mainboard
+1 Arcane Signet
+1 Command Tower
+1 Ponder
+1 Sol Ring
+</deck>
+
+<reference>
+  <cards>
+reference_context:
+source: Scryfall Oracle and official Wizards Comprehensive Rules
+generated_at_utc: <TIMESTAMP>
+format: Commander
+
+official_commander_banned_cards: Dockside Extortionist, Mana Crypt
+
+mechanics:
+Flying: A keyword ability used for fixture determinism.
+Haste: A keyword ability used for fixture determinism.
+
+cards:
+[current_deck] = active deck.
+[current_deck] Arcane Signet | {2} | Artifact | {T}: Add one mana of any color in your commander's color identity.
+[current_deck] Command Tower |  | Land | {T}: Add one mana of any color in your commander's color identity.
+[current_deck] Kraum, Ludevic's Opus | {3}{U}{R} | Legendary Creature — Zombie Horror | Flying, haste Whenever an opponent casts their second spell each turn, draw a card. 4/4
+[current_deck] Ponder | {U} | Sorcery | Look at the top three cards of your library, then put them back in any order. You may shuffle. Draw a card.
+[current_deck] Sol Ring | {1} | Artifact | {T}: Add {C}{C}.
+  </cards>
+  <banlist>
+official_commander_banned_cards: Dockside Extortionist, Mana Crypt
+  </banlist>
+</reference>
+
+<questions>
+1. What are the strengths and weaknesses of this deck?
+</questions>
+
+<output_schema>
+{
+  "format": "Commander",
+  "commander": "Kraum, Ludevic\u0027s Opus",
+  "game_plan": "",
+  "primary_axes": [],
+  "speed": "",
+  "estimated_win_turn": 0,
+  "can_answer_win_turn": false,
+  "assessed_bracket": "",
+  "bracket_justification": "",
+  "strengths": [],
+  "weaknesses": [],
+  "deck_needs": [],
+  "weak_slots": [
+    {
+      "card": "",
+      "reason": ""
+    }
+  ],
+  "synergy_tags": [],
+  "question_answers": [
+    {
+      "question_number": 1,
+      "question": "",
+      "answer": "",
+      "basis": "authoritative|inference|mixed"
+    }
+  ]
+}
+</output_schema>
+
+<task>
+Read every section above before responding.
+Use the mechanic definitions and card reference in <reference><cards> as authoritative. Do not invent card text or rules.
+When a conclusion is based on supplied card text, rules text, or bracket guidance, say so briefly. Label inferences from deck construction, curve, redundancy, or play patterns explicitly.
+If the supplied data is insufficient to support a claim, say that directly instead of overstating confidence.
+If you encounter a card name you do not recognize, treat it as unknown instead of guessing. Do not invent its rules text; flag it as unrecognized. Some cards are alternate-art or Universe Beyond printings with unfamiliar names, so match by exact name before concluding a card is unknown.
+Do not recommend cards listed in <reference><banlist>.
+Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base, and weight them higher than a plain land since they can be cast as a spell or played as a land and add consistency and flexibility. Such cards are flagged [MDFC-land] in the reference data.
+
+Answer every numbered question in <questions> with 6-12 sentences of detailed reasoning that cites specific cards from <deck> or <reference>. Do not skip, merge, or partially answer any question.
+After writing the readable analysis, copy every answer into the JSON object's question_answers array with the same numbering and the same full answer text expanded to JSON form.
+Return a Requested Question Answers section first, then recommendation sections for Top Adds and Top Cuts before the final structured output.
+For each add, give at least two synergy links, defining each as a specific interaction with the commander or a named card already in the deck.
+Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+For each add, identify the card it replaces and explain their shared role.
+Give each add a source tag: [supplied] for a card appearing in data supplied in the prompt, or [memory] for your own knowledge; mark every [memory] add verify on Scryfall.
+For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
+
+
+After the full analysis, return a JSON object matching <output_schema> with one question_answers entry per question, in the same order as <questions>.
+The JSON question_answers entries must mirror the readable Requested Question Answers section one-for-one.
+Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
+Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
+Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+Field-level detail requirements for the deck_profile JSON:
+- game_plan: 2-4 sentences describing the deck's primary win condition, game plan, and how it closes games.
+- speed: 2-3 sentences characterizing the deck's speed, threat deployment, and typical turn progression.
+- estimated_win_turn: the earliest turn the deck can realistically START a lethal or game-ending line, as an integer. This is the single most important driver of bracket placement.
+- can_answer_win_turn: true if the deck has interaction (counterspells, instant-speed removal, free interaction, protection) able to stop an opponent from winning on or around that same turn; otherwise false.
+- assessed_bracket: your bracket verdict for this deck (e.g. "Bracket 3: Upgraded"), driven primarily by estimated_win_turn and can_answer_win_turn.
+- bracket_justification: 2-3 sentences justifying the assessed bracket, citing the win turn and interaction density above any other factor.
+- strengths: each item should be 1-2 sentences with a specific card or interaction reference.
+- weaknesses: each item should be 1-2 sentences with a specific card or interaction reference.
+- deck_needs: each item should be 1-2 sentences identifying a gap and what kind of card fills it.
+- weak_slots.reason: 2-3 sentences explaining why this slot is weak and what would improve it.
+
+You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
+</task>
+""",
+        "Gemini" => """
+You are an expert Magic: The Gathering analyst with deep cEDH metagame knowledge.
+You analyze Commander decks rigorously and base every conclusion on observable card text and deck composition.
+
+Think carefully through the problem before responding. Read every supplied section in full before forming any conclusion. When in doubt, prefer evidence-based caveats over confident speculation.
+
+Title this chat: Kraum, Ludevic's Opus | Deck Analysis
+
+Analyze this Magic: The Gathering deck. Read all supplied card reference, bracket guidance, and decklist data before beginning.
+
+## DECK CONTEXT
+format: Commander
+commander: Kraum, Ludevic's Opus
+target_bracket: Bracket 3: Upgraded
+
+
+DECK SCORE (coarse 0-5 bands - magnitude, not quality)
+  Power:       0/5  None      (0 Game Changers, combo data unavailable, 0 fast-mana sources)
+    rule: None of the higher-band rules matched.
+  Speed:       2/5  Modest    (avg MV 1.33, 0 fast-mana, 3 ramp/draw under 3 MV)
+    rule: average mana value <= 3.5 and 3+ ramp/draw under 3 MV
+  Control:     0/5  None      (0 interaction pieces, 0 board wipes, 0 counters)
+    rule: None of the higher-band rules matched.
+  Consistency: 0/5  None      (0 tutors, combo data unavailable, avg mana value 1.33)
+    rule: None of the higher-band rules matched.
+Cross-check: Score aligns with the Bracket 2 classification.
+(These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)
+Review the Power, Speed, Control, and Consistency scores against the actual deck.
+
+## Computed bracket facts
+Consider these computed bracket facts as input when making your own bracket judgment. The computed bracket is not a minimum or floor for that judgment.
+- 0 Game Changers (B2 has no cap).
+- 0 mass land denial.
+- 0 extra-turn cards (informational only; does not affect bracket number).
+## EVIDENCE RULES
+- Use the mechanic definitions and card reference supplied below as authoritative. Read all supplied card entries before beginning the analysis.
+- Do not invent card text or rules.
+- When a conclusion is based on supplied card text, rules text, or bracket guidance, say so briefly.
+- When a conclusion is based on inference from deck construction, curve, redundancy, or play patterns, label it as an inference.
+- If the supplied data is insufficient to support a claim, say that directly instead of overstating confidence.
+- If you encounter a card name you do not recognize, treat it as unknown instead of guessing. Do not invent its rules text; flag it as unrecognized. Some cards are alternate-art or Universe Beyond printings with unfamiliar names, so match by exact name before concluding a card is unknown.
+- Do not recommend cards from the official Commander banned list (see banned list in the reference section below).
+- Modal double-faced cards (MDFCs) with a land back face (e.g. Sea Gate Restoration // Sea Gate Sortie) count toward the deck's land total — include them when assessing land count and mana base. Weight them higher than a plain land, since they can be cast as a spell or played as a land and add consistency and flexibility. Such cards are flagged [MDFC-land] in the reference data.
+
+## BRACKET GUIDANCE
+Commander bracket definitions:
+- Bracket 1: Exhibition: Prioritize theme, unusual ideas, flexible legality, and showcase gameplay over optimization. Expect to play at least nine turns before you win or lose.
+- Bracket 2: Core: Unoptimized and straightforward decks with incremental, disruptable wins and low-pressure gameplay. Expect to play at least eight turns before you win or lose.
+- Bracket 3: Upgraded: Strong synergy, high card quality, meaningful interaction, and explosive but earned wins. Expect to play at least six turns before you win or lose.
+- Bracket 4: Optimized: Fast, lethal, efficient decks with strong game changers, fast mana, tutors, and explosive play. Expect to play at least four turns before you win or lose.
+- Bracket 5: cEDH: Metagame-tuned competitive Commander decks built for maximum efficiency and consistency. Games can end on any turn.
+The turn on which the deck can realistically START winning — deploy a lethal or game-ending line — is the single most important factor in bracket placement. Weight it above card quality, interaction density, mana base, or any other factor.
+Pay special attention to the Bracket 3 / Bracket 4 boundary: a deck that can consistently begin its winning line by about turn 4 belongs in Bracket 4 (Optimized) or higher even if other elements look casual, while a deck that cannot reliably threaten a win until around turn 6 belongs in Bracket 3 (Upgraded) or lower.
+Weight just as heavily the deck's ability to STOP an opponent from winning on that same turn — its density of interaction (counterspells, instant-speed removal, free interaction, protection) able to answer a lethal line. A deck that can both threaten its own win and disrupt opponents' wins around the same turn sits higher in its bracket.
+Weight the win turn by reliability, not raw speed: a fragile, unprotected line that opponents can easily answer, or one the deck cannot reassemble, should not push the deck up a bracket on speed alone. A consistently protected or redundant win line counts for more than a faster but flimsy one.
+Target the Commander experience of Bracket 3: Upgraded.
+Bracket summary: Strong synergy, high card quality, meaningful interaction, and explosive but earned wins.
+Turn expectation: Expect to play at least six turns before you win or lose.
+Use that bracket target when evaluating speed, card quality, interaction density, and suggested improvements.
+
+## ANALYSIS QUESTIONS
+Answer each question below. Use the same numbering in your response.
+1. What are the strengths and weaknesses of this deck?
+
+## OUTPUT FORMAT
+Place your readable analysis BEFORE the <result> tag. Inside the <result> wrapper, return ONLY a single JSON object — no prose, no markdown, no commentary inside the tags. The JSON must conform exactly to the schema below: no extra fields, no missing fields, no narrative wrappers.
+
+Structure your readable analysis (placed BEFORE the <result> wrapper) as follows:
+
+A. Start with a section titled Requested Question Answers.
+   - Answer every question using the same numbering from the ANALYSIS QUESTIONS section.
+   - For each answer, state the conclusion first, then give 6-12 sentences of detailed reasoning that cites specific card names, interactions, and strategic rationale.
+   - Do not skip, merge, or partially answer any question.
+   - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
+
+B. After the question answers, include these recommendation sections:
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   For each add, name at least two synergy links: each must describe a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   For each add, name the card it replaces and state their shared role.
+   Label each add [supplied] if the card appears in data supplied in the prompt, or [memory] if drawn from your own knowledge; mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
+
+D. After the full analysis, return a JSON object named deck_profile matching the schema below.
+   You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
+   The question_answers array must contain one entry per question, in the same order as the numbered list above.
+   Do not omit any question. If there are 8 questions, return exactly 8 question_answers entries numbered 1 through 8.
+   The JSON question_answers entries must mirror the readable Requested Question Answers section one-for-one.
+   Each answer field must be a thorough response (6-12 sentences minimum) — not a brief summary. Cite specific card names and interactions.
+   Do not collapse multiple questions into one JSON entry, and do not replace full answers with shorthand summaries in the JSON.
+   Before returning the JSON, count the numbered questions above and verify that question_answers has the same count.
+
+Wrap the entire JSON response in <result>...</result> tags so DeckFlow's parser can extract it uniformly across ChatGPT/Claude/Gemini. The existing fenced ```json code block remains as a fallback — do not remove it.
+
+   Field-level detail requirements for the deck_profile JSON:
+   - game_plan: 2-4 sentences describing the deck's primary win condition, game plan, and how it closes games.
+   - speed: 2-3 sentences characterizing the deck's speed, threat deployment, and typical turn progression.
+   - estimated_win_turn: the earliest turn the deck can realistically START a lethal or game-ending line, as an integer. This is the single most important driver of bracket placement.
+   - can_answer_win_turn: true if the deck has interaction (counterspells, instant-speed removal, free interaction, protection) able to stop an opponent from winning on or around that same turn; otherwise false.
+   - assessed_bracket: your bracket verdict for this deck (e.g. "Bracket 3: Upgraded"), driven primarily by estimated_win_turn and can_answer_win_turn.
+   - bracket_justification: 2-3 sentences justifying the assessed bracket, citing the win turn and interaction density above any other factor.
+   - strengths: each item should be 1-2 sentences with a specific card or interaction reference.
+   - weaknesses: each item should be 1-2 sentences with a specific card or interaction reference.
+   - deck_needs: each item should be 1-2 sentences identifying a gap and what kind of card fills it.
+   - weak_slots.reason: 2-3 sentences explaining why this slot is weak and what would improve it.
+
+{
+  "format": "Commander",
+  "commander": "Kraum, Ludevic\u0027s Opus",
+  "game_plan": "",
+  "primary_axes": [],
+  "speed": "",
+  "estimated_win_turn": 0,
+  "can_answer_win_turn": false,
+  "assessed_bracket": "",
+  "bracket_justification": "",
+  "strengths": [],
+  "weaknesses": [],
+  "deck_needs": [],
+  "weak_slots": [
+    {
+      "card": "",
+      "reason": ""
+    }
+  ],
+  "synergy_tags": [],
+  "question_answers": [
+    {
+      "question_number": 1,
+      "question": "",
+      "answer": "",
+      "basis": "authoritative|inference|mixed"
+    }
+  ]
+}
+
+## REFERENCE DATA
+reference_context:
+source: Scryfall Oracle and official Wizards Comprehensive Rules
+generated_at_utc: <TIMESTAMP>
+format: Commander
+
+official_commander_banned_cards: Dockside Extortionist, Mana Crypt
+
+mechanics:
+Flying: A keyword ability used for fixture determinism.
+Haste: A keyword ability used for fixture determinism.
+
+cards:
+[current_deck] = active deck.
+[current_deck] Arcane Signet | {2} | Artifact | {T}: Add one mana of any color in your commander's color identity.
+[current_deck] Command Tower |  | Land | {T}: Add one mana of any color in your commander's color identity.
+[current_deck] Kraum, Ludevic's Opus | {3}{U}{R} | Legendary Creature — Zombie Horror | Flying, haste Whenever an opponent casts their second spell each turn, draw a card. 4/4
+[current_deck] Ponder | {U} | Sorcery | Look at the top three cards of your library, then put them back in any order. You may shuffle. Draw a card.
+[current_deck] Sol Ring | {1} | Artifact | {T}: Add {C}{C}.
+
+## DECKLIST
+Commander
+1 Kraum, Ludevic's Opus
+
+Mainboard
+1 Arcane Signet
+1 Command Tower
+1 Ponder
+1 Sol Ring
+
+MANDATORY — DO NOT SKIP: Your response MUST end with a <result>...</result> block containing a single JSON object that matches the schema above. The JSON block is REQUIRED even if you have already produced a complete readable analysis — without it your response is invalid and DeckFlow will reject the upload. Do not summarise. Do not say "and the JSON is...". Output the literal <result> tag, then the JSON object, then </result>. Nothing else after </result>.
+""",
+        _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, null),
+    };
+
     public static string SingleFlagOnAnalysisPrompt(string flagKey) => flagKey switch
     {
         DeckAnalysisPacketService.CommandZoneAwarenessFlag => ChatGptImmediateHeader + """
@@ -674,8 +1041,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -776,11 +1147,21 @@ target_bracket: Bracket 3: Upgraded
 
 DECK SCORE (coarse 0-5 bands - magnitude, not quality)
   Power:       0/5  None      (0 Game Changers, combo data unavailable, 0 fast-mana sources)
+    rule: None of the higher-band rules matched.
   Speed:       2/5  Modest    (avg MV 1.33, 0 fast-mana, 3 ramp/draw under 3 MV)
+    rule: average mana value <= 3.5 and 3+ ramp/draw under 3 MV
   Control:     0/5  None      (0 interaction pieces, 0 board wipes, 0 counters)
-  Consistency: 0/5  None      (0 tutors, combo data unavailable, smooth 1.33 curve)
+    rule: None of the higher-band rules matched.
+  Consistency: 0/5  None      (0 tutors, combo data unavailable, avg mana value 1.33)
+    rule: None of the higher-band rules matched.
 Cross-check: Score aligns with the Bracket 2 classification.
 (These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)
+
+## Computed bracket facts
+These computed bracket facts are supplied as input for your own bracket judgment. The computed bracket is not a minimum or floor.
+- 0 Game Changers (B2 has no cap).
+- 0 mass land denial.
+- 0 extra-turn cards (informational only; does not affect bracket number).
 ## EVIDENCE RULES
 - Use the mechanic definitions and card reference supplied below as authoritative. Read all supplied card entries before beginning the analysis.
 - Do not invent card text or rules.
@@ -797,7 +1178,7 @@ Before beginning the analysis:
 2. Validate every interaction count.
 3. Validate every tutor count.
 4. Validate every fast mana source.
-5. Validate the estimated power/speed scores.
+5. Validate the Power, Speed, Control, and Consistency scores against the actual deck.
 6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.
 7. Use the validated results for the remainder of the analysis.
 
@@ -831,8 +1212,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -989,8 +1374,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1143,8 +1532,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1282,8 +1675,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1421,8 +1818,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1534,11 +1935,21 @@ target_bracket: Bracket 3: Upgraded
 
 DECK SCORE (coarse 0-5 bands - magnitude, not quality)
   Power:       0/5  None      (0 Game Changers, combo data unavailable, 0 fast-mana sources)
+    rule: None of the higher-band rules matched.
   Speed:       2/5  Modest    (avg MV 1.33, 0 fast-mana, 3 ramp/draw under 3 MV)
+    rule: average mana value <= 3.5 and 3+ ramp/draw under 3 MV
   Control:     0/5  None      (0 interaction pieces, 0 board wipes, 0 counters)
-  Consistency: 0/5  None      (0 tutors, combo data unavailable, smooth 1.33 curve)
+    rule: None of the higher-band rules matched.
+  Consistency: 0/5  None      (0 tutors, combo data unavailable, avg mana value 1.33)
+    rule: None of the higher-band rules matched.
 Cross-check: Score aligns with the Bracket 2 classification.
 (These bands are DeckFlow heuristic estimates from decklist signals - re-check and refine.)
+
+## Computed bracket facts
+These computed bracket facts are supplied as input for your own bracket judgment. The computed bracket is not a minimum or floor.
+- 0 Game Changers (B2 has no cap).
+- 0 mass land denial.
+- 0 extra-turn cards (informational only; does not affect bracket number).
 
 INTERACTION AUDIT (DeckFlow heuristic first pass - verify against the cards)
   Targeted removal: approximately 0 confident - none found
@@ -1569,7 +1980,7 @@ Before beginning the analysis:
 2. Validate every interaction count.
 3. Validate every tutor count.
 4. Validate every fast mana source.
-5. Validate the estimated power/speed scores.
+5. Validate the Power, Speed, Control, and Consistency scores against the actual deck.
 6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.
 7. Use the validated results for the remainder of the analysis.
 
@@ -1603,8 +2014,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 D. After the full analysis, return a JSON object named deck_profile matching the schema below.
    You MUST return the JSON inside a fenced ```json code block (triple-backtick json). Do not return raw JSON outside a code block.
@@ -1747,8 +2162,12 @@ A. Start with a section titled Requested Question Answers.
    - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.
 
 B. After the question answers, include these recommendation sections:
-   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.
-   - Top Cuts: 5-10 cards with one sentence of reasoning per card.
+   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.
+   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.
+   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.
+   Each add names the card it replaces and their shared role.
+   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.
+   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.
 
 C. Full decklist output requirements:
    For every requested deck-version or upgrade-path question, output the full 100-card Commander decklist.

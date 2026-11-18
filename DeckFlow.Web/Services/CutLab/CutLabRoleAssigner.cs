@@ -25,7 +25,9 @@ public static class CutLabRoleAssigner
     private const string EnginesRole = "engines";
     private const string PayoffsRole = "payoffs";
     private const string WinconsRole = "wincons";
-    private const string OtherRole = "other";
+    private const string RecursionRole = CutLabRoleKeys.Recursion;
+    private const string StaxRole = CutLabRoleKeys.Stax;
+    private const string OtherRole = CutLabRoleKeys.Residual;
 
     private static readonly string[] RoleKeys =
     [
@@ -68,8 +70,10 @@ public static class CutLabRoleAssigner
             ["engines"] = "Engines",
             ["payoffs"] = "Payoffs",
             ["wincons"] = "Win conditions",
-            ["other"] = "Other",
-        };
+        }.Concat(CutLabRoleKeys.FloorlessRegistry.Select(entry =>
+            new KeyValuePair<string, string>(entry.Key, entry.Label)))
+        .Append(new KeyValuePair<string, string>("other", "Other"))
+        .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
 
     /// <summary>Maps the Cut Lab play-experience string to the shared classifier mode.</summary>
     /// <param name="playExperience">User-selected play-experience label.</param>
@@ -204,12 +208,29 @@ public static class CutLabRoleAssigner
             assigned.Add(WinconsRole);
         }
 
+        if (DeckStatClassifier.IsRecursionCard(oracle)
+            || HasRecursionCategoryTag(categories))
+        {
+            assigned.Add(RecursionRole);
+        }
+
+        if (categories.Contains(StaxRole, StringComparer.OrdinalIgnoreCase)
+            || DeckStatClassifier.IsStaxCard(fact.Name, oracle))
+        {
+            assigned.Add(StaxRole);
+        }
+
         if (assigned.Count == 0)
         {
             assigned.Add(OtherRole);
         }
 
         return assigned;
+    }
+
+    private static bool HasRecursionCategoryTag(IReadOnlyList<string> categories)
+    {
+        return categories.Contains(RecursionRole, StringComparer.OrdinalIgnoreCase);
     }
 
     private static bool HasWipeCategoryTag(IReadOnlyList<string> categories)
@@ -255,6 +276,13 @@ public static class CutLabRoleAssigner
                 return true;
             }
 
+            // Why: Redirecting a targeted spell is interaction even when it does not counter or remove anything.
+            if (clause.Contains("change the target of target spell", StringComparison.OrdinalIgnoreCase)
+                || clause.Contains("new targets for target spell", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
             if (clause.Contains("target", StringComparison.OrdinalIgnoreCase)
                 && !clause.Contains("graveyard", StringComparison.OrdinalIgnoreCase)
                 && !clause.Contains("you control", StringComparison.OrdinalIgnoreCase))
@@ -266,8 +294,7 @@ public static class CutLabRoleAssigner
                     || (clause.Contains("return target", StringComparison.OrdinalIgnoreCase)
                         && clause.Contains("hand", StringComparison.OrdinalIgnoreCase))
                     || (clause.Contains("target creature", StringComparison.OrdinalIgnoreCase)
-                        && clause.Contains("gets -", StringComparison.OrdinalIgnoreCase))
-                    || clause.Contains("counter target", StringComparison.OrdinalIgnoreCase))
+                        && clause.Contains("gets -", StringComparison.OrdinalIgnoreCase)))
                 {
                     return true;
                 }

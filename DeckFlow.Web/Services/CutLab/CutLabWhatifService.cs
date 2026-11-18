@@ -306,16 +306,7 @@ public sealed class CutLabWhatifService : ICutLabWhatifService
         IReadOnlyList<CutLabPoolCard> targetPool,
         IReadOnlyList<ScryfallCardData> sourceCards)
     {
-        IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
-            sourceCards,
-            card => card.Name,
-            card => card);
-        IReadOnlyList<ScryfallCardData> subset = targetPool
-            .Select(card => sourceByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out ScryfallCardData? resolvedCard) ? resolvedCard : null)
-            .Where(card => card is not null)
-            .Cast<ScryfallCardData>()
-            .DistinctBy(card => CutLabCardNames.Normalize(card.Name))
-            .ToArray();
+        IReadOnlyList<ScryfallCardData> subset = CutLabAnalysisContextBuilder.BuildPartialResolvedSubset(targetPool, sourceCards);
         return CutLabAnalysisContextBuilder
             .AugmentResolvedCardsWithSyntheticBasics(targetPool, subset)
             .DistinctBy(card => CutLabCardNames.Normalize(card.Name))

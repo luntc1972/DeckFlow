@@ -140,7 +140,7 @@ public sealed class CutLabApiController : ControllerBase
 
             IReadOnlyList<CutLabPoolCard> afterWorkingList = CutLabWorkingList.Derive(state.Pool, state.Decisions, state.QuantityAdjustments);
             string afterPoolKey = CutLabResolvedCardCache.ComputePoolKey(afterWorkingList);
-            IReadOnlyList<ScryfallCardData>? afterPreResolvedCards = TryBuildAfterPreResolvedCards(
+            IReadOnlyList<ScryfallCardData> afterPreResolvedCards = TryBuildAfterPreResolvedCards(
                 fullPool,
                 afterWorkingList,
                 beforeContext.ResolvedCards);
@@ -476,7 +476,7 @@ public sealed class CutLabApiController : ControllerBase
         {
             CardOut = cardOut,
             CardIn = cardIn,
-            Patch = patch with { NextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas) },
+            Patch = patch,
             CutLabStateJson = patch.CutLabStateJson,
         });
     }
@@ -570,7 +570,7 @@ public sealed class CutLabApiController : ControllerBase
     private bool IsFlagOn(string key)
         => _featureFlags.IsExplicitlyEnabled(key);
 
-    private IReadOnlyList<ScryfallCardData>? TryBuildAfterPreResolvedCards(
+    private IReadOnlyList<ScryfallCardData> TryBuildAfterPreResolvedCards(
         IReadOnlyList<CutLabPoolCard> fullPool,
         IReadOnlyList<CutLabPoolCard> afterWorkingList,
         IReadOnlyList<ScryfallCardData> beforeResolvedCards)
@@ -594,12 +594,11 @@ public sealed class CutLabApiController : ControllerBase
 
     private static CutLabDecideApiResponse BuildDecideApiResponse(CutLabUiPatchDto patch)
     {
-        CutLabDecideNextProposalDto? nextProposal = AddProposalGlance(patch.NextProposal, patch.ProposalDeltas);
         return new()
         {
-            Patch = patch with { NextProposal = nextProposal },
+            Patch = patch,
             CutLabStateJson = patch.CutLabStateJson,
-            NextProposal = nextProposal ?? throw new InvalidOperationException("A decision response requires a next proposal."),
+            NextProposal = patch.NextProposal ?? throw new InvalidOperationException("A decision response requires a next proposal."),
             ProposalDeltas = patch.ProposalDeltas,
             FloorWarnings = patch.FloorWarnings,
             CardsRemaining = patch.CardsRemaining,
@@ -609,30 +608,6 @@ public sealed class CutLabApiController : ControllerBase
             CategoryDataAvailable = patch.CategoryDataAvailable,
         };
     }
-
-    private static CutLabDecideNextProposalDto? AddProposalGlance(
-        CutLabDecideNextProposalDto? proposal,
-        CutLabDecideProposalDeltasDto? deltas)
-        => proposal is null
-            ? null
-            : proposal with
-            {
-                GlanceLine = CutLabViewModel.ComposeProposalGlance(
-                deltas is null
-                    ? null
-                    : new CutLabProposalDeltas
-                    {
-                        ChangedFamilyCount = deltas.ChangedFamilyCount,
-                        Deltas = deltas.Deltas.Select(delta => new CutLabMetricDelta
-                        {
-                            Label = delta.Label,
-                            Delta = delta.Delta,
-                            Unit = delta.Unit,
-                            IsMeaningful = delta.IsMeaningful,
-                        }).ToArray(),
-                    },
-                CutLabMessages.NoChangeMessage),
-            };
 
     private bool TryLoadState(string? json, out CutLabState state, out ActionResult? error)
     {

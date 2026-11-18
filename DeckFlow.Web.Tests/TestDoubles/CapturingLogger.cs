@@ -1,10 +1,11 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Web.Tests.TestDoubles;
 
 internal sealed class CapturingLogger<T> : ILogger<T>
 {
-    public List<IReadOnlyList<KeyValuePair<string, object?>>> Entries { get; } = [];
+    public ConcurrentQueue<IReadOnlyList<KeyValuePair<string, object?>>> Entries { get; } = new();
 
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
     public bool IsEnabled(LogLevel logLevel) => true;
@@ -12,7 +13,7 @@ internal sealed class CapturingLogger<T> : ILogger<T>
     {
         if (state is IEnumerable<KeyValuePair<string, object?>> values)
         {
-            Entries.Add(values.ToArray());
+            Entries.Enqueue(values.ToArray());
         }
     }
 }

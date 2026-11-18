@@ -14,6 +14,7 @@ interface CutLabPatchResponse {
       roundKey: string;
       roundLabel: string;
       roundBannerBody: string;
+      findingSummary: string;
       findingCount: number;
       findingChips: string[];
     };
@@ -151,7 +152,8 @@ const buildPatch = (comboContext = 'Infinite cards'): CutLabPatchResponse => ({
       cardName: 'Arcane Signet',
       roundKey: 'round-2',
       roundLabel: 'Round 2 · Structural choices',
-      roundBannerBody: 'Cards flagged by exactly one structural finding.',
+      roundBannerBody: 'Cards with one reason to cut: a stranded subtheme, or off your plan.',
+      findingSummary: "No structural finding flags this card — it's a preference call.",
       findingCount: 1,
       findingChips: ['Weak floor cases'],
     },

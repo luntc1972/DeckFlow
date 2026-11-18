@@ -115,11 +115,12 @@ public sealed record CutLabSimulationResult
 }
 
 /// <summary>Cut Lab simulation service that projects existing engine output into the shared metric contract.</summary>
-public sealed class CutLabSimulationService : ICutLabSimulationService
+internal sealed class CutLabSimulationService : ICutLabSimulationService
 {
     private readonly CutLabResolvedCardCache _resolvedCardCache;
     private readonly CutLabDeltaCache _deltaCache;
     private readonly IScryfallCardResolver _resolver;
+    private readonly ScryfallReferenceResolver _referenceResolver;
     private readonly ILogger<CutLabSimulationService> _logger;
     private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, IReadOnlyList<CutLabRoleOverride>?, CutLabMetricSnapshot> _snapshotBuilder;
     private readonly Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, IReadOnlyList<CutLabRoleOverride>?, CutLabSimulationResult> _simulationResultBuilder;
@@ -129,7 +130,19 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     /// <param name="deltaCache">Proposal-delta cache for repeated card renders.</param>
     /// <param name="resolver">Shared Scryfall resolver pipeline.</param>
     /// <param name="logger">Structured logger.</param>
+    /// <param name="referenceResolver">Shared batch resolver and collection cache.</param>
     public CutLabSimulationService(
+        CutLabResolvedCardCache resolvedCardCache,
+        CutLabDeltaCache deltaCache,
+        IScryfallCardResolver resolver,
+        ILogger<CutLabSimulationService> logger,
+        ScryfallReferenceResolver referenceResolver)
+        : this(resolvedCardCache, deltaCache, resolver, logger, BuildSnapshot, BuildSnapshotResult,
+            referenceResolver ?? throw new ArgumentNullException(nameof(referenceResolver)))
+    {
+    }
+
+    internal CutLabSimulationService(
         CutLabResolvedCardCache resolvedCardCache,
         CutLabDeltaCache deltaCache,
         IScryfallCardResolver resolver,
@@ -144,14 +157,20 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         IScryfallCardResolver resolver,
         ILogger<CutLabSimulationService> logger,
         Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, IReadOnlyList<CutLabRoleOverride>?, CutLabMetricSnapshot> snapshotBuilder,
-        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, IReadOnlyList<CutLabRoleOverride>?, CutLabSimulationResult>? simulationResultBuilder = null)
+        Func<IReadOnlyList<DeckCardEntry>, string?, int?, CutLabGoalSettings?, IReadOnlyList<CutLabRoleOverride>?, CutLabSimulationResult>? simulationResultBuilder = null,
+        ScryfallReferenceResolver? referenceResolver = null)
     {
         _resolvedCardCache = resolvedCardCache ?? throw new ArgumentNullException(nameof(resolvedCardCache));
         _deltaCache = deltaCache ?? throw new ArgumentNullException(nameof(deltaCache));
         _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+        _referenceResolver = referenceResolver ?? new ScryfallReferenceResolver(_resolver, new ScryfallCollectionCardCache());
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _snapshotBuilder = snapshotBuilder ?? throw new ArgumentNullException(nameof(snapshotBuilder));
-        _simulationResultBuilder = simulationResultBuilder ?? BuildSnapshotResult;
+        _simulationResultBuilder = simulationResultBuilder
+            ?? ((entries, experience, trials, goals, overrides) => new CutLabSimulationResult
+            {
+                Snapshot = _snapshotBuilder(entries, experience, trials, goals, overrides),
+            });
     }
 
     /// <inheritdoc />
@@ -242,7 +261,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             cedhContext: cedhContext,
             trialsOverride: trialsOverride);
 
-        IReadOnlyList<CutLabMetricValue> metrics = BuildMetrics(report, deck, facts, mode, goals);
+        IReadOnlyList<CutLabMetricValue> metrics = BuildMetrics(report, deck, facts, goals);
         return new CutLabSimulationResult
         {
             Snapshot = new CutLabMetricSnapshot { Metrics = metrics },
@@ -311,9 +330,9 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
             return cached;
         }
 
-        CutLabMetricSnapshot snapshot = _snapshotBuilder(deckEntries, playExperience, trialsOverride, goals, roleOverrides);
-        _deltaCache.SetSnapshot(poolKey, playExperience, trialsOverride, snapshot, goals, roleOverrides: roleOverrides);
-        return snapshot;
+        CutLabSimulationResult result = _simulationResultBuilder(deckEntries, playExperience, trialsOverride, goals, roleOverrides);
+        _deltaCache.SetResult(poolKey, playExperience, trialsOverride, result, goals, roleOverrides: roleOverrides);
+        return result.Snapshot;
     }
 
     private async Task<CutLabMetricSnapshot> GetOrBuildSnapshot(
@@ -335,32 +354,54 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         string poolKey,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<ScryfallCardData>? cachedCards;
+        IReadOnlyDictionary<string, ScryfallCardData>? cardsByName;
         IReadOnlyList<ScryfallCardData> cards;
-        if (!_resolvedCardCache.TryGet(poolKey, out cachedCards) || cachedCards is null)
+        if (!_resolvedCardCache.TryGetLookup(poolKey, out cardsByName) || cardsByName is null)
         {
-            var resolvedCards = new List<ScryfallCardData>(workingList.Count);
-            foreach (CutLabPoolCard poolCard in workingList)
+            try
             {
-                ScryfallCard? resolved = await _resolver.ResolveSingleAsync(poolCard.Name, cancellationToken).ConfigureAwait(false);
-                if (resolved is null)
+                string[] requestNames = workingList.Select(card => card.Name)
+                    .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                ScryfallBatchResolution batch = await _referenceResolver.ResolveBatchAsync(
+                    requestNames,
+                    _resolver.ResolveSingleAsync,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                var resolvedByName = batch.Resolutions.ToDictionary(
+                    resolution => resolution.RequestName,
+                    resolution => resolution.Card,
+                    StringComparer.OrdinalIgnoreCase);
+                cards = workingList.Select(poolCard =>
                 {
-                    throw new InvalidOperationException($"Cut Lab simulation could not resolve '{poolCard.Name}'.");
+                    if (!resolvedByName.TryGetValue(poolCard.Name, out ScryfallCard? resolved))
+                    {
+                        throw new InvalidOperationException($"Cut Lab simulation could not resolve '{poolCard.Name}'.");
+                    }
+
+                    return ScryfallCardDataMapper.ToCardData(resolved);
+                }).ToArray();
+            }
+            catch (ScryfallReferenceCollectionException)
+            {
+                // Preserve the original per-card resolution and exception behavior when collection lookup fails.
+                var resolvedCards = new List<ScryfallCardData>(workingList.Count);
+                foreach (CutLabPoolCard poolCard in workingList)
+                {
+                    ScryfallCard? resolved = await _resolver.ResolveSingleAsync(poolCard.Name, cancellationToken).ConfigureAwait(false);
+                    if (resolved is null)
+                    {
+                        throw new InvalidOperationException($"Cut Lab simulation could not resolve '{poolCard.Name}'.");
+                    }
+
+                    resolvedCards.Add(ScryfallCardDataMapper.ToCardData(resolved));
                 }
 
-                resolvedCards.Add(ScryfallCardDataMapper.ToCardData(resolved));
+                cards = resolvedCards;
             }
-
-            cards = resolvedCards;
             _resolvedCardCache.Set(poolKey, cards);
             _logger.LogInformation("Resolved {CardCount} Cut Lab cards for snapshot pool {PoolKey}.", cards.Count, poolKey);
         }
         else
         {
-            IReadOnlyDictionary<string, ScryfallCardData> cardsByName = CutLabCardNames.ToLastWinsDictionary(
-                cachedCards,
-                card => card.Name,
-                card => card);
             cards = workingList
                 .Select(poolCard =>
                 {
@@ -388,7 +429,6 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
         ManabaseReport report,
         ManabaseDeck deck,
         IReadOnlyList<CardFact> facts,
-        ManabaseMode mode,
         CutLabGoalSettings? goals)
     {
         goals ??= new CutLabGoalSettings();
@@ -456,8 +496,8 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
     {
         IReadOnlyDictionary<string, CardFact> factsByName = CutLabCardNames.ToLastWinsDictionary(
             facts,
-            fact => fact.Name,
-            fact => fact);
+            fact => fact.Name);
+        var overridesByName = CutLabRoleOverrideRules.BuildLookup(roleOverrides);
         return deck with
         {
             Spells = deck.Spells
@@ -473,7 +513,7 @@ public sealed class CutLabSimulationService : ICutLabSimulationService
                     // heuristic fallback tier and leave the richer upstream sources fail-open.
                     PlanRole roles = PlanRoleClassifier.Classify(fact, [], false, mode, out bool interactionMeritPreGate);
                     SpellRequirement classifiedSpell = spell with { PlanRoles = roles, IsInteractionSpell = interactionMeritPreGate };
-                    CutLabRoleOverride? roleOverride = CutLabRoleOverrideRules.Find(roleOverrides ?? [], CutLabCardNames.Normalize(fact.Name));
+                    CutLabRoleOverride? roleOverride = overridesByName.GetValueOrDefault(CutLabCardNames.Normalize(fact.Name));
                     return roleOverride is null
                         ? classifiedSpell
                         : CutLabRoleOverridePlanRoles.Apply(classifiedSpell, fact, mode, roleOverride);

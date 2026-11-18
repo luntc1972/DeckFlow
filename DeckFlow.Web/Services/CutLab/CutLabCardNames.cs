@@ -18,8 +18,49 @@ internal static class CutLabCardNames
     {
         ArgumentNullException.ThrowIfNull(cardName);
 
-        return CardNormalizer.Normalize(cardName);
+        // Why: Canonical ASCII names need neither regex passes nor string rewrites.
+        bool alreadyNormal = true;
+        for (int index = 0; index < cardName.Length; index++)
+        {
+            char character = cardName[index];
+            if (character is >= 'a' and <= 'z' or >= '0' and <= '9')
+            {
+                continue;
+            }
+
+            if (character == ' ' && index > 0 && index < cardName.Length - 1 && cardName[index - 1] != ' ')
+            {
+                continue;
+            }
+
+            alreadyNormal = false;
+            break;
+        }
+
+        return alreadyNormal ? cardName : CardNormalizer.Normalize(cardName);
     }
+
+    /// <summary>
+    /// Returns distinct card names ordered using ordinal, case-insensitive comparison.
+    /// </summary>
+    /// <param name="names">The card names to deduplicate and order.</param>
+    /// <returns>The distinct names in ordinal, case-insensitive order.</returns>
+    internal static IOrderedEnumerable<string> DistinctAndOrderNames(this IEnumerable<string> names)
+        => names
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Indexes source items by normalized card name, retaining the last item for each key.
+    /// </summary>
+    /// <typeparam name="TSource">The source item type.</typeparam>
+    /// <param name="source">The items to index in enumeration order.</param>
+    /// <param name="keySelector">Selects the card name to normalize for each item.</param>
+    /// <returns>A dictionary of source items using the shared card-name comparer.</returns>
+    public static Dictionary<string, TSource> ToLastWinsDictionary<TSource>(
+        IEnumerable<TSource> source,
+        Func<TSource, string> keySelector)
+        => ToLastWinsDictionary(source, keySelector, item => item);
 
     public static Dictionary<string, TValue> ToLastWinsDictionary<TSource, TValue>(
         IEnumerable<TSource> source,
@@ -38,4 +79,13 @@ internal static class CutLabCardNames
 
         return dictionary;
     }
+
+    internal static string JoinCardNames(IReadOnlyList<string> cardNames)
+        => cardNames.Count switch
+        {
+            0 => string.Empty,
+            1 => cardNames[0],
+            2 => $"{cardNames[0]} and {cardNames[1]}",
+            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
+        };
 }

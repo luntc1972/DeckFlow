@@ -6,11 +6,19 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Cut Lab roles (2026-11-13)
+
+- **New role groups:** Recursion, Stax, and Enablers help explain each card's job. All three have no role floor and are excluded from minimum checks.
+- **Lifegain enablers:** Enablers appears only for commanders that reward you for gaining life, including conditional rewards. Lifegain is the only supported family; the group and Add a role option are hidden otherwise, and saved Enablers edits have no effect in those decks.
+- **Stax findings:** Stax cards now appear in their role group; stax tags no longer produce stranded-subtheme findings.
+- **Deck analysis:** The "Stax or taxation" bucket now also lists non-catalog stax cards detected from their continuing restrictions or taxes.
+
 ### Unreleased — Commander Spellbook double-faced card names (2026-11-16)
 
 - **Front-face names:** Cards entered by their front-face name only (for example, `Valki, God of Lies`) are now looked up under their full name too, so their combos are no longer silently missing.
 - **Combo lookup:** Meta Gap, deck comparison and every other combo lookup now send double-faced, split and adventure cards to Commander Spellbook under their full `A // B` name, so combos that need one of those cards are no longer silently missing. Prompt decklists keep their front-face display.
 - **Near-combos:** a card you own under its front-face or `A / B` spelling is no longer reported as the missing piece of a near-combo.
+- **Lookup performance:** Commander Spellbook lookups reuse each card's resolved name for 30 minutes, so decks that differ by a few cards do not re-resolve the rest.
 
 ### DeckFlow Bridge 0.1.2 — Moxfield v3 imports (2026-11-16)
 
@@ -31,6 +39,7 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 - **Roles:** a card's roles are edited from its card window; the separate role editor and Edit roles links are gone.
 - **Categories:** the By category view and category editing are removed; imported categories still export as imported.
 - **Fewer Scryfall lookups:** re-caching a pool no longer forgets cards already known to be missing, so they are not looked up again.
+- **Interaction audit:** the deck-analysis "Stax or taxation" bucket now also lists cards with continuing restriction or tax wording, not only named staples.
 
 ### Unreleased — Deck Tendencies profile crawls (2026-10-27)
 

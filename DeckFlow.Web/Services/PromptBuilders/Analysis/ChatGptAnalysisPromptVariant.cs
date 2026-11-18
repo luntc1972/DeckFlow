@@ -36,6 +36,7 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         ArgumentNullException.ThrowIfNull(enrichments);
         var companionName = enrichments.CompanionName;
         var scoreBlockText = enrichments.ScoreBlockText;
+        var bracketFactsText = enrichments.BracketFactsText;
         var interactionAuditText = enrichments.InteractionAuditText;
         var winConMapText = enrichments.WinConMapText;
         var commanderCategoryNormsText = enrichments.CommanderCategoryNormsText;
@@ -50,6 +51,7 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         var requiresCategoryOutput = AnalysisQuestionCatalog.RequiresCategoryOutput(selectedQuestionIds);
         var hasHeuristicContentToValidate =
             !string.IsNullOrWhiteSpace(scoreBlockText)
+            || !string.IsNullOrWhiteSpace(bracketFactsText)
             || !string.IsNullOrWhiteSpace(interactionAuditText)
             || !string.IsNullOrWhiteSpace(winConMapText)
             || !string.IsNullOrWhiteSpace(commanderCategoryNormsText)
@@ -111,6 +113,14 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
             builder.AppendLine(scoreBlockText);
         }
 
+        if (!string.IsNullOrWhiteSpace(bracketFactsText))
+        {
+            builder.AppendLine();
+            builder.AppendLine("## Computed bracket facts");
+            builder.AppendLine("These computed bracket facts are supplied as input for your own bracket judgment. The computed bracket is not a minimum or floor.");
+            builder.AppendLine(bracketFactsText.TrimEnd());
+        }
+
         // ADR-0001: hand-edited per variant; caller supplies the pre-built block text.
         if (!string.IsNullOrWhiteSpace(interactionAuditText))
         {
@@ -162,7 +172,9 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
             builder.AppendLine("2. Validate every interaction count.");
             builder.AppendLine("3. Validate every tutor count.");
             builder.AppendLine("4. Validate every fast mana source.");
-            builder.AppendLine("5. Validate the estimated power/speed scores.");
+            builder.AppendLine(!string.IsNullOrWhiteSpace(scoreBlockText)
+                ? "5. Validate the Power, Speed, Control, and Consistency scores against the actual deck."
+                : "5. Validate the estimated power/speed scores.");
             builder.AppendLine("6. Identify every discrepancy between the DeckFlow heuristic blocks above and the actual deck.");
             builder.AppendLine("7. Use the validated results for the remainder of the analysis.");
             builder.AppendLine();
@@ -208,8 +220,12 @@ internal sealed class ChatGptAnalysisPromptVariant : IAnalysisPromptVariant
         builder.AppendLine("   - After writing the readable analysis, copy every answer into deck_profile.question_answers with the same numbering and the same full answer text expanded to JSON form.");
         builder.AppendLine();
         builder.AppendLine("B. After the question answers, include these recommendation sections:");
-        builder.AppendLine("   - Top Adds: 5-10 cards with one sentence of reasoning per card, tied to the deck's plan, bracket target, or weaknesses.");
-        builder.AppendLine("   - Top Cuts: 5-10 cards with one sentence of reasoning per card.");
+        builder.AppendLine("   - Top Adds: 5-10 cards with brief reasoning per card covering the rules below, tied to the deck's plan, bracket target, or weaknesses.");
+        builder.AppendLine("   Each add must name at least two synergy links, each a specific interaction with the commander or a named card already in the deck.");
+        builder.AppendLine("   Structural adds (lands, generic ramp, removal, board wipes) are exempt from the two-link rule.");
+        builder.AppendLine("   Each add names the card it replaces and their shared role.");
+        builder.AppendLine("   Tag each add [supplied] when the card appears in data supplied in the prompt; use [memory] for your own knowledge and mark every [memory] add verify on Scryfall.");
+        builder.AppendLine("   - Top Cuts: 5-10 cards with one sentence of reasoning per card. For Top Cuts, list cards with no synergy links first; structural cards (lands, generic ramp, removal, board wipes) must not be cut for lacking links.");
         if (requiresFullDecklists)
         {
             builder.AppendLine();

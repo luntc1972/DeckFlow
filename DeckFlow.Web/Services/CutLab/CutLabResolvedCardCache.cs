@@ -19,7 +19,11 @@ public sealed class CutLabResolvedCardCache
     private readonly ILogger<CutLabResolvedCardCache> _logger;
 
     /// <summary>Stores resolved and missing Scryfall cards with their estimated cache size.</summary>
-    private sealed record CachedEntry(IReadOnlyList<ScryfallCardData> Cards, IReadOnlySet<string> MissingCardNames, int SizeBytes);
+    private sealed record CachedEntry(IReadOnlyList<ScryfallCardData> Cards, IReadOnlySet<string> MissingCardNames, int SizeBytes)
+    {
+        internal Lazy<IReadOnlyDictionary<string, ScryfallCardData>> Lookup { get; } = new(
+            () => CutLabCardNames.ToLastWinsDictionary(Cards, card => card.Name));
+    }
 
     /// <summary>
     /// Initializes a new <see cref="CutLabResolvedCardCache"/>.
@@ -89,6 +93,26 @@ public sealed class CutLabResolvedCardCache
         return true;
     }
 
+    internal bool TryGetLookup(string poolKey, out IReadOnlyDictionary<string, ScryfallCardData>? cardsByName, bool logCacheEvent = true)
+    {
+        if (_cache.TryGetValue(poolKey, out CachedEntry? entry) && entry is not null)
+        {
+            cardsByName = entry.Lookup.Value;
+            if (logCacheEvent)
+            {
+                LogCacheEvent("hit", poolKey, entry.SizeBytes);
+            }
+            return true;
+        }
+
+        cardsByName = null;
+        if (logCacheEvent)
+        {
+            LogCacheEvent("miss", poolKey, 0);
+        }
+        return false;
+    }
+
     internal bool TryGetKnownMissingNames(string poolKey, out IReadOnlySet<string>? missingCardNames)
     {
         ArgumentNullException.ThrowIfNull(poolKey);
@@ -131,6 +155,23 @@ public sealed class CutLabResolvedCardCache
                 .Select(CutLabCardNames.Normalize)
                 .ToHashSet(CutLabCardNames.Comparer);
         var entry = new CachedEntry(cards, normalizedMissingCardNames, sizeBytes);
+        StoreEntry(poolKey, entry);
+    }
+
+    internal bool Refresh(string poolKey)
+    {
+        if (!_cache.TryGetValue(poolKey, out CachedEntry? entry) || entry is null)
+        {
+            return false;
+        }
+
+        StoreEntry(poolKey, entry);
+        return true;
+    }
+
+    private void StoreEntry(string poolKey, CachedEntry entry)
+    {
+        int sizeBytes = entry.SizeBytes;
         var options = new MemoryCacheEntryOptions
         {
             // Why: resolved Scryfall payloads should survive a normal cut session without repeated refetches.
@@ -166,6 +207,10 @@ public sealed class CutLabResolvedCardCache
         int total = 0;
         foreach (var card in cards)
         {
+            // Why: reserve the lazy lookup up front so materialization cannot exceed the admitted budget.
+            // Estimate each normalized key as a 24-byte string header plus UTF-16 characters,
+            // with 32 bytes for its dictionary entry, bucket, and capacity overhead.
+            total += 24 + (CutLabCardNames.Normalize(card.Name).Length * sizeof(char)) + 32;
             total += card.Name.Length;
             total += card.ManaCost?.Length ?? 0;
             total += card.TypeLine?.Length ?? 0;

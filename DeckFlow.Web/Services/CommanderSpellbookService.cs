@@ -178,9 +178,43 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         CancellationToken cancellationToken)
     {
         var names = main.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var misses = new List<string>();
+        foreach (var name in names)
+        {
+            // Why: Per-name entries let decks that differ by a few cards (Cut Lab decide) reuse earlier resolutions instead of calling Scryfall.
+            if (_memoryCache.TryGetValue<string>(CanonicalNameCacheKey(name), out var canonical))
+            {
+                if (!string.IsNullOrEmpty(canonical))
+                {
+                    result[name] = canonical;
+                }
+            }
+            else
+            {
+                misses.Add(name);
+            }
+        }
+
+        if (misses.Count == 0)
+        {
+            return result;
+        }
+
         try
         {
-            return await _canonicalCardNameResolver.ResolveCanonicalNamesAsync(names, cancellationToken).ConfigureAwait(false);
+            var resolved = await _canonicalCardNameResolver.ResolveCanonicalNamesAsync(misses, cancellationToken).ConfigureAwait(false);
+            foreach (var name in misses)
+            {
+                resolved.TryGetValue(name, out var canonical);
+                _memoryCache.Set(CanonicalNameCacheKey(name), canonical ?? string.Empty, CacheDuration);
+                if (!string.IsNullOrEmpty(canonical))
+                {
+                    result[name] = canonical;
+                }
+            }
+
+            return result;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -189,8 +223,8 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         catch (Exception ex)
         {
             // Why: A Scryfall outage must not hide combos; null still means Spellbook is unavailable.
-            _logger.LogWarning(ex, "Card-name canonicalization failed; sending {CardCount} Commander Spellbook names unresolved.", names.Count);
-            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _logger.LogWarning(ex, "Card-name canonicalization failed; sending {CardCount} Commander Spellbook names unresolved.", misses.Count);
+            return result;
         }
     }
 
@@ -205,6 +239,8 @@ public sealed class CommanderSpellbookService : ICommanderSpellbookService
         };
         return JsonSerializer.Serialize(obj);
     }
+
+    private static string CanonicalNameCacheKey(string name) => "spellbook-canonical-name:" + name.ToUpperInvariant();
 
     private static string ToSpellbookName(string name)
     {

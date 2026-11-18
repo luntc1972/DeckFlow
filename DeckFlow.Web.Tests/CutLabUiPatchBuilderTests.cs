@@ -60,6 +60,24 @@ public sealed class CutLabUiPatchBuilderTests
     }
 
     [Fact]
+    public void BuildAdjustPatch_DuplicateNormalizedLandOverrides_LastWins()
+    {
+        CutLabState state = CreateState(pool: [Card("Commander", 1, isCommander: true, isLocked: true), Card("Plains", 1, typeLine: "Basic Land — Plains")]) with
+        {
+            RoleOverrides =
+            [
+                new() { Name = "PLAINS", Added = ["tutor"] },
+                new() { Name = "plains!", Added = ["draw"] },
+            ],
+        };
+        var builder = CreateBuilder(new FakeAnalysisContextBuilder(workingList => CreateAnalysisContext(workingList)));
+
+        var patch = builder.BuildAdjustPatch(state, ["Commander"]);
+
+        Assert.Equal("Lands · Card draw", Assert.Single(patch.QuantityTuners, row => row.CardName == "Plains").RoleLabel);
+    }
+
+    [Fact]
     public void BuildAdjustPatch_RoleOverride_LandTunerIncludesAddedDraw()
     {
         CutLabState state = CreateState(pool: [Card("Commander", 1, isCommander: true, isLocked: true), Card("Plains", 1, typeLine: "Basic Land — Plains")]) with
@@ -854,6 +872,7 @@ public sealed class CutLabUiPatchBuilderTests
         Assert.NotNull(patch.NextProposal);
         Assert.True(patch.NextProposal.IsTerminal);
         Assert.True(patch.NextProposal.IsAtTarget);
+        Assert.Equal(CutLabViewModel.ComposeProposalGlance(null, CutLabMessages.NoChangeMessage), patch.NextProposal.GlanceLine);
         Assert.False(patch.NextProposal.IsNothingToCut);
         Assert.Equal(0, contextBuilder.BuildCalls);
         Assert.Equal(0, simulationService.ComputeProposalDeltasCalls);

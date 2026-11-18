@@ -360,6 +360,158 @@ public sealed class CommanderSpellbookServiceTests
     }
 
     [Fact]
+    public async Task FindCombosAsync_RepeatCall_ResolvesNamesOnce()
+    {
+        var bodies = new List<string>();
+        var resolver = CanonicalResolver();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = BuildRecordingService(bodies, EmptyResponse, resolver, cache);
+        var entries = new[] { MainboardEntry(FrontFace), MainboardEntry("Sol Ring") };
+
+        await service.FindCombosAsync(entries);
+        await service.FindCombosAsync(entries);
+
+        Assert.Equal(1, resolver.CallCount);
+        Assert.Single(bodies);
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_RepeatCallWithUncachedResult_ResolvesNamesOnce()
+    {
+        var bodies = new List<string>();
+        var resolver = CanonicalResolver();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = BuildRecordingService(bodies, " ", resolver, cache);
+        var entries = new[] { MainboardEntry(FrontFace), MainboardEntry("Sol Ring") };
+
+        await service.FindCombosAsync(entries);
+        await service.FindCombosAsync(entries);
+
+        Assert.Equal(2, bodies.Count);
+        Assert.Equal(1, resolver.CallCount);
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_RepeatCallDifferentCase_ResolvesNamesOnce()
+    {
+        var bodies = new List<string>();
+        var resolver = CanonicalResolver();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = BuildRecordingService(bodies, EmptyResponse, resolver, cache);
+
+        await service.FindCombosAsync([MainboardEntry(FrontFace), MainboardEntry("Sol Ring")]);
+        await service.FindCombosAsync([MainboardEntry(FrontFace), MainboardEntry("sol ring")]);
+
+        Assert.Equal(1, resolver.CallCount);
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_OneCardChanged_ResolvesOnlyNewName()
+    {
+        var resolver = CanonicalResolver();
+        var bodies = new List<string>();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = BuildRecordingService(bodies, EmptyResponse, resolver, cache);
+
+        await service.FindCombosAsync([MainboardEntry(FrontFace), MainboardEntry("Sol Ring")]);
+        await service.FindCombosAsync([MainboardEntry(FrontFace), MainboardEntry("Mana Crypt")]);
+
+        Assert.Equal(2, resolver.CallCount);
+        Assert.Equal(["Mana Crypt"], resolver.RequestedNames[1]);
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_SubsetDeck_DoesNotResolve()
+    {
+        var resolver = CanonicalResolver();
+        var bodies = new List<string>();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = BuildRecordingService(bodies, EmptyResponse, resolver, cache);
+
+        await service.FindCombosAsync([MainboardEntry(FrontFace), MainboardEntry("Sol Ring")]);
+        await service.FindCombosAsync([MainboardEntry(FrontFace)]);
+
+        Assert.Equal(1, resolver.CallCount);
+        Assert.Contains(DoubleFaced, SentNames(bodies[1], "main"));
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_UnmappedName_NotResolvedAgain()
+    {
+        var resolver = CanonicalResolver();
+        var bodies = new List<string>();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = BuildRecordingService(bodies, EmptyResponse, resolver, cache);
+
+        await service.FindCombosAsync([MainboardEntry("Not A Real Card"), MainboardEntry("Sol Ring")]);
+        await service.FindCombosAsync([MainboardEntry("Not A Real Card"), MainboardEntry("Mana Crypt")]);
+
+        Assert.Equal(["Mana Crypt"], resolver.RequestedNames[1]);
+        Assert.Contains("Not A Real Card", SentNames(bodies[1], "main"));
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_ResolverThrows_CachedNamesStillSentCanonical()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var bodies = new List<string>();
+        var serviceA = BuildRecordingService(bodies, EmptyResponse, CanonicalResolver(), cache);
+        await serviceA.FindCombosAsync([MainboardEntry(FrontFace)]);
+        var serviceB = BuildRecordingService(bodies, EmptyResponse,
+            new FakeCanonicalCardNameResolver { ThrowOnResolve = new HttpRequestException("Scryfall unavailable") }, cache);
+
+        var result = await serviceB.FindCombosAsync([MainboardEntry(FrontFace), MainboardEntry("Mana Crypt")]);
+
+        Assert.NotNull(result);
+        Assert.Contains(DoubleFaced, SentNames(bodies[1], "main"));
+        Assert.Contains("Mana Crypt", SentNames(bodies[1], "main"));
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_ResolverThrows_MissesNotCached()
+    {
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var bodies = new List<string>();
+        var serviceA = BuildRecordingService(bodies, EmptyResponse,
+            new FakeCanonicalCardNameResolver { ThrowOnResolve = new HttpRequestException("Scryfall unavailable") }, cache);
+        await serviceA.FindCombosAsync([MainboardEntry(FrontFace)]);
+        var resolverB = CanonicalResolver();
+        var serviceB = BuildRecordingService(bodies, EmptyResponse, resolverB, cache);
+
+        await serviceB.FindCombosAsync([MainboardEntry(FrontFace)]);
+
+        Assert.Contains(FrontFace, resolverB.RequestedNames[0]);
+        Assert.Contains(DoubleFaced, SentNames(bodies[1], "main"));
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_DifferentDeck_ResolvesAgain()
+    {
+        var resolver = CanonicalResolver();
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = BuildRecordingService([], EmptyResponse, resolver, cache);
+
+        await service.FindCombosAsync([MainboardEntry(FrontFace)]);
+        await service.FindCombosAsync([MainboardEntry("Sol Ring")]);
+
+        Assert.Equal(2, resolver.CallCount);
+    }
+
+    [Fact]
+    public async Task FindCombosAsync_ResolverThrowsTwice_ResolvesBothTimes()
+    {
+        var resolver = new FakeCanonicalCardNameResolver { ThrowOnResolve = new HttpRequestException("Scryfall unavailable") };
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = BuildRecordingService([], EmptyResponse, resolver, cache);
+        var entries = new[] { MainboardEntry(FrontFace), MainboardEntry("Sol Ring") };
+
+        await service.FindCombosAsync(entries);
+        await service.FindCombosAsync(entries);
+
+        Assert.Equal(2, resolver.CallCount);
+    }
+
+    [Fact]
     public async Task FindCombosAsync_SingleFacedAndUnresolvableNames_SentUnchanged()
     {
         var resolver = new FakeCanonicalCardNameResolver();
@@ -409,7 +561,8 @@ public sealed class CommanderSpellbookServiceTests
     {
         var bodies = new List<string>();
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var serviceA = BuildRecordingService(bodies, EmptyResponse, new FakeCanonicalCardNameResolver { ThrowOnResolve = new HttpRequestException("Scryfall unavailable") }, cache);
+        var resolverA = new FakeCanonicalCardNameResolver { ThrowOnResolve = new HttpRequestException("Scryfall unavailable") };
+        var serviceA = BuildRecordingService(bodies, EmptyResponse, resolverA, cache);
         var serviceB = BuildRecordingService(bodies, EmptyResponse, CanonicalResolver(), cache);
         var entries = new[] { MainboardEntry(FrontFace), MainboardEntry("Sol Ring") };
 
@@ -417,6 +570,7 @@ public sealed class CommanderSpellbookServiceTests
         await serviceB.FindCombosAsync(entries);
 
         Assert.Equal(2, bodies.Count);
+        Assert.Equal(1, resolverA.CallCount);
         Assert.Contains(DoubleFaced, SentNames(bodies[1], "main"));
     }
 

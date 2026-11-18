@@ -73,6 +73,27 @@ public sealed class BracketPromptVariantParityTests
         Assert.Contains("Game Changers list effective", result, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("ChatGPT", null)]
+    [InlineData("Claude", null)]
+    [InlineData("Gemini", null)]
+    [InlineData("ChatGPT", 2)]
+    [InlineData("Claude", 2)]
+    [InlineData("Gemini", 2)]
+    public void Build_NamedCardGuard_AppearsInAllThreeVariants(string platformName, int? targetBracketNumber)
+    {
+        var result = BuildRegistry().Build(AiPlatform.Normalize(platformName),
+            BuildClassification(bracketNumber: 4), targetBracketNumber, null,
+            BuildTiers(), BuildCatalog());
+
+        Assert.Contains("real, Commander-legal cards", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sure exist", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("unsure", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("name or text", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("say so plainly", result, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("do not guess", result, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ── Balancer block present when target is below classified bracket ──────
 
     [Theory]

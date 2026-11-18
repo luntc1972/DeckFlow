@@ -71,6 +71,20 @@ public sealed class CutLabRoleAssignerTests
         Assert.Contains("interaction-targeted", roles);
     }
 
+    [Theory]
+    [InlineData("Change the target of target spell with a single target. You lose life equal to that spell's mana value.", true)]
+    [InlineData("You may choose new targets for target spell or ability.", true)]
+    [InlineData("Change the target of target spell or ability with a single target.", true)]
+    [InlineData("Copy target instant or sorcery spell. You may choose new targets for the copy.", false)]
+    public void AssignRoles_SpellRedirectionOracleInCasual_MapsOnlyRedirectsToTargetedInteraction(string oracle, bool expected)
+    {
+        CardFact fact = Fact("Spell redirection", "Instant", oracle: oracle);
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
+
+        Assert.Equal(expected, roles.Contains("interaction-targeted"));
+    }
+
     [Fact]
     public void AssignRoles_RegrowthOracleInCasual_DoesNotMapToTargetedInteraction()
     {
@@ -321,7 +335,7 @@ public sealed class CutLabRoleAssignerTests
             Array.Empty<string>(),
             ManabaseMode.Casual);
 
-        Assert.Equal(["lands"], roles);
+        Assert.Equal(["lands", "recursion"], roles);
     }
 
     [Fact]
@@ -599,6 +613,79 @@ public sealed class CutLabRoleAssignerTests
     public void ResolveMode_Null_FallsBackToCasual()
     {
         Assert.Equal(ManabaseMode.Casual, CutLabRoleAssigner.ResolveMode(null));
+    }
+
+    [Fact]
+    public void AssignRoles_Reanimate_MatchesRecursionContract()
+    {
+        CardFact fact = Fact("Reanimate", "Sorcery", "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.");
+        Assert.Equal(["recursion"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void AssignRoles_TheSoulStone_MatchesRecursionContract()
+    {
+        CardFact fact = Fact("The Soul Stone", "Legendary Artifact — Infinity Stone", "Indestructible\n{T}: Add {B}.\n{6}{B}, {T}, Exile a creature you control: Harness The Soul Stone. (Once harnessed, its ∞ ability is active.)\n∞ — At the beginning of your upkeep, return target creature card from your graveyard to the battlefield.");
+        Assert.Equal(["ramp", "recursion"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void AssignRoles_BojukaBog_MatchesRecursionContract()
+    {
+        CardFact fact = Fact("Bojuka Bog", "Land", "This land enters tapped.\nWhen this land enters, exile target player's graveyard.\n{T}: Add {B}.");
+        Assert.Equal(["lands", "interaction-targeted"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void AssignRoles_MultipleRolesIncludingRecursion_UsesCanonicalOrder()
+    {
+        CardFact fact = Fact("Mind Stone", "Artifact", "{T}: Add {C}.\n{1}, {T}, Sacrifice Mind Stone: Draw a card.");
+
+        var roles = CutLabRoleAssigner.AssignRoles(fact, ["Recursion"], ManabaseMode.Casual);
+
+        Assert.Equal(["ramp", "draw", "engines", "recursion"], roles);
+        Assert.Equal(CutLabRoleOverrideRules.CanonicalOrder.Where(roles.Contains), roles);
+    }
+
+    [Fact]
+    public void AssignRoles_RecursionTagOnly_EmitsRecursion()
+    {
+        Assert.Equal(["recursion"], CutLabRoleAssigner.AssignRoles(Fact("Category-only", "Artifact", ""), ["Recursion"], ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void AssignRoles_RecursionOnBackFace_DoesNotReadPastExplicitFront()
+    {
+        CardFact fact = Fact("Bala Ged Sanctuary // Bala Ged Recovery", "Land // Sorcery",
+            "{T}: Add {G}. // Return target card from your graveyard to your hand.") with
+        {
+            FrontFaceOracleText = "{T}: Add {G}.",
+        };
+        Assert.Equal(["lands"], CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
+    }
+
+    [Fact]
+    public void AssignRoles_StaxTagOnly_EmitsStax()
+    {
+        Assert.Equal(["stax"], CutLabRoleAssigner.AssignRoles(Fact("Category-only", "Artifact", ""), ["StAx"], ManabaseMode.Casual));
+    }
+
+    [Theory]
+    [InlineData("Authority of the Consuls", "Creatures your opponents control enter tapped.", true)]
+    [InlineData("Silence", "Your opponents can't cast spells this turn.", false)]
+    public void AssignRoles_StaxDetector_MatchesContract(string name, string oracle, bool expected)
+    {
+        Assert.Equal(expected, CutLabRoleAssigner.AssignRoles(Fact(name, "Enchantment", oracle), [], ManabaseMode.Casual).Contains("stax"));
+    }
+
+    [Fact]
+    public void AssignRoles_StaxOnBackFace_DoesNotReadPastExplicitFront()
+    {
+        CardFact fact = Fact("Synthetic", "Artifact", "Creatures your opponents control enter tapped.") with
+        {
+            FrontFaceOracleText = "{T}: Add {C}.",
+        };
+        Assert.DoesNotContain("stax", CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual));
     }
 
     private static CardFact Fact(string name, string typeLine, string? oracle = null) => new()

@@ -9,6 +9,7 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.Harvest;
 using DeckFlow.Web.Services.Scryfall;
+using DeckFlow.Web.Tests.TestDoubles;
 using Microsoft.Extensions.Logging;
 using RestSharp;
 using Xunit;
@@ -18,6 +19,33 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabAnalysisContextBuilder"/> covering cache reuse, fail-open classification, and role analysis.</summary>
 public sealed class CutLabAnalysisContextBuilderTests
 {
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task BuildAsync_CommanderTriggerFamily_ControlsEnablersAndCounts(bool active, bool commanderNamed)
+    {
+        var resolver = new CountingResolver([
+            Spell("Commander", "Legendary Creature", oracleText: active ? "Whenever you gain life, draw a card." : "Whenever you draw a card, create a token."),
+            Spell("Life", "Creature", oracleText: "You gain 1 life."),
+            Spell("Miren", "Land", oracleText: "{T}: You gain 1 life."),
+        ]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()),
+            new LocalSpellbookService(), new FakeCategoryKnowledgeStore());
+
+        CutLabAnalysisContext context = await builder.BuildAsync([
+            PoolCard("Commander", "Legendary Creature", isCommander: true),
+            PoolCard("Life", "Creature", quantity: 2),
+            PoolCard("Miren", "Land"),
+        ], "Focused", commanderNamed ? ["Commander"] : []);
+
+        Assert.Equal(active, context.ActiveTriggerFamilies.Count > 0);
+        Assert.Equal(active, context.RolesByCardName["Life"].Contains("enablers"));
+        Assert.Equal(active, context.RolesByCardName["Miren"].Contains("enablers"));
+        Assert.Equal(active ? 3 : 0, context.RoleCounts.GetValueOrDefault("enablers"));
+    }
+
     [Fact]
     public async Task BuildAsync_ReturnsAnalyzedCardsAndRoleCounts()
     {
@@ -1148,6 +1176,125 @@ public sealed class CutLabAnalysisContextBuilderTests
         CutLabAnalysisContext context = await builder.BuildAsync([PoolCard("Commander", "Creature")], "Focused", ["Commander", "Partner"], preResolvedCards: [CardData("Commander", "Creature")]);
 
         Assert.Empty(context.Classification.StapleCardNames);
+    }
+
+    [Fact]
+    public async Task ResolvePoolCardsAsync_CanonicalFullHit_LogsExactlyOneHit()
+    {
+        var logger = new CapturingLogger<CutLabResolvedCardCache>();
+        var cache = new CutLabResolvedCardCache(logger);
+        IReadOnlyList<CutLabPoolCard> pool = [PoolCard("Arcane Signet", "Artifact")];
+        IReadOnlyList<ScryfallCardData> cards = [new ScryfallCardData { Name = "Arcane Signet" }];
+        cache.Set(CutLabResolvedCardCache.ComputePoolKey(pool), cards);
+        logger.Entries.Clear();
+        var resolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache,
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+
+        var result = await builder.ResolvePoolCardsAsync(pool);
+
+        Assert.Same(cards, result);
+        Assert.Equal(0, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+        Assert.Equal(0, resolver.SearchFallbackCalls);
+        Assert.Single(logger.Entries.ToArray(), entry =>
+            entry.Any(value => value.Key == "Outcome" && Equals(value.Value, "hit")));
+    }
+
+    [Fact]
+    public async Task ResolvePoolCardsAsync_FullHit_RefreshesExpiryWithoutCopying()
+    {
+        var clock = new RefreshClock();
+        var memory = new Microsoft.Extensions.Caching.Memory.MemoryCache(
+            new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions { Clock = clock, SizeLimit = 100000, TrackStatistics = true });
+        var cache = new CutLabResolvedCardCache();
+        var cacheField = typeof(CutLabResolvedCardCache).GetField("_cache", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        ((IDisposable)cacheField.GetValue(cache)!).Dispose();
+        cacheField.SetValue(cache, memory);
+        IReadOnlyList<CutLabPoolCard> pool = [PoolCard("Arcane Signet", "Artifact"), PoolCard("Typo", "Instant")];
+        IReadOnlyList<ScryfallCardData> cards = [new ScryfallCardData { Name = "Arcane Signet" }];
+        string key = CutLabResolvedCardCache.ComputePoolKey(pool);
+        cache.Set(key, cards, ["Typo"]);
+        var originalSize = memory.GetCurrentStatistics()!.CurrentEstimatedSize;
+        Assert.True(cache.TryGetKnownMissingNames(key, out var missing));
+        var resolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache,
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+        clock.UtcNow += TimeSpan.FromMinutes(29);
+
+        var result = await builder.ResolvePoolCardsAsync(pool);
+
+        Assert.Same(cards, result);
+        Assert.True(cache.TryGet(key, out var refreshed));
+        Assert.Same(cards, refreshed);
+        Assert.True(cache.TryGetKnownMissingNames(key, out var refreshedMissing));
+        Assert.Same(missing, refreshedMissing);
+        Assert.Equal(originalSize, memory.GetCurrentStatistics()!.CurrentEstimatedSize);
+        clock.UtcNow += TimeSpan.FromMinutes(2);
+        Assert.True(cache.TryGet(key, out _));
+        clock.UtcNow += TimeSpan.FromMinutes(28);
+        Assert.False(cache.TryGet(key, out _));
+        memory.Dispose();
+    }
+
+    [Fact]
+    public async Task ResolvePoolCardsAsync_ReorderedFullHit_UsesWorkingOrderWithoutResolving()
+    {
+        IReadOnlyList<CutLabPoolCard> pool = [PoolCard("Island", "Basic Land — Island"), PoolCard("Sol Ring", "Artifact")];
+        var solRing = new ScryfallCardData { Name = "Sol Ring", TypeLine = "Artifact" };
+        var island = Assert.Single(CutLabAnalysisContextBuilder.AugmentResolvedCardsWithSyntheticBasics([pool[0]], []));
+        var cache = new CutLabResolvedCardCache();
+        cache.Set(CutLabResolvedCardCache.ComputePoolKey(pool), [solRing, island]);
+        var resolver = new CountingResolver([]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache,
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+        var oldPathBuilder = new CutLabAnalysisContextBuilder(resolver, new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+        var expected = await oldPathBuilder.ResolvePoolCardsAsync(pool, preResolvedCards: [solRing, island]);
+
+        var actual = await builder.ResolvePoolCardsAsync(pool);
+
+        Assert.Equal(new[] { "Island", "Sol Ring" }, actual.Select(card => card.Name));
+        Assert.Equal(expected, actual);
+        Assert.Equal(0, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+        Assert.Equal(0, resolver.SearchFallbackCalls);
+    }
+
+    [Fact]
+    public async Task ResolvePoolCardsAsync_PartialHit_ResolvesOnlyUnknownNames()
+    {
+        IReadOnlyList<CutLabPoolCard> pool = [PoolCard("Sol Ring", "Artifact"), PoolCard("Arcane Signet", "Artifact")];
+        var solRing = new ScryfallCardData { Name = "Sol Ring", TypeLine = "Artifact" };
+        var signet = Spell("Arcane Signet", "Artifact");
+        var cache = new CutLabResolvedCardCache();
+        cache.Set(CutLabResolvedCardCache.ComputePoolKey(pool), [solRing]);
+        var resolver = new CountingResolver([]);
+        var protocol = new RecordingCollectionProtocol([signet]);
+        var builder = new CutLabAnalysisContextBuilder(resolver, cache,
+            new ScryfallReferenceResolver(protocol, new ScryfallCollectionCardCache()));
+        var oldPathResolver = new CountingResolver([]);
+        var oldPathProtocol = new RecordingCollectionProtocol([signet]);
+        var oldPathBuilder = new CutLabAnalysisContextBuilder(oldPathResolver, new CutLabResolvedCardCache(),
+            new ScryfallReferenceResolver(oldPathProtocol, new ScryfallCollectionCardCache()));
+        var expected = await oldPathBuilder.ResolvePoolCardsAsync(pool, preResolvedCards: [solRing]);
+
+        var actual = await builder.ResolvePoolCardsAsync(pool);
+
+        Assert.Equal(new[] { "Sol Ring", "Arcane Signet" }, actual.Select(card => card.Name));
+        Assert.Equal(expected, actual);
+        var request = Assert.Single(protocol.Requests);
+        Assert.Equal("Arcane Signet", Assert.Single(request.Identifiers).Name);
+        Assert.Equal(Assert.Single(oldPathProtocol.Requests).Identifiers, request.Identifiers);
+        Assert.Equal(0, resolver.ExecuteCollectionCalls);
+        Assert.Equal(oldPathResolver.ExecuteCollectionCalls, resolver.ExecuteCollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+        Assert.Equal(0, resolver.SearchFallbackCalls);
+    }
+
+    private sealed class RefreshClock : Microsoft.Extensions.Internal.ISystemClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
     }
 
     private static CutLabPoolCard PoolCard(string name, string typeLine, int quantity = 1, bool isCommander = false, bool isLocked = false)

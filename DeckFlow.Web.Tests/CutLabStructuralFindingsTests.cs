@@ -127,6 +127,7 @@ public sealed class CutLabStructuralFindingsTests
     [InlineData("Utility Lands")]
     [InlineData("Card Draw")]
     [InlineData("Board Wipes")]
+    [InlineData("Stax")]
     public void Compute_StrandedSubtheme_ExcludesFunctionalCategories(string category)
     {
         IReadOnlyList<CutLabAnalyzedCard> pool =

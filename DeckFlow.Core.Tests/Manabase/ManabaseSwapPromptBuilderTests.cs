@@ -99,6 +99,47 @@ public sealed class ManabaseSwapPromptBuilderTests
         Assert.Contains("per-color add counts are heuristic guidance", prompt);
     }
 
+    /// <summary>
+    /// Covers every decklist, verdict, budget, command-zone, and mode combination.
+    /// </summary>
+    public static IEnumerable<object?[]> NamedCardGuardCases()
+    {
+        return from decklistText in new[] { null, "", "1 Plains\n1 Island" }
+               from includeVerdict in new[] { false, true }
+               from includeBudget in new[] { false, true }
+               from includeCommandZone in new[] { false, true }
+               from mode in new[] { ManabaseMode.Casual, ManabaseMode.Cedh }
+               select new object?[] { decklistText, includeVerdict, includeBudget, includeCommandZone, mode };
+    }
+
+    [Theory]
+    [MemberData(nameof(NamedCardGuardCases))]
+    public void Build_IncludesNamedCardGuard(string? decklistText, bool includeVerdict,
+        bool includeBudget, bool includeCommandZone, ManabaseMode mode)
+    {
+        string prompt = ManabaseSwapPromptBuilder.Build(
+            ReportWithDeficit(), "My Deck", decklistText, mode,
+            includeVerdict ? IssueVerdict : null,
+            includeBudget ? Budget : null,
+            includeCommandZone);
+
+        Assert.Contains("real, Commander-legal cards", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("certain exist", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("unsure about a card's name or text", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("state that uncertainty plainly; never guess", prompt, StringComparison.OrdinalIgnoreCase);
+
+        int askIndex = prompt.IndexOf("Please recommend SPECIFIC lands", StringComparison.Ordinal);
+        int guardIndex = prompt.IndexOf("real, Commander-legal cards", StringComparison.OrdinalIgnoreCase);
+        int decklistIndex = prompt.IndexOf("Decklist:", StringComparison.Ordinal);
+
+        Assert.True(askIndex >= 0);
+        Assert.True(guardIndex > askIndex);
+        if (!string.IsNullOrEmpty(decklistText))
+        {
+            Assert.True(decklistIndex > guardIndex);
+        }
+    }
+
     [Fact]
     public void Build_HealthyDeck_StatesAdequate()
     {

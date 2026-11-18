@@ -104,18 +104,204 @@ public static class DeckStatClassifier
             || oracleText.Contains("destroy all artifacts", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("destroy all enchantments", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("each creature", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("gets -", StringComparison.OrdinalIgnoreCase)
+            // Why: Toxic Deluge uses plural "get"; damage sweepers include opponent-only, but not self-only, effects.
+            || oracleText.Contains("all creatures get -", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("deals ", StringComparison.OrdinalIgnoreCase)
+                && oracleText.Contains("damage to each creature", StringComparison.OrdinalIgnoreCase)
+                && !oracleText.Contains("damage to each creature you control", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("exile all", StringComparison.OrdinalIgnoreCase);
+
+    // Temporary wordings ("this turn", "until end of turn", "until your next turn") are not continuing stax.
+    // Self-cost wordings ("This spell costs") tax only the card itself; requiring "more to cast" excludes cost reductions.
+    // Bare "enters tapped" would flag self-tapped lands; life-loss triggers and extra-turn replacement
+    // neither prohibit a cast nor add a casting cost, so they match no restriction needle.
+    // Per-card corpus: docs/research/stax-vocabulary-corpus-2026-11.md.
+    private static readonly string[] StaxRestrictionNeedles =
+    [
+        "your opponents control enter tapped",
+        "your opponents control can't be activated",
+        "your opponents can't cast",
+        "your opponents can't activate",
+        "each player can't cast more than",
+        "each player can cast only",
+    ];
+
+    private static readonly string[] StaxTaxNeedles =
+    [
+        "spells cost {",
+        "each spell costs",
+        "each spell your opponents cast costs",
+        "spells your opponents cast during your turn cost",
+        "spells your opponents cast cost",
+    ];
+
+    private static readonly string[] StaxTemporaryDurationMarkers =
+    [
+        "this turn",
+        "until end of turn",
+        "until your next turn",
+    ];
+
+    /// <summary>Returns whether a catalog staple or continuing opponent restriction supplies stax.</summary>
+    public static bool IsStaxCard(string name, string oracleText)
+    {
+        if (StaxProtectionCatalog.IsStax(name))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(oracleText))
+        {
+            return false;
+        }
+
+        foreach (string sentence in oracleText.Split(['.', '\n', ';']))
+        {
+            if (ContainsAny(sentence, StaxTemporaryDurationMarkers))
+            {
+                continue;
+            }
+
+            if (ContainsAny(sentence, StaxRestrictionNeedles)
+                || ContainsAny(sentence, StaxTaxNeedles)
+                    && sentence.Contains("more to cast", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Returns <see langword="true"/> when the card returns cards from the graveyard.
     /// </summary>
     /// <param name="oracleText">Raw oracle text, including any reminder text.</param>
     public static bool IsRecursionCard(string oracleText)
-        => oracleText.Contains("return target card from your graveyard", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("return all land cards from your graveyard", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("return target permanent card from your graveyard", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("reanimate", StringComparison.OrdinalIgnoreCase)
-            || oracleText.Contains("from your graveyard to your hand", StringComparison.OrdinalIgnoreCase);
+    {
+        // Why: every source needle and the Animate Dead pair contain "graveyard".
+        if (!oracleText.Contains("graveyard", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        foreach (string clause in oracleText.Split(['.', '\n', ';']))
+        {
+            if (!clause.Contains("graveyard", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            foreach (string needle in RecursionActionNeedles)
+            {
+                int action = clause.IndexOf(needle, StringComparison.OrdinalIgnoreCase);
+                if (action < 0)
+                {
+                    continue;
+                }
+
+                string effect = RecursionSourceEffect(clause[action..]);
+                // Why: reject self references and bare names without limiting target counts.
+                // A named subject has no card/type reference or selection determiner.
+                int source = effect.IndexOf("from ", StringComparison.OrdinalIgnoreCase);
+                string subject = source < 0 ? effect : effect[..source];
+                if (subject.StartsWith(needle + "this ", StringComparison.OrdinalIgnoreCase)
+                    || !ContainsAny(subject, RecursionSubjectMarkers))
+                {
+                    continue;
+                }
+
+                bool hasSource = ContainsAny(effect, RecursionSourceNeedles);
+                bool hasDestination = ContainsAny(effect, RecursionDestinationNeedles);
+                if (hasSource && hasDestination)
+                {
+                    return true;
+                }
+            }
+        }
+
+        // Why: Animate Dead establishes its graveyard source in the enchant ability, before
+        // the separate return instruction. Require both rather than matching any Aura return.
+        return oracleText.Contains("enchant creature card in a graveyard", StringComparison.OrdinalIgnoreCase)
+            && oracleText.Contains("return enchanted creature card to the battlefield", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string RecursionSourceEffect(string effect)
+    {
+        // Why: Accumulate Wisdom counts graveyard cards in a condition, not as the
+        // moved objects. Keep comparison qualifiers such as Alesha's "less than or equal to"
+        // while excluding condition/count tails from the action's source.
+        foreach (string boundary in RecursionSourceBoundaries)
+        {
+            int condition = effect.IndexOf(boundary, StringComparison.OrdinalIgnoreCase);
+            if (condition >= 0)
+            {
+                effect = effect[..condition];
+            }
+        }
+
+        return effect;
+    }
+
+    private static readonly string[] RecursionSourceBoundaries =
+    [
+        " if ",
+        " as long as ",
+        " for each ",
+        " equal to the number of ",
+    ];
+
+    // Why: match action verbs independently of quantities and target modifiers.
+    // Rejected: "reanimate" (a word is not a zone change), "graveyard" (Bojuka Bog),
+    // self-return subjects, and "put that card into your hand" without a graveyard source
+    // (Enlightened Confidant, which selects a newly surveilled card).
+    private static readonly string[] RecursionActionNeedles =
+    [
+        "return ", // The Soul Stone, Revival // Revenge, and Shadow of the Grave.
+        "put ", // Reanimate and Necromancy.
+    ];
+
+    private static readonly string[] RecursionSubjectMarkers =
+    [
+        "card",
+        "target ",
+        "all ",
+        "creature",
+        "permanent",
+        "artifact",
+        "enchantment",
+        "land",
+        "planeswalker",
+    ];
+
+    private static readonly string[] RecursionSourceNeedles =
+    [
+        "from your graveyard",
+        "from a graveyard",
+        "from an opponent's graveyard",
+        "in your graveyard",
+    ];
+
+    private static readonly string[] RecursionDestinationNeedles =
+    [
+        "to the battlefield",
+        "to your hand",
+        "to its owner's hand",
+        "to their owners' hands",
+    ];
+
+    private static bool ContainsAny(string text, string[] needles)
+    {
+        foreach (string needle in needles)
+        {
+            if (text.Contains(needle, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Returns <see langword="true"/> when the card is a win condition, extra-turn effect,

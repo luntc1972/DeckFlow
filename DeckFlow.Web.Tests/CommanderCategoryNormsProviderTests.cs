@@ -18,6 +18,10 @@ namespace DeckFlow.Web.Tests;
 
 public sealed class CommanderCategoryNormsProviderTests
 {
+    // Why: These tests exercise single-flight, stripe release, or caller cancellation.
+    // Give the lookup enough time to avoid expiring on a slow CI runner.
+    private static readonly TimeSpan GenerousLookupTimeout = TimeSpan.FromSeconds(30);
+
     private readonly ITestOutputHelper _output;
 
     public CommanderCategoryNormsProviderTests(ITestOutputHelper output)
@@ -161,18 +165,24 @@ public sealed class CommanderCategoryNormsProviderTests
     public async Task CallerCancellation_Propagates_NotCached()
     {
         var store = new FakeCategoryKnowledgeStore { CommanderDeckCount = 12 };
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var service = new RecordingCommanderCategoryService(async (key, token, includeCount) =>
         {
+            entered.SetResult();
             await Task.Delay(Timeout.InfiniteTimeSpan, token);
             return Result(key);
         });
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var provider = CreateProvider(service, store, cache, timeout: TimeSpan.FromSeconds(1));
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+        var provider = CreateProvider(service, store, cache, timeout: GenerousLookupTimeout);
+        using var cancellation = new CancellationTokenSource();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => provider.GetNormsAsync("Caller Cancel", cancellation.Token).WaitAsync(TimeSpan.FromSeconds(5)));
+        var lookup = provider.GetNormsAsync("Caller Cancel", cancellation.Token);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => lookup.WaitAsync(TimeSpan.FromSeconds(5)));
         service.Behavior = (key, token, includeCount) => Task.FromResult(Result(key));
-        Assert.NotNull(await provider.GetNormsAsync("Caller Cancel"));
+        Assert.NotNull(await provider.GetNormsAsync("Caller Cancel").WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Equal(2, service.LookupCalls);
     }
 
@@ -198,8 +208,8 @@ public sealed class CommanderCategoryNormsProviderTests
         var store = new FakeCategoryKnowledgeStore { CommanderDeckCount = 12 };
         var (service, gate) = GatedService();
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var first = CreateProvider(service, store, cache).GetNormsAsync("Single Flight");
-        var second = CreateProvider(service, store, cache).GetNormsAsync("Single Flight");
+        var first = CreateProvider(service, store, cache, timeout: GenerousLookupTimeout).GetNormsAsync("Single Flight");
+        var second = CreateProvider(service, store, cache, timeout: GenerousLookupTimeout).GetNormsAsync("Single Flight");
 
         gate.SetResult();
 
@@ -232,7 +242,7 @@ public sealed class CommanderCategoryNormsProviderTests
         var (service, gate) = GatedService();
         var logger = new FakeLogger<CommanderCategoryNormsProvider>();
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var provider = CreateProvider(service, store, cache, logger, TimeSpan.FromSeconds(1));
+        var provider = CreateProvider(service, store, cache, logger, GenerousLookupTimeout);
         var first = provider.GetNormsAsync(firstKey);
         var second = provider.GetNormsAsync(firstKey);
 
@@ -271,7 +281,7 @@ public sealed class CommanderCategoryNormsProviderTests
         var (service, gate) = GatedService();
         var logger = new FakeLogger<CommanderCategoryNormsProvider>();
         using var cache = new MemoryCache(new MemoryCacheOptions());
-        var provider = CreateProvider(service, store, cache, logger, TimeSpan.FromSeconds(1));
+        var provider = CreateProvider(service, store, cache, logger, GenerousLookupTimeout);
         var first = provider.GetNormsAsync(firstKey);
         using var cancellation = new CancellationTokenSource();
         var second = provider.GetNormsAsync(secondKey, cancellation.Token);

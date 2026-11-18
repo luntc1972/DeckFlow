@@ -45,6 +45,10 @@ public static class HttpClientServiceCollectionExtensions
             c.DefaultRequestHeaders.UserAgent.ParseAdd("DeckFlow/1.0");
             c.MaxResponseContentBufferSize = EdhrecCommanderThemeService.MaxResponseBytes;
             c.Timeout = TimeSpan.FromSeconds(15);
+        }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            // Why: the singleton RestClient retains its handler; renew connections to refresh DNS.
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
         });
 
         services.AddHttpClient("commander-spellbook", c =>

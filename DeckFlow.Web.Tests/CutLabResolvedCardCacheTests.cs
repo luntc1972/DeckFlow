@@ -1,6 +1,7 @@
 using System.Reflection;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Tests.TestDoubles;
 using Microsoft.Extensions.Caching.Memory;
 using Xunit;
 
@@ -152,7 +153,7 @@ public sealed class CutLabResolvedCardCacheTests
     [Fact]
     public void Set_PastSizeLimit_DoesNotRetainOverflowEntry()
     {
-        var cache = new CutLabResolvedCardCache(sizeLimitBytes: 70);
+        var cache = new CutLabResolvedCardCache(sizeLimitBytes: 140);
         string firstKey = CutLabResolvedCardCache.ComputePoolKey([("Island", 1)]);
         string secondKey = CutLabResolvedCardCache.ComputePoolKey([("Mountain", 1)]);
         IReadOnlyList<ScryfallCardData> firstCards =
@@ -197,6 +198,59 @@ public sealed class CutLabResolvedCardCacheTests
         var deltaMemoryCache = Assert.IsType<MemoryCache>(GetPrivateCache(deltaCache));
 
         Assert.NotSame(resolvedMemoryCache, deltaMemoryCache);
+    }
+
+    /// <summary>The cache budget reserves storage for the normalized-name lookup.</summary>
+    [Fact]
+    public void Set_SizeLimitFitsOnlyCardContent_DoesNotRetainLookupEntry()
+    {
+        IReadOnlyList<ScryfallCardData> cards = [new() { Name = "Arcane Signet" }];
+        var cache = new CutLabResolvedCardCache(sizeLimitBytes: cards[0].Name.Length);
+        string key = CutLabResolvedCardCache.ComputePoolKey([("Arcane Signet", 1)]);
+
+        cache.Set(key, cards);
+
+        Assert.False(cache.TryGetLookup(key, out var lookup));
+        Assert.Null(lookup);
+    }
+
+    /// <summary>A lookup emits exactly one structured hit or miss event.</summary>
+    [Theory]
+    [InlineData(true, "hit")]
+    [InlineData(false, "miss")]
+    public void TryGetLookup_CacheConsultation_LogsOneOutcome(bool populate, string outcome)
+    {
+        var logger = new CapturingLogger<CutLabResolvedCardCache>();
+        var cache = new CutLabResolvedCardCache(logger);
+        string key = CutLabResolvedCardCache.ComputePoolKey([("Arcane Signet", 1)]);
+        if (populate)
+        {
+            cache.Set(key, [new() { Name = "Arcane Signet" }]);
+        }
+        logger.Entries.Clear();
+
+        Assert.Equal(populate, cache.TryGetLookup(key, out _));
+
+        var entry = Assert.Single(logger.Entries);
+        Assert.Contains(entry, value => value.Key == "Outcome" && Equals(value.Value, outcome));
+    }
+
+    /// <summary>A second lookup read preserves one event for the builder's consultation.</summary>
+    [Fact]
+    public void TryGetLookup_AfterLoggedReadWithLoggingDisabled_DoesNotDuplicateHit()
+    {
+        var logger = new CapturingLogger<CutLabResolvedCardCache>();
+        var cache = new CutLabResolvedCardCache(logger);
+        string key = CutLabResolvedCardCache.ComputePoolKey([("Arcane Signet", 1)]);
+        cache.Set(key, [new() { Name = "Arcane Signet" }]);
+        logger.Entries.Clear();
+
+        Assert.True(cache.TryGet(key, out _));
+        Assert.True(cache.TryGetLookup(key, out var lookup, logCacheEvent: false));
+
+        Assert.NotNull(lookup);
+        Assert.Contains("arcane signet", lookup.Keys);
+        Assert.Contains(Assert.Single(logger.Entries), value => value.Key == "Outcome" && Equals(value.Value, "hit"));
     }
 
     private static object GetPrivateCache(object instance)

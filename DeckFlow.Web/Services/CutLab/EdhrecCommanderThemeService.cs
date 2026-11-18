@@ -33,7 +33,7 @@ public interface IEdhrecCommanderThemeService
 }
 
 /// <summary>Fail-open EDHREC theme source with bounded response parsing and memory caching.</summary>
-public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeService
+public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeService, IDisposable
 {
     // Why: planning retained these product defaults for unobtrusive initial selection.
     internal const double PreselectMinimumShare = 0.05;
@@ -48,7 +48,17 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     // Why: transient upstream failures should retain a recently known-good disk response, but never indefinitely stale EDHREC data.
     internal static readonly TimeSpan DiskCacheFallbackMaxAge = TimeSpan.FromDays(7);
     private static readonly TimeSpan DiskCacheSweepMinimumInterval = TimeSpan.FromMinutes(5);
-    private readonly IHttpClientFactory _httpClientFactory;
+    // Why: bound total shared work across HTTP retries even after every waiter leaves.
+    internal static readonly TimeSpan ThemeFlightTimeout = TimeSpan.FromSeconds(30);
+    private readonly TimeProvider _timeProvider;
+    private readonly CancellationTokenSource _serviceCancellation = new();
+    private int _disposed;
+    private readonly RestClient _client;
+
+    // Why: Bound transient flight bookkeeping independently of request volume.
+    private readonly SemaphoreSlim _themeFlightCapacity = new(32, 32);
+
+    private readonly Dictionary<string, Task<EdhrecThemeCardNamesResult>> _themeFlights = new(StringComparer.Ordinal);
 
     private readonly ResiliencePipeline<RestResponse> _pipeline;
 
@@ -64,12 +74,19 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
     /// <summary>Creates an EDHREC service using the named client and resilience pipeline.</summary>
     public EdhrecCommanderThemeService(IHttpClientFactory httpClientFactory, ResiliencePipelineProvider<string> pipelineProvider, IMemoryCache memoryCache, IWebHostEnvironment environment, ILogger<EdhrecCommanderThemeService>? logger = null)
+        : this(httpClientFactory, pipelineProvider, memoryCache, environment, TimeProvider.System, logger)
+    {
+    }
+
+    internal EdhrecCommanderThemeService(IHttpClientFactory httpClientFactory, ResiliencePipelineProvider<string> pipelineProvider, IMemoryCache memoryCache, IWebHostEnvironment environment, TimeProvider timeProvider, ILogger<EdhrecCommanderThemeService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(httpClientFactory);
         ArgumentNullException.ThrowIfNull(pipelineProvider);
         ArgumentNullException.ThrowIfNull(memoryCache);
         ArgumentNullException.ThrowIfNull(environment);
-        _httpClientFactory = httpClientFactory;
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        _timeProvider = timeProvider;
+        _client = new RestClient(httpClientFactory.CreateClient("edhrec"));
         _pipeline = pipelineProvider.GetPipeline<RestResponse>("edhrec") ?? ResiliencePipeline<RestResponse>.Empty;
         _memoryCache = memoryCache;
         _logger = logger;
@@ -131,11 +148,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
             _memoryCache.Set(cacheKey, parsed, CacheDuration);
             return parsed;
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger?.LogWarning(ex, "EDHREC commander page had an unexpected JSON shape");
             return CacheUnavailableResult(cacheKey);
@@ -151,6 +164,88 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
     /// <inheritdoc />
     public async Task<EdhrecThemeCardNamesResult> GetThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken = default)
+    {
+        string key = $"{EdhrecCardLookup.Slugify(commanderName)}:{themeSlug}";
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        await _themeFlightCapacity.WaitAsync(cancellationToken).ConfigureAwait(false);
+        Task<EdhrecThemeCardNamesResult> flight;
+        TaskCompletionSource<EdhrecThemeCardNamesResult>? owner = null;
+        lock (_themeFlights)
+        {
+            if (_themeFlights.TryGetValue(key, out flight!))
+            {
+                _themeFlightCapacity.Release();
+            }
+            else
+            {
+                owner = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                flight = owner.Task;
+                _themeFlights.Add(key, flight);
+            }
+        }
+
+        if (owner is not null)
+        {
+            _ = CompleteThemeFlightAsync(key, commanderName, themeSlug, owner);
+        }
+
+        // Why: A cancelled waiter must not cancel another request's shared fetch.
+        return await flight.WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task CompleteThemeFlightAsync(string key, string commanderName, string themeSlug,
+        TaskCompletionSource<EdhrecThemeCardNamesResult> completion)
+    {
+        EdhrecThemeCardNamesResult? result = null;
+        Exception? failure = null;
+        try
+        {
+            using var timeout = new CancellationTokenSource(ThemeFlightTimeout, _timeProvider);
+            using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(_serviceCancellation.Token, timeout.Token);
+            result = await LoadThemeCardNamesAsync(commanderName, themeSlug, lifetime.Token).ConfigureAwait(false);
+            lifetime.Token.ThrowIfCancellationRequested();
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+        finally
+        {
+            lock (_themeFlights)
+            {
+                _themeFlights.Remove(key);
+            }
+
+            _themeFlightCapacity.Release();
+        }
+
+        // Why: callers observing completion must also observe released capacity and no stale flight.
+        if (failure is OperationCanceledException ||
+            failure is ObjectDisposedException && Volatile.Read(ref _disposed) != 0)
+        {
+            // Why: only a waiter's own token may cancel it; service-owned cancellation fails open.
+            completion.TrySetResult(new([], false));
+        }
+        else if (failure is not null)
+        {
+            completion.TrySetException(failure);
+        }
+        else
+        {
+            completion.TrySetResult(result!);
+        }
+    }
+
+    /// <summary>Cancels service-owned work when the application disposes this singleton.</summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+        _serviceCancellation.Cancel();
+        _serviceCancellation.Dispose();
+        _client.Dispose();
+    }
+
+    private async Task<EdhrecThemeCardNamesResult> LoadThemeCardNamesAsync(string commanderName, string themeSlug, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         string commanderSlug = EdhrecCardLookup.Slugify(commanderName);
@@ -205,15 +300,12 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
                 return new([], false);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             // Why: a parsed empty card list is a legitimate result; cache it briefly to avoid request storms.
             _memoryCache.Set(cacheKey, parsed, parsed.Count > 0 ? CacheDuration : EmptyThemeCardCacheDuration);
             return new(parsed, true);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger?.LogWarning(ex, "EDHREC theme page had an unexpected JSON shape");
             return new([], false);
@@ -233,19 +325,20 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
         {
             var cachePath = GetCachePath(fileName);
             cached = ReadCache(cachePath);
-            var client = new RestClient(_httpClientFactory.CreateClient("edhrec"));
             var request = new RestRequest(resource, Method.Get);
             if (!string.IsNullOrWhiteSpace(cached?.ETag))
             {
                 request.AddHeader("If-None-Match", cached.ETag);
             }
 
-            var response = await _pipeline.ExecuteAsync(async ct => await client.ExecuteAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+            var response = await _pipeline.ExecuteAsync(async ct => await _client.ExecuteAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             if ((int)response.StatusCode == 304 && cached is not null)
             {
                 // Why: revalidation confirms this entry remains fresh, so retain its offline fallback.
-                WriteCache(cachePath, cached with { WrittenAtUtc = DateTimeOffset.UtcNow });
+                RefreshCacheFreshness(cachePath);
                 return new(cached.Body, true);
             }
 
@@ -269,14 +362,11 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
                 .FirstOrDefault(header => string.Equals(header.Name, "ETag", StringComparison.OrdinalIgnoreCase))?
                 .Value?
                 .ToString();
+            cancellationToken.ThrowIfCancellationRequested();
             WriteCache(cachePath, new CacheEntry(response.Content, eTag, DateTimeOffset.UtcNow));
             return new(response.Content, true);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger?.LogWarning(ex, "EDHREC fetch failed for {Resource}", resource);
             return FromCachedBody(cached);
@@ -310,12 +400,39 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
     {
         try
         {
-            return File.Exists(path) ? JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(path)) : null;
+            CacheEntry? entry = File.Exists(path) ? JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(path)) : null;
+            string freshnessPath = path + ".fresh";
+            if (entry is not null && File.Exists(freshnessPath))
+            {
+                DateTimeOffset freshness = File.GetLastWriteTimeUtc(freshnessPath);
+                if (freshness > entry.WrittenAtUtc) entry = entry with { WrittenAtUtc = freshness };
+            }
+
+            return entry;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
             _logger?.LogWarning(ex, "Unable to read EDHREC disk cache");
             return null;
+        }
+    }
+
+    private void RefreshCacheFreshness(string path)
+    {
+        try
+        {
+            // Why: touch the body first so a failed touch cannot leave a fresh marker over stale data.
+            // A zero-byte marker extends fallback without serializing the cached response again.
+            string freshnessPath = path + ".fresh";
+            DateTime now = DateTime.UtcNow;
+            File.SetLastWriteTimeUtc(path, now);
+            using (File.Open(freshnessPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite)) { }
+            File.SetLastWriteTimeUtc(freshnessPath, now);
+            SweepExpiredCacheEntries();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger?.LogDebug(ex, "Unable to refresh EDHREC disk cache freshness");
         }
     }
 
@@ -356,7 +473,7 @@ public sealed partial class EdhrecCommanderThemeService : IEdhrecCommanderThemeS
 
         try
         {
-            foreach (var cachePath in Directory.EnumerateFiles(_cacheRoot, "*.json").Concat(Directory.EnumerateFiles(_cacheRoot, "*.tmp")))
+            foreach (var cachePath in Directory.EnumerateFiles(_cacheRoot, "*.json").Concat(Directory.EnumerateFiles(_cacheRoot, "*.tmp")).Concat(Directory.EnumerateFiles(_cacheRoot, "*.fresh")))
             {
                 try
                 {

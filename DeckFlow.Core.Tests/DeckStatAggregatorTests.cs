@@ -52,7 +52,7 @@ public sealed class DeckStatAggregatorTests
             Card(2, "Artifact", "{T}: Add one mana of any color.", "{2}"),   // ramp x2
             Card(1, "Instant", "Counter target spell. Draw a card.", "{U}"), // interaction + draw
             Card(1, "Sorcery", "Destroy all creatures.", "{2}{W}{W}"),       // wipe
-            Card(1, "Creature — Avatar", "Reanimate target creature.", "{4}{B}{B}"), // creature + recursion
+            Card(1, "Creature — Avatar", "Return target creature card from your graveyard to the battlefield.", "{4}{B}{B}"), // creature + recursion
             Card(1, "Enchantment", "You win the game.", "{5}"),              // closing power
         });
 

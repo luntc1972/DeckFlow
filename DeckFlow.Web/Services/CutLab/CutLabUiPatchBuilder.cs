@@ -62,8 +62,7 @@ internal static class CutLabSharedHelpers
         => workingList
             .Where(card => !card.IsLocked && !card.IsCommander)
             .Select(card => card.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .DistinctAndOrderNames()
             .ToArray();
 
     internal static IReadOnlyList<string> BuildWhatifCardInOptions(
@@ -74,8 +73,7 @@ internal static class CutLabSharedHelpers
         return pool
             .Where(card => accepted.Contains(card.Name))
             .Select(card => card.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .DistinctAndOrderNames()
             .ToArray();
     }
 
@@ -83,17 +81,16 @@ internal static class CutLabSharedHelpers
     {
         if (membership.CompleteCombos.Count > 0)
         {
-            return (ComboBadgeState.CompletePiece, CutLabSharedHelpers.JoinCardNames(
+            return (ComboBadgeState.CompletePiece, CutLabCardNames.JoinCardNames(
                     membership.CompleteCombos
                         .SelectMany(combo => combo.Results)
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .OrderBy(result => result, StringComparer.OrdinalIgnoreCase)
+                        .DistinctAndOrderNames()
                         .ToArray()));
         }
 
         if (membership.NearCombos.Count > 0)
         {
-            return (ComboBadgeState.NeedsPartner, $"Needs {CutLabSharedHelpers.JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(cardName => cardName, StringComparer.OrdinalIgnoreCase).ToArray())}");
+            return (ComboBadgeState.NeedsPartner, $"Needs {CutLabCardNames.JoinCardNames(membership.NearCombos.Select(combo => combo.MissingCard).DistinctAndOrderNames().ToArray())}");
         }
 
         return null;
@@ -135,15 +132,6 @@ internal static class CutLabSharedHelpers
             .ToArray();
     }
 
-    internal static string JoinCardNames(IReadOnlyList<string> cardNames)
-        => cardNames.Count switch
-        {
-            0 => string.Empty,
-            1 => cardNames[0],
-            2 => $"{cardNames[0]} and {cardNames[1]}",
-            _ => $"{string.Join(", ", cardNames.Take(cardNames.Count - 1))} and {cardNames[^1]}",
-        };
-
     internal static async Task<EdhrecThemeResult> FetchPlanThemeResultAsync(
         IEdhrecCommanderThemeService themeService,
         ILogger logger,
@@ -160,11 +148,7 @@ internal static class CutLabSharedHelpers
         {
             return await themeService.GetCommanderThemesAsync(commanderName, cancellationToken).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger.LogWarning(exception, "Cut Lab: plan EDHREC theme lookup failed; continuing unavailable.");
             return new EdhrecThemeResult([], true);
@@ -300,7 +284,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             TargetLands = snapshotResult.TargetLands,
             CanBuildExport = projection.CanBuildExport,
             CardTextByCardName = BuildPopupCardTextPatch(state.Pool),
-            NextProposal = BuildNextProposal(roundPlan, findings),
+            NextProposal = AddProposalGlance(BuildNextProposal(roundPlan, findings), proposalDeltas),
             ProposalDeltas = proposalDeltas,
             ResolvedFloors = CutLabResolvedFloorDto.Create(resolvedFloors, context.RoleCounts, playExperience,
                 CutLabResolvedFloorDto.CountLockedRoles(state.Pool, context.RolesByCardName)),
@@ -337,13 +321,13 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             CardsRemaining = projection.CardsRemaining,
             CanBuildExport = projection.CanBuildExport,
             CardTextByCardName = BuildPopupCardTextPatch(state.Pool),
-            NextProposal = projection.CanBuildExport
+            NextProposal = AddProposalGlance(projection.CanBuildExport
                 ? new CutLabDecideNextProposalDto
                 {
                     IsTerminal = true,
                     IsAtTarget = true,
                 }
-                : null,
+                : null, null),
             ProposalDeltas = null,
             FloorWarnings = [],
             CutsMade = BuildCutsMade(state.Decisions, false),
@@ -415,6 +399,31 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
 
         return CutLabSharedHelpers.BuildFloorWarnings(workingList, context, floorByRole, roundPlan.NextProposal.CardName);
     }
+
+    private static CutLabDecideNextProposalDto? AddProposalGlance(
+        CutLabDecideNextProposalDto? proposal,
+        CutLabDecideProposalDeltasDto? deltas)
+        // Why: Every patch producer must supply the same glance, including terminal fallback copy.
+        => proposal is null
+            ? null
+            : proposal with
+            {
+                GlanceLine = CutLabViewModel.ComposeProposalGlance(
+                deltas is null
+                    ? null
+                    : new CutLabProposalDeltas
+                    {
+                        ChangedFamilyCount = deltas.ChangedFamilyCount,
+                        Deltas = deltas.Deltas.Select(delta => new CutLabMetricDelta
+                        {
+                            Label = delta.Label,
+                            Delta = delta.Delta,
+                            Unit = delta.Unit,
+                            IsMeaningful = delta.IsMeaningful,
+                        }).ToArray(),
+                    },
+                CutLabMessages.NoChangeMessage),
+            };
 
     private static CutLabDecideNextProposalDto BuildNextProposal(CutLabRoundPlan roundPlan, CutLabStructuralFindingsResult findings)
         => CutLabNextProposalBuilder.Build(roundPlan, findings);
@@ -510,8 +519,8 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             workingList,
             originalPoolNames,
             currentCount,
-            Math.Max(currentCount - 100, 0),
-            currentCount == 100,
+            Math.Max(currentCount - CutLabCutRoundEngine.TargetDeckSize, 0),
+            currentCount == CutLabCutRoundEngine.TargetDeckSize,
             whatifCardOutOptions,
             whatifCardInOptions,
             addableBasics);
@@ -553,6 +562,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
         IReadOnlyList<CutLabRoleOverride> overrides)
     {
         Dictionary<string, IReadOnlyList<string>> result = new(StringComparer.OrdinalIgnoreCase);
+        var overridesByName = CutLabRoleOverrideRules.BuildLookup(overrides);
         foreach (CutLabPoolCard card in workingList)
         {
             if (CutLabBasicLands.Contains(card.Name)
@@ -560,7 +570,7 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
             {
                 // Why: this bypass skips the analysis context, so it applies overrides itself to land rows.
                 // Nonland rows stay blank for the I-8 client carry-forward (D-02).
-                result[card.Name] = CutLabRoleOverrideRules.ApplyToRoles(["lands"], CutLabRoleOverrideRules.Find(overrides, card.Name));
+                result[card.Name] = CutLabRoleOverrideRules.ApplyToRoles(["lands"], overridesByName.GetValueOrDefault(CutLabCardNames.Normalize(card.Name)));
                 continue;
             }
 
@@ -569,9 +579,6 @@ public sealed class CutLabUiPatchBuilder : ICutLabUiPatchBuilder
 
         return result;
     }
-
-    private static string DisplayLabelFor(string roleKey)
-        => CutLabRoleAssigner.DisplayLabelFor(roleKey);
 
     /// <summary>Collects derived deck counts and card options needed to render a Cut Lab working-list patch.</summary>
     private sealed record WorkingListProjection(

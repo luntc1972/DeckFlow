@@ -8,6 +8,7 @@ using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
 using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Scryfall;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using RestSharp;
 using Xunit;
@@ -17,6 +18,121 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabSimulationService"/> covering SIM-01 projection, deltas, and caching.</summary>
 public sealed class CutLabSimulationServiceTests
 {
+    [Fact]
+    public async Task ComputeProposalDeltas_AfterAccept_ReusesResultAndIdenticalDeltas()
+    {
+        TestPool pool = BuildCedhPool();
+        int calls = 0;
+        var service = new CutLabSimulationService(
+            new CutLabResolvedCardCache(), new CutLabDeltaCache(), new FakeResolver(pool.Cards),
+            NullLogger<CutLabSimulationService>.Instance,
+            (_, _, _, _, _) => new(),
+            (_, _, _, _, _) => { calls++; return new(); });
+        string candidate = pool.WorkingList.First(card => !card.IsCommander).Name;
+        CutLabProposalDeltas deltas = await service.ComputeProposalDeltas(pool.WorkingList, candidate, "cEDH");
+        var after = pool.WorkingList.Where(card => card.Name != candidate).ToArray();
+        await service.BuildSnapshotResult(after, "cEDH");
+        Assert.Equal(2, calls);
+        Assert.Same(deltas, await service.ComputeProposalDeltas(pool.WorkingList, candidate, "cEDH"));
+        Assert.Equal(2, calls);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_MultipleMisses_UsesCollectionOnce()
+    {
+        TestPool pool = BuildCedhPool();
+        var resolver = new FakeResolver(pool.Cards);
+        await CreateService(resolver).BuildSnapshot(pool.WorkingList.Take(2).ToArray(), "cEDH");
+        Assert.Equal(1, resolver.CollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_DuplicateAndCaseVariantNames_PreservesOrderAndCount()
+    {
+        TestPool pool = BuildCedhPool();
+        var resolver = new FakeResolver(pool.Cards);
+        CutLabPoolCard[] workingList =
+        [
+            pool.WorkingList[0],
+            pool.WorkingList[1],
+            pool.WorkingList[0] with { Name = pool.WorkingList[0].Name.ToUpperInvariant() },
+            pool.WorkingList[0],
+        ];
+        IReadOnlyList<DeckCardEntry>? capturedEntries = null;
+        var service = new CutLabSimulationService(
+            new CutLabResolvedCardCache(), new CutLabDeltaCache(), resolver,
+            NullLogger<CutLabSimulationService>.Instance,
+            (entries, experience, trials, goals, overrides) =>
+            {
+                capturedEntries = entries;
+                return new CutLabMetricSnapshot();
+            });
+
+        await service.BuildSnapshot(workingList, "cEDH");
+
+        Assert.NotNull(capturedEntries);
+        Assert.Equal(workingList.Length, capturedEntries.Count);
+        Assert.Equal(new[] { pool.WorkingList[0].Name, pool.WorkingList[1].Name, pool.WorkingList[0].Name, pool.WorkingList[0].Name },
+            capturedEntries.Select(entry => entry.Card.Name));
+        Assert.Equal(workingList.Select(card => card.Quantity), capturedEntries.Select(entry => entry.Quantity));
+        Assert.Equal(1, resolver.CollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_InjectedSingletonResolver_ReusesCollectionCacheAcrossScopes()
+    {
+        TestPool pool = BuildCedhPool();
+        var resolver = new FakeResolver(pool.Cards);
+        var services = new ServiceCollection();
+        services.AddSingleton<IScryfallCardResolver>(resolver);
+        services.AddSingleton(
+            new ScryfallReferenceResolver(resolver, new ScryfallCollectionCardCache()));
+        services.AddScoped<CutLabResolvedCardCache>();
+        services.AddScoped<CutLabDeltaCache>();
+        services.AddSingleton<Microsoft.Extensions.Logging.ILogger<CutLabSimulationService>>(
+            NullLogger<CutLabSimulationService>.Instance);
+        services.AddScoped<ICutLabSimulationService, CutLabSimulationService>();
+        using var provider = services.BuildServiceProvider();
+        for (int i = 0; i < 2; i++)
+        {
+            using var scope = provider.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<ICutLabSimulationService>();
+            await service.BuildSnapshot(pool.WorkingList.Take(2).ToArray(), "cEDH");
+        }
+
+        Assert.Equal(1, resolver.CollectionCalls);
+        Assert.Equal(0, resolver.ResolveSingleCalls);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_CollectionFailure_FallsBackPerCardInWorkingListOrder()
+    {
+        TestPool pool = BuildCedhPool();
+        var resolver = new FakeResolver(pool.Cards) { CollectionStatusCode = HttpStatusCode.ServiceUnavailable };
+        CutLabPoolCard[] workingList = [pool.WorkingList[1], pool.WorkingList[0], pool.WorkingList[1]];
+
+        CutLabMetricSnapshot snapshot = await CreateService(resolver).BuildSnapshot(workingList, "cEDH");
+
+        Assert.NotNull(snapshot);
+        Assert.Equal(1, resolver.CollectionCalls);
+        Assert.Equal(workingList.Length, resolver.ResolveSingleCalls);
+        Assert.Equal(workingList.Select(card => card.Name), resolver.ResolveSingleNames);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task BuildSnapshot_UnresolvedName_PreservesException(HttpStatusCode collectionStatusCode)
+    {
+        TestPool pool = BuildCedhPool();
+        var resolver = new FakeResolver([]) { CollectionStatusCode = collectionStatusCode };
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => CreateService(resolver).BuildSnapshot(pool.WorkingList, "cEDH"));
+        Assert.Equal($"Cut Lab simulation could not resolve '{pool.WorkingList[0].Name}'.", error.Message);
+    }
+
     [Fact]
     public async Task ComputeProposalDeltas_AfterBuildSnapshotResultWithSameKey_ReusesCurrentSnapshot()
     {
@@ -32,8 +148,8 @@ public sealed class CutLabSimulationServiceTests
         string candidate = pool.WorkingList.First(card => !card.IsCommander).Name;
         await service.BuildSnapshotResult(pool.WorkingList, "cEDH", 4000, key);
         await service.ComputeProposalDeltas(pool.WorkingList, candidate, "cEDH", 4000, key);
-        Assert.Equal(1, resultCalls);
-        Assert.DoesNotContain(Assert.Single(snapshotLists), entry => entry.Card.Name == candidate);
+        Assert.Equal(2, resultCalls);
+        Assert.Empty(snapshotLists);
     }
 
     [Fact]
@@ -351,6 +467,32 @@ public sealed class CutLabSimulationServiceTests
     }
 
     [Fact]
+    public void TagPlanRoles_DuplicateNormalizedOverrides_LastWins()
+    {
+        TestPool pool = BuildCedhPool();
+        DeckCardEntry[] entries = pool.Cards.Select(card => new DeckCardEntry
+        {
+            Card = ScryfallCardDataMapper.ToCardData(card),
+            Quantity = 1,
+        }).ToArray();
+        IReadOnlyList<CardFact> facts = ScryfallCardFactMapper.ToCardFacts(entries);
+        ManabaseDeck deck = ManabaseClassifier.Classify(facts, isSingleton: true);
+        CutLabRoleOverride[] overrides =
+        [
+            new() { Name = "VALUE ENGINE", Added = ["engines"], Removed = ["tutor"] },
+            new() { Name = "value-engine", Removed = ["engines", "draw"], Added = ["tutor"] },
+        ];
+        var method = typeof(CutLabSimulationService).GetMethod("TagPlanRoles",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+
+        var actual = (ManabaseDeck)method.Invoke(null, [deck, facts, ManabaseMode.Cedh, overrides])!;
+
+        var spell = Assert.Single(actual.Spells, spell => spell.Name == "Value Engine");
+        Assert.False((spell.PlanRoles & PlanRole.Engine) != 0);
+        Assert.True((spell.PlanRoles & PlanRole.TutorCombo) != 0);
+    }
+
+    [Fact]
     public async Task BuildSnapshotResult_RoleOverrideResimulatesWithSharedCache()
     {
         TestPool pool = BuildCedhPool();
@@ -373,7 +515,7 @@ public sealed class CutLabSimulationServiceTests
         ];
         await coldService.BuildSnapshotResult(pool.WorkingList, "cEDH", roleOverrides: roleOverrides);
 
-        Assert.True(coldResolver.ResolveSingleCalls > 0);
+        Assert.True(coldResolver.CollectionCalls > 0);
     }
 
     [Fact]
@@ -403,7 +545,7 @@ public sealed class CutLabSimulationServiceTests
         CutLabSimulationResult second = await secondService.BuildSnapshotResult(pool.WorkingList, "cEDH");
 
         Assert.Equal(1, resultCounter.CallCount);
-        Assert.Equal(pool.WorkingList.Count, firstResolver.ResolveSingleCalls);
+        Assert.Equal(1, firstResolver.CollectionCalls);
         Assert.Equal(0, secondResolver.ResolveSingleCalls);
         Assert.Same(first, second);
     }
@@ -517,6 +659,45 @@ public sealed class CutLabSimulationServiceTests
 
         Assert.NotEqual(earlyGoal.Deltas, lateGoal.Deltas);
         Assert.Equal(4, analysisCounter.CallCount);
+    }
+
+    [Fact]
+    public async Task BuildSnapshot_CachedPool_ReusesLookupAndPreservesEntries()
+    {
+        TestPool pool = BuildCedhPool();
+        var cards = new EnumerationCountingList<ScryfallCardData>(pool.Cards.Select(ScryfallCardDataMapper.ToCardData).ToArray());
+        var cache = new CutLabResolvedCardCache();
+        string key = CutLabResolvedCardCache.ComputePoolKey(pool.WorkingList);
+        cache.Set(key, cards);
+        cards.Enumerations = 0;
+        var observed = new List<IReadOnlyList<DeckCardEntry>>();
+        var service = new CutLabSimulationService(cache, new CutLabDeltaCache(), new FakeResolver(pool.Cards),
+            NullLogger<CutLabSimulationService>.Instance,
+            (entries, _, _, _, _) => { observed.Add(entries); return new(); });
+
+        await service.BuildSnapshot(pool.WorkingList, "cEDH", 100, key);
+        await service.BuildSnapshot(pool.WorkingList.Reverse().ToArray(), "cEDH", 200, key);
+
+        Assert.Equal(1, cards.Enumerations);
+        Assert.Equal(pool.WorkingList.Select(card => (card.Name, card.Quantity, card.IsCommander)),
+            observed[0].Select(entry => (entry.Card.Name, entry.Quantity, entry.IsCommander)));
+        Assert.Equal(observed[0].Reverse().Select(entry => entry.Card), observed[1].Select(entry => entry.Card));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.BuildSnapshot(
+            [new CutLabPoolCard { Name = "Absent", Quantity = 1 }], "cEDH", 300, key));
+        Assert.Equal($"Cut Lab resolved-card cache was missing 'Absent' for pool {key}.", error.Message);
+    }
+
+    private sealed class EnumerationCountingList<T>(IReadOnlyList<T> items) : IReadOnlyList<T>
+    {
+        public int Enumerations { get; set; }
+        public int Count => items.Count;
+        public T this[int index] => items[index];
+        public IEnumerator<T> GetEnumerator()
+        {
+            Enumerations++;
+            return items.GetEnumerator();
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private static CutLabSimulationService CreateService(FakeResolver resolver)
@@ -784,13 +965,22 @@ public sealed class CutLabSimulationServiceTests
     private sealed class FakeResolver(IReadOnlyList<ScryfallCard> cards) : IScryfallCardResolver
     {
         public int ResolveSingleCalls { get; private set; }
+        public int CollectionCalls { get; private set; }
+        public HttpStatusCode CollectionStatusCode { get; init; } = HttpStatusCode.OK;
+        public List<string> ResolveSingleNames { get; } = [];
 
         public Task<RestResponse<ScryfallCollectionResponse>> ExecuteCollectionAsync(RestRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
+            => CountCollection(request);
+
+        private Task<RestResponse<ScryfallCollectionResponse>> CountCollection(RestRequest request)
+        {
+            CollectionCalls++;
+            return Task.FromResult(new RestResponse<ScryfallCollectionResponse>(request)
             {
-                StatusCode = HttpStatusCode.OK,
+                StatusCode = CollectionStatusCode,
                 Data = new ScryfallCollectionResponse(cards.ToList(), []),
             });
+        }
 
         public Task<ScryfallCard?> SearchFallbackCardAsync(string cardName, CancellationToken cancellationToken)
             => ResolveSingleAsync(cardName, cancellationToken);
@@ -801,6 +991,7 @@ public sealed class CutLabSimulationServiceTests
         public Task<ScryfallCard?> ResolveSingleAsync(string cardName, CancellationToken cancellationToken)
         {
             ResolveSingleCalls++;
+            ResolveSingleNames.Add(cardName);
             return Task.FromResult(cards.FirstOrDefault(card => string.Equals(card.Name, cardName, StringComparison.OrdinalIgnoreCase)));
         }
     }

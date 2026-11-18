@@ -8,7 +8,7 @@ namespace DeckFlow.Core.Analysis;
 /// <param name="PowerBand">Power magnitude band, 0-5 (Game Changers + combo density + fast mana).</param>
 /// <param name="SpeedBand">Speed magnitude band, 0-5 (avg mana value + fast mana + early ramp/draw).</param>
 /// <param name="ControlBand">Control magnitude band, 0-5 (interaction + board wipes + counters).</param>
-/// <param name="ConsistencyBand">Consistency magnitude band, 0-5 (tutors + combo redundancy + curve smoothness).</param>
+/// <param name="ConsistencyBand">Consistency magnitude band, 0-5 (tutors + combo redundancy + low average mana value).</param>
 /// <param name="PowerRationale">Signals that produced <paramref name="PowerBand"/>.</param>
 /// <param name="SpeedRationale">Signals that produced <paramref name="SpeedBand"/>.</param>
 /// <param name="ControlRationale">Signals that produced <paramref name="ControlBand"/>.</param>
@@ -34,4 +34,5 @@ public sealed record DeckMultiAxisScore(
 
 /// <summary>The signals that produced a single axis band, as a terse ASCII signal line.</summary>
 /// <param name="SignalText">Comma-separated signal values, ASCII only (no em/en dashes), paste-safe.</param>
-public sealed record DeckScoreRationale(string SignalText);
+/// <param name="RuleText">The fired band rule, ASCII only; null for scores saved before rule reporting.</param>
+public sealed record DeckScoreRationale(string SignalText, string? RuleText = null);

@@ -17,6 +17,7 @@ interface CutLabUiPatch {
     roundKey: string;
     roundLabel: string;
     roundBannerBody: string;
+    findingSummary: string;
     findingCount: number;
     findingChips: string[];
   } | null;
@@ -101,6 +102,7 @@ const buildPatch = (
     roundKey: 'round-1',
     roundLabel: 'Round 1',
     roundBannerBody: 'Keep tuning basics.',
+    findingSummary: "No structural finding flags this card — it's a preference call.",
     findingCount: 0,
     findingChips: [],
   },

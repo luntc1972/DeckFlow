@@ -749,7 +749,7 @@ public sealed class CutLabViewRenderTests
         Assert.Equal("draw", data["Commander"]["roleKeys"]);
         Assert.False(data["Commander"].ContainsKey("roleEditable"));
         Assert.False(data.TryGetValue("Unknown", out var unknown) && unknown.Keys.Any(key => key.StartsWith("role", StringComparison.Ordinal)));
-        Assert.Equal(CutLabRoleOverrideRules.EditableRoleKeys.Count, model.RoleOverrideRoleOptions.Count);
+        Assert.Equal(CutLabRoleOverrideRules.EditableRoleKeys.Count(key => key != "enablers"), model.RoleOverrideRoleOptions.Count);
         Assert.DoesNotContain(model.RoleOverrideRoleOptions, option => option.Key == "lands");
         Assert.All(model.RoleOverrideRoleOptions, option => Assert.Equal(CutLabRoleAssigner.DisplayLabelFor(option.Key), option.Label));
     }

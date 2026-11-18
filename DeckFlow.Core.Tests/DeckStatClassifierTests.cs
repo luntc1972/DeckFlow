@@ -108,6 +108,10 @@ public sealed class DeckStatClassifierTests
     [InlineData("destroy all enchantments.", true)]
     [InlineData("each creature gets -1/-1 until end of turn.", true)]  // each creature + gets -
     [InlineData("exile all nonland permanents.", true)]
+    [InlineData("All creatures get -X/-X until end of turn.", true)]
+    [InlineData("Sickening Dreams deals X damage to each creature and each player.", true)]
+    [InlineData("Pestilence deals 1 damage to each creature and each player.", true)]
+    [InlineData("deals 3 damage to each creature your opponents control.", true)]
     public void IsBoardWipeCard_TrueCases(string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsBoardWipeCard(oracleText));
@@ -116,32 +120,163 @@ public sealed class DeckStatClassifierTests
     [Theory]
     [InlineData("destroy target creature.", false)]    // single-target, not a wipe
     [InlineData("exile target artifact.", false)]      // single-target
+    [InlineData("Creatures you control get -1/-1 until end of turn.", false)]
+    [InlineData("deals 2 damage to each creature you control.", false)]
+    [InlineData("deals 1 damage to each opponent.", false)]
+    [InlineData("All creatures get +1/+1 until end of turn.", false)]
     public void IsBoardWipeCard_FalseCases(string oracleText, bool expected)
     {
         Assert.Equal(expected, DeckStatClassifier.IsBoardWipeCard(oracleText));
+    }
+
+    [Theory]
+    [InlineData("Ancient Tomb", "{T}: Add {C}{C}. This land deals 2 damage to you.", false)]
+    [InlineData("Authority of the Consuls", "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.", true)]
+    [InlineData("Bilbo's Gambit", "Gift a Treasure (You may promise an opponent a gift as you cast this spell. If you do, they create a Treasure token before its other effects. It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nReturn target spell to its owner's hand. If the gift was promised, players can't cast spells this turn.", false)]
+    [InlineData("Bleachbone Verge", "{T}: Add {B}.\n{T}: Add {W}. Activate only if you control a Plains or a Swamp.", false)]
+    [InlineData("Blind Obedience", "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.", true)]
+    [InlineData("Bojuka Bog", "This land enters tapped.\nWhen this land enters, exile target player's graveyard.\n{T}: Add {B}.", false)]
+    [InlineData("Caves of Koilos", "{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.", false)]
+    [InlineData("Command Tower", "{T}: Add one mana of any color in your commander's color identity.", false)]
+    [InlineData("Concealed Courtyard", "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {W} or {B}.", false)]
+    [InlineData("Dauntless Dismantler", "Artifacts your opponents control enter tapped.\n{X}{X}{W}, Sacrifice this creature: Destroy each artifact with mana value X.", true)]
+    [InlineData("Drana and Linvala", "Flying, vigilance\nActivated abilities of creatures your opponents control can't be activated.\nDrana and Linvala has all activated abilities of all creatures your opponents control. You may spend mana as though it were mana of any color to activate those abilities.", true)]
+    [InlineData("Eclipsed Steppe", "({T}: Add {W} or {B}.)\nThis land enters tapped unless you control two or more basic lands.", false)]
+    [InlineData("Eiganjo, Seat of the Empire", "{T}: Add {W}.\nChannel — {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.", false)]
+    [InlineData("Emergence Zone", "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: You may cast spells this turn as though they had flash.", false)]
+    [InlineData("Godless Shrine", "({T}: Add {W} or {B}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.", false)]
+    [InlineData("Hall of Echoes", "{T}: Add {C}.\n{5}: This land becomes a copy of target creature you control until end of turn. The \"legend rule\" doesn't apply to permanents you control this turn.", false)]
+    [InlineData("Isolated Chapel", "This land enters tapped unless you control a Plains or a Swamp.\n{T}: Add {W} or {B}.", false)]
+    [InlineData("Kambal, Consul of Allocation", "Whenever an opponent casts a noncreature spell, that player loses 2 life and you gain 2 life.", false)]
+    [InlineData("Linvala, Keeper of Silence", "Flying\nActivated abilities of creatures your opponents control can't be activated.", true)]
+    [InlineData("Miren, the Moaning Well", "{T}: Add {C}.\n{3}, {T}, Sacrifice a creature: You gain life equal to the sacrificed creature's toughness.", false)]
+    [InlineData("Mother of Runes", "{T}: Target creature you control gains protection from the color of your choice until end of turn.", false)]
+    [InlineData("Orim's Chant", "Kicker {W} (You may pay an additional {W} as you cast this spell.)\nTarget player can't cast spells this turn. If this spell was kicked, creatures can't attack this turn.", false)]
+    [InlineData("Plains", "({T}: Add {W}.)", false)]
+    [InlineData("Polluted Delta", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.", false)]
+    [InlineData("Shadowy Backstreet", "({T}: Add {W} or {B}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)", false)]
+    [InlineData("Shattered Sanctum", "This land enters tapped unless you control two or more other lands.\n{T}: Add {W} or {B}.", false)]
+    [InlineData("Shineshadow Snarl", "As this land enters, you may reveal a Plains or Swamp card from your hand. If you don't, this land enters tapped.\n{T}: Add {W} or {B}.", false)]
+    [InlineData("Silence", "Your opponents can't cast spells this turn.", false)]
+    [InlineData("Swamp", "({T}: Add {B}.)", false)]
+    [InlineData("Trouble in Pairs", "If an opponent would begin an extra turn, that player skips that turn instead.\nWhenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn, you draw a card.", false)]
+    [InlineData("Turbulent Moor", "({T}: Add {W} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.", false)]
+    [InlineData("Voice of Victory", "Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the next end step.)\nYour opponents can't cast spells during your turn.", true)]
+    [InlineData("Synthetic tax", "Spells cost {1} more to cast.", true)]
+    [InlineData("Synthetic limit", "Each player can't cast more than one spell each turn.", true)]
+    [InlineData("Synthetic self cost", "This spell costs {1} more to cast.", false)]
+    [InlineData("Synthetic self tapped", "This permanent enters tapped.", false)]
+    [InlineData("Synthetic activation", "Your opponents can't activate abilities.", true)]
+    [InlineData("Synthetic positive limit", "Each player can cast only one spell each turn.", true)]
+    [InlineData("Synthetic reduction", "Spells cost {1} less to cast.", false)]
+    [InlineData("Synthetic temporary", "Your opponents can't activate abilities until end of turn.", false)]
+    [InlineData("Synthetic mixed duration", "Your opponents can't cast spells this turn.\nCreatures your opponents control enter tapped.", true)]
+    [InlineData("Avatar's Wrath", "Choose up to one target creature, then airbend all other creatures. (Exile them. While each one is exiled, its owner may cast it for {2} rather than its mana cost.)\nUntil your next turn, your opponents can't cast spells from anywhere other than their hands.\nExile Avatar's Wrath.", false)]
+    [InlineData("Synthetic next turn", "Until your next turn, your opponents can't cast spells.", false)]
+    [InlineData("Synthetic mixed next turn", "Until your next turn, your opponents can't cast spells.\nCreatures your opponents control enter tapped.", true)]
+    [InlineData("Defense Grid", "Each spell costs {3} more to cast except during its controller's turn.", true)]
+    // Why: the temporary "this turn" tax is skipped by needles; Damping Sphere is caught by the catalog.
+    [InlineData("Synthetic Damping Sphere wording", "If a land is tapped for two or more mana, it produces {C} instead of any other type and amount.\nEach spell a player casts costs {1} more to cast for each other spell that player has cast this turn.", false)]
+    [InlineData("Synthetic each opponent spell tax", "Each spell your opponents cast costs {1} more to cast.", true)]
+    [InlineData("Synthetic opponent turn tax", "Spells your opponents cast during your turn cost {1} more to cast.", true)]
+    [InlineData("Synthetic each opponent spell reduction", "Each spell your opponents cast costs {1} less to cast.", false)]
+    [InlineData("Synthetic opponent tax", "Spells your opponents cast cost {2} more to cast.", true)]
+    [InlineData("Synthetic each spell reduction", "Each spell costs {1} less to cast.", false)]
+    [InlineData("Synthetic opponent reduction", "Spells your opponents cast cost {1} less to cast.", false)]
+    public void IsStaxCard_CorpusAndSyntheticCases_MatchesContract(string name, string oracleText, bool expected)
+    {
+        Assert.True(expected == DeckStatClassifier.IsStaxCard(name, oracleText), name);
+    }
+
+    [Theory]
+    [InlineData("Blood Moon")]
+    [InlineData("Collector Ouphe")]
+    [InlineData("Damping Sphere")]
+    [InlineData("Drannith Magistrate")]
+    [InlineData("Grand Arbiter Augustin IV")]
+    [InlineData("Root Maze")]
+    [InlineData("Rule of Law")]
+    [InlineData("Sphere of Resistance")]
+    [InlineData("Static Orb")]
+    [InlineData("Thalia, Guardian of Thraben")]
+    [InlineData("Trinisphere")]
+    [InlineData("Winter Orb")]
+    public void IsStaxCard_CatalogNameWithoutOracle_ReturnsTrue(string name)
+    {
+        Assert.True(DeckStatClassifier.IsStaxCard(name, ""));
     }
 
     // -----------------------------------------------------------------------
     // IsRecursionCard
     // -----------------------------------------------------------------------
 
+    // Evidence labels identify fixtures for real cards; other rows use synthetic wording.
+    [Theory]
+    [InlineData("Accumulate Wisdom — avatar-facts.json", "Look at the top three cards of your library. Put one of those cards into your hand and the rest on the bottom of your library in any order. Put each of those cards into your hand instead if there are three or more Lesson cards in your graveyard.", false)]
+    [InlineData("Synthetic wording pattern — conditional bounce", "Return target creature to its owner's hand if there are seven or more cards in your graveyard.", false)]
+    [InlineData("Synthetic wording pattern — ongoing count", "Return target card to your hand as long as there are three cards in your graveyard.", false)]
+    [InlineData("Synthetic wording pattern — per-card count", "Return target creature to its owner's hand for each card in your graveyard.", false)]
+    [InlineData("Synthetic wording pattern — qualified source", "Put target creature card from your graveyard into your hand if there are seven or more cards in your graveyard.", true)]
+    [InlineData("Synthetic wording pattern — in-source", "Return all creature cards in your graveyard to your hand.", true)]
+    [InlineData("Alesha, Who Laughs at Fate — Manabase/fixtures/.manabase-arch-23563520-facts.json", "First strike\nWhenever Alesha attacks, put a +1/+1 counter on it.\nRaid — At the beginning of your end step, if you attacked this turn, return target creature card with mana value less than or equal to Alesha's power from your graveyard to the battlefield.", true)]
+    [InlineData("Synthetic wording pattern — comparison qualifier", "Return target creature card with mana value less than or equal to 2 from your graveyard to your hand.", true)]
+    [InlineData("Synthetic wording pattern — life count", "Return target creature to its owner's hand and you gain life equal to the number of cards in your graveyard.", false)]
+    public void IsRecursionCard_ConditionsAndComparisons_MatchesContract(string evidence, string oracleText, bool expected)
+    {
+        Assert.True(expected == DeckStatClassifier.IsRecursionCard(oracleText), evidence);
+    }
+
+    [Theory]
+    [InlineData("Animate Dead", "Enchant creature card in a graveyard\nWhen this Aura enters, if it's on the battlefield, it loses \"enchant creature card in a graveyard\" and gains \"enchant creature put onto the battlefield with this Aura.\" Return enchanted creature card to the battlefield under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature's controller sacrifices it.\nEnchanted creature gets -1/-0.", true)]
+    [InlineData("Reanimate", "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.", true)]
+    [InlineData("Necromancy", "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it's on the battlefield, it becomes an Aura with \"enchant creature put onto the battlefield with Necromancy.\" Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature's controller sacrifices it.", true)]
+    [InlineData("Revival // Revenge", "Return target creature card with mana value 3 or less from your graveyard to the battlefield.\nDouble your life total. Target opponent loses half their life, rounded up.", true)]
+    [InlineData("Shadow of the Grave", "Return to your hand all cards in your graveyard that you cycled or discarded this turn.", true)]
+    [InlineData("Black Sun's Twilight", "Up to one target creature gets -X/-X until end of turn. If X is 5 or more, return a creature card with mana value X or less from your graveyard to the battlefield tapped.", true)]
+    [InlineData("The Soul Stone", "Indestructible\n{T}: Add {B}.\n{6}{B}, {T}, Exile a creature you control: Harness The Soul Stone. (Once harnessed, its ∞ ability is active.)\n∞ — At the beginning of your upkeep, return target creature card from your graveyard to the battlefield.", true)]
+    [InlineData("Bojuka Bog", "This land enters tapped.\nWhen this land enters, exile target player's graveyard.\n{T}: Add {B}.", false)]
+    [InlineData("Boggart Trawler // Boggart Bog", "When this creature enters, exile target player's graveyard.\nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.", false)]
+    [InlineData("Thraben Charm", "Choose one —\n• Thraben Charm deals damage equal to twice the number of creatures you control to target creature.\n• Destroy target enchantment.\n• Exile any number of target players' graveyards.", false)]
+    [InlineData("Elixir of Immortality", "{2}, {T}: You gain 5 life. Shuffle this artifact and your graveyard into their owner's library.", false)]
+    [InlineData("Cabal Ritual", "Add {B}{B}{B}.\nThreshold — Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.", false)]
+    [InlineData("Shadowy Backstreet", "({T}: Add {W} or {B}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)", false)]
+    [InlineData("Bloodchief Ascension", "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\nWhenever a card is put into an opponent's graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life.", false)]
+    [InlineData("Ulamog, the Infinite Gyre", "When you cast this spell, destroy target permanent.\nIndestructible\nAnnihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their choice.)\nWhen Ulamog is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.", false)]
+    [InlineData("Lurrus of the Dream-Den", "Companion — Each permanent card in your starting deck has mana value 2 or less. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nLifelink\nOnce during each of your turns, you may cast a permanent spell with mana value 2 or less from your graveyard.", false)]
+    [InlineData("Enlightened Confidant", "Lifelink\nAt the beginning of your end step, if you gained life this turn, surveil 1. If you put a card with mana value less than or equal to the amount of life you gained this turn into your graveyard this way, put that card into your hand.", false)]
+    [InlineData("Starving Revenant", "When this creature enters, surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life.\nDescend 8 — Whenever you draw a card, if there are eight or more permanent cards in your graveyard, target opponent loses 1 life and you gain 1 life.", false)]
+    public void IsRecursionCard_GoldenCorpus_MatchesContract(string name, string oracleText, bool expected)
+    {
+        Assert.True(expected == DeckStatClassifier.IsRecursionCard(oracleText), name);
+    }
+
     [Theory]
     [InlineData("return target card from your graveyard to your hand.", true)]
     [InlineData("return all land cards from your graveyard to the battlefield.", true)]
     [InlineData("return target permanent card from your graveyard to the battlefield.", true)]
-    [InlineData("reanimate target creature card.", true)]
     [InlineData("put that card from your graveyard to your hand.", true)]
+    [InlineData("Return up to two target creature cards from your graveyard to your hand.", true)] // Synthetic wording pattern.
+    [InlineData("Return another target creature card from your graveyard to your hand.", true)] // Synthetic wording pattern.
+    [InlineData("Return two target cards from your graveyard to your hand.", true)] // Synthetic wording pattern.
+    [InlineData("Return X target creature cards from your graveyard to the battlefield.", true)] // Synthetic wording pattern.
+    [InlineData("Put up to one target creature card from a graveyard onto the battlefield under your control.", true)] // Synthetic wording pattern.
     public void IsRecursionCard_TrueCases(string oracleText, bool expected)
     {
-        Assert.Equal(expected, DeckStatClassifier.IsRecursionCard(oracleText));
+        Assert.True(expected == DeckStatClassifier.IsRecursionCard(oracleText), oracleText);
     }
 
     [Theory]
+    [InlineData("reanimate target creature card.", false)]
+    [InlineData("return this creature from your graveyard to your hand.", false)]
+    [InlineData("return this card from your graveyard to your hand.", false)]
+    [InlineData("Flying\nCascade (When you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put the exiled cards on the bottom in a random order.)\nWhenever you cast a spell with cascade, return this card from your graveyard to your hand.", false)]
     [InlineData("draw a card.", false)]
     [InlineData("destroy target creature.", false)]
+    [InlineData("Return Example Name from your graveyard to your hand.", false)] // Synthetic named self-return.
+    [InlineData("Put this card from your graveyard onto the battlefield.", false)] // Synthetic self-return.
     public void IsRecursionCard_FalseCases(string oracleText, bool expected)
     {
-        Assert.Equal(expected, DeckStatClassifier.IsRecursionCard(oracleText));
+        Assert.True(expected == DeckStatClassifier.IsRecursionCard(oracleText), oracleText);
     }
 
     // -----------------------------------------------------------------------

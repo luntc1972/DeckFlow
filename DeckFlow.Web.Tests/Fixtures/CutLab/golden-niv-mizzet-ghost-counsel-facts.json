@@ -1,0 +1,3234 @@
+[
+  {
+    "Name": "Alseid of Life\u0027s Bounty",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Enchantment Creature \u2014 Nymph",
+    "OracleText": "Lifelink\n{1}, Sacrifice this creature: Target creature or enchantment you control gains protection from the color of your choice until end of turn.",
+    "FrontFaceOracleText": "Lifelink\n{1}, Sacrifice this creature: Target creature or enchantment you control gains protection from the color of your choice until end of turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Lifelink\n{1}, Sacrifice this creature: Target creature or enchantment you control gains protection from the color of your choice until end of turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Ancient Tomb",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "{T}: Add {C}{C}. This land deals 2 damage to you.",
+    "FrontFaceOracleText": "{T}: Add {C}{C}. This land deals 2 damage to you.",
+    "LandFaceOracleText": "{T}: Add {C}{C}. This land deals 2 damage to you.",
+    "ProducedMana": [
+      "C"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 2,
+    "Power": null,
+    "FrontOracleText": "{T}: Add {C}{C}. This land deals 2 damage to you.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Animate Dead",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Enchantment \u2014 Aura",
+    "OracleText": "Enchant creature card in a graveyard\nWhen this Aura enters, if it\u0027s on the battlefield, it loses \u0022enchant creature card in a graveyard\u0022 and gains \u0022enchant creature put onto the battlefield with this Aura.\u0022 Return enchanted creature card to the battlefield under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature\u0027s controller sacrifices it.\nEnchanted creature gets -1/-0.",
+    "FrontFaceOracleText": "Enchant creature card in a graveyard\nWhen this Aura enters, if it\u0027s on the battlefield, it loses \u0022enchant creature card in a graveyard\u0022 and gains \u0022enchant creature put onto the battlefield with this Aura.\u0022 Return enchanted creature card to the battlefield under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature\u0027s controller sacrifices it.\nEnchanted creature gets -1/-0.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Enchant creature card in a graveyard\nWhen this Aura enters, if it\u0027s on the battlefield, it loses \u0022enchant creature card in a graveyard\u0022 and gains \u0022enchant creature put onto the battlefield with this Aura.\u0022 Return enchanted creature card to the battlefield under your control and attach this Aura to it. When this Aura leaves the battlefield, that creature\u0027s controller sacrifices it.\nEnchanted creature gets -1/-0.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Arcane Signet",
+    "Quantity": 1,
+    "ManaCost": "{2}",
+    "ManaValue": 2,
+    "TypeLine": "Artifact",
+    "OracleText": "{T}: Add one mana of any color in your commander\u0027s color identity.",
+    "FrontFaceOracleText": "{T}: Add one mana of any color in your commander\u0027s color identity.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add one mana of any color in your commander\u0027s color identity.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Authority of the Consuls",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Enchantment",
+    "OracleText": "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.",
+    "FrontFaceOracleText": "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Creatures your opponents control enter tapped.\nWhenever a creature an opponent controls enters, you gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Belladonna Took",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Creature \u2014 Halfling Citizen",
+    "OracleText": "Whenever a token you control enters, you gain 1 life if this is the first time this ability has resolved this turn. If it\u0027s the second time, draw a card. If it\u0027s the third time, put a \u002B1/\u002B1 counter on each creature you control.",
+    "FrontFaceOracleText": "Whenever a token you control enters, you gain 1 life if this is the first time this ability has resolved this turn. If it\u0027s the second time, draw a card. If it\u0027s the third time, put a \u002B1/\u002B1 counter on each creature you control.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Whenever a token you control enters, you gain 1 life if this is the first time this ability has resolved this turn. If it\u0027s the second time, draw a card. If it\u0027s the third time, put a \u002B1/\u002B1 counter on each creature you control.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Bilbo\u0027s Gambit",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Instant",
+    "OracleText": "Gift a Treasure (You may promise an opponent a gift as you cast this spell. If you do, they create a Treasure token before its other effects. It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)\nReturn target spell to its owner\u0027s hand. If the gift was promised, players can\u0027t cast spells this turn.",
+    "FrontFaceOracleText": "Gift a Treasure (You may promise an opponent a gift as you cast this spell. If you do, they create a Treasure token before its other effects. It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)\nReturn target spell to its owner\u0027s hand. If the gift was promised, players can\u0027t cast spells this turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Gift a Treasure (You may promise an opponent a gift as you cast this spell. If you do, they create a Treasure token before its other effects. It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)\nReturn target spell to its owner\u0027s hand. If the gift was promised, players can\u0027t cast spells this turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Black Market Connections",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}",
+    "ManaValue": 3,
+    "TypeLine": "Enchantment",
+    "OracleText": "At the beginning of your first main phase, choose one or more \u2014\n\u2022 Sell Contraband \u2014 Create a Treasure token. You lose 1 life.\n\u2022 Buy Information \u2014 Draw a card. You lose 2 life.\n\u2022 Hire a Mercenary \u2014 Create a 3/2 colorless Shapeshifter creature token with changeling. You lose 3 life. (It is every creature type.)",
+    "FrontFaceOracleText": "At the beginning of your first main phase, choose one or more \u2014\n\u2022 Sell Contraband \u2014 Create a Treasure token. You lose 1 life.\n\u2022 Buy Information \u2014 Draw a card. You lose 2 life.\n\u2022 Hire a Mercenary \u2014 Create a 3/2 colorless Shapeshifter creature token with changeling. You lose 3 life. (It is every creature type.)",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "At the beginning of your first main phase, choose one or more \u2014\n\u2022 Sell Contraband \u2014 Create a Treasure token. You lose 1 life.\n\u2022 Buy Information \u2014 Draw a card. You lose 2 life.\n\u2022 Hire a Mercenary \u2014 Create a 3/2 colorless Shapeshifter creature token with changeling. You lose 3 life. (It is every creature type.)",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Black Sun\u0027s Twilight",
+    "Quantity": 1,
+    "ManaCost": "{X}{B}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Up to one target creature gets -X/-X until end of turn. If X is 5 or more, return a creature card with mana value X or less from your graveyard to the battlefield tapped.",
+    "FrontFaceOracleText": "Up to one target creature gets -X/-X until end of turn. If X is 5 or more, return a creature card with mana value X or less from your graveyard to the battlefield tapped.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Up to one target creature gets -X/-X until end of turn. If X is 5 or more, return a creature card with mana value X or less from your graveyard to the battlefield tapped.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Bleachbone Verge",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "{T}: Add {B}.\n{T}: Add {W}. Activate only if you control a Plains or a Swamp.",
+    "FrontFaceOracleText": "{T}: Add {B}.\n{T}: Add {W}. Activate only if you control a Plains or a Swamp.",
+    "LandFaceOracleText": "{T}: Add {B}.\n{T}: Add {W}. Activate only if you control a Plains or a Swamp.",
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add {B}.\n{T}: Add {W}. Activate only if you control a Plains or a Swamp.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Blind Obedience",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Enchantment",
+    "OracleText": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.",
+    "FrontFaceOracleText": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nArtifacts and creatures your opponents control enter tapped.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Bloodchief Ascension",
+    "Quantity": 1,
+    "ManaCost": "{B}",
+    "ManaValue": 1,
+    "TypeLine": "Enchantment",
+    "OracleText": "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\nWhenever a card is put into an opponent\u0027s graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life.",
+    "FrontFaceOracleText": "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\nWhenever a card is put into an opponent\u0027s graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\nWhenever a card is put into an opponent\u0027s graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Bofur, Reliable Guardian // Concerted Care",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Legendary Creature \u2014 Dwarf Scout",
+    "OracleText": "Lifelink\nTarget artifact or creature you control gains hexproof and indestructible until end of turn. (Then exile this card. You may cast the creature later from exile.)",
+    "FrontFaceOracleText": "Lifelink",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "adventure",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Lifelink",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Bog Witch",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}",
+    "ManaValue": 3,
+    "TypeLine": "Creature \u2014 Human Spellshaper",
+    "OracleText": "{B}, {T}, Discard a card: Add {B}{B}{B}.",
+    "FrontFaceOracleText": "{B}, {T}, Discard a card: Add {B}{B}{B}.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 3,
+    "Power": 1,
+    "FrontOracleText": "{B}, {T}, Discard a card: Add {B}{B}{B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Boggart Trawler // Boggart Bog",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}",
+    "ManaValue": 3,
+    "TypeLine": "Creature \u2014 Goblin",
+    "OracleText": "When this creature enters, exile target player\u0027s graveyard.\nAs this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {B}.",
+    "FrontFaceOracleText": "When this creature enters, exile target player\u0027s graveyard.",
+    "LandFaceOracleText": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {B}.",
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "modal_dfc",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 3,
+    "FrontOracleText": "When this creature enters, exile target player\u0027s graveyard.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Bojuka Bog",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "This land enters tapped.\nWhen this land enters, exile target player\u0027s graveyard.\n{T}: Add {B}.",
+    "FrontFaceOracleText": "This land enters tapped.\nWhen this land enters, exile target player\u0027s graveyard.\n{T}: Add {B}.",
+    "LandFaceOracleText": "This land enters tapped.\nWhen this land enters, exile target player\u0027s graveyard.\n{T}: Add {B}.",
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "This land enters tapped.\nWhen this land enters, exile target player\u0027s graveyard.\n{T}: Add {B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Bubbling Muck",
+    "Quantity": 1,
+    "ManaCost": "{B}",
+    "ManaValue": 1,
+    "TypeLine": "Sorcery",
+    "OracleText": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}.",
+    "FrontFaceOracleText": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Until end of turn, whenever a player taps a Swamp for mana, that player adds an additional {B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Cabal Ritual",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Instant",
+    "OracleText": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.",
+    "FrontFaceOracleText": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 3,
+    "Power": null,
+    "FrontOracleText": "Add {B}{B}{B}.\nThreshold \u2014 Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Caves of Koilos",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.",
+    "FrontFaceOracleText": "{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.",
+    "LandFaceOracleText": "{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.",
+    "ProducedMana": [
+      "B",
+      "C",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Chain of Smog",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Sorcery",
+    "OracleText": "Target player discards two cards. That player may copy this spell and may choose a new target for that copy.",
+    "FrontFaceOracleText": "Target player discards two cards. That player may copy this spell and may choose a new target for that copy.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Target player discards two cards. That player may copy this spell and may choose a new target for that copy.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Chaplain\u0027s Blessing",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Sorcery",
+    "OracleText": "You gain 5 life.",
+    "FrontFaceOracleText": "You gain 5 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "You gain 5 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Command Tower",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "{T}: Add one mana of any color in your commander\u0027s color identity.",
+    "FrontFaceOracleText": "{T}: Add one mana of any color in your commander\u0027s color identity.",
+    "LandFaceOracleText": "{T}: Add one mana of any color in your commander\u0027s color identity.",
+    "ProducedMana": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add one mana of any color in your commander\u0027s color identity.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Concealed Courtyard",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {W} or {B}.",
+    "FrontFaceOracleText": "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {W} or {B}.",
+    "LandFaceOracleText": "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {W} or {B}.",
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "This land enters tapped unless you control two or fewer other lands.\n{T}: Add {W} or {B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Confessor",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Creature \u2014 Human Cleric",
+    "OracleText": "Whenever a player discards a card, you may gain 1 life.",
+    "FrontFaceOracleText": "Whenever a player discards a card, you may gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Whenever a player discards a card, you may gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Crypt Ghast",
+    "Quantity": 1,
+    "ManaCost": "{3}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Creature \u2014 Spirit",
+    "OracleText": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nWhenever you tap a Swamp for mana, add an additional {B}.",
+    "FrontFaceOracleText": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nWhenever you tap a Swamp for mana, add an additional {B}.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nWhenever you tap a Swamp for mana, add an additional {B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Culling the Weak",
+    "Quantity": 1,
+    "ManaCost": "{B}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "As an additional cost to cast this spell, sacrifice a creature.\nAdd {B}{B}{B}{B}.",
+    "FrontFaceOracleText": "As an additional cost to cast this spell, sacrifice a creature.\nAdd {B}{B}{B}{B}.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 4,
+    "Power": null,
+    "FrontOracleText": "As an additional cost to cast this spell, sacrifice a creature.\nAdd {B}{B}{B}{B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Dark Ritual",
+    "Quantity": 1,
+    "ManaCost": "{B}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Add {B}{B}{B}.",
+    "FrontFaceOracleText": "Add {B}{B}{B}.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 3,
+    "Power": null,
+    "FrontOracleText": "Add {B}{B}{B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Dauntless Dismantler",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Creature \u2014 Human Artificer",
+    "OracleText": "Artifacts your opponents control enter tapped.\n{X}{X}{W}, Sacrifice this creature: Destroy each artifact with mana value X.",
+    "FrontFaceOracleText": "Artifacts your opponents control enter tapped.\n{X}{X}{W}, Sacrifice this creature: Destroy each artifact with mana value X.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Artifacts your opponents control enter tapped.\n{X}{X}{W}, Sacrifice this creature: Destroy each artifact with mana value X.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Dawn\u0027s Truce",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Instant",
+    "OracleText": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nYou and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn.",
+    "FrontFaceOracleText": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nYou and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nYou and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Deadly Rollick",
+    "Quantity": 1,
+    "ManaCost": "{3}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Instant",
+    "OracleText": "If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.",
+    "FrontFaceOracleText": "If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Deathgreeter",
+    "Quantity": 1,
+    "ManaCost": "{B}",
+    "ManaValue": 1,
+    "TypeLine": "Creature \u2014 Human Shaman",
+    "OracleText": "Whenever another creature dies, you may gain 1 life.",
+    "FrontFaceOracleText": "Whenever another creature dies, you may gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Whenever another creature dies, you may gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Delney, Streetwise Lookout",
+    "Quantity": 1,
+    "ManaCost": "{2}{W}",
+    "ManaValue": 3,
+    "TypeLine": "Legendary Creature \u2014 Human Scout",
+    "OracleText": "Creatures you control with power 2 or less can\u0027t be blocked by creatures with power 3 or greater.\nIf a triggered ability of a creature you control with power 2 or less triggers, that ability triggers an additional time.",
+    "FrontFaceOracleText": "Creatures you control with power 2 or less can\u0027t be blocked by creatures with power 3 or greater.\nIf a triggered ability of a creature you control with power 2 or less triggers, that ability triggers an additional time.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Creatures you control with power 2 or less can\u0027t be blocked by creatures with power 3 or greater.\nIf a triggered ability of a creature you control with power 2 or less triggers, that ability triggers an additional time.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Diabolic Intent",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Sorcery",
+    "OracleText": "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a card, put that card into your hand, then shuffle.",
+    "FrontFaceOracleText": "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a card, put that card into your hand, then shuffle.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "As an additional cost to cast this spell, sacrifice a creature.\nSearch your library for a card, put that card into your hand, then shuffle.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Dismember",
+    "Quantity": 1,
+    "ManaCost": "{1}{B/P}{B/P}",
+    "ManaValue": 3,
+    "TypeLine": "Instant",
+    "OracleText": "({B/P} can be paid with either {B} or 2 life.)\nTarget creature gets -5/-5 until end of turn.",
+    "FrontFaceOracleText": "({B/P} can be paid with either {B} or 2 life.)\nTarget creature gets -5/-5 until end of turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "({B/P} can be paid with either {B} or 2 life.)\nTarget creature gets -5/-5 until end of turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Doctor Doom, Unrivaled",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Legendary Creature \u2014 Human Sorcerer Villain",
+    "OracleText": "Lifelink\n{T}: You draw a card and lose 1 life. Then if your library has no cards in it, you win the game. (You win even if you have 0 life or didn\u0027t draw a card.)",
+    "FrontFaceOracleText": "Lifelink\n{T}: You draw a card and lose 1 life. Then if your library has no cards in it, you win the game. (You win even if you have 0 life or didn\u0027t draw a card.)",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 4,
+    "FrontOracleText": "Lifelink\n{T}: You draw a card and lose 1 life. Then if your library has no cards in it, you win the game. (You win even if you have 0 life or didn\u0027t draw a card.)",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Dr. Pulaski, Cynical Clinician",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Creature \u2014 Human Doctor",
+    "OracleText": "Seek out \u2014 Whenever you draw your second card each turn, you gain 4 life.",
+    "FrontFaceOracleText": "Seek out \u2014 Whenever you draw your second card each turn, you gain 4 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Seek out \u2014 Whenever you draw your second card each turn, you gain 4 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Drana and Linvala",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}{W}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Legendary Creature \u2014 Vampire Angel",
+    "OracleText": "Flying, vigilance\nActivated abilities of creatures your opponents control can\u0027t be activated.\nDrana and Linvala has all activated abilities of all creatures your opponents control. You may spend mana as though it were mana of any color to activate those abilities.",
+    "FrontFaceOracleText": "Flying, vigilance\nActivated abilities of creatures your opponents control can\u0027t be activated.\nDrana and Linvala has all activated abilities of all creatures your opponents control. You may spend mana as though it were mana of any color to activate those abilities.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 3,
+    "FrontOracleText": "Flying, vigilance\nActivated abilities of creatures your opponents control can\u0027t be activated.\nDrana and Linvala has all activated abilities of all creatures your opponents control. You may spend mana as though it were mana of any color to activate those abilities.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Eclipsed Steppe",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land \u2014 Plains Swamp",
+    "OracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped unless you control two or more basic lands.",
+    "FrontFaceOracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped unless you control two or more basic lands.",
+    "LandFaceOracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped unless you control two or more basic lands.",
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped unless you control two or more basic lands.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Eiganjo, Seat of the Empire",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Legendary Land",
+    "OracleText": "{T}: Add {W}.\nChannel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
+    "FrontFaceOracleText": "{T}: Add {W}.\nChannel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
+    "LandFaceOracleText": "{T}: Add {W}.\nChannel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
+    "ProducedMana": [
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add {W}.\nChannel \u2014 {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Elixir of Immortality",
+    "Quantity": 1,
+    "ManaCost": "{1}",
+    "ManaValue": 1,
+    "TypeLine": "Artifact",
+    "OracleText": "{2}, {T}: You gain 5 life. Shuffle this artifact and your graveyard into their owner\u0027s library.",
+    "FrontFaceOracleText": "{2}, {T}: You gain 5 life. Shuffle this artifact and your graveyard into their owner\u0027s library.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{2}, {T}: You gain 5 life. Shuffle this artifact and your graveyard into their owner\u0027s library.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Emergence Zone",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: You may cast spells this turn as though they had flash.",
+    "FrontFaceOracleText": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: You may cast spells this turn as though they had flash.",
+    "LandFaceOracleText": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: You may cast spells this turn as though they had flash.",
+    "ProducedMana": [
+      "C"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: You may cast spells this turn as though they had flash.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Enduring Tenacity",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Enchantment Creature \u2014 Snake Glimmer",
+    "OracleText": "Whenever you gain life, target opponent loses that much life.\nWhen Enduring Tenacity dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment. (It\u0027s not a creature.)",
+    "FrontFaceOracleText": "Whenever you gain life, target opponent loses that much life.\nWhen Enduring Tenacity dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment. (It\u0027s not a creature.)",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 4,
+    "FrontOracleText": "Whenever you gain life, target opponent loses that much life.\nWhen Enduring Tenacity dies, if it was a creature, return it to the battlefield under its owner\u0027s control. It\u0027s an enchantment. (It\u0027s not a creature.)",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Enlightened Confidant",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Creature \u2014 Kor Cleric",
+    "OracleText": "Lifelink\nAt the beginning of your end step, if you gained life this turn, surveil 1. If you put a card with mana value less than or equal to the amount of life you gained this turn into your graveyard this way, put that card into your hand.",
+    "FrontFaceOracleText": "Lifelink\nAt the beginning of your end step, if you gained life this turn, surveil 1. If you put a card with mana value less than or equal to the amount of life you gained this turn into your graveyard this way, put that card into your hand.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Lifelink\nAt the beginning of your end step, if you gained life this turn, surveil 1. If you put a card with mana value less than or equal to the amount of life you gained this turn into your graveyard this way, put that card into your hand.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Esper Sentinel",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Artifact Creature \u2014 Human Soldier",
+    "OracleText": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power.",
+    "FrontFaceOracleText": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Whenever an opponent casts their first noncreature spell each turn, draw a card unless that player pays {X}, where X is this creature\u0027s power.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Exsanguinate",
+    "Quantity": 1,
+    "ManaCost": "{X}{B}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Sorcery",
+    "OracleText": "Each opponent loses X life. You gain life equal to the life lost this way.",
+    "FrontFaceOracleText": "Each opponent loses X life. You gain life equal to the life lost this way.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Each opponent loses X life. You gain life equal to the life lost this way.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Feast of Sanity",
+    "Quantity": 1,
+    "ManaCost": "{3}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Enchantment",
+    "OracleText": "Whenever you discard a card, this enchantment deals 1 damage to any target and you gain 1 life.",
+    "FrontFaceOracleText": "Whenever you discard a card, this enchantment deals 1 damage to any target and you gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Whenever you discard a card, this enchantment deals 1 damage to any target and you gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Fellwar Stone",
+    "Quantity": 1,
+    "ManaCost": "{2}",
+    "ManaValue": 2,
+    "TypeLine": "Artifact",
+    "OracleText": "{T}: Add one mana of any color that a land an opponent controls could produce.",
+    "FrontFaceOracleText": "{T}: Add one mana of any color that a land an opponent controls could produce.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add one mana of any color that a land an opponent controls could produce.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Fracture",
+    "Quantity": 1,
+    "ManaCost": "{W}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Instant",
+    "OracleText": "Destroy target artifact, enchantment, or planeswalker.",
+    "FrontFaceOracleText": "Destroy target artifact, enchantment, or planeswalker.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Destroy target artifact, enchantment, or planeswalker.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Gleaming Splendor",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Enchantment",
+    "OracleText": "Whenever an opponent draws their second card each turn, you create a Treasure token.\n{2}{W}: Two target players each draw a card.",
+    "FrontFaceOracleText": "Whenever an opponent draws their second card each turn, you create a Treasure token.\n{2}{W}: Two target players each draw a card.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Whenever an opponent draws their second card each turn, you create a Treasure token.\n{2}{W}: Two target players each draw a card.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Godless Shrine",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land \u2014 Plains Swamp",
+    "OracleText": "({T}: Add {W} or {B}.)\nAs this land enters, you may pay 2 life. If you don\u0027t, it enters tapped.",
+    "FrontFaceOracleText": "({T}: Add {W} or {B}.)\nAs this land enters, you may pay 2 life. If you don\u0027t, it enters tapped.",
+    "LandFaceOracleText": "({T}: Add {W} or {B}.)\nAs this land enters, you may pay 2 life. If you don\u0027t, it enters tapped.",
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "({T}: Add {W} or {B}.)\nAs this land enters, you may pay 2 life. If you don\u0027t, it enters tapped.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Grim Tutor",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}{B}",
+    "ManaValue": 3,
+    "TypeLine": "Sorcery",
+    "OracleText": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life.",
+    "FrontFaceOracleText": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Hall of Echoes",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "{T}: Add {C}.\n{5}: This land becomes a copy of target creature you control until end of turn. The \u0022legend rule\u0022 doesn\u0027t apply to permanents you control this turn.",
+    "FrontFaceOracleText": "{T}: Add {C}.\n{5}: This land becomes a copy of target creature you control until end of turn. The \u0022legend rule\u0022 doesn\u0027t apply to permanents you control this turn.",
+    "LandFaceOracleText": "{T}: Add {C}.\n{5}: This land becomes a copy of target creature you control until end of turn. The \u0022legend rule\u0022 doesn\u0027t apply to permanents you control this turn.",
+    "ProducedMana": [
+      "C"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add {C}.\n{5}: This land becomes a copy of target creature you control until end of turn. The \u0022legend rule\u0022 doesn\u0027t apply to permanents you control this turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Imp\u0027s Mischief",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Instant",
+    "OracleText": "Change the target of target spell with a single target. You lose life equal to that spell\u0027s mana value.",
+    "FrontFaceOracleText": "Change the target of target spell with a single target. You lose life equal to that spell\u0027s mana value.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Change the target of target spell with a single target. You lose life equal to that spell\u0027s mana value.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Isolated Chapel",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "This land enters tapped unless you control a Plains or a Swamp.\n{T}: Add {W} or {B}.",
+    "FrontFaceOracleText": "This land enters tapped unless you control a Plains or a Swamp.\n{T}: Add {W} or {B}.",
+    "LandFaceOracleText": "This land enters tapped unless you control a Plains or a Swamp.\n{T}: Add {W} or {B}.",
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "This land enters tapped unless you control a Plains or a Swamp.\n{T}: Add {W} or {B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Jeweled Amulet",
+    "Quantity": 1,
+    "ManaCost": "{0}",
+    "ManaValue": 0,
+    "TypeLine": "Artifact",
+    "OracleText": "{1}, {T}: Put a charge counter on this artifact. Note the type of mana spent to pay this activation cost. Activate only if there are no charge counters on this artifact.\n{T}, Remove a charge counter from this artifact: Add one mana of this artifact\u0027s last noted type.",
+    "FrontFaceOracleText": "{1}, {T}: Put a charge counter on this artifact. Note the type of mana spent to pay this activation cost. Activate only if there are no charge counters on this artifact.\n{T}, Remove a charge counter from this artifact: Add one mana of this artifact\u0027s last noted type.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{1}, {T}: Put a charge counter on this artifact. Note the type of mana spent to pay this activation cost. Activate only if there are no charge counters on this artifact.\n{T}, Remove a charge counter from this artifact: Add one mana of this artifact\u0027s last noted type.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Kambal, Consul of Allocation",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}{B}",
+    "ManaValue": 3,
+    "TypeLine": "Legendary Creature \u2014 Human Advisor",
+    "OracleText": "Whenever an opponent casts a noncreature spell, that player loses 2 life and you gain 2 life.",
+    "FrontFaceOracleText": "Whenever an opponent casts a noncreature spell, that player loses 2 life and you gain 2 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Whenever an opponent casts a noncreature spell, that player loses 2 life and you gain 2 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Kambal, Profiteering Mayor",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}{B}",
+    "ManaValue": 3,
+    "TypeLine": "Legendary Creature \u2014 Human Advisor",
+    "OracleText": "Whenever one or more tokens your opponents control enter, for each of them, create a tapped token that\u0027s a copy of it. This ability triggers only once each turn.\nWhenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.",
+    "FrontFaceOracleText": "Whenever one or more tokens your opponents control enter, for each of them, create a tapped token that\u0027s a copy of it. This ability triggers only once each turn.\nWhenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Whenever one or more tokens your opponents control enter, for each of them, create a tapped token that\u0027s a copy of it. This ability triggers only once each turn.\nWhenever one or more tokens you control enter, each opponent loses 1 life and you gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Karlov of the Ghost Council",
+    "Quantity": 1,
+    "ManaCost": "{W}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Creature \u2014 Spirit Advisor",
+    "OracleText": "Whenever you gain life, put two \u002B1/\u002B1 counters on Karlov.\n{W}{B}, Remove six \u002B1/\u002B1 counters from Karlov: Exile target creature.",
+    "FrontFaceOracleText": "Whenever you gain life, put two \u002B1/\u002B1 counters on Karlov.\n{W}{B}, Remove six \u002B1/\u002B1 counters from Karlov: Exile target creature.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Whenever you gain life, put two \u002B1/\u002B1 counters on Karlov.\n{W}{B}, Remove six \u002B1/\u002B1 counters from Karlov: Exile target creature.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Leonin Elder",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Creature \u2014 Cat Cleric",
+    "OracleText": "Whenever an artifact enters, you may gain 1 life.",
+    "FrontFaceOracleText": "Whenever an artifact enters, you may gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Whenever an artifact enters, you may gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Light of Hope",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Choose one \u2014\n\u2022 You gain 4 life.\n\u2022 Destroy target enchantment.\n\u2022 Put a \u002B1/\u002B1 counter on target creature.",
+    "FrontFaceOracleText": "Choose one \u2014\n\u2022 You gain 4 life.\n\u2022 Destroy target enchantment.\n\u2022 Put a \u002B1/\u002B1 counter on target creature.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Choose one \u2014\n\u2022 You gain 4 life.\n\u2022 Destroy target enchantment.\n\u2022 Put a \u002B1/\u002B1 counter on target creature.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Lightning Greaves",
+    "Quantity": 1,
+    "ManaCost": "{2}",
+    "ManaValue": 2,
+    "TypeLine": "Artifact \u2014 Equipment",
+    "OracleText": "Equipped creature has haste and shroud. (It can\u0027t be the target of spells or abilities.)\nEquip {0}",
+    "FrontFaceOracleText": "Equipped creature has haste and shroud. (It can\u0027t be the target of spells or abilities.)\nEquip {0}",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Equipped creature has haste and shroud. (It can\u0027t be the target of spells or abilities.)\nEquip {0}",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Liliana the Faultless",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Legendary Creature \u2014 Human Cleric",
+    "OracleText": "Whenever another creature or planeswalker you control enters, you gain 1 life.\n{1}, {T}, Discard a card: Another target creature or planeswalker you control gains hexproof until end of turn.",
+    "FrontFaceOracleText": "Whenever another creature or planeswalker you control enters, you gain 1 life.\n{1}, {T}, Discard a card: Another target creature or planeswalker you control gains hexproof until end of turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Whenever another creature or planeswalker you control enters, you gain 1 life.\n{1}, {T}, Discard a card: Another target creature or planeswalker you control gains hexproof until end of turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Linvala, Keeper of Silence",
+    "Quantity": 1,
+    "ManaCost": "{2}{W}{W}",
+    "ManaValue": 4,
+    "TypeLine": "Legendary Creature \u2014 Angel",
+    "OracleText": "Flying\nActivated abilities of creatures your opponents control can\u0027t be activated.",
+    "FrontFaceOracleText": "Flying\nActivated abilities of creatures your opponents control can\u0027t be activated.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 3,
+    "FrontOracleText": "Flying\nActivated abilities of creatures your opponents control can\u0027t be activated.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Lotho, Corrupt Shirriff",
+    "Quantity": 1,
+    "ManaCost": "{W}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Creature \u2014 Halfling Rogue",
+    "OracleText": "Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)",
+    "FrontFaceOracleText": "Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token. (It\u0027s an artifact with \u0022{T}, Sacrifice this token: Add one mana of any color.\u0022)",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Lurrus of the Dream-Den",
+    "Quantity": 1,
+    "ManaCost": "{1}{W/B}{W/B}",
+    "ManaValue": 3,
+    "TypeLine": "Legendary Creature \u2014 Cat Nightmare",
+    "OracleText": "Companion \u2014 Each permanent card in your starting deck has mana value 2 or less. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nLifelink\nOnce during each of your turns, you may cast a permanent spell with mana value 2 or less from your graveyard.",
+    "FrontFaceOracleText": "Companion \u2014 Each permanent card in your starting deck has mana value 2 or less. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nLifelink\nOnce during each of your turns, you may cast a permanent spell with mana value 2 or less from your graveyard.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 3,
+    "FrontOracleText": "Companion \u2014 Each permanent card in your starting deck has mana value 2 or less. (If this card is your chosen companion, you may put it into your hand from outside the game for {3} as a sorcery.)\nLifelink\nOnce during each of your turns, you may cast a permanent spell with mana value 2 or less from your graveyard.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "MacCready, Lamplight Mayor",
+    "Quantity": 1,
+    "ManaCost": "{W}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Creature \u2014 Human Advisor",
+    "OracleText": "Whenever a creature you control with power 2 or less attacks, it gains skulk until end of turn. (It can\u0027t be blocked by creatures with greater power.)\nWhenever a creature with power 4 or greater attacks you, its controller loses 2 life and you gain 2 life.",
+    "FrontFaceOracleText": "Whenever a creature you control with power 2 or less attacks, it gains skulk until end of turn. (It can\u0027t be blocked by creatures with greater power.)\nWhenever a creature with power 4 or greater attacks you, its controller loses 2 life and you gain 2 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Whenever a creature you control with power 2 or less attacks, it gains skulk until end of turn. (It can\u0027t be blocked by creatures with greater power.)\nWhenever a creature with power 4 or greater attacks you, its controller loses 2 life and you gain 2 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Malakir Rebirth // Malakir Mire",
+    "Quantity": 1,
+    "ManaCost": "{B}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Choose target creature. You lose 2 life. Until end of turn, that creature gains \u0022When this creature dies, return it to the battlefield tapped under its owner\u0027s control.\u0022\nThis land enters tapped.\n{T}: Add {B}.",
+    "FrontFaceOracleText": "Choose target creature. You lose 2 life. Until end of turn, that creature gains \u0022When this creature dies, return it to the battlefield tapped under its owner\u0027s control.\u0022",
+    "LandFaceOracleText": "This land enters tapped.\n{T}: Add {B}.",
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "modal_dfc",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Choose target creature. You lose 2 life. Until end of turn, that creature gains \u0022When this creature dies, return it to the battlefield tapped under its owner\u0027s control.\u0022",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "March of Wretched Sorrow",
+    "Quantity": 1,
+    "ManaCost": "{X}{B}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "As an additional cost to cast this spell, you may exile any number of black cards from your hand. This spell costs {2} less to cast for each card exiled this way.\nMarch of Wretched Sorrow deals X damage to target creature or planeswalker and you gain X life.",
+    "FrontFaceOracleText": "As an additional cost to cast this spell, you may exile any number of black cards from your hand. This spell costs {2} less to cast for each card exiled this way.\nMarch of Wretched Sorrow deals X damage to target creature or planeswalker and you gain X life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "As an additional cost to cast this spell, you may exile any number of black cards from your hand. This spell costs {2} less to cast for each card exiled this way.\nMarch of Wretched Sorrow deals X damage to target creature or planeswalker and you gain X life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Martyr of Sands",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Creature \u2014 Human Cleric",
+    "OracleText": "{1}, Reveal X white cards from your hand, Sacrifice this creature: You gain three times X life.",
+    "FrontFaceOracleText": "{1}, Reveal X white cards from your hand, Sacrifice this creature: You gain three times X life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "{1}, Reveal X white cards from your hand, Sacrifice this creature: You gain three times X life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Miren, the Moaning Well",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Legendary Land",
+    "OracleText": "{T}: Add {C}.\n{3}, {T}, Sacrifice a creature: You gain life equal to the sacrificed creature\u0027s toughness.",
+    "FrontFaceOracleText": "{T}: Add {C}.\n{3}, {T}, Sacrifice a creature: You gain life equal to the sacrificed creature\u0027s toughness.",
+    "LandFaceOracleText": "{T}: Add {C}.\n{3}, {T}, Sacrifice a creature: You gain life equal to the sacrificed creature\u0027s toughness.",
+    "ProducedMana": [
+      "C"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add {C}.\n{3}, {T}, Sacrifice a creature: You gain life equal to the sacrificed creature\u0027s toughness.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Monologue Tax",
+    "Quantity": 1,
+    "ManaCost": "{2}{W}",
+    "ManaValue": 3,
+    "TypeLine": "Enchantment",
+    "OracleText": "Whenever an opponent casts their second spell each turn, you create a Treasure token.",
+    "FrontFaceOracleText": "Whenever an opponent casts their second spell each turn, you create a Treasure token.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Whenever an opponent casts their second spell each turn, you create a Treasure token.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Mother of Runes",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Creature \u2014 Human Cleric",
+    "OracleText": "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
+    "FrontFaceOracleText": "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Necromancy",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}",
+    "ManaValue": 3,
+    "TypeLine": "Enchantment",
+    "OracleText": "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it.",
+    "FrontFaceOracleText": "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn\u0027t have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nWhen this enchantment enters, if it\u0027s on the battlefield, it becomes an Aura with \u0022enchant creature put onto the battlefield with Necromancy.\u0022 Put target creature card from a graveyard onto the battlefield under your control and attach this enchantment to it. When this enchantment leaves the battlefield, that creature\u0027s controller sacrifices it.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Niv-Mizzet, Ghost Counsel",
+    "Quantity": 1,
+    "ManaCost": "{2}{W}{W}{B}{B}",
+    "ManaValue": 6,
+    "TypeLine": "Legendary Creature \u2014 Spirit Dragon",
+    "OracleText": "Flying\nWhenever you gain life, you may pay that much life. If you do, draw that many cards.\n{T}: Each opponent loses 1 life and you gain 1 life.",
+    "FrontFaceOracleText": "Flying\nWhenever you gain life, you may pay that much life. If you do, draw that many cards.\n{T}: Each opponent loses 1 life and you gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": true,
+    "ManaAmount": 1,
+    "Power": 4,
+    "FrontOracleText": "Flying\nWhenever you gain life, you may pay that much life. If you do, draw that many cards.\n{T}: Each opponent loses 1 life and you gain 1 life.",
+    "Boards": [
+      {
+        "Board": "commander",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Ocelot Pride",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Creature \u2014 Cat",
+    "OracleText": "First strike, lifelink\nAscend (If you control ten or more permanents, you get the city\u0027s blessing for the rest of the game.)\nAt the beginning of your end step, if you gained life this turn, create a 1/1 white Cat creature token. Then if you have the city\u0027s blessing, for each token you control that entered this turn, create a token that\u0027s a copy of it.",
+    "FrontFaceOracleText": "First strike, lifelink\nAscend (If you control ten or more permanents, you get the city\u0027s blessing for the rest of the game.)\nAt the beginning of your end step, if you gained life this turn, create a 1/1 white Cat creature token. Then if you have the city\u0027s blessing, for each token you control that entered this turn, create a token that\u0027s a copy of it.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "First strike, lifelink\nAscend (If you control ten or more permanents, you get the city\u0027s blessing for the rest of the game.)\nAt the beginning of your end step, if you gained life this turn, create a 1/1 white Cat creature token. Then if you have the city\u0027s blessing, for each token you control that entered this turn, create a token that\u0027s a copy of it.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Orim\u0027s Chant",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Kicker {W} (You may pay an additional {W} as you cast this spell.)\nTarget player can\u0027t cast spells this turn. If this spell was kicked, creatures can\u0027t attack this turn.",
+    "FrontFaceOracleText": "Kicker {W} (You may pay an additional {W} as you cast this spell.)\nTarget player can\u0027t cast spells this turn. If this spell was kicked, creatures can\u0027t attack this turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Kicker {W} (You may pay an additional {W} as you cast this spell.)\nTarget player can\u0027t cast spells this turn. If this spell was kicked, creatures can\u0027t attack this turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Orzhov Signet",
+    "Quantity": 1,
+    "ManaCost": "{2}",
+    "ManaValue": 2,
+    "TypeLine": "Artifact",
+    "OracleText": "{1}, {T}: Add {W}{B}.",
+    "FrontFaceOracleText": "{1}, {T}: Add {W}{B}.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{1}, {T}: Add {W}{B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Paradise Mantle",
+    "Quantity": 1,
+    "ManaCost": "{0}",
+    "ManaValue": 0,
+    "TypeLine": "Artifact \u2014 Equipment",
+    "OracleText": "Equipped creature has \u0022{T}: Add one mana of any color.\u0022\nEquip {1}",
+    "FrontFaceOracleText": "Equipped creature has \u0022{T}: Add one mana of any color.\u0022\nEquip {1}",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Equipped creature has \u0022{T}: Add one mana of any color.\u0022\nEquip {1}",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Path to Exile",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    "FrontFaceOracleText": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Patrician\u0027s Scorn",
+    "Quantity": 1,
+    "ManaCost": "{3}{W}",
+    "ManaValue": 4,
+    "TypeLine": "Instant",
+    "OracleText": "If you\u0027ve cast another white spell this turn, you may cast this spell without paying its mana cost.\nDestroy all enchantments.",
+    "FrontFaceOracleText": "If you\u0027ve cast another white spell this turn, you may cast this spell without paying its mana cost.\nDestroy all enchantments.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "If you\u0027ve cast another white spell this turn, you may cast this spell without paying its mana cost.\nDestroy all enchantments.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Peace of Mind",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Enchantment",
+    "OracleText": "{W}, Discard a card: You gain 3 life.",
+    "FrontFaceOracleText": "{W}, Discard a card: You gain 3 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{W}, Discard a card: You gain 3 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Pentad Prism",
+    "Quantity": 1,
+    "ManaCost": "{2}",
+    "ManaValue": 2,
+    "TypeLine": "Artifact",
+    "OracleText": "Sunburst (This artifact enters with a charge counter on it for each color of mana spent to cast it.)\nRemove a charge counter from this artifact: Add one mana of any color.",
+    "FrontFaceOracleText": "Sunburst (This artifact enters with a charge counter on it for each color of mana spent to cast it.)\nRemove a charge counter from this artifact: Add one mana of any color.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Sunburst (This artifact enters with a charge counter on it for each color of mana spent to cast it.)\nRemove a charge counter from this artifact: Add one mana of any color.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Plains",
+    "Quantity": 9,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Basic Land \u2014 Plains",
+    "OracleText": "({T}: Add {W}.)",
+    "FrontFaceOracleText": "({T}: Add {W}.)",
+    "LandFaceOracleText": "({T}: Add {W}.)",
+    "ProducedMana": [
+      "W"
+    ],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "({T}: Add {W}.)",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 9
+      }
+    ]
+  },
+  {
+    "Name": "Polluted Delta",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.",
+    "FrontFaceOracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.",
+    "LandFaceOracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.",
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Professor Onyx",
+    "Quantity": 1,
+    "ManaCost": "{4}{B}{B}",
+    "ManaValue": 6,
+    "TypeLine": "Legendary Planeswalker \u2014 Liliana",
+    "OracleText": "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, each opponent loses 2 life and you gain 2 life.\n\u002B1: You lose 1 life. Look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.\n\u22123: Each opponent sacrifices a creature with the greatest power among creatures that player controls.\n\u22128: Each opponent may discard a card. If they don\u0027t, they lose 3 life. Repeat this process six more times.",
+    "FrontFaceOracleText": "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, each opponent loses 2 life and you gain 2 life.\n\u002B1: You lose 1 life. Look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.\n\u22123: Each opponent sacrifices a creature with the greatest power among creatures that player controls.\n\u22128: Each opponent may discard a card. If they don\u0027t, they lose 3 life. Repeat this process six more times.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, each opponent loses 2 life and you gain 2 life.\n\u002B1: You lose 1 life. Look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.\n\u22123: Each opponent sacrifices a creature with the greatest power among creatures that player controls.\n\u22128: Each opponent may discard a card. If they don\u0027t, they lose 3 life. Repeat this process six more times.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Rain of Filth",
+    "Quantity": 1,
+    "ManaCost": "{B}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Until end of turn, lands you control gain \u0022Sacrifice this land: Add {B}.\u0022",
+    "FrontFaceOracleText": "Until end of turn, lands you control gain \u0022Sacrifice this land: Add {B}.\u0022",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Until end of turn, lands you control gain \u0022Sacrifice this land: Add {B}.\u0022",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Reanimate",
+    "Quantity": 1,
+    "ManaCost": "{B}",
+    "ManaValue": 1,
+    "TypeLine": "Sorcery",
+    "OracleText": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value.",
+    "FrontFaceOracleText": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card\u0027s mana value.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Recruiter of the Guard",
+    "Quantity": 1,
+    "ManaCost": "{2}{W}",
+    "ManaValue": 3,
+    "TypeLine": "Creature \u2014 Human Soldier",
+    "OracleText": "When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle.",
+    "FrontFaceOracleText": "When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "When this creature enters, you may search your library for a creature card with toughness 2 or less, reveal it, put it into your hand, then shuffle.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Revival // Revenge",
+    "Quantity": 1,
+    "ManaCost": "{W/B}{W/B}",
+    "ManaValue": 2,
+    "TypeLine": "Sorcery",
+    "OracleText": "Return target creature card with mana value 3 or less from your graveyard to the battlefield.\nDouble your life total. Target opponent loses half their life, rounded up.",
+    "FrontFaceOracleText": "Return target creature card with mana value 3 or less from your graveyard to the battlefield.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "split",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Return target creature card with mana value 3 or less from your graveyard to the battlefield.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Reward the Faithful",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Any number of target players each gain life equal to the greatest mana value among permanents you control.",
+    "FrontFaceOracleText": "Any number of target players each gain life equal to the greatest mana value among permanents you control.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Any number of target players each gain life equal to the greatest mana value among permanents you control.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Selfless Spirit",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Creature \u2014 Spirit Cleric",
+    "OracleText": "Flying\nSacrifice this creature: Creatures you control gain indestructible until end of turn.",
+    "FrontFaceOracleText": "Flying\nSacrifice this creature: Creatures you control gain indestructible until end of turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Flying\nSacrifice this creature: Creatures you control gain indestructible until end of turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Serra Ascendant",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Creature \u2014 Human Monk",
+    "OracleText": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nAs long as you have 30 or more life, this creature gets \u002B5/\u002B5 and has flying.",
+    "FrontFaceOracleText": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nAs long as you have 30 or more life, this creature gets \u002B5/\u002B5 and has flying.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nAs long as you have 30 or more life, this creature gets \u002B5/\u002B5 and has flying.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Shadow of the Grave",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Instant",
+    "OracleText": "Return to your hand all cards in your graveyard that you cycled or discarded this turn.",
+    "FrontFaceOracleText": "Return to your hand all cards in your graveyard that you cycled or discarded this turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Return to your hand all cards in your graveyard that you cycled or discarded this turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Shadowy Backstreet",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land \u2014 Plains Swamp",
+    "OracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+    "FrontFaceOracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+    "LandFaceOracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped.\nWhen this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Shattered Sanctum",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "This land enters tapped unless you control two or more other lands.\n{T}: Add {W} or {B}.",
+    "FrontFaceOracleText": "This land enters tapped unless you control two or more other lands.\n{T}: Add {W} or {B}.",
+    "LandFaceOracleText": "This land enters tapped unless you control two or more other lands.\n{T}: Add {W} or {B}.",
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "This land enters tapped unless you control two or more other lands.\n{T}: Add {W} or {B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Sheoldred, the Apocalypse",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Legendary Creature \u2014 Phyrexian Praetor",
+    "OracleText": "Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.",
+    "FrontFaceOracleText": "Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 4,
+    "FrontOracleText": "Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Shineshadow Snarl",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land",
+    "OracleText": "As this land enters, you may reveal a Plains or Swamp card from your hand. If you don\u0027t, this land enters tapped.\n{T}: Add {W} or {B}.",
+    "FrontFaceOracleText": "As this land enters, you may reveal a Plains or Swamp card from your hand. If you don\u0027t, this land enters tapped.\n{T}: Add {W} or {B}.",
+    "LandFaceOracleText": "As this land enters, you may reveal a Plains or Swamp card from your hand. If you don\u0027t, this land enters tapped.\n{T}: Add {W} or {B}.",
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "As this land enters, you may reveal a Plains or Swamp card from your hand. If you don\u0027t, this land enters tapped.\n{T}: Add {W} or {B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Sickening Dreams",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Sorcery",
+    "OracleText": "As an additional cost to cast this spell, discard X cards.\nSickening Dreams deals X damage to each creature and each player.",
+    "FrontFaceOracleText": "As an additional cost to cast this spell, discard X cards.\nSickening Dreams deals X damage to each creature and each player.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "As an additional cost to cast this spell, discard X cards.\nSickening Dreams deals X damage to each creature and each player.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Silence",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Your opponents can\u0027t cast spells this turn.",
+    "FrontFaceOracleText": "Your opponents can\u0027t cast spells this turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Your opponents can\u0027t cast spells this turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Skirge Familiar",
+    "Quantity": 1,
+    "ManaCost": "{4}{B}",
+    "ManaValue": 5,
+    "TypeLine": "Creature \u2014 Phyrexian Imp",
+    "OracleText": "Flying\nDiscard a card: Add {B}.",
+    "FrontFaceOracleText": "Flying\nDiscard a card: Add {B}.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 3,
+    "FrontOracleText": "Flying\nDiscard a card: Add {B}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Slaughter Pact",
+    "Quantity": 1,
+    "ManaCost": "{0}",
+    "ManaValue": 0,
+    "TypeLine": "Instant",
+    "OracleText": "Destroy target nonblack creature.\nAt the beginning of your next upkeep, pay {2}{B}. If you don\u0027t, you lose the game.",
+    "FrontFaceOracleText": "Destroy target nonblack creature.\nAt the beginning of your next upkeep, pay {2}{B}. If you don\u0027t, you lose the game.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Destroy target nonblack creature.\nAt the beginning of your next upkeep, pay {2}{B}. If you don\u0027t, you lose the game.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Snuff Out",
+    "Quantity": 1,
+    "ManaCost": "{3}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Instant",
+    "OracleText": "If you control a Swamp, you may pay 4 life rather than pay this spell\u0027s mana cost.\nDestroy target nonblack creature. It can\u0027t be regenerated.",
+    "FrontFaceOracleText": "If you control a Swamp, you may pay 4 life rather than pay this spell\u0027s mana cost.\nDestroy target nonblack creature. It can\u0027t be regenerated.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "If you control a Swamp, you may pay 4 life rather than pay this spell\u0027s mana cost.\nDestroy target nonblack creature. It can\u0027t be regenerated.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Sol Ring",
+    "Quantity": 1,
+    "ManaCost": "{1}",
+    "ManaValue": 1,
+    "TypeLine": "Artifact",
+    "OracleText": "{T}: Add {C}{C}.",
+    "FrontFaceOracleText": "{T}: Add {C}{C}.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "C"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 2,
+    "Power": null,
+    "FrontOracleText": "{T}: Add {C}{C}.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Soul Warden",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Creature \u2014 Human Cleric",
+    "OracleText": "Whenever another creature enters, you gain 1 life.",
+    "FrontFaceOracleText": "Whenever another creature enters, you gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Whenever another creature enters, you gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Soul\u0027s Attendant",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Creature \u2014 Human Cleric",
+    "OracleText": "Whenever another creature enters, you may gain 1 life.",
+    "FrontFaceOracleText": "Whenever another creature enters, you may gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Whenever another creature enters, you may gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Springleaf Drum",
+    "Quantity": 1,
+    "ManaCost": "{1}",
+    "ManaValue": 1,
+    "TypeLine": "Artifact",
+    "OracleText": "{T}, Tap an untapped creature you control: Add one mana of any color.",
+    "FrontFaceOracleText": "{T}, Tap an untapped creature you control: Add one mana of any color.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "G",
+      "R",
+      "U",
+      "W"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}, Tap an untapped creature you control: Add one mana of any color.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Starving Revenant",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Creature \u2014 Spirit Horror",
+    "OracleText": "When this creature enters, surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life.\nDescend 8 \u2014 Whenever you draw a card, if there are eight or more permanent cards in your graveyard, target opponent loses 1 life and you gain 1 life.",
+    "FrontFaceOracleText": "When this creature enters, surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life.\nDescend 8 \u2014 Whenever you draw a card, if there are eight or more permanent cards in your graveyard, target opponent loses 1 life and you gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 4,
+    "FrontOracleText": "When this creature enters, surveil 2. Then for each card you put on top of your library, you draw a card and you lose 3 life.\nDescend 8 \u2014 Whenever you draw a card, if there are eight or more permanent cards in your graveyard, target opponent loses 1 life and you gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Swamp",
+    "Quantity": 9,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Basic Land \u2014 Swamp",
+    "OracleText": "({T}: Add {B}.)",
+    "FrontFaceOracleText": "({T}: Add {B}.)",
+    "LandFaceOracleText": "({T}: Add {B}.)",
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "({T}: Add {B}.)",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 9
+      }
+    ]
+  },
+  {
+    "Name": "Swords to Plowshares",
+    "Quantity": 1,
+    "ManaCost": "{W}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Exile target creature. Its controller gains life equal to its power.",
+    "FrontFaceOracleText": "Exile target creature. Its controller gains life equal to its power.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Exile target creature. Its controller gains life equal to its power.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Talisman of Hierarchy",
+    "Quantity": 1,
+    "ManaCost": "{2}",
+    "ManaValue": 2,
+    "TypeLine": "Artifact",
+    "OracleText": "{T}: Add {C}.\n{T}: Add {W} or {B}. This artifact deals 1 damage to you.",
+    "FrontFaceOracleText": "{T}: Add {C}.\n{T}: Add {W} or {B}. This artifact deals 1 damage to you.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B",
+      "C",
+      "W"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "{T}: Add {C}.\n{T}: Add {W} or {B}. This artifact deals 1 damage to you.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Tataru Taru",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Creature \u2014 Dwarf Advisor",
+    "OracleText": "When Tataru Taru enters, you draw a card and target opponent may draw a card.\nScions\u0027 Secretary \u2014 Whenever an opponent draws a card, if it isn\u0027t that player\u0027s turn, create a tapped Treasure token. This ability triggers only once each turn.",
+    "FrontFaceOracleText": "When Tataru Taru enters, you draw a card and target opponent may draw a card.\nScions\u0027 Secretary \u2014 Whenever an opponent draws a card, if it isn\u0027t that player\u0027s turn, create a tapped Treasure token. This ability triggers only once each turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 0,
+    "FrontOracleText": "When Tataru Taru enters, you draw a card and target opponent may draw a card.\nScions\u0027 Secretary \u2014 Whenever an opponent draws a card, if it isn\u0027t that player\u0027s turn, create a tapped Treasure token. This ability triggers only once each turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Tendrils of Agony",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Sorcery",
+    "OracleText": "Target player loses 2 life and you gain 2 life.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    "FrontFaceOracleText": "Target player loses 2 life and you gain 2 life.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Target player loses 2 life and you gain 2 life.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "The Meathook Massacre",
+    "Quantity": 1,
+    "ManaCost": "{X}{B}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Enchantment",
+    "OracleText": "When The Meathook Massacre enters, each creature gets -X/-X until end of turn.\nWhenever a creature you control dies, each opponent loses 1 life.\nWhenever a creature an opponent controls dies, you gain 1 life.",
+    "FrontFaceOracleText": "When The Meathook Massacre enters, each creature gets -X/-X until end of turn.\nWhenever a creature you control dies, each opponent loses 1 life.\nWhenever a creature an opponent controls dies, you gain 1 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "When The Meathook Massacre enters, each creature gets -X/-X until end of turn.\nWhenever a creature you control dies, each opponent loses 1 life.\nWhenever a creature an opponent controls dies, you gain 1 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "The Mind Stone",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Artifact \u2014 Infinity Stone",
+    "OracleText": "Indestructible\n{T}: Add {W}.\n{5}{W}, {T}: Harness The Mind Stone. (Once harnessed, its \u221E ability is active.)\n\u221E \u2014 At the beginning of your end step, exile up to one other target nonland permanent you control, then return that card to the battlefield under its owner\u0027s control.",
+    "FrontFaceOracleText": "Indestructible\n{T}: Add {W}.\n{5}{W}, {T}: Harness The Mind Stone. (Once harnessed, its \u221E ability is active.)\n\u221E \u2014 At the beginning of your end step, exile up to one other target nonland permanent you control, then return that card to the battlefield under its owner\u0027s control.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "W"
+    ],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Indestructible\n{T}: Add {W}.\n{5}{W}, {T}: Harness The Mind Stone. (Once harnessed, its \u221E ability is active.)\n\u221E \u2014 At the beginning of your end step, exile up to one other target nonland permanent you control, then return that card to the battlefield under its owner\u0027s control.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "The Queen of Dale",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Creature \u2014 Human Noble",
+    "OracleText": "Whenever an opponent casts their first noncreature spell each turn, you recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)",
+    "FrontFaceOracleText": "Whenever an opponent casts their first noncreature spell each turn, you recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Whenever an opponent casts their first noncreature spell each turn, you recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "The Soul Stone",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Legendary Artifact \u2014 Infinity Stone",
+    "OracleText": "Indestructible\n{T}: Add {B}.\n{6}{B}, {T}, Exile a creature you control: Harness The Soul Stone. (Once harnessed, its \u221E ability is active.)\n\u221E \u2014 At the beginning of your upkeep, return target creature card from your graveyard to the battlefield.",
+    "FrontFaceOracleText": "Indestructible\n{T}: Add {B}.\n{6}{B}, {T}, Exile a creature you control: Harness The Soul Stone. (Once harnessed, its \u221E ability is active.)\n\u221E \u2014 At the beginning of your upkeep, return target creature card from your graveyard to the battlefield.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [
+      "B"
+    ],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Indestructible\n{T}: Add {B}.\n{6}{B}, {T}, Exile a creature you control: Harness The Soul Stone. (Once harnessed, its \u221E ability is active.)\n\u221E \u2014 At the beginning of your upkeep, return target creature card from your graveyard to the battlefield.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Thraben Charm",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Instant",
+    "OracleText": "Choose one \u2014\n\u2022 Thraben Charm deals damage equal to twice the number of creatures you control to target creature.\n\u2022 Destroy target enchantment.\n\u2022 Exile any number of target players\u0027 graveyards.",
+    "FrontFaceOracleText": "Choose one \u2014\n\u2022 Thraben Charm deals damage equal to twice the number of creatures you control to target creature.\n\u2022 Destroy target enchantment.\n\u2022 Exile any number of target players\u0027 graveyards.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Choose one \u2014\n\u2022 Thraben Charm deals damage equal to twice the number of creatures you control to target creature.\n\u2022 Destroy target enchantment.\n\u2022 Exile any number of target players\u0027 graveyards.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Tinybones, Pocket Nuisance",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}",
+    "ManaValue": 3,
+    "TypeLine": "Legendary Creature \u2014 Skeleton Rogue",
+    "OracleText": "When Tinybones enters, each opponent discards a card.\nWhenever a player discards one or more cards, Tinybones deals 1 damage to each opponent.",
+    "FrontFaceOracleText": "When Tinybones enters, each opponent discards a card.\nWhenever a player discards one or more cards, Tinybones deals 1 damage to each opponent.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "When Tinybones enters, each opponent discards a card.\nWhenever a player discards one or more cards, Tinybones deals 1 damage to each opponent.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Toxic Deluge",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}",
+    "ManaValue": 3,
+    "TypeLine": "Sorcery",
+    "OracleText": "As an additional cost to cast this spell, pay X life.\nAll creatures get -X/-X until end of turn.",
+    "FrontFaceOracleText": "As an additional cost to cast this spell, pay X life.\nAll creatures get -X/-X until end of turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "As an additional cost to cast this spell, pay X life.\nAll creatures get -X/-X until end of turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Trouble in Pairs",
+    "Quantity": 1,
+    "ManaCost": "{2}{W}{W}",
+    "ManaValue": 4,
+    "TypeLine": "Enchantment",
+    "OracleText": "If an opponent would begin an extra turn, that player skips that turn instead.\nWhenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn, you draw a card.",
+    "FrontFaceOracleText": "If an opponent would begin an extra turn, that player skips that turn instead.\nWhenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn, you draw a card.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "If an opponent would begin an extra turn, that player skips that turn instead.\nWhenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn, you draw a card.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Turbulent Moor",
+    "Quantity": 1,
+    "ManaCost": "",
+    "ManaValue": 0,
+    "TypeLine": "Land \u2014 Plains Swamp",
+    "OracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+    "FrontFaceOracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+    "LandFaceOracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+    "ProducedMana": [
+      "B",
+      "W"
+    ],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "({T}: Add {W} or {B}.)\nThis land enters tapped unless your opponents control eight or more lands.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Twilight Prophet",
+    "Quantity": 1,
+    "ManaCost": "{2}{B}{B}",
+    "ManaValue": 4,
+    "TypeLine": "Creature \u2014 Vampire Cleric",
+    "OracleText": "Flying\nAscend (If you control ten or more permanents, you get the city\u0027s blessing for the rest of the game.)\nAt the beginning of your upkeep, if you have the city\u0027s blessing, reveal the top card of your library and put it into your hand. Each opponent loses X life and you gain X life, where X is that card\u0027s mana value.",
+    "FrontFaceOracleText": "Flying\nAscend (If you control ten or more permanents, you get the city\u0027s blessing for the rest of the game.)\nAt the beginning of your upkeep, if you have the city\u0027s blessing, reveal the top card of your library and put it into your hand. Each opponent loses X life and you gain X life, where X is that card\u0027s mana value.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "Flying\nAscend (If you control ten or more permanents, you get the city\u0027s blessing for the rest of the game.)\nAt the beginning of your upkeep, if you have the city\u0027s blessing, reveal the top card of your library and put it into your hand. Each opponent loses X life and you gain X life, where X is that card\u0027s mana value.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Ulamog, the Infinite Gyre",
+    "Quantity": 1,
+    "ManaCost": "{11}",
+    "ManaValue": 11,
+    "TypeLine": "Legendary Creature \u2014 Eldrazi",
+    "OracleText": "When you cast this spell, destroy target permanent.\nIndestructible\nAnnihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their choice.)\nWhen Ulamog is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.",
+    "FrontFaceOracleText": "When you cast this spell, destroy target permanent.\nIndestructible\nAnnihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their choice.)\nWhen Ulamog is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 10,
+    "FrontOracleText": "When you cast this spell, destroy target permanent.\nIndestructible\nAnnihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their choice.)\nWhen Ulamog is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Union of the Third Path",
+    "Quantity": 1,
+    "ManaCost": "{2}{W}",
+    "ManaValue": 3,
+    "TypeLine": "Instant",
+    "OracleText": "Draw a card, then you gain life equal to the number of cards in your hand.",
+    "FrontFaceOracleText": "Draw a card, then you gain life equal to the number of cards in your hand.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "common",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Draw a card, then you gain life equal to the number of cards in your hand.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Vampiric Tutor",
+    "Quantity": 1,
+    "ManaCost": "{B}",
+    "ManaValue": 1,
+    "TypeLine": "Instant",
+    "OracleText": "Search your library for a card, then shuffle and put that card on top. You lose 2 life.",
+    "FrontFaceOracleText": "Search your library for a card, then shuffle and put that card on top. You lose 2 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "mythic",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Search your library for a card, then shuffle and put that card on top. You lose 2 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Voice of Victory",
+    "Quantity": 1,
+    "ManaCost": "{1}{W}",
+    "ManaValue": 2,
+    "TypeLine": "Creature \u2014 Human Bard",
+    "OracleText": "Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the next end step.)\nYour opponents can\u0027t cast spells during your turn.",
+    "FrontFaceOracleText": "Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the next end step.)\nYour opponents can\u0027t cast spells during your turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 1,
+    "FrontOracleText": "Mobilize 2 (Whenever this creature attacks, create two tapped and attacking 1/1 red Warrior creature tokens. Sacrifice them at the beginning of the next end step.)\nYour opponents can\u0027t cast spells during your turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Wishclaw Talisman",
+    "Quantity": 1,
+    "ManaCost": "{1}{B}",
+    "ManaValue": 2,
+    "TypeLine": "Artifact",
+    "OracleText": "This artifact enters with three wish counters on it.\n{1}, {T}, Remove a wish counter from this artifact: Search your library for a card, put it into your hand, then shuffle. An opponent gains control of this artifact. Activate only during your turn.",
+    "FrontFaceOracleText": "This artifact enters with three wish counters on it.\n{1}, {T}, Remove a wish counter from this artifact: Search your library for a card, put it into your hand, then shuffle. An opponent gains control of this artifact. Activate only during your turn.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "rare",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "This artifact enters with three wish counters on it.\n{1}, {T}, Remove a wish counter from this artifact: Search your library for a card, put it into your hand, then shuffle. An opponent gains control of this artifact. Activate only during your turn.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Witch Enchanter // Witch-Blessed Meadow",
+    "Quantity": 1,
+    "ManaCost": "{3}{W}",
+    "ManaValue": 4,
+    "TypeLine": "Creature \u2014 Human Warlock",
+    "OracleText": "When this creature enters, destroy target artifact or enchantment an opponent controls.\nAs this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {W}.",
+    "FrontFaceOracleText": "When this creature enters, destroy target artifact or enchantment an opponent controls.",
+    "LandFaceOracleText": "As this land enters, you may pay 3 life. If you don\u0027t, it enters tapped.\n{T}: Add {W}.",
+    "ProducedMana": [
+      "W"
+    ],
+    "Rarity": "uncommon",
+    "Layout": "modal_dfc",
+    "HasLandFace": true,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": 2,
+    "FrontOracleText": "When this creature enters, destroy target artifact or enchantment an opponent controls.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  },
+  {
+    "Name": "Zuran Orb",
+    "Quantity": 1,
+    "ManaCost": "{0}",
+    "ManaValue": 0,
+    "TypeLine": "Artifact",
+    "OracleText": "Sacrifice a land: You gain 2 life.",
+    "FrontFaceOracleText": "Sacrifice a land: You gain 2 life.",
+    "LandFaceOracleText": null,
+    "ProducedMana": [],
+    "Rarity": "uncommon",
+    "Layout": "normal",
+    "HasLandFace": false,
+    "IsCommander": false,
+    "ManaAmount": 1,
+    "Power": null,
+    "FrontOracleText": "Sacrifice a land: You gain 2 life.",
+    "Boards": [
+      {
+        "Board": "mainboard",
+        "Quantity": 1
+      }
+    ]
+  }
+]

@@ -101,6 +101,17 @@ public sealed class DeckAnalysisByteIdentityTests
         Assert.Equal(AnalysisGoldens.SingleFlagOnAnalysisPrompt(flagKey), PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.AnalysisPromptText), StringComparer.Ordinal);
     }
 
+    [Theory]
+    [InlineData(PacketByteIdentityFixtures.Claude)]
+    [InlineData(PacketByteIdentityFixtures.Gemini)]
+    public async Task MultiAxisScoreOn_ClaudeGemini_MatchesGolden(string platform)
+    {
+        var result = await BuildBaselineAsync(platform, PacketByteIdentityFixtures.WithSingleFlagOn(DeckAnalysisPacketService.MultiAxisScoreFlag));
+        var actual = PacketByteIdentityFixtures.NormalizeForGoldenComparison(result.AnalysisPromptText);
+
+        Assert.Equal(AnalysisGoldens.MultiAxisScoreOnAnalysisPrompt(platform), actual, StringComparer.Ordinal);
+    }
+
     // ---------------------------------------------------------------------------------------
     // 3. ALL 4 PromptMutatingAnalysisFlags ON simultaneously (M1), companion/partner fixture.
     // ---------------------------------------------------------------------------------------

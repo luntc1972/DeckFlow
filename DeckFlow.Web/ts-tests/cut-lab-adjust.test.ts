@@ -17,6 +17,7 @@ interface CutLabUiPatch {
     roundKey: string;
     roundLabel: string;
     roundBannerBody: string;
+    findingSummary: string;
     findingCount: number;
     findingChips: string[];
   } | null;
@@ -101,6 +102,7 @@ const buildPatch = (
     roundKey: 'round-1',
     roundLabel: 'Round 1',
     roundBannerBody: 'Keep tuning basics.',
+    findingSummary: "No structural finding flags this card — it's a preference call.",
     findingCount: 0,
     findingChips: [],
   },
@@ -430,6 +432,7 @@ describe('cut-lab adjust enhancement', () => {
             roundKey: '',
             roundLabel: '',
             roundBannerBody: '',
+            findingSummary: "No structural finding flags this card — it's a preference call.",
             findingCount: 0,
             findingChips: [],
           },
@@ -478,6 +481,7 @@ describe('cut-lab adjust enhancement', () => {
             cardName: 'Plains',
             roundLabel: 'Round 2',
             roundBannerBody: 'Different round body.',
+            findingSummary: "No structural finding flags this card — it's a preference call.",
           },
           proposalDeltas: null,
           floorWarnings: [],
@@ -514,6 +518,7 @@ describe('cut-lab adjust enhancement', () => {
             cardName: 'Plains',
             roundLabel: 'Round 2',
             roundBannerBody: 'Different round body.',
+            findingSummary: "No structural finding flags this card — it's a preference call.",
           },
           proposalDeltas: null,
           floorWarnings: [],

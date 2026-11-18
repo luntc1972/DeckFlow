@@ -140,6 +140,7 @@ interface CutLabDecisionNextProposal {
   roundKey: string;
   roundLabel: string;
   roundBannerBody: string;
+  findingSummary: string;
   findingCount: number;
   findingChips: string[];
   glanceLine?: string;
@@ -3228,7 +3229,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       '',
       nextProposal.findingCount > 0
         ? `Flagged by ${nextProposal.findingCount} findings:`
-        : 'No structural finding flags this card — it\'s a preference call.',
+        : nextProposal.findingSummary,
     ));
 
     if (nextProposal.findingChips.length > 0) {

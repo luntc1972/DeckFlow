@@ -120,7 +120,7 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
         IReadOnlyList<string> boundedSlugs = BuildBoundedSlugs(planProfile.CommanderThemes, themeResult.Themes);
         Dictionary<string, IReadOnlyList<string>> themeCardNamesBySlug = new(StringComparer.OrdinalIgnoreCase);
         HashSet<string> successfulThemeFetches = new(StringComparer.OrdinalIgnoreCase);
-        foreach (string slug in boundedSlugs)
+        for (int offset = 0; offset < boundedSlugs.Count; offset += 4)
         {
             if (themeFetchBudgetCancellation.IsCancellationRequested)
             {
@@ -128,19 +128,29 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
                 break;
             }
 
+            string[] batch = boundedSlugs.Skip(offset).Take(4).ToArray();
+            var fetches = batch.Select(FetchAsync).ToArray();
+            var results = await Task.WhenAll(fetches).ConfigureAwait(false);
+            for (int index = 0; index < batch.Length; index++)
+            {
+                themeCardNamesBySlug[batch[index]] = results[index].Names;
+                if (results[index].Succeeded)
+                {
+                    successfulThemeFetches.Add(batch[index]);
+                }
+            }
+        }
+
+        async Task<(IReadOnlyList<string> Names, bool Succeeded)> FetchAsync(string slug)
+        {
             try
             {
-                (IReadOnlyList<string> names, bool succeeded) = await FetchThemeCardNamesAsync(commanderName, slug, themeFetchBudgetCancellation.Token).ConfigureAwait(false);
-                themeCardNamesBySlug[slug] = names;
-                if (succeeded)
-                {
-                    successfulThemeFetches.Add(slug);
-                }
+                return await FetchThemeCardNamesAsync(commanderName, slug, themeFetchBudgetCancellation.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (themeFetchBudgetCancellation.IsCancellationRequested)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                break;
+                return ([], false);
             }
         }
 
@@ -210,11 +220,7 @@ public sealed class CutLabPlanAffinityFactory : ICutLabPlanAffinityFactory
             EdhrecThemeCardNamesResult result = await _themeService.GetThemeCardNamesAsync(commanderName, themeSlug, cancellationToken).ConfigureAwait(false);
             return (result.Names, result.Succeeded);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger?.LogWarning(exception, "Cut Lab: EDHREC theme card fetch failed for {ThemeSlug}", themeSlug);
             return ([], false);

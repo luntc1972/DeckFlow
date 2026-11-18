@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Net;
+using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
@@ -80,7 +81,11 @@ public sealed record CutLabAnalysisContext(
     double CommanderManaValue,
     ManabaseMode Mode,
     CutLabClassificationContext Classification,
-    IReadOnlyList<ScryfallCardData> ResolvedCards);
+    IReadOnlyList<ScryfallCardData> ResolvedCards)
+{
+    /// <summary>Commander trigger families activated for this deck.</summary>
+    public IReadOnlyList<string> ActiveTriggerFamilies { get; init; } = [];
+}
 
 /// <summary>Per-card combo membership from Commander Spellbook.</summary>
 /// <param name="CompleteCombos">Resolved complete combos that contain the card.</param>
@@ -217,12 +222,13 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             .ToHashSet(CutLabCardNames.Comparer);
         IReadOnlyDictionary<string, ScryfallCardData> cardsByName = CutLabCardNames.ToLastWinsDictionary(
             resolvedCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
         ManabaseMode mode = CutLabRoleAssigner.ResolveMode(playExperience);
         Dictionary<string, IReadOnlyList<string>> rolesByCardName = new(StringComparer.OrdinalIgnoreCase);
         Dictionary<string, int> roleCounts = new(StringComparer.OrdinalIgnoreCase);
         List<CutLabAnalyzedCard> analyzedCards = new(workingList.Count);
+        List<string?> frontOracleTexts = new(workingList.Count);
+        List<string?> commanderTexts = [];
         double commanderManaValue = 0;
 
         foreach (CutLabPoolCard entry in workingList)
@@ -236,6 +242,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 : Array.Empty<string>();
             IReadOnlyList<string> roles = [];
             double manaValue = 0;
+            string? frontOracleText = null;
 
             if (cardsByName.TryGetValue(normalizedEntryName, out ScryfallCardData? card))
             {
@@ -245,21 +252,16 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                     categories,
                     mode);
                 manaValue = fact.ManaValue;
-
-                foreach (string role in roles)
-                {
-                    roleCounts[role] = roleCounts.TryGetValue(role, out int count)
-                        ? count + entry.Quantity
-                        : entry.Quantity;
-                }
+                frontOracleText = fact.FrontOracleText;
 
                 if (isCommander)
                 {
                     commanderManaValue = Math.Max(commanderManaValue, fact.ManaValue);
+                    commanderTexts.Add(frontOracleText);
                 }
             }
 
-            rolesByCardName[entry.Name] = roles;
+            frontOracleTexts.Add(frontOracleText);
             analyzedCards.Add(new CutLabAnalyzedCard(
                 entry.Name,
                 manaValue,
@@ -277,6 +279,23 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             });
         }
 
+        IReadOnlyList<string> activeFamilies = TriggerFamilyCatalog.GetActiveFamilies(commanderTexts);
+        for (int index = 0; index < analyzedCards.Count; index++)
+        {
+            CutLabAnalyzedCard analyzed = analyzedCards[index];
+            analyzed = analyzed with
+            {
+                Roles = CutLabEnablersPass.Apply(activeFamilies, frontOracleTexts[index], analyzed.Roles),
+            };
+            analyzedCards[index] = analyzed;
+
+            rolesByCardName[analyzed.Name] = analyzed.Roles;
+            foreach (string role in analyzed.Roles)
+            {
+                roleCounts[role] = roleCounts.TryGetValue(role, out int count) ? count + analyzed.Quantity : analyzed.Quantity;
+            }
+        }
+
         return new CutLabAnalysisContext(
             analyzedCards,
             rolesByCardName,
@@ -284,7 +303,10 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             commanderManaValue,
             mode,
             classification,
-            resolvedCards);
+            resolvedCards)
+        {
+            ActiveTriggerFamilies = activeFamilies
+        };
     }
 
     /// <inheritdoc />
@@ -306,14 +328,13 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
             && unattemptedNames.Count > 0;
     }
 
-    internal static IReadOnlyList<ScryfallCardData>? BuildPartialResolvedSubset(
+    internal static IReadOnlyList<ScryfallCardData> BuildPartialResolvedSubset(
         IReadOnlyList<CutLabPoolCard> targetPool,
         IReadOnlyList<ScryfallCardData> sourceCards)
     {
         IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
             sourceCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
         return targetPool
             .Select(card => sourceByName.TryGetValue(CutLabCardNames.Normalize(card.Name), out ScryfallCardData? resolvedCard) ? resolvedCard : null)
             .Where(card => card is not null)
@@ -333,8 +354,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
 
         IReadOnlyDictionary<string, ScryfallCardData> sourceByName = CutLabCardNames.ToLastWinsDictionary(
             sourceCards,
-            card => card.Name,
-            card => card);
+            card => card.Name);
         List<ScryfallCardData> filteredCards = new(workingList.Count);
         HashSet<string> seen = new(CutLabCardNames.Comparer);
 
@@ -459,8 +479,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
         {
             IReadOnlyDictionary<string, ScryfallCardData> preResolvedByName = CutLabCardNames.ToLastWinsDictionary(
                 preResolvedCards,
-                card => card.Name,
-                card => card);
+                card => card.Name);
             IReadOnlyList<ScryfallCardData> preResolvedForPool = AugmentResolvedCardsWithSyntheticBasics(
                 workingList,
                 BuildOrderedResolvedCards(workingList, preResolvedByName));
@@ -480,6 +499,24 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 && cachedMissingNames is not null)
             {
                 knownMissingNames = cachedMissingNames;
+            }
+
+            // Why: a canonical full hit only needs its absolute expiry renewed. Keep partial pools
+            // on the resolution path so transiently unattempted names are retried.
+            // Why: TryGet above already logged this consultation; the lookup is a second read.
+            if (_resolvedCardCache.TryGetLookup(poolKey, out var lookup, logCacheEvent: false) && lookup is not null
+                && workingList.All(card => lookup.ContainsKey(CutLabCardNames.Normalize(card.Name))
+                    || (!CutLabBasicLands.Contains(card.Name)
+                        && knownMissingNames.Contains(CutLabCardNames.Normalize(card.Name))))
+                && cachedCards.SequenceEqual(workingList
+                    .Select(card => CutLabCardNames.Normalize(card.Name))
+                    .Distinct(CutLabCardNames.Comparer)
+                    .Where(lookup.ContainsKey)
+                    .Select(name => lookup[name]))
+                && _resolvedCardCache.Refresh(poolKey))
+            {
+                _unattemptedNamesByPoolKey.Remove(poolKey);
+                return cachedCards;
             }
         }
 
@@ -509,8 +546,8 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                     // moments earlier, so re-POSTing via ResolveSingleAsync is dead weight -- the
                     // live probe in 111.1-REVIEWS.md §0 proves the removed POST rescues nothing that
                     // SearchFallbackCardAsync does not also resolve. ResolveSingleAsync stays
-                    // untouched: CutLabSimulationService and ManabaseAnalysisService call it as
-                    // their ONLY collection attempt, where the POST is not redundant.
+                    // untouched: ManabaseAnalysisService uses it as its only collection attempt;
+                    // CutLabSimulationService batches first and retains it for fallback resolution.
                     (name, ct) => _cardResolver.SearchFallbackCardAsync(name, ct),
                     cancellationToken: cancellationToken,
                     batchFallbackStrategy: (names, ct) => _cardResolver.SearchFallbackCardsAsync(names, ct)).ConfigureAwait(false);
@@ -530,11 +567,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                     _logger.LogWarning("Cut Lab analysis context could not resolve {CardName}; continuing without card facts.", unresolvedName);
                 }
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
+            catch (Exception exception) when (exception is not OperationCanceledException)
             {
                 if (!failOpenOnLookupErrors && !IsTransientRateLimit(exception))
                 {
@@ -739,11 +772,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger.LogWarning(exception, "Cut Lab: Commander Spellbook fetch failed; continuing without combo roles.");
         }
@@ -772,11 +801,7 @@ internal sealed class CutLabAnalysisContextBuilder : ICutLabAnalysisContextBuild
                 await _categoryKnowledge.GetCategoriesForNamesAsync(cardNames, CategoryLookupOptions.CutLabMeaningful, cancellationToken: cancellationToken).ConfigureAwait(false);
             return new CategoryLookupResult(categories, true);
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             _logger.LogWarning(exception, "Cut Lab: batch category lookup failed; using heuristics only.");
             return new CategoryLookupResult(EmptyCategories, false);

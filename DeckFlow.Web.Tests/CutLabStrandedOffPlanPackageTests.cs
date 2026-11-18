@@ -101,7 +101,7 @@ public sealed class CutLabStrandedOffPlanPackageTests
     public void Finding_DoesNotContributeToRoundOneTally()
     {
         CutLabFinding finding = Assert.Single(Find(4));
-        CutLabStructuralFindingsResult findings = new([finding, new(CutLabFindingKind.CurveCongestion, "Curve", "Curve", [new("Card 1", 1)])], false, false);
+        CutLabStructuralFindingsResult findings = new([finding, new(CutLabFindingKind.StrandedSubtheme, "Curve", "Curve", [new("Card 1", 1)])], false, false);
         CutLabRoundPlan plan = CutLabCutRoundEngine.BuildQueue(
             [new("Card 1", 1, "Artifact", false, false, 1, false, [], [])],
             findings,

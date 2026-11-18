@@ -29,6 +29,11 @@ public static class CutLabWorkingList
         ArgumentNullException.ThrowIfNull(adjustments);
 
         IReadOnlySet<string> acceptedCardNames = AcceptedCardNames(decisions);
+        if (adjustments.Count == 0)
+        {
+            return pool.Where(card => !acceptedCardNames.Contains(card.Name)).ToList();
+        }
+
         CutLabQuantityAdjustmentFold foldedAdjustments = FoldAdjustments(adjustments);
         List<CutLabPoolCard> workingList = new(pool.Count + foldedAdjustments.OrderedNames.Count);
 
