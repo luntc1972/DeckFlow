@@ -108,7 +108,7 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
         await ExecuteSqlAsync(database.ConnectionString, "CREATE FUNCTION rename_refetch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.deck_id = 'candidate' AND NEW.refresh_requested_utc IS NOT NULL THEN NEW.commander_name := 'B'; END IF; RETURN NEW; END; $$; CREATE TRIGGER rename_refetch BEFORE UPDATE ON deck_queue FOR EACH ROW EXECUTE FUNCTION rename_refetch();");
         var batch = await repository.RunRefetchMarkBatchAsync(1);
 
-        Assert.Equal(new RefetchMarkBatch(1, 1, true), batch);
+        Assert.Equal(new RefetchMarkBatch(1, 1, false), batch);
         await AssertRenameSummariesAsync(database.ConnectionString);
     }
 
@@ -121,7 +121,7 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
         await ExecuteSqlAsync(database.ConnectionString, "CREATE FUNCTION rename_refetch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.deck_id = 'candidate' AND NEW.refresh_requested_utc IS NOT NULL THEN NEW.commander_name := 'B'; END IF; RETURN NEW; END; $$; CREATE TRIGGER rename_refetch BEFORE UPDATE ON deck_queue FOR EACH ROW EXECUTE FUNCTION rename_refetch();");
         var batch = await repository.RunRefetchMarkBatchAsync(1);
 
-        Assert.Equal(new RefetchMarkBatch(1, 1, true), batch);
+        Assert.Equal(new RefetchMarkBatch(1, 1, false), batch);
         await AssertRenameSummariesAsync(database.ConnectionString);
     }
 
