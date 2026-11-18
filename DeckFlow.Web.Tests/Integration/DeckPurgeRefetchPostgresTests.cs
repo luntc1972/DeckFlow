@@ -66,6 +66,43 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
     }
 
     [PostgresFact]
+    public async Task RunRefetchMarkBatchAsync_Postgres_RechecksCandidateAfterConcurrentMetadataCapture()
+    {
+        await using var database = await CreateDatabaseAsync();
+        const string deckId = "candidate";
+        var applicationName = "refetch-recheck-" + Guid.NewGuid().ToString("N");
+        var repositoryConnectionString = new NpgsqlConnectionStringBuilder(database.ConnectionString) { ApplicationName = applicationName }.ConnectionString;
+        var repository = await RepositoryAsync(repositoryConnectionString);
+        await SeedStoredDeckAsync(repository, database.ConnectionString, deckId, "Delta", metadata: null);
+
+        await using var holder = new NpgsqlConnection(database.ConnectionString);
+        await holder.OpenAsync();
+        await using var heldTransaction = await holder.BeginTransactionAsync();
+        await using (var captureMetadata = new NpgsqlCommand("UPDATE deck_queue SET archidekt_metadata_captured_utc = now() WHERE deck_id = @deckId;", holder, heldTransaction))
+        {
+            captureMetadata.Parameters.AddWithValue("deckId", deckId);
+            Assert.Equal(1, await captureMetadata.ExecuteNonQueryAsync());
+        }
+
+        var batchTask = repository.RunRefetchMarkBatchAsync(1);
+        try
+        {
+            await WaitForRefetchUpdateLockAsync(database.ConnectionString, applicationName);
+            await heldTransaction.CommitAsync();
+        }
+        catch
+        {
+            await heldTransaction.RollbackAsync();
+            throw;
+        }
+
+        var batch = await batchTask.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(0, batch.DecksMarked);
+        Assert.Equal(1L, await ScalarAsync<long>(database.ConnectionString, "SELECT COUNT(1) FROM deck_queue WHERE deck_id = 'candidate' AND processed = 1 AND refresh_requested_utc IS NULL;"));
+    }
+
+    [PostgresFact]
     public async Task CountsAsync_Postgres_MatchOperations()
     {
         await using var database = await CreateDatabaseAsync();
@@ -174,6 +211,24 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
             var batch = await repository.RunRefetchMarkBatchAsync(500);
             marked += batch.DecksMarked;
             if (batch.Completed) return marked;
+        }
+    }
+
+    private static async Task WaitForRefetchUpdateLockAsync(string connectionString, string applicationName)
+    {
+        await using var observer = new NpgsqlConnection(connectionString);
+        await observer.OpenAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (true)
+        {
+            await using var command = new NpgsqlCommand("SELECT COUNT(*) FROM pg_stat_activity WHERE application_name = @applicationName AND wait_event_type = 'Lock' AND query LIKE 'UPDATE deck_queue AS q SET processed = 0%';", observer);
+            command.Parameters.AddWithValue("applicationName", applicationName);
+            if ((long)(await command.ExecuteScalarAsync(timeout.Token))! > 0)
+            {
+                return;
+            }
+
+            await Task.Delay(20, timeout.Token);
         }
     }
 
