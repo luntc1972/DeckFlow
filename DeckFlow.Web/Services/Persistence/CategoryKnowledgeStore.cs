@@ -141,8 +141,9 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
                 return await (operation switch
                 {
                     HarvestMaintenanceOperation.Purge => _deckPruningService.RunPurgeAsync(deckCount, batchProgress, stop, token),
+                    HarvestMaintenanceOperation.Backfill => _markerBackfillService.RunAsync(deckCount, batchProgress, stop, token),
                     HarvestMaintenanceOperation.Refetch => RunRefetchChunkAsync(deckCount, batchProgress, stop, token),
-                    _ => _markerBackfillService.RunAsync(deckCount, batchProgress, stop, token)
+                    _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
                 }).ConfigureAwait(false);
             },
             progress,

@@ -224,8 +224,9 @@ internal sealed class DeckQueueRepository
 
         var selectedCommanderNames = candidates.Select(candidate => candidate.CommanderName).ToArray();
         var ids = candidates.Select(candidate => candidate.DeckQueueId).ToArray();
+        var membershipOperator = _connectionInfo.IsPostgres ? "= ANY(@ids)" : "IN @ids";
         var markedCommanderNames = await connection.QueryAsync<string?>(new CommandDefinition(
-            "UPDATE deck_queue SET processed = 0, skipped = 0, transient_failure_count = 0, skip_reason = NULL, refresh_requested_utc = @refreshRequestedUtc WHERE id IN @ids RETURNING commander_name;",
+            $"UPDATE deck_queue AS q SET processed = 0, skipped = 0, transient_failure_count = 0, skip_reason = NULL, refresh_requested_utc = @refreshRequestedUtc WHERE q.id {membershipOperator} AND {RefetchCandidateSql} RETURNING commander_name;",
             new { ids, refreshRequestedUtc = DateTime.UtcNow }, transaction: transaction,
             commandTimeout: MaintenanceCommandTimeoutSeconds, cancellationToken: cancellationToken)).ConfigureAwait(false);
         await RefreshCommanderSummaryAsync(connection, transaction, selectedCommanderNames.Concat(markedCommanderNames), _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
