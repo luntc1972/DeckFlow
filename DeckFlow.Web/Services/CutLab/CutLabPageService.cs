@@ -940,10 +940,11 @@ internal sealed class CutLabPageService : ICutLabPageService
             .ToArray();
 
         CutLabPlanProfile planProfile = BuildPlanProfile(request, priorState.Intent.PlanProfile, planThemeResult);
-        (CutLabGoalSettings goals, _) = CutLabArchetypeGoalRules.Apply(
+        (CutLabGoalSettings goals, _, bool? goalsCustomized) = CutLabArchetypeGoalRules.Apply(
             priorState.Goals,
             priorState.Intent.PlanProfile?.Archetype,
-            planProfile.Archetype);
+            planProfile.Archetype,
+            goalsCustomized: priorState.GoalsCustomized);
 
         return new CutLabState
         {
@@ -956,6 +957,7 @@ internal sealed class CutLabPageService : ICutLabPageService
             RoleOverrides = CutLabRoleOverrideRules.Sanitize(priorState.RoleOverrides, pool, commanderNames),
             OriginalEntries = priorState.OriginalEntries,
             Goals = goals,
+            GoalsCustomized = goalsCustomized,
             BaselineSnapshot = priorState.BaselineSnapshot,
             BaselineActualLands = priorState.BaselineActualLands,
             BaselineTargetLands = priorState.BaselineTargetLands,

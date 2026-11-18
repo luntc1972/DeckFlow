@@ -1616,6 +1616,33 @@ public sealed class CutLabPageServiceTests
         Assert.Equal(10, Assert.Single(result.State.RoleFloors).Floor);
     }
 
+    [Theory]
+    [InlineData(true, 5, 5)]
+    [InlineData(false, 6, 7)]
+    public async Task ProcessAsync_ArchetypeChanged_UsesAndPreservesExplicitGoalProvenance(bool customized, int priorTurn, int expectedTurn)
+    {
+        var entries = BuildPoolEntries(nonCommanderCount: 120, commanderName: "Atraxa, Praetors' Voice");
+        var service = new CutLabPageService(new FakeLoader(entries), new FakeResolver(BuildResolvedCards(entries)), new FakeBanListService([]));
+        CutLabState priorState = new()
+        {
+            Goals = new CutLabGoalSettings { CommanderByTurn = 2, EngineByTurn = 3, RepresentativeLineByTurn = priorTurn },
+            GoalsCustomized = customized,
+            Intent = new CutLabIntent { PlanProfile = new CutLabPlanProfile { Archetype = "stax" } },
+        };
+        var request = new CutLabRequest
+        {
+            DeckInputSource = DeckInputSource.PasteText,
+            DeckText = "pool",
+            PlanArchetype = "control",
+            CutLabStateJson = CutLabStateSerializer.Serialize(priorState),
+        };
+
+        CutLabProcessResult result = await service.ProcessAsync(request);
+
+        Assert.Equal(expectedTurn, result.State!.Goals.RepresentativeLineByTurn);
+        Assert.Equal(customized, result.State.GoalsCustomized);
+    }
+
     [Fact]
     public async Task ProcessAsync_Archetype_Absent_BehavesAsToday()
     {

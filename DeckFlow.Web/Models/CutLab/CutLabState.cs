@@ -66,6 +66,9 @@ public sealed record CutLabState
     /// </summary>
     public CutLabGoalSettings Goals { get; init; } = new();
 
+    /// <summary>Whether the stored goals were explicitly customized; null for unknown provenance.</summary>
+    public bool? GoalsCustomized { get; init; }
+
     /// <summary>Declared target intent for the finished 100-card deck.</summary>
     public CutLabIntent Intent { get; init; } = new();
 }

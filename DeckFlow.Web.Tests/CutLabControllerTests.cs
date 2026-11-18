@@ -1030,6 +1030,30 @@ public sealed class CutLabControllerTests
         Assert.Equal("Commander by turn 6", commanderRow.Label);
     }
 
+    [Theory]
+    [InlineData(6, 5, true)]
+    [InlineData(5, 5, false)]
+    public async Task Goals_PostedArchetypeDefaults_MarksOnlyChangedGoalsCustomized(int priorTurn, int postedTurn, bool expected)
+    {
+        var service = new GoalStateAwareCutLabPageService();
+        var controller = CreateController(service);
+        CutLabState state = CreateState() with
+        {
+            Goals = new CutLabGoalSettings { CommanderByTurn = 2, EngineByTurn = 3, RepresentativeLineByTurn = priorTurn },
+            GoalsCustomized = false,
+        };
+
+        await controller.Goals(new CutLabRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+            GoalPlanByTurn = postedTurn,
+        });
+
+        CutLabState updatedState = CutLabStateSerializer.Deserialize(service.LastRequest!.CutLabStateJson);
+        Assert.Equal(postedTurn, updatedState.Goals.RepresentativeLineByTurn);
+        Assert.Equal(expected, updatedState.GoalsCustomized);
+    }
+
     [Fact]
     public async Task Goals_Success_ReturnsGoalsStepOverride()
     {

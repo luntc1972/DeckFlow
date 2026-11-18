@@ -241,7 +241,7 @@ public sealed class CutLabController : Controller
 
         return await RunStateMutationAsync(request, "Cut Lab goals fallback failed.", state =>
         {
-            state = state with
+            CutLabState submitted = state with
             {
                 Goals = new CutLabGoalSettings
                 {
@@ -250,8 +250,8 @@ public sealed class CutLabController : Controller
                     RepresentativeLineByTurn = request.GoalPlanByTurn ?? state.Goals.RepresentativeLineByTurn,
                 },
             };
-            state = CutLabGoalRules.ClampGoals(state);
-            return (state, null);
+            submitted = CutLabGoalRules.ClampGoals(submitted);
+            return (submitted.Goals == state.Goals ? state : submitted with { GoalsCustomized = true }, null);
         }, step: CutLabSteps.Goals);
     }
 

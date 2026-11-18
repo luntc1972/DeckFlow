@@ -530,16 +530,23 @@ public sealed class CutLabApiController : ControllerBase
             CutLabGoalSettings? chainStartGoals = request.ChainStartGoals is null
                 ? null
                 : CutLabGoalRules.ClampGoals(state with { Goals = request.ChainStartGoals }).Goals;
-            (CutLabGoalSettings goals, CutLabArchetypeGoalOutcome goalOutcome) = CutLabArchetypeGoalRules.Apply(
+            (CutLabGoalSettings goals, CutLabArchetypeGoalOutcome goalOutcome, bool? goalsCustomized) = CutLabArchetypeGoalRules.Apply(
                 state.Goals,
                 request.PriorArchetype,
                 rebuiltProfile.Archetype,
                 request.ChainStartArchetype,
-                chainStartGoals);
+                chainStartGoals,
+                state.GoalsCustomized,
+                request.ChainStartGoalsCustomized);
             CutLabGoalSettings? archetypeDefaultGoals = CutLabArchetypeCatalog.TryGetBySlug(rebuiltProfile.Archetype, out CutLabArchetypeEntry? archetype)
                 ? archetype.DefaultGoals
                 : null;
-            state = state with { Goals = goals, Intent = state.Intent with { PlanProfile = rebuiltProfile } };
+            state = state with
+            {
+                Goals = goals,
+                GoalsCustomized = goalsCustomized,
+                Intent = state.Intent with { PlanProfile = rebuiltProfile },
+            };
 
             CutLabUiPatchDto patch = await _patchBuilder.BuildAsync(
                 state,

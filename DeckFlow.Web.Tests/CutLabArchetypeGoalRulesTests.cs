@@ -39,6 +39,30 @@ public sealed class CutLabArchetypeGoalRulesTests
     }
 
     [Fact]
+    public void ApplyArchetype_ExplicitlyCustomizedGoals_KeepsGoalsAndProvenance()
+    {
+        var current = new CutLabGoalSettings { CommanderByTurn = 2, EngineByTurn = 3, RepresentativeLineByTurn = 5 };
+
+        var result = CutLabArchetypeGoalRules.Apply(current, "stax", "control", goalsCustomized: true);
+
+        Assert.Equal(current, result.Goals);
+        Assert.Equal(CutLabArchetypeGoalOutcome.Kept, result.Outcome);
+        Assert.True(result.GoalsCustomized);
+    }
+
+    [Fact]
+    public void ApplyArchetype_ExplicitlyUncustomizedNonDefaultGoals_ReplacesGoalsAndPreservesProvenance()
+    {
+        var current = new CutLabGoalSettings { CommanderByTurn = 4, EngineByTurn = 4, RepresentativeLineByTurn = 4 };
+
+        var result = CutLabArchetypeGoalRules.Apply(current, "stax", "control", goalsCustomized: false);
+
+        Assert.Equal(CutLabArchetypeGoalOutcome.Replaced, result.Outcome);
+        Assert.Equal(CutLabArchetypeCatalog.Entries.Single(entry => entry.Slug == "control").DefaultGoals, result.Goals);
+        Assert.False(result.GoalsCustomized);
+    }
+
+    [Fact]
     public void ApplyArchetype_SameArchetype_Unchanged()
     {
         var current = new CutLabGoalSettings { CommanderByTurn = 9 };

@@ -77,6 +77,7 @@ interface CutLabStateSnapshot {
   baselineSnapshot?: unknown;
   intent: CutLabIntentSnapshot;
   roleFloors: CutLabRoleFloorSnapshot[];
+  goalsCustomized?: boolean | null;
   goals: {
     commanderByTurn: number;
     engineByTurn: number;
@@ -991,6 +992,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
             floor: Math.trunc(row.floor),
             isUserSet: row.isUserSet,
           })),
+        goalsCustomized: snapshot.goalsCustomized,
         goals: {
           commanderByTurn: Math.trunc(snapshot.goals.commanderByTurn),
           engineByTurn: Math.trunc(snapshot.goals.engineByTurn),
@@ -1112,6 +1114,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let hasPickedArchetype = false;
   let planApplyChainStartArchetype: string | null = null;
   let planApplyChainStartGoals: CutLabPatchResponse['appliedGoals'] = null;
+  let planApplyChainStartGoalsCustomized: boolean | null = null;
   type CutLabArchetypeNotice = {
     appliedArchetype: string | null;
     priorArchetype: string | null;
@@ -1791,6 +1794,17 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const buildSnapshotFromDom = (index = buildPoolIndex()): CutLabStateSnapshot => {
     const rows = index.rows;
     const persistedState = tryReadSerializedState();
+    const persistedGoals = persistedState?.goals;
+    // Why: Goal edits count as customization whenever a snapshot differs from persisted goals.
+    const goals = {
+      commanderByTurn: clampGoalValue(getGoalInput('commander') ?? document.createElement('input'), 3),
+      engineByTurn: clampGoalValue(getGoalInput('engine') ?? document.createElement('input'), 2),
+      representativeLineByTurn: clampGoalValue(getGoalInput('representative-line') ?? document.createElement('input'), 4),
+    };
+    const goalsChanged = persistedGoals != null && (
+      goals.commanderByTurn !== persistedGoals.commanderByTurn ||
+      goals.engineByTurn !== persistedGoals.engineByTurn ||
+      goals.representativeLineByTurn !== persistedGoals.representativeLineByTurn);
     const selectedCommander = document.querySelector<HTMLSelectElement>('select[name="SelectedCommander"]');
     const commanderFromRow = rows.find(row => row.dataset.cutLabCommander === 'true')?.dataset.cutLabCard ?? '';
     const bracketInput = document.querySelector<HTMLInputElement>('input[name="Bracket"]:checked');
@@ -1855,11 +1869,8 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
           floor: clampFloorValue(input),
           isUserSet: true,
         })),
-      goals: {
-        commanderByTurn: clampGoalValue(getGoalInput('commander') ?? document.createElement('input'), 3),
-        engineByTurn: clampGoalValue(getGoalInput('engine') ?? document.createElement('input'), 2),
-        representativeLineByTurn: clampGoalValue(getGoalInput('representative-line') ?? document.createElement('input'), 4),
-      },
+      goals,
+      goalsCustomized: goalsChanged ? true : persistedState?.goalsCustomized,
     };
   };
 
@@ -4341,6 +4352,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     if (planApplyChainStartGoals === null) {
       planApplyChainStartArchetype = persistedArchetype;
       planApplyChainStartGoals = persistedState.goals ?? null;
+      planApplyChainStartGoalsCustomized = persistedState.goalsCustomized ?? null;
       deferredArchetypeNotice = null;
     }
     const isArchetypeChange = requestedArchetype !== persistedArchetype ||
@@ -4381,7 +4393,13 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       const response = await fetch(cutLabPlanApplyApiEndpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ cutLabStateJson: JSON.stringify(nextState), priorArchetype: persistedArchetype, chainStartArchetype: planApplyChainStartArchetype, chainStartGoals: planApplyChainStartGoals }),
+        body: JSON.stringify({
+          cutLabStateJson: JSON.stringify(nextState),
+          priorArchetype: persistedArchetype,
+          chainStartArchetype: planApplyChainStartArchetype,
+          chainStartGoals: planApplyChainStartGoals,
+          chainStartGoalsCustomized: planApplyChainStartGoalsCustomized,
+        }),
         signal: controller.signal,
       });
 
@@ -4432,6 +4450,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       } else {
         planApplyChainStartArchetype = null;
         planApplyChainStartGoals = null;
+        planApplyChainStartGoalsCustomized = null;
         deferredArchetypeNotice = null;
       }
     }
