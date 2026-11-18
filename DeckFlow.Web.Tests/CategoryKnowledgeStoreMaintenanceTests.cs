@@ -129,6 +129,61 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
     }
 
     [Fact]
+    public async Task RunMaintenanceAsync_Refetch_MarksInBatchesAcrossChunks()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        for (var index = 1; index <= 5; index++)
+        {
+            await SeedStoredDeckAsync(repository, $"refetch-batch-{index}", "Gamma", 3, metadataLess: true);
+        }
+
+        var progress = new List<DeckPruningProgress>();
+        var outcome = await store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, new InlineProgress(progress.Add));
+
+        Assert.Equal(5, outcome.DecksAffected);
+        Assert.Equal(2, outcome.Batches);
+        Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
+        Assert.Equal([new DeckPruningProgress(3, 1), new DeckPruningProgress(5, 2)], progress);
+        for (var index = 1; index <= 5; index++)
+        {
+            Assert.NotNull((await ReadDeckStateAsync(store, $"refetch-batch-{index}")).RefreshRequestedUtc);
+        }
+    }
+
+    [Fact]
+    public async Task RunMaintenanceAsync_RefetchFailsInSecondChunk_KeepsFirstChunk()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        for (var index = 1; index <= 3; index++)
+        {
+            await SeedStoredDeckAsync(repository, $"refetch-first-{index}", "Alpha", 3, metadataLess: true);
+        }
+        await SeedStoredDeckAsync(repository, "refetch-alpha-processed", "Alpha", 3);
+        await SeedStoredDeckAsync(repository, "refetch-second-4", "Beta", 3, metadataLess: true);
+        await SeedStoredDeckAsync(repository, "refetch-second-5", "Beta", 3, metadataLess: true);
+        await using (var connection = new SqliteConnection($"Data Source={Assert.IsType<string>(store.DatabasePath)}"))
+        {
+            await connection.OpenAsync();
+            await using var trigger = connection.CreateCommand();
+            trigger.CommandText = "CREATE TRIGGER reject_refetch_second_chunk BEFORE UPDATE OF refresh_requested_utc ON deck_queue WHEN NEW.deck_id = 'refetch-second-5' BEGIN SELECT RAISE(ABORT, 'second chunk failure'); END;";
+            await trigger.ExecuteNonQueryAsync();
+        }
+
+        await Assert.ThrowsAsync<SqliteException>(() => store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch));
+
+        for (var index = 1; index <= 3; index++)
+        {
+            Assert.NotNull((await ReadDeckStateAsync(store, $"refetch-first-{index}")).RefreshRequestedUtc);
+        }
+        Assert.Equal(1, await repository.GetCommanderDeckCountAsync("Alpha"));
+        Assert.Null((await ReadDeckStateAsync(store, "refetch-second-4")).RefreshRequestedUtc);
+        Assert.Null((await ReadDeckStateAsync(store, "refetch-second-5")).RefreshRequestedUtc);
+        Assert.Equal(2, await repository.GetCommanderDeckCountAsync("Beta"));
+    }
+
+    [Fact]
     public async Task RunMaintenanceAsync_Refetch_WaitsForSweepGate()
     {
         var store = CreateStore();
