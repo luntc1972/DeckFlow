@@ -127,6 +127,30 @@ public sealed class HarvestMaintenanceRunnerTests
     }
 
     [Fact]
+    public async Task Refetch_ProgressThenThrow_EndsFailedWithCommittedProgress()
+    {
+        var store = new FakeCategoryKnowledgeStore
+        {
+            MaintenancePreview = new(0, 0, 5),
+            RunMaintenanceProgress = 3,
+            RunMaintenanceException = new InvalidOperationException("failure"),
+        };
+        var runner = CreateRunner(store);
+        await runner.StartAsync(CancellationToken.None);
+        try
+        {
+            Assert.Equal(HarvestMaintenanceStartResult.Started, await runner.TryStartAsync(HarvestMaintenanceOperation.Refetch));
+            var failed = await WaitForCompletionAsync(runner);
+
+            Assert.Equal(HarvestMaintenanceRunState.Failed, failed.State);
+            Assert.Equal(3, failed.DecksAffected);
+            Assert.Equal(1, failed.Batches);
+            Assert.Equal("Refetch failed after 3 decks; see the logs.", HarvestMaintenanceStatusText.Describe(failed, DateTimeOffset.UtcNow).Headline);
+        }
+        finally { await runner.StopAsync(CancellationToken.None); }
+    }
+
+    [Fact]
     public async Task StopAsync_WhileRunning_EndsInterrupted()
     {
         var store = new FakeCategoryKnowledgeStore { RunMaintenanceBlocksUntilCancelled = true };

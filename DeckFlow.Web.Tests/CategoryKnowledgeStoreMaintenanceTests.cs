@@ -310,6 +310,33 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
     }
 
     [Fact]
+    public async Task RunMaintenanceAsync_Refetch_ReleasesSweepGateBetweenChunks()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        for (var index = 1; index <= 5; index++)
+        {
+            await SeedStoredDeckAsync(repository, $"refetch-gate-{index}", "Gamma", 3, metadataLess: true);
+        }
+
+        var firstReport = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var progress = new PausingProgress(firstReport, resume);
+
+        var refetch = Task.Run(() => store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, progress));
+        await firstReport.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        var postHarvestTask = store.RunPostHarvestRetentionAsync();
+        Assert.False(postHarvestTask.IsCompleted);
+        resume.TrySetResult();
+        await postHarvestTask.WaitAsync(TimeSpan.FromSeconds(10));
+        var outcome = await refetch.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(5, outcome.DecksAffected);
+        Assert.Equal(2, outcome.Batches);
+        Assert.Equal(DeckPruningStopReason.Completed, outcome.StopReason);
+    }
+
+    [Fact]
     public async Task RunMaintenanceAsync_Backfill_CompletesAndOpensPreview()
     {
         var store = CreateStore();
