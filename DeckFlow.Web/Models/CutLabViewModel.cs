@@ -638,17 +638,20 @@ public sealed record CutLabViewModel
         string? chosenArchetype = chosenArchetypeEntry?.Slug;
         IReadOnlyList<CutLabPlanArchetypeRowView> archetypeRows =
         [
-            new() { Slug = string.Empty, PresetStrategies = [], DisplayName = "No archetype", Definition = "Cut Lab behaves exactly as it does today.", Detail = "No strategies added, goals unchanged.", IsChecked = chosenArchetype is null },
+            new() { Slug = string.Empty, PresetStrategies = [], DisplayName = "No archetype", Definition = "Cut Lab behaves exactly as it does today.", Detail = "No strategies added, goals unchanged.", CondensedDetail = "Behaves exactly as today.", IsChecked = chosenArchetype is null },
             .. CutLabArchetypeCatalog.Entries.Select(entry =>
             {
                 bool isSuggested = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase);
+                string strategies = entry.PresetStrategies.Count > 0 ? string.Join(", ", entry.PresetStrategies) : "no strategies";
+                string goals = $"Goals T{entry.DefaultGoals.CommanderByTurn} / T{entry.DefaultGoals.EngineByTurn} / T{entry.DefaultGoals.RepresentativeLineByTurn}";
                 return new CutLabPlanArchetypeRowView
                 {
                     Slug = entry.Slug,
                     PresetStrategies = entry.PresetStrategies,
                     DisplayName = entry.DisplayName,
                     Definition = entry.Definition,
-                    Detail = $"Adds: {(entry.PresetStrategies.Count > 0 ? string.Join(", ", entry.PresetStrategies) : "no strategies")} · Goals T{entry.DefaultGoals.CommanderByTurn} / T{entry.DefaultGoals.EngineByTurn} / T{entry.DefaultGoals.RepresentativeLineByTurn}",
+                    Detail = $"Adds: {strategies} · {goals}",
+                    CondensedDetail = $"{(entry.PresetStrategies.Count > 0 ? $"Adds {strategies}" : "No strategies")} · {goals}",
                     IsChecked = string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
                     IsSuggested = isSuggested,
                     IsLowConfidence = archetypeSuggestion?.Confidence == CutLabArchetypeConfidence.Low,

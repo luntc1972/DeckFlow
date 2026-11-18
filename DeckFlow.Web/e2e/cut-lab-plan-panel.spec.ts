@@ -175,6 +175,42 @@ test('the plan panel renders after import and the free-text plan fields are gone
   await expect(page.locator('input[name="SecondaryPlan"], textarea[name="SecondaryPlan"]')).toHaveCount(0);
 });
 
+test('the archetype picker shows condensed copy only on phones', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await importPool(page);
+
+  const archetypes = page.getByRole('group', { name: 'Deck archetype' });
+  const shortIntro = archetypes.getByText('The archetype adds its strategies and sets default goal turns.', { exact: true });
+  const longIntro = archetypes.getByText('What kind of deck is this? The archetype adds its strategies below and sets default goal turns. Your own choice always wins over the suggestion.', { exact: true });
+  const rows = archetypes.locator('.cut-lab-plan-panel__row');
+  const rowCount = await rows.count();
+  expect(rowCount).toBeGreaterThan(0);
+
+  await expect(shortIntro).toBeVisible();
+  await expect(longIntro).toBeHidden();
+  for (let index = 0; index < rowCount; index++) {
+    const row = rows.nth(index);
+    const condensed = row.locator('.mobile-only');
+    const desktopCopy = row.locator('.desktop-only');
+    await expect(condensed).toHaveCount(1);
+    await expect(condensed).toBeVisible();
+    await expect(condensed).toHaveText(/^(?:(?:Adds .+|No strategies) · Goals T\d+ \/ T\d+ \/ T\d+|Behaves exactly as today\.)$/);
+    await expect(desktopCopy).toHaveCount(2);
+    await expect(desktopCopy.nth(0)).toBeHidden();
+    await expect(desktopCopy.nth(1)).toBeHidden();
+  }
+
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await expect(shortIntro).toBeHidden();
+  await expect(longIntro).toBeVisible();
+  for (let index = 0; index < rowCount; index++) {
+    const row = rows.nth(index);
+    await expect(row.locator('.mobile-only')).toBeHidden();
+    await expect(row.locator('.cut-lab-plan-panel__row-definition')).toBeVisible();
+    await expect(row.locator('.desktop-only').nth(1)).toBeVisible();
+  }
+});
+
 test('every generic strategy checkbox documents a definition and a consequence', async ({ page }) => {
   await importPool(page);
   await expandMobileCollapsibles(page);

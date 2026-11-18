@@ -397,6 +397,18 @@ public sealed class CutLabViewModelTests
         Assert.Equal(CutLabArchetypeCatalog.Entries.Select(entry => entry.Slug), panel.ArchetypeRows.Skip(1).Select(row => row.Slug));
     }
 
+    [Theory]
+    [InlineData("aggro-voltron", "Adds voltron, combat · Goals T2 / T3 / T5")]
+    [InlineData("value-engine", "No strategies · Goals T3 / T3 / T6")]
+    [InlineData("", "Behaves exactly as today.")]
+    public void BuildPlanPanel_Archetype_ProvidesCondensedDetail(string slug, string expectedDetail)
+    {
+        CutLabPlanPanelView panel = CutLabViewModel.BuildPlanPanel(null, [], false);
+        CutLabPlanArchetypeRowView row = panel.ArchetypeRows.Single(row => row.Slug == slug);
+
+        Assert.Equal(expectedDetail, row.CondensedDetail);
+    }
+
     [Fact]
     public void BuildPlanPanel_Archetype_SuggestedRowFlaggedWithReason_ChosenRowChecked()
     {
