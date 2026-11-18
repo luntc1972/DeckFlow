@@ -320,15 +320,20 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         }
 
         var firstReport = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var progress = new PausingProgress(firstReport, resume);
+        var secondReport = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resumeFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resumeSecond = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var progress = new TwicePausingProgress(firstReport, secondReport, resumeFirst, resumeSecond);
 
         var refetch = Task.Run(() => store.RunMaintenanceAsync(HarvestMaintenanceOperation.Refetch, progress));
         await firstReport.Task.WaitAsync(TimeSpan.FromSeconds(10));
         var postHarvestTask = store.RunPostHarvestRetentionAsync();
         Assert.False(postHarvestTask.IsCompleted);
-        resume.TrySetResult();
+        resumeFirst.TrySetResult();
+        await secondReport.Task.WaitAsync(TimeSpan.FromSeconds(10));
         await postHarvestTask.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.False(refetch.IsCompleted);
+        resumeSecond.TrySetResult();
         var outcome = await refetch.WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.Equal(5, outcome.DecksAffected);
@@ -525,6 +530,25 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
         {
             if (!firstReport.TrySetResult()) return;
             resume.Task.Wait(TimeSpan.FromSeconds(30));
+        }
+    }
+
+    private sealed class TwicePausingProgress(TaskCompletionSource firstReport, TaskCompletionSource secondReport, TaskCompletionSource resumeFirst, TaskCompletionSource resumeSecond) : IProgress<DeckPruningProgress>
+    {
+        private int _reports;
+
+        public void Report(DeckPruningProgress value)
+        {
+            if (Interlocked.Increment(ref _reports) == 1)
+            {
+                firstReport.TrySetResult();
+                resumeFirst.Task.Wait(TimeSpan.FromSeconds(30));
+            }
+            else if (_reports == 2)
+            {
+                secondReport.TrySetResult();
+                resumeSecond.Task.Wait(TimeSpan.FromSeconds(30));
+            }
         }
     }
 
