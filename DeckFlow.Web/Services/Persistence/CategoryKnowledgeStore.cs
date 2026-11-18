@@ -158,7 +158,7 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
     {
         var started = Stopwatch.GetTimestamp();
         var result = await _refetchMarkService.RunAsync(deckCount, batchProgress, stop, cancellationToken).ConfigureAwait(false);
-        _logger?.LogInformation("Harvest.Maintenance.RefetchChunk decksAffected={DecksAffected} batches={Batches} stopReason={StopReason} elapsedMs={ElapsedMs}", result.DecksRemoved, result.Batches, result.StopReason, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        _logger?.LogInformation("Harvest.Maintenance.RefetchChunk decksMarked={DecksMarked} batches={Batches} elapsedMs={ElapsedMs} stopReason={StopReason}", result.DecksRemoved, result.Batches, Stopwatch.GetElapsedTime(started).TotalMilliseconds, result.StopReason);
         return result;
     }
 
