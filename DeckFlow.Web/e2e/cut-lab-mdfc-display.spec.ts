@@ -36,7 +36,12 @@ const importPool = async (page: Page): Promise<void> => {
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
   await clickManabasePillRadio(page, 'Bracket', '4');
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await Promise.all([
+    page.waitForResponse(response => {
+      return new URL(response.url()).pathname === '/cut-lab' && response.request().method() === 'POST';
+    }, { timeout: 60_000 }),
+    page.getByRole('button', { name: 'Import pool' }).click({ timeout: 60_000 }),
+  ]);
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
 };
@@ -118,11 +123,16 @@ test('keeps MDFC display names separate from canonical state, decisions and expo
     await expect(cutRow).toContainText(shatterskullDisplay);
     await expect(cutRow).not.toContainText(' // ');
     await expect(cutRow.locator('[data-cutlab-card-open]')).toHaveAttribute('data-cutlab-card-open', shatterskull);
-    const restoreRequest = page.waitForRequest(request =>
-      request.url().endsWith('/api/cut-lab/decide') && request.method() === 'POST'
-      && request.postDataJSON().decision === 'restore');
-    await cutRow.locator('[data-cut-lab-restore]').click();
-    const request = await restoreRequest;
+    const [response] = await Promise.all([
+      page.waitForResponse(response => {
+        const request = response.request();
+        return request.url().endsWith('/api/cut-lab/decide') && request.method() === 'POST'
+          && request.postDataJSON().decision === 'restore';
+      }, { timeout: 30_000 }),
+      cutRow.locator('[data-cut-lab-restore]').click(),
+    ]);
+    expect(response.ok()).toBeTruthy();
+    const request = response.request();
     expect(request.postDataJSON().cardName).toBe(shatterskull);
     expect(request.postData()).toContain(shatterskull);
     expect(request.postData()).not.toContain(shatterskullDisplay);
