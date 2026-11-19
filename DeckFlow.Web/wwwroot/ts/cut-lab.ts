@@ -1120,7 +1120,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   let hasPickedArchetype = false;
   let planApplyChainStart: {
     archetype: string | null;
-    goals: NonNullable<CutLabPatchResponse['appliedGoals']> | null;
+    goals: NonNullable<CutLabPatchResponse['appliedGoals']>;
     goalsCustomized: boolean | null;
   } | null = null;
   type CutLabArchetypeNotice = {
@@ -4354,16 +4354,18 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const persistedArchetype = persistedPlanProfile?.archetype ?? null;
     const requestedArchetypeInput = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked');
     const requestedArchetype = requestedArchetypeInput?.value || null;
-    if (planApplyChainStart === null || planApplyChainStart.goals === null) {
-      planApplyChainStart = {
-        archetype: persistedArchetype,
-        goals: persistedState.goals ?? null,
-        goalsCustomized: persistedState.goalsCustomized ?? null,
-      };
+    if (planApplyChainStart === null) {
+      if (persistedState.goals != null) {
+        planApplyChainStart = {
+          archetype: persistedArchetype,
+          goals: persistedState.goals,
+          goalsCustomized: persistedState.goalsCustomized ?? null,
+        };
+      }
       deferredArchetypeNotice = null;
     }
     const isArchetypeChange = requestedArchetype !== persistedArchetype ||
-      (planApplyChainStart.goals !== null && requestedArchetype !== planApplyChainStart.archetype);
+      (planApplyChainStart !== null && requestedArchetype !== planApplyChainStart.archetype);
     // Why: a failed request must still announce the net change from an earlier, superseded success in the same chain.
     const restorePersistedPlanPanel = (): void => {
       if (planApplyPendingChange) return;
@@ -4403,9 +4405,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         body: JSON.stringify({
           cutLabStateJson: JSON.stringify(nextState),
           priorArchetype: persistedArchetype,
-          chainStartArchetype: planApplyChainStart.archetype,
-          chainStartGoals: planApplyChainStart.goals,
-          chainStartGoalsCustomized: planApplyChainStart.goalsCustomized,
+          chainStartArchetype: planApplyChainStart?.archetype ?? null,
+          chainStartGoals: planApplyChainStart?.goals ?? null,
+          chainStartGoalsCustomized: planApplyChainStart?.goalsCustomized ?? null,
         }),
         signal: controller.signal,
       });

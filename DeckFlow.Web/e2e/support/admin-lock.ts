@@ -34,8 +34,8 @@ function getAdminForwardedIp(): string {
   return `203.0.113.${hash + 1}`;
 }
 
-function errorCode(error: unknown): unknown {
-  return typeof error === 'object' && error !== null && 'code' in error ? error.code : '';
+function errorCode(error: unknown): string {
+  return typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
 }
 
 async function tryReclaimStaleLock(): Promise<void> {
@@ -45,8 +45,7 @@ async function tryReclaimStaleLock(): Promise<void> {
   try {
     lock = await stat(adminLockPath);
   } catch (error: unknown) {
-    const code = String(errorCode(error));
-    if (code === 'ENOENT') {
+    if (errorCode(error) === 'ENOENT') {
       return;
     }
 
@@ -56,12 +55,11 @@ async function tryReclaimStaleLock(): Promise<void> {
   try {
     payload = JSON.parse(await readFile(adminLockPath, 'utf8')) as LockFilePayload;
   } catch (error: unknown) {
-    const invalidJson = error instanceof SyntaxError;
-    if (!invalidJson && errorCode(error) === 'ENOENT') {
+    if (error instanceof SyntaxError) {
+      payload = null;
+    } else if (errorCode(error) === 'ENOENT') {
       return;
-    }
-
-    if (!invalidJson) {
+    } else {
       throw error;
     }
   }
@@ -80,8 +78,7 @@ async function tryReclaimStaleLock(): Promise<void> {
         process.kill(payload.pid, 0);
         return true;
       } catch (error: unknown) {
-        const code = String(errorCode(error));
-        if (code === 'ESRCH') {
+        if (errorCode(error) === 'ESRCH') {
           return false;
         }
 
@@ -108,8 +105,7 @@ async function unlinkAdminLock(lock: Stats): Promise<void> {
       await unlink(adminLockPath);
     }
   } catch (error: unknown) {
-    const code = String(errorCode(error));
-    if (code !== 'ENOENT') {
+    if (errorCode(error) !== 'ENOENT') {
       throw error;
     }
   }
@@ -129,8 +125,7 @@ async function acquireAdminLock(): Promise<LockHandle> {
       );
       return handle;
     } catch (error: unknown) {
-      const code = String(errorCode(error));
-      if (code !== 'EEXIST') {
+      if (errorCode(error) !== 'EEXIST') {
         throw error;
       }
     }

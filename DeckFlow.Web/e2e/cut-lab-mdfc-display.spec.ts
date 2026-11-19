@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Response } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
@@ -46,13 +46,28 @@ const importPool = async (page: Page): Promise<void> => {
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
 };
 
+const clickAndWaitForDecide = async (
+  page: Page,
+  button: Locator,
+  decision?: 'restore',
+  timeout?: number,
+): Promise<Response> => {
+  const [response] = await Promise.all([
+    page.waitForResponse(response => {
+      const request = response.request();
+      return request.url().endsWith('/api/cut-lab/decide') && request.method() === 'POST'
+        && (decision === undefined || request.postDataJSON().decision === decision);
+    }, { timeout }),
+    button.click(),
+  ]);
+  expect(response.ok()).toBeTruthy();
+  return response;
+};
+
 const acceptMdfc = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   await expect(page.locator('.cutlab-proposal__heading')).toContainText(shatterskullDisplay);
-  const response = page.waitForResponse(response =>
-    response.url().endsWith('/api/cut-lab/decide') && response.request().method() === 'POST');
-  await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
-  expect((await response).ok()).toBeTruthy();
+  await clickAndWaitForDecide(page, page.locator('.cutlab-proposal .cutlab-decision-btn--accept'));
   await expect(page.locator('.cutlab-proposal__heading')).toContainText('at 100 cards');
 };
 
@@ -123,15 +138,7 @@ test('keeps MDFC display names separate from canonical state, decisions and expo
     await expect(cutRow).toContainText(shatterskullDisplay);
     await expect(cutRow).not.toContainText(' // ');
     await expect(cutRow.locator('[data-cutlab-card-open]')).toHaveAttribute('data-cutlab-card-open', shatterskull);
-    const [response] = await Promise.all([
-      page.waitForResponse(response => {
-        const request = response.request();
-        return request.url().endsWith('/api/cut-lab/decide') && request.method() === 'POST'
-          && request.postDataJSON().decision === 'restore';
-      }, { timeout: 30_000 }),
-      cutRow.locator('[data-cut-lab-restore]').click(),
-    ]);
-    expect(response.ok()).toBeTruthy();
+    const response = await clickAndWaitForDecide(page, cutRow.locator('[data-cut-lab-restore]'), 'restore', 30_000);
     const request = response.request();
     expect(request.postDataJSON().cardName).toBe(shatterskull);
     expect(request.postData()).toContain(shatterskull);
