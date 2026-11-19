@@ -430,10 +430,10 @@ public sealed class CategoryKnowledgeStoreTests
             command.CommandText = """
                 INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
                 VALUES
-                    ('deck-before', @beforeCutoff, 1, 0, NULL, 'Commander Before'),
-                    ('deck-at-cutoff', @atCutoff, 1, 0, NULL, 'Commander At Cutoff'),
-                    ('deck-after', @afterCutoff, 1, 0, NULL, 'Commander After'),
-                    ('deck-unprocessed', @unprocessedAfterCutoff, 0, 0, NULL, 'Commander Pending');
+                    ('deck-before', '2026-01-01T00:00:00.0000000Z', 1, 0, @beforeCutoff, 'Commander Before'),
+                    ('deck-at-cutoff', '2026-01-01T00:00:00.0000000Z', 1, 0, @atCutoff, 'Commander At Cutoff'),
+                    ('deck-after', '2026-01-01T00:00:00.0000000Z', 1, 0, @afterCutoff, 'Commander After'),
+                    ('deck-unprocessed', '2026-01-01T00:00:00.0000000Z', 0, 0, @unprocessedAfterCutoff, 'Commander Pending');
                 """;
             command.Parameters.AddWithValue("@beforeCutoff", cutoffUtc.AddMinutes(-1).ToString("O"));
             command.Parameters.AddWithValue("@atCutoff", cutoffUtc.ToString("O"));
@@ -660,8 +660,8 @@ public sealed class CategoryKnowledgeStoreTests
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
             INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
-            VALUES ('{deckIdPrefix}-processed', @cutoff, 1, 0, NULL, 'Commander'),
-                   ('{deckIdPrefix}-skipped', @cutoff, 1, 1, NULL, 'Commander');
+            VALUES ('{deckIdPrefix}-processed', '2026-01-01T00:00:00.0000000Z', 1, 0, @cutoff, 'Commander'),
+                   ('{deckIdPrefix}-skipped', '2026-01-01T00:00:00.0000000Z', 1, 1, @cutoff, 'Commander');
             """;
         command.Parameters.AddWithValue("@cutoff", cutoffUtc.ToString("O"));
         await command.ExecuteNonQueryAsync();

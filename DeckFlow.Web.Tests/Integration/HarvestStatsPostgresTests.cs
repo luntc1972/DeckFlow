@@ -32,15 +32,16 @@ public sealed class HarvestStatsPostgresTests : IClassFixture<PostgresContainerF
             await store.GetTotalProcessedDeckCountAsync();
             var prefix = $"pg-harvest-stats-{Guid.NewGuid():N}";
             await using var connection = new NpgsqlConnection(connectionString);
+            await connection.ExecuteAsync("DELETE FROM deck_queue;");
             await connection.ExecuteAsync(
                 """
                 INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
                 VALUES
-                    (@legacyBefore, '2026-06-09T13:44:40.8474546+00:00', 1, 0, NULL, 'Legacy Before'),
-                    (@legacyAfter, '2026-06-11T13:44:40.8474546+00:00', 1, 0, NULL, 'Legacy After'),
-                    (@currentBefore, '2026-06-09 21:05:01.198232+00', 1, 0, NULL, 'Current Before'),
-                    (@currentAfter, '2026-06-11 21:05:01.198232+00', 1, 0, NULL, 'Current After'),
-                    (@unprocessed, '2026-06-11 21:05:01.198232+00', 0, 0, NULL, 'Unprocessed');
+                    (@legacyBefore, '2026-06-01 00:00:00+00', 1, 0, '2026-06-09T13:44:40.8474546+00:00', 'Legacy Before'),
+                    (@legacyAfter, '2026-06-01 00:00:00+00', 1, 0, '2026-06-11T13:44:40.8474546+00:00', 'Legacy After'),
+                    (@currentBefore, '2026-06-01 00:00:00+00', 1, 0, '2026-06-09 21:05:01.198232+00', 'Current Before'),
+                    (@currentAfter, '2026-06-01 00:00:00+00', 1, 0, '2026-06-11 21:05:01.198232+00', 'Current After'),
+                    (@unprocessed, '2026-06-01 00:00:00+00', 0, 0, '2026-06-11 21:05:01.198232+00', 'Unprocessed');
                 """,
                 new
                 {
@@ -148,6 +149,34 @@ public sealed class HarvestStatsPostgresTests : IClassFixture<PostgresContainerF
             Assert.Contains("USING btree (last_checked_utc)", definition);
             Assert.Contains("processed = 1", definition);
             Assert.Contains("skipped = 0", definition);
+        });
+    }
+
+    [PostgresFact]
+    public async Task ProcessedSinceQuery_Postgres_UsesLastCheckedIndex()
+    {
+        await WithProcessingStatsStoreAsync(async (_, connection) =>
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc)
+                SELECT 'skipped-' || n, '2026-06-07 15:06:22+00', 1, 1, '2026-11-19 17:19:21+00'
+                FROM generate_series(1, 20000) AS rows(n);
+                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc)
+                VALUES
+                    ('recent', '2026-06-07 15:06:22+00', 1, 0, '2026-11-19 17:19:21+00'),
+                    ('at-cutoff', '2026-06-07 15:06:22+00', 1, 0, '2026-10-20 17:20:00+00');
+                ANALYZE deck_queue;
+                """);
+
+            using var transaction = await connection.BeginTransactionAsync();
+            await connection.ExecuteAsync("SET LOCAL enable_seqscan = off;", transaction: transaction);
+            var plan = await connection.QueryAsync<string>(
+                "EXPLAIN " + CategoryKnowledgeStore.ProcessedSinceSql,
+                new { cutoff = "2026-10-20 17:20:00" },
+                transaction: transaction);
+
+            Assert.Contains("ix_deck_queue_processed_last_checked", string.Join(Environment.NewLine, plan));
         });
     }
 

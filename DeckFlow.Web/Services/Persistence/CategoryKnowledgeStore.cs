@@ -302,27 +302,29 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
             cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 
+    internal const string ProcessedSinceSql =
+        "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND skipped = 0 AND last_checked_utc >= @cutoff;";
+
     /// <inheritdoc/>
     public async Task<int> GetTotalProcessedDeckCountSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
     {
         await EnsureSchemaReadyAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = await OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        // Why: Postgres must compare TEXT to TEXT so ix_deck_queue_processed_inserted_deck
-        // remains usable; casting inserted_utc to timestamptz prevents that index use. The
-        // fixed-width UTC date/time prefix sorts lexically, and legacy T-format rows are all
-        // older than any 30-day cutoff, so their differing separator cannot affect this count.
-        // SQLite continues binding DateTime through Dapper because that is its stored format.
+        // Why: Postgres compares TEXT to TEXT so the btree on last_checked_utc is usable.
+        // The cutoff matches the server's timestamptz text prefix (space separator) and relies
+        // on the UTC session TimeZone. Legacy T-format rows are older than the rolling window.
+        // SQLite binds DateTime through Dapper to match its stored round-trip format.
         if (_connectionInfo.IsSqlite)
         {
             return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-                "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND skipped = 0 AND inserted_utc >= @cutoff;",
+                ProcessedSinceSql,
                 new { cutoff = cutoffUtc },
                 cancellationToken: cancellationToken)).ConfigureAwait(false));
         }
 
         var cutoff = cutoffUtc.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-            "SELECT COUNT(1) FROM deck_queue WHERE processed = 1 AND skipped = 0 AND inserted_utc >= @cutoff;",
+            ProcessedSinceSql,
             new { cutoff },
             cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
