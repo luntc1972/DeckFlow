@@ -35,6 +35,7 @@ public sealed class CategoryKnowledgeStoreTestsCollection
 [Collection("CategoryKnowledgeStoreTests")]
 public sealed class CategoryKnowledgeStoreTests
 {
+    private const string OldQueueTimestamp = "2026-06-07T15:06:22.0000000Z";
     private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     [Fact]
     public void DatabasePath_UsesMtgDataDirWhenSet()
@@ -314,8 +315,9 @@ public sealed class CategoryKnowledgeStoreTests
             await using var seed = connection.CreateCommand();
             seed.CommandText = """
                 INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
-                VALUES ('old-queue', '2026-06-07T15:06:22.0000000Z', 1, 0, '2026-11-19T17:19:21.7752600Z', 'Commander');
+                VALUES ('old-queue', @old, 1, 0, '2026-11-19T17:19:21.7752600Z', 'Commander');
                 """;
+            seed.Parameters.AddWithValue("@old", OldQueueTimestamp);
             await seed.ExecuteNonQueryAsync();
 
             Assert.Equal(1, await store.GetTotalProcessedDeckCountSinceAsync(
@@ -342,7 +344,7 @@ public sealed class CategoryKnowledgeStoreTests
                     ('requeued', @old, 0, 0, @processedRecently, 'Commander'),
                     ('missing-time', @recent, 1, 0, NULL, 'Commander');
                 """;
-            seed.Parameters.AddWithValue("@old", "2026-06-07T15:06:22.0000000Z");
+            seed.Parameters.AddWithValue("@old", OldQueueTimestamp);
             seed.Parameters.AddWithValue("@recent", "2026-11-19T10:00:00.0000000Z");
             seed.Parameters.AddWithValue("@processedRecently", "2026-11-19T17:19:21.7752600Z");
             await seed.ExecuteNonQueryAsync();

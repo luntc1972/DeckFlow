@@ -313,19 +313,13 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         // Why: Postgres compares TEXT to TEXT so the btree on last_checked_utc is usable.
         // The cutoff matches the server's timestamptz text prefix (space separator) and relies
         // on the UTC session TimeZone. Legacy T-format rows are older than the rolling window.
-        // SQLite binds DateTime through Dapper to match its stored round-trip format.
-        if (_connectionInfo.IsSqlite)
-        {
-            return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
-                ProcessedSinceSql,
-                new { cutoff = cutoffUtc },
-                cancellationToken: cancellationToken)).ConfigureAwait(false));
-        }
-
-        var cutoff = cutoffUtc.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        // SQLite binds DateTime through Dapper; Postgres binds the invariant UTC string.
+        object parameters = _connectionInfo.IsSqlite
+            ? new { cutoff = cutoffUtc }
+            : new { cutoff = cutoffUtc.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) };
         return CoerceCount(await connection.ExecuteScalarAsync<object?>(new CommandDefinition(
             ProcessedSinceSql,
-            new { cutoff },
+            parameters,
             cancellationToken: cancellationToken)).ConfigureAwait(false));
     }
 

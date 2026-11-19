@@ -10,6 +10,7 @@ namespace DeckFlow.Web.Tests.Integration;
 
 public sealed class HarvestStatsPostgresTests : IClassFixture<PostgresContainerFixture>
 {
+    private const string OldQueueTimestamp = "2026-06-07 15:06:22+00";
     private readonly PostgresContainerFixture _fixture;
 
     public HarvestStatsPostgresTests(PostgresContainerFixture fixture)
@@ -71,8 +72,8 @@ public sealed class HarvestStatsPostgresTests : IClassFixture<PostgresContainerF
             await connection.ExecuteAsync(
                 """
                 INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
-                VALUES ('old-queue', '2026-06-07 15:06:22.123456+00', 1, 0, '2026-11-19 17:19:21.77526+00', 'Commander');
-                """);
+                VALUES ('old-queue', @old, 1, 0, '2026-11-19 17:19:21.77526+00', 'Commander');
+                """, new { old = OldQueueTimestamp });
 
             Assert.Equal(1, await store.GetTotalProcessedDeckCountSinceAsync(
                 new DateTime(2026, 10, 20, 17, 20, 0, DateTimeKind.Utc)));
@@ -101,7 +102,7 @@ public sealed class HarvestStatsPostgresTests : IClassFixture<PostgresContainerF
                 """,
                 new
                 {
-                    old = "2026-06-07 15:06:22.123456+00",
+                    old = OldQueueTimestamp,
                     recent = "2026-11-19 10:00:00+00",
                     processedRecently = "2026-11-19 17:19:21.77526+00"
                 });
@@ -160,14 +161,14 @@ public sealed class HarvestStatsPostgresTests : IClassFixture<PostgresContainerF
             await connection.ExecuteAsync(
                 """
                 INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc)
-                SELECT 'skipped-' || n, '2026-06-07 15:06:22+00', 1, 1, '2026-11-19 17:19:21+00'
+                SELECT 'skipped-' || n, @old, 1, 1, '2026-11-19 17:19:21+00'
                 FROM generate_series(1, 20000) AS rows(n);
                 INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc)
                 VALUES
-                    ('recent', '2026-06-07 15:06:22+00', 1, 0, '2026-11-19 17:19:21+00'),
-                    ('at-cutoff', '2026-06-07 15:06:22+00', 1, 0, '2026-10-20 17:20:00+00');
+                    ('recent', @old, 1, 0, '2026-11-19 17:19:21+00'),
+                    ('at-cutoff', @old, 1, 0, '2026-10-20 17:20:00+00');
                 ANALYZE deck_queue;
-                """);
+                """, new { old = OldQueueTimestamp });
 
             using var transaction = await connection.BeginTransactionAsync();
             await connection.ExecuteAsync("SET LOCAL enable_seqscan = off;", transaction: transaction);

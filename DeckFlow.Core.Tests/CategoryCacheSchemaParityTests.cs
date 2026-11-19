@@ -108,8 +108,10 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
         Assert.Equal(1L, await QuerySingleInt64Async(verificationConnection, "SELECT COUNT(1) FROM card_category_observations WHERE card_name = 'Sol Ring' AND category = 'Ramp';"));
     }
 
-    [Fact]
-    public async Task EnsureSchema_OnFreshSqlite_CreatesQueueIndexes()
+    [Theory]
+    [InlineData("ix_deck_queue_pending")]
+    [InlineData("ix_deck_queue_processed_last_checked")]
+    public async Task EnsureSchema_OnFreshSqlite_CreatesQueueIndexes(string indexName)
     {
         var repository = CreateRepository();
 
@@ -128,19 +130,7 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
         Assert.Equal(1, indexCount);
         Assert.Equal(1L, await QuerySingleInt64Async(
             connection,
-            "SELECT COUNT(1) FROM sqlite_master WHERE type = 'index' AND name = 'ix_deck_queue_pending';"));
-    }
-
-    [Fact]
-    public async Task EnsureSchemaAsync_DeckQueue_CreatesProcessedLastCheckedIndex()
-    {
-        var repository = CreateRepository();
-        await repository.EnsureSchemaAsync();
-        await using var connection = await OpenConnectionAsync();
-
-        Assert.Equal(1L, await QuerySingleInt64Async(
-            connection,
-            "SELECT COUNT(1) FROM sqlite_master WHERE type = 'index' AND name = 'ix_deck_queue_processed_last_checked';"));
+            $"SELECT COUNT(1) FROM sqlite_master WHERE type = 'index' AND name = '{indexName}';"));
     }
 
     [Fact]
