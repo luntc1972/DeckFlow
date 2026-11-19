@@ -85,13 +85,49 @@ function seedVisibleEntries(contentBase: string): void {
   execFileSync('sqlite3', ['-cmd', '.timeout 8000', contentSiteIndexDbPath, sql], { encoding: 'utf8' });
 }
 
-function getTemporaryDirectory(): string {
-  if (!process.env.WSL_DISTRO_NAME || !existsSync('/mnt/c')) {
+type TemporaryDirectoryEnvironment = Record<string, string | undefined>;
+type TemporaryDirectoryExec = (file: string, args: readonly string[]) => string;
+type TemporaryDirectoryExists = (path: string) => boolean;
+type TemporaryDirectorySleep = (milliseconds: number) => void;
+
+export function resolveTemporaryDirectory(
+  env: TemporaryDirectoryEnvironment = process.env,
+  exec: TemporaryDirectoryExec = (file, args) => execFileSync(file, args, { encoding: 'utf8' }),
+  exists: TemporaryDirectoryExists = existsSync,
+  sleep: TemporaryDirectorySleep = (milliseconds) => {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+  },
+): string {
+  if (!env.WSL_DISTRO_NAME || !exists('/mnt/c')) {
     return tmpdir();
   }
+  const override = env.DECKFLOW_E2E_TEMP_DIR?.trim();
+  if (override) {
+    return override;
+  }
 
-  const windowsTemporaryDirectory = execFileSync('cmd.exe', ['/d', '/s', '/c', 'echo %TEMP%'], {
-    encoding: 'utf8',
-  }).trim();
-  return execFileSync('wslpath', ['-u', windowsTemporaryDirectory], { encoding: 'utf8' }).trim();
+  let lastError: unknown = new Error('no attempts made');
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const windowsTemporaryDirectory = exec('cmd.exe', ['/d', '/s', '/c', 'echo %TEMP%']).trim();
+      if (!windowsTemporaryDirectory || windowsTemporaryDirectory.includes('%TEMP%')) {
+        throw new Error('cmd.exe returned an empty or unexpanded TEMP path');
+      }
+      const temporaryDirectory = exec('wslpath', ['-u', windowsTemporaryDirectory]).trim();
+      if (temporaryDirectory) {
+        return temporaryDirectory;
+      }
+      throw new Error('wslpath returned an empty temporary path');
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) {
+        sleep(250 * (attempt + 1));
+      }
+    }
+  }
+  throw new Error(`Unable to resolve the Windows temp directory; set DECKFLOW_E2E_TEMP_DIR to override it: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+}
+
+function getTemporaryDirectory(): string {
+  return resolveTemporaryDirectory();
 }

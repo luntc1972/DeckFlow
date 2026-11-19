@@ -12,6 +12,7 @@ DeckFlow setup, development, and deployment guidance.
 - `scripts/run-web.ps1` — PowerShell equivalent for Windows terminals.
 - `scripts/publish-studio.ps1` — publishes `DeckFlow.Studio` as a self-contained win-x64 single-file executable (no .NET install required on the target machine). Run from Windows PowerShell; produces `artifacts/studio-release/` and `artifacts/DeckFlowStudio-<date>.zip`. See [DeckFlow.Studio/STUDIO-SETUP.md](../DeckFlow.Studio/STUDIO-SETUP.md) for full setup, launch, and secrets configuration steps. Publish and Direct Push write the private KB root (`DECKFLOW_KB_ROOT`); commit it by hand.
 - `scripts/publish-studio.sh` — WSL bash wrapper that does the same publish via the Windows `dotnet.exe`.
+- `DECKFLOW_E2E_TEMP_DIR` — optional WSL E2E temp-directory override when Windows `%TEMP%` lookup is unavailable.
 
 ### Releasing (version + tag)
 - `scripts/release.sh 2026.07.6` or `.\scripts\release.ps1 2026.07.6` updates `DeckFlow.Web/DeckFlow.Web.csproj`, commits `chore(release): 2026.07.6`, and creates the matching lightweight git tag.
