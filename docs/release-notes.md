@@ -6,6 +6,10 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Admin Harvest processing stats
+
+- The **Decks processed in last 30 days** metric now uses the latest processing time. Decks queued earlier count once processed within the window. Skipped decks, decks waiting to be processed again, and decks without a recorded processing time are excluded.
+
 ### Unreleased — Cut Lab roles (2026-11-13)
 
 - **New role groups:** Recursion, Stax, and Enablers help explain each card's job. All three have no role floor and are excluded from minimum checks.
