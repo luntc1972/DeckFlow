@@ -1409,14 +1409,8 @@ public sealed class CutLabApiControllerTests
             ChainStartGoals = new CutLabGoalSettings { CommanderByTurn = 2, EngineByTurn = 3, RepresentativeLineByTurn = 5 },
             ChainStartGoalsCustomized = chainStartCustomized,
         };
-        var options = new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
-        {
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-        };
-        var request = System.Text.Json.JsonSerializer.Deserialize<CutLabPlanApplyApiRequest>(
-            System.Text.Json.JsonSerializer.Serialize(payload, options), options)!;
 
-        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(request, CancellationToken.None);
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(payload, CancellationToken.None);
 
         CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
         Assert.Equal(expectedOutcome, body.GoalOutcome);

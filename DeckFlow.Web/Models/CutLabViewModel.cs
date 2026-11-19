@@ -642,7 +642,8 @@ public sealed record CutLabViewModel
             .. CutLabArchetypeCatalog.Entries.Select(entry =>
             {
                 bool isSuggested = string.Equals(archetypeSuggestion?.Slug, entry.Slug, StringComparison.OrdinalIgnoreCase);
-                string strategies = entry.PresetStrategies.Count > 0 ? string.Join(", ", entry.PresetStrategies) : "no strategies";
+                bool hasStrategies = entry.PresetStrategies.Count > 0;
+                string joinedStrategies = hasStrategies ? string.Join(", ", entry.PresetStrategies) : "no strategies";
                 string goals = $"Goals T{entry.DefaultGoals.CommanderByTurn} / T{entry.DefaultGoals.EngineByTurn} / T{entry.DefaultGoals.RepresentativeLineByTurn}";
                 return new CutLabPlanArchetypeRowView
                 {
@@ -650,8 +651,8 @@ public sealed record CutLabViewModel
                     PresetStrategies = entry.PresetStrategies,
                     DisplayName = entry.DisplayName,
                     Definition = entry.Definition,
-                    Detail = $"Adds: {strategies} · {goals}",
-                    CondensedDetail = $"{(entry.PresetStrategies.Count > 0 ? $"Adds {strategies}" : "No strategies")} · {goals}",
+                    Detail = $"Adds: {joinedStrategies} · {goals}",
+                    CondensedDetail = $"{(hasStrategies ? $"Adds {joinedStrategies}" : "No strategies")} · {goals}",
                     IsChecked = string.Equals(chosenArchetype, entry.Slug, StringComparison.OrdinalIgnoreCase),
                     IsSuggested = isSuggested,
                     IsLowConfidence = archetypeSuggestion?.Confidence == CutLabArchetypeConfidence.Low,

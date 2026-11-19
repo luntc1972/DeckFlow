@@ -259,6 +259,12 @@ interface CutLabPatchResponse {
   goalOutcome?: 'Unchanged' | 'Replaced' | 'Kept' | null;
 }
 
+function goalsEqual(a: NonNullable<CutLabPatchResponse['appliedGoals']>, b: CutLabPatchResponse['appliedGoals']): boolean {
+  return a.commanderByTurn === b?.commanderByTurn &&
+    a.engineByTurn === b?.engineByTurn &&
+    a.representativeLineByTurn === b?.representativeLineByTurn;
+}
+
 interface CutLabFloorRow {
   roleKey: string;
   inPoolCount: number;
@@ -1112,9 +1118,11 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
   const isAnyCutLabMutationInFlight = (): boolean => decisionSubmitInFlight || adjustSubmitInFlight || whatifSubmitInFlight || planApplySubmitInFlight || roleOverrideSubmitInFlight;
   let planApplyPendingChange = false;
   let hasPickedArchetype = false;
-  let planApplyChainStartArchetype: string | null = null;
-  let planApplyChainStartGoals: CutLabPatchResponse['appliedGoals'] = null;
-  let planApplyChainStartGoalsCustomized: boolean | null = null;
+  let planApplyChainStart: {
+    archetype: string | null;
+    goals: NonNullable<CutLabPatchResponse['appliedGoals']> | null;
+    goalsCustomized: boolean | null;
+  } | null = null;
   type CutLabArchetypeNotice = {
     appliedArchetype: string | null;
     priorArchetype: string | null;
@@ -1801,10 +1809,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
       engineByTurn: clampGoalValue(getGoalInput('engine') ?? document.createElement('input'), 2),
       representativeLineByTurn: clampGoalValue(getGoalInput('representative-line') ?? document.createElement('input'), 4),
     };
-    const goalsChanged = persistedGoals != null && (
-      goals.commanderByTurn !== persistedGoals.commanderByTurn ||
-      goals.engineByTurn !== persistedGoals.engineByTurn ||
-      goals.representativeLineByTurn !== persistedGoals.representativeLineByTurn);
+    const goalsChanged = persistedGoals != null && !goalsEqual(goals, persistedGoals);
     const selectedCommander = document.querySelector<HTMLSelectElement>('select[name="SelectedCommander"]');
     const commanderFromRow = rows.find(row => row.dataset.cutLabCommander === 'true')?.dataset.cutLabCard ?? '';
     const bracketInput = document.querySelector<HTMLInputElement>('input[name="Bracket"]:checked');
@@ -1870,7 +1875,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
           isUserSet: true,
         })),
       goals,
-      goalsCustomized: goalsChanged ? true : persistedState?.goalsCustomized,
+      goalsCustomized: goalsChanged || persistedState?.goalsCustomized,
     };
   };
 
@@ -4349,14 +4354,16 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
     const persistedArchetype = persistedPlanProfile?.archetype ?? null;
     const requestedArchetypeInput = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"]:checked');
     const requestedArchetype = requestedArchetypeInput?.value || null;
-    if (planApplyChainStartGoals === null) {
-      planApplyChainStartArchetype = persistedArchetype;
-      planApplyChainStartGoals = persistedState.goals ?? null;
-      planApplyChainStartGoalsCustomized = persistedState.goalsCustomized ?? null;
+    if (planApplyChainStart === null || planApplyChainStart.goals === null) {
+      planApplyChainStart = {
+        archetype: persistedArchetype,
+        goals: persistedState.goals ?? null,
+        goalsCustomized: persistedState.goalsCustomized ?? null,
+      };
       deferredArchetypeNotice = null;
     }
     const isArchetypeChange = requestedArchetype !== persistedArchetype ||
-      (planApplyChainStartGoals !== null && requestedArchetype !== planApplyChainStartArchetype);
+      (planApplyChainStart.goals !== null && requestedArchetype !== planApplyChainStart.archetype);
     // Why: a failed request must still announce the net change from an earlier, superseded success in the same chain.
     const restorePersistedPlanPanel = (): void => {
       if (planApplyPendingChange) return;
@@ -4396,9 +4403,9 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         body: JSON.stringify({
           cutLabStateJson: JSON.stringify(nextState),
           priorArchetype: persistedArchetype,
-          chainStartArchetype: planApplyChainStartArchetype,
-          chainStartGoals: planApplyChainStartGoals,
-          chainStartGoalsCustomized: planApplyChainStartGoalsCustomized,
+          chainStartArchetype: planApplyChainStart.archetype,
+          chainStartGoals: planApplyChainStart.goals,
+          chainStartGoalsCustomized: planApplyChainStart.goalsCustomized,
         }),
         signal: controller.signal,
       });
@@ -4422,10 +4429,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         appliedGoals: data.appliedGoals,
         archetypeDefaultGoals: data.archetypeDefaultGoals,
         goalOutcome: data.goalOutcome,
-        shouldSyncGoals: data.goalOutcome === 'Replaced' || (data.appliedGoals != null && (
-          data.appliedGoals.commanderByTurn !== persistedState.goals?.commanderByTurn ||
-          data.appliedGoals.engineByTurn !== persistedState.goals?.engineByTurn ||
-          data.appliedGoals.representativeLineByTurn !== persistedState.goals?.representativeLineByTurn)),
+        shouldSyncGoals: data.goalOutcome === 'Replaced' || (data.appliedGoals != null && !goalsEqual(data.appliedGoals, persistedState.goals)),
         displayName: getArchetypeDisplayName(findArchetypeInput(data.appliedArchetype ?? null), 'this archetype'),
       };
       // Why: the patch's state JSON already carries the applied archetype (the server rebuilds the profile before serializing).
@@ -4448,9 +4452,7 @@ const formatStructuralFindingsCount = (count: number): string => formatCountLabe
         planApplyPendingChange = false;
         void handlePlanPanelChange();
       } else {
-        planApplyChainStartArchetype = null;
-        planApplyChainStartGoals = null;
-        planApplyChainStartGoalsCustomized = null;
+        planApplyChainStart = null;
         deferredArchetypeNotice = null;
       }
     }

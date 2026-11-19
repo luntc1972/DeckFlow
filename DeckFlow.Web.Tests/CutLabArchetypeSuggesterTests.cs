@@ -139,33 +139,35 @@ public sealed class CutLabArchetypeSuggesterTests
         Assert.Contains("Combo data was unavailable", result.Reason);
     }
 
-    [Fact]
-    public void Suggest_Archetype_StaxWithEmptyCategories_UsesStaxRole()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Suggest_Archetype_StaxWithEmptyCategories_UsesStaxRole(bool categoryDataAvailable)
     {
-        var result = Suggest(Cards(5, roles: ["stax"]));
+        var result = Suggest(Cards(5, roles: ["stax"]), Classification(categoryDataAvailable: categoryDataAvailable));
 
         Assert.Equal("stax", result.Slug);
+        if (!categoryDataAvailable)
+        {
+            Assert.Equal(CutLabArchetypeConfidence.Low, result.Confidence);
+            Assert.DoesNotContain("were not checked", result.Reason);
+            Assert.Contains("counted from card text", result.Reason);
+        }
     }
 
-    [Fact]
-    public void Suggest_Archetype_TutorsWithEmptyCategories_UsesTutorRole()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Suggest_Archetype_TutorsWithEmptyCategories_UsesTutorRole(bool categoryDataAvailable)
     {
-        var cards = Enumerable.Range(1, 8).Select(index => Card($"Tutor {index}", roles: ["ramp", "tutor"])).ToArray();
-
-        var result = Suggest(cards, Classification(comboNames: ["Tutor 1"]));
+        var result = Suggest(TurboCards(useTutorRole: true),
+            Classification(categoryDataAvailable: categoryDataAvailable, comboNames: ["Tutor 1"]));
 
         Assert.Equal("turbo-combo", result.Slug);
-    }
-
-    [Fact]
-    public void Suggest_Archetype_CategoryDataUnavailable_UsesStaxRoleWithLowConfidence()
-    {
-        var result = Suggest(Cards(5, roles: ["stax"]), Classification(categoryDataAvailable: false));
-
-        Assert.Equal("stax", result.Slug);
-        Assert.Equal(CutLabArchetypeConfidence.Low, result.Confidence);
-        Assert.DoesNotContain("were not checked", result.Reason);
-        Assert.Contains("counted from card text", result.Reason);
+        if (!categoryDataAvailable)
+        {
+            Assert.Equal(CutLabArchetypeConfidence.Low, result.Confidence);
+        }
     }
 
     [Fact]
@@ -174,17 +176,6 @@ public sealed class CutLabArchetypeSuggesterTests
         var result = Suggest(Cards(5, roles: ["stax"], categories: ["ramp"]), Classification(categoryDataAvailable: false));
 
         Assert.Equal("stax", result.Slug);
-        Assert.Equal(CutLabArchetypeConfidence.Low, result.Confidence);
-    }
-
-    [Fact]
-    public void Suggest_Archetype_CategoryDataUnavailable_UsesTutorRole()
-    {
-        var cards = Enumerable.Range(1, 8).Select(index => Card($"Tutor {index}", roles: ["ramp", "tutor"])).ToArray();
-
-        var result = Suggest(cards, Classification(categoryDataAvailable: false, comboNames: ["Tutor 1"]));
-
-        Assert.Equal("turbo-combo", result.Slug);
         Assert.Equal(CutLabArchetypeConfidence.Low, result.Confidence);
     }
 
@@ -208,8 +199,11 @@ public sealed class CutLabArchetypeSuggesterTests
     private static CutLabArchetypeSuggestion Suggest(IReadOnlyList<CutLabAnalyzedCard> cards, CutLabClassificationContext? classification = null)
         => CutLabArchetypeSuggester.Suggest(cards, classification ?? Classification(), []);
 
-    private static CutLabAnalyzedCard[] TurboCards()
-        => Enumerable.Range(1, 8).Select(index => Card($"Tutor {index}", 1, roles: ["ramp"], categories: ["tutor"])).ToArray();
+    private static CutLabAnalyzedCard[] TurboCards(bool useTutorRole = false)
+        => Enumerable.Range(1, 8)
+            .Select(index => Card($"Tutor {index}", 1, roles: useTutorRole ? ["ramp", "tutor"] : ["ramp"],
+                categories: useTutorRole ? [] : ["tutor"]))
+            .ToArray();
 
     private static CutLabAnalyzedCard[] Cards(int count, IReadOnlyList<string>? roles = null, IReadOnlyList<string>? categories = null, string typeLine = "")
         => Enumerable.Range(1, count).Select(index => Card($"Card {index}", roles: roles, categories: categories, typeLine: typeLine)).ToArray();

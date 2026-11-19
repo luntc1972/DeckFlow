@@ -34,6 +34,10 @@ function getAdminForwardedIp(): string {
   return `203.0.113.${hash + 1}`;
 }
 
+function errorCode(error: unknown): unknown {
+  return typeof error === 'object' && error !== null && 'code' in error ? error.code : '';
+}
+
 async function tryReclaimStaleLock(): Promise<void> {
   let lock: Stats;
   let payload: LockFilePayload | null = null;
@@ -41,7 +45,7 @@ async function tryReclaimStaleLock(): Promise<void> {
   try {
     lock = await stat(adminLockPath);
   } catch (error: unknown) {
-    const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+    const code = String(errorCode(error));
     if (code === 'ENOENT') {
       return;
     }
@@ -52,11 +56,12 @@ async function tryReclaimStaleLock(): Promise<void> {
   try {
     payload = JSON.parse(await readFile(adminLockPath, 'utf8')) as LockFilePayload;
   } catch (error: unknown) {
-    if (!(error instanceof SyntaxError)) {
-      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT') {
-        return;
-      }
+    const invalidJson = error instanceof SyntaxError;
+    if (!invalidJson && errorCode(error) === 'ENOENT') {
+      return;
+    }
 
+    if (!invalidJson) {
       throw error;
     }
   }
@@ -75,7 +80,7 @@ async function tryReclaimStaleLock(): Promise<void> {
         process.kill(payload.pid, 0);
         return true;
       } catch (error: unknown) {
-        const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+        const code = String(errorCode(error));
         if (code === 'ESRCH') {
           return false;
         }
@@ -103,7 +108,7 @@ async function unlinkAdminLock(lock: Stats): Promise<void> {
       await unlink(adminLockPath);
     }
   } catch (error: unknown) {
-    const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+    const code = String(errorCode(error));
     if (code !== 'ENOENT') {
       throw error;
     }
@@ -124,7 +129,7 @@ async function acquireAdminLock(): Promise<LockHandle> {
       );
       return handle;
     } catch (error: unknown) {
-      const code = typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
+      const code = String(errorCode(error));
       if (code !== 'EEXIST') {
         throw error;
       }
@@ -149,9 +154,9 @@ export async function acquireAdminLockForTest(page: Page): Promise<LockHandle> {
   const startedAt = performance.now();
   const handle = await acquireAdminLock();
   const waitedMs = Math.ceil(performance.now() - startedAt);
-  const setTimeout = info.setTimeout.bind(info);
+  const originalSetTimeout = info.setTimeout.bind(info);
   // Why: Some callers adjust their work budget after beforeEach. Keep their lock wait excluded too.
-  info.setTimeout = (timeout) => setTimeout(timeout === 0 ? 0 : timeout + waitedMs);
+  info.setTimeout = (timeout) => originalSetTimeout(timeout === 0 ? 0 : timeout + waitedMs);
   info.setTimeout(workBudgetMs);
   return handle;
 }

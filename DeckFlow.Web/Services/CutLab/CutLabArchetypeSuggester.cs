@@ -23,9 +23,8 @@ public static class CutLabArchetypeSuggester
         IReadOnlyList<CutLabAnalyzedCard> nonCommanderCards = cards.Where(card => !card.IsCommander).ToArray();
         // Why: fast mana here deliberately means non-land ramp with mana value <= 1 (Sol Ring, mana dorks, rituals), not DeckStatClassifier.IsFastManaCard (zero-MV mana artifacts only), because the turbo-combo fastMana >= 8 threshold depends on this broader definition.
         int fastMana = Count(nonCommanderCards, card => !card.IsLand && HasRole(card, "ramp") && card.ManaValue <= 1);
-        int tutors = Count(nonCommanderCards, card => HasUsableCategories(card, classification.CategoryDataAvailable)
-            ? HasCategory(card, "tutor")
-            : HasRole(card, "tutor"));
+        int tutors = CountMatchingCategoryOrRole(nonCommanderCards, classification.CategoryDataAvailable, CutLabRoleKeys.Tutor,
+            card => HasCategory(card, "tutor"));
         int staxPieces = CountStax(nonCommanderCards, classification.CategoryDataAvailable);
         int stormCards = Count(nonCommanderCards, card => card.SemanticProfile?.Keywords?.Contains("Storm", StringComparer.OrdinalIgnoreCase) == true);
         int spells = Count(nonCommanderCards, card => HasType(card, "Instant") || HasType(card, "Sorcery"));
@@ -109,14 +108,19 @@ public static class CutLabArchetypeSuggester
             return 0;
         }
 
-        return Count(cards, card => HasUsableCategories(card, categoryDataAvailable)
-            ? DeckPlanStrategyCatalog.MatchesCategories(stax, card.Categories)
-            : HasRole(card, CutLabRoleKeys.Stax));
+        return CountMatchingCategoryOrRole(cards, categoryDataAvailable, CutLabRoleKeys.Stax,
+            card => DeckPlanStrategyCatalog.MatchesCategories(stax, card.Categories));
     }
 
     // Why: crowd categories take precedence when available for the card, and roles cover gaps in that data.
-    private static bool HasUsableCategories(CutLabAnalyzedCard card, bool categoryDataAvailable)
-        => categoryDataAvailable && card.Categories.Count > 0;
+    private static int CountMatchingCategoryOrRole(
+        IReadOnlyList<CutLabAnalyzedCard> cards,
+        bool categoryDataAvailable,
+        string role,
+        Func<CutLabAnalyzedCard, bool> matchesCategory)
+        => Count(cards, card => categoryDataAvailable && card.Categories.Count > 0
+            ? matchesCategory(card)
+            : HasRole(card, role));
 
     private static bool HasCompleteCombo(IReadOnlyList<CutLabAnalyzedCard> cards, CutLabClassificationContext classification)
         => cards.Any(card => classification.CardComboMembership.TryGetValue(CutLabCardNames.Normalize(card.Name), out CutLabCardComboMembership? membership)
