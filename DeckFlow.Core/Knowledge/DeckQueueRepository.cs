@@ -174,35 +174,34 @@ internal sealed class DeckQueueRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
-    internal async Task<int> MarkMetadataLessDecksForRefreshAsync(CancellationToken cancellationToken = default)
+    internal async Task<RefetchMarkBatch> RunRefetchMarkBatchAsync(int maxDecks, CancellationToken cancellationToken = default)
     {
-        await _schema.EnsureSchemaAsync(cancellationToken);
+        if (maxDecks < 1) throw new ArgumentOutOfRangeException(nameof(maxDecks));
+        await _schema.EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
         await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        var candidates = (await connection.QueryAsync<RefetchCandidateRow>(new CommandDefinition(
+            $"SELECT q.id AS DeckQueueId, q.commander_name AS CommanderName FROM deck_queue q WHERE {RefetchCandidateSql} ORDER BY q.id LIMIT @maxDecks;",
+            new { maxDecks }, transaction: transaction, commandTimeout: MaintenanceCommandTimeoutSeconds,
+            cancellationToken: cancellationToken)).ConfigureAwait(false)).ToArray();
+        if (candidates.Length == 0)
+        {
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            return new RefetchMarkBatch(0, 0, true);
+        }
 
-        var affectedCommanderNames = await connection.QueryAsync<string?>(new CommandDefinition(
-            $"SELECT q.commander_name FROM deck_queue q WHERE {RefetchCandidateSql};",
-            commandTimeout: MaintenanceCommandTimeoutSeconds,
-            transaction: transaction,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-        var marked = await connection.ExecuteAsync(new CommandDefinition(
-            $"""
-            UPDATE deck_queue
-            SET processed = 0,
-                skipped = 0,
-                transient_failure_count = 0,
-                skip_reason = NULL,
-                refresh_requested_utc = @refreshRequestedUtc
-            WHERE id IN (SELECT q.id FROM deck_queue q WHERE {RefetchCandidateSql});
-            """,
-            new { refreshRequestedUtc = DateTime.UtcNow },
-            transaction: transaction,
-            commandTimeout: MaintenanceCommandTimeoutSeconds,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
-        await RefreshCommanderSummaryAsync(connection, transaction, affectedCommanderNames, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken);
-        return marked;
+        var selectedCommanderNames = candidates.Select(candidate => candidate.CommanderName).ToArray();
+        var ids = candidates.Select(candidate => candidate.DeckQueueId).ToArray();
+        var membershipOperator = _connectionInfo.IsPostgres ? "= ANY(@ids)" : "IN @ids";
+        var markedCommanderNames = await connection.QueryAsync<string?>(new CommandDefinition(
+            $"UPDATE deck_queue AS q SET processed = 0, skipped = 0, transient_failure_count = 0, skip_reason = NULL, refresh_requested_utc = @refreshRequestedUtc WHERE q.id {membershipOperator} AND {RefetchCandidateSql} RETURNING commander_name;",
+            new { ids, refreshRequestedUtc = DateTime.UtcNow }, transaction: transaction,
+            commandTimeout: MaintenanceCommandTimeoutSeconds, cancellationToken: cancellationToken)).ConfigureAwait(false);
+        await RefreshCommanderSummaryAsync(connection, transaction, selectedCommanderNames.Concat(markedCommanderNames), _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        // Why: marked rows leave RefetchCandidateSql, so each batch can safely start from the remaining candidates.
+        return new RefetchMarkBatch(candidates.Length, markedCommanderNames.Count(), candidates.Length < maxDecks);
     }
 
     internal async Task<int> CountRefetchCandidatesAsync(CancellationToken cancellationToken = default)
@@ -1239,6 +1238,12 @@ internal sealed class DeckQueueRepository
         public string CommanderName { get; init; } = string.Empty;
         public string? UpdatedUtc { get; init; }
         public DateTimeOffset InsertedUtc { get; init; }
+    }
+
+    private sealed class RefetchCandidateRow
+    {
+        public long DeckQueueId { get; init; }
+        public string? CommanderName { get; init; }
     }
 
     private sealed class PurgeCandidateRow

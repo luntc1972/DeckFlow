@@ -41,6 +41,23 @@ public sealed class HarvestMaintenanceStatusTextTests
     }
 
     [Fact]
+    public void Describe_RefetchRunningWithBatches()
+    {
+        var now = MaintenanceStatusFixtures.CanonicalNow("running");
+        var status = MaintenanceStatusFixtures.For("running", now) with
+        {
+            Operation = HarvestMaintenanceOperation.Refetch,
+            DecksAffected = 1000,
+            Batches = 2,
+            PreviewAtStart = new(0, 0, 91525),
+        };
+
+        var details = HarvestMaintenanceStatusText.Describe(status, now).Details;
+        Assert.Contains("1000 decks in 2 batches; last batch", details[1]);
+        Assert.Contains("Remaining: about 90525 of 91525 decks", details[3]);
+    }
+
+    [Fact]
     public void Describe_StallBoundary_TwoMinutesIsRunningMoreIsStalled()
     {
         var now = MaintenanceStatusFixtures.CanonicalNow("running");

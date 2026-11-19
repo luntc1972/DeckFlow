@@ -67,12 +67,20 @@ These are operator-run production gates. Record an explicit proceed or hold deci
 2. Set `HarvestRetention__MaintenanceMaxDecksPerRun=100` and deploy the approved SHA through the normal deployment approval process. Keep schedules paused and perform no URL imports or other admin writes during measurement.
 3. Before Drain, record manifest count, database bytes, WAL position, category lookup output for five pilot cards, and live row counts. Measure heap tuple bytes with `SELECT COALESCE(SUM(pg_column_size(t.*)), 0) FROM <table> t` for `card_category_observations`, `card_deck_totals`, and each archive table: `card_category_archive`, `card_category_deck_archive`, `card_deck_totals_archive`, and `deck_category_archive_manifest`. Exclude indexes. Record relation sizes for disk tracking only; they do not shrink on delete and are not O4 inputs.
 4. Run the bounded Drain once. Record the same measurements afterward, plus write counters, batch durations, and lock waits. Require exactly 100 new manifests, unchanged category lookups for all five cards, and no lock-wait or batch timeout. A smaller backlog requires a separately approved pilot size and matching manifest delta.
-5. Require the O4 size gate: `live_freed = (obs_sum_before - obs_sum_after) + (totals_sum_before - totals_sum_after)`; incremental archive heap tuple bytes must be at most one tenth of `live_freed`. Compare heap tuples on both sides, excluding indexes. No other writes may occur between samples. If any gate fails, keep Drain stopped and report the failing measurement before changing archive representation or continuing.
-6. Choose BatchSize and any stop threshold from the measured pilot results. Set `HarvestRetention__MaintenanceMaxDecksPerRun=0`, deploy, and repeat the fresh Render disk check from step 1. Run Drain; require retention excess falling to 0, purge candidates remaining 0, and unchanged pilot-card lookups. Require `Harvest.Maintenance.Completed operation=Drain` with `stopReason=Completed` and Preview confirming 0 excess before resuming both schedules. Confirm both schedule cards show Paused: No, observe the first post-harvest `Harvest.Retention.Completed` log, and restore Render autoDeploy if it was disabled for rollout. Save final evidence in the operator record.
+5. Require the amended O4 size gate (user decision 2026-11-17 12:19 MST): the net saving is positive, meaning the incremental archive heap tuple bytes are below `live_freed = (obs_sum_before - obs_sum_after) + (totals_sum_before - totals_sum_after)`; and the projected full-drain archive (pilot archive bytes per deck times the decks over the cap at Preview) fits within fresh Render disk headroom above the free-disk floor. Compare heap tuples on both sides, excluding indexes. No other writes may occur between samples. If any gate fails, keep Drain stopped and report the failing measurement before changing archive representation or continuing.
+6. Choose BatchSize and any stop threshold from the measured pilot results. Set `HarvestRetention__MaintenanceMaxDecksPerRun=0`, deploy, and repeat the fresh Render disk check from step 1. Run Drain; require retention excess falling to 0, purge candidates remaining 0, and unchanged pilot-card lookups. End the drain release at `Harvest.Maintenance.Completed operation=Drain` with `stopReason=Completed` and Preview confirming 0 excess, then continue to Step 4. Save final evidence in the operator record.
 
 ## Step 4 — Refetch
 
 Tick the confirmation box and run Refetch. The server refuses Refetch until Preview shows purge candidates 0 and decks over the cap 0. When Refetch completes, Preview must show 0 refetch candidates. Refetch only queues those decks; update harvests fetch them after Step 5 and apply the legality gate.
+
+- Refetch marks decks in transactions of up to 500 decks, with at most `MaintenanceChunkDecks` decks per sweep-gate hold. The card shows decks, batches, rate, and remaining.
+- Stop takes effect before the next batch. The free-disk floor and Render probe are checked before every batch; follow "Watching a run" for stops.
+- Committed batches stay committed after a Stop, failure, deploy, or restart. Pressing Refetch again continues, and Preview's refetch count falls by the decks marked.
+- A harvest sweep running at the same time makes Refetch wait at the next chunk boundary, so the 2-minute no-progress warning can appear meanwhile.
+- Each chunk logs `Harvest.Maintenance.RefetchChunk` with elapsedMs. Stop and report if any chunk exceeds 60000 ms.
+- Lowering `HarvestRetention__MaintenanceChunkDecks` below 500 lowers the transaction size. This needs a restart, and the value is restored afterwards.
+- Expect about 15-30 minutes for about 92k decks.
 
 A deck removed by retention stays pruned. It returns only when its owner changes its commander or main deck on Archidekt; sideboard or maybeboard edits leave it pruned.
 
@@ -80,7 +88,7 @@ Known limit: changing only the quantity of a commander or main-deck card that ha
 
 ## Step 5 — Resume schedules
 
-Resume both the Bulk Schedule and Update Schedule. Confirm both cards show `Paused: No` and both next-scheduled-run lines show a time rather than Paused or Off. After the first harvest run, confirm logs contain `Harvest.Retention.Completed` and the skipped-decks counts begin updating.
+Resume both the Bulk Schedule and Update Schedule. Confirm both cards show `Paused: No` and both next-scheduled-run lines show a time rather than Paused or Off. Restore Render autoDeploy only after Refetch has completed on the deployed fix SHA. After the first harvest run, confirm logs contain `Harvest.Retention.Completed` and the skipped-decks counts begin updating.
 
 ## Watching a run
 
