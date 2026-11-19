@@ -132,6 +132,18 @@ public sealed class CategoryCacheSchemaParityTests : IDisposable
     }
 
     [Fact]
+    public async Task EnsureSchemaAsync_DeckQueue_CreatesProcessedLastCheckedIndex()
+    {
+        var repository = CreateRepository();
+        await repository.EnsureSchemaAsync();
+        await using var connection = await OpenConnectionAsync();
+
+        Assert.Equal(1L, await QuerySingleInt64Async(
+            connection,
+            "SELECT COUNT(1) FROM sqlite_master WHERE type = 'index' AND name = 'ix_deck_queue_processed_last_checked';"));
+    }
+
+    [Fact]
     public async Task GetNextUnprocessedDeckIdsAsync_MixedQueue_ReturnsPendingInInsertedOrder()
     {
         var repository = CreateRepository();
