@@ -30,13 +30,13 @@ describe('cut-lab archetype picker', () => {
     buildFixture();
     const stateInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!;
     const initialGoals = { commanderByTurn: 4, engineByTurn: 5, representativeLineByTurn: 6 };
-    stateInput.value = JSON.stringify({ goals: initialGoals, intent: { planProfile: { archetype: null, genericStrategies: [], commanderThemes: [] } } });
+    stateInput.value = JSON.stringify({ goals: initialGoals, goalsCustomized: true, intent: { planProfile: { archetype: null, genericStrategies: [], commanderThemes: [] } } });
     const stax = document.querySelector<HTMLInputElement>('input[value="stax"]')!;
     const none = document.querySelector<HTMLInputElement>('input[name="PlanArchetype"][value=""]')!;
     let resolveFirst: (value: unknown) => void;
     const staxGoals = { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: 6 };
-    const staxPatch = { ...patch, cutLabStateJson: JSON.stringify({ goals: staxGoals, intent: { planProfile: { archetype: 'stax', genericStrategies: [], commanderThemes: [] } } }) };
-    const nonePatch = { ...patch, cutLabStateJson: JSON.stringify({ goals: initialGoals, intent: { planProfile: { archetype: null, genericStrategies: [], commanderThemes: [] } } }) };
+    const staxPatch = { ...patch, cutLabStateJson: JSON.stringify({ goals: staxGoals, goalsCustomized: false, intent: { planProfile: { archetype: 'stax', genericStrategies: [], commanderThemes: [] } } }) };
+    const nonePatch = { ...patch, cutLabStateJson: JSON.stringify({ goals: initialGoals, goalsCustomized: true, intent: { planProfile: { archetype: null, genericStrategies: [], commanderThemes: [] } } }) };
     fetchMock.mockImplementationOnce(() => new Promise(resolve => { resolveFirst = resolve; }))
       .mockResolvedValueOnce({ ok: true, json: async () => ({ patch: nonePatch, appliedStrategies: [], appliedThemes: [], appliedArchetype: null, appliedGoals: initialGoals, goalOutcome: 'Unchanged' }) });
 
@@ -53,7 +53,55 @@ describe('cut-lab archetype picker', () => {
     expect(document.querySelector<HTMLInputElement>('[data-cut-lab-goal="commander"]')!.value).toBe('4');
     expect(document.querySelector('[data-cut-lab-archetype-notice]')!.textContent).toBe('Archetype cleared. Manual strategies and goals are unchanged.');
     expect(stax.closest('label')!.textContent).not.toContain('Applying…');
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).chainStartGoalsCustomized).toBe(true);
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).chainStartGoals).toEqual(initialGoals);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).chainStartGoalsCustomized).toBe(true);
+  });
+
+  it.each([[5, true], [6, false]])('posts goal turn %s with the expected provenance', (turn, customized) => {
+    buildFixture();
+    const stateInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!;
+    stateInput.value = JSON.stringify({
+      ...JSON.parse(stateJson),
+      goals: { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: 6 },
+      goalsCustomized: false,
+    });
+    document.querySelector<HTMLInputElement>('[data-cut-lab-goal="commander"]')!.value = '2';
+    document.querySelector<HTMLInputElement>('[data-cut-lab-goal="engine"]')!.value = '3';
+    document.querySelector<HTMLInputElement>('[data-cut-lab-goal="representative-line"]')!.value = String(turn);
+    const goalsForm = document.querySelector<HTMLFormElement>('[data-cut-lab-goals-form]')!;
+
+    let postedState;
+    stateInput.form!.addEventListener('submit', event => {
+      event.preventDefault();
+      postedState = JSON.parse(stateInput.value);
+    });
+    goalsForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    expect(postedState).toMatchObject({
+      goals: { commanderByTurn: 2, engineByTurn: 3, representativeLineByTurn: turn },
+      goalsCustomized: customized,
+    });
+  });
+
+  it.each([
+    { turn: '5', savedCustomized: false, expectedCustomized: true },
+    { turn: '6', savedCustomized: null, expectedCustomized: null },
+    { turn: '6', savedCustomized: false, expectedCustomized: false },
+  ])('serializes goal turn $turn with $expectedCustomized provenance on main-form submit', ({ turn, savedCustomized, expectedCustomized }) => {
+    buildFixture();
+    const stateInput = document.querySelector<HTMLInputElement>('input[name="CutLabStateJson"]')!;
+    stateInput.value = JSON.stringify({ ...JSON.parse(stateJson), goalsCustomized: savedCustomized });
+    const lineInput = document.querySelector<HTMLInputElement>('[data-cut-lab-goal="representative-line"]')!;
+    lineInput.value = turn;
+
+    stateInput.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+    const serialized = JSON.parse(stateInput.value);
+    expect(serialized).toMatchObject({
+      goals: { commanderByTurn: 4, engineByTurn: 5, representativeLineByTurn: Number(turn) },
+      goalsCustomized: expectedCustomized,
+    });
   });
 
   it('Archetype timeout uses archetype failure copy', async () => {

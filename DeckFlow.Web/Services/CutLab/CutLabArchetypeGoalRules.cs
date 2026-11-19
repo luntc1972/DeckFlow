@@ -11,13 +11,17 @@ public static class CutLabArchetypeGoalRules
     /// <param name="newArchetype">Newly selected archetype slug.</param>
     /// <param name="chainStartArchetype">Archetype selected before a coalesced sequence of edits.</param>
     /// <param name="chainStartGoals">Goals stored before a coalesced sequence of edits.</param>
-    /// <returns>The goals to store and the resulting outcome.</returns>
-    public static (CutLabGoalSettings Goals, CutLabArchetypeGoalOutcome Outcome) Apply(
+    /// <param name="goalsCustomized">Whether the current goals were explicitly customized; null for legacy state.</param>
+    /// <param name="chainStartGoalsCustomized">Whether the chain-start goals were explicitly customized; null when unknown.</param>
+    /// <returns>The goals to store, the resulting outcome, and goal provenance.</returns>
+    public static (CutLabGoalSettings Goals, CutLabArchetypeGoalOutcome Outcome, bool? GoalsCustomized) Apply(
         CutLabGoalSettings current,
         string? priorArchetype,
         string? newArchetype,
         string? chainStartArchetype = null,
-        CutLabGoalSettings? chainStartGoals = null)
+        CutLabGoalSettings? chainStartGoals = null,
+        bool? goalsCustomized = null,
+        bool? chainStartGoalsCustomized = null)
     {
         var priorSlug = CutLabArchetypeCatalog.NormalizeSlug(priorArchetype);
         var newSlug = CutLabArchetypeCatalog.NormalizeSlug(newArchetype);
@@ -25,24 +29,27 @@ public static class CutLabArchetypeGoalRules
 
         if (chainStartGoals is not null && chainStartSlug == newSlug)
         {
-            return (chainStartGoals, CutLabArchetypeGoalOutcome.Unchanged);
+            return (chainStartGoals, CutLabArchetypeGoalOutcome.Unchanged, chainStartGoalsCustomized);
         }
 
         if (chainStartGoals is not null && priorSlug == newSlug)
         {
-            return Apply(chainStartGoals, chainStartSlug, newSlug);
+            return Apply(chainStartGoals, chainStartSlug, newSlug, goalsCustomized: chainStartGoalsCustomized);
         }
 
         if (priorSlug == newSlug || !CutLabArchetypeCatalog.TryGetBySlug(newSlug, out var entry))
         {
-            return (current, CutLabArchetypeGoalOutcome.Unchanged);
+            return (current, CutLabArchetypeGoalOutcome.Unchanged, goalsCustomized);
         }
 
-        var untouched = current == new CutLabGoalSettings() ||
-            CutLabArchetypeCatalog.Entries.Any(candidate => candidate.DefaultGoals == current);
+        // Why: Explicit edits can match another archetype's defaults, so equality only identifies legacy defaults.
+        bool untouched = goalsCustomized is bool customized
+            ? !customized
+            : current == new CutLabGoalSettings()
+                || CutLabArchetypeCatalog.Entries.Any(candidate => candidate.DefaultGoals == current);
 
         return untouched
-            ? (entry.DefaultGoals, CutLabArchetypeGoalOutcome.Replaced)
-            : (current, CutLabArchetypeGoalOutcome.Kept);
+            ? (entry.DefaultGoals, CutLabArchetypeGoalOutcome.Replaced, false)
+            : (current, CutLabArchetypeGoalOutcome.Kept, goalsCustomized);
     }
 }

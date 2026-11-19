@@ -24,4 +24,7 @@ public sealed record CutLabPlanApplyApiRequest
 
     /// <summary>Goals stored before a coalesced series of plan-panel edits.</summary>
     public CutLabGoalSettings? ChainStartGoals { get; init; }
+
+    /// <summary>Goal provenance at the start of the coalesced edits, when supplied by the client.</summary>
+    public bool? ChainStartGoalsCustomized { get; init; }
 }

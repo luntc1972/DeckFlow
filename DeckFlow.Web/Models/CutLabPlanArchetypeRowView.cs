@@ -13,6 +13,8 @@ public sealed record CutLabPlanArchetypeRowView
     public string Definition { get; init; } = string.Empty;
     /// <summary>Supplemental detail shown for this Step 2 archetype.</summary>
     public string Detail { get; init; } = string.Empty;
+    /// <summary>Condensed strategy and goal detail shown on phones.</summary>
+    public string CondensedDetail { get; init; } = string.Empty;
     /// <summary>True when this Step 2 archetype is selected.</summary>
     public bool IsChecked { get; init; }
     /// <summary>True when this Step 2 archetype is suggested.</summary>

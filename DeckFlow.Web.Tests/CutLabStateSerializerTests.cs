@@ -8,6 +8,27 @@ namespace DeckFlow.Web.Tests;
 /// <summary>Tests for <see cref="CutLabStateSerializer"/> covering round-trip, tamper defense, and size/error handling.</summary>
 public sealed class CutLabStateSerializerTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void SerializeDeserialize_ExplicitGoalProvenance_RoundTrips(bool value)
+    {
+        var state = new CutLabState { GoalsCustomized = value };
+
+        CutLabState roundTripped = CutLabStateSerializer.Deserialize(CutLabStateSerializer.Serialize(state));
+
+        Assert.Equal(value, roundTripped.GoalsCustomized);
+    }
+
+    [Fact]
+    public void Deserialize_LegacyStateWithoutGoalProvenance_ReturnsNull()
+    {
+        CutLabState state = CutLabStateSerializer.Deserialize("""{"goals":{"commanderByTurn":2,"engineByTurn":3,"representativeLineByTurn":5}}""");
+
+        Assert.Equal(5, state.Goals.RepresentativeLineByTurn);
+        Assert.Null(state.GoalsCustomized);
+    }
+
     [Fact]
     public void Deserialize_LegacyCategoryOverridesJson_IgnoresFieldAndKeepsState()
     {

@@ -16,6 +16,9 @@ public static class CutLabRoleKeys
     /// <summary>Role key for continuing opponent restrictions and taxes.</summary>
     public const string Stax = "stax";
 
+    /// <summary>Role key for cards that search for other cards.</summary>
+    public const string Tutor = "tutor";
+
     /// <summary>Cards that fire an active commander trigger family.</summary>
     public const string Enablers = "enablers";
 

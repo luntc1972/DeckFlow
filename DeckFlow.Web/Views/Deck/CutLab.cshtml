@@ -654,7 +654,8 @@
                     <p class="cut-lab-plan-panel__zero-notice @(Model.PlanPanel.ZeroSelectionNotice ? "" : "hidden")" role="status" data-cut-lab-plan-zero-notice>With nothing checked, the cut engine behaves exactly as it does today.</p>
                     <fieldset class="cut-lab-plan-panel__archetypes" data-cut-lab-plan-archetypes>
                         <legend>Deck archetype</legend>
-                        <p>What kind of deck is this? The archetype adds its strategies below and sets default goal turns. Your own choice always wins over the suggestion.</p>
+                        <p class="desktop-only">What kind of deck is this? The archetype adds its strategies below and sets default goal turns. Your own choice always wins over the suggestion.</p>
+                        <p class="mobile-only">The archetype adds its strategies and sets default goal turns.</p>
                         @foreach (CutLabPlanArchetypeRowView row in Model.PlanPanel.ArchetypeRows)
                         {
                             <label class="cut-lab-plan-panel__row">
@@ -663,8 +664,9 @@
                                     <span class="cut-lab-plan-panel__row-name">@row.DisplayName</span>
                                     @if (row.IsSuggested) { <span class="cut-lab-plan-panel__badge @(row.IsLowConfidence ? "cut-lab-plan-panel__badge--low" : "") @(row.IsChecked ? "hidden" : "")" data-cut-lab-archetype-badge="suggested">Suggested@(row.IsLowConfidence ? " · low confidence" : "")</span> }
                                     @if (row.Slug.Length > 0) { <span class="cut-lab-plan-panel__badge @(row.IsChecked ? "" : "hidden")" data-cut-lab-archetype-badge="choice">Your choice</span> }
-                                    <span class="cut-lab-plan-panel__row-definition">@row.Definition</span>
-                                    @if (row.Detail.Length > 0) { <span>@row.Detail</span> }
+                                    <span class="cut-lab-plan-panel__row-definition desktop-only">@row.Definition</span>
+                                    @if (row.Detail.Length > 0) { <span class="desktop-only">@row.Detail</span> }
+                                    <span class="mobile-only">@row.CondensedDetail</span>
                                     @if (row.SuggestionReason is not null) { <span class="@(row.ShowSuggestionReason ? "" : "hidden")" data-cut-lab-archetype-reason>Why suggested: @row.SuggestionReason</span> }
                                 </span>
                             </label>

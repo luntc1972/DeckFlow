@@ -1337,6 +1337,7 @@ public sealed class CutLabApiControllerTests
         Assert.Equal("stax", body.AppliedArchetype);
         Assert.Equal(CutLabArchetypeGoalOutcome.Replaced, body.GoalOutcome);
         Assert.Equal(patchBuilder.LastState!.Goals, body.AppliedGoals);
+        Assert.False(CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson).GoalsCustomized);
     }
 
     [Fact]
@@ -1382,6 +1383,39 @@ public sealed class CutLabApiControllerTests
         Assert.Equal(CutLabArchetypeGoalOutcome.Unchanged, body.GoalOutcome);
         Assert.Equal(initialGoals, body.AppliedGoals);
         Assert.Equal(initialGoals, patchBuilder.LastState!.Goals);
+    }
+
+    [Theory]
+    [InlineData("stax", true, CutLabArchetypeGoalOutcome.Unchanged, 5)]
+    [InlineData("control", true, CutLabArchetypeGoalOutcome.Kept, 5)]
+    [InlineData("control", null, CutLabArchetypeGoalOutcome.Replaced, 7)]
+    public async Task PostPlanApplyAsync_ArchetypeChain_UsesChainStartGoalProvenance(
+        string archetype, bool? chainStartCustomized, CutLabArchetypeGoalOutcome expectedOutcome, int expectedTurn)
+    {
+        TrackingPatchBuilder patchBuilder = new();
+        CutLabApiController controller = CreateController(new FakeAnalysisContextBuilder(_ => CreateAnalysisContext()), new FakeSimulationService(), patchBuilder);
+        CutLabState baseState = CreateState();
+        CutLabState state = baseState with
+        {
+            Goals = new CutLabGoalSettings { CommanderByTurn = 4, EngineByTurn = 3, RepresentativeLineByTurn = 7 },
+            GoalsCustomized = false,
+            Intent = baseState.Intent with { PlanProfile = new CutLabPlanProfile { Archetype = archetype } },
+        };
+        var payload = new CutLabPlanApplyApiRequest
+        {
+            CutLabStateJson = CutLabStateSerializer.Serialize(state),
+            PriorArchetype = "control",
+            ChainStartArchetype = "stax",
+            ChainStartGoals = new CutLabGoalSettings { CommanderByTurn = 2, EngineByTurn = 3, RepresentativeLineByTurn = 5 },
+            ChainStartGoalsCustomized = chainStartCustomized,
+        };
+
+        ActionResult<CutLabPlanApplyApiResponse> response = await controller.PostPlanApplyAsync(payload, CancellationToken.None);
+
+        CutLabPlanApplyApiResponse body = Assert.IsType<CutLabPlanApplyApiResponse>(Assert.IsType<OkObjectResult>(response.Result).Value);
+        Assert.Equal(expectedOutcome, body.GoalOutcome);
+        Assert.Equal(expectedTurn, body.AppliedGoals.RepresentativeLineByTurn);
+        Assert.Equal(chainStartCustomized ?? false, CutLabStateSerializer.Deserialize(body.Patch.CutLabStateJson).GoalsCustomized);
     }
 
     [Fact]
