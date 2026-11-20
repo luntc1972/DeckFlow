@@ -1,6 +1,8 @@
 import { expect, type Page } from '@playwright/test';
 
 export async function expandMobileCollapsibles(page: Page): Promise<void> {
+  // Why: avoid the race with Cut Lab's DOMContentLoaded hydrate before changing persisted section state.
+  await page.waitForLoadState('domcontentloaded');
   await page.locator('details[data-cutlab-mobile-collapse]').evaluateAll((details) => {
     for (const detail of details) {
       detail.setAttribute('open', '');
@@ -11,6 +13,8 @@ export async function expandMobileCollapsibles(page: Page): Promise<void> {
 // Activate a section's hidden workflow step when needed, then expand only the
 // collapsed section a spec needs via its UI.
 export async function expandCutLabSection(page: Page, sectionId: string, enhancedTabs = true): Promise<void> {
+  // Why: avoid the race with Cut Lab's DOMContentLoaded hydrate before reading the section's open state.
+  await page.waitForLoadState('domcontentloaded');
   const section = page.locator(`details#${sectionId}`);
   const panel = section.locator('xpath=ancestor::*[@role="tabpanel"][1]');
 
@@ -33,9 +37,12 @@ export async function expandCutLabSection(page: Page, sectionId: string, enhance
     }
   }
 
-  if ((await section.getAttribute('open')) === null) {
-    await section.locator(':scope > summary').click();
-  }
+  // Why: Playwright's click noWaitAfter=false default is deprecated, so the DCL gate alone is not future-proof; 5s bound matches previous expect default.
+  await expect(async () => {
+    if ((await section.getAttribute('open')) === null) {
+      await section.locator(':scope > summary').click();
+    }
 
-  await expect(section.locator(':scope > :not(summary)').first()).toBeVisible();
+    await expect(section.locator(':scope > :not(summary)').first()).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 5_000 });
 }
