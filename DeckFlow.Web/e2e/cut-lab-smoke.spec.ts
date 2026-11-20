@@ -1,7 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { join } from 'node:path';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { getToolEnabled, setToolEnabled } from './support/admin-tools';
+import { setToolEnabled, withToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { uiDesignDir } from './support/ui-design-dir';
@@ -45,12 +44,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-let cutLabWasEnabled = true;
-
 test.describe.configure({ mode: 'serial' });
+withToolEnabled('Cut Lab');
 
 const importPool = async (page: Page): Promise<void> => {
   await page.goto('/cut-lab');
@@ -68,22 +63,6 @@ const importPool = async (page: Page): Promise<void> => {
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  cutLabWasEnabled = await getToolEnabled(page, 'Cut Lab');
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async ({ page }) => {
-  try {
-    // Why: the OFF test previously left the flag disabled in the shared dev DB.
-    await setToolEnabled(page, 'Cut Lab', cutLabWasEnabled);
-  } finally {
-    await releaseAdminLockForTest(heldLock);
-    heldLock = null;
-  }
-});
 
 test('/cut-lab renders the intake, intent controls, and hidden state field when the flag is ON', async ({ page }) => {
   const response = await page.goto('/cut-lab');

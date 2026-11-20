@@ -37,7 +37,8 @@ export async function expandCutLabSection(page: Page, sectionId: string, enhance
     }
   }
 
-  // Why: Playwright's click noWaitAfter=false default is deprecated, so the DCL gate alone is not future-proof; 5s bound matches previous expect default.
+  // Why: The retry re-reads open and re-clicks the summary if hydration resets the section between check and click.
+  // The 1s inner visibility check runs within a 5s outer bound that matches the old expect default.
   await expect(async () => {
     if ((await section.getAttribute('open')) === null) {
       await section.locator(':scope > summary').click();

@@ -59,9 +59,12 @@ export function withToolEnabled(label: string): void {
 
   test.afterEach(async ({ page }) => {
     if (heldLock) {
-      await setToolEnabled(page, label, wasEnabled);
-      await releaseAdminLockForTest(heldLock);
-      heldLock = null;
+      try {
+        await setToolEnabled(page, label, wasEnabled);
+      } finally {
+        await releaseAdminLockForTest(heldLock);
+        heldLock = null;
+      }
     }
   });
 }
