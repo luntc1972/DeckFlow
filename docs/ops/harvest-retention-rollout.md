@@ -27,6 +27,25 @@ Scope: `HarvestRetention__` overrides, including the `HarvestRetention__PostHarv
 | `MaintenanceChunkDecks` | 1000 | `HarvestRetention__MaintenanceChunkDecks`: decks processed per maintenance sweep-gate hold. |
 | `MaintenanceMaxDecksPerRun` | 0 | `HarvestRetention__MaintenanceMaxDecksPerRun`: maximum decks removed by one maintenance Drain run; 0 is unbounded. Purge, Backfill, and post-harvest retention are unaffected. |
 
+## Before deploying the processing-time Stats fix
+
+Build the rolling Stats index on production Postgres before deploying the application change. Run the concurrent build outside a transaction to avoid a table write lock during application startup.
+
+```sql
+CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_deck_queue_processed_last_checked
+    ON deck_queue (last_checked_utc) WHERE processed = 1 AND skipped = 0;
+```
+
+Verify the index exists and `pg_index.indisvalid` is true before deploying.
+
+```sql
+SELECT indisvalid
+FROM pg_index
+WHERE indexrelid = to_regclass('ix_deck_queue_processed_last_checked');
+```
+
+If the index exists but is invalid, run `DROP INDEX CONCURRENTLY IF EXISTS ix_deck_queue_processed_last_checked;` outside a transaction, then rebuild and recheck it. If the check returns no row, build the index and recheck it.
+
 ## Step 1 — Deploy gate and filters
 
 Deploy the legality gate and Commander-only discovery filters. Check boot logs for schema errors, then open Admin/Harvest and confirm the Stats card shows skipped decks by reason. The gate keeps only Commander-format decks with a commander and legal Commander deck size; stored decks that become illegal have their category rows removed and remain recorded with a skip reason.

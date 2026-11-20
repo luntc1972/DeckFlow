@@ -35,6 +35,7 @@ public sealed class CategoryKnowledgeStoreTestsCollection
 [Collection("CategoryKnowledgeStoreTests")]
 public sealed class CategoryKnowledgeStoreTests
 {
+    private const string OldQueueTimestamp = "2026-06-07T15:06:22.0000000Z";
     private static void ClearPool(string path) => SqliteConnection.ClearPool(new SqliteConnection($"Data Source={Path.GetFullPath(path)}"));
     [Fact]
     public void DatabasePath_UsesMtgDataDirWhenSet()
@@ -307,6 +308,108 @@ public sealed class CategoryKnowledgeStoreTests
     }
 
     [Fact]
+    public async Task GetTotalProcessedDeckCountSinceAsync_QueuedBeforeCutoff_CountsDeckProcessedInWindow()
+    {
+        await WithProcessingStatsStoreAsync(async (store, connection) =>
+        {
+            await using var seed = connection.CreateCommand();
+            seed.CommandText = """
+                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
+                VALUES ('old-queue', @old, 1, 0, '2026-11-19T17:19:21.7752600Z', 'Commander');
+                """;
+            seed.Parameters.AddWithValue("@old", OldQueueTimestamp);
+            await seed.ExecuteNonQueryAsync();
+
+            Assert.Equal(1, await store.GetTotalProcessedDeckCountSinceAsync(
+                new DateTime(2026, 10, 20, 17, 20, 0, DateTimeKind.Utc)));
+        });
+    }
+
+    [Fact]
+    public async Task GetTotalProcessedDeckCountSinceAsync_MixedQueueStates_UsesProcessingTime()
+    {
+        await WithProcessingStatsStoreAsync(async (store, connection) =>
+        {
+            await using var seed = connection.CreateCommand();
+            seed.CommandText = """
+                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
+                VALUES
+                    ('recent', @old, 1, 0, @processedRecently, 'Commander'),
+                    ('same-day', @old, 1, 0, '2026-10-20T17:20:00.5000000Z', 'Commander'),
+                    ('at-cutoff', @old, 1, 0, '2026-10-20T17:20:00.0000000Z', 'Commander'),
+                    ('before-cutoff', @old, 1, 0, '2026-10-20T17:19:59.9990000Z', 'Commander'),
+                    ('old', @old, 1, 0, '2026-10-10T12:00:00.0000000Z', 'Commander'),
+                    ('skipped', @old, 1, 1, @processedRecently, 'Commander'),
+                    ('pending', @recent, 0, 0, NULL, 'Commander'),
+                    ('requeued', @old, 0, 0, @processedRecently, 'Commander'),
+                    ('missing-time', @recent, 1, 0, NULL, 'Commander');
+                """;
+            seed.Parameters.AddWithValue("@old", OldQueueTimestamp);
+            seed.Parameters.AddWithValue("@recent", "2026-11-19T10:00:00.0000000Z");
+            seed.Parameters.AddWithValue("@processedRecently", "2026-11-19T17:19:21.7752600Z");
+            await seed.ExecuteNonQueryAsync();
+
+            Assert.Equal(3, await store.GetTotalProcessedDeckCountSinceAsync(
+                new DateTime(2026, 10, 20, 17, 20, 0, DateTimeKind.Utc)));
+        });
+    }
+
+    [Fact]
+    public async Task GetTotalProcessedDeckCountSinceAsync_MarkedProcessedByStore_CountsDeck()
+    {
+        await WithProcessingStatsStoreAsync(async (store, connection) =>
+        {
+            var now = DateTime.UtcNow;
+            await using var seed = connection.CreateCommand();
+            seed.CommandText = """
+                INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
+                VALUES ('old-queue', @inserted, 0, 0, NULL, 'Commander');
+                """;
+            seed.Parameters.AddWithValue("@inserted", now.AddDays(-61).ToString("O"));
+            await seed.ExecuteNonQueryAsync();
+
+            await store.MarkUrlDeckProcessedAsync("old-queue", "Commander");
+
+            await using var read = connection.CreateCommand();
+            read.CommandText = "SELECT last_checked_utc FROM deck_queue WHERE deck_id = 'old-queue';";
+            var stored = Assert.IsType<string>(await read.ExecuteScalarAsync());
+            Assert.Matches(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{7}Z$", stored);
+            Assert.Equal(1, await store.GetTotalProcessedDeckCountSinceAsync(now.AddDays(-30)));
+        });
+    }
+
+    private static async Task WithProcessingStatsStoreAsync(Func<CategoryKnowledgeStore, SqliteConnection, Task> verify)
+    {
+        var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
+        var tempRoot = Path.Combine(Path.GetTempPath(), "deckflow-store-" + Guid.NewGuid().ToString("N"));
+        string? databasePath = null;
+        try
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", null);
+            var store = CreateStore(Path.Combine(tempRoot, "content"));
+            _ = await store.GetTotalProcessedDeckCountAsync();
+            databasePath = store.DatabasePath;
+            Assert.NotNull(databasePath);
+
+            await using var connection = new SqliteConnection($"Data Source={databasePath}");
+            await connection.OpenAsync();
+            await verify(store, connection);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MTG_DATA_DIR", original);
+            if (databasePath is not null)
+            {
+                ClearPool(databasePath);
+            }
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task GetTotalProcessedDeckCountSinceAsync_WithMixedProcessedRows_ReturnsOnlyProcessedRowsAtOrAfterCutoff()
     {
         var original = Environment.GetEnvironmentVariable("MTG_DATA_DIR");
@@ -329,10 +432,10 @@ public sealed class CategoryKnowledgeStoreTests
             command.CommandText = """
                 INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
                 VALUES
-                    ('deck-before', @beforeCutoff, 1, 0, NULL, 'Commander Before'),
-                    ('deck-at-cutoff', @atCutoff, 1, 0, NULL, 'Commander At Cutoff'),
-                    ('deck-after', @afterCutoff, 1, 0, NULL, 'Commander After'),
-                    ('deck-unprocessed', @unprocessedAfterCutoff, 0, 0, NULL, 'Commander Pending');
+                    ('deck-before', '2026-01-01T00:00:00.0000000Z', 1, 0, @beforeCutoff, 'Commander Before'),
+                    ('deck-at-cutoff', '2026-01-01T00:00:00.0000000Z', 1, 0, @atCutoff, 'Commander At Cutoff'),
+                    ('deck-after', '2026-01-01T00:00:00.0000000Z', 1, 0, @afterCutoff, 'Commander After'),
+                    ('deck-unprocessed', '2026-01-01T00:00:00.0000000Z', 0, 0, @unprocessedAfterCutoff, 'Commander Pending');
                 """;
             command.Parameters.AddWithValue("@beforeCutoff", cutoffUtc.AddMinutes(-1).ToString("O"));
             command.Parameters.AddWithValue("@atCutoff", cutoffUtc.ToString("O"));
@@ -559,8 +662,8 @@ public sealed class CategoryKnowledgeStoreTests
         await using var command = connection.CreateCommand();
         command.CommandText = $"""
             INSERT INTO deck_queue (deck_id, inserted_utc, processed, skipped, last_checked_utc, commander_name)
-            VALUES ('{deckIdPrefix}-processed', @cutoff, 1, 0, NULL, 'Commander'),
-                   ('{deckIdPrefix}-skipped', @cutoff, 1, 1, NULL, 'Commander');
+            VALUES ('{deckIdPrefix}-processed', '2026-01-01T00:00:00.0000000Z', 1, 0, @cutoff, 'Commander'),
+                   ('{deckIdPrefix}-skipped', '2026-01-01T00:00:00.0000000Z', 1, 1, @cutoff, 'Commander');
             """;
         command.Parameters.AddWithValue("@cutoff", cutoffUtc.ToString("O"));
         await command.ExecuteNonQueryAsync();

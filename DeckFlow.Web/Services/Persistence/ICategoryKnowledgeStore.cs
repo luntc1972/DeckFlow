@@ -121,7 +121,7 @@ public interface ICategoryKnowledgeStore
     /// </summary>
     Task<int> GetTotalProcessedDeckCountAsync(CancellationToken cancellationToken = default);
     /// <summary>
-    /// Returns the number of processed decks inserted at or after a UTC cutoff.
+    /// Returns the number of processed, non-skipped decks with last_checked_utc at or after a UTC cutoff.
     /// </summary>
     /// <param name="cutoffUtc">UTC cutoff used to filter processed deck rows.</param>
     /// <param name="cancellationToken">Token used to cancel the count query.</param>
