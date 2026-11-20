@@ -1,7 +1,8 @@
 import { expect, test, type Locator, type Page, type Response } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { ensureDetailsOpen, expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen } from './support/cut-lab-details';
+import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { resolveE2EPort } from './support/e2e-port';
 

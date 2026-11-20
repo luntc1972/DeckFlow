@@ -2,7 +2,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
 import { contrastRatio, resolveContrast, type RgbColor } from './support/contrast';
-import { ensureDetailsOpen, expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, openIntake, openRoleGroup } from './support/cut-lab-details';
+import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -91,7 +92,7 @@ const importPool = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandCutLabSection(page, 'cut-lab-section-competes');
-  await ensureDetailsOpen(page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }));
+  await openRoleGroup(page, 'Lands');
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
@@ -408,8 +409,7 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await expandCutLabSection(page, 'cut-lab-section-competes');
     await expandCutLabSection(page, 'cut-lab-section-structural');
 
-    const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-    await ensureDetailsOpen(landsGroup);
+  const landsGroup = await openRoleGroup(page, 'Lands');
 
     const packagePanel = await createFastManaPackage(page);
     const packageToggle = packagePanel.locator('input[data-cut-lab-package-toggle]');
@@ -440,7 +440,7 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await assertContrastFloor(theme.name, 'Lands role chip', roleChip, 3.0);
     // Structural findings carry explanatory body copy and evidence context, so they use the 4.5 AA body-text floor.
     await assertContrastFloor(theme.name, 'structural findings panel', findingsPanel, 4.5);
-    await ensureDetailsOpen(page.locator('details.cutlab-intake'));
+  await openIntake(page);
     // The enhanced df-select trigger renders normal form-control text, so it must clear 4.5 AA.
     await assertContrastFloor(theme.name, 'input source select trigger', selectTrigger, 4.5);
     await assertFocusIndicatorContrast(theme.name, 'input source select trigger', page, selectTrigger, 3.0);

@@ -2,7 +2,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { ensureDetailsOpen, expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { openIntake } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { uiDesignDir } from './support/ui-design-dir';
 
@@ -295,8 +296,7 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
   await expect(page.locator('[data-cut-lab-scenario-status]')).toHaveText('Scenario saved.');
   await expect(getScenarioRow(page, scenarioName)).toBeVisible();
 
-  const intakeDetails = page.locator('details.cutlab-intake');
-  await ensureDetailsOpen(intakeDetails);
+  const intakeDetails = await openIntake(page);
   await page.locator('[data-clear-cache]').click();
   await expect(page.getByRole('heading', { name: 'No pool imported yet' })).toBeVisible({ timeout: 30_000 });
   await clearCutLabSessionCache(page);

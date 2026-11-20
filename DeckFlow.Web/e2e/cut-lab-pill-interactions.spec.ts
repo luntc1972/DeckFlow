@@ -1,7 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { ensureDetailsOpen, expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { openRoleGroup } from './support/cut-lab-details';
 import { resolveE2EPort } from './support/e2e-port';
 
 const oversizedPool = [
@@ -68,8 +69,7 @@ test('individual card pills lock cards and Lock All stays readable in Commander 
     await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
     await expandCutLabSection(page, 'cut-lab-section-competes');
 
-    const group = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-    await ensureDetailsOpen(group);
+    const group = await openRoleGroup(page, 'Lands');
     const lockAll = group.locator('[data-cut-lab-lock-role="lands"]');
     const commandTowerPill = group.locator('button[data-cut-lab-chip-card="Command Tower"]');
     const commandTowerCheckbox = page.locator(

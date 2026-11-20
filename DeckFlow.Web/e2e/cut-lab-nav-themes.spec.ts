@@ -2,7 +2,8 @@ import { expect, test, type Browser, type Locator, type Page } from '@playwright
 import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { ensureDetailsOpen, expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, openRoleGroup } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { uiDesignDir } from './support/ui-design-dir';
 
@@ -65,7 +66,7 @@ const importPool = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandCutLabSection(page, 'cut-lab-section-competes');
-  await ensureDetailsOpen(page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }));
+  await openRoleGroup(page, 'Lands');
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
@@ -173,8 +174,7 @@ const prepareReviewCapture = async (page: Page): Promise<void> => {
 
   await page.getByRole('tab', { name: 'Process' }).click();
   await expandCutLabSection(page, 'cut-lab-section-competes');
-  const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-  await ensureDetailsOpen(landsGroup);
+  const landsGroup = await openRoleGroup(page, 'Lands');
   await expect(landsGroup.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Island"]')).toBeVisible();

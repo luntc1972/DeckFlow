@@ -2,7 +2,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { ensureDetailsOpen, expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, openRoleGroup } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { uiDesignDir } from './support/ui-design-dir';
 
@@ -205,8 +206,7 @@ test('opens the Lands group, shows member chips, and toggles land rows from the 
   await importPool(page);
 
   await expandCutLabSection(page, 'cut-lab-section-competes');
-  const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-  await ensureDetailsOpen(landsGroup);
+  const landsGroup = await openRoleGroup(page, 'Lands');
   const lockAllButton = landsGroup.locator('[data-cut-lab-lock-role="lands"]');
 
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
@@ -494,7 +494,7 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
       await importPool(page);
       await expandCutLabSection(page, 'cut-lab-section-competes');
-      await ensureDetailsOpen(page.locator('details.cutlab-role-group').filter({ hasText: 'Targeted removal' }));
+      await openRoleGroup(page, 'Targeted removal');
       await page.locator('input[data-cut-lab-floor="interaction-targeted"]').scrollIntoViewIfNeeded();
 
       await page.screenshot({
