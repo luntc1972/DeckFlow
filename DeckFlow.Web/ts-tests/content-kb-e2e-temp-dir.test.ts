@@ -13,7 +13,7 @@ describe('resolveTemporaryDirectory', () => {
   it('uses a non-blank override without executing a process', () => {
     const exec = vi.fn();
 
-    expect(resolveTemporaryDirectory({ WSL_DISTRO_NAME: 'Ubuntu', DECKFLOW_E2E_TEMP_DIR: '  /tmp/e2e  ' }, exec)).toBe('/tmp/e2e');
+    expect(resolveTemporaryDirectory({ WSL_DISTRO_NAME: 'Ubuntu', DECKFLOW_E2E_TEMP_DIR: '  /tmp/e2e  ' }, exec, () => true)).toBe('/tmp/e2e');
     expect(exec).not.toHaveBeenCalled();
   });
 
