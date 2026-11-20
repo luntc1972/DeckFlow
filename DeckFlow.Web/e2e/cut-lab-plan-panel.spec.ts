@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { getToolEnabled, setToolEnabled } from './support/admin-tools';
-import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { cutLabPool as oversizedPool } from './fixtures/cut-lab-pool';
 
@@ -96,7 +96,7 @@ const importPool = async (page: Page): Promise<void> => {
 };
 
 const reimportPool = async (page: Page): Promise<void> => {
-  await page.locator('details.cutlab-intake > summary').click();
+  await ensureDetailsOpen(page.locator('details.cutlab-intake'));
   await page.getByRole('button', { name: 'Import pool' }).click();
   await expandCutLabSection(page, 'cut-lab-section-plan-panel');
   await expect(page.locator('[data-cut-lab-plan-panel]')).toBeVisible({ timeout: 30_000 });

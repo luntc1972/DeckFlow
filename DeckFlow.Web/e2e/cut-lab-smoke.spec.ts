@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { join } from 'node:path';
 import { setToolEnabled, withToolEnabled } from './support/admin-tools';
-import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { uiDesignDir } from './support/ui-design-dir';
 
@@ -59,7 +59,7 @@ const importPool = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandCutLabSection(page, 'cut-lab-section-competes');
-  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
+  await ensureDetailsOpen(page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }));
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
@@ -103,7 +103,7 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await expect(hiddenState).toHaveValue(/"name":"Plains".*"isLocked":true/);
   await expect(hiddenState).toHaveValue(/"name":"Fast mana"/);
 
-  await page.locator('details.cutlab-intake > summary').click();
+  await ensureDetailsOpen(page.locator('details.cutlab-intake'));
   await page.getByRole('button', { name: 'Import pool' }).click();
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });

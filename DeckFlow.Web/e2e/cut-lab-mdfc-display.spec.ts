@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page, type Response } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { resolveE2EPort } from './support/e2e-port';
 
@@ -128,9 +128,7 @@ test('keeps MDFC display names separate from canonical state, decisions and expo
     await acceptMdfc(page);
     // AJAX creates this details element without the server-rendered section ID.
     const cuts = page.locator('details.cutlab-cuts-made');
-    if (await cuts.getAttribute('open') === null) {
-      await cuts.locator(':scope > summary').click();
-    }
+    await ensureDetailsOpen(cuts);
     const cutRow = page.locator('.cutlab-cuts-made__row').filter({
       has: page.locator(`[data-cutlab-card-open="${shatterskull}"]`),
     });

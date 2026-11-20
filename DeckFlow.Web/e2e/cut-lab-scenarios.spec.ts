@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -192,7 +192,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   await expect(getMainStateInput(page)).toHaveValue(new RegExp(`"name":"${lockedCard}".*"isLocked":true`));
   await expect(getMainStateInput(page)).toHaveValue(/"goals":\{"commanderByTurn":5/);
 
-  await page.locator('details.cutlab-intake > summary').click();
+  await ensureDetailsOpen(page.locator('details.cutlab-intake'));
   await page.locator('[data-clear-cache]').click();
   await expect(page.getByRole('heading', { name: 'No pool imported yet' })).toBeVisible({ timeout: 30_000 });
   await clearCutLabSessionCache(page);

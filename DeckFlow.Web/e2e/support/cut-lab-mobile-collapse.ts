@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 export async function expandMobileCollapsibles(page: Page): Promise<void> {
   // Why: avoid the race with Cut Lab's DOMContentLoaded hydrate before changing persisted section state.
@@ -8,6 +8,21 @@ export async function expandMobileCollapsibles(page: Page): Promise<void> {
       detail.setAttribute('open', '');
     }
   });
+}
+
+export async function ensureDetailsOpen(details: Locator): Promise<void> {
+  // Why: avoid the race with Cut Lab's DOMContentLoaded hydrate before reading the section's open state.
+  await details.page().waitForLoadState('domcontentloaded');
+
+  // Why: The retry re-reads open and re-clicks the summary if hydration resets the section between check and click.
+  // The 1s inner visibility check runs within a 5s outer bound that matches the old expect default.
+  await expect(async () => {
+    if ((await details.getAttribute('open')) === null) {
+      await details.locator(':scope > summary').click();
+    }
+
+    await expect(details.locator(':scope > :not(summary)').first()).toBeVisible({ timeout: 1_000 });
+  }).toPass({ timeout: 5_000 });
 }
 
 // Activate a section's hidden workflow step when needed, then expand only the
@@ -37,13 +52,5 @@ export async function expandCutLabSection(page: Page, sectionId: string, enhance
     }
   }
 
-  // Why: The retry re-reads open and re-clicks the summary if hydration resets the section between check and click.
-  // The 1s inner visibility check runs within a 5s outer bound that matches the old expect default.
-  await expect(async () => {
-    if ((await section.getAttribute('open')) === null) {
-      await section.locator(':scope > summary').click();
-    }
-
-    await expect(section.locator(':scope > :not(summary)').first()).toBeVisible({ timeout: 1_000 });
-  }).toPass({ timeout: 5_000 });
+  await ensureDetailsOpen(section);
 }

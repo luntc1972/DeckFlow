@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { uiDesignDir } from './support/ui-design-dir';
 
@@ -206,7 +206,7 @@ test('opens the Lands group, shows member chips, and toggles land rows from the 
 
   await expandCutLabSection(page, 'cut-lab-section-competes');
   const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-  await landsGroup.locator(':scope > summary').click();
+  await ensureDetailsOpen(landsGroup);
   const lockAllButton = landsGroup.locator('[data-cut-lab-lock-role="lands"]');
 
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
@@ -337,7 +337,7 @@ test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row
 
   await page.getByRole('tab', { name: 'Goals' }).click();
   const compareDetails = page.locator('details.cutlab-compare');
-  await compareDetails.locator(':scope > summary').click();
+  await ensureDetailsOpen(compareDetails);
   await expect(compareDetails.locator('table[data-prompt-cedh-reference-table]')).toBeVisible();
   await expect(compareDetails.locator('thead th')).toHaveText([
     'Metric',
@@ -494,7 +494,7 @@ test('captures the structure screenshot matrix across themes and viewports', asy
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
       await importPool(page);
       await expandCutLabSection(page, 'cut-lab-section-competes');
-      await page.locator('details.cutlab-role-group').filter({ hasText: 'Targeted removal' }).locator(':scope > summary').click();
+      await ensureDetailsOpen(page.locator('details.cutlab-role-group').filter({ hasText: 'Targeted removal' }));
       await page.locator('input[data-cut-lab-floor="interaction-targeted"]').scrollIntoViewIfNeeded();
 
       await page.screenshot({
@@ -516,7 +516,7 @@ test('captures the structure screenshot matrix across themes and viewports', asy
 
       const compareDetails = page.locator('details.cutlab-compare');
       await page.getByRole('tab', { name: 'Goals' }).click();
-      await compareDetails.locator(':scope > summary').click();
+      await ensureDetailsOpen(compareDetails);
       await compareDetails.scrollIntoViewIfNeeded();
       await compareDetails.screenshot({
         path: join(screenshotDir, `compare-${theme.name}-${viewport.name}.png`),

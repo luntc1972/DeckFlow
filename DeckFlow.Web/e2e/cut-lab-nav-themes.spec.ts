@@ -2,7 +2,7 @@ import { expect, test, type Browser, type Locator, type Page } from '@playwright
 import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { uiDesignDir } from './support/ui-design-dir';
 
@@ -65,7 +65,7 @@ const importPool = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandCutLabSection(page, 'cut-lab-section-competes');
-  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
+  await ensureDetailsOpen(page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }));
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
@@ -111,15 +111,6 @@ const clearClientState = async (page: Page): Promise<void> => {
     window.localStorage.clear();
     window.sessionStorage.clear();
   });
-};
-
-const ensureDetailsOpen = async (details: Locator): Promise<void> => {
-  if ((await details.getAttribute('open')) !== null) {
-    return;
-  }
-
-  await details.locator(':scope > summary').click();
-  await expect(details).toHaveAttribute('open', '');
 };
 
 const assertNoOverlap = (first: { x: number; y: number; width: number; height: number }, second: { x: number; y: number; width: number; height: number }, message: string): void => {

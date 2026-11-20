@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
 import { setToolEnabled } from './support/admin-tools';
-import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { ensureDetailsOpen, expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { cutLabPool } from './fixtures/cut-lab-pool';
 
@@ -108,7 +108,7 @@ test('Role floors Lock all stays synchronized with the chip-area role button', a
   await expandCutLabSection(page, 'cut-lab-section-competes');
   const lands = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
   if (!(await lands.evaluate((element) => (element as HTMLDetailsElement).open))) {
-    await lands.locator(':scope > summary').click();
+    await ensureDetailsOpen(lands);
   }
   await chip.click();
   await expect(chip).toHaveAttribute('aria-pressed', 'false');
