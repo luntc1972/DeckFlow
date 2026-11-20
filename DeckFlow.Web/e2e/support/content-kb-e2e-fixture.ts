@@ -106,6 +106,8 @@ export function resolveTemporaryDirectory(
     return override;
   }
 
+  // Why: WSL interop intermittently fails cmd.exe instantly (UtilAcceptVsock accept4 failed 110),
+  // and this runs once at Playwright config load, so one miss aborts the whole e2e run.
   let lastError: unknown = new Error('no attempts made');
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
