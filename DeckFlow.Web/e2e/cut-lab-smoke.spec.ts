@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { join } from 'node:path';
 import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { getToolEnabled, setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { uiDesignDir } from './support/ui-design-dir';
@@ -48,6 +48,7 @@ const oversizedPool = [
 type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 
 let heldLock: LockHandle | null = null;
+let cutLabWasEnabled = true;
 
 test.describe.configure({ mode: 'serial' });
 
@@ -70,12 +71,18 @@ const importPool = async (page: Page): Promise<void> => {
 
 test.beforeEach(async ({ page }) => {
   heldLock = await acquireAdminLockForTest(page);
+  cutLabWasEnabled = await getToolEnabled(page, 'Cut Lab');
   await setToolEnabled(page, 'Cut Lab', true);
 });
 
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
+test.afterEach(async ({ page }) => {
+  try {
+    // Why: the OFF test previously left the flag disabled in the shared dev DB.
+    await setToolEnabled(page, 'Cut Lab', cutLabWasEnabled);
+  } finally {
+    await releaseAdminLockForTest(heldLock);
+    heldLock = null;
+  }
 });
 
 test('/cut-lab renders the intake, intent controls, and hidden state field when the flag is ON', async ({ page }) => {
