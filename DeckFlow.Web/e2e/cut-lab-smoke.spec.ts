@@ -1,6 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { join } from 'node:path';
-import { setToolEnabled, withToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
+import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { openIntake, openRoleGroup } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
@@ -46,7 +47,7 @@ const oversizedPool = [
 ].join('\n');
 
 test.describe.configure({ mode: 'serial' });
-withToolEnabled('Cut Lab');
+test.use({ enabledTools: ['Cut Lab'] });
 
 const importPool = async (page: Page): Promise<void> => {
   await page.goto('/cut-lab');
