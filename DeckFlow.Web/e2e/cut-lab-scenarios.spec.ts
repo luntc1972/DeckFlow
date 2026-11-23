@@ -93,7 +93,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test('locking the current proposal disables decisions and explains why', async ({ page }) => {
-  await importPool(page, oversizedPool, { bracket: '4', commander: 'Zur the Enchanter' });
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
 
   const proposal = page.locator('.cutlab-proposal');
@@ -112,7 +112,7 @@ test('locking the current proposal disables decisions and explains why', async (
 });
 
 test('locking the proposed card via the card dialog disables decisions and shows the locked message', async ({ page }) => {
-  await importPool(page, oversizedPool, { bracket: '4', commander: 'Zur the Enchanter' });
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
 
   const proposal = page.locator('.cutlab-proposal');
@@ -198,7 +198,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
 });
 
 test('blocks the 21st saved scenario with the documented cap message', async ({ page }) => {
-  await importPool(page, oversizedPool, { bracket: '4', commander: 'Zur the Enchanter' });
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
   await expandMobileCollapsibles(page);
 
