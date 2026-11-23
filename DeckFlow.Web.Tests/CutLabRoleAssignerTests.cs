@@ -9,6 +9,30 @@ namespace DeckFlow.Web.Tests;
 public sealed class CutLabRoleAssignerTests
 {
     [Fact]
+    public void AssignRoles_LandOnlyFetchLand_IsLandsWithoutTutor()
+    {
+        CardFact fact = Fact("Polluted Delta", "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.");
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Cedh);
+
+        Assert.Equal(["lands"], roles);
+    }
+
+    [Fact]
+    public void AssignRoles_SpellFrontMdfcTutor_KeepsTutor()
+    {
+        const string front = "Search your library for an instant card or a card with flash, reveal it, put it into your hand, then shuffle.";
+        CardFact fact = Fact("Waterlogged Teachings // Inundated Archive", "Instant // Land", front + "\n\nThis land enters tapped.\n{T}: Add {U} or {B}.") with
+        {
+            FrontFaceOracleText = front,
+            HasLandFace = true,
+        };
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Cedh);
+
+        Assert.Contains("lands", roles);
+        Assert.Contains("tutor", roles);
+    }
+
+    [Fact]
     public void AssignRoles_Forest_MapsToExactlyLands()
     {
         CardFact fact = Fact(

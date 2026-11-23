@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Manabase;
 
@@ -14,15 +15,16 @@ namespace DeckFlow.Web.Services.Manabase;
 /// <item>an oracle-text heuristic fallback (<see cref="DeckStatClassifier"/>).</item>
 /// </list>
 /// Ramp, lands, and filler card draw deliberately never earn a role — that is resource/velocity, a
-/// different axis already measured by keepable-% and on-curve castability. The <see cref="ManabaseMode"/>
-/// tunes one role: a pure counterspell counts as <see cref="PlanRole.Interaction"/> only in
+/// different axis already measured by keepable-% and on-curve castability. A fetch land whose searches
+/// find only lands loses <see cref="PlanRole.TutorCombo"/> unless it is a known combo piece.
+/// The <see cref="ManabaseMode"/> tunes one role: a pure counterspell counts as <see cref="PlanRole.Interaction"/> only in
 /// <see cref="ManabaseMode.Cedh"/> (it protects the combo turn); in Casual a counter is reactive
 /// insurance, not a card that advances the win plan, so it earns nothing, and the plural
 /// counters-synergy sense does not count as a counterspell tag in either mode. The classifier also
 /// exposes a pre-permanent-gate interaction signal for the cEDH early-interaction lens, while
 /// leaving the returned plan-presence roles unchanged.
 /// </summary>
-public static class PlanRoleClassifier
+public static partial class PlanRoleClassifier
 {
     /// <summary>
     /// Resolve a card's plan roles. Categories win when they map to any role; otherwise a known combo
@@ -66,6 +68,12 @@ public static class PlanRoleClassifier
         else
         {
             roles = FromHeuristic(fact, mode);
+        }
+
+        // Why: the owner decision of 2026-11-23 treats fetch lands as mana fixing and preserves Spellbook combo membership.
+        if (!isComboPiece && roles.HasFlag(PlanRole.TutorCombo) && IsLandOnlyFetchLand(fact))
+        {
+            roles &= ~PlanRole.TutorCombo;
         }
 
         interactionMeritPreGate = roles.HasFlag(PlanRole.Interaction);
@@ -318,4 +326,63 @@ public static class PlanRoleClassifier
 
         return false;
     }
+
+    // Why: a front-face land must have only land searches to qualify as mana fixing.
+    private static bool IsLandOnlyFetchLand(CardFact fact)
+    {
+        if (!CardTypeLine.FrontFace(fact.TypeLine).Contains("Land", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        const string SearchPhrase = "search your library for";
+        string oracle = fact.FrontOracleText;
+        int searchCount = 0;
+        int offset = 0;
+        while ((offset = oracle.IndexOf(SearchPhrase, offset, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            searchCount++;
+            offset += SearchPhrase.Length;
+        }
+
+        if (searchCount == 0)
+        {
+            return false;
+        }
+
+        MatchCollection matches = LibrarySearchTargetRegex().Matches(oracle);
+        if (matches.Count != searchCount)
+        {
+            return false;
+        }
+
+        foreach (Match match in matches)
+        {
+            string[] tokens = match.Groups["target"].Value.ToLowerInvariant().Replace(',', ' ')
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (!tokens.All(LandSearchTokens.Contains) || !tokens.Any(LandSearchTypeTokens.Contains))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Why: an unknown qualifier may allow the search to find a nonland card.
+    private static readonly HashSet<string> LandSearchTokens = new(StringComparer.Ordinal)
+    {
+        "a", "an", "up", "to", "one", "two", "three", "or", "and", "basic", "snow",
+        "land", "lands", "card", "cards", "plains", "island", "swamp", "mountain", "forest",
+    };
+
+    // Why: even a fully recognized target needs a land type to establish that it only finds lands.
+    private static readonly HashSet<string> LandSearchTypeTokens = new(StringComparer.Ordinal)
+    {
+        "land", "lands", "plains", "island", "swamp", "mountain", "forest",
+    };
+
+    // Why: an unrecognized search form should retain its tutor role.
+    [GeneratedRegex(@"search your library for (?<target>.+?\bcards?\b)(?=,|\.| and put| then| that share a land type)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex LibrarySearchTargetRegex();
 }
