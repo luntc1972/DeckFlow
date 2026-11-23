@@ -350,7 +350,7 @@ public sealed partial class MoxfieldParser : IParser
             return true;
         }
 
-        if (IsSectionHeader(line, "Mainboard") || IsSectionHeader(line, "Deck"))
+        if (IsSectionHeader(line, "Mainboard") || IsSectionHeader(line, "Main") || IsSectionHeader(line, "Deck"))
         {
             board = "mainboard";
             return true;
@@ -462,7 +462,7 @@ public sealed partial class MoxfieldParser : IParser
 
     private static string? NullIfWhiteSpace(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    [GeneratedRegex(@"^(?<quantity>\d+)\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(?<quantity>\d+)[xX]?\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex QuantityRegex();
 
     [GeneratedRegex(@"\s+#(?<tag>[A-Za-z0-9][A-Za-z0-9_-]*)", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
