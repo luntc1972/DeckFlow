@@ -1,16 +1,12 @@
-import { expect, test, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { openRoleGroup } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { cutLabPool as oversizedPool } from './fixtures/cut-lab-pool';
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const importPool = async (page: Page): Promise<void> => {
   await page.goto('/cut-lab');
@@ -31,16 +27,6 @@ const importPool = async (page: Page): Promise<void> => {
   await decideStep.click();
   await expect(decideStep).toHaveAttribute('aria-selected', 'true');
 };
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
 
 test('G-1 preserves the five-slot wizard contract in document order', async ({ page }) => {
   await importPool(page);

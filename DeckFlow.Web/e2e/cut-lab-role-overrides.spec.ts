@@ -1,6 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { resolveE2EPort } from './support/e2e-port';
@@ -30,10 +29,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const fillImportForm = async (page: Page): Promise<void> => {
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
@@ -75,18 +72,8 @@ const clearScenarioStorage = async (page: Page): Promise<void> => {
   }
 };
 
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
 test.afterEach(async ({ page }) => {
-  try {
-    await clearScenarioStorage(page);
-  } finally {
-    await releaseAdminLockForTest(heldLock);
-    heldLock = null;
-  }
+  await clearScenarioStorage(page);
 });
 
 

@@ -1,7 +1,6 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 import { join } from 'node:path';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { ensureDetailsOpen, openRoleGroup } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
@@ -46,11 +45,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const importPool = async (page: Page, pool = oversizedPool, commander = 'Zur the Enchanter'): Promise<void> => {
   await page.goto('/cut-lab');
@@ -143,16 +139,6 @@ const getFloorDefault = async (row: Locator): Promise<number> => {
   const rawDefault = await row.getAttribute('data-cut-lab-floor-default');
   return Number.parseInt(rawDefault ?? '0', 10);
 };
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
 
 test('renders the three structure sections with 13 collapsed role groups and 10 floor inputs', async ({ page }) => {
   await importPool(page);

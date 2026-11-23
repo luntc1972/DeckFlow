@@ -1,6 +1,5 @@
-import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Browser, type Locator, type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
@@ -31,11 +30,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const importPool = async (page: Page): Promise<void> => {
   await page.goto(`${baseUrl}/cut-lab`);
@@ -114,16 +110,6 @@ const buildNoJsPage = async (browser: Browser): Promise<{ page: Page; close: () 
   };
 };
 
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
-
 test('previews, discards, and keeps a what-if swap without mutating state until Keep', async ({ page }) => {
   await importPool(page);
   await waitForCutRounds(page);
@@ -186,9 +172,8 @@ test('previews, discards, and keeps a what-if swap without mutating state until 
 
 test('supports the no-JS what-if preview and keep fallback via full-page re-render', async ({ browser }) => {
   // No-JS accept/preview/keep POSTs run the sim-heavy pipeline server-side on
-  // the default Debug build, and the shared admin-lock beforeEach resets every
-  // test's budget to exactly 120s (support/admin-lock.ts:107) -- extend headroom
-  // here the same way the sibling no-JS test in cut-lab-nav-themes.spec.ts does.
+  // the default Debug build. The shared admin fixture raises the test budget to
+  // 120s and excludes lock wait. Give these POSTs extra time.
   test.setTimeout(240_000);
   const noJs = await buildNoJsPage(browser);
 

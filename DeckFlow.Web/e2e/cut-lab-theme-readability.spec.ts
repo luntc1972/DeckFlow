@@ -1,6 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { contrastRatio, resolveContrast, type RgbColor } from './support/contrast';
 import { ensureDetailsOpen, openIntake, openRoleGroup } from './support/cut-lab-details';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
@@ -65,7 +64,6 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 type FocusIndicatorSnapshot = {
   focusVisible: boolean;
   source: string;
@@ -73,9 +71,8 @@ type FocusIndicatorSnapshot = {
   indicator: RgbColor | null;
 };
 
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const formatColor = ({ r, g, b }: RgbColor): string => `rgb(${r}, ${g}, ${b})`;
 
@@ -384,16 +381,6 @@ const assertFocusIndicatorContrast = async (
     `${themeName}: ${elementName} focus indicator ${snapshot.source} contrast ${ratio.toFixed(2)} is below ${minimumRatio} (indicator ${formatColor(indicator)} vs bg ${formatColor(snapshot.background)})`,
   ).toBeGreaterThanOrEqual(minimumRatio);
 };
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
 
 test('keeps the Cut Lab named elements readable across every supported theme', async ({ page }) => {
   // Why: Reduced motion makes Cut Lab tab scrolls instant and the focus-ring reads deterministic.

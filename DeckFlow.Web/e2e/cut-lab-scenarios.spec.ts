@@ -1,6 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { openIntake } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
@@ -32,11 +31,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const importPool = async (page: Page, bracket: string): Promise<void> => {
   await page.goto(`${baseUrl}/cut-lab`);
@@ -112,18 +108,8 @@ const clearCutLabSessionCache = async (page: Page): Promise<void> => {
   });
 };
 
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
 test.afterEach(async ({ page }) => {
-  try {
-    await clearScenarioStorage(page);
-  } finally {
-    await releaseAdminLockForTest(heldLock);
-    heldLock = null;
-  }
+  await clearScenarioStorage(page);
 });
 
 test('locking the current proposal disables decisions and explains why', async ({ page }) => {
