@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { openIntake } from './support/cut-lab-details';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { fillImportPool, importPool, submitImportPool } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -58,24 +58,6 @@ const getScenarioRow = (page: Page, scenarioName: string): Locator =>
   page.locator('.cutlab-scenarios__item').filter({
     has: page.locator('strong.cutlab-scenarios__name', { hasText: scenarioName }),
   });
-
-const fillImportForm = async (page: Page): Promise<void> => {
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-};
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto(`${baseUrl}/cut-lab`);
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await fillImportForm(page);
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-};
 
 const waitForCutRounds = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
@@ -194,7 +176,7 @@ const clearCutLabSessionCache = async (page: Page): Promise<void> => {
 };
 
 const tuneToExactHundredWithAddedBasic = async (page: Page): Promise<void> => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
   await acceptUntilRemainingBySingleCopyCuts(page, 2);
 
@@ -215,7 +197,7 @@ const tuneToExactHundredWithAddedBasic = async (page: Page): Promise<void> => {
 };
 
 const tuneToExactHundredWithExistingBasics = async (page: Page): Promise<void> => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
   await acceptUntilRemainingBySingleCopyCuts(page, 2);
 
@@ -293,8 +275,8 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
     }
   });
 
-  await fillImportForm(page);
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await fillImportPool(page, oversizedPool);
+  await submitImportPool(page);
   await waitForCutRounds(page);
   await expandMobileCollapsibles(page);
 

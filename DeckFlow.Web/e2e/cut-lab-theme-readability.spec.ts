@@ -3,7 +3,7 @@ import { expect, test } from './support/admin-fixtures';
 import { contrastRatio, resolveContrast, type RgbColor } from './support/contrast';
 import { ensureDetailsOpen, openIntake, openRoleGroup } from './support/cut-lab-details';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { importPool } from './support/cut-lab-import';
 
 import { resolveE2EPort } from './support/e2e-port';
 
@@ -76,22 +76,11 @@ test.use({ enabledTools: ['Cut Lab'] });
 
 const formatColor = ({ r, g, b }: RgbColor): string => `rgb(${r}, ${g}, ${b})`;
 
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await page.getByRole('tab', { name: 'Process' }).click();
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+const importPoolToLandsGroup = async (page: Page): Promise<void> => {
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await expandCutLabSection(page, 'cut-lab-section-competes');
   await openRoleGroup(page, 'Lands');
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
 const ensureCutRoundsVisible = async (page: Page): Promise<void> => {
@@ -389,7 +378,7 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await page.context().clearCookies();
     await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
 
-    await importPool(page);
+    await importPoolToLandsGroup(page);
     await ensureCutRoundsVisible(page);
 
     await page.getByRole('tab', { name: 'Process' }).click();
@@ -483,7 +472,7 @@ test('keeps intake and progress components readable at workflow viewports', asyn
       await page.goto('/cut-lab');
       await page.evaluate(() => window.localStorage.clear());
 
-      await importPool(page);
+      await importPoolToLandsGroup(page);
       const intakeSummary = page.locator('.cutlab-intake-summary');
       await assertContrastFloor(`${theme.name} ${viewport.name}`, 'intake summary', intakeSummary, 4.5);
 

@@ -2,7 +2,7 @@ import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { openIntake } from './support/cut-lab-details';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { fillImportPool, importPool, submitImportPool } from './support/cut-lab-import';
 
 import { resolveE2EPort } from './support/e2e-port';
 
@@ -33,24 +33,6 @@ const oversizedPool = [
 
 test.describe.configure({ mode: 'serial' });
 test.use({ enabledTools: ['Cut Lab'] });
-
-const importPool = async (page: Page, bracket: string): Promise<void> => {
-  await page.goto(`${baseUrl}/cut-lab`);
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await fillImportForm(page, bracket);
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-};
-
-const fillImportForm = async (page: Page, bracket: string): Promise<void> => {
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', bracket);
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-};
 
 const waitForCutRounds = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
@@ -113,7 +95,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test('locking the current proposal disables decisions and explains why', async ({ page }) => {
-  await importPool(page, '4');
+  await importPool(page, oversizedPool, { bracket: '4', commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
 
   const proposal = page.locator('.cutlab-proposal');
@@ -132,7 +114,7 @@ test('locking the current proposal disables decisions and explains why', async (
 });
 
 test('locking the proposed card via the card dialog disables decisions and shows the locked message', async ({ page }) => {
-  await importPool(page, '4');
+  await importPool(page, oversizedPool, { bracket: '4', commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
 
   const proposal = page.locator('.cutlab-proposal');
@@ -156,7 +138,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
   const freshBracket = '1';
   const scenarioName = 'Locked tutor line';
 
-  await importPool(page, savedBracket);
+  await importPool(page, oversizedPool, { bracket: savedBracket, commander: 'Zur the Enchanter' });
   const initialProposal = (await page.locator('.cutlab-proposal__heading').textContent())?.replace(/^Proposed cut:\s*/, '').trim();
   const lockedCard = initialProposal === 'Rhystic Study' ? 'Counterspell' : 'Rhystic Study';
   await page.locator(`tr[data-cut-lab-card="${lockedCard}"] input[data-cut-lab-lock-card]`).check();
@@ -189,8 +171,8 @@ test('saves a named scenario, then restores the saved session after a fresh impo
       stateInput.value = '';
     }
   });
-  await fillImportForm(page, freshBracket);
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await fillImportPool(page, oversizedPool, { bracket: freshBracket });
+  await submitImportPool(page);
   await waitForCutRounds(page);
   await expandMobileCollapsibles(page);
 
@@ -218,7 +200,7 @@ test('saves a named scenario, then restores the saved session after a fresh impo
 });
 
 test('blocks the 21st saved scenario with the documented cap message', async ({ page }) => {
-  await importPool(page, '4');
+  await importPool(page, oversizedPool, { bracket: '4', commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
   await expandMobileCollapsibles(page);
 

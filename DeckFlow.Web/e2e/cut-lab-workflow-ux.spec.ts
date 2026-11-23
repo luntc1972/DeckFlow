@@ -2,34 +2,24 @@ import { type Page } from '@playwright/test';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { openRoleGroup } from './support/cut-lab-details';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { importPool } from './support/cut-lab-import';
 import { cutLabPool as oversizedPool } from './fixtures/cut-lab-pool';
 
 test.describe.configure({ mode: 'serial' });
 test.use({ enabledTools: ['Cut Lab'] });
 
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+const importPoolToDecide = async (page: Page): Promise<void> => {
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await expandCutLabSection(page, 'cut-lab-section-competes');
   await openRoleGroup(page, 'Lands');
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
   const decideStep = page.locator('[role="tab"][aria-label="Decide"]');
   await decideStep.click();
   await expect(decideStep).toHaveAttribute('aria-selected', 'true');
 };
 
 test('G-1 preserves the five-slot wizard contract in document order', async ({ page }) => {
-  await importPool(page);
+  await importPoolToDecide(page);
 
   await expect(page.locator('[role="tabpanel"]').evaluateAll((panels) => panels.map((panel) => panel.id))).resolves.toEqual([
     'cut-lab-step-panel-1',
@@ -41,7 +31,7 @@ test('G-1 preserves the five-slot wizard contract in document order', async ({ p
 });
 
 test('G-2 activates exactly one panel through native tab dispatch', async ({ page }) => {
-  await importPool(page);
+  await importPoolToDecide(page);
 
   const tabs = page.locator('[role="tab"]:not([aria-disabled="true"])');
   const tabCount = await tabs.count();
@@ -67,7 +57,7 @@ test('G-2 activates exactly one panel through native tab dispatch', async ({ pag
 });
 
 test('G-3 keeps Decide page bulk below the desktop and mobile headroom thresholds', async ({ page }) => {
-  await importPool(page);
+  await importPoolToDecide(page);
 
   const decideTab = page.locator('[role="tab"][aria-label="Decide"]');
   await expect(decideTab).toBeVisible();
@@ -84,7 +74,7 @@ test('G-3 keeps Decide page bulk below the desktop and mobile headroom threshold
 });
 
 test('G-4 collapses intake after import and exposes the commander summary', async ({ page }) => {
-  await importPool(page);
+  await importPoolToDecide(page);
 
   const deckTextarea = page.locator('#cut-lab-deck-text');
   await expect(deckTextarea).toHaveCount(1);
@@ -102,7 +92,7 @@ test('G-4 collapses intake after import and exposes the commander summary', asyn
 });
 
 test('G-5 keeps the complete Accept button visible and hit-testable while Decide evidence scrolls', async ({ page }) => {
-  await importPool(page);
+  await importPoolToDecide(page);
 
   const decideTab = page.locator('[role="tab"][aria-label="Decide"]');
   await decideTab.click();
@@ -163,7 +153,7 @@ test('G-5 keeps the complete Accept button visible and hit-testable while Decide
 
 // R2-2/F-1: guard production-rendered markup; overlap precondition prevents a vacuous hit test.
 test('G-6 lets a workflow control beneath the pinned proposal receive a click', async ({ page }) => {
-  await importPool(page);
+  await importPoolToDecide(page);
 
   const decideTab = page.locator('[role="tab"][aria-label="Decide"]');
   await decideTab.click();
@@ -251,7 +241,7 @@ test('G-6 lets a workflow control beneath the pinned proposal receive a click', 
 });
 
 test('Decide callout opens Plan and follows non-commander locks without reload', async ({ page }) => {
-  await importPool(page);
+  await importPoolToDecide(page);
   await page.evaluate(() => document.documentElement.setAttribute('data-t2c-document', 'original'));
   const callout = page.locator('p.cutlab-lock-callout[data-cut-lab-lock-callout]');
   await expect(page.locator('tr[data-cut-lab-commander="true"] input[data-cut-lab-lock-card]')).toBeChecked();
@@ -278,7 +268,7 @@ test('Decide callout opens Plan and follows non-commander locks without reload',
 });
 
 test('Manage packages opens Plan with Lock your pool and Packages in viewport', async ({ page }) => {
-  await importPool(page);
+  await importPoolToDecide(page);
   await page.getByRole('link', { name: 'Manage packages', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Plan', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#cut-lab-section-lock-pool')).toHaveAttribute('open', '');
@@ -290,7 +280,7 @@ test('Manage packages opens Plan with Lock your pool and Packages in viewport', 
 
 test('restart rounds wraps inside its Decide card at 390px', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await importPool(page);
+  await importPoolToDecide(page);
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   const restart = page.locator('[data-cut-lab-restart-rounds]');
   await expect(restart).toBeVisible();

@@ -4,7 +4,7 @@ import { expect, test } from './support/admin-fixtures';
 import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { openIntake, openRoleGroup } from './support/cut-lab-details';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { importPool, submitImportPool } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -49,21 +49,11 @@ const oversizedPool = [
 test.describe.configure({ mode: 'serial' });
 test.use({ enabledTools: ['Cut Lab'] });
 
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+const importPoolToLandsGroup = async (page: Page): Promise<void> => {
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await expandCutLabSection(page, 'cut-lab-section-competes');
   await openRoleGroup(page, 'Lands');
   await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
 test('/cut-lab renders the intake, intent controls, and hidden state field when the flag is ON', async ({ page }) => {
@@ -82,7 +72,7 @@ test('/cut-lab renders the intake, intent controls, and hidden state field when 
 });
 
 test('imports a pool, locks lands and a package, then preserves those edits across a resubmit', async ({ page }) => {
-  await importPool(page);
+  await importPoolToLandsGroup(page);
   await expandMobileCollapsibles(page);
 
   const landsLockButton = page.locator('[data-cut-lab-lock-role="lands"]');
@@ -106,7 +96,7 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await expect(hiddenState).toHaveValue(/"name":"Fast mana"/);
 
   await openIntake(page);
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await submitImportPool(page);
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandMobileCollapsibles(page);
@@ -129,7 +119,7 @@ test('captures imported Cut Lab screenshots across themes and viewports', async 
     for (const theme of themes) {
       await page.context().clearCookies();
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
-      await importPool(page);
+      await importPoolToLandsGroup(page);
 
       const screenshotPath = join(
         screenshotDir,

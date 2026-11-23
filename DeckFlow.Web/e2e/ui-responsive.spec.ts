@@ -1,4 +1,5 @@
 import { expect, test } from './support/admin-fixtures';
+import { submitImportPool } from './support/cut-lab-import';
 import { withKnowledgeBaseEnabled } from './support/knowledge-base-flag';
 import { cutLabPool, gotoOk } from './fixtures/cut-lab-pool';
 
@@ -120,7 +121,7 @@ test.describe('Cut Lab responsive behavior', () => {
 
     await page.locator('#cut-lab-input-source').selectOption('PasteText');
     await page.locator('#cut-lab-deck-text').fill(cutLabPool);
-    await page.getByRole('button', { name: 'Import pool' }).click();
+    await submitImportPool(page);
 
     const nav = page.locator('.prompt-step-nav');
     const tabs = nav.locator('.prompt-step-tab');
