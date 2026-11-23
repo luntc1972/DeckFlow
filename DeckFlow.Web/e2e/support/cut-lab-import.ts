@@ -15,13 +15,15 @@ interface ImportPoolOptions extends FillImportPoolOptions {
   commander?: string;
 }
 
+// Why: The MDFC spec established that a 60s budget and an explicit POST wait handle the Debug pipeline.
+export const cutLabImportTimeoutMs = 60_000;
+
 export async function submitImportPool(page: Page): Promise<Response> {
-  // The MDFC spec established that a 60s budget and an explicit POST wait handle the Debug pipeline.
   const [response] = await Promise.all([
     page.waitForResponse(response => {
       return new URL(response.url()).pathname === '/cut-lab' && response.request().method() === 'POST';
-    }, { timeout: 60_000 }),
-    page.getByRole('button', { name: 'Import pool' }).click({ timeout: 60_000 }),
+    }, { timeout: cutLabImportTimeoutMs }),
+    page.getByRole('button', { name: 'Import pool' }).click({ timeout: cutLabImportTimeoutMs }),
   ]);
   return response;
 }
@@ -57,7 +59,7 @@ export async function importPool(page: Page, pool: string, options: ImportPoolOp
   if (landing === 'lock-pool') {
     await expandCutLabSection(page, 'cut-lab-section-lock-pool', !scriptsDisabled);
     await expect(page.getByRole('heading', { name: 'Lock your pool' }))
-      .toBeVisible({ timeout: scriptsDisabled ? 60_000 : 30_000 });
+      .toBeVisible({ timeout: scriptsDisabled ? cutLabImportTimeoutMs : 30_000 });
   } else if (landing === 'plan-panel') {
     await expandCutLabSection(page, 'cut-lab-section-plan-panel');
     await expect(page.locator('[data-cut-lab-plan-panel]')).toBeVisible({ timeout: 30_000 });
