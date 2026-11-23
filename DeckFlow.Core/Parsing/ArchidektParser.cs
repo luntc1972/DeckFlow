@@ -82,6 +82,9 @@ public sealed partial class ArchidektParser : IParser
         return entries;
     }
 
+    internal static bool HasCategorySuffix(string line)
+        => CategoryRegex().IsMatch(StripTrailingTags(line.Trim()));
+
     private static bool TryParseEntry(string line, string defaultBoard, bool allowImplicitQuantity, out DeckEntry entry)
     {
         entry = default!;
@@ -99,6 +102,7 @@ public sealed partial class ArchidektParser : IParser
             return false;
         }
 
+        remainder = StripTrailingTags(remainder);
         var hashtagCategories = ExtractHashtagCategories(ref remainder);
         string? categoryText = null;
         var categoryMatch = CategoryRegex().Match(remainder);
@@ -280,6 +284,11 @@ public sealed partial class ArchidektParser : IParser
 
     [GeneratedRegex(@"^(?<name>.+?)\s+\[(?<categories>.*)\]$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex CategoryRegex();
+
+    private static string StripTrailingTags(string line) => TrailingTagsRegex().Replace(line, string.Empty);
+
+    [GeneratedRegex(@"\s+(?:\^[^^]*\^\s*)+$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    private static partial Regex TrailingTagsRegex();
 
     [GeneratedRegex(@"^(?<name>.+?)\s+\((?<set>[^)]+)\)\s+(?<collector>\S+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex PrintingRegex();

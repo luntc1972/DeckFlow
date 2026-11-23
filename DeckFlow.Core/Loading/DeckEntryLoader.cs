@@ -131,28 +131,46 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
             }
         }
 
+        var archidektFirst = HasArchidektCategoryMarkers(deckSource);
+        if (!archidektFirst && TryParseMoxfieldPaste(deckSource) is { } moxfieldResult)
+        {
+            return moxfieldResult;
+        }
+
+        try
+        {
+            return new DeckSourceLoadResult(_archidektParser.ParseText(deckSource), null);
+        }
+        catch (DeckParseException)
+        {
+            if (archidektFirst && TryParseMoxfieldPaste(deckSource) is { } fallbackResult)
+            {
+                return fallbackResult;
+            }
+
+            if (unrecognizedBehavior == UnrecognizedPasteBehavior.PropagateParseException)
+            {
+                throw;
+            }
+        }
+
+        throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, or a Moxfield, Archidekt, or MTG Arena deck export.");
+    }
+
+    private static bool HasArchidektCategoryMarkers(string deckSource)
+        // Why: Moxfield accepts bracketed categories as card-name text, losing printing and board data.
+        => deckSource.Split('\n').Any(ArchidektParser.HasCategorySuffix);
+
+    private DeckSourceLoadResult? TryParseMoxfieldPaste(string deckSource)
+    {
         try
         {
             return new DeckSourceLoadResult(_moxfieldParser.ParseText(deckSource), null);
         }
         catch (DeckParseException)
         {
+            return null;
         }
-
-        if (unrecognizedBehavior == UnrecognizedPasteBehavior.PropagateParseException)
-        {
-            return new DeckSourceLoadResult(_archidektParser.ParseText(deckSource), null);
-        }
-
-        try
-        {
-            return new DeckSourceLoadResult(_archidektParser.ParseText(deckSource), null);
-        }
-        catch (DeckParseException)
-        {
-        }
-
-        throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, or a Moxfield, Archidekt, or MTG Arena deck export.");
     }
 
     /// <inheritdoc />
