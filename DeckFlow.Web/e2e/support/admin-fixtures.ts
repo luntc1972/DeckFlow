@@ -12,7 +12,7 @@ import {
   applyAdminHeaders,
   releaseAdminLockForTest,
 } from './admin-lock';
-import { getToolEnabled, setToolEnabled } from './admin-tools';
+import { setToolEnabled } from './admin-tools';
 
 export { expect } from '@playwright/test';
 
@@ -72,9 +72,12 @@ export const test = base.extend<AdminFixtures>({
 
     try {
       for (const label of enabledTools) {
-        const enabled = await getToolEnabled(page, label);
-        priorStates.push({ label, enabled });
-        await setToolEnabled(page, label, true);
+        const recordChange = (previouslyEnabled: boolean): void => {
+          if (!previouslyEnabled) {
+            priorStates.push({ label, enabled: previouslyEnabled });
+          }
+        };
+        recordChange(await setToolEnabled(page, label, true, recordChange));
       }
     } catch (error) {
       try {

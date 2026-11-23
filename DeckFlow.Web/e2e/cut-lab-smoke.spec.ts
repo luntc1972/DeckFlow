@@ -123,11 +123,16 @@ test('captures imported Cut Lab screenshots across themes and viewports', async 
 });
 
 test('with tool.cut-lab.enabled OFF, /cut-lab returns 404 and the Home tile is absent', async ({ page }) => {
-  await setToolEnabled(page, 'Cut Lab', false);
+  try {
+    await setToolEnabled(page, 'Cut Lab', false);
 
-  const response = await page.goto('/cut-lab');
-  expect(response?.status(), '/cut-lab should be 404 with flag OFF').toBe(404);
+    const response = await page.goto('/cut-lab');
+    expect(response?.status(), '/cut-lab should be 404 with flag OFF').toBe(404);
 
-  await page.goto('/');
-  await expect(page.locator('.hub-card[href$="/cut-lab"]')).toHaveCount(0);
+    await page.goto('/');
+    await expect(page.locator('.hub-card[href$="/cut-lab"]')).toHaveCount(0);
+  } finally {
+    // The fixture only restores flags that it changed during setup.
+    await setToolEnabled(page, 'Cut Lab', true);
+  }
 });
