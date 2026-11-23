@@ -46,19 +46,4 @@ public sealed class DeckConvertControllerTests
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
         return controller;
     }
-
-    private sealed class ThrowingDeckConvertService(Exception exception) : IDeckConvertService
-    {
-        public Task<DeckConvertResult> ConvertAsync(DeckConvertRequest request, CancellationToken cancellationToken = default) =>
-            Task.FromException<DeckConvertResult>(exception);
-    }
-
-    private sealed class StubCardSearchService : ICardSearchService
-    {
-        public Task<IReadOnlyList<string>> SearchAsync(string query, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
-
-        public Task<IReadOnlyList<string>> SearchCommandersAsync(string query, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
-    }
 }
