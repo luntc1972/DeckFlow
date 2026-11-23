@@ -5,7 +5,7 @@ import { type Page } from '@playwright/test';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { openIntake } from './support/cut-lab-details';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { importPool, submitImportPool } from './support/cut-lab-import';
 import { cutLabPool as oversizedPool } from './fixtures/cut-lab-pool';
 
 // Live smoke spec for Phase 8's Cut Lab plan panel (checkbox plan-profile selection), gated on
@@ -38,9 +38,7 @@ import { cutLabPool as oversizedPool } from './fixtures/cut-lab-pool';
 // Admin credentials come from FEEDBACK_ADMIN_USER and FEEDBACK_ADMIN_PASSWORD. The shared admin
 // fixture enables Cut Lab and restores its prior state after each test. It raises the test budget
 // to 120 seconds and excludes time spent waiting for the admin lock from that budget.
-import { resolveE2EPort } from './support/e2e-port';
 
-const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const screenshotDir = resolve(__dirname, '../../.planning/ui-design/cut-lab/screenshots');
 
 // Why: the local category-knowledge.db (crowd-sourced Archidekt category tags backing the generic
@@ -79,21 +77,9 @@ function sqlite(sql: string): string {
 
 const q = (value: string): string => `'${value.replace(/'/g, "''")}'`;
 
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-  await expandCutLabSection(page, 'cut-lab-section-plan-panel');
-  await expect(page.locator('[data-cut-lab-plan-panel]')).toBeVisible({ timeout: 30_000 });
-};
-
 const reimportPool = async (page: Page): Promise<void> => {
   await openIntake(page);
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await submitImportPool(page);
   await expandCutLabSection(page, 'cut-lab-section-plan-panel');
   await expect(page.locator('[data-cut-lab-plan-panel]')).toBeVisible({ timeout: 30_000 });
 };
@@ -146,7 +132,7 @@ const readProposedCardName = async (page: Page): Promise<string> => {
 };
 
 test('the plan panel renders after import and the free-text plan fields are gone', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { landing: 'plan-panel' });
   await expandMobileCollapsibles(page);
 
   await expect(page.locator('[data-cut-lab-plan-panel]')).toBeVisible();
@@ -156,7 +142,7 @@ test('the plan panel renders after import and the free-text plan fields are gone
 
 test('the archetype picker shows condensed copy only on phones', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await importPool(page);
+  await importPool(page, oversizedPool, { landing: 'plan-panel' });
 
   const archetypes = page.getByRole('group', { name: 'Deck archetype' });
   const shortIntro = archetypes.getByText('The archetype adds its strategies and sets default goal turns.', { exact: true });
@@ -191,7 +177,7 @@ test('the archetype picker shows condensed copy only on phones', async ({ page }
 });
 
 test('every generic strategy checkbox documents a definition and a consequence', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { landing: 'plan-panel' });
   await expandMobileCollapsibles(page);
 
   const rows = page.locator('.cut-lab-plan-panel__strategies .cut-lab-plan-panel__row');
@@ -212,7 +198,7 @@ test('every generic strategy checkbox documents a definition and a consequence',
 test('commander themes render sorted with at most three pre-checked, or the unavailable message renders', async ({
   page,
 }, testInfo) => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { landing: 'plan-panel' });
   await expandMobileCollapsibles(page);
 
   const unavailable = page.locator('.cut-lab-plan-panel__themes-unavailable');
@@ -254,7 +240,7 @@ test('commander themes render sorted with at most three pre-checked, or the unav
 });
 
 test('the zero-selection notice appears once every checkbox is cleared', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { landing: 'plan-panel' });
   await expandMobileCollapsibles(page);
 
   await clearAllPlanCheckboxes(page);
@@ -311,7 +297,7 @@ test('checking a generic strategy the pool matches changes the proposed cut', as
       : 'sqlite3 category seed failed; see plan-panel category seed failed diagnostic.',
   );
 
-  await importPool(page);
+  await importPool(page, oversizedPool, { landing: 'plan-panel' });
   await expandMobileCollapsibles(page);
   await clearAllPlanCheckboxes(page);
 
@@ -329,7 +315,7 @@ test('checking a generic strategy the pool matches changes the proposed cut', as
 });
 
 test('a checked plan box survives a pool re-import', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { landing: 'plan-panel' });
   await expandMobileCollapsibles(page);
 
   const controlCheckbox = page.locator('input[name="PlanStrategies"][value="control"]');
@@ -345,7 +331,7 @@ test('a checked plan box survives a pool re-import', async ({ page }) => {
 test('captures a plan panel screenshot and enforces no horizontal scroll on mobile', async ({ page }) => {
   mkdirSync(screenshotDir, { recursive: true });
 
-  await importPool(page);
+  await importPool(page, oversizedPool, { landing: 'plan-panel' });
   await expandMobileCollapsibles(page);
   await expect(page.locator('[data-cut-lab-plan-panel]')).toBeVisible();
 

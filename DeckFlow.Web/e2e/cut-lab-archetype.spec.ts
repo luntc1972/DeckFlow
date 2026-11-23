@@ -1,7 +1,6 @@
-import { type Page } from '@playwright/test';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { importPool } from './support/cut-lab-import';
 import { cutLabPool } from './fixtures/cut-lab-pool';
 
 // E2E coverage for the Step 2 deck-archetype picker and its plan-apply round trip at desktop
@@ -12,20 +11,8 @@ import { cutLabPool } from './fixtures/cut-lab-pool';
 test.describe.configure({ mode: 'serial' });
 test.use({ enabledTools: ['Cut Lab'] });
 
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(cutLabPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-  await expandCutLabSection(page, 'cut-lab-section-plan-panel');
-  await expect(page.locator('[data-cut-lab-plan-panel]')).toBeVisible({ timeout: 30_000 });
-};
-
 test('Archetype picker renders and applies Stax on desktop and mobile', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, cutLabPool, { landing: 'plan-panel' });
   await expandMobileCollapsibles(page);
 
   const archetypes = page.locator('[data-cut-lab-plan-archetypes] input[type="radio"]');

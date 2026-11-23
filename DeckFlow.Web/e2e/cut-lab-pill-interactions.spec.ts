@@ -1,6 +1,7 @@
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { submitImportPool } from './support/cut-lab-import';
 import { openRoleGroup } from './support/cut-lab-details';
 import { resolveE2EPort } from './support/e2e-port';
 
@@ -62,7 +63,7 @@ test('individual card pills lock cards and Lock All stays readable in Commander 
 
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await submitImportPool(page);
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandCutLabSection(page, 'cut-lab-section-competes');
@@ -113,7 +114,7 @@ test('card modal meta shows power and toughness for creature cards', async ({ pa
 
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await submitImportPool(page);
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
 
@@ -128,7 +129,7 @@ test('structural evidence pills lock the canonical pool checkbox and inert spans
 
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await submitImportPool(page);
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandCutLabSection(page, 'cut-lab-section-structural');

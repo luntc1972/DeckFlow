@@ -2,10 +2,8 @@ import { type Locator, type Page, type Response } from '@playwright/test';
 import { expect, test } from './support/admin-fixtures';
 import { ensureDetailsOpen } from './support/cut-lab-details';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
-import { resolveE2EPort } from './support/e2e-port';
+import { importPool } from './support/cut-lab-import';
 
-const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const fell = 'Fell the Profane // Fell Mire';
 const fellDisplay = 'Fell the Profane / Fell Mire';
 const shatterskull = 'Shatterskull Smashing // Shatterskull, the Hammer Pass';
@@ -17,23 +15,6 @@ const oversizedPool = [
 
 test.describe.configure({ mode: 'serial' });
 test.use({ enabledTools: ['Cut Lab'] });
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto(`${baseUrl}/cut-lab`);
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await Promise.all([
-    page.waitForResponse(response => {
-      return new URL(response.url()).pathname === '/cut-lab' && response.request().method() === 'POST';
-    }, { timeout: 60_000 }),
-    page.getByRole('button', { name: 'Import pool' }).click({ timeout: 60_000 }),
-  ]);
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-};
 
 const clickAndWaitForDecide = async (
   page: Page,
@@ -63,7 +44,7 @@ const acceptMdfc = async (page: Page): Promise<void> => {
 test('keeps MDFC display names separate from canonical state, decisions and exports', async ({ page }) => {
   test.setTimeout(120_000);
   page.setDefaultTimeout(15_000);
-  await importPool(page);
+  await importPool(page, oversizedPool);
   const fellRow = page.locator(`tr[data-cut-lab-card="${fell}"]`);
   const state = page.locator('form[data-cache-key="cut-lab"] input[name="CutLabStateJson"]');
 

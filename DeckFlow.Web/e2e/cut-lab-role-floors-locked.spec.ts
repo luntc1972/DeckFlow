@@ -2,7 +2,7 @@ import { type Page } from '@playwright/test';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { openRoleGroup } from './support/cut-lab-details';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { importPool } from './support/cut-lab-import';
 import { cutLabPool } from './fixtures/cut-lab-pool';
 
 const floorRows = (page: Page) => page.locator('table[data-cut-lab-role-floors-table] tbody tr');
@@ -15,15 +15,7 @@ test.describe.configure({ mode: 'serial' });
 test.use({ enabledTools: ['Cut Lab'] });
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(cutLabPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+  await importPool(page, cutLabPool);
   await expandCutLabSection(page, 'cut-lab-section-role-floors');
   await expect(page.locator('table[data-cut-lab-role-floors-table]')).toBeVisible();
 });
