@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -9,6 +11,7 @@ using DeckFlow.Core.Normalization;
 using DeckFlow.Core.Reporting;
 using DeckFlow.Web.Services;
 using DeckFlow.Web.Services.CutLab;
+using DeckFlow.Web.Services.Manabase;
 
 using Xunit;
 
@@ -41,13 +44,7 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
         Assert.NotEmpty(decks);
         Assert.NotEmpty(cards);
 
-        List<Variant> variants = [new("oracle", null)];
-        if (!string.IsNullOrWhiteSpace(categoryPath))
-        {
-            var observations = ReadJson<Dictionary<string, Dictionary<string, int>>>(categoryPath);
-            variants.Add(new Variant("categories", observations.ToDictionary(
-                entry => entry.Key, entry => SelectCategories(entry.Value), StringComparer.Ordinal)));
-        }
+        var variants = ReadVariants(categoryPath);
 
         Directory.CreateDirectory(output);
         string csvPath = Path.Combine(output, "evaluations.csv");
@@ -63,7 +60,7 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
 
         using (StreamWriter csv = new(csvPath))
         {
-            csv.WriteLine("deck_index,cmdkey,tier,standing,variant,flavor,tutors_b2,tutors_a1,stax_b2,stax_a1,stax_role_only,fast_mana,avg_mv,spells,storm,voltron,interaction,creatures,slug,confidence,reason,unresolved_names");
+            csv.WriteLine("deck_index,cmdkey,tier,standing,variant,flavor,tutors_b2,tutors_a1,stax_b2,stax_a1,stax_role_only,fast_mana,avg_mv,spells,storm,voltron,interaction,creatures,slug,confidence,reason,unresolved_names,tutors_a1_lands");
             foreach (Variant variant in variants)
             {
                 MeasureVariant(decks, cards, variant, csv, summary, unresolved, inconsistent);
@@ -90,6 +87,144 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
 
         Assert.All(new[] { csvPath, summaryPath, runPath }, path => Assert.True(new FileInfo(path).Length > 0, path));
         Assert.True(inconsistent.Count == 0, string.Join(Environment.NewLine, inconsistent));
+    }
+
+    /// <summary>Fingerprints Manabase plan roles and samples mulligan metrics to detect fetch-land classifier regressions.</summary>
+    [CutLabMeasurementFact]
+    public void Measure_ManabasePlanRoles_WritesCorpusReport()
+    {
+        DateTimeOffset timestamp = DateTimeOffset.UtcNow;
+        string dataDirectory = RequiredPath("DECKFLOW_CUTLAB_MEASURE_DATA");
+        string output = Path.Combine(RequiredPath("DECKFLOW_CUTLAB_MEASURE_OUT"), "manabase");
+        string? categoryPath = Environment.GetEnvironmentVariable("DECKFLOW_CUTLAB_MEASURE_CATEGORIES");
+        string? sampleValue = Environment.GetEnvironmentVariable("DECKFLOW_CUTLAB_MEASURE_MANABASE_SAMPLE");
+        int sample = string.IsNullOrWhiteSpace(sampleValue) ? 200 : int.Parse(sampleValue, CultureInfo.InvariantCulture);
+        string decksPath = Path.Combine(dataDirectory, "decks_all.json");
+        string cardsPath = Path.Combine(dataDirectory, "cards_full.json");
+        var decks = ReadJson<List<CalibrationDeck>>(decksPath);
+        var cards = ReadJson<Dictionary<string, ScryfallCardData>>(cardsPath);
+        var variants = ReadVariants(categoryPath);
+        int stride = sample <= 0 ? 0 : Math.Max(1, decks.Count / sample);
+
+        Directory.CreateDirectory(output);
+        string csvPath = Path.Combine(output, "plan-roles.csv");
+        string summaryPath = Path.Combine(output, "summary.md");
+        string runPath = Path.Combine(output, "run.json");
+        StringBuilder summary = new();
+        summary.AppendLine("# Manabase plan-role measurement");
+
+        using (StreamWriter csv = new(csvPath))
+        {
+            csv.WriteLine("deck_index,cmdkey,variant,spells,plan_spells,tutorcombo_spells,tutorcombo_land_front_spells,roles_sha256,analyzed,keepable_pct,plan_keepable_pct,plan_presence_pct,shape_explosive_pct");
+            foreach (Variant variant in variants)
+            {
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                List<ManabaseMeasurement> rows = new(decks.Count);
+                for (int index = 0; index < decks.Count; index++)
+                {
+                    CalibrationDeck deck = decks[index];
+                    bool analyze = stride > 0 && index % stride == 0;
+                    var row = MeasureManabaseDeck(deck, cards, variant, analyze);
+                    rows.Add(row);
+                    csv.WriteLine(FormattableString.Invariant(
+                        $"{index},{CsvField(deck.CmdKey)},{variant.Name},{row.Spells},{row.PlanSpells},{row.TutorComboSpells},{row.LandFrontTutorComboSpells},{row.RolesHash},{row.Analyzed},{row.Mulligan?.KeepableHandPercent},{row.Mulligan?.PlanKeepablePercent},{row.Mulligan?.PlanPresence?.PlanPresencePercent},{row.Mulligan?.PlanPresence?.ShapeExplosivePercent}"));
+                }
+
+                summary.AppendLine();
+                summary.AppendLine($"## {variant.Name}");
+                summary.AppendLine($"Deck count: {rows.Count}");
+                summary.AppendLine($"Total spells: {rows.Sum(row => row.Spells)}");
+                summary.AppendLine($"Total tutorcombo_spells: {rows.Sum(row => row.TutorComboSpells)}");
+                summary.AppendLine($"Total tutorcombo_land_front_spells: {rows.Sum(row => row.LandFrontTutorComboSpells)}");
+                summary.AppendLine($"Analyzed count: {rows.Count(row => row.Analyzed)}");
+                summary.AppendLine(FormattableString.Invariant($"Mean keepable_pct: {rows.Average(row => row.Mulligan?.KeepableHandPercent):F2}"));
+                summary.AppendLine(FormattableString.Invariant($"Mean plan_keepable_pct: {rows.Average(row => row.Mulligan?.PlanKeepablePercent):F2}"));
+                summary.AppendLine(FormattableString.Invariant($"Mean plan_presence_pct: {rows.Average(row => row.Mulligan?.PlanPresence?.PlanPresencePercent):F2}"));
+                summary.AppendLine(FormattableString.Invariant($"Mean shape_explosive_pct: {rows.Average(row => row.Mulligan?.PlanPresence?.ShapeExplosivePercent):F2}"));
+                summary.AppendLine(FormattableString.Invariant($"Elapsed seconds: {stopwatch.Elapsed.TotalSeconds:F2}"));
+            }
+        }
+
+        File.WriteAllText(summaryPath, summary.ToString());
+        File.WriteAllText(runPath, JsonSerializer.Serialize(new
+        {
+            decksPath,
+            cardsPath,
+            categoryPath,
+            sample,
+            stride,
+            deckCount = decks.Count,
+            timestamp,
+        }, JsonOptions));
+        Assert.All(new[] { csvPath, summaryPath, runPath }, path => Assert.True(new FileInfo(path).Length > 0, path));
+    }
+
+    private static ManabaseMeasurement MeasureManabaseDeck(
+        CalibrationDeck deck,
+        IReadOnlyDictionary<string, ScryfallCardData> cardData,
+        Variant variant,
+        bool analyze)
+    {
+        var commanders = deck.Commanders.ToHashSet(StringComparer.Ordinal);
+        List<CardFact> facts = [];
+        Dictionary<string, CardFact> factByName = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in deck.Commanders.Concat(deck.Maindeck).GroupBy(name => name, StringComparer.Ordinal))
+        {
+            if (cardData.TryGetValue(group.Key, out ScryfallCardData? scryfall))
+            {
+                CardFact fact = ScryfallCardFactMapper.ToCardFact(scryfall, group.Count(), commanders.Contains(group.Key));
+                facts.Add(fact);
+                factByName[fact.Name] = fact;
+            }
+        }
+
+        ManabaseDeck classified = ManabaseClassifier.Classify(facts);
+        List<SpellRequirement> tagged = new(classified.Spells.Count);
+        int planSpells = 0;
+        int tutorComboSpells = 0;
+        int landFrontTutorComboSpells = 0;
+        foreach (var spell in classified.Spells)
+        {
+            PlanRole roles = PlanRole.None;
+            bool merit = false;
+            if (factByName.TryGetValue(spell.Name, out CardFact? fact))
+            {
+                IReadOnlyList<string> categories = variant.Categories?.GetValueOrDefault(CardNormalizer.Normalize(fact.Name)) ?? [];
+                roles = PlanRoleClassifier.Classify(fact, categories, isComboPiece: false, ManabaseMode.Cedh, out merit);
+                if ((roles & PlanRole.TutorCombo) != 0)
+                {
+                    tutorComboSpells++;
+                    if (CardTypeLine.FrontFace(fact.TypeLine).Contains("Land", StringComparison.Ordinal))
+                    {
+                        landFrontTutorComboSpells++;
+                    }
+                }
+            }
+
+            planSpells += roles != PlanRole.None ? 1 : 0;
+            tagged.Add(spell with { PlanRoles = roles, IsInteractionSpell = merit });
+        }
+
+        var roleLines = tagged.Select(spell => FormattableString.Invariant($"{spell.Name}|{(int)spell.PlanRoles}|{spell.IsInteractionSpell}"))
+            .Order(StringComparer.Ordinal);
+        byte[] rolesSha256 = SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', roleLines)));
+        var mulligan = analyze
+            ? ManabaseAnalyzer.Analyze(classified with { Spells = tagged }, ManabaseMode.Cedh, keepShapes: true, interactionLens: true).MulliganEvaluation
+            : null;
+        return new ManabaseMeasurement(tagged.Count, planSpells, tutorComboSpells, landFrontTutorComboSpells,
+            Convert.ToHexStringLower(rolesSha256.AsSpan(0, 8)), analyze, mulligan);
+    }
+
+    private static IReadOnlyList<Variant> ReadVariants(string? categoryPath)
+    {
+        List<Variant> variants = [new("oracle", null)];
+        if (!string.IsNullOrWhiteSpace(categoryPath))
+        {
+            var observations = ReadJson<Dictionary<string, Dictionary<string, int>>>(categoryPath);
+            variants.Add(new Variant("categories", observations.ToDictionary(
+                entry => entry.Key, entry => SelectCategories(entry.Value), StringComparer.Ordinal)));
+        }
+        return variants;
     }
 
     private static void MeasureVariant(
@@ -194,6 +329,7 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
     {
         int tutorsB2 = 0;
         int tutorsA1 = 0;
+        int tutorsA1Lands = 0;
         int staxB2 = 0;
         int staxA1 = 0;
         int staxRoleOnly = 0;
@@ -215,6 +351,11 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
             staxB2 += cardStaxB2 ? quantity : 0;
             staxA1 += cardStaxA1 ? quantity : 0;
             staxRoleOnly += staxRole ? quantity : 0;
+            if (card.IsLand && tutorRole)
+            {
+                tutorsA1Lands += quantity;
+                AddCopies(results.TutorRoleLandCopies, card.Name, quantity);
+            }
 
             if (!hasCategories)
             {
@@ -242,7 +383,8 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
             Count(cards, card => card.SemanticProfile?.Keywords?.Contains("Storm", StringComparer.OrdinalIgnoreCase) == true),
             Count(cards, card => HasType(card, "Equipment") || HasType(card, "Aura")),
             Count(cards, card => HasRole(card, "interaction-targeted") || HasRole(card, "interaction-mass")),
-            Count(cards, card => HasType(card, "Creature")));
+            Count(cards, card => HasType(card, "Creature")),
+            tutorsA1Lands);
     }
 
     private static void WriteEvaluation(
@@ -274,7 +416,7 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
         }
 
         csv.WriteLine(FormattableString.Invariant(
-            $"{index},{CsvField(deck.CmdKey)},{CsvField(deck.Tier)},{deck.Standing},{variant},{flavor},{counts.TutorsB2},{counts.TutorsA1},{counts.StaxB2},{counts.StaxA1},{counts.StaxRoleOnly},{counts.FastMana},{counts.AverageManaValue},{counts.Spells},{counts.Storm},{counts.Voltron},{counts.Interaction},{counts.Creatures},{slug},{suggestion.Confidence},{CsvField(suggestion.Reason)},{unresolved}"));
+            $"{index},{CsvField(deck.CmdKey)},{CsvField(deck.Tier)},{deck.Standing},{variant},{flavor},{counts.TutorsB2},{counts.TutorsA1},{counts.StaxB2},{counts.StaxA1},{counts.StaxRoleOnly},{counts.FastMana},{counts.AverageManaValue},{counts.Spells},{counts.Storm},{counts.Voltron},{counts.Interaction},{counts.Creatures},{slug},{suggestion.Confidence},{CsvField(suggestion.Reason)},{unresolved},{counts.TutorsA1Lands}"));
     }
 
     private static bool ViolatesFormula(
@@ -367,6 +509,11 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
             summary.AppendLine("- Stax counted only by B2:");
             WriteTopNames(summary, results.StaxLosses);
         }
+
+        summary.AppendLine();
+        summary.AppendLine($"Tutor-role copies: {results.DeckCounts.Sum(count => count.TutorsA1)}; on lands: {results.DeckCounts.Sum(count => count.TutorsA1Lands)}.");
+        summary.AppendLine("Tutor-role copies on lands, by name:");
+        WriteTopNames(summary, results.TutorRoleLandCopies);
     }
 
     private static void WriteHistogram(StringBuilder summary, string name, IEnumerable<int> values, int floor, int ceiling, int threshold)
@@ -448,9 +595,13 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
         public bool HasCategories => Categories is not null;
     }
 
+    private sealed record ManabaseMeasurement(
+        int Spells, int PlanSpells, int TutorComboSpells, int LandFrontTutorComboSpells,
+        string RolesHash, bool Analyzed, ManabaseMulliganEvaluation? Mulligan);
+
     private sealed record Counts(
         int TutorsB2, int TutorsA1, int StaxB2, int StaxA1, int StaxRoleOnly, int FastMana,
-        double? AverageManaValue, int Spells, int Storm, int Voltron, int Interaction, int Creatures);
+        double? AverageManaValue, int Spells, int Storm, int Voltron, int Interaction, int Creatures, int TutorsA1Lands);
 
     private sealed class VariantResults
     {
@@ -458,6 +609,7 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
         public Dictionary<(string Flavor, string Slug), int> ArchetypeCounts { get; } = [];
         public Violations B2 { get; } = new();
         public Violations A1 { get; } = new();
+        public Dictionary<string, int> TutorRoleLandCopies { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, int> TutorGains { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, int> TutorLosses { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, int> StaxGains { get; } = new(StringComparer.Ordinal);
