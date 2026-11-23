@@ -7,7 +7,6 @@ import { resolveE2EPort } from './e2e-port';
 
 interface FillImportPoolOptions {
   bracket?: string;
-  playExperience?: string;
   scriptsDisabled?: boolean;
 }
 
@@ -30,7 +29,7 @@ export async function submitImportPool(page: Page): Promise<Response> {
 export async function fillImportPool(
   page: Page,
   pool: string,
-  { bracket = '4', playExperience = 'Focused', scriptsDisabled = false }: FillImportPoolOptions = {},
+  { bracket = '4', scriptsDisabled = false }: FillImportPoolOptions = {},
 ): Promise<void> {
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   if (scriptsDisabled) {
@@ -43,7 +42,7 @@ export async function fillImportPool(
 
   await page.locator('#cut-lab-deck-text').fill(pool);
   await clickManabasePillRadio(page, 'Bracket', bracket);
-  await clickManabasePillRadio(page, 'PlayExperience', playExperience);
+  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
 }
 
 export async function importPool(page: Page, pool: string, options: ImportPoolOptions = {}): Promise<void> {
