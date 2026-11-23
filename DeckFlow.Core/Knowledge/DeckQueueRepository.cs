@@ -522,6 +522,7 @@ internal sealed class DeckQueueRepository
             $"""
             UPDATE deck_queue
             SET transient_failure_count = transient_failure_count + 1,
+                processed = CASE WHEN transient_failure_count + 1 >= 3 THEN 1 ELSE processed END,
                 skipped = CASE WHEN transient_failure_count + 1 >= 3 THEN 1 ELSE skipped END,
                 skip_reason = CASE WHEN transient_failure_count + 1 >= 3 THEN {RetentionPreservingSkipReasonSql} ELSE skip_reason END
             WHERE deck_id = @deckId AND processed = 0 AND skipped = 0
