@@ -420,6 +420,30 @@ public sealed class CategoryKnowledgeRepository
             cancellationToken: cancellationToken);
 
     /// <summary>
+    /// Archives stored rows for a deck Archidekt confirms is absent, or marks an unstored row terminal.
+    /// </summary>
+    /// <param name="deckId">The Archidekt deck identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>One when live rows were archived; otherwise zero.</returns>
+    internal async Task<int> RetireNotFoundDeckAsync(string deckId, CancellationToken cancellationToken = default)
+    {
+        var deckQueueId = await _deckQueue.GetDeckQueueIdAsync(deckId, cancellationToken).ConfigureAwait(false);
+        if (deckQueueId is null)
+        {
+            return 0;
+        }
+
+        var archived = await _cardCategory.RemoveStoredDecksAsync([(deckQueueId.Value, DeckSkipReasons.NotFound)], cancellationToken).ConfigureAwait(false);
+        if (archived != 0)
+        {
+            return archived;
+        }
+
+        await _deckQueue.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, skipReason: DeckSkipReasons.NotFound, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return 0;
+    }
+
+    /// <summary>
     /// Gets the stored canonical content hash for a queued Archidekt deck.
     /// </summary>
     /// <param name="deckId">Deck ID to read.</param>

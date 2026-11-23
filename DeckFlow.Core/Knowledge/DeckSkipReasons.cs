@@ -19,4 +19,7 @@ public static class DeckSkipReasons
 
     /// <summary>Written by retention processing.</summary>
     public const string Retention = "retention";
+
+    /// <summary>Written when Archidekt confirms that a deck no longer exists.</summary>
+    public const string NotFound = "not_found";
 }

@@ -331,6 +331,23 @@ public sealed class ArchidektDeckCacheSession
                 throw;
             }
         }
+        // Why: 404 "Deck not found" is terminal (G16-U1), while other failures stay retryable.
+        catch (ArchidektDeckNotFoundException)
+        {
+            try
+            {
+                var archived = await _repository.RetireNotFoundDeckAsync(deckId, cancellationToken);
+                tally.Skipped++;
+                _logger?.LogWarning("Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}", deckId, archived == 1 ? "archived" : "marked");
+                progress?.Report(tally.Added + tally.Updated);
+            }
+            catch (Exception retireException) when (retireException is not OperationCanceledException and not System.Data.Common.DbException)
+            {
+                tally.Skipped++;
+                _logger?.LogWarning(retireException, "Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}", deckId, "fallback_fetch_failure");
+                await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, cancellationToken);
+            }
+        }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or NotSupportedException)
         {
             tally.Skipped++;
