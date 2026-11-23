@@ -57,7 +57,7 @@ export const test = base.extend<AdminFixtures>({
     const priorStates: { label: string; enabled: boolean }[] = [];
     const restoreFlags = async (): Promise<void> => {
       let firstFailure: { error: unknown } | undefined;
-      for (const { label, enabled } of priorStates.reverse()) {
+      for (const { label, enabled } of [...priorStates].reverse()) {
         try {
           await setToolEnabled(page, label, enabled);
         } catch (error) {
