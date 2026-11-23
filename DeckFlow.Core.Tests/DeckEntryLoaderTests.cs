@@ -207,6 +207,20 @@ Main
         Assert.Equal("123", result.Entries[1].CollectorNumber);
     }
 
+    [Theory]
+    [InlineData("1 Sol Ring (CMR) 123\n// Removal [3]\nSB: 1 Swords to Plowshares")]
+    [InlineData("1 Sol Ring\nSB: 1 Swords to Plowshares\n\nNotes:\nCombo line [see primer]")]
+    public async Task LoadFromSourceAsync_BracketedNonCardLine_PreservesMoxfieldBoardAssignments(string deckSource)
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync(deckSource);
+
+        Assert.Single(result.Entries, entry => entry.Name == "Sol Ring" && entry.Board == "mainboard");
+        Assert.Single(result.Entries, entry => entry.Name == "Swords to Plowshares" && entry.Board == "sideboard");
+        Assert.Equal(2, result.Entries.Count);
+    }
+
     [Fact]
     public async Task LoadFromSourceAsync_InvalidArchidektPasteWithPropagateParseException_PropagatesArchidektException()
     {
