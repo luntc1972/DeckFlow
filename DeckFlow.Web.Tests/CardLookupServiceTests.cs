@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using DeckFlow.Web.Services;
 using RestSharp;
@@ -40,6 +41,29 @@ public sealed class CardLookupServiceTests
         Assert.Contains("Sol Ring", result.VerifiedOutputs[0]);
         Assert.Contains("{T}", result.VerifiedOutputs[0]);
         Assert.Equal(["ERROR: Made Up Card"], result.MissingLines);
+    }
+
+    [Fact]
+    public async Task LookupAsync_XSuffixedQuantity_SendsCardNameAndPreservesQuantity()
+    {
+        string? requestedName = null;
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
+            executeAsync: (request, _) =>
+            {
+                var body = request.Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody);
+                var identifier = JsonSerializer.SerializeToElement(body.Value)
+                    .GetProperty("identifiers").EnumerateArray().Single();
+                requestedName = identifier.GetProperty("name").GetString();
+                return Task.FromResult(CreateCollectionResponse(
+                    [new ScryfallCard("Sol Ring", "{1}", "Artifact", "{T}: Add {C}{C}.", "—", "—", null, null, null, null, null)],
+                    [],
+                    request));
+            });
+
+        var result = await service.LookupAsync("1x Sol Ring");
+
+        Assert.Equal("Sol Ring", requestedName);
+        Assert.StartsWith("1 Sol Ring", Assert.Single(result.VerifiedOutputs));
     }
 
     [Fact]

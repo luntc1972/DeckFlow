@@ -99,6 +99,32 @@ public sealed class ParserTests
         Assert.True(entries[0].IsFoil);
     }
 
+    [Theory]
+    [InlineData("1x Sol Ring", "Sol Ring", 1)]
+    [InlineData("2X Arcane Signet", "Arcane Signet", 2)]
+    [InlineData("1 Sol Ring", "Sol Ring", 1)]
+    [InlineData("1 Xenagos, God of Revels", "Xenagos, God of Revels", 1)]
+    public void MoxfieldParser_ParseText_ParsesQuantityPrefixes(string text, string name, int quantity)
+    {
+        var entry = Assert.Single(new MoxfieldParser().ParseText(text));
+
+        Assert.Equal(name, entry.Name);
+        Assert.Equal(quantity, entry.Quantity);
+        Assert.Equal("mainboard", entry.Board);
+    }
+
+    [Theory]
+    [InlineData("Main\n1x Sol Ring")]
+    [InlineData("Main:\n1x Sol Ring")]
+    public void MoxfieldParser_ParseText_TreatsMainHeaderAsMainboard(string text)
+    {
+        var entries = new MoxfieldParser().ParseText(text);
+        var name = Assert.Single(entries.Select(entry => entry.Name));
+
+        Assert.Equal("Sol Ring", name);
+        Assert.Equal("mainboard", entries[0].Board);
+    }
+
     [Fact]
     public void MoxfieldParser_ParsesSideboardEntries()
     {

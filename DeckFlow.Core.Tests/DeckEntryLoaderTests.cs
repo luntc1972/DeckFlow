@@ -140,6 +140,25 @@ Deck
     }
 
     [Fact]
+    public async Task LoadFromSourceAsync_PastedArchidektStyleXQuantities_ParsesEntries()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync("""
+Commander
+1x Atraxa, Praetors' Voice
+Main
+1x Sol Ring
+1x Arcane Signet
+""");
+
+        Assert.Equal(["Atraxa, Praetors' Voice", "Sol Ring", "Arcane Signet"],
+            result.Entries.Select(entry => entry.Name));
+        Assert.Equal("commander", result.Entries[0].Board);
+        Assert.All(result.Entries.Skip(1), entry => Assert.Equal("mainboard", entry.Board));
+    }
+
+    [Fact]
     public async Task LoadFromSourceAsync_PastedGoldfishArenaText_ParsesEntries()
     {
         var loader = CreateLoader();
