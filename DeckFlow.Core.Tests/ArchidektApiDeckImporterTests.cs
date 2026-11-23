@@ -394,6 +394,37 @@ public sealed class ArchidektApiDeckImporterTests : IDisposable
     }
 
     [Fact]
+    public async Task ImportWithMetadataAsync_404DeckNotFound_ThrowsDeckNotFound()
+    {
+        var exception = await Assert.ThrowsAsync<ArchidektDeckNotFoundException>(() => CreateImporter(new QueuedResponseHandler([(HttpStatusCode.NotFound, null, "{\"error\":\"Deck not found.\"}")])).ImportWithMetadataAsync("3674983"));
+
+        Assert.Equal("3674983", exception.DeckId);
+        Assert.Equal("Archidekt API deck 3674983 returned 404 Not Found: {\"error\":\"Deck not found.\"}", exception.Message);
+    }
+
+    [Fact]
+    public async Task ImportWithMetadataAsync_404LowercaseBody_ThrowsDeckNotFound()
+    {
+        await Assert.ThrowsAsync<ArchidektDeckNotFoundException>(() => CreateImporter(new QueuedResponseHandler([(HttpStatusCode.NotFound, null, "deck NOT FOUND")])).ImportWithMetadataAsync("3674983"));
+    }
+
+    [Fact]
+    public async Task ImportWithMetadataAsync_404OtherBody_ThrowsPlainInvalidOperation()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateImporter(new QueuedResponseHandler([(HttpStatusCode.NotFound, null, "missing")])).ImportWithMetadataAsync("3674983"));
+
+        Assert.Equal(typeof(InvalidOperationException), exception.GetType());
+    }
+
+    [Fact]
+    public async Task ImportWithMetadataAsync_403_ThrowsPlainInvalidOperation()
+    {
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateImporter(new QueuedResponseHandler([(HttpStatusCode.Forbidden, null, string.Empty)])).ImportWithMetadataAsync("3674983"));
+
+        Assert.Equal(typeof(InvalidOperationException), exception.GetType());
+    }
+
+    [Fact]
     public void DeckImporter_DefaultClient_HasNoClientLevelUserAgent()
     {
         var importer = new ArchidektApiDeckImporter();
