@@ -6,6 +6,12 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Archidekt paste fixes (2026-11-23)
+
+- **`1x` quantities:** Pasted Archidekt lists that write quantities as `1x Card Name` now parse. Previously every card line after the first was rejected.
+- **`Main:` header:** A `Main:` section header is now read as the mainboard.
+- **Convert errors:** When a pasted list can't be parsed, the Convert page shows the parse error instead of a generic error page.
+
 ### Unreleased — Admin Harvest processing stats
 
 - The **Decks processed in last 30 days** metric now uses the latest processing time. Decks queued earlier count once processed within the window. Skipped decks, decks waiting to be processed again, and decks without a recorded processing time are excluded.
