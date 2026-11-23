@@ -158,8 +158,8 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
     }
 
     private static bool HasArchidektCategoryMarkers(string deckSource)
-        // Why: Moxfield accepts bracketed categories as card-name text, losing printing and board data.
-        => deckSource.Split('\n').Any(ArchidektParser.HasCategorySuffix);
+        // Why: Moxfield treats card category suffixes as name text, but brackets in comments and notes are not categories.
+        => deckSource.Split('\n').Any(ArchidektParser.IsCategorizedCardLine);
 
     private DeckSourceLoadResult? TryParseMoxfieldPaste(string deckSource)
     {

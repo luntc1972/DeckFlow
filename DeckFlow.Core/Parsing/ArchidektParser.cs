@@ -82,8 +82,11 @@ public sealed partial class ArchidektParser : IParser
         return entries;
     }
 
-    internal static bool HasCategorySuffix(string line)
-        => CategoryRegex().IsMatch(StripTrailingTags(line.Trim()));
+    internal static bool IsCategorizedCardLine(string line)
+    {
+        var cardLine = StripTrailingTags(line.Trim());
+        return QuantityRegex().IsMatch(cardLine) && CategoryRegex().IsMatch(cardLine);
+    }
 
     private static bool TryParseEntry(string line, string defaultBoard, bool allowImplicitQuantity, out DeckEntry entry)
     {
