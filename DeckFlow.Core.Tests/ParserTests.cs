@@ -691,6 +691,41 @@ public sealed class ParserTests
         Assert.Equal("mainboard", entries[2].Board);
     }
 
+    [Theory]
+    [InlineData("1x Anger (soc) 235 [Anthem]", 1, "Anger", "soc", "235", "Anthem")]
+    [InlineData("2X Forest", 2, "Forest", null, null, null)]
+    [InlineData("1 Xenagos, the Reveler", 1, "Xenagos, the Reveler", null, null, null)]
+    public void ArchidektParser_ParsesXSuffixedQuantity(string cardLine, int quantity, string name, string? setCode, string? collectorNumber, string? category)
+    {
+        var entries = new ArchidektParser().ParseText($"1 Sol Ring\n{cardLine}");
+        var entry = Assert.Single(entries.Skip(1));
+
+        Assert.Equal(quantity, entry.Quantity);
+        Assert.Equal(name, entry.Name);
+        Assert.Equal(setCode, entry.SetCode);
+        Assert.Equal(collectorNumber, entry.CollectorNumber);
+        Assert.Equal(category, entry.Category);
+    }
+
+    [Fact]
+    public void ArchidektParser_FirstLineXQuantity_DoesNotLeakIntoName()
+    {
+        var entries = new ArchidektParser().ParseText("1x Tam, the Possibility\n1x Sol Ring");
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Tam, the Possibility", entries[0].Name);
+        Assert.Equal(1, entries[0].Quantity);
+    }
+
+    [Fact]
+    public void ArchidektParser_TreatsMainHeaderAsMainboard()
+    {
+        var entries = new ArchidektParser().ParseText("Commander:\n1x Tam, the Possibility\n\nMain:\n1x Sol Ring");
+
+        Assert.Equal("commander", Assert.Single(entries, entry => entry.Name == "Tam, the Possibility").Board);
+        Assert.Equal("mainboard", Assert.Single(entries, entry => entry.Name == "Sol Ring").Board);
+    }
+
     [Fact]
     public void ArchidektParser_TreatsDeckHeaderAsMainboardAndSwitchesBack_AfterCommanderSection()
     {
