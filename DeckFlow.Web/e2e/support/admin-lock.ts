@@ -19,7 +19,7 @@ export const adminLockMaxWaitMs = 30 * 60_000;
 const adminLockMaxHoldMs = 10 * 60_000;
 const adminLockInitializationGraceMs = 5_000;
 
-export type LockHandle = Awaited<ReturnType<typeof open>>;
+type LockHandle = Awaited<ReturnType<typeof open>>;
 type LockFilePayload = {
   pid: number;
   createdAt: number;
