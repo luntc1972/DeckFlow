@@ -158,6 +158,67 @@ Main
         Assert.All(result.Entries.Skip(1), entry => Assert.Equal("mainboard", entry.Board));
     }
 
+    [Theory]
+    [InlineData("1x")]
+    [InlineData("1")]
+    public async Task LoadFromSourceAsync_PastedArchidektCategories_PreservesNamesBoardsAndPrintings(string quantity)
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync($$"""
+            {{quantity}} Atraxa, Praetors' Voice (cm2) 10 [Commander{top}]
+            {{quantity}} Sol Ring (cmr) 123 [Ramp]
+            {{quantity}} Anger (soc) 235 [Anthem]
+            """);
+
+        Assert.Equal(["Atraxa, Praetors' Voice", "Sol Ring", "Anger"], result.Entries.Select(entry => entry.Name));
+        Assert.Equal("commander", result.Entries[0].Board);
+        Assert.All(result.Entries.Skip(1), entry => Assert.Equal("mainboard", entry.Board));
+        Assert.Equal("cmr", result.Entries[1].SetCode);
+        Assert.Equal("soc", result.Entries[2].SetCode);
+    }
+
+    [Theory]
+    [InlineData("^Have,#37d67a^")]
+    [InlineData("^Have,#37d67a^ ^Foil,#ffaa00^")]
+    public async Task LoadFromSourceAsync_PastedArchidektTags_PreservesCardName(string tags)
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync($"1x Sol Ring (cmr) 123 [Ramp] {tags}");
+
+        Assert.Equal("Sol Ring", Assert.Single(result.Entries).Name);
+    }
+
+    [Fact]
+    public async Task LoadFromSourceAsync_PastedMoxfieldHashtags_PreservesNamesBoardsAndPrinting()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync("""
+            1 Atraxa, Praetors' Voice #Commander
+            1 Sol Ring (CMR) 123 #Ramp
+            """);
+
+        Assert.Equal(["Atraxa, Praetors' Voice", "Sol Ring"], result.Entries.Select(entry => entry.Name));
+        Assert.Equal("commander", result.Entries[0].Board);
+        Assert.Equal("mainboard", result.Entries[1].Board);
+        Assert.Equal("CMR", result.Entries[1].SetCode);
+        Assert.Equal("123", result.Entries[1].CollectorNumber);
+    }
+
+    [Fact]
+    public async Task LoadFromSourceAsync_InvalidArchidektPasteWithPropagateParseException_PropagatesArchidektException()
+    {
+        var loader = CreateLoader();
+
+        var exception = await Assert.ThrowsAsync<DeckParseException>(() => loader.LoadFromSourceAsync(
+            "1x Sol Ring (cmr) 123 [Ramp]\n1x *F*",
+            UnrecognizedPasteBehavior.PropagateParseException));
+
+        Assert.Equal("Unable to parse Archidekt line 2: \"1x *F*\"", exception.Message);
+    }
+
     [Fact]
     public async Task LoadFromSourceAsync_PastedGoldfishArenaText_ParsesEntries()
     {

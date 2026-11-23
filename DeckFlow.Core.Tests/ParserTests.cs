@@ -591,6 +591,19 @@ public sealed class ParserTests
         Assert.Equal("Ramp", entry.Category);
     }
 
+    [Theory]
+    [InlineData("^Have,#37d67a^")]
+    [InlineData("^Have,#37d67a^ ^Foil,#ffaa00^")]
+    public void ArchidektParser_ParsesPrintingAndCategoryBeforeTags(string tags)
+    {
+        var entry = Assert.Single(new ArchidektParser().ParseText($"1x Sol Ring (cmr) 123 [Ramp] {tags}"));
+
+        Assert.Equal("Sol Ring", entry.Name);
+        Assert.Equal("cmr", entry.SetCode);
+        Assert.Equal("123", entry.CollectorNumber);
+        Assert.Equal("Ramp", entry.Category);
+    }
+
     [Fact]
     public void ArchidektParser_AllowsFoilMarkerBeforeCategories()
     {
