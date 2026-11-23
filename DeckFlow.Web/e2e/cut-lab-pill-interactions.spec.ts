@@ -1,6 +1,7 @@
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { waitForDecide } from './support/cut-lab-decide';
 import { submitImportPool } from './support/cut-lab-import';
 import { openRoleGroup } from './support/cut-lab-details';
 import { resolveE2EPort } from './support/e2e-port';
@@ -140,13 +141,7 @@ test('structural evidence pills lock the canonical pool checkbox and inert spans
   let lockableEvidenceButtons = findingsSection.locator('button[data-cut-lab-chip-card]');
   if (await lockableEvidenceButtons.count() === 0) {
     await expect(page.locator('.cutlab-proposal')).toBeVisible();
-    const responsePromise = page.waitForResponse(response =>
-      response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-
-    await page.locator('.cutlab-decision-btn--accept').click();
-
-    const response = await responsePromise;
-    expect(response.ok()).toBeTruthy();
+    await waitForDecide(page, () => page.locator('.cutlab-decision-btn--accept').click());
     lockableEvidenceButtons = findingsSection.locator('button[data-cut-lab-chip-card]');
   }
 

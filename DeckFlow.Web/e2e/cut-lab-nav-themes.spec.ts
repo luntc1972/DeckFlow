@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { ensureDetailsOpen, openRoleGroup } from './support/cut-lab-details';
+import { waitForDecide } from './support/cut-lab-decide';
 import { importPool } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
@@ -117,13 +118,11 @@ const createLockedFastManaPackage = async (page: Page): Promise<void> => {
 };
 
 const driveOneJsDecide = async (page: Page): Promise<void> => {
-  const decideResponse = page.waitForResponse(response =>
-    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-
-  await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
-
-  const response = await decideResponse;
-  expect(response.ok(), 'Cut Lab decide request must succeed before review capture').toBeTruthy();
+  await waitForDecide(
+    page,
+    () => page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click(),
+    { message: 'Cut Lab decide request must succeed before review capture' },
+  );
   await page.getByRole('tab', { name: 'Process' }).click();
   await expect(page.locator('[data-cut-lab-structural-findings]')).toBeVisible();
   expect(
@@ -169,17 +168,11 @@ const openCardModal = async (trigger: Locator, page: Page, cardName: string): Pr
 const acceptProposalNoJs = async (page: Page): Promise<string> => {
   const heading = await page.locator('.cutlab-proposal__heading').textContent();
   const cardName = heading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
-  const decideRequestPromise = page.waitForRequest(request =>
-    request.isNavigationRequest()
-    && request.method() === 'POST'
-    && request.url().includes('/cut-lab/decide'),
+  await waitForDecide(
+    page,
+    () => page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click(),
+    { navigation: true },
   );
-  const navigationPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded' });
-
-  await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
-
-  const [decideRequest] = await Promise.all([decideRequestPromise, navigationPromise]);
-  expect(decideRequest.url()).toContain('/cut-lab/decide');
   await expect(page.locator('.cutlab-cuts-made__row')).toContainText(cardName);
   return cardName;
 };

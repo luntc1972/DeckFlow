@@ -3,6 +3,7 @@ import { expect, test } from './support/admin-fixtures';
 import { contrastRatio, resolveContrast, type RgbColor } from './support/contrast';
 import { ensureDetailsOpen, openIntake, openRoleGroup } from './support/cut-lab-details';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
+import { waitForDecide } from './support/cut-lab-decide';
 import { importPool } from './support/cut-lab-import';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -90,11 +91,9 @@ const ensureCutRoundsVisible = async (page: Page): Promise<void> => {
   const stickyBar = page.locator('.cutlab-sticky-bar[data-cut-lab-sticky-target]');
   if (!(await stickyBar.isVisible())) {
     const acceptButton = page.locator('.cutlab-proposal .cutlab-decision-btn--accept');
-    const decideResponse = page.waitForResponse(response =>
-      response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-    await acceptButton.click();
-    const response = await decideResponse;
-    expect(response.ok(), 'Cut Lab decide request must succeed while revealing readability targets').toBeTruthy();
+    await waitForDecide(page, () => acceptButton.click(), {
+      message: 'Cut Lab decide request must succeed while revealing readability targets',
+    });
   }
 
   await expect(stickyBar).toBeVisible();

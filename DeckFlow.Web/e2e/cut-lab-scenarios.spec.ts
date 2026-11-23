@@ -2,6 +2,7 @@ import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { openIntake } from './support/cut-lab-details';
+import { waitForDecide } from './support/cut-lab-decide';
 import { fillImportPool, importPool, submitImportPool } from './support/cut-lab-import';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -45,10 +46,7 @@ const waitForCutRounds = async (page: Page): Promise<void> => {
 const acceptCurrentProposal = async (page: Page): Promise<string> => {
   const proposalHeading = await page.locator('.cutlab-proposal__heading').textContent();
   const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
-  const decideResponse = page.waitForResponse(response =>
-    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-  await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
-  expect((await decideResponse).ok()).toBeTruthy();
+  await waitForDecide(page, () => page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click());
   return cardName;
 };
 

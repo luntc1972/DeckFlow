@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { ensureDetailsOpen, openRoleGroup } from './support/cut-lab-details';
+import { waitForDecide } from './support/cut-lab-decide';
 import { importPool } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
@@ -96,10 +97,7 @@ const rejectCurrentProposal = async (page: Page): Promise<string> => {
   const heading = proposal.locator('.cutlab-proposal__heading');
   const proposalHeading = await heading.textContent();
   const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
-  const decideResponse = page.waitForResponse(response =>
-    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-  await proposal.locator('.cutlab-decision-btn--reject').click();
-  expect((await decideResponse).ok()).toBeTruthy();
+  await waitForDecide(page, () => proposal.locator('.cutlab-decision-btn--reject').click());
   return cardName;
 };
 
@@ -164,13 +162,7 @@ test('live-patches the structural findings section after a JS decide without a r
   const beforeSectionText = await findingsSection.textContent();
   const navigationCountBefore = await page.evaluate(() => performance.getEntriesByType('navigation').length);
 
-  const responsePromise = page.waitForResponse(response =>
-    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-
-  await acceptCurrentProposal(page);
-
-  const response = await responsePromise;
-  expect(response.ok()).toBeTruthy();
+  await waitForDecide(page, () => acceptCurrentProposal(page));
 
   await expect(findingsBody).not.toHaveText(beforeBodyText ?? '');
   await expect(findingsSection).not.toHaveText(beforeSectionText ?? '');
@@ -429,17 +421,11 @@ test('submits the accept form through the no-JS fallback and re-renders with the
 
     const startingProposalHeading = await noJsPage.locator('.cutlab-proposal__heading').textContent();
     const startingCardName = startingProposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
-    const decideRequestPromise = noJsPage.waitForRequest(request =>
-      request.isNavigationRequest()
-      && request.method() === 'POST'
-      && request.url().includes('/cut-lab/decide'),
+    await waitForDecide(
+      noJsPage,
+      () => noJsPage.locator('.cutlab-proposal .cutlab-decision-btn--accept').click(),
+      { navigation: true },
     );
-    const navigationPromise = noJsPage.waitForNavigation({ waitUntil: 'domcontentloaded' });
-
-    await noJsPage.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
-
-    const [decideRequest] = await Promise.all([decideRequestPromise, navigationPromise]);
-    expect(decideRequest.url()).toContain('/cut-lab/decide');
 
     await expect(noJsPage.locator('.cutlab-cuts-made__row')).toContainText(startingCardName);
     await expect(noJsPage.locator('.cutlab-proposal__heading')).not.toHaveText(startingProposalHeading ?? '');
