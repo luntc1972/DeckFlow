@@ -1,13 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { openRoleGroup } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { cutLabPool } from './fixtures/cut-lab-pool';
-
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-let heldLock: LockHandle | null = null;
 
 const floorRows = (page: Page) => page.locator('table[data-cut-lab-role-floors-table] tbody tr');
 const lockedCounts = (page: Page) => floorRows(page).evaluateAll((rows) => rows.map((row) => ({
@@ -16,10 +12,9 @@ const lockedCounts = (page: Page) => floorRows(page).evaluateAll((rows) => rows.
 })));
 
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
   await page.goto('/cut-lab');
   await expect(page.locator('h1')).toHaveText('Cut Lab');
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
@@ -31,11 +26,6 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandCutLabSection(page, 'cut-lab-section-role-floors');
   await expect(page.locator('table[data-cut-lab-role-floors-table]')).toBeVisible();
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
 });
 
 test('Locked follows In pool and every role displays a locked count', async ({ page }) => {

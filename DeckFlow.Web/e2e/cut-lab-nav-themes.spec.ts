@@ -1,7 +1,6 @@
-import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
+import { type Browser, type Locator, type Page } from '@playwright/test';
 import { join } from 'node:path';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { ensureDetailsOpen, openRoleGroup } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
@@ -43,15 +42,13 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 type NoJsPageHandle = {
   page: Page;
   close: () => Promise<void>;
 };
 
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const importPool = async (page: Page): Promise<void> => {
   await page.goto('/cut-lab');
@@ -215,16 +212,6 @@ const acceptProposalNoJs = async (page: Page): Promise<string> => {
   await expect(page.locator('.cutlab-cuts-made__row')).toContainText(cardName);
   return cardName;
 };
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
 
 test('captures cross-theme mobile chrome and back-to-top tap-target coverage for Cut Lab', async ({ page }) => {
   await page.setViewportSize(mobileViewport);

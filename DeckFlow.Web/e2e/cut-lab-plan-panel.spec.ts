@@ -1,9 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { getToolEnabled, setToolEnabled } from './support/admin-tools';
+import { type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { openIntake } from './support/cut-lab-details';
 import { clickManabasePillRadio } from './support/manabase-pill';
@@ -36,9 +35,9 @@ import { cutLabPool as oversizedPool } from './fixtures/cut-lab-pool';
 // any manual page.setViewportSize() call, the same convention bracket-smoke.spec.ts uses for its
 // cross-viewport screenshot test.
 //
-// Admin creds: read from FEEDBACK_ADMIN_USER / FEEDBACK_ADMIN_PASSWORD env vars. A transient flag
-// toggle is used for this run (reverted in afterEach), following the Cut Lab admin-lock convention
-// the other Cut Lab specs use so this file never races them for the shared admin surface.
+// Admin credentials come from FEEDBACK_ADMIN_USER and FEEDBACK_ADMIN_PASSWORD. The shared admin
+// fixture enables Cut Lab and restores its prior state after each test. It raises the test budget
+// to 120 seconds and excludes time spent waiting for the admin lock from that budget.
 import { resolveE2EPort } from './support/e2e-port';
 
 const baseUrl = `http://localhost:${resolveE2EPort()}`;
@@ -67,12 +66,8 @@ const engineEffectCardName = 'Enlightened Tutor';
 // where one project's cleanup removes the row while the other project's test still needs it.
 const engineEffectCategoryLabel = 'Landfall tutor fixture';
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-let cutLabWasEnabled = false;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 function sqlite(sql: string): string {
   // `.timeout` (via -cmd) sets the busy timeout so a briefly-locked SQLite file (the running server
@@ -149,23 +144,6 @@ const readProposedCardName = async (page: Page): Promise<string> => {
   const text = await heading.textContent();
   return text?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
 };
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  cutLabWasEnabled = await getToolEnabled(page, 'Cut Lab');
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async ({ page }) => {
-  try {
-    // Restore the captured flag state so no persistent state leaks between test runs, matching
-    // bracket-smoke.spec.ts's afterEach.
-    await setToolEnabled(page, 'Cut Lab', cutLabWasEnabled);
-  } finally {
-    await releaseAdminLockForTest(heldLock);
-    heldLock = null;
-  }
-});
 
 test('the plan panel renders after import and the free-text plan fields are gone', async ({ page }) => {
   await importPool(page);

@@ -1,6 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 
@@ -31,11 +30,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const importPool = async (page: Page): Promise<void> => {
   await page.goto(`${baseUrl}/cut-lab`);
@@ -95,16 +91,6 @@ const cutToTarget = async (page: Page): Promise<void> => {
 
   throw new Error('Expected to reach exactly 100 cards within 12 accepted cuts.');
 };
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
 
 test('keeps export disabled until the working list reaches exactly 100 cards', async ({ page }) => {
   await importPool(page);

@@ -1,18 +1,12 @@
-import { expect, test } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
 import { cutLabPool } from './fixtures/cut-lab-pool';
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
   await page.goto('/cut-lab');
   await page.locator('#cut-lab-input-source').selectOption('PasteText');
   await page.locator('#cut-lab-deck-text').fill(cutLabPool);
@@ -20,11 +14,6 @@ test.beforeEach(async ({ page }) => {
   await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
   await page.getByRole('button', { name: 'Import pool' }).click();
   await expect(page.locator('#cut-lab-step-tab-3')).toBeVisible({ timeout: 30_000 });
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
 });
 
 test('reference tools preserve Decide, scroll, live floors, section position and opener focus', async ({ page }) => {

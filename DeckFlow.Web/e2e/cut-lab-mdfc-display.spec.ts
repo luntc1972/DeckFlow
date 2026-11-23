@@ -1,6 +1,5 @@
-import { expect, test, type Locator, type Page, type Response } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Locator, type Page, type Response } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { ensureDetailsOpen } from './support/cut-lab-details';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './support/manabase-pill';
@@ -16,19 +15,8 @@ const oversizedPool = [
   `1 ${fell}`, `1 ${shatterskull}`,
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-let heldLock: LockHandle | null = null;
 test.describe.configure({ mode: 'serial' });
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
+test.use({ enabledTools: ['Cut Lab'] });
 
 const importPool = async (page: Page): Promise<void> => {
   await page.goto(`${baseUrl}/cut-lab`);
