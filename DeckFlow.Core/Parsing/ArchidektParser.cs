@@ -217,6 +217,7 @@ public sealed partial class ArchidektParser : IParser
         }
 
         if (string.Equals(normalized, "Mainboard", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Main", StringComparison.OrdinalIgnoreCase)
             || string.Equals(normalized, "Deck", StringComparison.OrdinalIgnoreCase))
         {
             board = "mainboard";
@@ -274,7 +275,7 @@ public sealed partial class ArchidektParser : IParser
         return categories;
     }
 
-    [GeneratedRegex(@"^(?<quantity>\d+)\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(?<quantity>\d+)[xX]?\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex QuantityRegex();
 
     [GeneratedRegex(@"^(?<name>.+?)\s+\[(?<categories>.*)\]$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
