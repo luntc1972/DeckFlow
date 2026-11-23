@@ -8,8 +8,8 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 ### Unreleased — Archidekt paste fixes (2026-11-23)
 
-- **`1x` quantities:** Pasted Archidekt lists that write quantities as `1x Card Name` now parse. Previously every card line after the first was rejected.
-- **`Main:` header:** A `Main:` section header is now read as the mainboard.
+- **`1x` quantities:** Pasted Archidekt lists that write quantities as `1x Card Name` now parse. Previously Convert rejected them, and other tools that accept a pasted list (and Card Lookup) silently kept `1x` as part of the card name.
+- **`Main:` header:** A `Main:` section header is now read as the mainboard in every tool, instead of being treated as a card.
 - **Convert errors:** When a pasted list can't be parsed, the Convert page shows the parse error instead of a generic error page.
 
 ### Unreleased — Admin Harvest processing stats
