@@ -1,10 +1,9 @@
-import type { Page } from '@playwright/test';
 import { join } from 'node:path';
 import { expect, test } from './support/admin-fixtures';
 import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
-import { openIntake, openRoleGroup } from './support/cut-lab-details';
-import { importPool, submitImportPool } from './support/cut-lab-import';
+import { openIntake } from './support/cut-lab-details';
+import { importPoolToLandsGroup, submitImportPool } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -49,13 +48,6 @@ const oversizedPool = [
 test.describe.configure({ mode: 'serial' });
 test.use({ enabledTools: ['Cut Lab'] });
 
-const importPoolToLandsGroup = async (page: Page): Promise<void> => {
-  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
-  await expandCutLabSection(page, 'cut-lab-section-competes');
-  await openRoleGroup(page, 'Lands');
-  await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
-};
-
 test('/cut-lab renders the intake, intent controls, and hidden state field when the flag is ON', async ({ page }) => {
   const response = await page.goto('/cut-lab');
   expect(response?.ok(), '/cut-lab should return 200 with flag ON').toBeTruthy();
@@ -72,7 +64,7 @@ test('/cut-lab renders the intake, intent controls, and hidden state field when 
 });
 
 test('imports a pool, locks lands and a package, then preserves those edits across a resubmit', async ({ page }) => {
-  await importPoolToLandsGroup(page);
+  await importPoolToLandsGroup(page, oversizedPool);
   await expandMobileCollapsibles(page);
 
   const landsLockButton = page.locator('[data-cut-lab-lock-role="lands"]');
@@ -119,7 +111,7 @@ test('captures imported Cut Lab screenshots across themes and viewports', async 
     for (const theme of themes) {
       await page.context().clearCookies();
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
-      await importPoolToLandsGroup(page);
+      await importPoolToLandsGroup(page, oversizedPool);
 
       const screenshotPath = join(
         screenshotDir,

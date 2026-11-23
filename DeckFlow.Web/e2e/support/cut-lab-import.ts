@@ -1,5 +1,6 @@
 // Keep Cut Lab imports on the same response wait because Debug builds run a sim-heavy pipeline.
 import { expect, type Page, type Response } from '@playwright/test';
+import { openRoleGroup } from './cut-lab-details';
 import { expandCutLabSection } from './cut-lab-mobile-collapse';
 import { clickManabasePillRadio } from './manabase-pill';
 import { resolveE2EPort } from './e2e-port';
@@ -66,4 +67,11 @@ export async function importPool(page: Page, pool: string, options: ImportPoolOp
   if (commander !== undefined) {
     await expect(page.locator(`tr[data-cut-lab-card="${commander}"]`)).toHaveAttribute('data-cut-lab-commander', 'true');
   }
+}
+
+export async function importPoolToLandsGroup(page: Page, pool: string): Promise<void> {
+  await importPool(page, pool, { commander: 'Zur the Enchanter' });
+  await expandCutLabSection(page, 'cut-lab-section-competes');
+  await openRoleGroup(page, 'Lands');
+  await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
 }

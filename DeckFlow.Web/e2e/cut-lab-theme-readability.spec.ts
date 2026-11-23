@@ -4,7 +4,7 @@ import { contrastRatio, resolveContrast, type RgbColor } from './support/contras
 import { ensureDetailsOpen, openIntake, openRoleGroup } from './support/cut-lab-details';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
 import { waitForDecide } from './support/cut-lab-decide';
-import { importPool } from './support/cut-lab-import';
+import { importPoolToLandsGroup } from './support/cut-lab-import';
 
 import { resolveE2EPort } from './support/e2e-port';
 
@@ -76,13 +76,6 @@ test.describe.configure({ mode: 'serial' });
 test.use({ enabledTools: ['Cut Lab'] });
 
 const formatColor = ({ r, g, b }: RgbColor): string => `rgb(${r}, ${g}, ${b})`;
-
-const importPoolToLandsGroup = async (page: Page): Promise<void> => {
-  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
-  await expandCutLabSection(page, 'cut-lab-section-competes');
-  await openRoleGroup(page, 'Lands');
-  await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
-};
 
 const ensureCutRoundsVisible = async (page: Page): Promise<void> => {
   await page.getByRole('tab', { name: 'Decide' }).click();
@@ -377,7 +370,7 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await page.context().clearCookies();
     await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
 
-    await importPoolToLandsGroup(page);
+    await importPoolToLandsGroup(page, oversizedPool);
     await ensureCutRoundsVisible(page);
 
     await page.getByRole('tab', { name: 'Process' }).click();
@@ -471,7 +464,7 @@ test('keeps intake and progress components readable at workflow viewports', asyn
       await page.goto('/cut-lab');
       await page.evaluate(() => window.localStorage.clear());
 
-      await importPoolToLandsGroup(page);
+      await importPoolToLandsGroup(page, oversizedPool);
       const intakeSummary = page.locator('.cutlab-intake-summary');
       await assertContrastFloor(`${theme.name} ${viewport.name}`, 'intake summary', intakeSummary, 4.5);
 

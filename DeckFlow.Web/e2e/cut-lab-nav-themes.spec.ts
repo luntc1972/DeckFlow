@@ -4,7 +4,7 @@ import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
 import { ensureDetailsOpen, openRoleGroup } from './support/cut-lab-details';
 import { waitForDecide } from './support/cut-lab-decide';
-import { importPool } from './support/cut-lab-import';
+import { importPool, importPoolToLandsGroup } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -50,13 +50,6 @@ type NoJsPageHandle = {
 
 test.describe.configure({ mode: 'serial' });
 test.use({ enabledTools: ['Cut Lab'] });
-
-const importPoolToLandsGroup = async (page: Page): Promise<void> => {
-  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
-  await expandCutLabSection(page, 'cut-lab-section-competes');
-  await openRoleGroup(page, 'Lands');
-  await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
-};
 
 const buildNoJsPage = async (browser: Browser): Promise<NoJsPageHandle> => {
   const context = await browser.newContext({
@@ -132,7 +125,7 @@ const driveOneJsDecide = async (page: Page): Promise<void> => {
 };
 
 const prepareReviewCapture = async (page: Page): Promise<void> => {
-  await importPoolToLandsGroup(page);
+  await importPoolToLandsGroup(page, oversizedPool);
   await expandMobileCollapsibles(page);
   await createLockedFastManaPackage(page);
   await page.getByRole('tab', { name: 'Decide' }).click();
@@ -185,7 +178,7 @@ test('captures cross-theme mobile chrome and back-to-top tap-target coverage for
     await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
 
     await page.setViewportSize(desktopViewport);
-    await importPoolToLandsGroup(page);
+    await importPoolToLandsGroup(page, oversizedPool);
     const tablist = page.locator('.cutlab-step-rail [role="tablist"]');
     await expect(tablist).toBeVisible();
     const desktopTabs = await getBoundingBox(tablist, 'Desktop step tabs');
@@ -270,7 +263,7 @@ test('captures Lock your pool review screenshots across themes at desktop and mo
 });
 
 test("shows a newly created package in another card's visible package widget without reload", async ({ page }) => {
-  await importPoolToLandsGroup(page);
+  await importPoolToLandsGroup(page, oversizedPool);
 
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expandCutLabSection(page, 'cut-lab-section-packages');
@@ -356,7 +349,7 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
 });
 
 test('keeps pool rows hidden by search and lock filters', async ({ page }) => {
-  await importPoolToLandsGroup(page);
+  await importPoolToLandsGroup(page, oversizedPool);
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
 
   const solRing = page.locator('tr[data-cut-lab-card="Sol Ring"]');
