@@ -625,7 +625,7 @@ internal sealed class CardCategoryRepository
             var sourcesByDeck = sourceRows.GroupBy(row => row.DeckQueueId).ToDictionary(group => group.Key, group => group.Select(row => row.SourceId).ToArray());
             var coreHashes = new Dictionary<long, string?>();
             var deltas = new CategoryWriteOrder();
-            foreach (var candidate in candidates.Where(row => reasons[row.Id] == DeckSkipReasons.Retention))
+            foreach (var candidate in candidates.Where(row => reasons[row.Id] is DeckSkipReasons.Retention or DeckSkipReasons.NotFound))
             {
                 var sourceIds = sourcesByDeck.GetValueOrDefault(candidate.Id) ?? [];
                 if (sourceIds.Length != 1)
