@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using DeckFlow.Core.Parsing;
 using Polly;
 using Polly.Registry;
 using RestSharp;
@@ -43,7 +44,6 @@ public sealed record SingleCardLookupResult(string CardName, string VerifiedText
 public sealed class ScryfallCardLookupService : ICardLookupService
 {
     private const int MaxCardsPerSubmission = 100;
-    private static readonly Regex QuantityPrefixRegex = new(@"^(?<quantity>\d+)[xX]?\s+(?<name>.+)$", RegexOptions.Compiled);
     private static readonly Regex AbilityWordRegex = new(@"^(?<term>[A-Za-z][A-Za-z' -]{1,40})\s+—\s+", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex TrailingFoilMarkerRegex = new(@"\s+\*[A-Za-z]\*\s*$", RegexOptions.Compiled);
     private static readonly Regex TrailingSetCollectorRegex = new(@"\s+\([A-Za-z0-9]+\)\s+\S+\s*$", RegexOptions.Compiled);
@@ -421,12 +421,12 @@ public sealed class ScryfallCardLookupService : ICardLookupService
                 continue;
             }
 
-            var match = QuantityPrefixRegex.Match(trimmed);
+            var match = QuantityPrefix.Pattern().Match(trimmed);
             if (match.Success)
             {
                 parsedLines.Add(new ParsedCardLine(
                     trimmed,
-                    SanitizeCardName(match.Groups["name"].Value.Trim()),
+                    SanitizeCardName(match.Groups["rest"].Value.Trim()),
                     int.Parse(match.Groups["quantity"].Value)));
                 continue;
             }

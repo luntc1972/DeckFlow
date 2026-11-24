@@ -91,7 +91,7 @@ public sealed partial class ArchidektParser : IParser
     private static bool IsCategorizedCardLine(string line)
     {
         var cardLine = StripTrailingTags(line.Trim());
-        return QuantityRegex().IsMatch(cardLine) && CategoryRegex().IsMatch(cardLine);
+        return QuantityPrefix.Pattern().IsMatch(cardLine) && CategoryRegex().IsMatch(cardLine);
     }
 
     private static bool TryParseEntry(string line, string defaultBoard, bool allowImplicitQuantity, out DeckEntry entry)
@@ -100,7 +100,7 @@ public sealed partial class ArchidektParser : IParser
 
         var quantity = 1;
         var remainder = line;
-        var match = QuantityRegex().Match(line);
+        var match = QuantityPrefix.Pattern().Match(line);
         if (match.Success)
         {
             quantity = int.Parse(match.Groups["quantity"].Value);
@@ -287,9 +287,6 @@ public sealed partial class ArchidektParser : IParser
 
         return categories;
     }
-
-    [GeneratedRegex(@"^(?<quantity>\d+)[xX]?\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
-    private static partial Regex QuantityRegex();
 
     [GeneratedRegex(@"^(?<name>.+?)\s+\[(?<categories>.*)\]$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex CategoryRegex();

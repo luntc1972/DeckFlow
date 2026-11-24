@@ -100,7 +100,7 @@ public sealed partial class MoxfieldParser : IParser
                 entryBoard = "sideboard";
             }
 
-            var hasExplicitQuantity = QuantityRegex().IsMatch(entryLine);
+            var hasExplicitQuantity = QuantityPrefix.Pattern().IsMatch(entryLine);
             if (!TryParseEntry(entryLine, entryBoard, allowImplicitQuantity: !stoppingSectionActive, out var entry))
             {
                 if (stoppingSectionActive && !hasExplicitQuantity)
@@ -197,7 +197,7 @@ public sealed partial class MoxfieldParser : IParser
 
         var quantity = 1;
         var remainder = line;
-        var match = QuantityRegex().Match(line);
+        var match = QuantityPrefix.Pattern().Match(line);
         if (match.Success)
         {
             quantity = int.Parse(match.Groups["quantity"].Value);
@@ -467,9 +467,6 @@ public sealed partial class MoxfieldParser : IParser
     }
 
     private static string? NullIfWhiteSpace(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    [GeneratedRegex(@"^(?<quantity>\d+)[xX]?\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
-    private static partial Regex QuantityRegex();
 
     [GeneratedRegex(@"\s+#(?<tag>[A-Za-z0-9][A-Za-z0-9_-]*)", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex HashtagRegex();
