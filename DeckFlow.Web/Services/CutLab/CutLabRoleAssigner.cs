@@ -128,8 +128,8 @@ public static class CutLabRoleAssigner
         bool isLand = CutLabLockRules.IsLand(typeLine) || fact.HasLandFace;
         // Cut Lab never treats combo membership as a role signal, so isComboPiece is always false.
         PlanRole roles = PlanRoleClassifier.Classify(fact, categories, isComboPiece: false, mode, out _);
-        // Use neutral card metadata for land faces so only their oracle text supplies these roles.
-        // In particular, an Instant front face alone must not grant land interaction.
+        // Why: neutralize name and type so an Instant front alone cannot grant land interaction.
+        // Read FrontOracleText so spell-front MDFCs like Fell the Profane keep the removal that LandFaceOracleText would drop.
         PlanRole oracleRoles = isLand
             ? PlanRoleClassifier.FromHeuristic(fact with { Name = string.Empty, TypeLine = "Land" }, mode)
             : PlanRole.None;

@@ -192,7 +192,9 @@ public static class PlanRoleClassifier
             roles |= PlanRole.Payoff;
         }
 
-        if (DeckStatClassifier.IsTutorCard(typeLine, oracle))
+        // Why: match deck stats' per-face input while retaining the front-face read for older facts.
+        IReadOnlyList<string> faces = fact.FaceOracleTexts is { Count: > 0 } ? fact.FaceOracleTexts : [oracle];
+        if (DeckStatClassifier.IsTutorCard(typeLine, faces))
         {
             roles |= PlanRole.TutorCombo;
         }

@@ -135,9 +135,13 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
                         continue;
                     }
 
-                    DeckStatCardInput input = new(fact.Quantity, fact.TypeLine, fact.OracleText ?? "", fact.ManaCost ?? "");
+                    DeckStatCardInput input = new(fact.Quantity, fact.TypeLine, fact.OracleText ?? "", fact.ManaCost ?? "")
+                    {
+                        FaceOracleTexts = fact.FaceOracleTexts
+                    };
                     inputs.Add(input);
-                    if (input.OracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase))
+                    if (input.OracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase)
+                        || input.OracleText.Contains("search your library and/or graveyard for", StringComparison.OrdinalIgnoreCase))
                     {
                         int previousCopies = searchCards.GetValueOrDefault(fact.Name).Quantity;
                         searchCards[fact.Name] = input with { Quantity = previousCopies + input.Quantity };

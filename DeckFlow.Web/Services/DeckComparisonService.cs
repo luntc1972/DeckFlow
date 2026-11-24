@@ -476,7 +476,10 @@ public sealed class DeckComparisonService : IDeckComparisonService
                 entry.Quantity,
                 card.TypeLine ?? string.Empty,
                 NormalizeOracleText(card),
-                card.ManaCost ?? string.Empty));
+                card.ManaCost ?? string.Empty)
+            {
+                FaceOracleTexts = DeckStatCardInputs.FaceOracleTextsFor(card)
+            });
         }
 
         var stats = DeckStatAggregator.Compute(statInputs);

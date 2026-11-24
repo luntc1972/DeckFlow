@@ -12,7 +12,9 @@ public static class DeckStatCardInputs
     public static IReadOnlyList<string>? FaceOracleTextsFor(ScryfallCard card)
     {
         ArgumentNullException.ThrowIfNull(card);
-        // Why: retain the existing deck-stat input behavior until face data is populated.
-        return null;
+        // Why: preserve blank faces so index zero always identifies the front face.
+        return card.CardFaces is { Count: > 0 } faces
+            ? faces.Select(face => string.IsNullOrWhiteSpace(face.OracleText) ? string.Empty : face.OracleText).ToArray()
+            : null;
     }
 }

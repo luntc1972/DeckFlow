@@ -840,7 +840,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                         .ToList();
                     var comboDetectionAvailable = comboResult is not null;
                     var scoreStats = DeckStatAggregator.Compute(currentDeckNonCommanderCards
-                        .Select(card => new DeckStatCardInput(card.Quantity, card.TypeLine, card.OracleText, card.ManaCost)));
+                        .Select(ToStatInput));
 
                     IReadOnlyList<TwoCardCombo>? scoreTwoCardCombos = comboResult is null
                         ? null
@@ -1290,6 +1290,12 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         return released >= recencyCutoff;
     }
 
+    private static DeckStatCardInput ToStatInput(CardReference card)
+        => new DeckStatCardInput(card.Quantity, card.TypeLine, card.OracleText, card.ManaCost)
+        {
+            FaceOracleTexts = card.FaceOracleTexts
+        };
+
     /// <summary>
     /// Formats the pre-computed deck_stats block from the resolved current-deck cards, excluding the
     /// commander(s). Counts are tallied by <see cref="DeckStatAggregator"/> so the prompt can state them
@@ -1305,7 +1311,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
         // composite "submitted_name: X | resolved_card: Y" name that no bare name set would match.
         var inputs = cardReferences
             .Where(card => IsCurrentDeckScope(card.Scope) && !card.IsCommander)
-            .Select(card => new DeckStatCardInput(card.Quantity, card.TypeLine, card.OracleText, card.ManaCost));
+            .Select(ToStatInput);
 
         var stats = DeckStatAggregator.Compute(inputs);
 
@@ -1997,7 +2003,10 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 IsModalDfcLand(card),
                 card.ReleasedAt,
                 matchingRequest.Quantity,
-                matchingRequest.IsCommander));
+                matchingRequest.IsCommander)
+            {
+                FaceOracleTexts = DeckStatCardInputs.FaceOracleTextsFor(card)
+            });
 
             foreach (var mechanicName in ExtractMechanicNames(card))
             {
@@ -2298,7 +2307,11 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
     /// <summary>Requests Scryfall grounding for a scoped deck card included in an analysis packet.</summary>
     private sealed record CardReferenceRequest(string Name, string Scope, int Quantity = 1, bool IsCommander = false);
     /// <summary>Supplies grounded card rules and deck context to the analysis packet prompt.</summary>
-    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand, string? ReleasedAt = null, int Quantity = 1, bool IsCommander = false);
+    private sealed record CardReference(string Scope, string Name, string ManaCost, string TypeLine, string OracleText, bool IsMdfcLand, string? ReleasedAt = null, int Quantity = 1, bool IsCommander = false)
+    {
+        // Why: per-face text supplies tutor and spell-front MDFC tallies while rendered references use the existing oracle text.
+        public IReadOnlyList<string>? FaceOracleTexts { get; init; }
+    }
 
     /// <summary>Bundles grounded cards, mechanics, and canonical names for analysis packet construction.</summary>
     private sealed record CardReferenceBundle(IReadOnlyList<CardReference> CardReferences, IReadOnlyList<string> MechanicNames, IReadOnlyDictionary<string, string> OracleNameMap);
