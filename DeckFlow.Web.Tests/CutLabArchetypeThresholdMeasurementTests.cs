@@ -89,6 +89,119 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
         Assert.True(inconsistent.Count == 0, string.Join(Environment.NewLine, inconsistent));
     }
 
+    /// <summary>Measures the live Consistency tiers and tutor counts across the calibration corpus.</summary>
+    [CutLabMeasurementFact]
+    public void Measure_ConsistencyTiers_WritesCorpusReport()
+    {
+        string dataDirectory = RequiredPath("DECKFLOW_CUTLAB_MEASURE_DATA");
+        string output = Path.Combine(RequiredPath("DECKFLOW_CUTLAB_MEASURE_OUT"), "consistency");
+        var decks = ReadJson<List<CalibrationDeck>>(Path.Combine(dataDirectory, "decks_all.json"));
+        var cards = ReadJson<Dictionary<string, ScryfallCardData>>(Path.Combine(dataDirectory, "cards_full.json"));
+        Assert.NotEmpty(decks);
+        Assert.NotEmpty(cards);
+        Directory.CreateDirectory(output);
+
+        var flavors = new[]
+        {
+            (Name: "combo-unavailable", ComboCount: 0, ComboAvailable: false, Bands: new int[6]),
+            (Name: "combo-assumed", ComboCount: 3, ComboAvailable: true, Bands: new int[6]),
+        };
+        int[] tutorBuckets = new int[6];
+        int totalTutors = 0;
+        int totalUnresolved = 0;
+        SortedDictionary<string, DeckStatCardInput> searchCards = new(StringComparer.Ordinal);
+
+        string csvPath = Path.Combine(output, "consistency.csv");
+        using (StreamWriter csv = new(csvPath))
+        {
+            csv.WriteLine("deck_index,cmdkey,flavor,tutors,avg_mv,consistency_band,unresolved_names");
+            for (int index = 0; index < decks.Count; index++)
+            {
+                CalibrationDeck deck = decks[index];
+                var commanders = deck.Commanders.ToHashSet(StringComparer.Ordinal);
+                List<DeckStatCardInput> inputs = [];
+                int unresolved = 0;
+                foreach (var group in deck.Commanders.Concat(deck.Maindeck).GroupBy(name => name, StringComparer.Ordinal))
+                {
+                    if (!cards.TryGetValue(group.Key, out ScryfallCardData? scryfall))
+                    {
+                        unresolved++;
+                        continue;
+                    }
+
+                    CardFact fact = ScryfallCardFactMapper.ToCardFact(scryfall, group.Count(), commanders.Contains(group.Key));
+                    if (fact.IsCommander)
+                    {
+                        continue;
+                    }
+
+                    DeckStatCardInput input = new(fact.Quantity, fact.TypeLine, fact.OracleText ?? "", fact.ManaCost ?? "");
+                    inputs.Add(input);
+                    if (input.OracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase))
+                    {
+                        int previousCopies = searchCards.GetValueOrDefault(fact.Name).Quantity;
+                        searchCards[fact.Name] = input with { Quantity = previousCopies + input.Quantity };
+                    }
+                }
+
+                DeckStatSummary stats = DeckStatAggregator.Compute(inputs);
+                totalTutors += stats.Tutors;
+                totalUnresolved += unresolved;
+                int tutorBucket = stats.Tutors switch
+                {
+                    0 => 0,
+                    1 => 1,
+                    < 5 => 2,
+                    < 8 => 3,
+                    < 12 => 4,
+                    _ => 5,
+                };
+                tutorBuckets[tutorBucket]++;
+
+                foreach (var flavor in flavors)
+                {
+                    DeckMultiAxisScore score = MultiAxisScorer.Score(
+                        stats, gameChangerCount: 0, twoCardComboCount: flavor.ComboCount,
+                        comboDetectionAvailable: flavor.ComboAvailable, bracketNumber: 3);
+                    flavor.Bands[score.ConsistencyBand]++;
+                    csv.WriteLine(FormattableString.Invariant(
+                        $"{index},{CsvField(deck.CmdKey)},{flavor.Name},{stats.Tutors},{stats.AverageManaValue},{score.ConsistencyBand},{unresolved}"));
+                }
+            }
+        }
+
+        string tutorCardsPath = Path.Combine(output, "tutor-cards.csv");
+        using (StreamWriter csv = new(tutorCardsPath))
+        {
+            csv.WriteLine("name,copies,is_tutor");
+            foreach (var (name, input) in searchCards)
+            {
+                bool isTutor = DeckStatAggregator.Compute([input with { Quantity = 1 }]).Tutors > 0;
+                csv.WriteLine(FormattableString.Invariant($"{CsvField(name)},{input.Quantity},{(isTutor ? "true" : "false")}"));
+            }
+        }
+
+        string summaryPath = Path.Combine(output, "summary.md");
+        List<string> summary =
+        [
+            "# Consistency tier measurement",
+            "",
+            FormattableString.Invariant($"- Decks: {decks.Count}"),
+            FormattableString.Invariant($"- Unresolved name occurrences: {totalUnresolved}"),
+            FormattableString.Invariant($"- Total Tutors: {totalTutors}"),
+            $"- Tutor buckets (0 / 1 / 2-4 / 5-7 / 8-11 / 12+): {string.Join(" / ", tutorBuckets)}",
+        ];
+        foreach (var flavor in flavors)
+        {
+            summary.Add($"- Consistency bands (0 / 1 / 2 / 3 / 4 / 5), {flavor.Name}: {string.Join(" / ", flavor.Bands)}");
+        }
+
+        File.WriteAllLines(summaryPath, summary);
+        Assert.True(File.Exists(csvPath));
+        Assert.True(File.Exists(tutorCardsPath));
+        Assert.True(File.Exists(summaryPath));
+    }
+
     /// <summary>Fingerprints Manabase plan roles and samples mulligan metrics to detect fetch-land classifier regressions.</summary>
     [CutLabMeasurementFact]
     public void Measure_ManabasePlanRoles_WritesCorpusReport()

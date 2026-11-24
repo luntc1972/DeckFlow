@@ -71,6 +71,17 @@ public sealed class PlanRoleClassifierTests
         Assert.True(roles.HasFlag(PlanRole.TutorCombo));
     }
 
+    [Theory]
+    [InlineData("Lórien Revealed", "Sorcery", "Draw three cards.\nIslandcycling {1} ({1}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)")]
+    [InlineData("Monstrosity of the Lake", "Legendary Creature — Kraken", "When Monstrosity of the Lake enters, you may pay {5}. If you do, tap all creatures your opponents control, then put a stun counter on each of those creatures. (If a permanent with a stun counter would become untapped, remove one from it instead.)\nIslandcycling {2} ({2}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)")]
+    public void Classify_IslandcyclingCard_EarnsTutorCombo(string name, string typeLine, string oracle)
+    {
+        CardFact fact = Fact(typeLine, oracle, name);
+        PlanRole roles = PlanRoleClassifier.Classify(fact, [], isComboPiece: false, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
     private static CardFact Fact(string typeLine, string? oracle = null, string name = "Card") => new()
     {
         Name = name,

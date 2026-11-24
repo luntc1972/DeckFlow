@@ -68,6 +68,18 @@ public sealed class DeckStatAggregatorTests
     }
 
     [Fact]
+    public void Compute_IslandcyclingSpellCountsAndFetchLandDoesNot()
+    {
+        DeckStatSummary stats = DeckStatAggregator.Compute([
+            Card(1, "Sorcery", "Draw three cards.\nIslandcycling {1} ({1}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)", "{3}{U}{U}"),
+            Card(1, "Sorcery", "Search your library for a card, put that card into your hand, then shuffle.", "{1}{B}"),
+            Card(1, "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.", ""),
+        ]);
+
+        Assert.Equal(2, stats.Tutors);
+    }
+
+    [Fact]
     public void Compute_TalliesNewSignalFields()
     {
         var summary = DeckStatAggregator.Compute(new[]

@@ -33,6 +33,24 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
+    public void AssignRoles_IslandcyclingSpell_HasTutorRole()
+    {
+        CardFact fact = Fact("Lórien Revealed", "Sorcery", "Draw three cards.\nIslandcycling {1} ({1}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)");
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Cedh);
+
+        Assert.Contains(CutLabRoleKeys.Tutor, roles);
+    }
+
+    [Fact]
+    public void AssignRoles_LandSearchSpell_KeepsTutorRole()
+    {
+        CardFact fact = Fact("Farseek", "Sorcery", "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.");
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Cedh);
+
+        Assert.Contains(CutLabRoleKeys.Tutor, roles);
+    }
+
+    [Fact]
     public void AssignRoles_Forest_MapsToExactlyLands()
     {
         CardFact fact = Fact(
