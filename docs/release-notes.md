@@ -10,7 +10,7 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 
 - **`1x` quantities:** Pasted Archidekt lists that write quantities as `1x Card Name` now parse. Previously Convert rejected them, and other tools that accept a pasted list (and Card Lookup) silently kept `1x` as part of the card name.
 - **`Main:` header:** A `Main:` section header in a pasted deck list is now read as the mainboard, instead of being treated as a card.
-- **Category tags:** Pasted Archidekt lines such as `1x Sol Ring (cmr) 123 [Ramp]` now keep the clean card name, set code, and `[Commander]` placement in tools that load a pasted deck list. Trailing Archidekt tags like `^Have,#37d67a^` are ignored.
+- **Category tags:** Pasted Archidekt lines such as `1x Sol Ring (cmr) 123 [Ramp]` now keep the clean card name, set code, and `[Commander]` placement when a tool detects the paste format itself, or when Archidekt is chosen as the source. Choosing Moxfield as the source still keeps the tag in the card name. Trailing Archidekt tags like `^Have,#37d67a^` are ignored.
 - **Convert errors:** When a pasted list can't be parsed, the Convert page shows the parse error instead of a generic error page.
 
 ### Unreleased — Admin Harvest processing stats
