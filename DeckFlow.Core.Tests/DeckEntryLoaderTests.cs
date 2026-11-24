@@ -178,6 +178,67 @@ Main
         Assert.Equal("soc", result.Entries[2].SetCode);
     }
 
+    [Fact]
+    public async Task LoadFromSourceAsync_PasteWithBracketedIdea_PreservesInlineSideboard()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync(
+            "1 deck idea [wip]\n1 Sol Ring\nSB: 1 Pyroblast");
+
+        Assert.Single(result.Entries, entry => entry.Name == "Sol Ring" && entry.Board == "mainboard");
+        Assert.Single(result.Entries, entry => entry.Name == "Pyroblast" && entry.Board == "sideboard");
+    }
+
+    [Fact]
+    public async Task LoadFromSourceAsync_PasteWithBracketedIdea_PreservesSideboardSectionAndCommander()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync(
+            "1 deck idea [wip]\n1 Sol Ring\n\nSIDEBOARD:\n1 Pyroblast\n\n1 Atraxa, Praetors' Voice");
+
+        Assert.Single(result.Entries, entry => entry.Name == "Pyroblast" && entry.Board == "sideboard");
+        Assert.Single(result.Entries, entry => entry.Name == "Atraxa, Praetors' Voice" && entry.Board == "commander");
+    }
+
+    [Fact]
+    public async Task LoadFromSourceAsync_PartiallyTaggedPaste_CleansNameAndPromotesTrailingCommander()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync(
+            "1 Sol Ring\n1 Arcane Signet [Ramp]\n\nSIDEBOARD:\n1 Path to Exile\n\n1 Atraxa, Praetors' Voice");
+
+        Assert.Single(result.Entries, entry => entry.Name == "Arcane Signet");
+        Assert.Single(result.Entries, entry => entry.Name == "Path to Exile" && entry.Board == "sideboard");
+        Assert.Single(result.Entries, entry => entry.Name == "Atraxa, Praetors' Voice" && entry.Board == "commander");
+    }
+
+    [Fact]
+    public async Task LoadFromSourceAsync_TaggedPasteWithSideboardPrefix_PreservesPrintingAndSideboard()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync("1x Sol Ring (cmr) 123 [Ramp]\nSB: 1 Pyroblast");
+
+        var solRing = Assert.Single(result.Entries, entry => entry.Name == "Sol Ring");
+        Assert.Equal("cmr", solRing.SetCode);
+        Assert.Equal("123", solRing.CollectorNumber);
+        Assert.Single(result.Entries, entry => entry.Name == "Pyroblast" && entry.Board == "sideboard");
+    }
+
+    [Fact]
+    public async Task LoadFromSourceAsync_TaggedPasteWithImplicitQuantity_PreservesBothCards()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync("1x Sol Ring (cmr) 123 [Ramp]\nArcane Signet");
+
+        Assert.Single(result.Entries, entry => entry.Name == "Sol Ring");
+        Assert.Single(result.Entries, entry => entry.Name == "Arcane Signet");
+    }
+
     [Theory]
     [InlineData("^Have,#37d67a^")]
     [InlineData("^Have,#37d67a^ ^Foil,#ffaa00^")]
