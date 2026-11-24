@@ -140,7 +140,7 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
         {
             return new DeckSourceLoadResult(_archidektParser.ParseText(deckSource), null);
         }
-        catch (DeckParseException)
+        catch (DeckParseException exception) when (!QuantityPrefix.IsOutOfRangeMessage(exception.Message))
         {
             if (unrecognizedBehavior == UnrecognizedPasteBehavior.PropagateParseException)
             {
@@ -170,7 +170,7 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
 
             return new DeckSourceLoadResult(entries, null);
         }
-        catch (DeckParseException)
+        catch (DeckParseException exception) when (!QuantityPrefix.IsOutOfRangeMessage(exception.Message))
         {
             return null;
         }
