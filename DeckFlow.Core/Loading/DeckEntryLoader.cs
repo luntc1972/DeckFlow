@@ -160,7 +160,9 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
             for (var i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
-                if (ArchidektParser.TryParseCategorizedCardLine($"{entry.Quantity} {entry.Name}", entry.Board, out var categorized))
+                // Why: only a name still holding "[" can carry a category suffix; skip the re-parse otherwise.
+                if (entry.Name.Contains('[')
+                    && ArchidektParser.TryParseCategorizedCardLine($"{entry.Quantity} {entry.Name}", entry.Board, out var categorized))
                 {
                     entries[i] = categorized with { Quantity = entry.Quantity, IsFoil = categorized.IsFoil || entry.IsFoil };
                 }
