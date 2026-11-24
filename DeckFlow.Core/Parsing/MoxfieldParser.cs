@@ -101,7 +101,7 @@ public sealed partial class MoxfieldParser : IParser
             }
 
             var hasExplicitQuantity = QuantityPrefix.Pattern().IsMatch(entryLine);
-            if (!TryParseEntry(entryLine, entryBoard, allowImplicitQuantity: !stoppingSectionActive, i + 1, out var entry))
+            if (!TryParseEntry(entryLine, entryBoard, allowImplicitQuantity: !stoppingSectionActive, out var entry))
             {
                 if (stoppingSectionActive && !hasExplicitQuantity)
                 {
@@ -191,7 +191,7 @@ public sealed partial class MoxfieldParser : IParser
         }
     }
 
-    private static bool TryParseEntry(string line, string board, bool allowImplicitQuantity, int lineNumber, out DeckEntry entry)
+    private static bool TryParseEntry(string line, string board, bool allowImplicitQuantity, out DeckEntry entry)
     {
         entry = default!;
 
@@ -202,7 +202,7 @@ public sealed partial class MoxfieldParser : IParser
         {
             if (!QuantityPrefix.TryParseQuantity(match.Groups["quantity"].Value, out quantity))
             {
-                throw new DeckParseException($"Line {lineNumber} \"{line}\" has quantity outside the allowed range 1..{QuantityPrefix.MaxQuantity}.");
+                throw new DeckParseException(QuantityPrefix.OutOfRangeMessage(line));
             }
             remainder = match.Groups["rest"].Value.Trim();
         }
