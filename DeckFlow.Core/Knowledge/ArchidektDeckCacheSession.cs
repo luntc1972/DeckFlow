@@ -342,7 +342,7 @@ public sealed class ArchidektDeckCacheSession
             catch (Exception retireException) when (retireException is not OperationCanceledException and not System.Data.Common.DbException)
             {
                 tally.Skipped++;
-                _logger?.LogWarning(retireException, "Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}", deckId, "fallback_fetch_failure");
+                _logger?.LogWarning(retireException, "Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}", deckId, "marked_archive_failed");
                 // Why: Archidekt's not-found result is terminal even when the fold fails. The not_found mark takes the deck out of the Refetch cohort (07-23 C-F1).
                 await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, DeckSkipReasons.NotFound, cancellationToken);
                 return;

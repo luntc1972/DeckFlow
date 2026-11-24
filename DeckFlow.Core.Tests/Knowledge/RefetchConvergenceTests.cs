@@ -289,9 +289,9 @@ public sealed class RefetchConvergenceTests
         Assert.Equal(deckIds.Length, foldCalls);
         Assert.Collection(
             logger.DeckNotFoundEntries(),
-            entry => AssertDeckNotFoundLog(entry, deckIds[0], "fallback_fetch_failure", foldException),
+            entry => AssertDeckNotFoundLog(entry, deckIds[0], "marked_archive_failed", foldException),
             entry => AssertDeckNotFoundLog(entry, deckIds[1], "archived"),
-            entry => AssertDeckNotFoundLog(entry, countedDeckId, "fallback_fetch_failure", foldException));
+            entry => AssertDeckNotFoundLog(entry, countedDeckId, "marked_archive_failed", foldException));
         foreach (var deckId in new[] { deckIds[0], countedDeckId })
         {
             var row = await connection.QuerySingleAsync<(long Skipped, string Reason, long HasStoredLiveRows, string CommanderName)>(
