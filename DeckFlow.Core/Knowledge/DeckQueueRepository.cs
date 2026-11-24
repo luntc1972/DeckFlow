@@ -27,7 +27,9 @@ internal sealed class DeckQueueRepository
     internal const string StoredLiveRowsSql = "q.has_stored_live_rows = 1";
     internal const string StoredLiveRowsExistsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
     // Why: retention identity lives in retention_core_hash while a requeued deck is pending (RC2).
-    internal const string RetentionPreservingSkipReasonSql = "CASE WHEN retention_core_hash IS NOT NULL AND @skipReason IN ('fetch_failure', 'not_found') THEN 'retention' ELSE @skipReason END";
+    internal const string RetentionPreservingSkipReasonSql =
+        "CASE WHEN retention_core_hash IS NOT NULL AND @skipReason IN ('" + DeckSkipReasons.FetchFailure + "', '" +
+        DeckSkipReasons.NotFound + "') THEN '" + DeckSkipReasons.Retention + "' ELSE @skipReason END";
     // Why: defense in depth on a cold cache, not the fix.
     internal const int MaintenanceCommandTimeoutSeconds = 120;
     private const string RetentionCandidateSql = "q.processed = 1 AND q.skipped = 0 AND q.commander_name IS NOT NULL AND " + StoredLiveRowsSql;
