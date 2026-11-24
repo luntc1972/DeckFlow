@@ -22,6 +22,7 @@ public sealed class RefetchConvergenceTests
     [Fact] public Task RetentionArchived_RequeuedThenFails_KeepsRetentionReason() => WithSqliteAsync("retention");
     [Fact] public Task NotFoundArchived_Reappears_UnarchivesOnReentry() => WithSqliteAsync("reappear");
     [Fact] public Task NotFound_RetireFails_MarksNotFoundAndContinues() => WithSqliteAsync("fallback");
+    [Fact] public Task NotFound_ProgressThrowsAfterRetirement_SkipsOnceWithoutFallback() => WithSqliteAsync("retired-progress-failure");
 
     [Fact]
     public void RetentionPreservingSkipReasonSql_UsesOriginalSqlText()
@@ -52,6 +53,11 @@ public sealed class RefetchConvergenceTests
         if (scenario == "fallback")
         {
             await VerifyFallbackAsync(connection, info, repository);
+            return;
+        }
+        if (scenario == "retired-progress-failure")
+        {
+            await VerifyRetiredProgressFailureAsync(connection, repository);
             return;
         }
         const string deckId = "refetch-convergence";
@@ -211,6 +217,37 @@ public sealed class RefetchConvergenceTests
             if (deckId == "retention-d") Assert.Equal(0L, await LiveRowCountAsync(connection, deckId));
         }
         Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
+    }
+
+    private static async Task VerifyRetiredProgressFailureAsync(DbConnection connection, CategoryKnowledgeRepository repository)
+    {
+        const string deckId = "retired-progress-failure";
+        var entries = LegalCommanderDeck.Complete([new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
+        await repository.AddDeckIdsAsync([deckId]);
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId, entries);
+        await repository.MarkDeckProcessedAsync(deckId, LegalCommanderDeck.CommanderName, skip: true, metadata: null, skipReason: DeckSkipReasons.FetchFailure);
+        await repository.RunStoredLiveRowsBackfillBatchAsync(100);
+        Assert.Equal(1, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
+
+        var logger = new FakeStructuredLogger();
+        var session = new ArchidektDeckCacheSession(repository, new MultiStubDeckImporter([deckId]), new EmptyRecentDecksImporter(), logger: logger);
+        var progressCalls = 0;
+        var progress = new SynchronousProgress<int>(_ =>
+        {
+            if (++progressCalls == 1)
+            {
+                // RunAsync handles this exception and returns the tally for inspection.
+                throw new ArchidektTransientFailureException("Injected progress fault");
+            }
+        });
+
+        var result = await session.RunAsync(TimeSpan.FromSeconds(1), progress: progress);
+
+        Assert.Equal(1L, await ManifestCountAsync(connection, deckId));
+        Assert.Multiple(
+            () => Assert.Equal(1, result.DecksSkipped),
+            () => Assert.Equal(1, progressCalls),
+            () => Assert.Collection(logger.DeckNotFoundEntries(), entry => AssertDeckNotFoundLog(entry, deckId, "archived")));
     }
 
     private static async Task VerifyFallbackAsync(DbConnection connection, RelationalDatabaseConnection info, CategoryKnowledgeRepository repository)
