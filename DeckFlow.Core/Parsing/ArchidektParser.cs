@@ -322,7 +322,7 @@ public sealed partial class ArchidektParser : IParser
             || string.Equals(normalized, "Sideboard", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsStoppingLine(string line)
+    internal static bool IsStoppingLine(string line)
     {
         var normalized = line.Trim().TrimEnd(':');
         return string.Equals(normalized, "Possible names", StringComparison.OrdinalIgnoreCase)
