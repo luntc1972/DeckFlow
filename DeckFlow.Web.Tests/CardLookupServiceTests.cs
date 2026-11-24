@@ -15,6 +15,29 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class CardLookupServiceTests
 {
+    [Theory]
+    [InlineData("99999999999 Sol Ring")]
+    public async Task LookupAsync_OutOfRangeQuantity_ThrowsInvalidOperationException(string line)
+    {
+        var service = TestServiceFactory.CreateScryfallCardLookupService();
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.LookupAsync(line));
+
+        Assert.Contains(line, exception.Message);
+        Assert.Contains("1..999", exception.Message);
+    }
+
+    [Fact]
+    public async Task LookupAsync_NonAsciiQuantity_DoesNotThrowNumericFormatException()
+    {
+        var service = TestServiceFactory.CreateScryfallCardLookupService();
+
+        var exception = await Record.ExceptionAsync(() => service.LookupAsync("１ Sol Ring"));
+
+        Assert.IsNotType<FormatException>(exception);
+        Assert.IsNotType<OverflowException>(exception);
+    }
+
     [Fact]
     public async Task LookupAsync_PreservesQuantities_AndCollectsMissingLines()
     {

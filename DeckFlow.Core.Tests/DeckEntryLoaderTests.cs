@@ -10,6 +10,17 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class DeckEntryLoaderTests
 {
+    [Theory]
+    [InlineData("99999999999 Sol Ring")]
+    [InlineData("１ Sol Ring")]
+    public async Task LoadFromSourceAsync_PastedQuantity_DoesNotThrowNumericFormatException(string line)
+    {
+        var exception = await Record.ExceptionAsync(() => CreateLoader().LoadFromSourceAsync(line));
+
+        Assert.IsNotType<FormatException>(exception);
+        Assert.IsNotType<OverflowException>(exception);
+    }
+
     [Fact]
     public async Task LoadFromSourceAsync_MoxfieldUrl_ReturnsEntriesAndFallbackNotice()
     {

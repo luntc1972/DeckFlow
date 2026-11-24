@@ -10,6 +10,45 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ParserTests
 {
+    [Theory]
+    [InlineData("99999999999 Sol Ring")]
+    [InlineData("1000 Sol Ring")]
+    public void MoxfieldParser_OutOfRangeQuantity_ThrowsDeckParseException(string line)
+    {
+        var exception = Assert.Throws<DeckParseException>(() => new MoxfieldParser().ParseText(line));
+
+        Assert.Contains(line, exception.Message);
+        Assert.Contains("1..999", exception.Message);
+    }
+
+    [Fact]
+    public void MoxfieldParser_MaxQuantity_Parses()
+    {
+        var entry = Assert.Single(new MoxfieldParser().ParseText("999 Island"));
+
+        Assert.Equal(999, entry.Quantity);
+    }
+
+    [Fact]
+    public void MoxfieldParser_NonAsciiQuantity_DoesNotThrowNumericFormatException()
+    {
+        var exception = Record.Exception(() => new MoxfieldParser().ParseText("１ Sol Ring"));
+
+        Assert.IsNotType<FormatException>(exception);
+        Assert.IsNotType<OverflowException>(exception);
+    }
+
+    [Fact]
+    public void ArchidektParser_OutOfRangeQuantity_ThrowsDeckParseException()
+    {
+        var line = "99999999999 Sol Ring [Ramp]";
+
+        var exception = Assert.Throws<DeckParseException>(() => new ArchidektParser().ParseText(line));
+
+        Assert.Contains(line, exception.Message);
+        Assert.Contains("1..999", exception.Message);
+    }
+
     [Fact]
     public void Normalize_HandlesCaseSpacesAndMdfc()
     {

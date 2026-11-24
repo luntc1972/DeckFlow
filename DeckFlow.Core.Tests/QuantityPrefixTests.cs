@@ -26,4 +26,26 @@ public sealed class QuantityPrefixTests
     {
         Assert.DoesNotMatch(QuantityPrefix.Pattern(), line);
     }
+
+    [Theory]
+    [InlineData("１ Sol Ring")]
+    [InlineData("١ Sol Ring")]
+    public void Pattern_WithNonAsciiDigits_DoesNotMatch(string line)
+    {
+        Assert.DoesNotMatch(QuantityPrefix.Pattern(), line);
+    }
+
+    [Theory]
+    [InlineData("1", true, 1)]
+    [InlineData("999", true, 999)]
+    [InlineData("0", false, 0)]
+    [InlineData("1000", false, 1000)]
+    [InlineData("99999999999", false, 0)]
+    public void TryParseQuantity_EnforcesBounds(string value, bool expected, int expectedQuantity)
+    {
+        var success = QuantityPrefix.TryParseQuantity(value, out var quantity);
+
+        Assert.Equal(expected, success);
+        Assert.Equal(expectedQuantity, quantity);
+    }
 }
