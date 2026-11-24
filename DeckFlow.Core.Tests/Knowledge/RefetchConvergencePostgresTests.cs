@@ -12,10 +12,10 @@ public sealed class RefetchConvergencePostgresTests
     [CreatorSuppressionPostgresFact] public Task Refetch_ThenSuccess_CapturesMetadataAndLeavesNoCandidate() => VerifyAsync("success");
     [CreatorSuppressionPostgresFact] public Task Refetch_ThenTransientThreeTimes_StaysRetryableAndNotArchived() => VerifyAsync("transient");
     [CreatorSuppressionPostgresFact] public Task Refetch_ThenOtherFailure_FetchFailureNotArchived() => VerifyAsync("other-failure");
-    [Fact(Skip = "07-20 part B")] public Task NotFound_UnstoredDeck_MarkedWithoutManifest() => Task.CompletedTask;
-    [Fact(Skip = "07-20 part B")] public Task RetentionArchived_RequeuedThenFails_KeepsRetentionReason() => Task.CompletedTask;
-    [Fact(Skip = "07-20 part B")] public Task NotFoundArchived_Reappears_UnarchivesOnReentry() => Task.CompletedTask;
-    [Fact(Skip = "07-20 part B")] public Task NotFound_RetireFails_FallsBackToFetchFailureAndContinues() => Task.CompletedTask;
+    [CreatorSuppressionPostgresFact] public Task NotFound_UnstoredDeck_MarkedWithoutManifest() => VerifyAsync("unstored");
+    [CreatorSuppressionPostgresFact] public Task RetentionArchived_RequeuedThenFails_KeepsRetentionReason() => VerifyAsync("retention");
+    [CreatorSuppressionPostgresFact] public Task NotFoundArchived_Reappears_UnarchivesOnReentry() => VerifyAsync("reappear");
+    [CreatorSuppressionPostgresFact] public Task NotFound_RetireFails_FallsBackToFetchFailureAndContinues() => VerifyAsync("fallback");
 
     private static async Task VerifyAsync(string scenario)
     {
