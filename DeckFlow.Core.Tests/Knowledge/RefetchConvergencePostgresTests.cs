@@ -8,6 +8,7 @@ namespace DeckFlow.Core.Tests.Knowledge;
 /// </summary>
 public sealed class RefetchConvergencePostgresTests
 {
+    [CreatorSuppressionPostgresFact] public Task NotFound_CountedDeck_DropsOutOfCommanderCounts() => VerifyAsync("counted");
     [CreatorSuppressionPostgresFact] public Task Refetch_ThenNotFound_ArchivesAndLeavesNoCandidate() => VerifyAsync("not-found");
     [CreatorSuppressionPostgresFact] public Task Refetch_ThenSuccess_CapturesMetadataAndLeavesNoCandidate() => VerifyAsync("success");
     [CreatorSuppressionPostgresFact] public Task Refetch_ThenTransientThreeTimes_StaysRetryableAndNotArchived() => VerifyAsync("transient");

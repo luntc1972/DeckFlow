@@ -5,11 +5,15 @@ using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Storage;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 
 namespace DeckFlow.Core.Tests.Knowledge;
 
 public sealed class RefetchConvergenceTests
 {
+    private const string DeckNotFoundTemplate = "Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}";
+
+    [Fact] public Task NotFound_CountedDeck_DropsOutOfCommanderCounts() => WithSqliteAsync("counted");
     [Fact] public Task Refetch_ThenNotFound_ArchivesAndLeavesNoCandidate() => WithSqliteAsync("not-found");
     [Fact] public Task Refetch_ThenSuccess_CapturesMetadataAndLeavesNoCandidate() => WithSqliteAsync("success");
     [Fact] public Task Refetch_ThenTransientThreeTimes_StaysRetryableAndNotArchived() => WithSqliteAsync("transient");
@@ -19,9 +23,22 @@ public sealed class RefetchConvergenceTests
     [Fact] public Task NotFoundArchived_Reappears_UnarchivesOnReentry() => WithSqliteAsync("reappear");
     [Fact] public Task NotFound_RetireFails_MarksNotFoundAndContinues() => WithSqliteAsync("fallback");
 
+    [Fact]
+    public void RetentionPreservingSkipReasonSql_UsesOriginalSqlText()
+    {
+        Assert.Equal(
+            "CASE WHEN retention_core_hash IS NOT NULL AND @skipReason IN ('fetch_failure', 'not_found') THEN 'retention' ELSE @skipReason END",
+            DeckQueueRepository.RetentionPreservingSkipReasonSql);
+    }
+
     internal static async Task VerifyAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
     {
         var repository = new CategoryKnowledgeRepository(info);
+        if (scenario == "counted")
+        {
+            await VerifyCountedAsync(connection, repository);
+            return;
+        }
         if (scenario == "unstored")
         {
             await VerifyUnstoredAsync(connection, repository);
@@ -50,21 +67,10 @@ public sealed class RefetchConvergenceTests
         var totals = await repository.GetCardDeckTotalsAsync("Sol Ring");
         var categories = await repository.GetCategoriesAsync("Sol Ring");
         var counts = await repository.GetCategoryDeckCountsAsync("Sol Ring");
-        Assert.Single(await repository.GetCategoryRowsForCommanderAsync(LegalCommanderDeck.CommanderName));
-        Assert.Single(await repository.GetCategoryDeckMembershipForCommanderAsync(LegalCommanderDeck.CommanderName));
-        string? retentionHash = null;
-        if (scenario == "retention")
-        {
-            var queueId = await connection.QuerySingleAsync<long>("SELECT id FROM deck_queue WHERE deck_id = @deckId", new { deckId });
-            await repository.RemoveStoredDecksAsync([(queueId, DeckSkipReasons.Retention)]);
-            retentionHash = await connection.QuerySingleAsync<string>("SELECT retention_core_hash FROM deck_queue WHERE deck_id = @deckId", new { deckId });
-            await repository.AddListingRowsAsync([new ArchidektListingDeck(deckId, DateTimeOffset.Parse("2027-01-01T00:00:00Z"))]);
-            Assert.Equal((string?)null, await connection.QuerySingleAsync<string?>("SELECT skip_reason FROM deck_queue WHERE deck_id = @deckId", new { deckId }));
-            Assert.Equal(retentionHash, await connection.QuerySingleAsync<string>("SELECT retention_core_hash FROM deck_queue WHERE deck_id = @deckId", new { deckId }));
-        }
-        Assert.Equal(scenario == "retention" ? 0 : 1, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
-        var importerScenario = scenario is "reappear" or "retention" ? "not-found" : scenario;
-        var session = new ArchidektDeckCacheSession(repository, new StubDeckImporter(deckId, importerScenario, entries), new EmptyRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(100));
+        Assert.Equal(1, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
+        var importerScenario = scenario == "reappear" ? "not-found" : scenario;
+        var logger = new FakeStructuredLogger();
+        var session = new ArchidektDeckCacheSession(repository, new StubDeckImporter(deckId, importerScenario, entries), new EmptyRecentDecksImporter(), logger: logger, idlePollDelay: TimeSpan.FromMilliseconds(100));
         if (scenario == "transient")
         {
             for (var attempt = 1; attempt <= 3; attempt++)
@@ -93,8 +99,6 @@ public sealed class RefetchConvergenceTests
         {
             Assert.Equal((1L, 1L, DeckSkipReasons.NotFound, 0L, 0L), row); Assert.Equal(1, manifests); Assert.Equal(0, liveRows); Assert.Equal(0, await repository.CountRefetchCandidatesAsync()); Assert.Equal(0, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
             var afterTotals = await repository.GetCardDeckTotalsAsync("Sol Ring"); Assert.Equal(totals.TotalDeckCount, afterTotals.TotalDeckCount); Assert.Equal(totals.BoardDeckCounts.Count, afterTotals.BoardDeckCounts.Count); Assert.Equal(categories, await repository.GetCategoriesAsync("Sol Ring")); Assert.Equal(counts.Count, (await repository.GetCategoryDeckCountsAsync("Sol Ring")).Count);
-            Assert.Single(await repository.GetCategoryRowsForCommanderAsync(LegalCommanderDeck.CommanderName)); Assert.Single(await repository.GetCategoryDeckMembershipForCommanderAsync(LegalCommanderDeck.CommanderName));
-            Assert.Equal(1L, await connection.QuerySingleAsync<long>("SELECT deck_count FROM processed_commander_summary WHERE commander_name = @name", new { name = LegalCommanderDeck.CommanderName }));
         }
         else if (scenario is "success" or "reappear")
         {
@@ -102,10 +106,66 @@ public sealed class RefetchConvergenceTests
         }
         else
         {
-            if (scenario == "retention") Assert.Equal(retentionHash, await connection.QuerySingleAsync<string>("SELECT retention_core_hash FROM deck_queue WHERE deck_id = @deckId", new { deckId }));
-            Assert.Equal(scenario == "transient" ? 0L : 1L, row.Processed); Assert.Equal(1L, row.Skipped); Assert.Equal(scenario == "retention" ? DeckSkipReasons.Retention : DeckSkipReasons.FetchFailure, row.Reason); Assert.Equal(scenario == "retention" ? 0L : 1L, row.Live); Assert.Equal(scenario == "retention" ? 1 : 0, manifests); Assert.Equal(scenario == "retention" ? 0 : 3, liveRows); Assert.Equal(scenario == "retention" ? 0 : 1, await repository.CountRefetchCandidatesAsync());
+            Assert.Equal(scenario == "transient" ? 0L : 1L, row.Processed); Assert.Equal(1L, row.Skipped); Assert.Equal(DeckSkipReasons.FetchFailure, row.Reason); Assert.Equal(1L, row.Live); Assert.Equal(0, manifests); Assert.Equal(3, liveRows); Assert.Equal(1, await repository.CountRefetchCandidatesAsync());
             if (scenario == "transient") Assert.Equal(1, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
         }
+
+        var notFoundEntries = logger.DeckNotFoundEntries();
+        if (importerScenario == "not-found")
+        {
+            AssertDeckNotFoundLog(Assert.Single(notFoundEntries), deckId, "archived");
+        }
+        else
+        {
+            Assert.Empty(notFoundEntries);
+        }
+    }
+
+    private static async Task VerifyCountedAsync(DbConnection connection, CategoryKnowledgeRepository repository)
+    {
+        const string deckId = "counted-a";
+        const string otherDeckId = "counted-b";
+        const string cardName = "Sol Ring";
+        const string category = "Ramp";
+        var entries = LegalCommanderDeck.Complete([new DeckEntry { Name = cardName, NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = category }]);
+        await repository.AddDeckIdsAsync([deckId, otherDeckId]);
+        foreach (var id in new[] { deckId, otherDeckId })
+        {
+            await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + id, entries);
+            await repository.MarkDeckProcessedAsync(id, LegalCommanderDeck.CommanderName, skip: false, LegalCommanderDeck.Metadata());
+        }
+        await repository.RunStoredLiveRowsBackfillBatchAsync(100);
+
+        const string summarySql = "SELECT deck_count FROM processed_commander_summary WHERE commander_name = @name";
+        var summaryParameters = new { name = LegalCommanderDeck.CommanderName };
+        var queueId = await connection.QuerySingleAsync<long>("SELECT id FROM deck_queue WHERE deck_id = @deckId", new { deckId });
+        var totals = await repository.GetCardDeckTotalsAsync(cardName);
+        Assert.Equal(2L, await connection.QuerySingleAsync<long>(summarySql, summaryParameters));
+        var beforeRows = await repository.GetCategoryRowsForCommanderAsync(LegalCommanderDeck.CommanderName);
+        Assert.Equal(2, beforeRows.Single(row => row.CardName == cardName && row.Category == category).DeckCount);
+        var beforeMembership = await repository.GetCategoryDeckMembershipForCommanderAsync(LegalCommanderDeck.CommanderName);
+        var beforeMatches = beforeMembership.Where(row => row.CardName == cardName && row.Category == category).ToArray();
+        Assert.Equal(2, beforeMatches.Length);
+        Assert.Contains(beforeMatches, row => row.DeckId == queueId);
+
+        Assert.Equal(1, await repository.RetireNotFoundDeckAsync(deckId));
+        var afterSummary = await connection.QuerySingleAsync<long>(summarySql, summaryParameters);
+        var afterRows = await repository.GetCategoryRowsForCommanderAsync(LegalCommanderDeck.CommanderName);
+        var afterMembership = await repository.GetCategoryDeckMembershipForCommanderAsync(LegalCommanderDeck.CommanderName);
+        var afterMatches = afterMembership.Where(row => row.CardName == cardName && row.Category == category).ToArray();
+        Assert.Multiple(
+            () => Assert.Equal(1L, afterSummary),
+            () => Assert.Equal(1, afterRows.Single(row => row.CardName == cardName && row.Category == category).DeckCount),
+            () => Assert.Single(afterMatches),
+            () => Assert.DoesNotContain(afterMatches, row => row.DeckId == queueId));
+
+        var row = await connection.QuerySingleAsync<(long Processed, long Skipped, string Reason)>(
+            "SELECT processed, skipped, skip_reason FROM deck_queue WHERE deck_id = @deckId", new { deckId });
+        Assert.Equal((1L, 1L, DeckSkipReasons.NotFound), row);
+        Assert.Equal(1L, await ManifestCountAsync(connection, deckId));
+        Assert.Equal(0L, await LiveRowCountAsync(connection, deckId));
+        Assert.Equal(totals.TotalDeckCount, (await repository.GetCardDeckTotalsAsync(cardName)).TotalDeckCount);
+        Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
     }
 
     private static async Task VerifyRetentionAsync(DbConnection connection, RelationalDatabaseConnection info, CategoryKnowledgeRepository repository)
@@ -167,8 +227,16 @@ public sealed class RefetchConvergenceTests
         Assert.Equal(2, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
         var cardRepository = (CardCategoryRepository)typeof(CategoryKnowledgeRepository).GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(repository)!;
         var foldCalls = 0;
-        cardRepository.FoldFault = (_, _) => { foldCalls++; if (foldCalls == 1) { throw new InvalidOperationException("Injected fold fault"); } };
-        var session = new ArchidektDeckCacheSession(repository, new MultiStubDeckImporter(deckIds), new EmptyRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(100));
+        var foldException = new InvalidOperationException("Injected fold fault");
+        cardRepository.FoldFault = (_, _) =>
+        {
+            if (++foldCalls == 1)
+            {
+                throw foldException;
+            }
+        };
+        var logger = new FakeStructuredLogger();
+        var session = new ArchidektDeckCacheSession(repository, new MultiStubDeckImporter(deckIds), new EmptyRecentDecksImporter(), logger: logger, idlePollDelay: TimeSpan.FromMilliseconds(100));
         using var cancellation = new CancellationTokenSource();
         var processedDecks = 0;
         var progress = new SynchronousProgress<int>(_ =>
@@ -186,6 +254,10 @@ public sealed class RefetchConvergenceTests
         {
         }
         Assert.Equal(2, foldCalls);
+        Assert.Collection(
+            logger.DeckNotFoundEntries(),
+            entry => AssertDeckNotFoundLog(entry, deckIds[0], "fallback_fetch_failure", foldException),
+            entry => AssertDeckNotFoundLog(entry, deckIds[1], "archived"));
         var first = await connection.QuerySingleAsync<(long Skipped, string Reason)>("SELECT skipped, skip_reason AS Reason FROM deck_queue WHERE deck_id = @deckId", new { deckId = deckIds[0] });
         Assert.Equal((1L, DeckSkipReasons.NotFound), first);
         Assert.Equal(0L, await ManifestCountAsync(connection, deckIds[0]));
@@ -204,9 +276,11 @@ public sealed class RefetchConvergenceTests
         const string deckId = "refetch-unstored";
         const string directDeckId = "refetch-unstored-direct";
         await repository.AddDeckIdsAsync([deckId, directDeckId]);
-        var session = new ArchidektDeckCacheSession(repository, new StubDeckImporter(deckId, "not-found", []), new EmptyRecentDecksImporter(), idlePollDelay: TimeSpan.FromMilliseconds(100));
+        var logger = new FakeStructuredLogger();
+        var session = new ArchidektDeckCacheSession(repository, new StubDeckImporter(deckId, "not-found", []), new EmptyRecentDecksImporter(), logger: logger, idlePollDelay: TimeSpan.FromMilliseconds(100));
         var result = await session.RunAsync(TimeSpan.FromMilliseconds(1));
         Assert.Equal(1, result.DecksSkipped);
+        AssertDeckNotFoundLog(Assert.Single(logger.DeckNotFoundEntries()), deckId, "marked");
         var row = await connection.QuerySingleAsync<(long Processed, long Skipped, string Reason)>("SELECT processed, skipped, skip_reason FROM deck_queue WHERE deck_id = @deckId", new { deckId });
         Assert.Equal((1L, 1L, DeckSkipReasons.NotFound), row);
         Assert.Equal(0L, await ManifestCountAsync(connection, deckId));
@@ -217,6 +291,45 @@ public sealed class RefetchConvergenceTests
         Assert.Equal((1L, 1L, DeckSkipReasons.NotFound), direct);
         Assert.Equal(0L, await ManifestCountAsync(connection, directDeckId));
         Assert.Equal(0L, await LiveRowCountAsync(connection, directDeckId));
+    }
+
+    private static void AssertDeckNotFoundLog(StructuredLogEntry entry, string deckId, string disposition, Exception? exception = null)
+    {
+        Assert.Equal(DeckNotFoundTemplate, entry.OriginalFormat);
+        Assert.Equal(LogLevel.Warning, entry.Level);
+        Assert.Equal(deckId, entry.Properties["DeckId"]);
+        Assert.Equal(disposition, entry.Properties["Disposition"]);
+        Assert.Same(exception, entry.Exception);
+    }
+
+    private sealed record StructuredLogEntry(
+        LogLevel Level,
+        Exception? Exception,
+        string OriginalFormat,
+        IReadOnlyDictionary<string, object?> Properties);
+
+    private sealed class FakeStructuredLogger : ILogger
+    {
+        private readonly List<StructuredLogEntry> _entries = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (state is IReadOnlyList<KeyValuePair<string, object?>> properties)
+            {
+                var values = properties.ToDictionary(property => property.Key, property => property.Value);
+                if (values.Remove("{OriginalFormat}", out var format) && format is string originalFormat)
+                {
+                    _entries.Add(new StructuredLogEntry(logLevel, exception, originalFormat, values));
+                }
+            }
+        }
+
+        public IReadOnlyList<StructuredLogEntry> DeckNotFoundEntries() =>
+            _entries.Where(entry => entry.OriginalFormat.StartsWith("Harvest.DeckNotFound ", StringComparison.Ordinal)).ToArray();
     }
 
     private static Task<long> ManifestCountAsync(DbConnection connection, string deckId) => connection.QuerySingleAsync<long>("SELECT COUNT(1) FROM deck_category_archive_manifest WHERE deck_queue_id = (SELECT id FROM deck_queue WHERE deck_id = @deckId)", new { deckId });
