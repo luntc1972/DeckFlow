@@ -754,11 +754,11 @@ public sealed class AdminHarvestControllerTests
     [Fact] public void MaintenanceStop_Running_RequestsStop() { var runner = new StubHarvestMaintenanceRunner { Status = new HarvestMaintenanceStatus { State = HarvestMaintenanceRunState.Running, Operation = HarvestMaintenanceOperation.Drain, StartedUtc = DateTimeOffset.UtcNow } }; var controller = Build(NewStore(0), maintenanceRunner: runner); AssertRedirect(controller.MaintenanceStop()); Assert.Equal(1, runner.RequestStopCalls); Assert.Equal("Stop requested — finishing current batch.", Banner(controller)); Assert.Equal("info", controller.TempData["AdminHarvestBannerTone"]); }
     [Fact] public void MaintenanceStop_Idle_ShowsNothingToStop() { var runner = new StubHarvestMaintenanceRunner(); var controller = Build(NewStore(0), maintenanceRunner: runner); AssertRedirect(controller.MaintenanceStop()); Assert.Equal(1, runner.RequestStopCalls); Assert.Equal("Nothing to stop.", Banner(controller)); }
     [Fact]
-    public async Task MaintenancePreview_ShowsThreeCountsWithAsOfTime()
+    public async Task MaintenancePreview_ShowsFourCountsWithAsOfTime()
     {
-        var controller = Build(Preview(176000, 11000, 16000));
+        var controller = Build(Preview(176000, 11000, 16000, queued: 900));
         AssertRedirect(await controller.MaintenancePreview(default));
-        Assert.Matches(@"^Retention excess: 176000; purge candidates: 11000; refetch candidates: 16000 \(counts as of \d{2}:\d{2}:\d{2} UTC\)\.$", Banner(controller));
+        Assert.Matches(@"^Retention excess: 176000; purge candidates: 11000; refetch candidates: 16000; queued for refetch: 900 \(counts as of \d{2}:\d{2}:\d{2} UTC\)\.$", Banner(controller));
     }
 
     [Fact]
@@ -1678,8 +1678,8 @@ public sealed class AdminHarvestControllerTests
         public Task<HarvestMaintenanceStatus> GetStatusAsync(CancellationToken cancellationToken = default) => Task.FromResult(Status);
     }
 
-    private static FakeCategoryKnowledgeStore Preview(int? retentionExcess = 0, int purgeCandidates = 0, int refetchCandidates = 0)
-        => new(0) { MaintenancePreview = retentionExcess.HasValue ? new HarvestMaintenancePreview(retentionExcess.Value, purgeCandidates, refetchCandidates) : null };
+    private static FakeCategoryKnowledgeStore Preview(int? retentionExcess = 0, int purgeCandidates = 0, int refetchCandidates = 0, int queued = 0)
+        => new(0) { MaintenancePreview = retentionExcess.HasValue ? new HarvestMaintenancePreview(retentionExcess.Value, purgeCandidates, refetchCandidates) with { QueuedForRefetch = queued } : null };
 
     private static string Banner(AdminHarvestController controller)
         => Assert.IsType<string>(controller.TempData["AdminHarvestBanner"]);
