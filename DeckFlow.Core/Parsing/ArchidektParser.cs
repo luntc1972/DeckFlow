@@ -100,14 +100,10 @@ public sealed partial class ArchidektParser : IParser
 
         var quantity = 1;
         var remainder = line;
-        var match = QuantityPrefix.Pattern().Match(line);
-        if (match.Success)
+        var parsedPrefix = QuantityPrefix.Parse(line);
+        if (parsedPrefix is { } prefix)
         {
-            if (!QuantityPrefix.TryParseQuantity(match.Groups["quantity"].Value, out quantity))
-            {
-                throw new DeckParseException(QuantityPrefix.OutOfRangeMessage(line));
-            }
-            remainder = match.Groups["rest"].Value.Trim();
+            (quantity, remainder) = prefix;
         }
         else if (!allowImplicitQuantity)
         {
@@ -163,7 +159,7 @@ public sealed partial class ArchidektParser : IParser
         }
         else
         {
-            if (!match.Success && hashtagCategories.Count == 0)
+            if (!parsedPrefix.HasValue && hashtagCategories.Count == 0)
             {
                 return false;
             }

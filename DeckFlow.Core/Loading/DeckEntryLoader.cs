@@ -140,16 +140,11 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
 
             return new DeckSourceLoadResult(_archidektParser.ParseText(deckSource), null);
         }
-        catch (DeckParseException exception) when (unrecognizedBehavior == UnrecognizedPasteBehavior.ThrowNotRecognized
-            && QuantityPrefix.IsOutOfRangeMessage(exception.Message))
+        catch (DeckParseException exception) when (unrecognizedBehavior == UnrecognizedPasteBehavior.ThrowNotRecognized)
         {
-            throw new InvalidOperationException(exception.Message, exception);
-        }
-        catch (DeckParseException exception) when (!QuantityPrefix.IsOutOfRangeMessage(exception.Message))
-        {
-            if (unrecognizedBehavior == UnrecognizedPasteBehavior.PropagateParseException)
+            if (exception.IsQuantityOutOfRange)
             {
-                throw;
+                throw new InvalidOperationException(exception.Message, exception);
             }
         }
 
@@ -175,7 +170,8 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
 
             return new DeckSourceLoadResult(entries, null);
         }
-        catch (DeckParseException exception) when (!QuantityPrefix.IsOutOfRangeMessage(exception.Message))
+        // Why: Format detection can retry another parser, but a matched quantity error must surface.
+        catch (DeckParseException exception) when (!exception.IsQuantityOutOfRange)
         {
             return null;
         }

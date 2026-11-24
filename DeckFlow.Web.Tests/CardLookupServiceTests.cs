@@ -15,10 +15,10 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class CardLookupServiceTests
 {
-    [Theory]
-    [InlineData("99999999999 Sol Ring")]
-    public async Task LookupAsync_OutOfRangeQuantity_ThrowsInvalidOperationException(string line)
+    [Fact]
+    public async Task LookupAsync_OutOfRangeQuantity_ThrowsInvalidOperationException()
     {
+        const string line = "99999999999 Sol Ring";
         var service = TestServiceFactory.CreateScryfallCardLookupService();
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.LookupAsync(line));

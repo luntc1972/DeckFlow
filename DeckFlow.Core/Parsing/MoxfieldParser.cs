@@ -197,14 +197,10 @@ public sealed partial class MoxfieldParser : IParser
 
         var quantity = 1;
         var remainder = line;
-        var match = QuantityPrefix.Pattern().Match(line);
-        if (match.Success)
+        var parsedPrefix = QuantityPrefix.Parse(line);
+        if (parsedPrefix is { } prefix)
         {
-            if (!QuantityPrefix.TryParseQuantity(match.Groups["quantity"].Value, out quantity))
-            {
-                throw new DeckParseException(QuantityPrefix.OutOfRangeMessage(line));
-            }
-            remainder = match.Groups["rest"].Value.Trim();
+            (quantity, remainder) = prefix;
         }
         else if (!allowImplicitQuantity)
         {
@@ -250,7 +246,7 @@ public sealed partial class MoxfieldParser : IParser
             setCode = NullIfWhiteSpace(setMatch.Groups["set"].Value);
             collectorNumber = NullIfWhiteSpace(setMatch.Groups["collector"].Value);
         }
-        else if (!match.Success && string.IsNullOrWhiteSpace(remainder))
+        else if (!parsedPrefix.HasValue && string.IsNullOrWhiteSpace(remainder))
         {
             return false;
         }
