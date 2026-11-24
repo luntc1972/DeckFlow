@@ -335,23 +335,12 @@ public static partial class PlanRoleClassifier
             return false;
         }
 
-        const string SearchPhrase = "search your library for";
         string oracle = fact.FrontOracleText;
-        int searchCount = 0;
-        int offset = 0;
-        while ((offset = oracle.IndexOf(SearchPhrase, offset, StringComparison.OrdinalIgnoreCase)) >= 0)
-        {
-            searchCount++;
-            offset += SearchPhrase.Length;
-        }
-
-        if (searchCount == 0)
-        {
-            return false;
-        }
-
+        int searchCount = LibrarySearchPhraseRegex().Count(oracle);
         MatchCollection matches = LibrarySearchTargetRegex().Matches(oracle);
-        if (matches.Count != searchCount)
+
+        // Why: every search must parse as a land-only target; an unparsed search may find a nonland card.
+        if (searchCount == 0 || matches.Count != searchCount)
         {
             return false;
         }
@@ -369,20 +358,23 @@ public static partial class PlanRoleClassifier
         return true;
     }
 
-    // Why: an unknown qualifier may allow the search to find a nonland card.
-    private static readonly HashSet<string> LandSearchTokens = new(StringComparer.Ordinal)
-    {
-        "a", "an", "up", "to", "one", "two", "three", "or", "and", "basic", "snow",
-        "land", "lands", "card", "cards", "plains", "island", "swamp", "mountain", "forest",
-    };
-
     // Why: even a fully recognized target needs a land type to establish that it only finds lands.
+    // Declared before LandSearchTokens, whose static initializer reads it.
     private static readonly HashSet<string> LandSearchTypeTokens = new(StringComparer.Ordinal)
     {
         "land", "lands", "plains", "island", "swamp", "mountain", "forest",
     };
 
+    // Why: an unknown qualifier may allow the search to find a nonland card.
+    private static readonly HashSet<string> LandSearchTokens = new(
+        [.. LandSearchTypeTokens, "a", "an", "up", "to", "one", "two", "three", "or", "and", "basic", "snow", "card", "cards"],
+        StringComparer.Ordinal);
+
     // Why: an unrecognized search form should retain its tutor role.
     [GeneratedRegex(@"search your library for (?<target>.+?\bcards?\b)(?=,|\.| and put| then| that share a land type)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex LibrarySearchTargetRegex();
+
+    // Why: counts every library search so one the target regex cannot parse disqualifies the card.
+    [GeneratedRegex("search your library for", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex LibrarySearchPhraseRegex();
 }

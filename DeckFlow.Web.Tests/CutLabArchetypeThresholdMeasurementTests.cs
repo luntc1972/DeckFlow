@@ -194,7 +194,7 @@ public sealed class CutLabArchetypeThresholdMeasurementTests
                 if ((roles & PlanRole.TutorCombo) != 0)
                 {
                     tutorComboSpells++;
-                    if (CardTypeLine.FrontFace(fact.TypeLine).Contains("Land", StringComparison.Ordinal))
+                    if (CardTypeLine.FrontFace(fact.TypeLine).Contains("Land", StringComparison.OrdinalIgnoreCase))
                     {
                         landFrontTutorComboSpells++;
                     }
