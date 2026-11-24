@@ -87,6 +87,19 @@ public sealed class ParserTests
         Assert.True(entries[0].IsFoil);
     }
 
+    [Theory]
+    [InlineData("1 Sol*f* Ring", true)]
+    [InlineData("1 Sol*e* Ring", true)]
+    [InlineData("1 Sol★ Ring", true)]
+    [InlineData("1 Sol Ring", false)]
+    public void MoxfieldParser_ParseText_PreservesFoilWhenCleaningName(string text, bool isFoil)
+    {
+        var entry = Assert.Single(new MoxfieldParser().ParseText(text));
+
+        Assert.Equal("Sol Ring", entry.Name);
+        Assert.Equal(isFoil, entry.IsFoil);
+    }
+
     [Fact]
     public void ArchidektParser_StripsEtchedMarkerAndKeepsPrinting()
     {

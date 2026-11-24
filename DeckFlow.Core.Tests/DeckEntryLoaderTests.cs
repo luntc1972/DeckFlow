@@ -179,6 +179,24 @@ Main
     }
 
     [Fact]
+    public async Task LoadFromSourceAsync_PastedArchidektCategories_PreservesFoilAndPrinting()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync("""
+            1x Sol Ring (cmr) 123 *F* [Ramp]
+            1x Arcane Signet (cmr) 297 *E* [Ramp]
+            """);
+
+        var solRing = Assert.Single(result.Entries, entry => entry.Name == "Sol Ring");
+        var arcaneSignet = Assert.Single(result.Entries, entry => entry.Name == "Arcane Signet");
+        Assert.Equal("cmr", solRing.SetCode);
+        Assert.Equal("123", solRing.CollectorNumber);
+        Assert.True(solRing.IsFoil);
+        Assert.True(arcaneSignet.IsFoil);
+    }
+
+    [Fact]
     public async Task LoadFromSourceAsync_PasteWithBracketedIdea_PreservesInlineSideboard()
     {
         var loader = CreateLoader();
