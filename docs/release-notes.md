@@ -9,6 +9,7 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 ### Unreleased — Harvest refetch convergence
 
 - "Deck not found" decks are archived instead of returning as refetch candidates.
+- A "Deck not found" deck whose archive step fails is still marked not found and is not requeued by Refetch.
 - Preview shows queued for refetch.
 - Retention-archived decks keep their retention reason when a fetch fails.
 
