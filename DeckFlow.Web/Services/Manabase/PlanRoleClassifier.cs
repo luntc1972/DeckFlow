@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Manabase;
 
@@ -71,7 +70,7 @@ public static partial class PlanRoleClassifier
         }
 
         // Why: the owner decision of 2026-11-23 treats fetch lands as mana fixing and preserves Spellbook combo membership.
-        if (!isComboPiece && roles.HasFlag(PlanRole.TutorCombo) && IsLandOnlyFetchLand(fact))
+        if (!isComboPiece && roles.HasFlag(PlanRole.TutorCombo) && LandSearchClassifier.IsLandOnlyFetchLand(fact.TypeLine, fact.FrontOracleText))
         {
             roles &= ~PlanRole.TutorCombo;
         }
@@ -193,7 +192,7 @@ public static partial class PlanRoleClassifier
             roles |= PlanRole.Payoff;
         }
 
-        if (DeckStatClassifier.IsTutorCard(oracle))
+        if (DeckStatClassifier.IsTutorCard(typeLine, oracle))
         {
             roles |= PlanRole.TutorCombo;
         }
@@ -326,55 +325,4 @@ public static partial class PlanRoleClassifier
 
         return false;
     }
-
-    // Why: a front-face land must have only land searches to qualify as mana fixing.
-    private static bool IsLandOnlyFetchLand(CardFact fact)
-    {
-        if (!CardTypeLine.FrontFace(fact.TypeLine).Contains("Land", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        string oracle = fact.FrontOracleText;
-        int searchCount = LibrarySearchPhraseRegex().Count(oracle);
-        MatchCollection matches = LibrarySearchTargetRegex().Matches(oracle);
-
-        // Why: every search must parse as a land-only target; an unparsed search may find a nonland card.
-        if (searchCount == 0 || matches.Count != searchCount)
-        {
-            return false;
-        }
-
-        foreach (Match match in matches)
-        {
-            string[] tokens = match.Groups["target"].Value.ToLowerInvariant().Replace(',', ' ')
-                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (!tokens.All(LandSearchTokens.Contains) || !tokens.Any(LandSearchTypeTokens.Contains))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    // Why: even a fully recognized target needs a land type to establish that it only finds lands.
-    // Declared before LandSearchTokens, whose static initializer reads it.
-    private static readonly HashSet<string> LandSearchTypeTokens = new(StringComparer.Ordinal)
-    {
-        "land", "lands", "plains", "island", "swamp", "mountain", "forest",
-    };
-
-    // Why: an unknown qualifier may allow the search to find a nonland card.
-    private static readonly HashSet<string> LandSearchTokens = new(
-        [.. LandSearchTypeTokens, "a", "an", "up", "to", "one", "two", "three", "or", "and", "basic", "snow", "card", "cards"],
-        StringComparer.Ordinal);
-
-    // Why: an unrecognized search form should retain its tutor role.
-    [GeneratedRegex(@"search your library for (?<target>.+?\bcards?\b)(?=,|\.| and put| then| that share a land type)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex LibrarySearchTargetRegex();
-
-    // Why: counts every library search so one the target regex cannot parse disqualifies the card.
-    [GeneratedRegex("search your library for", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex LibrarySearchPhraseRegex();
 }

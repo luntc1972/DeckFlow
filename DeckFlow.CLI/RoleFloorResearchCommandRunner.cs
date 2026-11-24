@@ -115,7 +115,7 @@ internal static class RoleFloorResearchCommandRunner
     [
         "InteractionAuditAggregator.cs:58",
         "CutLabRoleAssigner.cs:184",
-        "PlanRoleClassifier.cs:244",
+        "PlanRoleClassifier.cs:243",
     ];
     private static readonly string[] CorpusHygieneUnparsedPayloadFields =
     [

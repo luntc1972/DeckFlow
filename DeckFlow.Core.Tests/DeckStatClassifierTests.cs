@@ -314,7 +314,7 @@ public sealed class DeckStatClassifierTests
     [InlineData("Search your library for a nonland card, exile it, then shuffle.", true)]  // nonland tutor must not match the "land card" land-fetch exclusion
     public void IsTutorCard_TrueCases(string oracleText, bool expected)
     {
-        Assert.Equal(expected, DeckStatClassifier.IsTutorCard(oracleText));
+        Assert.Equal(expected, DeckStatClassifier.IsTutorCard("Sorcery", oracleText));
     }
 
     [Theory]
@@ -324,7 +324,7 @@ public sealed class DeckStatClassifierTests
     [InlineData("Draw a card.", false)]                                                                  // not a tutor
     public void IsTutorCard_FalseCases(string oracleText, bool expected)
     {
-        Assert.Equal(expected, DeckStatClassifier.IsTutorCard(oracleText));
+        Assert.Equal(expected, DeckStatClassifier.IsTutorCard("Sorcery", oracleText));
     }
 
     [Theory]
@@ -337,7 +337,7 @@ public sealed class DeckStatClassifierTests
     [InlineData("Misty Rainforest", "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle.")]
     public void IsTutorCard_LandFrontLandOnlyFetch_IsNotTutor(string name, string typeLine, string oracleText)
     {
-        Assert.False(DeckStatClassifier.IsTutorCard(oracleText), $"{name} ({typeLine})");
+        Assert.False(DeckStatClassifier.IsTutorCard(typeLine, oracleText), $"{name} ({typeLine})");
     }
 
     [Theory]
@@ -355,7 +355,7 @@ public sealed class DeckStatClassifierTests
     [InlineData("Troll of Khazad-dûm", "Creature — Troll", "This creature can't be blocked except by three or more creatures.\nSwampcycling {1} ({1}, Discard this card: Search your library for a Swamp card, reveal it, put it into your hand, then shuffle.)")]
     public void IsTutorCard_TutorsAndLandSearchSpells_AreTutors(string name, string typeLine, string oracleText)
     {
-        Assert.True(DeckStatClassifier.IsTutorCard(oracleText), $"{name} ({typeLine})");
+        Assert.True(DeckStatClassifier.IsTutorCard(typeLine, oracleText), $"{name} ({typeLine})");
     }
 
     // -----------------------------------------------------------------------

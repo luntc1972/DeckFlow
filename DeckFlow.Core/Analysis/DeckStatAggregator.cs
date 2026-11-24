@@ -172,7 +172,7 @@ public static class DeckStatAggregator
                 closingPower += quantity;
             }
 
-            if (DeckStatClassifier.IsTutorCard(oracleText))
+            if (DeckStatClassifier.IsTutorCard(typeLine, oracleText))
             {
                 tutors += quantity;
             }

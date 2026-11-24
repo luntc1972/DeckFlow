@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Text.RegularExpressions;
+using DeckFlow.Core.Manabase;
 
 namespace DeckFlow.Core.Analysis;
 
@@ -318,19 +319,26 @@ public static class DeckStatClassifier
             || oracleText.Contains("combat damage to a player", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("draw", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("whenever this creature attacks", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("+X/+X", StringComparison.OrdinalIgnoreCase);
 
+    private static readonly Regex LandCardRegex = new(
+        @"\bland cards?\b",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     /// <summary>
-    /// Returns <see langword="true"/> when the card tutors a card from the library, excluding
-    /// land-fetch ramp (basic-land search, generic land-card search, or land onto the battlefield).
+    /// Returns <see langword="true"/> when a card searches its library for a card, subject to tutor exclusions.
+    /// Excludes basic-land searches, searches that mention the whole phrase "land card" or "land cards",
+    /// searches that put "land onto the battlefield", and lands whose searches all target only lands.
+    /// Land-search spells and landcycling count as tutors when they meet these rules (owner decision 2026-11-24).
+    /// The phrase "Island card" does not trigger the land-card exclusion.
     /// </summary>
+    /// <param name="typeLine">Card type line.</param>
     /// <param name="oracleText">Raw oracle text, including any reminder text.</param>
-    public static bool IsTutorCard(string oracleText)
+    public static bool IsTutorCard(string typeLine, string oracleText)
         => oracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase)
             && !oracleText.Contains("basic land", StringComparison.OrdinalIgnoreCase)
-            // Exclude land-fetch ramp ("a land card") but NOT nonland tutors: strip "nonland card"
-            // first so its trailing "land card" substring does not trip the land-fetch exclusion.
-            && !oracleText.Replace("nonland card", " ", StringComparison.OrdinalIgnoreCase)
-                .Contains("land card", StringComparison.OrdinalIgnoreCase)
-            && !oracleText.Contains("land onto the battlefield", StringComparison.OrdinalIgnoreCase);
+            // Why: the word boundary lets "nonland card" and "Island card" through.
+            && !LandCardRegex.IsMatch(oracleText)
+            && !oracleText.Contains("land onto the battlefield", StringComparison.OrdinalIgnoreCase)
+            && !LandSearchClassifier.IsLandOnlyFetchLand(typeLine, oracleText);
 
     /// <summary>
     /// Returns <see langword="true"/> when the card is fast mana: a zero-mana-value artifact that
