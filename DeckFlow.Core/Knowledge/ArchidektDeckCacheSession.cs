@@ -286,7 +286,7 @@ public sealed class ArchidektDeckCacheSession
             if (cacheResult == DeckCacheWriteResult.StillPruned)
             {
                 tally.Skipped++;
-                await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: true, metadata: metadata, skipReason: "retention", cancellationToken: cancellationToken);
+                await _repository.MarkDeckProcessedAsync(deckId, commanderName, skip: true, metadata: metadata, skipReason: DeckSkipReasons.Retention, cancellationToken: cancellationToken);
                 progress?.Report(tally.Added + tally.Updated);
                 return;
             }
