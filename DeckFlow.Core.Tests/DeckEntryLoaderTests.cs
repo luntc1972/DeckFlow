@@ -13,9 +13,22 @@ public sealed class DeckEntryLoaderTests
     [Theory]
     [InlineData("99999999999 Sol Ring")]
     [InlineData("1000 Sol Ring")]
-    public async Task LoadFromSourceAsync_OutOfRangePastedQuantity_ThrowsDeckParseException(string line)
+    public async Task LoadFromSourceAsync_OutOfRangePastedQuantityInDefaultMode_ThrowsInvalidOperationException(string line)
     {
-        var exception = await Assert.ThrowsAsync<DeckParseException>(() => CreateLoader().LoadFromSourceAsync(line));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CreateLoader().LoadFromSourceAsync(line));
+
+        Assert.Contains(line, exception.Message);
+        Assert.Contains("0..999", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("99999999999 Sol Ring")]
+    [InlineData("1000 Sol Ring")]
+    public async Task LoadFromSourceAsync_OutOfRangePastedQuantityWithPropagateParseException_ThrowsDeckParseException(string line)
+    {
+        var exception = await Assert.ThrowsAsync<DeckParseException>(() => CreateLoader().LoadFromSourceAsync(
+            line,
+            UnrecognizedPasteBehavior.PropagateParseException));
 
         Assert.Contains(line, exception.Message);
         Assert.Contains("0..999", exception.Message);
