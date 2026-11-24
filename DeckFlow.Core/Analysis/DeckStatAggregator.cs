@@ -1,3 +1,5 @@
+using DeckFlow.Core.Manabase;
+
 namespace DeckFlow.Core.Analysis;
 
 /// <summary>
@@ -113,10 +115,47 @@ public static class DeckStatAggregator
             var oracleText = card.OracleText ?? string.Empty;
             totalCards += quantity;
 
+            // Why: land tutors count as in Cut Lab, and IsTutorCard still excludes land-only fetches.
+            IReadOnlyList<string> faces = card.FaceOracleTexts is { Count: > 0 } ? card.FaceOracleTexts : [oracleText];
+            if (DeckStatClassifier.IsTutorCard(typeLine, faces))
+            {
+                tutors += quantity;
+            }
+
             if (typeLine.Contains("Land", StringComparison.OrdinalIgnoreCase))
             {
                 lands += quantity;
                 curveBuckets["0-1"] += quantity;
+
+                // Why: a spell-front MDFC is both a land drop and a castable spell. Use only the
+                // front face so the land type and back-face mana ability cannot count as ramp.
+                // Without face data, the joined text cannot isolate the spell.
+                var frontTypeLine = CardTypeLine.FrontFace(typeLine);
+                if (!frontTypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
+                    && card.FaceOracleTexts is { Count: > 0 } faceOracleTexts)
+                {
+                    var frontText = faceOracleTexts[0];
+                    if (DeckStatClassifier.IsRampCard(frontTypeLine, frontText))
+                    {
+                        ramp += quantity;
+                    }
+
+                    if (DeckStatClassifier.IsDrawCard(frontText))
+                    {
+                        draw += quantity;
+                    }
+
+                    if (DeckStatClassifier.IsInteractionCard(frontTypeLine, frontText))
+                    {
+                        interaction += quantity;
+                    }
+
+                    if (DeckStatClassifier.IsClosingPowerCard(frontTypeLine, frontText))
+                    {
+                        closingPower += quantity;
+                    }
+                }
+
                 continue;
             }
 
@@ -178,11 +217,6 @@ public static class DeckStatAggregator
             if (DeckStatClassifier.IsClosingPowerCard(typeLine, oracleText))
             {
                 closingPower += quantity;
-            }
-
-            if (DeckStatClassifier.IsTutorCard(typeLine, oracleText))
-            {
-                tutors += quantity;
             }
 
             if (DeckStatClassifier.IsFastManaCard(typeLine, oracleText, card.ManaCost))

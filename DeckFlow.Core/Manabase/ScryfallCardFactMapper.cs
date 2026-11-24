@@ -37,6 +37,7 @@ public static class ScryfallCardFactMapper
             ManaValue = manaValue,
             TypeLine = typeLine,
             OracleText = JoinOracleText(card),
+            FaceOracleTexts = GetFaceOracleTexts(card),
             // Front-face text only — so a front-face permanent with a one-shot mana adventure/back
             // face does not read as repeatable ramp (MQ-03). Falls back to card-level for single-face.
             FrontFaceOracleText = front?.OracleText ?? card.OracleText,
@@ -79,6 +80,16 @@ public static class ScryfallCardFactMapper
         }
 
         return card.OracleText ?? string.Empty;
+    }
+
+    private static IReadOnlyList<string> GetFaceOracleTexts(ScryfallCardData card)
+    {
+        if (card.CardFaces is { Count: > 0 } faces)
+        {
+            return faces.Select(face => face.OracleText ?? string.Empty).ToArray();
+        }
+
+        return string.IsNullOrWhiteSpace(card.OracleText) ? [] : [card.OracleText];
     }
 
     private static bool HasLandFace(ScryfallCardData card)

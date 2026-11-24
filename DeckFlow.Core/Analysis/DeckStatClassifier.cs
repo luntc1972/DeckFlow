@@ -328,7 +328,9 @@ public static partial class DeckStatClassifier
     /// <param name="typeLine">Card type line.</param>
     /// <param name="oracleText">Raw oracle text, including any reminder text.</param>
     public static bool IsTutorCard(string typeLine, string oracleText)
-        => oracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase)
+        // Why: Finale of Devastation's and/or-graveyard wording still includes a library search.
+        => (oracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("search your library and/or graveyard for", StringComparison.OrdinalIgnoreCase))
             && !oracleText.Contains("basic land", StringComparison.OrdinalIgnoreCase)
             // Why: the word boundary lets "nonland card" and "Island card" through.
             && !LandCardRegex().IsMatch(oracleText)
@@ -342,8 +344,8 @@ public static partial class DeckStatClassifier
     public static bool IsTutorCard(string typeLine, IReadOnlyList<string> faceOracleTexts)
     {
         ArgumentNullException.ThrowIfNull(faceOracleTexts);
-        // Why: retain joined-text behavior while the face-aware callers are under test.
-        return IsTutorCard(typeLine, string.Join("\n", faceOracleTexts));
+        // Why: reading each face finds back-face tutors and keeps a land search from vetoing another face.
+        return faceOracleTexts.Any(oracleText => IsTutorCard(typeLine, oracleText));
     }
 
     /// <summary>
