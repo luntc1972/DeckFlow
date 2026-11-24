@@ -131,8 +131,7 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
             }
         }
 
-        var archidektFirst = HasArchidektCategoryMarkers(deckSource);
-        if (!archidektFirst && TryParseMoxfieldPaste(deckSource) is { } moxfieldResult)
+        if (TryParseMoxfieldPaste(deckSource) is { } moxfieldResult)
         {
             return moxfieldResult;
         }
@@ -143,11 +142,6 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
         }
         catch (DeckParseException)
         {
-            if (archidektFirst && TryParseMoxfieldPaste(deckSource) is { } fallbackResult)
-            {
-                return fallbackResult;
-            }
-
             if (unrecognizedBehavior == UnrecognizedPasteBehavior.PropagateParseException)
             {
                 throw;
@@ -157,17 +151,22 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
         throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, or a Moxfield, Archidekt, or MTG Arena deck export.");
     }
 
-    private static bool HasArchidektCategoryMarkers(string deckSource)
-        // Why: Moxfield treats card category suffixes as name text, so only check deck lines before a stopping header.
-        => deckSource.Split('\n')
-            .TakeWhile(line => !ArchidektParser.IsStoppingLine(line))
-            .Any(ArchidektParser.IsCategorizedCardLine);
-
     private DeckSourceLoadResult? TryParseMoxfieldPaste(string deckSource)
     {
         try
         {
-            return new DeckSourceLoadResult(_moxfieldParser.ParseText(deckSource), null);
+            var entries = _moxfieldParser.ParseText(deckSource);
+            // Why: a category suffix should affect only its own card, preserving Moxfield's section handling.
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (ArchidektParser.TryParseCategorizedCardLine($"{entry.Quantity} {entry.Name}", entry.Board, out var categorized))
+                {
+                    entries[i] = categorized with { Quantity = entry.Quantity, IsFoil = categorized.IsFoil || entry.IsFoil };
+                }
+            }
+
+            return new DeckSourceLoadResult(entries, null);
         }
         catch (DeckParseException)
         {

@@ -82,6 +82,12 @@ public sealed partial class ArchidektParser : IParser
         return entries;
     }
 
+    internal static bool TryParseCategorizedCardLine(string line, string defaultBoard, out DeckEntry entry)
+    {
+        entry = default!;
+        return IsCategorizedCardLine(line) && TryParseEntry(line, defaultBoard, allowImplicitQuantity: false, out entry);
+    }
+
     internal static bool IsCategorizedCardLine(string line)
     {
         var cardLine = StripTrailingTags(line.Trim());
