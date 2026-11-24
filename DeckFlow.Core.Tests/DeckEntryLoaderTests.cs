@@ -222,6 +222,18 @@ Main
     }
 
     [Fact]
+    public async Task LoadFromSourceAsync_QuantifiedBracketedNotesLine_KeepsSideboardOnMoxfieldPath()
+    {
+        var loader = CreateLoader();
+
+        var result = await loader.LoadFromSourceAsync("1 Sol Ring\nSB: 1 Swords to Plowshares\n\nNotes:\n2 combos [see primer]");
+
+        // Why: Moxfield keeps quantified notes lines as cards, so only board placement is asserted.
+        Assert.Single(result.Entries, e => e.Name == "Sol Ring" && e.Board == "mainboard");
+        Assert.Single(result.Entries, e => e.Name == "Swords to Plowshares" && e.Board == "sideboard");
+    }
+
+    [Fact]
     public async Task LoadFromSourceAsync_InvalidArchidektPasteWithPropagateParseException_PropagatesArchidektException()
     {
         var loader = CreateLoader();
