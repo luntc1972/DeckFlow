@@ -131,14 +131,19 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
             }
         }
 
-        if (TryParseMoxfieldPaste(deckSource) is { } moxfieldResult)
-        {
-            return moxfieldResult;
-        }
-
         try
         {
+            if (TryParseMoxfieldPaste(deckSource) is { } moxfieldResult)
+            {
+                return moxfieldResult;
+            }
+
             return new DeckSourceLoadResult(_archidektParser.ParseText(deckSource), null);
+        }
+        catch (DeckParseException exception) when (unrecognizedBehavior == UnrecognizedPasteBehavior.ThrowNotRecognized
+            && QuantityPrefix.IsOutOfRangeMessage(exception.Message))
+        {
+            throw new InvalidOperationException(exception.Message, exception);
         }
         catch (DeckParseException exception) when (!QuantityPrefix.IsOutOfRangeMessage(exception.Message))
         {
