@@ -334,12 +334,10 @@ public sealed class ArchidektDeckCacheSession
         // Why: 404 "Deck not found" is terminal (G16-U1), while other failures stay retryable.
         catch (ArchidektDeckNotFoundException)
         {
+            int archived;
             try
             {
-                var archived = await _repository.RetireNotFoundDeckAsync(deckId, cancellationToken);
-                tally.Skipped++;
-                _logger?.LogWarning("Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}", deckId, archived == 1 ? "archived" : "marked");
-                progress?.Report(tally.Added + tally.Updated);
+                archived = await _repository.RetireNotFoundDeckAsync(deckId, cancellationToken);
             }
             catch (Exception retireException) when (retireException is not OperationCanceledException and not System.Data.Common.DbException)
             {
@@ -347,7 +345,12 @@ public sealed class ArchidektDeckCacheSession
                 _logger?.LogWarning(retireException, "Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}", deckId, "fallback_fetch_failure");
                 // Why: Archidekt's not-found result is terminal even when the fold fails. The not_found mark takes the deck out of the Refetch cohort (07-23 C-F1).
                 await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, DeckSkipReasons.NotFound, cancellationToken);
+                return;
             }
+
+            tally.Skipped++;
+            _logger?.LogWarning("Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}", deckId, archived == 1 ? "archived" : "marked");
+            progress?.Report(tally.Added + tally.Updated);
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or NotSupportedException)
         {
