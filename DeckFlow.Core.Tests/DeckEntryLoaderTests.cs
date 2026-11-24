@@ -142,9 +142,7 @@ Deck
     [Fact]
     public async Task LoadFromSourceAsync_PastedArchidektStyleXQuantities_ParsesEntries()
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync("""
+        var result = await LoadPasteAsync("""
 Commander
 1x Atraxa, Praetors' Voice
 Main
@@ -163,9 +161,7 @@ Main
     [InlineData("1")]
     public async Task LoadFromSourceAsync_PastedArchidektCategories_PreservesNamesBoardsAndPrintings(string quantity)
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync($$"""
+        var result = await LoadPasteAsync($$"""
             {{quantity}} Atraxa, Praetors' Voice (cm2) 10 [Commander{top}]
             {{quantity}} Sol Ring (cmr) 123 [Ramp]
             {{quantity}} Anger (soc) 235 [Anthem]
@@ -181,9 +177,7 @@ Main
     [Fact]
     public async Task LoadFromSourceAsync_PastedArchidektCategories_PreservesFoilAndPrinting()
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync("""
+        var result = await LoadPasteAsync("""
             1x Sol Ring (cmr) 123 *F* [Ramp]
             1x Arcane Signet (cmr) 297 *E* [Ramp]
             """);
@@ -196,24 +190,22 @@ Main
         Assert.True(arcaneSignet.IsFoil);
     }
 
-    [Fact]
-    public async Task LoadFromSourceAsync_PasteWithBracketedIdea_PreservesInlineSideboard()
+    [Theory]
+    [InlineData("1 deck idea [wip]\n1 Sol Ring\nSB: 1 Pyroblast", "Pyroblast")]
+    // Why: Moxfield keeps quantified notes lines as cards, so only board placement is asserted.
+    [InlineData("1 Sol Ring\nSB: 1 Swords to Plowshares\n\nNotes:\n2 combos [see primer]", "Swords to Plowshares")]
+    public async Task LoadFromSourceAsync_BracketedPaste_PreservesInlineSideboard(string deckSource, string sideboardCard)
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync(
-            "1 deck idea [wip]\n1 Sol Ring\nSB: 1 Pyroblast");
+        var result = await LoadPasteAsync(deckSource);
 
         Assert.Single(result.Entries, entry => entry.Name == "Sol Ring" && entry.Board == "mainboard");
-        Assert.Single(result.Entries, entry => entry.Name == "Pyroblast" && entry.Board == "sideboard");
+        Assert.Single(result.Entries, entry => entry.Name == sideboardCard && entry.Board == "sideboard");
     }
 
     [Fact]
     public async Task LoadFromSourceAsync_PasteWithBracketedIdea_PreservesSideboardSectionAndCommander()
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync(
+        var result = await LoadPasteAsync(
             "1 deck idea [wip]\n1 Sol Ring\n\nSIDEBOARD:\n1 Pyroblast\n\n1 Atraxa, Praetors' Voice");
 
         Assert.Single(result.Entries, entry => entry.Name == "Pyroblast" && entry.Board == "sideboard");
@@ -223,9 +215,7 @@ Main
     [Fact]
     public async Task LoadFromSourceAsync_PartiallyTaggedPaste_CleansNameAndPromotesTrailingCommander()
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync(
+        var result = await LoadPasteAsync(
             "1 Sol Ring\n1 Arcane Signet [Ramp]\n\nSIDEBOARD:\n1 Path to Exile\n\n1 Atraxa, Praetors' Voice");
 
         Assert.Single(result.Entries, entry => entry.Name == "Arcane Signet");
@@ -236,9 +226,7 @@ Main
     [Fact]
     public async Task LoadFromSourceAsync_TaggedPasteWithSideboardPrefix_PreservesPrintingAndSideboard()
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync("1x Sol Ring (cmr) 123 [Ramp]\nSB: 1 Pyroblast");
+        var result = await LoadPasteAsync("1x Sol Ring (cmr) 123 [Ramp]\nSB: 1 Pyroblast");
 
         var solRing = Assert.Single(result.Entries, entry => entry.Name == "Sol Ring");
         Assert.Equal("cmr", solRing.SetCode);
@@ -249,9 +237,7 @@ Main
     [Fact]
     public async Task LoadFromSourceAsync_TaggedPasteWithImplicitQuantity_PreservesBothCards()
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync("1x Sol Ring (cmr) 123 [Ramp]\nArcane Signet");
+        var result = await LoadPasteAsync("1x Sol Ring (cmr) 123 [Ramp]\nArcane Signet");
 
         Assert.Single(result.Entries, entry => entry.Name == "Sol Ring");
         Assert.Single(result.Entries, entry => entry.Name == "Arcane Signet");
@@ -262,9 +248,7 @@ Main
     [InlineData("^Have,#37d67a^ ^Foil,#ffaa00^")]
     public async Task LoadFromSourceAsync_PastedArchidektTags_PreservesCardName(string tags)
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync($"1x Sol Ring (cmr) 123 [Ramp] {tags}");
+        var result = await LoadPasteAsync($"1x Sol Ring (cmr) 123 [Ramp] {tags}");
 
         Assert.Equal("Sol Ring", Assert.Single(result.Entries).Name);
     }
@@ -272,9 +256,7 @@ Main
     [Fact]
     public async Task LoadFromSourceAsync_PastedMoxfieldHashtags_PreservesNamesBoardsAndPrinting()
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync("""
+        var result = await LoadPasteAsync("""
             1 Atraxa, Praetors' Voice #Commander
             1 Sol Ring (CMR) 123 #Ramp
             """);
@@ -291,25 +273,11 @@ Main
     [InlineData("1 Sol Ring\nSB: 1 Swords to Plowshares\n\nNotes:\nCombo line [see primer]")]
     public async Task LoadFromSourceAsync_BracketedNonCardLine_PreservesMoxfieldBoardAssignments(string deckSource)
     {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync(deckSource);
+        var result = await LoadPasteAsync(deckSource);
 
         Assert.Single(result.Entries, entry => entry.Name == "Sol Ring" && entry.Board == "mainboard");
         Assert.Single(result.Entries, entry => entry.Name == "Swords to Plowshares" && entry.Board == "sideboard");
         Assert.Equal(2, result.Entries.Count);
-    }
-
-    [Fact]
-    public async Task LoadFromSourceAsync_QuantifiedBracketedNotesLine_KeepsSideboardOnMoxfieldPath()
-    {
-        var loader = CreateLoader();
-
-        var result = await loader.LoadFromSourceAsync("1 Sol Ring\nSB: 1 Swords to Plowshares\n\nNotes:\n2 combos [see primer]");
-
-        // Why: Moxfield keeps quantified notes lines as cards, so only board placement is asserted.
-        Assert.Single(result.Entries, e => e.Name == "Sol Ring" && e.Board == "mainboard");
-        Assert.Single(result.Entries, e => e.Name == "Swords to Plowshares" && e.Board == "sideboard");
     }
 
     [Fact]
@@ -424,6 +392,9 @@ Sideboard
 
         loader.ValidateCommanderDeckSize("Test", entries);
     }
+
+    private static Task<DeckSourceLoadResult> LoadPasteAsync(string deckSource)
+        => CreateLoader().LoadFromSourceAsync(deckSource);
 
     private static DeckEntryLoader CreateLoader(
         IMoxfieldDeckImporter? importer = null,
