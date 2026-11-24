@@ -413,8 +413,10 @@ public sealed class ScryfallCardLookupService : ICardLookupService
         var parsedLines = new List<ParsedCardLine>();
         using var reader = new StringReader(cardList ?? string.Empty);
         string? line;
+        var lineNumber = 0;
         while ((line = reader.ReadLine()) is not null)
         {
+            lineNumber++;
             var trimmed = line.Trim();
             if (string.IsNullOrWhiteSpace(trimmed))
             {
@@ -424,10 +426,15 @@ public sealed class ScryfallCardLookupService : ICardLookupService
             var match = QuantityPrefix.Pattern().Match(trimmed);
             if (match.Success)
             {
+                if (!QuantityPrefix.TryParseQuantity(match.Groups["quantity"].Value, out var quantity))
+                {
+                    throw new InvalidOperationException($"Line {lineNumber} \"{trimmed}\" has quantity outside the allowed range 1..{QuantityPrefix.MaxQuantity}.");
+                }
+
                 parsedLines.Add(new ParsedCardLine(
                     trimmed,
                     SanitizeCardName(match.Groups["rest"].Value.Trim()),
-                    int.Parse(match.Groups["quantity"].Value)));
+                    quantity));
                 continue;
             }
 

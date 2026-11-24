@@ -55,7 +55,7 @@ public sealed partial class ArchidektParser : IParser
                 continue;
             }
 
-            if (!TryParseEntry(line, currentBoard, allowImplicitQuantity: !foundEntries, out var entry))
+            if (!TryParseEntry(line, currentBoard, allowImplicitQuantity: !foundEntries, i + 1, out var entry))
             {
                 if (foundEntries && IsNonDeckTextLine(line))
                 {
@@ -85,7 +85,7 @@ public sealed partial class ArchidektParser : IParser
     internal static bool TryParseCategorizedCardLine(string line, string defaultBoard, out DeckEntry entry)
     {
         entry = default!;
-        return IsCategorizedCardLine(line) && TryParseEntry(line, defaultBoard, allowImplicitQuantity: false, out entry);
+        return IsCategorizedCardLine(line) && TryParseEntry(line, defaultBoard, allowImplicitQuantity: false, 1, out entry);
     }
 
     private static bool IsCategorizedCardLine(string line)
@@ -94,7 +94,7 @@ public sealed partial class ArchidektParser : IParser
         return QuantityPrefix.Pattern().IsMatch(cardLine) && CategoryRegex().IsMatch(cardLine);
     }
 
-    private static bool TryParseEntry(string line, string defaultBoard, bool allowImplicitQuantity, out DeckEntry entry)
+    private static bool TryParseEntry(string line, string defaultBoard, bool allowImplicitQuantity, int lineNumber, out DeckEntry entry)
     {
         entry = default!;
 
@@ -103,7 +103,10 @@ public sealed partial class ArchidektParser : IParser
         var match = QuantityPrefix.Pattern().Match(line);
         if (match.Success)
         {
-            quantity = int.Parse(match.Groups["quantity"].Value);
+            if (!QuantityPrefix.TryParseQuantity(match.Groups["quantity"].Value, out quantity))
+            {
+                throw new DeckParseException($"Line {lineNumber} \"{line}\" has quantity outside the allowed range 1..{QuantityPrefix.MaxQuantity}.");
+            }
             remainder = match.Groups["rest"].Value.Trim();
         }
         else if (!allowImplicitQuantity)
