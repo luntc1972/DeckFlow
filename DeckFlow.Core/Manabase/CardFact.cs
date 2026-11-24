@@ -40,6 +40,13 @@ public sealed record CardFact
     /// </summary>
     public string? LandFaceOracleText { get; init; }
 
+    /// <summary>
+    /// Raw oracle text in face order, using empty strings for missing face text.
+    /// A card without faces has one entry when its root oracle text is non-blank.
+    /// An empty list lets readers fall back to <see cref="FrontOracleText"/>.
+    /// </summary>
+    public IReadOnlyList<string> FaceOracleTexts { get; init; } = Array.Empty<string>();
+
     /// <summary>Scryfall <c>produced_mana</c> letters (e.g. ["U","R","G"]); empty if none.</summary>
     public IReadOnlyList<string> ProducedMana { get; init; } = Array.Empty<string>();
 

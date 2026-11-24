@@ -129,6 +129,58 @@ public sealed class ScryfallCardFactMapperTests
     }
 
     [Fact]
+    public void ToCardFact_AdventureCard_PopulatesEachFaceOracleText()
+    {
+        const string front = "Double strike\nOther creatures you control get +1/+0 for each Aura and Equipment attached to Kellan.";
+        const string back = "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle.";
+        var card = new ScryfallCardData
+        {
+            Name = "Kellan, the Fae-Blooded // Birthright Boon",
+            TypeLine = "Legendary Creature — Human Faerie // Sorcery — Adventure",
+            ManaCost = "{2}{R} // {1}{W}",
+            Cmc = 3,
+            Layout = "adventure",
+            CardFaces =
+            [
+                new()
+                {
+                    Name = "Kellan, the Fae-Blooded",
+                    ManaCost = "{2}{R}",
+                    TypeLine = "Legendary Creature — Human Faerie",
+                    OracleText = front
+                },
+                new()
+                {
+                    Name = "Birthright Boon",
+                    ManaCost = "{1}{W}",
+                    TypeLine = "Sorcery — Adventure",
+                    OracleText = back
+                }
+            ]
+        };
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+
+        Assert.Equal([front, back], fact.FaceOracleTexts);
+    }
+
+    [Fact]
+    public void ToCardFact_SingleFaceCard_PopulatesOneFaceOracleText()
+    {
+        const string oracle = "Search your library for a card, put that card into your hand, then shuffle.";
+        var card = new ScryfallCardData
+        {
+            Name = "Demonic Tutor",
+            ManaCost = "{1}{B}",
+            TypeLine = "Sorcery",
+            Cmc = 2,
+            OracleText = oracle
+        };
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+
+        Assert.Equal([oracle], fact.FaceOracleTexts);
+    }
+
+    [Fact]
     public void ToCardFact_TransformCardWithLandBack_HasNoLandFace()
     {
         // M6: a transform card's land back (Search for Azcanta // Azcanta) is reached only by

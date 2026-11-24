@@ -33,6 +33,43 @@ public sealed class CutLabRoleAssignerTests
     }
 
     [Fact]
+    public void AssignRoles_MappedAdventureTutorFace_HasTutorRole()
+    {
+        const string front = "Double strike\nOther creatures you control get +1/+0 for each Aura and Equipment attached to Kellan.";
+        const string back = "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle.";
+        var card = new ScryfallCardData
+        {
+            Name = "Kellan, the Fae-Blooded // Birthright Boon",
+            TypeLine = "Legendary Creature — Human Faerie // Sorcery — Adventure",
+            ManaCost = "{2}{R} // {1}{W}",
+            Cmc = 3,
+            Layout = "adventure",
+            CardFaces =
+            [
+                new()
+                {
+                    Name = "Kellan, the Fae-Blooded",
+                    ManaCost = "{2}{R}",
+                    TypeLine = "Legendary Creature — Human Faerie",
+                    OracleText = front
+                },
+                new()
+                {
+                    Name = "Birthright Boon",
+                    ManaCost = "{1}{W}",
+                    TypeLine = "Sorcery — Adventure",
+                    OracleText = back
+                }
+            ]
+        };
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Cedh);
+
+        Assert.Contains(CutLabRoleKeys.Tutor, roles);
+    }
+
+    [Fact]
     public void AssignRoles_IslandcyclingSpell_HasTutorRole()
     {
         CardFact fact = Fact("Lórien Revealed", "Sorcery", "Draw three cards.\nIslandcycling {1} ({1}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)");
@@ -249,6 +286,43 @@ public sealed class CutLabRoleAssignerTests
 
         IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, ["Interaction"], ManabaseMode.Casual);
 
+        Assert.Contains("interaction-targeted", roles);
+    }
+
+    [Fact]
+    public void AssignRoles_MappedSpellFrontMdfc_KeepsLandsAndSpellFaceInteraction()
+    {
+        var card = new ScryfallCardData
+        {
+            Name = "Fell the Profane // Fell Mire",
+            TypeLine = "Instant // Land",
+            Cmc = 4,
+            Layout = "modal_dfc",
+            ProducedMana = ["B"],
+            CardFaces =
+            [
+                new()
+                {
+                    Name = "Fell the Profane",
+                    ManaCost = "{2}{B}{B}",
+                    TypeLine = "Instant",
+                    OracleText = "Destroy target creature or planeswalker."
+                },
+                new()
+                {
+                    Name = "Fell Mire",
+                    ManaCost = "",
+                    TypeLine = "Land",
+                    OracleText = "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}."
+                }
+            ]
+        };
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+        Assert.NotNull(fact.LandFaceOracleText);
+
+        IReadOnlyList<string> roles = CutLabRoleAssigner.AssignRoles(fact, [], ManabaseMode.Casual);
+
+        Assert.Contains("lands", roles);
         Assert.Contains("interaction-targeted", roles);
     }
 

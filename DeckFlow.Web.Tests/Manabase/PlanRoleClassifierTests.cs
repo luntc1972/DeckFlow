@@ -32,6 +32,25 @@ public sealed class PlanRoleClassifierTests
     }
 
     [Fact]
+    public void Classify_AdventureTutorFace_HasTutorCombo()
+    {
+        const string front = "Double strike\nOther creatures you control get +1/+0 for each Aura and Equipment attached to Kellan.";
+        const string back = "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle.";
+        var fact = new CardFact
+        {
+            Name = "Kellan, the Fae-Blooded // Birthright Boon",
+            Quantity = 1,
+            TypeLine = "Legendary Creature — Human Faerie",
+            OracleText = string.Join("\n", front, back),
+            FrontFaceOracleText = front,
+            FaceOracleTexts = [front, back]
+        };
+        PlanRole roles = PlanRoleClassifier.Classify(fact, [], isComboPiece: false, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
+    [Fact]
     public void Classify_LandOnlyFetchLandComboPiece_KeepsTutorCombo()
     {
         CardFact fact = Fact("Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.", "Polluted Delta");

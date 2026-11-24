@@ -8,7 +8,15 @@ namespace DeckFlow.Core.Analysis;
 /// <param name="TypeLine">Card type line (e.g. "Artifact — Treasure").</param>
 /// <param name="OracleText">Normalized oracle text.</param>
 /// <param name="ManaCost">Mana cost string (e.g. "{3}{B}{B}"); blank for lands.</param>
-public readonly record struct DeckStatCardInput(int Quantity, string TypeLine, string OracleText, string ManaCost);
+public readonly record struct DeckStatCardInput(int Quantity, string TypeLine, string OracleText, string ManaCost)
+{
+    /// <summary>
+    /// Raw oracle text in face order, with empty strings for blank faces so index zero is the front face.
+    /// The tutor tally reads every face and spell-front MDFC tallies read the front face.
+    /// A null or empty list uses <see cref="OracleText"/> for tutors and skips the spell-front tallies.
+    /// </summary>
+    public IReadOnlyList<string>? FaceOracleTexts { get; init; }
+}
 
 /// <summary>
 /// Pre-computed composition stats for a deck slot: counts the analysis prompt states as facts so the

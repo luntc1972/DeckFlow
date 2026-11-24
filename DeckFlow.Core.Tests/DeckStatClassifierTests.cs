@@ -358,6 +358,48 @@ public sealed class DeckStatClassifierTests
         Assert.True(DeckStatClassifier.IsTutorCard(typeLine, oracleText), $"{name} ({typeLine})");
     }
 
+    [Theory]
+    [InlineData("Finale of Devastation", "Sorcery", "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get +X/+X and gain haste until end of turn.")]
+    [InlineData("Invasion of Ikoria", "Battle — Siege", "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library and/or graveyard for a non-Human creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle.")]
+    public void IsTutorCard_LibraryAndGraveyardSearch_IsTutor(string name, string typeLine, string oracle)
+    {
+        Assert.True(DeckStatClassifier.IsTutorCard(typeLine, oracle), name);
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_LandSearchOnOtherFaceDoesNotVetoTutor()
+    {
+        string[] faces = ["Search your library for a creature card, reveal it, put it into your hand, then shuffle.", "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."];
+
+        Assert.True(DeckStatClassifier.IsTutorCard("Sorcery // Sorcery", faces));
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_AdventureTutorFace_IsTutor()
+    {
+        string[] faces = ["Double strike\nOther creatures you control get +1/+0 for each Aura and Equipment attached to Kellan.", "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle."];
+
+        Assert.True(DeckStatClassifier.IsTutorCard("Legendary Creature — Human Faerie // Sorcery — Adventure", faces));
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_LandOnlyFetchLand_IsNotTutor()
+    {
+        Assert.False(DeckStatClassifier.IsTutorCard("Land", ["{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle."]));
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_EmptyList_IsNotTutor()
+    {
+        Assert.False(DeckStatClassifier.IsTutorCard("Sorcery", Array.Empty<string>()));
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_NullList_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => DeckStatClassifier.IsTutorCard("Sorcery", (IReadOnlyList<string>)null!));
+    }
+
     // -----------------------------------------------------------------------
     // IsFastManaCard
     // -----------------------------------------------------------------------

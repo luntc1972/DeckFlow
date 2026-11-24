@@ -68,6 +68,102 @@ public sealed class DeckStatAggregatorTests
     }
 
     [Fact]
+    public void Compute_LandTutorsCountAndFetchLandDoesNot()
+    {
+        DeckStatSummary stats = DeckStatAggregator.Compute(
+        [
+            Card(1, "Enchantment Land — Urza's Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — This Saga gains \"{T}: Add {C}.\"\nII — This Saga gains \"{2}, {T}: Create a 0/0 colorless Construct artifact creature token with 'This token gets +1/+1 for each artifact you control.'\"\nIII — Search your library for an artifact card with mana cost {0} or {1}, put it onto the battlefield, then shuffle.", ""),
+            Card(1, "Legendary Land", "At the beginning of your upkeep, if you control three or more artifacts, you gain 1 life.\n{T}: Add {C}.\n{4}, {T}, Sacrifice Inventors' Fair: Search your library for an artifact card, reveal it, put it into your hand, then shuffle. Activate only if you control three or more artifacts.", ""),
+            Card(1, "Land", "This land enters tapped.\n{T}: Add {U}.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with mana value 0, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)", ""),
+            Card(1, "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.", "")
+        ]);
+
+        Assert.Equal(3, stats.Tutors);
+        Assert.Equal(4, stats.Lands);
+        Assert.Equal(4, stats.ManaCurve["0-1"]);
+        Assert.Equal(0, stats.Ramp);
+    }
+
+    [Fact]
+    public void Compute_TutorFaceIsNotVetoedByLandSearchFace()
+    {
+        string[] faces = ["Search your library for a creature card, reveal it, put it into your hand, then shuffle.", "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."];
+        DeckStatCardInput card = Card(1, "Sorcery // Sorcery", string.Join("\n", faces), "{1}{B}") with { FaceOracleTexts = faces };
+
+        DeckStatSummary stats = DeckStatAggregator.Compute([card]);
+
+        Assert.Equal(1, stats.Tutors);
+    }
+
+    [Fact]
+    public void Compute_InstantFrontMdfc_CountsAsLandAndFrontFaceSpell()
+    {
+        string[] faces = ["Destroy target creature or planeswalker.", "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}."];
+        DeckStatCardInput card = Card(1, "Instant // Land", string.Join("\n", faces), "{2}{B}{B}") with { FaceOracleTexts = faces };
+
+        DeckStatSummary stats = DeckStatAggregator.Compute([card]);
+
+        Assert.Equal(1, stats.Interaction);
+        Assert.Equal(1, stats.Lands);
+        Assert.Equal(0, stats.Ramp);
+        Assert.Equal(1, stats.ManaCurve["0-1"]);
+        Assert.Equal(0, stats.ManaCurve["4"]);
+        Assert.Equal(0m, stats.AverageManaValue);
+    }
+
+    [Fact]
+    public void Compute_SorceryFrontMdfc_CountsAsLandAndFrontFaceSpell()
+    {
+        string[] faces = ["Draw cards equal to the number of cards in your hand plus one. You have no maximum hand size for the rest of the game.", "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}."];
+        DeckStatCardInput card = Card(1, "Sorcery // Land", string.Join("\n", faces), "{4}{U}{U}{U}") with { FaceOracleTexts = faces };
+
+        DeckStatSummary stats = DeckStatAggregator.Compute([card]);
+
+        Assert.Equal(1, stats.Draw);
+        Assert.Equal(1, stats.Lands);
+        Assert.Equal(0, stats.Ramp);
+        Assert.Equal(1, stats.ManaCurve["0-1"]);
+        Assert.Equal(0, stats.ManaCurve["5+"]);
+    }
+
+    [Fact]
+    public void Compute_LibraryAndGraveyardSearch_CountsAsTutor()
+    {
+        string[] faces = ["(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library and/or graveyard for a non-Human creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle.", "Reach\nFor each non-Human creature you control, you may have that creature assign its combat damage as though it weren't blocked."];
+        DeckStatSummary stats = DeckStatAggregator.Compute(
+        [
+            Card(1, "Sorcery", "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get +X/+X and gain haste until end of turn.", "{X}{G}{G}"),
+            Card(1, "Battle — Siege // Legendary Creature — Dinosaur", string.Join("\n", faces), "{X}{G}{G}") with { FaceOracleTexts = faces }
+        ]);
+
+        Assert.Equal(2, stats.Tutors);
+    }
+
+    [Fact]
+    public void Compute_LandFrontMdfc_StaysLandOnly()
+    {
+        string[] faces = ["Riverglide Pathway enters tapped unless you control two or more other lands.", "Lavaglide Pathway enters tapped unless you control two or more other lands."];
+        DeckStatCardInput card = Card(1, "Land // Land", string.Join("\n", faces), "") with { FaceOracleTexts = faces };
+
+        DeckStatSummary stats = DeckStatAggregator.Compute([card]);
+
+        Assert.Equal(1, stats.Lands);
+        Assert.Equal(1, stats.ManaCurve["0-1"]);
+        Assert.Equal(0, stats.Ramp);
+    }
+
+    [Fact]
+    public void Compute_SpellFrontMdfcWithoutFaceData_StaysLandOnly()
+    {
+        string oracle = string.Join("\n", "Destroy target creature or planeswalker.", "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.");
+        DeckStatSummary stats = DeckStatAggregator.Compute([Card(1, "Instant // Land", oracle, "{2}{B}{B}")]);
+
+        Assert.Equal(1, stats.Lands);
+        Assert.Equal(0, stats.Interaction);
+        Assert.Equal(0, stats.Ramp);
+    }
+
+    [Fact]
     public void Compute_IslandcyclingSpellCountsAndFetchLandDoesNot()
     {
         DeckStatSummary stats = DeckStatAggregator.Compute([

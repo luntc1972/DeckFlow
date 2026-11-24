@@ -335,6 +335,17 @@ public static partial class DeckStatClassifier
             && !oracleText.Contains("land onto the battlefield", StringComparison.OrdinalIgnoreCase)
             && !LandSearchClassifier.IsLandOnlyFetchLand(typeLine, oracleText);
 
+    /// <summary>Returns true if any face qualifies as a tutor. An empty list returns false.</summary>
+    /// <param name="typeLine">Root or front-face type line. Only the front face is read for fetch-land detection.</param>
+    /// <param name="faceOracleTexts">Raw oracle text for each face.</param>
+    /// <exception cref="ArgumentNullException">The face list is null.</exception>
+    public static bool IsTutorCard(string typeLine, IReadOnlyList<string> faceOracleTexts)
+    {
+        ArgumentNullException.ThrowIfNull(faceOracleTexts);
+        // Why: retain joined-text behavior while the face-aware callers are under test.
+        return IsTutorCard(typeLine, string.Join("\n", faceOracleTexts));
+    }
+
     /// <summary>
     /// Returns <see langword="true"/> when the card is fast mana: a zero-mana-value artifact that
     /// produces mana (e.g. Mana Crypt, Jeweled Lotus). Mana rocks with MV &gt;= 1 (e.g. Sol Ring) are excluded.
