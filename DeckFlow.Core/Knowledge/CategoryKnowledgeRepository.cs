@@ -185,6 +185,14 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.CountRefetchCandidatesAsync(cancellationToken);
 
     /// <summary>
+    /// Counts pending stored decks without captured metadata.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of stored decks queued for refetch.</returns>
+    public Task<int> CountQueuedForRefetchAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.CountQueuedForRefetchAsync(cancellationToken);
+
+    /// <summary>
     /// Gets normalized commander keys with more retained candidates than the supplied minimum.
     /// </summary>
     internal Task<IReadOnlyList<string>> GetRetentionCommanderKeysAsync(int minimum, CancellationToken cancellationToken = default)

@@ -35,6 +35,8 @@ internal sealed class DeckQueueRepository
     private const string ArchivedRowsSql = "EXISTS (SELECT 1 FROM deck_category_archive_manifest m WHERE m.deck_queue_id = q.id)";
     private const string PurgeCandidateSql = PurgeLegalitySql + " AND " + StoredLiveRowsSql;
     private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND " + StoredLiveRowsSql;
+    // Why: this is the pending half of the Refetch cohort, disjoint from RefetchCandidateSql (G16-U2).
+    internal const string QueuedForRefetchSql = "q.processed = 0 AND q.skipped = 0 AND q.archidekt_metadata_captured_utc IS NULL AND " + StoredLiveRowsSql;
     // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
@@ -213,6 +215,17 @@ internal sealed class DeckQueueRepository
         await connection.OpenAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
             $"SELECT COUNT(1) FROM deck_queue q WHERE {RefetchCandidateSql};",
+            commandTimeout: MaintenanceCommandTimeoutSeconds,
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
+    }
+
+    internal async Task<int> CountQueuedForRefetchAsync(CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(1) FROM deck_queue q WHERE {QueuedForRefetchSql};",
             commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
