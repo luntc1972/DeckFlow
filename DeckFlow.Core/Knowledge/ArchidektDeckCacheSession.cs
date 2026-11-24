@@ -345,14 +345,15 @@ public sealed class ArchidektDeckCacheSession
             {
                 tally.Skipped++;
                 _logger?.LogWarning(retireException, "Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}", deckId, "fallback_fetch_failure");
-                await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, cancellationToken);
+                // Why: Archidekt's not-found result is terminal even when the fold fails. The not_found mark takes the deck out of the Refetch cohort (07-23 C-F1).
+                await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, DeckSkipReasons.NotFound, cancellationToken);
             }
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException or NotSupportedException)
         {
             tally.Skipped++;
             _logger?.LogWarning(exception, "Skipping deck {DeckId} while caching categories.", deckId);
-            await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, cancellationToken);
+            await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, DeckSkipReasons.FetchFailure, cancellationToken);
         }
         catch (Exception exception) when (exception is not System.Data.Common.DbException)
         {
@@ -364,7 +365,7 @@ public sealed class ArchidektDeckCacheSession
             }
 
             tally.Skipped++;
-            await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, cancellationToken);
+            await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, DeckSkipReasons.FetchFailure, cancellationToken);
         }
     }
 
@@ -386,10 +387,10 @@ public sealed class ArchidektDeckCacheSession
         return unattemptedDeckIds;
     }
 
-    private async Task SkipDeckAsync(string deckId, int added, int updated, IProgress<int>? progress, CancellationToken cancellationToken)
+    private async Task SkipDeckAsync(string deckId, int added, int updated, IProgress<int>? progress, string skipReason, CancellationToken cancellationToken)
     {
-        // Skip path passes an explicit fetch-failure reason and null commander — top-N query filters commander_name IS NOT NULL.
-        await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, skipReason: DeckSkipReasons.FetchFailure, cancellationToken: cancellationToken);
+        // The caller supplies the skip reason. This mark passes a null commander — top-N query filters commander_name IS NOT NULL.
+        await _repository.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, skipReason: skipReason, cancellationToken: cancellationToken);
         progress?.Report(added + updated);
     }
 

@@ -34,7 +34,8 @@ internal sealed class DeckQueueRepository
     private const string PurgeLegalitySql = "NOT (q.processed = 0 AND q.skipped = 0) AND q.archidekt_metadata_captured_utc IS NOT NULL AND (q.archidekt_deck_format IS NULL OR q.archidekt_deck_format <> 3 OR q.commander_name IS NULL)";
     private const string ArchivedRowsSql = "EXISTS (SELECT 1 FROM deck_category_archive_manifest m WHERE m.deck_queue_id = q.id)";
     private const string PurgeCandidateSql = PurgeLegalitySql + " AND " + StoredLiveRowsSql;
-    private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND " + StoredLiveRowsSql;
+    // Why: a not_found deck whose fold failed keeps live rows. Exclude it to stop the Refetch 404 loop (07-23 C-F2).
+    private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND (q.skip_reason IS NULL OR q.skip_reason <> '" + DeckSkipReasons.NotFound + "') AND " + StoredLiveRowsSql;
     // Why: this is the pending half of the Refetch cohort, disjoint from RefetchCandidateSql (G16-U2).
     internal const string QueuedForRefetchSql = "q.processed = 0 AND q.skipped = 0 AND q.archidekt_metadata_captured_utc IS NULL AND " + StoredLiveRowsSql;
     // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
