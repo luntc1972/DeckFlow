@@ -17,7 +17,7 @@ public sealed class RefetchConvergenceTests
     [Fact] public Task NotFound_UnstoredDeck_MarkedWithoutManifest() => WithSqliteAsync("unstored");
     [Fact] public Task RetentionArchived_RequeuedThenFails_KeepsRetentionReason() => WithSqliteAsync("retention");
     [Fact] public Task NotFoundArchived_Reappears_UnarchivesOnReentry() => WithSqliteAsync("reappear");
-    [Fact] public Task NotFound_RetireFails_FallsBackToFetchFailureAndContinues() => WithSqliteAsync("fallback");
+    [Fact] public Task NotFound_RetireFails_MarksNotFoundAndContinues() => WithSqliteAsync("fallback");
 
     internal static async Task VerifyAsync(DbConnection connection, RelationalDatabaseConnection info, string scenario)
     {
@@ -187,9 +187,12 @@ public sealed class RefetchConvergenceTests
         }
         Assert.Equal(2, foldCalls);
         var first = await connection.QuerySingleAsync<(long Skipped, string Reason)>("SELECT skipped, skip_reason AS Reason FROM deck_queue WHERE deck_id = @deckId", new { deckId = deckIds[0] });
-        Assert.Equal((1L, DeckSkipReasons.FetchFailure), first);
+        Assert.Equal((1L, DeckSkipReasons.NotFound), first);
         Assert.Equal(0L, await ManifestCountAsync(connection, deckIds[0]));
         Assert.Equal(3L, await LiveRowCountAsync(connection, deckIds[0]));
+        Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
+        Assert.Equal(0, await repository.CountQueuedForRefetchAsync());
+        Assert.Equal(0, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
         var second = await connection.QuerySingleAsync<(long Skipped, string Reason)>("SELECT skipped, skip_reason AS Reason FROM deck_queue WHERE deck_id = @deckId", new { deckId = deckIds[1] });
         Assert.Equal((1L, DeckSkipReasons.NotFound), second);
         Assert.Equal(1L, await ManifestCountAsync(connection, deckIds[1]));

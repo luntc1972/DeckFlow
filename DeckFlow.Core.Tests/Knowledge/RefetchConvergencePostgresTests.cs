@@ -15,7 +15,7 @@ public sealed class RefetchConvergencePostgresTests
     [CreatorSuppressionPostgresFact] public Task NotFound_UnstoredDeck_MarkedWithoutManifest() => VerifyAsync("unstored");
     [CreatorSuppressionPostgresFact] public Task RetentionArchived_RequeuedThenFails_KeepsRetentionReason() => VerifyAsync("retention");
     [CreatorSuppressionPostgresFact] public Task NotFoundArchived_Reappears_UnarchivesOnReentry() => VerifyAsync("reappear");
-    [CreatorSuppressionPostgresFact] public Task NotFound_RetireFails_FallsBackToFetchFailureAndContinues() => VerifyAsync("fallback");
+    [CreatorSuppressionPostgresFact] public Task NotFound_RetireFails_MarksNotFoundAndContinues() => VerifyAsync("fallback");
 
     private static async Task VerifyAsync(string scenario)
     {
