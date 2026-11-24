@@ -116,8 +116,7 @@ public static class DeckStatAggregator
             totalCards += quantity;
 
             // Why: land tutors count as in Cut Lab, and IsTutorCard still excludes land-only fetches.
-            IReadOnlyList<string> faces = card.FaceOracleTexts is { Count: > 0 } ? card.FaceOracleTexts : [oracleText];
-            if (DeckStatClassifier.IsTutorCard(typeLine, faces))
+            if (DeckStatClassifier.IsTutorCard(typeLine, card.FaceOracleTexts, oracleText))
             {
                 tutors += quantity;
             }
@@ -134,26 +133,8 @@ public static class DeckStatAggregator
                 if (!frontTypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
                     && card.FaceOracleTexts is { Count: > 0 } faceOracleTexts)
                 {
-                    var frontText = faceOracleTexts[0];
-                    if (DeckStatClassifier.IsRampCard(frontTypeLine, frontText))
-                    {
-                        ramp += quantity;
-                    }
-
-                    if (DeckStatClassifier.IsDrawCard(frontText))
-                    {
-                        draw += quantity;
-                    }
-
-                    if (DeckStatClassifier.IsInteractionCard(frontTypeLine, frontText))
-                    {
-                        interaction += quantity;
-                    }
-
-                    if (DeckStatClassifier.IsClosingPowerCard(frontTypeLine, frontText))
-                    {
-                        closingPower += quantity;
-                    }
+                    // Why: spell-front MDFCs intentionally count only as ramp, draw, interaction, or closing power.
+                    TallySpellRoles(frontTypeLine, faceOracleTexts[0], quantity);
                 }
 
                 continue;
@@ -189,20 +170,7 @@ public static class DeckStatAggregator
                 creatures += quantity;
             }
 
-            if (DeckStatClassifier.IsRampCard(typeLine, oracleText))
-            {
-                ramp += quantity;
-            }
-
-            if (DeckStatClassifier.IsDrawCard(oracleText))
-            {
-                draw += quantity;
-            }
-
-            if (DeckStatClassifier.IsInteractionCard(typeLine, oracleText))
-            {
-                interaction += quantity;
-            }
+            TallySpellRoles(typeLine, oracleText, quantity);
 
             if (DeckStatClassifier.IsBoardWipeCard(oracleText))
             {
@@ -212,11 +180,6 @@ public static class DeckStatAggregator
             if (DeckStatClassifier.IsRecursionCard(oracleText))
             {
                 recursion += quantity;
-            }
-
-            if (DeckStatClassifier.IsClosingPowerCard(typeLine, oracleText))
-            {
-                closingPower += quantity;
             }
 
             if (DeckStatClassifier.IsFastManaCard(typeLine, oracleText, card.ManaCost))
@@ -255,6 +218,26 @@ public static class DeckStatAggregator
             RampDrawUnderThreeMv = rampDrawUnderThreeMv,
             Counters = counters,
         };
+
+        void TallySpellRoles(string typeLine, string text, int quantity)
+        {
+            if (DeckStatClassifier.IsRampCard(typeLine, text))
+            {
+                ramp += quantity;
+            }
+            if (DeckStatClassifier.IsDrawCard(text))
+            {
+                draw += quantity;
+            }
+            if (DeckStatClassifier.IsInteractionCard(typeLine, text))
+            {
+                interaction += quantity;
+            }
+            if (DeckStatClassifier.IsClosingPowerCard(typeLine, text))
+            {
+                closingPower += quantity;
+            }
+        }
     }
 
     /// <summary>

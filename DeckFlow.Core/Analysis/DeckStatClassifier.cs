@@ -348,6 +348,17 @@ public static partial class DeckStatClassifier
         return faceOracleTexts.Any(oracleText => IsTutorCard(typeLine, oracleText));
     }
 
+    /// <summary>Returns whether any face qualifies as a tutor, using fallback text when no faces are available.</summary>
+    /// <param name="typeLine">Root or front-face type line.</param>
+    /// <param name="faceOracleTexts">Raw oracle text for each face, if available.</param>
+    /// <param name="fallbackOracleText">Raw oracle text to use when the face list is null or empty.</param>
+    public static bool IsTutorCard(string typeLine, IReadOnlyList<string>? faceOracleTexts, string fallbackOracleText)
+    {
+        return faceOracleTexts is { Count: > 0 }
+            ? IsTutorCard(typeLine, faceOracleTexts)
+            : IsTutorCard(typeLine, fallbackOracleText);
+    }
+
     /// <summary>
     /// Returns <see langword="true"/> when the card is fast mana: a zero-mana-value artifact that
     /// produces mana (e.g. Mana Crypt, Jeweled Lotus). Mana rocks with MV &gt;= 1 (e.g. Sol Ring) are excluded.

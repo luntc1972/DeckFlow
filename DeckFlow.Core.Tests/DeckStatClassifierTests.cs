@@ -400,6 +400,28 @@ public sealed class DeckStatClassifierTests
         Assert.Throws<ArgumentNullException>(() => DeckStatClassifier.IsTutorCard("Sorcery", (IReadOnlyList<string>)null!));
     }
 
+    [Theory]
+    [InlineData("Search your library for a card, put it into your hand, then shuffle.", "Draw a card.", true)]
+    [InlineData("Draw a card.", "Search your library for a card, put it into your hand, then shuffle.", false)]
+    public void IsTutorCard_NonemptyFaces_UsesFaces(string faceOracleText, string fallbackOracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsTutorCard("Sorcery", [faceOracleText], fallbackOracleText));
+    }
+
+    [Fact]
+    public void IsTutorCard_NullFaces_UsesFallback()
+    {
+        Assert.True(DeckStatClassifier.IsTutorCard(
+            "Sorcery", null, "Search your library for a card, put it into your hand, then shuffle."));
+    }
+
+    [Fact]
+    public void IsTutorCard_EmptyFaces_UsesFallback()
+    {
+        Assert.True(DeckStatClassifier.IsTutorCard(
+            "Sorcery", [], "Search your library for a card, put it into your hand, then shuffle."));
+    }
+
     // -----------------------------------------------------------------------
     // IsFastManaCard
     // -----------------------------------------------------------------------
