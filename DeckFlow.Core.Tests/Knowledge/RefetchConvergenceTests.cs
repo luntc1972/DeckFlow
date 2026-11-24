@@ -253,52 +253,55 @@ public sealed class RefetchConvergenceTests
     private static async Task VerifyFallbackAsync(DbConnection connection, RelationalDatabaseConnection info, CategoryKnowledgeRepository repository)
     {
         var entries = LegalCommanderDeck.Complete([new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
-        var deckIds = new[] { "fallback-first", "fallback-second" };
+        const string countedDeckId = "fallback-counted";
+        var deckIds = new[] { "fallback-first", "fallback-second", countedDeckId };
         await repository.AddDeckIdsAsync(deckIds);
         foreach (var deckId in deckIds)
         {
             await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId, entries);
-            await repository.MarkDeckProcessedAsync(deckId, LegalCommanderDeck.CommanderName, skip: true, metadata: null, skipReason: DeckSkipReasons.FetchFailure);
+            var skip = deckId != countedDeckId;
+            await repository.MarkDeckProcessedAsync(deckId, LegalCommanderDeck.CommanderName, skip, metadata: null, skipReason: skip ? DeckSkipReasons.FetchFailure : null);
         }
         await repository.RunStoredLiveRowsBackfillBatchAsync(100);
-        Assert.Equal(2, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
+
+        const string summarySql = "SELECT deck_count FROM processed_commander_summary WHERE commander_name = @name";
+        var summaryParameters = new { name = LegalCommanderDeck.CommanderName };
+        Assert.Equal(1L, await connection.QuerySingleAsync<long>(summarySql, summaryParameters));
+        Assert.Equal(deckIds.Length, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
+
         var cardRepository = (CardCategoryRepository)typeof(CategoryKnowledgeRepository).GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(repository)!;
         var foldCalls = 0;
         var foldException = new InvalidOperationException("Injected fold fault");
         cardRepository.FoldFault = (_, _) =>
         {
-            if (++foldCalls == 1)
+            if (++foldCalls != 2)
             {
                 throw foldException;
             }
         };
         var logger = new FakeStructuredLogger();
         var session = new ArchidektDeckCacheSession(repository, new MultiStubDeckImporter(deckIds), new EmptyRecentDecksImporter(), logger: logger, idlePollDelay: TimeSpan.FromMilliseconds(100));
-        using var cancellation = new CancellationTokenSource();
-        var processedDecks = 0;
-        var progress = new SynchronousProgress<int>(_ =>
-        {
-            if (++processedDecks == deckIds.Length)
-            {
-                cancellation.Cancel();
-            }
-        });
-        try
-        {
-            await session.RunAsync(TimeSpan.FromSeconds(60), cancellationToken: cancellation.Token, progress: progress);
-        }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-        {
-        }
-        Assert.Equal(2, foldCalls);
+
+        var result = await session.RunAsync(TimeSpan.FromSeconds(2));
+
+        // The two fallbacks and the successful archive each count as one skip.
+        Assert.Equal(deckIds.Length, result.DecksSkipped);
+        Assert.Equal(deckIds.Length, foldCalls);
         Assert.Collection(
             logger.DeckNotFoundEntries(),
             entry => AssertDeckNotFoundLog(entry, deckIds[0], "fallback_fetch_failure", foldException),
-            entry => AssertDeckNotFoundLog(entry, deckIds[1], "archived"));
-        var first = await connection.QuerySingleAsync<(long Skipped, string Reason)>("SELECT skipped, skip_reason AS Reason FROM deck_queue WHERE deck_id = @deckId", new { deckId = deckIds[0] });
-        Assert.Equal((1L, DeckSkipReasons.NotFound), first);
-        Assert.Equal(0L, await ManifestCountAsync(connection, deckIds[0]));
-        Assert.Equal(3L, await LiveRowCountAsync(connection, deckIds[0]));
+            entry => AssertDeckNotFoundLog(entry, deckIds[1], "archived"),
+            entry => AssertDeckNotFoundLog(entry, countedDeckId, "fallback_fetch_failure", foldException));
+        foreach (var deckId in new[] { deckIds[0], countedDeckId })
+        {
+            var row = await connection.QuerySingleAsync<(long Skipped, string Reason, long HasStoredLiveRows, string CommanderName)>(
+                "SELECT skipped, skip_reason AS Reason, has_stored_live_rows, commander_name FROM deck_queue WHERE deck_id = @deckId", new { deckId });
+            Assert.Equal((1L, DeckSkipReasons.NotFound, 1L, LegalCommanderDeck.CommanderName), row);
+            Assert.Equal(0L, await ManifestCountAsync(connection, deckId));
+            Assert.Equal(3L, await LiveRowCountAsync(connection, deckId));
+        }
+
+        Assert.Empty(await connection.QueryAsync<long>(summarySql, summaryParameters));
         Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
         Assert.Equal(0, await repository.CountQueuedForRefetchAsync());
         Assert.Equal(0, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
