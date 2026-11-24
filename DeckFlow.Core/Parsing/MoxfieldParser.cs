@@ -252,6 +252,12 @@ public sealed partial class MoxfieldParser : IParser
             return false;
         }
 
+        // Why: A marker embedded in the raw name survives the trailing-marker checks but is removed by CleanName.
+        isFoil = isFoil
+            || rawName.Contains('★')
+            || rawName.Contains("*F*", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("*E*", StringComparison.OrdinalIgnoreCase);
+
         var cleanName = CleanName(rawName);
         if (string.IsNullOrWhiteSpace(cleanName))
         {

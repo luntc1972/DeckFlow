@@ -88,7 +88,7 @@ public sealed partial class ArchidektParser : IParser
         return IsCategorizedCardLine(line) && TryParseEntry(line, defaultBoard, allowImplicitQuantity: false, out entry);
     }
 
-    internal static bool IsCategorizedCardLine(string line)
+    private static bool IsCategorizedCardLine(string line)
     {
         var cardLine = StripTrailingTags(line.Trim());
         return QuantityRegex().IsMatch(cardLine) && CategoryRegex().IsMatch(cardLine);
@@ -328,7 +328,7 @@ public sealed partial class ArchidektParser : IParser
             || string.Equals(normalized, "Sideboard", StringComparison.OrdinalIgnoreCase);
     }
 
-    internal static bool IsStoppingLine(string line)
+    private static bool IsStoppingLine(string line)
     {
         var normalized = line.Trim().TrimEnd(':');
         return string.Equals(normalized, "Possible names", StringComparison.OrdinalIgnoreCase)
