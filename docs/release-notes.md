@@ -6,6 +6,12 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Harvest refetch convergence
+
+- "Deck not found" decks are archived instead of returning as refetch candidates.
+- Preview shows queued for refetch.
+- Retention-archived decks keep their retention reason when a fetch fails.
+
 ### Unreleased — Admin Harvest processing stats
 
 - The **Decks processed in last 30 days** metric now uses the latest processing time. Decks queued earlier count once processed within the window. Skipped decks, decks waiting to be processed again, and decks without a recorded processing time are excluded.
