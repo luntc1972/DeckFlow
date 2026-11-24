@@ -51,6 +51,23 @@ public sealed class PlanRoleClassifierTests
     }
 
     [Fact]
+    public void Classify_NoFaceOracleTextsWithJoinedTutorText_HasTutorCombo()
+    {
+        var fact = new CardFact
+        {
+            Name = "Draw // Search",
+            Quantity = 1,
+            TypeLine = "Sorcery // Sorcery",
+            FrontFaceOracleText = "Draw two cards.",
+            OracleText = "Draw two cards.\nSearch your library for a card, put it into your hand, then shuffle.",
+            FaceOracleTexts = []
+        };
+        PlanRole roles = PlanRoleClassifier.Classify(fact, [], isComboPiece: false, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
+    [Fact]
     public void Classify_LandOnlyFetchLandComboPiece_KeepsTutorCombo()
     {
         CardFact fact = Fact("Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.", "Polluted Delta");
