@@ -9,7 +9,7 @@ namespace DeckFlow.Core.Analysis;
 /// board wipes, recursion, closing power) in a deck's mainboard.  These are pure CPU domain
 /// logic; their inputs (typeLine, oracleText) come from Scryfall card data.
 /// </summary>
-public static class DeckStatClassifier
+public static partial class DeckStatClassifier
 {
     // A card-draw effect that benefits YOU (efficacy R2 M7). Matches "draw(s) a/N card(s)" or
     // "draw(s) cards equal to ..." (Greater Good) —
@@ -319,16 +319,11 @@ public static class DeckStatClassifier
             || oracleText.Contains("combat damage to a player", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("draw", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("whenever this creature attacks", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("+X/+X", StringComparison.OrdinalIgnoreCase);
 
-    private static readonly Regex LandCardRegex = new(
-        @"\bland cards?\b",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    [GeneratedRegex(@"\bland cards?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex LandCardRegex();
 
     /// <summary>
-    /// Returns <see langword="true"/> when a card searches its library for a card, subject to tutor exclusions.
-    /// Excludes basic-land searches, searches that mention the whole phrase "land card" or "land cards",
-    /// searches that put "land onto the battlefield", and lands whose searches all target only lands.
-    /// Land-search spells and landcycling count as tutors when they meet these rules (owner decision 2026-11-24).
-    /// The phrase "Island card" does not trigger the land-card exclusion.
+    /// Returns <see langword="true"/> when the card's library search qualifies as a tutor.
     /// </summary>
     /// <param name="typeLine">Card type line.</param>
     /// <param name="oracleText">Raw oracle text, including any reminder text.</param>
@@ -336,7 +331,7 @@ public static class DeckStatClassifier
         => oracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase)
             && !oracleText.Contains("basic land", StringComparison.OrdinalIgnoreCase)
             // Why: the word boundary lets "nonland card" and "Island card" through.
-            && !LandCardRegex.IsMatch(oracleText)
+            && !LandCardRegex().IsMatch(oracleText)
             && !oracleText.Contains("land onto the battlefield", StringComparison.OrdinalIgnoreCase)
             && !LandSearchClassifier.IsLandOnlyFetchLand(typeLine, oracleText);
 

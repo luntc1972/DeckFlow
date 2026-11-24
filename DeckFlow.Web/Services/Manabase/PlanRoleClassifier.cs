@@ -23,7 +23,7 @@ namespace DeckFlow.Web.Services.Manabase;
 /// exposes a pre-permanent-gate interaction signal for the cEDH early-interaction lens, while
 /// leaving the returned plan-presence roles unchanged.
 /// </summary>
-public static partial class PlanRoleClassifier
+public static class PlanRoleClassifier
 {
     /// <summary>
     /// Resolve a card's plan roles. Categories win when they map to any role; otherwise a known combo

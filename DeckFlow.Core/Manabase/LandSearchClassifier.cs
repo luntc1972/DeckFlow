@@ -37,7 +37,8 @@ public static partial class LandSearchClassifier
         {
             string[] tokens = match.Groups["target"].Value.ToLowerInvariant().Replace(',', ' ')
                 .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (!tokens.All(LandSearchTokens.Contains) || !tokens.Any(LandSearchTypeTokens.Contains))
+            if (!tokens.All(static token => LandSearchTypeTokens.Contains(token) || LandSearchQualifierTokens.Contains(token))
+                || !tokens.Any(LandSearchTypeTokens.Contains))
             {
                 return false;
             }
@@ -47,16 +48,16 @@ public static partial class LandSearchClassifier
     }
 
     // Why: even a fully recognized target needs a land type to establish that it only finds lands.
-    // Declared before LandSearchTokens, whose static initializer reads it.
     private static readonly HashSet<string> LandSearchTypeTokens = new(StringComparer.Ordinal)
     {
         "land", "lands", "plains", "island", "swamp", "mountain", "forest",
     };
 
     // Why: an unknown qualifier may allow the search to find a nonland card.
-    private static readonly HashSet<string> LandSearchTokens = new(
-        [.. LandSearchTypeTokens, "a", "an", "up", "to", "one", "two", "three", "or", "and", "basic", "snow", "card", "cards"],
-        StringComparer.Ordinal);
+    private static readonly HashSet<string> LandSearchQualifierTokens = new(StringComparer.Ordinal)
+    {
+        "a", "an", "up", "to", "one", "two", "three", "or", "and", "basic", "snow", "card", "cards",
+    };
 
     // Why: an unrecognized search form should retain its tutor role.
     [GeneratedRegex(@"search your library for (?<target>.+?\bcards?\b)(?=,|\.| and put| then| that share a land type)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
