@@ -12,13 +12,23 @@ public sealed class DeckEntryLoaderTests
 {
     [Theory]
     [InlineData("99999999999 Sol Ring")]
-    [InlineData("１ Sol Ring")]
-    public async Task LoadFromSourceAsync_PastedQuantity_DoesNotThrowNumericFormatException(string line)
+    [InlineData("1000 Sol Ring")]
+    public async Task LoadFromSourceAsync_OutOfRangePastedQuantity_ThrowsDeckParseException(string line)
     {
-        var exception = await Record.ExceptionAsync(() => CreateLoader().LoadFromSourceAsync(line));
+        var exception = await Assert.ThrowsAsync<DeckParseException>(() => CreateLoader().LoadFromSourceAsync(line));
 
-        Assert.IsNotType<FormatException>(exception);
-        Assert.IsNotType<OverflowException>(exception);
+        Assert.Contains(line, exception.Message);
+        Assert.Contains("0..999", exception.Message);
+    }
+
+    [Fact]
+    public async Task LoadFromSourceAsync_NonAsciiPastedQuantity_UsesUnquantifiedName()
+    {
+        var result = await CreateLoader().LoadFromSourceAsync("１ Sol Ring");
+        var entry = Assert.Single(result.Entries);
+
+        Assert.Equal("１ Sol Ring", entry.Name);
+        Assert.Equal(1, entry.Quantity);
     }
 
     [Fact]

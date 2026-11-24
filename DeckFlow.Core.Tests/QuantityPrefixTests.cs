@@ -38,7 +38,7 @@ public sealed class QuantityPrefixTests
     [Theory]
     [InlineData("1", true, 1)]
     [InlineData("999", true, 999)]
-    [InlineData("0", false, 0)]
+    [InlineData("0", true, 0)]
     [InlineData("1000", false, 1000)]
     [InlineData("99999999999", false, 0)]
     public void TryParseQuantity_EnforcesBounds(string value, bool expected, int expectedQuantity)

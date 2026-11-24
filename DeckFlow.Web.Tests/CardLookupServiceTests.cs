@@ -24,18 +24,27 @@ public sealed class CardLookupServiceTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.LookupAsync(line));
 
         Assert.Contains(line, exception.Message);
-        Assert.Contains("1..999", exception.Message);
+        Assert.Contains("0..999", exception.Message);
     }
 
     [Fact]
-    public async Task LookupAsync_NonAsciiQuantity_DoesNotThrowNumericFormatException()
+    public async Task LookupAsync_NonAsciiQuantity_SendsUnquantifiedName()
     {
-        var service = TestServiceFactory.CreateScryfallCardLookupService();
+        string? requestedName = null;
+        var service = TestServiceFactory.CreateScryfallCardLookupService(
+            executeAsync: (request, _) =>
+            {
+                var body = request.Parameters.Single(parameter => parameter.Type == ParameterType.RequestBody);
+                var identifier = JsonSerializer.SerializeToElement(body.Value)
+                    .GetProperty("identifiers").EnumerateArray().Single();
+                requestedName = identifier.GetProperty("name").GetString();
+                return Task.FromResult(CreateCollectionResponse([], [], request));
+            });
 
-        var exception = await Record.ExceptionAsync(() => service.LookupAsync("１ Sol Ring"));
+        var result = await service.LookupAsync("１ Sol Ring");
 
-        Assert.IsNotType<FormatException>(exception);
-        Assert.IsNotType<OverflowException>(exception);
+        Assert.Equal("１ Sol Ring", requestedName);
+        Assert.Equal(["ERROR: １ Sol Ring"], result.MissingLines);
     }
 
     [Fact]
@@ -66,8 +75,10 @@ public sealed class CardLookupServiceTests
         Assert.Equal(["ERROR: Made Up Card"], result.MissingLines);
     }
 
-    [Fact]
-    public async Task LookupAsync_XSuffixedQuantity_SendsCardNameAndPreservesQuantity()
+    [Theory]
+    [InlineData("1x Sol Ring", "1 Sol Ring")]
+    [InlineData("0 Sol Ring", "0 Sol Ring")]
+    public async Task LookupAsync_ExplicitQuantity_SendsCardNameAndPreservesQuantity(string line, string expectedOutputPrefix)
     {
         string? requestedName = null;
         var service = TestServiceFactory.CreateScryfallCardLookupService(
@@ -83,10 +94,10 @@ public sealed class CardLookupServiceTests
                     request));
             });
 
-        var result = await service.LookupAsync("1x Sol Ring");
+        var result = await service.LookupAsync(line);
 
         Assert.Equal("Sol Ring", requestedName);
-        Assert.StartsWith("1 Sol Ring", Assert.Single(result.VerifiedOutputs));
+        Assert.StartsWith(expectedOutputPrefix, Assert.Single(result.VerifiedOutputs));
     }
 
     [Fact]

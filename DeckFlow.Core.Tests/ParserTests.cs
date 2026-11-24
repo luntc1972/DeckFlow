@@ -18,7 +18,7 @@ public sealed class ParserTests
         var exception = Assert.Throws<DeckParseException>(() => new MoxfieldParser().ParseText(line));
 
         Assert.Contains(line, exception.Message);
-        Assert.Contains("1..999", exception.Message);
+        Assert.Contains("0..999", exception.Message);
     }
 
     [Fact]
@@ -30,12 +30,21 @@ public sealed class ParserTests
     }
 
     [Fact]
-    public void MoxfieldParser_NonAsciiQuantity_DoesNotThrowNumericFormatException()
+    public void MoxfieldParser_ZeroQuantity_SkipsLine()
     {
-        var exception = Record.Exception(() => new MoxfieldParser().ParseText("１ Sol Ring"));
+        var entry = Assert.Single(new MoxfieldParser().ParseText("0 Sol Ring\n1 Island"));
 
-        Assert.IsNotType<FormatException>(exception);
-        Assert.IsNotType<OverflowException>(exception);
+        Assert.Equal("Island", entry.Name);
+        Assert.Equal(1, entry.Quantity);
+    }
+
+    [Fact]
+    public void MoxfieldParser_NonAsciiQuantity_UsesUnquantifiedName()
+    {
+        var entry = Assert.Single(new MoxfieldParser().ParseText("１ Sol Ring"));
+
+        Assert.Equal("１ Sol Ring", entry.Name);
+        Assert.Equal(1, entry.Quantity);
     }
 
     [Fact]
@@ -46,7 +55,16 @@ public sealed class ParserTests
         var exception = Assert.Throws<DeckParseException>(() => new ArchidektParser().ParseText(line));
 
         Assert.Contains(line, exception.Message);
-        Assert.Contains("1..999", exception.Message);
+        Assert.Contains("0..999", exception.Message);
+    }
+
+    [Fact]
+    public void ArchidektParser_ZeroQuantity_SkipsLine()
+    {
+        var entry = Assert.Single(new ArchidektParser().ParseText("0 Sol Ring\n1 Island"));
+
+        Assert.Equal("Island", entry.Name);
+        Assert.Equal(1, entry.Quantity);
     }
 
     [Fact]
