@@ -1,4 +1,5 @@
 using DeckFlow.Web.Infrastructure;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Xunit;
@@ -7,48 +8,26 @@ namespace DeckFlow.Web.Tests.Infrastructure;
 
 public sealed class ClientAbortMiddlewareTests
 {
-    [Fact]
-    public async Task AbortedRequestWithOperationCanceledException_Sets499WithoutThrowing()
+    [Theory]
+    [MemberData(nameof(ClientAbortExceptions))]
+    public async Task AbortedRequestWithCancellationException_Sets499WithoutThrowing(OperationCanceledException exception)
     {
         var context = CreateContext(aborted: true);
-        var middleware = new ClientAbortMiddleware(_ => throw new OperationCanceledException());
+        var middleware = new ClientAbortMiddleware(_ => throw exception);
 
         await middleware.InvokeAsync(context);
 
-        Assert.Equal(499, context.Response.StatusCode);
+        Assert.Equal(ClientAbortMiddleware.ClientClosedRequestStatusCode, context.Response.StatusCode);
     }
 
-    [Fact]
-    public async Task NonAbortedRequestWithOperationCanceledException_Rethrows()
+    [Theory]
+    [MemberData(nameof(ExceptionPropagationCase))]
+    public async Task ExceptionalRequest_RethrowsOriginalException(bool aborted, Exception exception)
     {
-        var context = CreateContext(aborted: false);
-        var exception = new OperationCanceledException();
+        var context = CreateContext(aborted);
         var middleware = new ClientAbortMiddleware(_ => throw exception);
 
-        var actual = await Assert.ThrowsAsync<OperationCanceledException>(() => middleware.InvokeAsync(context));
-
-        Assert.Same(exception, actual);
-    }
-
-    [Fact]
-    public async Task AbortedRequestWithTaskCanceledException_Sets499()
-    {
-        var context = CreateContext(aborted: true);
-        var middleware = new ClientAbortMiddleware(_ => throw new TaskCanceledException());
-
-        await middleware.InvokeAsync(context);
-
-        Assert.Equal(499, context.Response.StatusCode);
-    }
-
-    [Fact]
-    public async Task AbortedRequestWithOtherException_Rethrows()
-    {
-        var context = CreateContext(aborted: true);
-        var exception = new InvalidOperationException("unexpected");
-        var middleware = new ClientAbortMiddleware(_ => throw exception);
-
-        var actual = await Assert.ThrowsAsync<InvalidOperationException>(() => middleware.InvokeAsync(context));
+        var actual = await Assert.ThrowsAnyAsync<Exception>(() => middleware.InvokeAsync(context));
 
         Assert.Same(exception, actual);
     }
@@ -82,17 +61,40 @@ public sealed class ClientAbortMiddlewareTests
         Assert.Equal(200, context.Response.StatusCode);
     }
 
+    [Fact]
+    public async Task AbortedRequest_DisablesStatusCodePages()
+    {
+        var context = CreateContext(aborted: true);
+        var feature = new StatusCodePagesFeature();
+        context.Features.Set<IStatusCodePagesFeature>(feature);
+        var middleware = new ClientAbortMiddleware(_ => throw new OperationCanceledException());
+
+        await middleware.InvokeAsync(context);
+
+        Assert.False(feature.Enabled);
+    }
+
     private static DefaultHttpContext CreateContext(bool aborted)
     {
         var context = new DefaultHttpContext();
         if (aborted)
         {
-            var cancellation = new CancellationTokenSource();
-            cancellation.Cancel();
-            context.RequestAborted = cancellation.Token;
+            context.RequestAborted = new CancellationToken(canceled: true);
         }
 
         return context;
+    }
+
+    public static IEnumerable<object[]> ClientAbortExceptions()
+    {
+        yield return new object[] { new OperationCanceledException() };
+        yield return new object[] { new TaskCanceledException() };
+    }
+
+    public static IEnumerable<object[]> ExceptionPropagationCase()
+    {
+        yield return new object[] { false, new OperationCanceledException() };
+        yield return new object[] { true, new InvalidOperationException("unexpected") };
     }
 
     private sealed class StartedResponseFeature : IHttpResponseFeature

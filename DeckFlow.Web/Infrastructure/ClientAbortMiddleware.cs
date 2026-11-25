@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Diagnostics;
 
 namespace DeckFlow.Web.Infrastructure;
 
@@ -33,7 +34,7 @@ public sealed class ClientAbortMiddleware
     {
         try
         {
-            await _next(context);
+            await _next(context).ConfigureAwait(false);
         }
         // Why: Serilog logs unhandled exceptions as 500, although a client disconnect is a 499.
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
@@ -41,6 +42,12 @@ public sealed class ClientAbortMiddleware
             if (!context.Response.HasStarted)
             {
                 context.Response.StatusCode = ClientClosedRequestStatusCode;
+                // Why: status-code pages would re-execute the request and turn a client abort into an error page.
+                var statusCodePages = context.Features.Get<IStatusCodePagesFeature>();
+                if (statusCodePages is not null)
+                {
+                    statusCodePages.Enabled = false;
+                }
             }
         }
     }
