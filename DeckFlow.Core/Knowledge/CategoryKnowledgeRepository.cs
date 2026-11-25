@@ -411,6 +411,7 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
     /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
     /// <param name="skipReason">Reason recorded when the deck is skipped.</param>
+    /// <param name="preserveRetention">Whether retained decks preserve their retention skip reason for fetch-failure and not-found marks.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task MarkDeckProcessedAsync(
         string deckId,
@@ -418,6 +419,7 @@ public sealed class CategoryKnowledgeRepository
         bool skip = false,
         ArchidektDeckMetadata? metadata = null,
         string? skipReason = null,
+        bool preserveRetention = true,
         CancellationToken cancellationToken = default)
         => _deckQueue.MarkDeckProcessedAsync(
             deckId,
@@ -425,6 +427,7 @@ public sealed class CategoryKnowledgeRepository
             skip: skip,
             metadata: metadata,
             skipReason: skipReason,
+            preserveRetention: preserveRetention,
             cancellationToken: cancellationToken);
 
     /// <summary>
@@ -516,8 +519,9 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="deckIds">Deck IDs to update.</param>
     /// <param name="skip">Whether the decks should be skipped after failure.</param>
     /// <param name="skipReason">Reason recorded when the decks are skipped.</param>
+    /// <param name="preserveRetention">Whether retained decks preserve their retention skip reason for fetch-failure and not-found marks.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, string? skipReason = null, CancellationToken cancellationToken = default)
-        => _deckQueue.MarkDecksProcessedAsync(deckIds, skip, skipReason, cancellationToken);
+    public Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, string? skipReason = null, bool preserveRetention = true, CancellationToken cancellationToken = default)
+        => _deckQueue.MarkDecksProcessedAsync(deckIds, skip, skipReason, preserveRetention, cancellationToken);
 
 }
