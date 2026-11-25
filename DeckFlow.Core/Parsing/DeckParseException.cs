@@ -13,4 +13,9 @@ public sealed class DeckParseException : Exception
         : base(message)
     {
     }
+
+    internal bool IsQuantityOutOfRange { get; init; }
+
+    internal static DeckParseException QuantityOutOfRange(string line) =>
+        new(QuantityPrefix.OutOfRangeMessage(line)) { IsQuantityOutOfRange = true };
 }

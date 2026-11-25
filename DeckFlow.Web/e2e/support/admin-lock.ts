@@ -10,9 +10,11 @@ const basicAuthHeader = `Basic ${Buffer.from(`${adminUser}:${adminPassword}`).to
 const adminLockPort = resolveE2EPort();
 export const adminLockPath = `/tmp/deckflow-admin-e2e-${adminLockPort}.lock`;
 export const adminLockTimeoutMs = 90_000;
+// Why: Keep the 120s post-lock work budget in one place.
+export const adminLockWorkBudgetMs = adminLockTimeoutMs + 30_000;
 
 // Why: A local parallel run can queue many two-minute tests. Cap each wait at 30 minutes.
-const adminLockMaxWaitMs = 30 * 60_000;
+export const adminLockMaxWaitMs = 30 * 60_000;
 // Why: Ten minutes leaves room beyond the longest current admin-locked test timeout (four minutes).
 const adminLockMaxHoldMs = 10 * 60_000;
 const adminLockInitializationGraceMs = 5_000;
@@ -111,7 +113,7 @@ async function unlinkAdminLock(lock: Stats): Promise<void> {
   }
 }
 
-async function acquireAdminLock(): Promise<LockHandle> {
+export async function acquireAdminLock(): Promise<LockHandle> {
   const startedAt = performance.now();
 
   while (performance.now() - startedAt < adminLockMaxWaitMs) {
@@ -137,14 +139,17 @@ async function acquireAdminLock(): Promise<LockHandle> {
   throw new Error(`Timed out waiting for admin e2e lock at ${adminLockPath}`);
 }
 
-export async function acquireAdminLockForTest(page: Page): Promise<LockHandle> {
-  const info = test.info();
-  const workBudgetMs = adminLockTimeoutMs + 30_000;
-  info.setTimeout(adminLockMaxWaitMs + workBudgetMs);
+export async function applyAdminHeaders(page: Page): Promise<void> {
   await page.setExtraHTTPHeaders({
     Authorization: basicAuthHeader,
     'CF-Connecting-IP': getAdminForwardedIp(),
   });
+}
+
+export async function acquireAdminLockForTest(page: Page): Promise<LockHandle> {
+  const info = test.info();
+  info.setTimeout(adminLockMaxWaitMs + adminLockWorkBudgetMs);
+  await applyAdminHeaders(page);
 
   const startedAt = performance.now();
   const handle = await acquireAdminLock();
@@ -152,7 +157,7 @@ export async function acquireAdminLockForTest(page: Page): Promise<LockHandle> {
   const originalSetTimeout = info.setTimeout.bind(info);
   // Why: Some callers adjust their work budget after beforeEach. Keep their lock wait excluded too.
   info.setTimeout = (timeout) => originalSetTimeout(timeout === 0 ? 0 : timeout + waitedMs);
-  info.setTimeout(workBudgetMs);
+  info.setTimeout(adminLockWorkBudgetMs);
   return handle;
 }
 

@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { setToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
+import { submitImportPool } from './support/cut-lab-import';
 import { withKnowledgeBaseEnabled } from './support/knowledge-base-flag';
 import { cutLabPool, gotoOk } from './fixtures/cut-lab-pool';
 
@@ -109,64 +109,68 @@ test('mobile workflow stepper is compact (no hidden scroll, numbers shown)', asy
   await expect(firstNumber).toBeHidden();
 });
 
-test('Cut Lab mobile workflow stepper shows its short step names', async ({ page }) => {
-  const isMobile = test.info().project.name.includes('mobile');
-  await setToolEnabled(page, 'Cut Lab', true);
-  const response = await gotoOk(page, '/cut-lab');
+// The Knowledge Base describe holds the admin lock in beforeAll, so scope tool flags here.
+test.describe('Cut Lab responsive behavior', () => {
+  test.use({ enabledTools: ['Cut Lab'] });
 
-  expect(response?.ok()).toBeTruthy();
+  test('Cut Lab mobile workflow stepper shows its short step names', async ({ page }) => {
+    const isMobile = test.info().project.name.includes('mobile');
+    const response = await gotoOk(page, '/cut-lab');
 
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(cutLabPool);
-  await page.getByRole('button', { name: 'Import pool' }).click();
+    expect(response?.ok()).toBeTruthy();
 
-  const nav = page.locator('.prompt-step-nav');
-  const tabs = nav.locator('.prompt-step-tab');
-  await expect(tabs).toHaveCount(5);
+    await page.locator('#cut-lab-input-source').selectOption('PasteText');
+    await page.locator('#cut-lab-deck-text').fill(cutLabPool);
+    await submitImportPool(page);
 
-  if (!isMobile) {
-    return;
-  }
+    const nav = page.locator('.prompt-step-nav');
+    const tabs = nav.locator('.prompt-step-tab');
+    await expect(tabs).toHaveCount(5);
 
-  await expect(nav).toHaveClass(/prompt-step-nav--labeled/);
-  await expect(tabs.locator('.prompt-step-tab__label')).toHaveText([
-    'Process',
-    'Plan',
-    'Decide',
-    'Goals',
-    'Export',
-  ]);
+    if (!isMobile) {
+      return;
+    }
 
-  for (const label of await tabs.locator('.prompt-step-tab__label').all()) {
-    await expect(label).toBeVisible();
-  }
+    await expect(nav).toHaveClass(/prompt-step-nav--labeled/);
+    await expect(tabs.locator('.prompt-step-tab__label')).toHaveText([
+      'Process',
+      'Plan',
+      'Decide',
+      'Goals',
+      'Export',
+    ]);
 
-  const tabMetrics = await tabs.evaluateAll(elements => elements.map(element => {
-    const rect = element.getBoundingClientRect();
-    return { text: element.textContent?.trim(), width: rect.width, height: rect.height };
-  }));
-  expect(tabMetrics).toEqual(expect.arrayContaining([
-    expect.objectContaining({ text: '1Process' }),
-    expect.objectContaining({ text: '2Plan' }),
-    expect.objectContaining({ text: '3Decide' }),
-    expect.objectContaining({ text: '4Goals' }),
-    expect.objectContaining({ text: '5Export' }),
-  ]));
-  expect(tabMetrics.every(tab => tab.width >= 44 && tab.height >= 44)).toBe(true);
-  // Why: The rail fits without scrolling since the G2 step-rail redesign.
-  const navBounds = await nav.boundingBox();
-  expect(navBounds).not.toBeNull();
-  for (const tab of await tabs.all()) {
-    const bounds = await tab.boundingBox();
-    expect(bounds).not.toBeNull();
-    expect(bounds!.x).toBeGreaterThanOrEqual(navBounds!.x - 0.5);
-    expect(bounds!.y).toBeGreaterThanOrEqual(navBounds!.y - 0.5);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(navBounds!.x + navBounds!.width + 0.5);
-    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(navBounds!.y + navBounds!.height + 0.5);
-  }
-  for (const label of await tabs.locator('.prompt-step-tab__label').all()) {
-    expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
-  }
+    for (const label of await tabs.locator('.prompt-step-tab__label').all()) {
+      await expect(label).toBeVisible();
+    }
+
+    const tabMetrics = await tabs.evaluateAll(elements => elements.map(element => {
+      const rect = element.getBoundingClientRect();
+      return { text: element.textContent?.trim(), width: rect.width, height: rect.height };
+    }));
+    expect(tabMetrics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ text: '1Process' }),
+      expect.objectContaining({ text: '2Plan' }),
+      expect.objectContaining({ text: '3Decide' }),
+      expect.objectContaining({ text: '4Goals' }),
+      expect.objectContaining({ text: '5Export' }),
+    ]));
+    expect(tabMetrics.every(tab => tab.width >= 44 && tab.height >= 44)).toBe(true);
+    // Why: The rail fits without scrolling since the G2 step-rail redesign.
+    const navBounds = await nav.boundingBox();
+    expect(navBounds).not.toBeNull();
+    for (const tab of await tabs.all()) {
+      const bounds = await tab.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(navBounds!.x - 0.5);
+      expect(bounds!.y).toBeGreaterThanOrEqual(navBounds!.y - 0.5);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(navBounds!.x + navBounds!.width + 0.5);
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(navBounds!.y + navBounds!.height + 0.5);
+    }
+    for (const label of await tabs.locator('.prompt-step-tab__label').all()) {
+      expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    }
+  });
 });
 
 test('deck primer section groups collapse on mobile', async ({ page }) => {

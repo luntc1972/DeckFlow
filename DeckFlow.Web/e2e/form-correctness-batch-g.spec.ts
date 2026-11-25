@@ -1,5 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-import { withToolEnabled } from './support/admin-tools';
+import type { Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 
 // Regression specs for Batch G — five form-correctness defects where the app did the
 // wrong thing rather than the ugly thing. Sourced from the 2026-08-02 second front-end
@@ -208,7 +208,7 @@ test.describe('G3 — printing-conflict resolution must be reachable with JS on'
   // /sync is flag-gated (tool.deck-sync.enabled). Flag state persists in the dev
   // database, so the original value is captured and restored rather than assumed —
   // forcing it off here previously broke the /sync smoke, scripts and responsive specs.
-  withToolEnabled('Deck Sync');
+  test.use({ enabledTools: ['Deck Sync'] });
 
   test('the JS-path conflicts panel is a form that posts to /resolve', async ({ page }) => {
     await page.goto('/sync');
@@ -235,7 +235,7 @@ test.describe('G4 — deck text must survive navigating away and back', () => {
 // here behind a transient admin toggle. The original flag value is captured and
 // restored — flag state persists in the dev database.
 test.describe('Bracket — G1 and G4 behind the tool flag', () => {
-  withToolEnabled('Bracket Check');
+  test.use({ enabledTools: ['Bracket Check'] });
 
   test('Enter classifies the deck instead of doing nothing useful', async ({ page }) => {
     await page.goto('/bracket');

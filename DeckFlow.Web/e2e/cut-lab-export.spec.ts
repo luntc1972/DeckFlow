@@ -1,12 +1,7 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
-
-import { resolveE2EPort } from './support/e2e-port';
-
-const baseUrl = `http://localhost:${resolveE2EPort()}`;
+import { importPool } from './support/cut-lab-import';
 
 const oversizedPool = [
   'Commander',
@@ -31,29 +26,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto(`${baseUrl}/cut-lab`);
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await fillImportForm(page);
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-};
-
-const fillImportForm = async (page: Page): Promise<void> => {
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-};
+test.use({ enabledTools: ['Cut Lab'] });
 
 const waitForCutRounds = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
@@ -96,18 +70,8 @@ const cutToTarget = async (page: Page): Promise<void> => {
   throw new Error('Expected to reach exactly 100 cards within 12 accepted cuts.');
 };
 
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
-
 test('keeps export disabled until the working list reaches exactly 100 cards', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
 
   const exportTab = getExportTab(page);
@@ -125,7 +89,7 @@ test('keeps export disabled until the working list reaches exactly 100 cards', a
 });
 
 test('live-updates the export panel card count after an AJAX cut decision without building the export', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
 
   const exportPanel = getExportPanel(page);
@@ -143,7 +107,7 @@ test('live-updates the export panel card count after an AJAX cut decision withou
 });
 
 test('builds the export once accepted cuts reach the target count and shows the validation summary', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
   await cutToTarget(page);
 

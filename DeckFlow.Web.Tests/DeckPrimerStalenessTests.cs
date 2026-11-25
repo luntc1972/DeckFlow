@@ -192,6 +192,18 @@ public sealed class DeckPrimerStalenessTests
     }
 
     [Fact]
+    public void TryParseDeckTextLocal_OutOfRangeQuantityThrowsRangeMessage()
+    {
+        var service = CreateService();
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => service.TryParseDeckTextLocal("1 Sol Ring\n1000 Island"));
+
+        Assert.Contains("0..999", exception.Message);
+        Assert.Contains("1000 Island", exception.Message);
+    }
+
+    [Fact]
     public void TryParseDeckTextLocal_ValidExportUsesRealLocalParser()
     {
         var service = CreateService();

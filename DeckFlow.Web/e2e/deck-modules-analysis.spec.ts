@@ -1,7 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { withToolEnabled } from './support/admin-tools';
 import { uiDesignDir } from './support/ui-design-dir';
 import { assignWithKeyboard } from './support/deck-modules-assign';
 
@@ -9,7 +8,7 @@ const winotaDeck = readFileSync(join(__dirname, 'fixtures', 'winota-cedh.txt'), 
 
 test.describe.configure({ mode: 'serial' });
 test.setTimeout(120_000);
-withToolEnabled('Deck Modules');
+test.use({ enabledTools: ['Deck Modules'] });
 
 test('analyzes a compiled configuration', async ({ page }, testInfo) => {
   const response = await page.goto('/deck-modules');

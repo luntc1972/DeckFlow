@@ -1,9 +1,9 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 import { join } from 'node:path';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { openIntake } from './support/cut-lab-details';
+import { fillImportPool, importPool, submitImportPool } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -44,11 +44,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const getExportTab = (page: Page): Locator => page.locator('#cut-lab-step-tab-5');
 
@@ -61,24 +58,6 @@ const getScenarioRow = (page: Page, scenarioName: string): Locator =>
   page.locator('.cutlab-scenarios__item').filter({
     has: page.locator('strong.cutlab-scenarios__name', { hasText: scenarioName }),
   });
-
-const fillImportForm = async (page: Page): Promise<void> => {
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-};
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto(`${baseUrl}/cut-lab`);
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await fillImportForm(page);
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-};
 
 const waitForCutRounds = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
@@ -197,7 +176,7 @@ const clearCutLabSessionCache = async (page: Page): Promise<void> => {
 };
 
 const tuneToExactHundredWithAddedBasic = async (page: Page): Promise<void> => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
   await acceptUntilRemainingBySingleCopyCuts(page, 2);
 
@@ -218,7 +197,7 @@ const tuneToExactHundredWithAddedBasic = async (page: Page): Promise<void> => {
 };
 
 const tuneToExactHundredWithExistingBasics = async (page: Page): Promise<void> => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   await waitForCutRounds(page);
   await acceptUntilRemainingBySingleCopyCuts(page, 2);
 
@@ -243,18 +222,8 @@ const setTheme = async (page: Page, themeCookie: string): Promise<void> => {
   await page.context().addCookies([{ name: 'deckflow-theme', value: themeCookie, url: baseUrl }]);
 };
 
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
 test.afterEach(async ({ page }) => {
-  try {
-    await clearScenarioStorage(page);
-  } finally {
-    await releaseAdminLockForTest(heldLock);
-    heldLock = null;
-  }
+  await clearScenarioStorage(page);
 });
 
 test('exports tuned CUT and ADD counts after trimming a basic and adding a new basic', async ({ page }) => {
@@ -295,10 +264,7 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
   await expect(page.locator('[data-cut-lab-scenario-status]')).toHaveText('Scenario saved.');
   await expect(getScenarioRow(page, scenarioName)).toBeVisible();
 
-  const intakeDetails = page.locator('details.cutlab-intake');
-  if (!(await intakeDetails.getAttribute('open'))) {
-    await intakeDetails.locator(':scope > summary').click();
-  }
+  const intakeDetails = await openIntake(page);
   await page.locator('[data-clear-cache]').click();
   await expect(page.getByRole('heading', { name: 'No pool imported yet' })).toBeVisible({ timeout: 30_000 });
   await clearCutLabSessionCache(page);
@@ -309,8 +275,8 @@ test('tunes to exactly 100 with basic steppers, then reloads a saved scenario wi
     }
   });
 
-  await fillImportForm(page);
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await fillImportPool(page, oversizedPool);
+  await submitImportPool(page);
   await waitForCutRounds(page);
   await expandMobileCollapsibles(page);
 

@@ -1,8 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { getToolEnabled, setToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { importPool } from './support/cut-lab-import';
 import { cutLabPool } from './fixtures/cut-lab-pool';
 
 // E2E coverage for the Step 2 deck-archetype picker and its plan-apply round trip at desktop
@@ -10,46 +8,11 @@ import { cutLabPool } from './fixtures/cut-lab-pool';
 // Admin creds: read from FEEDBACK_ADMIN_USER / FEEDBACK_ADMIN_PASSWORD env vars. The Cut Lab
 // feature flag is enabled transiently and restored after each test.
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-let cutLabWasEnabled: boolean | null = null;
-
 test.describe.configure({ mode: 'serial' });
-
-test.beforeEach(async ({ page }) => {
-  cutLabWasEnabled = null;
-  heldLock = await acquireAdminLockForTest(page);
-  cutLabWasEnabled = await getToolEnabled(page, 'Cut Lab');
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async ({ page }) => {
-  try {
-    if (cutLabWasEnabled !== null) {
-      await setToolEnabled(page, 'Cut Lab', cutLabWasEnabled);
-    }
-  } finally {
-    await releaseAdminLockForTest(heldLock);
-    heldLock = null;
-    cutLabWasEnabled = null;
-  }
-});
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(cutLabPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-  await expandCutLabSection(page, 'cut-lab-section-plan-panel');
-  await expect(page.locator('[data-cut-lab-plan-panel]')).toBeVisible({ timeout: 30_000 });
-};
+test.use({ enabledTools: ['Cut Lab'] });
 
 test('Archetype picker renders and applies Stax on desktop and mobile', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, cutLabPool, { landing: 'plan-panel' });
   await expandMobileCollapsibles(page);
 
   const archetypes = page.locator('[data-cut-lab-plan-archetypes] input[type="radio"]');

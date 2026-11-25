@@ -1,9 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
 import { join } from 'node:path';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
+import { expect, test } from './support/admin-fixtures';
 import { setToolEnabled } from './support/admin-tools';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { openIntake } from './support/cut-lab-details';
+import { importPoolToLandsGroup, submitImportPool } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -45,38 +45,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expandCutLabSection(page, 'cut-lab-section-competes');
-  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
-  await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-};
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
+test.use({ enabledTools: ['Cut Lab'] });
 
 test('/cut-lab renders the intake, intent controls, and hidden state field when the flag is ON', async ({ page }) => {
   const response = await page.goto('/cut-lab');
@@ -94,7 +64,7 @@ test('/cut-lab renders the intake, intent controls, and hidden state field when 
 });
 
 test('imports a pool, locks lands and a package, then preserves those edits across a resubmit', async ({ page }) => {
-  await importPool(page);
+  await importPoolToLandsGroup(page, oversizedPool);
   await expandMobileCollapsibles(page);
 
   const landsLockButton = page.locator('[data-cut-lab-lock-role="lands"]');
@@ -117,8 +87,8 @@ test('imports a pool, locks lands and a package, then preserves those edits acro
   await expect(hiddenState).toHaveValue(/"name":"Plains".*"isLocked":true/);
   await expect(hiddenState).toHaveValue(/"name":"Fast mana"/);
 
-  await page.locator('details.cutlab-intake > summary').click();
-  await page.getByRole('button', { name: 'Import pool' }).click();
+  await openIntake(page);
+  await submitImportPool(page);
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
   await expandMobileCollapsibles(page);
@@ -141,7 +111,7 @@ test('captures imported Cut Lab screenshots across themes and viewports', async 
     for (const theme of themes) {
       await page.context().clearCookies();
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
-      await importPool(page);
+      await importPoolToLandsGroup(page, oversizedPool);
 
       const screenshotPath = join(
         screenshotDir,

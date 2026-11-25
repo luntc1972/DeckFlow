@@ -1,9 +1,10 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { contrastRatio, resolveContrast, type RgbColor } from './support/contrast';
+import { ensureDetailsOpen, openIntake, openRoleGroup } from './support/cut-lab-details';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { waitForDecide } from './support/cut-lab-decide';
+import { importPoolToLandsGroup } from './support/cut-lab-import';
 
 import { resolveE2EPort } from './support/e2e-port';
 
@@ -64,7 +65,6 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 type FocusIndicatorSnapshot = {
   focusVisible: boolean;
   source: string;
@@ -72,38 +72,10 @@ type FocusIndicatorSnapshot = {
   indicator: RgbColor | null;
 };
 
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 const formatColor = ({ r, g, b }: RgbColor): string => `rgb(${r}, ${g}, ${b})`;
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await page.getByRole('tab', { name: 'Process' }).click();
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expandCutLabSection(page, 'cut-lab-section-competes');
-  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
-  await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-};
-
-const ensureDetailsOpen = async (details: Locator): Promise<void> => {
-  if ((await details.getAttribute('open')) !== null) {
-    return;
-  }
-
-  await details.locator(':scope > summary').click();
-  await expect(details).toHaveAttribute('open', '');
-};
 
 const ensureCutRoundsVisible = async (page: Page): Promise<void> => {
   await page.getByRole('tab', { name: 'Decide' }).click();
@@ -112,11 +84,9 @@ const ensureCutRoundsVisible = async (page: Page): Promise<void> => {
   const stickyBar = page.locator('.cutlab-sticky-bar[data-cut-lab-sticky-target]');
   if (!(await stickyBar.isVisible())) {
     const acceptButton = page.locator('.cutlab-proposal .cutlab-decision-btn--accept');
-    const decideResponse = page.waitForResponse(response =>
-      response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-    await acceptButton.click();
-    const response = await decideResponse;
-    expect(response.ok(), 'Cut Lab decide request must succeed while revealing readability targets').toBeTruthy();
+    await waitForDecide(page, () => acceptButton.click(), {
+      message: 'Cut Lab decide request must succeed while revealing readability targets',
+    });
   }
 
   await expect(stickyBar).toBeVisible();
@@ -393,16 +363,6 @@ const assertFocusIndicatorContrast = async (
   ).toBeGreaterThanOrEqual(minimumRatio);
 };
 
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
-
 test('keeps the Cut Lab named elements readable across every supported theme', async ({ page }) => {
   // Why: Reduced motion makes Cut Lab tab scrolls instant and the focus-ring reads deterministic.
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -410,15 +370,14 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await page.context().clearCookies();
     await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
 
-    await importPool(page);
+    await importPoolToLandsGroup(page, oversizedPool);
     await ensureCutRoundsVisible(page);
 
     await page.getByRole('tab', { name: 'Process' }).click();
     await expandCutLabSection(page, 'cut-lab-section-competes');
     await expandCutLabSection(page, 'cut-lab-section-structural');
 
-    const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-    await ensureDetailsOpen(landsGroup);
+  const landsGroup = await openRoleGroup(page, 'Lands');
 
     const packagePanel = await createFastManaPackage(page);
     const packageToggle = packagePanel.locator('input[data-cut-lab-package-toggle]');
@@ -449,7 +408,7 @@ test('keeps the Cut Lab named elements readable across every supported theme', a
     await assertContrastFloor(theme.name, 'Lands role chip', roleChip, 3.0);
     // Structural findings carry explanatory body copy and evidence context, so they use the 4.5 AA body-text floor.
     await assertContrastFloor(theme.name, 'structural findings panel', findingsPanel, 4.5);
-    await page.locator('details.cutlab-intake > summary').click();
+  await openIntake(page);
     // The enhanced df-select trigger renders normal form-control text, so it must clear 4.5 AA.
     await assertContrastFloor(theme.name, 'input source select trigger', selectTrigger, 4.5);
     await assertFocusIndicatorContrast(theme.name, 'input source select trigger', page, selectTrigger, 3.0);
@@ -505,7 +464,7 @@ test('keeps intake and progress components readable at workflow viewports', asyn
       await page.goto('/cut-lab');
       await page.evaluate(() => window.localStorage.clear());
 
-      await importPool(page);
+      await importPoolToLandsGroup(page, oversizedPool);
       const intakeSummary = page.locator('.cutlab-intake-summary');
       await assertContrastFloor(`${theme.name} ${viewport.name}`, 'intake summary', intakeSummary, 4.5);
 

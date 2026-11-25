@@ -82,23 +82,35 @@ public sealed partial class ArchidektParser : IParser
         return entries;
     }
 
+    internal static bool TryParseCategorizedCardLine(string line, string defaultBoard, out DeckEntry entry)
+    {
+        entry = default!;
+        return IsCategorizedCardLine(line) && TryParseEntry(line, defaultBoard, allowImplicitQuantity: false, out entry);
+    }
+
+    private static bool IsCategorizedCardLine(string line)
+    {
+        var cardLine = StripTrailingTags(line.Trim());
+        return QuantityPrefix.Pattern().IsMatch(cardLine) && CategoryRegex().IsMatch(cardLine);
+    }
+
     private static bool TryParseEntry(string line, string defaultBoard, bool allowImplicitQuantity, out DeckEntry entry)
     {
         entry = default!;
 
         var quantity = 1;
         var remainder = line;
-        var match = QuantityRegex().Match(line);
-        if (match.Success)
+        var parsedPrefix = QuantityPrefix.Parse(line);
+        if (parsedPrefix is { } prefix)
         {
-            quantity = int.Parse(match.Groups["quantity"].Value);
-            remainder = match.Groups["rest"].Value.Trim();
+            (quantity, remainder) = prefix;
         }
         else if (!allowImplicitQuantity)
         {
             return false;
         }
 
+        remainder = StripTrailingTags(remainder);
         var hashtagCategories = ExtractHashtagCategories(ref remainder);
         string? categoryText = null;
         var categoryMatch = CategoryRegex().Match(remainder);
@@ -147,7 +159,7 @@ public sealed partial class ArchidektParser : IParser
         }
         else
         {
-            if (!match.Success && hashtagCategories.Count == 0)
+            if (!parsedPrefix.HasValue && hashtagCategories.Count == 0)
             {
                 return false;
             }
@@ -217,6 +229,7 @@ public sealed partial class ArchidektParser : IParser
         }
 
         if (string.Equals(normalized, "Mainboard", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Main", StringComparison.OrdinalIgnoreCase)
             || string.Equals(normalized, "Deck", StringComparison.OrdinalIgnoreCase))
         {
             board = "mainboard";
@@ -274,11 +287,13 @@ public sealed partial class ArchidektParser : IParser
         return categories;
     }
 
-    [GeneratedRegex(@"^(?<quantity>\d+)\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
-    private static partial Regex QuantityRegex();
-
     [GeneratedRegex(@"^(?<name>.+?)\s+\[(?<categories>.*)\]$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex CategoryRegex();
+
+    private static string StripTrailingTags(string line) => TrailingTagsRegex().Replace(line, string.Empty);
+
+    [GeneratedRegex(@"\s+(?:\^[^^]*\^\s*)+$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    private static partial Regex TrailingTagsRegex();
 
     [GeneratedRegex(@"^(?<name>.+?)\s+\((?<set>[^)]+)\)\s+(?<collector>\S+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex PrintingRegex();

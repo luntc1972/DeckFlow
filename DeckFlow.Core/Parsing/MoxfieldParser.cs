@@ -100,7 +100,7 @@ public sealed partial class MoxfieldParser : IParser
                 entryBoard = "sideboard";
             }
 
-            var hasExplicitQuantity = QuantityRegex().IsMatch(entryLine);
+            var hasExplicitQuantity = QuantityPrefix.Pattern().IsMatch(entryLine);
             if (!TryParseEntry(entryLine, entryBoard, allowImplicitQuantity: !stoppingSectionActive, out var entry))
             {
                 if (stoppingSectionActive && !hasExplicitQuantity)
@@ -197,11 +197,10 @@ public sealed partial class MoxfieldParser : IParser
 
         var quantity = 1;
         var remainder = line;
-        var match = QuantityRegex().Match(line);
-        if (match.Success)
+        var parsedPrefix = QuantityPrefix.Parse(line);
+        if (parsedPrefix is { } prefix)
         {
-            quantity = int.Parse(match.Groups["quantity"].Value);
-            remainder = match.Groups["rest"].Value.Trim();
+            (quantity, remainder) = prefix;
         }
         else if (!allowImplicitQuantity)
         {
@@ -247,10 +246,16 @@ public sealed partial class MoxfieldParser : IParser
             setCode = NullIfWhiteSpace(setMatch.Groups["set"].Value);
             collectorNumber = NullIfWhiteSpace(setMatch.Groups["collector"].Value);
         }
-        else if (!match.Success && string.IsNullOrWhiteSpace(remainder))
+        else if (!parsedPrefix.HasValue && string.IsNullOrWhiteSpace(remainder))
         {
             return false;
         }
+
+        // Why: A marker embedded in the raw name survives the trailing-marker checks but is removed by CleanName.
+        isFoil = isFoil
+            || rawName.Contains('★')
+            || rawName.Contains("*F*", StringComparison.OrdinalIgnoreCase)
+            || rawName.Contains("*E*", StringComparison.OrdinalIgnoreCase);
 
         var cleanName = CleanName(rawName);
         if (string.IsNullOrWhiteSpace(cleanName))
@@ -350,7 +355,7 @@ public sealed partial class MoxfieldParser : IParser
             return true;
         }
 
-        if (IsSectionHeader(line, "Mainboard") || IsSectionHeader(line, "Deck"))
+        if (IsSectionHeader(line, "Mainboard") || IsSectionHeader(line, "Main") || IsSectionHeader(line, "Deck"))
         {
             board = "mainboard";
             return true;
@@ -461,9 +466,6 @@ public sealed partial class MoxfieldParser : IParser
     }
 
     private static string? NullIfWhiteSpace(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-    [GeneratedRegex(@"^(?<quantity>\d+)\s+(?<rest>.+)$", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
-    private static partial Regex QuantityRegex();
 
     [GeneratedRegex(@"\s+#(?<tag>[A-Za-z0-9][A-Za-z0-9_-]*)", RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex HashtagRegex();

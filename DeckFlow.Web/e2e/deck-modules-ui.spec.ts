@@ -1,14 +1,13 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { withToolEnabled } from './support/admin-tools';
 import { assignWithKeyboard } from './support/deck-modules-assign';
 
 const winotaDeck = readFileSync(join(__dirname, 'fixtures', 'winota-cedh.txt'), 'utf8').trim();
 
 test.describe.configure({ mode: 'serial' });
 test.setTimeout(120_000);
-withToolEnabled('Deck Modules');
+test.use({ enabledTools: ['Deck Modules'] });
 
 test('shows blank-slate guidance before import and contextual guidance after import', async ({ page }) => {
   await page.goto('/deck-modules');

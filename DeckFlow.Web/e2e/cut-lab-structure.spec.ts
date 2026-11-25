@@ -1,9 +1,10 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 import { join } from 'node:path';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { ensureDetailsOpen, openRoleGroup } from './support/cut-lab-details';
+import { waitForDecide } from './support/cut-lab-decide';
+import { importPool } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -45,27 +46,14 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
-const importPool = async (page: Page, pool = oversizedPool, commander = 'Zur the Enchanter'): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(pool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+const importPoolToRoleFloors = async (page: Page, pool = oversizedPool, commander = 'Zur the Enchanter'): Promise<void> => {
+  await importPool(page, pool, { commander });
   await expandCutLabSection(page, 'cut-lab-section-competes');
   await expandCutLabSection(page, 'cut-lab-section-structural');
   await expandCutLabSection(page, 'cut-lab-section-role-floors');
-  await expect(page.locator(`tr[data-cut-lab-card="${commander}"]`)).toHaveAttribute('data-cut-lab-commander', 'true');
 };
 
 const waitForCutRounds = async (page: Page, enhancedTabs = true): Promise<void> => {
@@ -109,10 +97,7 @@ const rejectCurrentProposal = async (page: Page): Promise<string> => {
   const heading = proposal.locator('.cutlab-proposal__heading');
   const proposalHeading = await heading.textContent();
   const cardName = proposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
-  const decideResponse = page.waitForResponse(response =>
-    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-  await proposal.locator('.cutlab-decision-btn--reject').click();
-  expect((await decideResponse).ok()).toBeTruthy();
+  await waitForDecide(page, () => proposal.locator('.cutlab-decision-btn--reject').click());
   return cardName;
 };
 
@@ -143,18 +128,8 @@ const getFloorDefault = async (row: Locator): Promise<number> => {
   return Number.parseInt(rawDefault ?? '0', 10);
 };
 
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
-
 test('renders the three structure sections with 13 collapsed role groups and 10 floor inputs', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
 
   await expect(page.getByRole('heading', { name: 'How your pool competes' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Structural findings' })).toBeVisible();
@@ -170,7 +145,7 @@ test('renders the three structure sections with 13 collapsed role groups and 10 
 
 test('renders 14 role groups and 10 floor inputs for a lifegain commander', async ({ page }) => {
   const pool = ['Commander', '1 Karlov of the Ghost Council', '', 'Deck', '50 Plains', '50 Swamp', '1 Soul Warden'].join('\n');
-  await importPool(page, pool, 'Karlov of the Ghost Council');
+  await importPoolToRoleFloors(page, pool, 'Karlov of the Ghost Council');
 
   await expect(page.locator('details.cutlab-role-group[data-cutlab-group-kind="role"]')).toHaveCount(14);
   await expect(page.locator('input[data-cut-lab-floor]')).toHaveCount(10);
@@ -178,7 +153,7 @@ test('renders 14 role groups and 10 floor inputs for a lifegain commander', asyn
 });
 
 test('live-patches the structural findings section after a JS decide without a reload', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
   await waitForCutRounds(page);
 
   const findingsSection = page.locator('[data-cut-lab-structural-findings]');
@@ -187,13 +162,7 @@ test('live-patches the structural findings section after a JS decide without a r
   const beforeSectionText = await findingsSection.textContent();
   const navigationCountBefore = await page.evaluate(() => performance.getEntriesByType('navigation').length);
 
-  const responsePromise = page.waitForResponse(response =>
-    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-
-  await acceptCurrentProposal(page);
-
-  const response = await responsePromise;
-  expect(response.ok()).toBeTruthy();
+  await waitForDecide(page, () => acceptCurrentProposal(page));
 
   await expect(findingsBody).not.toHaveText(beforeBodyText ?? '');
   await expect(findingsSection).not.toHaveText(beforeSectionText ?? '');
@@ -202,11 +171,10 @@ test('live-patches the structural findings section after a JS decide without a r
 });
 
 test('opens the Lands group, shows member chips, and toggles land rows from the group pill', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
 
   await expandCutLabSection(page, 'cut-lab-section-competes');
-  const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-  await landsGroup.locator(':scope > summary').click();
+  const landsGroup = await openRoleGroup(page, 'Lands');
   const lockAllButton = landsGroup.locator('[data-cut-lab-lock-role="lands"]');
 
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
@@ -228,7 +196,7 @@ test('opens the Lands group, shows member chips, and toggles land rows from the 
 });
 
 test('marks interaction-targeted as adjusted after floor edits and writes roleFloors into hidden state', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
 
   const interactionRow = getRoleFloorRow(page, 'interaction-targeted');
   const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction-targeted"]');
@@ -248,7 +216,7 @@ test('marks interaction-targeted as adjusted after floor edits and writes roleFl
 });
 
 test('preserves the adjusted interaction-targeted floor and badge across Recalculate', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
 
   const interactionRow = getRoleFloorRow(page, 'interaction-targeted');
   const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction-targeted"]');
@@ -266,7 +234,7 @@ test('preserves the adjusted interaction-targeted floor and badge across Recalcu
 });
 
 test('shows the at floor marker when a floor is raised to within 1 of the role count', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
 
   const interactionRow = getRoleFloorRow(page, 'interaction-targeted');
   const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction-targeted"]');
@@ -280,7 +248,7 @@ test('shows the at floor marker when a floor is raised to within 1 of the role c
 });
 
 test('resets an adjusted interaction-targeted floor back to its default value', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
 
   const interactionRow = getRoleFloorRow(page, 'interaction-targeted');
   const interactionInput = interactionRow.locator('input[data-cut-lab-floor="interaction-targeted"]');
@@ -299,7 +267,7 @@ test('resets an adjusted interaction-targeted floor back to its default value', 
 });
 
 test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row compare table', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
   await waitForCutRounds(page);
   await expect(page.locator('.cutlab-sticky-bar[data-cut-lab-sticky-target]')).toBeVisible();
   await expect(page.locator('[data-cut-lab-sticky-locked]')).toContainText('1 locked');
@@ -337,7 +305,7 @@ test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row
 
   await page.getByRole('tab', { name: 'Goals' }).click();
   const compareDetails = page.locator('details.cutlab-compare');
-  await compareDetails.locator(':scope > summary').click();
+  await ensureDetailsOpen(compareDetails);
   await expect(compareDetails.locator('table[data-prompt-cedh-reference-table]')).toBeVisible();
   await expect(compareDetails.locator('thead th')).toHaveText([
     'Metric',
@@ -351,7 +319,7 @@ test('accepts a proposal without a reload, keeps copy neutral, and shows a 7-row
 });
 
 test('restores an accepted cut and reverts the working list counts', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
   await waitForCutRounds(page);
 
   const startingRemaining = await getStickyRemainingCount(page);
@@ -373,7 +341,7 @@ test('restores an accepted cut and reverts the working list counts', async ({ pa
 });
 
 test('restarts rounds 1 and 2 without undoing accepted cuts or touching later-round decisions', async ({ page }) => {
-  await importPool(page);
+  await importPoolToRoleFloors(page);
   await waitForCutRounds(page);
 
   const round1RejectedCard = 'Counterspell';
@@ -448,35 +416,16 @@ test('submits the accept form through the no-JS fallback and re-renders with the
   const noJsPage = await context.newPage();
 
   try {
-    // Intake's paste-panel toggle is JS-driven (server renders it hidden for the default Url
-    // source), so arrange the form with an injected evaluate — Playwright evaluate still runs
-    // when page scripts are disabled. The decision under test below remains a native form POST.
-    await noJsPage.goto('/cut-lab');
-    await expect(noJsPage.locator('h1')).toHaveText('Cut Lab');
-    await noJsPage.locator('#cut-lab-input-source').selectOption('PasteText');
-    await noJsPage.evaluate(() => {
-      document.querySelector('[data-sync-panel="cut-lab-deck-text"]')?.classList.remove('hidden');
-      document.querySelector('[data-sync-panel="cut-lab-deck-url"]')?.classList.add('hidden');
-    });
-    await noJsPage.locator('#cut-lab-deck-text').fill(oversizedPool);
-    await clickManabasePillRadio(noJsPage, 'Bracket', '4');
-    await clickManabasePillRadio(noJsPage, 'PlayExperience', 'Focused');
-    await noJsPage.getByRole('button', { name: 'Import pool' }).click();
+    await importPool(noJsPage, oversizedPool, { scriptsDisabled: true, landing: 'none' });
     await waitForCutRounds(noJsPage, false);
 
     const startingProposalHeading = await noJsPage.locator('.cutlab-proposal__heading').textContent();
     const startingCardName = startingProposalHeading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
-    const decideRequestPromise = noJsPage.waitForRequest(request =>
-      request.isNavigationRequest()
-      && request.method() === 'POST'
-      && request.url().includes('/cut-lab/decide'),
+    await waitForDecide(
+      noJsPage,
+      () => noJsPage.locator('.cutlab-proposal .cutlab-decision-btn--accept').click(),
+      { navigation: true },
     );
-    const navigationPromise = noJsPage.waitForNavigation({ waitUntil: 'domcontentloaded' });
-
-    await noJsPage.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
-
-    const [decideRequest] = await Promise.all([decideRequestPromise, navigationPromise]);
-    expect(decideRequest.url()).toContain('/cut-lab/decide');
 
     await expect(noJsPage.locator('.cutlab-cuts-made__row')).toContainText(startingCardName);
     await expect(noJsPage.locator('.cutlab-proposal__heading')).not.toHaveText(startingProposalHeading ?? '');
@@ -492,9 +441,9 @@ test('captures the structure screenshot matrix across themes and viewports', asy
     for (const theme of themes) {
       await page.context().clearCookies();
       await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
-      await importPool(page);
+      await importPoolToRoleFloors(page);
       await expandCutLabSection(page, 'cut-lab-section-competes');
-      await page.locator('details.cutlab-role-group').filter({ hasText: 'Targeted removal' }).locator(':scope > summary').click();
+      await openRoleGroup(page, 'Targeted removal');
       await page.locator('input[data-cut-lab-floor="interaction-targeted"]').scrollIntoViewIfNeeded();
 
       await page.screenshot({
@@ -516,7 +465,7 @@ test('captures the structure screenshot matrix across themes and viewports', asy
 
       const compareDetails = page.locator('details.cutlab-compare');
       await page.getByRole('tab', { name: 'Goals' }).click();
-      await compareDetails.locator(':scope > summary').click();
+      await ensureDetailsOpen(compareDetails);
       await compareDetails.scrollIntoViewIfNeeded();
       await compareDetails.screenshot({
         path: join(screenshotDir, `compare-${theme.name}-${viewport.name}.png`),

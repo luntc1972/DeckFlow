@@ -1,8 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { importPool } from './support/cut-lab-import';
 import { resolveE2EPort } from './support/e2e-port';
 
 const baseUrl = `http://localhost:${resolveE2EPort()}`;
@@ -30,28 +29,8 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
-
-const fillImportForm = async (page: Page): Promise<void> => {
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-};
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto(`${baseUrl}/cut-lab`);
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await fillImportForm(page);
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-};
+test.use({ enabledTools: ['Cut Lab'] });
 
 const clearScenarioStorage = async (page: Page): Promise<void> => {
   if (page.isClosed()) {
@@ -75,23 +54,13 @@ const clearScenarioStorage = async (page: Page): Promise<void> => {
   }
 };
 
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
 test.afterEach(async ({ page }) => {
-  try {
-    await clearScenarioStorage(page);
-  } finally {
-    await releaseAdminLockForTest(heldLock);
-    heldLock = null;
-  }
+  await clearScenarioStorage(page);
 });
 
 
 test('edits card roles, preserves them through locks, and resets inferred roles', async ({ page }) => {
-  await importPool(page);
+  await importPool(page, oversizedPool, { commander: 'Zur the Enchanter' });
   const solRing = page.locator('tr[data-cut-lab-card="Sol Ring"]');
   const roleCell = solRing.locator('[data-label="Type / role"]');
   const mainState = page.locator('form[data-cache-key="cut-lab"] input[name="CutLabStateJson"]');

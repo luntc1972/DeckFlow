@@ -14,6 +14,13 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 - Preview shows queued for refetch.
 - Retention-archived decks keep their retention reason when a fetch fails.
 
+### Unreleased — Archidekt paste fixes (2026-11-23)
+
+- **`1x` quantities:** Pasted Archidekt lists that write quantities as `1x Card Name` now parse. Previously Convert rejected them, and other tools that accept a pasted list (and Card Lookup) silently kept `1x` as part of the card name.
+- **`Main:` header:** A `Main:` section header in a pasted deck list is now read as the mainboard, instead of being treated as a card.
+- **Category tags:** Pasted Archidekt lines such as `1x Sol Ring (cmr) 123 [Ramp]` now keep the clean card name, set code, foil finish, and `[Commander]` placement when a tool detects the paste format itself, or when Archidekt is chosen as the source. Choosing Moxfield as the source still keeps the tag in the card name. Trailing Archidekt tags like `^Have,#37d67a^` are ignored.
+- **Convert errors:** When a pasted list can't be parsed, the Convert page shows the parse error instead of a generic error page.
+
 ### Unreleased — Admin Harvest processing stats
 
 - The **Decks processed in last 30 days** metric now uses the latest processing time. Decks queued earlier count once processed within the window. Skipped decks, decks waiting to be processed again, and decks without a recorded processing time are excluded.

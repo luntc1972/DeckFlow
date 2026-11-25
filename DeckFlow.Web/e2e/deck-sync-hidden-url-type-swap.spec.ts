@@ -1,7 +1,6 @@
-import { expect, test } from '@playwright/test';
-import { withToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
 
-withToolEnabled('Bracket Check');
+test.use({ enabledTools: ['Bracket Check'] });
 
 test('submits bracket paste text when hidden URL contains a scheme-less value', async ({ page }) => {
   await page.goto('/bracket');

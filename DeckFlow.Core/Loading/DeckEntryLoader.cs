@@ -133,26 +133,48 @@ public sealed class DeckEntryLoader : IDeckEntryLoader
 
         try
         {
-            return new DeckSourceLoadResult(_moxfieldParser.ParseText(deckSource), null);
-        }
-        catch (DeckParseException)
-        {
-        }
+            if (TryParseMoxfieldPaste(deckSource) is { } moxfieldResult)
+            {
+                return moxfieldResult;
+            }
 
-        if (unrecognizedBehavior == UnrecognizedPasteBehavior.PropagateParseException)
-        {
             return new DeckSourceLoadResult(_archidektParser.ParseText(deckSource), null);
         }
-
-        try
+        catch (DeckParseException exception) when (unrecognizedBehavior == UnrecognizedPasteBehavior.ThrowNotRecognized)
         {
-            return new DeckSourceLoadResult(_archidektParser.ParseText(deckSource), null);
-        }
-        catch (DeckParseException)
-        {
+            if (exception.IsQuantityOutOfRange)
+            {
+                throw new InvalidOperationException(exception.Message, exception);
+            }
         }
 
         throw new InvalidOperationException("The submitted deck was not recognized as a Moxfield URL, Archidekt URL, or a Moxfield, Archidekt, or MTG Arena deck export.");
+    }
+
+    private DeckSourceLoadResult? TryParseMoxfieldPaste(string deckSource)
+    {
+        try
+        {
+            var entries = _moxfieldParser.ParseText(deckSource);
+            // Why: a category suffix should affect only its own card, preserving Moxfield's section handling.
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                // Why: only a name still holding "[" can carry a category suffix; skip the re-parse otherwise.
+                if (entry.Name.Contains('[')
+                    && ArchidektParser.TryParseCategorizedCardLine($"{entry.Quantity} {entry.Name}", entry.Board, out var categorized))
+                {
+                    entries[i] = categorized with { Quantity = entry.Quantity, IsFoil = categorized.IsFoil || entry.IsFoil };
+                }
+            }
+
+            return new DeckSourceLoadResult(entries, null);
+        }
+        // Why: Format detection can retry another parser, but a matched quantity error must surface.
+        catch (DeckParseException exception) when (!exception.IsQuantityOutOfRange)
+        {
+            return null;
+        }
     }
 
     /// <inheritdoc />

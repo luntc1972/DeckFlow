@@ -58,10 +58,11 @@ public interface IDeckPrimerPacketService
     /// Parses pasted deck export text into entries using ONLY the local Moxfield/Archidekt text parsers.
     /// Network-free: an absolute Moxfield/Archidekt URL is rejected (returns null) rather than imported,
     /// so this primitive can never trigger an upstream call (PRIMER-03). Blank or unrecognized input
-    /// returns null and never throws.
+    /// returns null.
     /// </summary>
     /// <param name="deckExportText">Untrusted user paste text.</param>
     /// <returns>Parsed entries, or null when blank, a deck URL, or unrecognized.</returns>
+    /// <exception cref="InvalidOperationException">A pasted quantity is out of range. The exception includes the user-facing range message.</exception>
     IReadOnlyList<DeckEntry>? TryParseDeckTextLocal(string? deckExportText) => null;
 }
 
@@ -844,15 +845,19 @@ public sealed partial class DeckPrimerPacketService : IDeckPrimerPacketService
 
         try
         {
-            return _moxfieldParser.ParseText(deckExportText);
+            try
+            {
+                return _moxfieldParser.ParseText(deckExportText);
+            }
+            catch (DeckParseException exception) when (!exception.IsQuantityOutOfRange)
+            {
+                return _archidektParser.ParseText(deckExportText);
+            }
         }
-        catch (DeckParseException)
+        catch (DeckParseException exception) when (exception.IsQuantityOutOfRange)
         {
-        }
-
-        try
-        {
-            return _archidektParser.ParseText(deckExportText);
+            // Why: The staleness check must not report a fresh primer for an unparseable current deck.
+            throw new InvalidOperationException(exception.Message, exception);
         }
         catch (DeckParseException)
         {

@@ -10,6 +10,63 @@ namespace DeckFlow.Core.Tests;
 /// </summary>
 public sealed class ParserTests
 {
+    [Theory]
+    [InlineData("99999999999 Sol Ring")]
+    [InlineData("1000 Sol Ring")]
+    public void MoxfieldParser_OutOfRangeQuantity_ThrowsDeckParseException(string line)
+    {
+        var exception = Assert.Throws<DeckParseException>(() => new MoxfieldParser().ParseText(line));
+
+        Assert.Contains(line, exception.Message);
+        Assert.Contains("0..999", exception.Message);
+    }
+
+    [Fact]
+    public void MoxfieldParser_MaxQuantity_Parses()
+    {
+        var entry = Assert.Single(new MoxfieldParser().ParseText("999 Island"));
+
+        Assert.Equal(999, entry.Quantity);
+    }
+
+    [Fact]
+    public void MoxfieldParser_ZeroQuantity_SkipsLine()
+    {
+        var entry = Assert.Single(new MoxfieldParser().ParseText("0 Sol Ring\n1 Island"));
+
+        Assert.Equal("Island", entry.Name);
+        Assert.Equal(1, entry.Quantity);
+    }
+
+    [Fact]
+    public void MoxfieldParser_NonAsciiQuantity_UsesUnquantifiedName()
+    {
+        var entry = Assert.Single(new MoxfieldParser().ParseText("１ Sol Ring"));
+
+        Assert.Equal("１ Sol Ring", entry.Name);
+        Assert.Equal(1, entry.Quantity);
+    }
+
+    [Fact]
+    public void ArchidektParser_OutOfRangeQuantity_ThrowsDeckParseException()
+    {
+        var line = "99999999999 Sol Ring [Ramp]";
+
+        var exception = Assert.Throws<DeckParseException>(() => new ArchidektParser().ParseText(line));
+
+        Assert.Contains(line, exception.Message);
+        Assert.Contains("0..999", exception.Message);
+    }
+
+    [Fact]
+    public void ArchidektParser_ZeroQuantity_SkipsLine()
+    {
+        var entry = Assert.Single(new ArchidektParser().ParseText("0 Sol Ring\n1 Island"));
+
+        Assert.Equal("Island", entry.Name);
+        Assert.Equal(1, entry.Quantity);
+    }
+
     [Fact]
     public void Normalize_HandlesCaseSpacesAndMdfc()
     {
@@ -87,6 +144,19 @@ public sealed class ParserTests
         Assert.True(entries[0].IsFoil);
     }
 
+    [Theory]
+    [InlineData("1 Sol*f* Ring", true)]
+    [InlineData("1 Sol*e* Ring", true)]
+    [InlineData("1 Sol★ Ring", true)]
+    [InlineData("1 Sol Ring", false)]
+    public void MoxfieldParser_ParseText_PreservesFoilWhenCleaningName(string text, bool isFoil)
+    {
+        var entry = Assert.Single(new MoxfieldParser().ParseText(text));
+
+        Assert.Equal("Sol Ring", entry.Name);
+        Assert.Equal(isFoil, entry.IsFoil);
+    }
+
     [Fact]
     public void ArchidektParser_StripsEtchedMarkerAndKeepsPrinting()
     {
@@ -97,6 +167,32 @@ public sealed class ParserTests
         Assert.Equal("SLD", entries[0].SetCode);
         Assert.Equal("1072", entries[0].CollectorNumber);
         Assert.True(entries[0].IsFoil);
+    }
+
+    [Theory]
+    [InlineData("1x Sol Ring", "Sol Ring", 1)]
+    [InlineData("2X Arcane Signet", "Arcane Signet", 2)]
+    [InlineData("1 Sol Ring", "Sol Ring", 1)]
+    [InlineData("1 Xenagos, God of Revels", "Xenagos, God of Revels", 1)]
+    public void MoxfieldParser_ParseText_ParsesQuantityPrefixes(string text, string name, int quantity)
+    {
+        var entry = Assert.Single(new MoxfieldParser().ParseText(text));
+
+        Assert.Equal(name, entry.Name);
+        Assert.Equal(quantity, entry.Quantity);
+        Assert.Equal("mainboard", entry.Board);
+    }
+
+    [Theory]
+    [InlineData("Main\n1x Sol Ring")]
+    [InlineData("Main:\n1x Sol Ring")]
+    public void MoxfieldParser_ParseText_TreatsMainHeaderAsMainboard(string text)
+    {
+        var entries = new MoxfieldParser().ParseText(text);
+        var name = Assert.Single(entries.Select(entry => entry.Name));
+
+        Assert.Equal("Sol Ring", name);
+        Assert.Equal("mainboard", entries[0].Board);
     }
 
     [Fact]
@@ -565,6 +661,19 @@ public sealed class ParserTests
         Assert.Equal("Ramp", entry.Category);
     }
 
+    [Theory]
+    [InlineData("^Have,#37d67a^")]
+    [InlineData("^Have,#37d67a^ ^Foil,#ffaa00^")]
+    public void ArchidektParser_ParsesPrintingAndCategoryBeforeTags(string tags)
+    {
+        var entry = Assert.Single(new ArchidektParser().ParseText($"1x Sol Ring (cmr) 123 [Ramp] {tags}"));
+
+        Assert.Equal("Sol Ring", entry.Name);
+        Assert.Equal("cmr", entry.SetCode);
+        Assert.Equal("123", entry.CollectorNumber);
+        Assert.Equal("Ramp", entry.Category);
+    }
+
     [Fact]
     public void ArchidektParser_AllowsFoilMarkerBeforeCategories()
     {
@@ -689,6 +798,41 @@ public sealed class ParserTests
         Assert.Equal("Atraxa, Praetors' Voice", entries[0].Name);
         Assert.Equal("mainboard", entries[1].Board);
         Assert.Equal("mainboard", entries[2].Board);
+    }
+
+    [Theory]
+    [InlineData("1x Anger (soc) 235 [Anthem]", 1, "Anger", "soc", "235", "Anthem")]
+    [InlineData("2X Forest", 2, "Forest", null, null, null)]
+    [InlineData("1 Xenagos, the Reveler", 1, "Xenagos, the Reveler", null, null, null)]
+    public void ArchidektParser_ParsesXSuffixedQuantity(string cardLine, int quantity, string name, string? setCode, string? collectorNumber, string? category)
+    {
+        var entries = new ArchidektParser().ParseText($"1 Sol Ring\n{cardLine}");
+        var entry = Assert.Single(entries.Skip(1));
+
+        Assert.Equal(quantity, entry.Quantity);
+        Assert.Equal(name, entry.Name);
+        Assert.Equal(setCode, entry.SetCode);
+        Assert.Equal(collectorNumber, entry.CollectorNumber);
+        Assert.Equal(category, entry.Category);
+    }
+
+    [Fact]
+    public void ArchidektParser_FirstLineXQuantity_DoesNotLeakIntoName()
+    {
+        var entries = new ArchidektParser().ParseText("1x Tam, the Possibility\n1x Sol Ring");
+
+        Assert.Equal(2, entries.Count);
+        Assert.Equal("Tam, the Possibility", entries[0].Name);
+        Assert.Equal(1, entries[0].Quantity);
+    }
+
+    [Fact]
+    public void ArchidektParser_TreatsMainHeaderAsMainboard()
+    {
+        var entries = new ArchidektParser().ParseText("Commander:\n1x Tam, the Possibility\n\nMain:\n1x Sol Ring");
+
+        Assert.Equal("commander", Assert.Single(entries, entry => entry.Name == "Tam, the Possibility").Board);
+        Assert.Equal("mainboard", Assert.Single(entries, entry => entry.Name == "Sol Ring").Board);
     }
 
     [Fact]

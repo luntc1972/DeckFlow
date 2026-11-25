@@ -1,9 +1,10 @@
-import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
+import { type Browser, type Locator, type Page } from '@playwright/test';
 import { join } from 'node:path';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection, expandMobileCollapsibles } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { ensureDetailsOpen, openRoleGroup } from './support/cut-lab-details';
+import { waitForDecide } from './support/cut-lab-decide';
+import { importPool, importPoolToLandsGroup } from './support/cut-lab-import';
 import { uiDesignDir } from './support/ui-design-dir';
 
 import { resolveE2EPort } from './support/e2e-port';
@@ -42,51 +43,13 @@ const oversizedPool = [
   '1 Exotic Orchard',
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
 type NoJsPageHandle = {
   page: Page;
   close: () => Promise<void>;
 };
 
-let heldLock: LockHandle | null = null;
-
 test.describe.configure({ mode: 'serial' });
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await page.getByRole('tab', { name: 'Process' }).click();
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-  await expandCutLabSection(page, 'cut-lab-section-competes');
-  await page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' }).locator(':scope > summary').click();
-  await expect(page.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-};
-
-const importPoolNoJs = async (page: Page): Promise<void> => {
-  await page.goto(`${baseUrl}/cut-lab`);
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.evaluate(() => {
-    document.querySelector('[data-sync-panel="cut-lab-deck-text"]')?.classList.remove('hidden');
-    document.querySelector('[data-sync-panel="cut-lab-deck-url"]')?.classList.add('hidden');
-  });
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool', false);
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 60_000 });
-  await expect(page.locator('tr[data-cut-lab-card="Zur the Enchanter"]')).toHaveAttribute('data-cut-lab-commander', 'true');
-};
+test.use({ enabledTools: ['Cut Lab'] });
 
 const buildNoJsPage = async (browser: Browser): Promise<NoJsPageHandle> => {
   const context = await browser.newContext({
@@ -111,15 +74,6 @@ const clearClientState = async (page: Page): Promise<void> => {
     window.localStorage.clear();
     window.sessionStorage.clear();
   });
-};
-
-const ensureDetailsOpen = async (details: Locator): Promise<void> => {
-  if ((await details.getAttribute('open')) !== null) {
-    return;
-  }
-
-  await details.locator(':scope > summary').click();
-  await expect(details).toHaveAttribute('open', '');
 };
 
 const assertNoOverlap = (first: { x: number; y: number; width: number; height: number }, second: { x: number; y: number; width: number; height: number }, message: string): void => {
@@ -157,13 +111,11 @@ const createLockedFastManaPackage = async (page: Page): Promise<void> => {
 };
 
 const driveOneJsDecide = async (page: Page): Promise<void> => {
-  const decideResponse = page.waitForResponse(response =>
-    response.url().includes('/api/cut-lab/decide') && response.request().method() === 'POST');
-
-  await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
-
-  const response = await decideResponse;
-  expect(response.ok(), 'Cut Lab decide request must succeed before review capture').toBeTruthy();
+  await waitForDecide(
+    page,
+    () => page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click(),
+    { message: 'Cut Lab decide request must succeed before review capture' },
+  );
   await page.getByRole('tab', { name: 'Process' }).click();
   await expect(page.locator('[data-cut-lab-structural-findings]')).toBeVisible();
   expect(
@@ -173,7 +125,7 @@ const driveOneJsDecide = async (page: Page): Promise<void> => {
 };
 
 const prepareReviewCapture = async (page: Page): Promise<void> => {
-  await importPool(page);
+  await importPoolToLandsGroup(page, oversizedPool);
   await expandMobileCollapsibles(page);
   await createLockedFastManaPackage(page);
   await page.getByRole('tab', { name: 'Decide' }).click();
@@ -182,8 +134,7 @@ const prepareReviewCapture = async (page: Page): Promise<void> => {
 
   await page.getByRole('tab', { name: 'Process' }).click();
   await expandCutLabSection(page, 'cut-lab-section-competes');
-  const landsGroup = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-  await ensureDetailsOpen(landsGroup);
+  const landsGroup = await openRoleGroup(page, 'Lands');
   await expect(landsGroup.locator('[data-cut-lab-lock-role="lands"]')).toBeVisible();
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Plains"]')).toBeVisible();
   await expect(landsGroup.locator('[data-cut-lab-chip-card="Island"]')).toBeVisible();
@@ -210,30 +161,14 @@ const openCardModal = async (trigger: Locator, page: Page, cardName: string): Pr
 const acceptProposalNoJs = async (page: Page): Promise<string> => {
   const heading = await page.locator('.cutlab-proposal__heading').textContent();
   const cardName = heading?.replace(/^Proposed cut:\s*/, '').trim() ?? '';
-  const decideRequestPromise = page.waitForRequest(request =>
-    request.isNavigationRequest()
-    && request.method() === 'POST'
-    && request.url().includes('/cut-lab/decide'),
+  await waitForDecide(
+    page,
+    () => page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click(),
+    { navigation: true },
   );
-  const navigationPromise = page.waitForNavigation({ waitUntil: 'domcontentloaded' });
-
-  await page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click();
-
-  const [decideRequest] = await Promise.all([decideRequestPromise, navigationPromise]);
-  expect(decideRequest.url()).toContain('/cut-lab/decide');
   await expect(page.locator('.cutlab-cuts-made__row')).toContainText(cardName);
   return cardName;
 };
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
 
 test('captures cross-theme mobile chrome and back-to-top tap-target coverage for Cut Lab', async ({ page }) => {
   await page.setViewportSize(mobileViewport);
@@ -243,7 +178,7 @@ test('captures cross-theme mobile chrome and back-to-top tap-target coverage for
     await page.context().addCookies([{ name: 'deckflow-theme', value: theme.cookie, url: baseUrl }]);
 
     await page.setViewportSize(desktopViewport);
-    await importPool(page);
+    await importPoolToLandsGroup(page, oversizedPool);
     const tablist = page.locator('.cutlab-step-rail [role="tablist"]');
     await expect(tablist).toBeVisible();
     const desktopTabs = await getBoundingBox(tablist, 'Desktop step tabs');
@@ -328,7 +263,7 @@ test('captures Lock your pool review screenshots across themes at desktop and mo
 });
 
 test("shows a newly created package in another card's visible package widget without reload", async ({ page }) => {
-  await importPool(page);
+  await importPoolToLandsGroup(page, oversizedPool);
 
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expandCutLabSection(page, 'cut-lab-section-packages');
@@ -357,7 +292,7 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
   const noJs = await buildNoJsPage(browser);
 
   try {
-    await importPoolNoJs(noJs.page);
+    await importPool(noJs.page, oversizedPool, { scriptsDisabled: true, commander: 'Zur the Enchanter' });
 
     // (e) CLUP-07 no-JS submit fallback (D-04 SubmitFormId seam) — run first, on
     // the freshly imported page (before the nav/collapse/disclosure interactions
@@ -414,7 +349,7 @@ test('proves the no-JS Cut Lab navigation and card-trigger fallbacks', async ({ 
 });
 
 test('keeps pool rows hidden by search and lock filters', async ({ page }) => {
-  await importPool(page);
+  await importPoolToLandsGroup(page, oversizedPool);
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
 
   const solRing = page.locator('tr[data-cut-lab-card="Sol Ring"]');

@@ -1,12 +1,9 @@
-import { expect, test, type Page } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
+import { openRoleGroup } from './support/cut-lab-details';
+import { importPool } from './support/cut-lab-import';
 import { cutLabPool } from './fixtures/cut-lab-pool';
-
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-let heldLock: LockHandle | null = null;
 
 const floorRows = (page: Page) => page.locator('table[data-cut-lab-role-floors-table] tbody tr');
 const lockedCounts = (page: Page) => floorRows(page).evaluateAll((rows) => rows.map((row) => ({
@@ -15,26 +12,12 @@ const lockedCounts = (page: Page) => floorRows(page).evaluateAll((rows) => rows.
 })));
 
 test.describe.configure({ mode: 'serial' });
+test.use({ enabledTools: ['Cut Lab'] });
 
 test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-  await page.goto('/cut-lab');
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(cutLabPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await page.getByRole('button', { name: 'Import pool' }).click();
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
+  await importPool(page, cutLabPool);
   await expandCutLabSection(page, 'cut-lab-section-role-floors');
   await expect(page.locator('table[data-cut-lab-role-floors-table]')).toBeVisible();
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
 });
 
 test('Locked follows In pool and every role displays a locked count', async ({ page }) => {
@@ -106,10 +89,7 @@ test('Role floors Lock all stays synchronized with the chip-area role button', a
   await expect(chip).toHaveAttribute('aria-pressed', 'true');
   await expandCutLabSection(page, 'cut-lab-section-lock-pool');
   await expandCutLabSection(page, 'cut-lab-section-competes');
-  const lands = page.locator('details.cutlab-role-group').filter({ hasText: 'Lands' });
-  if (!(await lands.evaluate((element) => (element as HTMLDetailsElement).open))) {
-    await lands.locator(':scope > summary').click();
-  }
+  const lands = await openRoleGroup(page, 'Lands');
   await chip.click();
   await expect(chip).toHaveAttribute('aria-pressed', 'false');
   await expect(floor).toHaveText('Lock all');

@@ -1,11 +1,10 @@
-import { expect, test, type Locator, type Page, type Response } from '@playwright/test';
-import { acquireAdminLockForTest, releaseAdminLockForTest } from './support/admin-lock';
-import { setToolEnabled } from './support/admin-tools';
+import { type Page } from '@playwright/test';
+import { expect, test } from './support/admin-fixtures';
+import { ensureDetailsOpen } from './support/cut-lab-details';
 import { expandCutLabSection } from './support/cut-lab-mobile-collapse';
-import { clickManabasePillRadio } from './support/manabase-pill';
-import { resolveE2EPort } from './support/e2e-port';
+import { waitForDecide } from './support/cut-lab-decide';
+import { importPool } from './support/cut-lab-import';
 
-const baseUrl = `http://localhost:${resolveE2EPort()}`;
 const fell = 'Fell the Profane // Fell Mire';
 const fellDisplay = 'Fell the Profane / Fell Mire';
 const shatterskull = 'Shatterskull Smashing // Shatterskull, the Hammer Pass';
@@ -15,66 +14,20 @@ const oversizedPool = [
   `1 ${fell}`, `1 ${shatterskull}`,
 ].join('\n');
 
-type LockHandle = Awaited<ReturnType<typeof acquireAdminLockForTest>>;
-let heldLock: LockHandle | null = null;
 test.describe.configure({ mode: 'serial' });
-
-test.beforeEach(async ({ page }) => {
-  heldLock = await acquireAdminLockForTest(page);
-  await setToolEnabled(page, 'Cut Lab', true);
-});
-
-test.afterEach(async () => {
-  await releaseAdminLockForTest(heldLock);
-  heldLock = null;
-});
-
-const importPool = async (page: Page): Promise<void> => {
-  await page.goto(`${baseUrl}/cut-lab`);
-  await expect(page.locator('h1')).toHaveText('Cut Lab');
-  await page.locator('#cut-lab-input-source').selectOption('PasteText');
-  await page.locator('#cut-lab-deck-text').fill(oversizedPool);
-  await clickManabasePillRadio(page, 'Bracket', '4');
-  await clickManabasePillRadio(page, 'PlayExperience', 'Focused');
-  await Promise.all([
-    page.waitForResponse(response => {
-      return new URL(response.url()).pathname === '/cut-lab' && response.request().method() === 'POST';
-    }, { timeout: 60_000 }),
-    page.getByRole('button', { name: 'Import pool' }).click({ timeout: 60_000 }),
-  ]);
-  await expandCutLabSection(page, 'cut-lab-section-lock-pool');
-  await expect(page.getByRole('heading', { name: 'Lock your pool' })).toBeVisible({ timeout: 30_000 });
-};
-
-const clickAndWaitForDecide = async (
-  page: Page,
-  button: Locator,
-  decision?: 'restore',
-  timeout?: number,
-): Promise<Response> => {
-  const [response] = await Promise.all([
-    page.waitForResponse(response => {
-      const request = response.request();
-      return request.url().endsWith('/api/cut-lab/decide') && request.method() === 'POST'
-        && (decision === undefined || request.postDataJSON().decision === decision);
-    }, { timeout }),
-    button.click(),
-  ]);
-  expect(response.ok()).toBeTruthy();
-  return response;
-};
+test.use({ enabledTools: ['Cut Lab'] });
 
 const acceptMdfc = async (page: Page): Promise<void> => {
   await expandCutLabSection(page, 'cut-lab-section-cut-rounds');
   await expect(page.locator('.cutlab-proposal__heading')).toContainText(shatterskullDisplay);
-  await clickAndWaitForDecide(page, page.locator('.cutlab-proposal .cutlab-decision-btn--accept'));
+  await waitForDecide(page, () => page.locator('.cutlab-proposal .cutlab-decision-btn--accept').click());
   await expect(page.locator('.cutlab-proposal__heading')).toContainText('at 100 cards');
 };
 
 test('keeps MDFC display names separate from canonical state, decisions and exports', async ({ page }) => {
   test.setTimeout(120_000);
   page.setDefaultTimeout(15_000);
-  await importPool(page);
+  await importPool(page, oversizedPool);
   const fellRow = page.locator(`tr[data-cut-lab-card="${fell}"]`);
   const state = page.locator('form[data-cache-key="cut-lab"] input[name="CutLabStateJson"]');
 
@@ -128,9 +81,7 @@ test('keeps MDFC display names separate from canonical state, decisions and expo
     await acceptMdfc(page);
     // AJAX creates this details element without the server-rendered section ID.
     const cuts = page.locator('details.cutlab-cuts-made');
-    if (await cuts.getAttribute('open') === null) {
-      await cuts.locator(':scope > summary').click();
-    }
+    await ensureDetailsOpen(cuts);
     const cutRow = page.locator('.cutlab-cuts-made__row').filter({
       has: page.locator(`[data-cutlab-card-open="${shatterskull}"]`),
     });
@@ -138,7 +89,10 @@ test('keeps MDFC display names separate from canonical state, decisions and expo
     await expect(cutRow).toContainText(shatterskullDisplay);
     await expect(cutRow).not.toContainText(' // ');
     await expect(cutRow.locator('[data-cutlab-card-open]')).toHaveAttribute('data-cutlab-card-open', shatterskull);
-    const response = await clickAndWaitForDecide(page, cutRow.locator('[data-cut-lab-restore]'), 'restore', 30_000);
+    const response = await waitForDecide(page, () => cutRow.locator('[data-cut-lab-restore]').click(), {
+      decision: 'restore',
+      timeout: 30_000,
+    });
     const request = response.request();
     expect(request.postDataJSON().cardName).toBe(shatterskull);
     expect(request.postData()).toContain(shatterskull);
