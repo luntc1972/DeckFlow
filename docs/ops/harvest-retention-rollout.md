@@ -98,7 +98,7 @@ Step 4 is complete when Preview shows refetch candidates: 0 and queued for refet
 - A deck Archidekt reports as "Deck not found" is archived when fetched: card knowledge is kept, it drops out of commander counts, the Stats skip reason is `not_found`, and the log shows `Harvest.DeckNotFound` with disposition `archived` or `marked`.
 - Transient and other failures stay `fetch_failure` with their stored rows, and the next Refetch retries them.
 - A deck already in the retention archive keeps `retention`.
-- Report a `marked_archive_failed` disposition when the archive step fails. The deck is marked `not_found` and drops out of commander counts. Its card rows stay live, and Refetch does not requeue it.
+- Report a `marked_archive_failed` disposition when the archive step fails. The deck is marked `not_found` and drops out of commander counts. Its card rows stay live, and Refetch does not requeue it. This holds even for a deck retention pruned earlier: it is marked `not_found`, not `retention`.
 - After the release containing the harvest changes is live, press Refetch once. This requeues the fetch_failure candidates that remain.
 - If refetch candidates remain once queued for refetch reaches 0, press Refetch once more and wait again. A remainder after that second drain is a non-"Deck not found" failure to investigate, and Step 4 is not complete.
 
