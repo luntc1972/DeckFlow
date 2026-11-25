@@ -39,6 +39,26 @@ const swallowNavigation = (): void => {
 };
 
 describe('restored-from-cache pill Reset', () => {
+  it.each([
+    ['savedAt key is absent', undefined],
+    ['savedAt key is non-numeric', 'not-a-timestamp'],
+  ])('hydrates fields and skips cache pill when %s', async (_scenario, savedAt) => {
+    window.sessionStorage.setItem(
+      'decksync-form-state-deck-history',
+      JSON.stringify({ DeckName: ['https://archidekt.com/decks/restored'] }));
+    if (savedAt !== undefined) {
+      window.sessionStorage.setItem('decksync-form-state-deck-history:savedAt', savedAt);
+    }
+
+    mountForm('deck-history');
+
+    await bootstrap();
+
+    expect(document.querySelector<HTMLInputElement>('input[name="DeckName"]')?.value)
+      .toBe('https://archidekt.com/decks/restored');
+    expect(document.querySelector('[data-cache-pill]')).toBeNull();
+  });
+
   it('delegates to the form clear control instead of calling form.reset()', async () => {
     // Why: on a POST-rendered page the server writes the submitted values into each
     // control's HTML default, so form.reset() restores exactly what the user wanted
