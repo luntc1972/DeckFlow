@@ -22,6 +22,8 @@ public sealed class RefetchConvergenceTests
     [Fact] public Task RetentionArchived_RequeuedThenFails_KeepsRetentionReason() => WithSqliteAsync("retention");
     [Fact] public Task NotFoundArchived_Reappears_UnarchivesOnReentry() => WithSqliteAsync("reappear");
     [Fact] public Task NotFound_RetireFails_MarksNotFoundAndContinues() => WithSqliteAsync("fallback");
+    [Fact] public Task NotFound_RetainedDeckRetireFails_StaysNotFoundAndLeavesRefetch() => WithSqliteAsync("retained-fallback");
+    [Fact] public Task RetainedDeck_OtherFailureSkip_KeepsRetentionReason() => WithSqliteAsync("retained-skip");
     [Fact] public Task NotFound_ProgressThrowsAfterRetirement_SkipsOnceWithoutFallback() => WithSqliteAsync("retired-progress-failure");
 
     [Fact]
@@ -53,6 +55,16 @@ public sealed class RefetchConvergenceTests
         if (scenario == "fallback")
         {
             await VerifyFallbackAsync(connection, info, repository);
+            return;
+        }
+        if (scenario == "retained-fallback")
+        {
+            await VerifyRetainedFallbackAsync(connection, info, repository);
+            return;
+        }
+        if (scenario == "retained-skip")
+        {
+            await VerifyRetainedSkipAsync(connection, info, repository);
             return;
         }
         if (scenario == "retired-progress-failure")
@@ -309,6 +321,70 @@ public sealed class RefetchConvergenceTests
         Assert.Equal((1L, DeckSkipReasons.NotFound), second);
         Assert.Equal(1L, await ManifestCountAsync(connection, deckIds[1]));
         Assert.Equal(0L, await LiveRowCountAsync(connection, deckIds[1]));
+    }
+
+    private static async Task VerifyRetainedFallbackAsync(DbConnection connection, RelationalDatabaseConnection info, CategoryKnowledgeRepository repository)
+    {
+        const string deckId = "retained-fallback";
+        var entries = LegalCommanderDeck.Complete([new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
+        await SeedRetainedRefetchDeckAsync(connection, repository, deckId, entries);
+
+        var cardRepository = (CardCategoryRepository)typeof(CategoryKnowledgeRepository).GetField("_cardCategory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(repository)!;
+        var foldCalls = 0;
+        var foldException = new InvalidOperationException("Injected retained fold fault");
+        cardRepository.FoldFault = (_, _) => { foldCalls++; throw foldException; };
+        var logger = new FakeStructuredLogger();
+        var session = new ArchidektDeckCacheSession(repository, new StubDeckImporter(deckId, "not-found", entries), new EmptyRecentDecksImporter(), logger: logger, idlePollDelay: TimeSpan.FromMilliseconds(100));
+
+        var result = await session.RunAsync(TimeSpan.FromSeconds(2));
+
+        var row = await connection.QuerySingleAsync<(long Processed, long Skipped, string? Reason, long HasStoredLiveRows, string? Hash, string? CommanderName)>("SELECT processed, skipped, skip_reason AS Reason, has_stored_live_rows AS HasStoredLiveRows, retention_core_hash AS Hash, commander_name AS CommanderName FROM deck_queue WHERE deck_id = @deckId", new { deckId });
+        Assert.Equal(DeckSkipReasons.NotFound, row.Reason);
+        Assert.Equal((1L, 1L, 1L, "seeded-retention-hash", LegalCommanderDeck.CommanderName), (row.Processed, row.Skipped, row.HasStoredLiveRows, row.Hash, row.CommanderName));
+        Assert.Equal(0L, await ManifestCountAsync(connection, deckId));
+        Assert.Equal(3L, await LiveRowCountAsync(connection, deckId));
+        Assert.Equal(1, result.DecksSkipped);
+        Assert.Equal(1, foldCalls);
+        AssertDeckNotFoundLog(Assert.Single(logger.DeckNotFoundEntries()), deckId, "marked_archive_failed", foldException);
+        Assert.Equal(0, await repository.CountRefetchCandidatesAsync());
+        Assert.Equal(0, await repository.CountQueuedForRefetchAsync());
+        Assert.Equal(0, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
+    }
+
+    private static async Task VerifyRetainedSkipAsync(DbConnection connection, RelationalDatabaseConnection info, CategoryKnowledgeRepository repository)
+    {
+        const string deckId = "retained-skip";
+        var entries = LegalCommanderDeck.Complete([new DeckEntry { Name = "Sol Ring", NormalizedName = "sol ring", Quantity = 1, Board = "mainboard", Category = "Ramp" }]);
+        await SeedRetainedRefetchDeckAsync(connection, repository, deckId, entries);
+
+        var logger = new FakeStructuredLogger();
+        var session = new ArchidektDeckCacheSession(repository, new StubDeckImporter(deckId, "other-failure", entries), new EmptyRecentDecksImporter(), logger: logger, idlePollDelay: TimeSpan.FromMilliseconds(100));
+        var result = await session.RunAsync(TimeSpan.FromSeconds(2));
+
+        var row = await connection.QuerySingleAsync<(long Processed, long Skipped, string? Reason, long HasStoredLiveRows, string? Hash)>("SELECT processed, skipped, skip_reason AS Reason, has_stored_live_rows AS HasStoredLiveRows, retention_core_hash AS Hash FROM deck_queue WHERE deck_id = @deckId", new { deckId });
+        Assert.Equal(DeckSkipReasons.Retention, row.Reason);
+        Assert.Equal((1L, 1L, 1L, "seeded-retention-hash"), (row.Processed, row.Skipped, row.HasStoredLiveRows, row.Hash));
+        Assert.Equal(3L, await LiveRowCountAsync(connection, deckId));
+        Assert.Equal(0L, await ManifestCountAsync(connection, deckId));
+        Assert.Equal(1, result.DecksSkipped);
+        Assert.Empty(logger.DeckNotFoundEntries());
+        Assert.Equal(1, await repository.CountRefetchCandidatesAsync());
+    }
+
+    private static async Task SeedRetainedRefetchDeckAsync(DbConnection connection, CategoryKnowledgeRepository repository, string deckId, IReadOnlyList<DeckEntry> entries)
+    {
+        await repository.AddDeckIdsAsync([deckId]);
+        await DeckCategoryCacheWriter.ReplaceDeckEntriesAsync(repository, "archidekt_live:" + deckId, entries);
+        await connection.ExecuteAsync("UPDATE deck_queue SET retention_core_hash = 'seeded-retention-hash' WHERE deck_id = @deckId", new { deckId });
+        await repository.MarkDeckProcessedAsync(deckId, LegalCommanderDeck.CommanderName, skip: true, metadata: null, skipReason: DeckSkipReasons.FetchFailure);
+        await repository.RunStoredLiveRowsBackfillBatchAsync(100);
+
+        Assert.Equal(DeckSkipReasons.Retention, await connection.QuerySingleAsync<string?>("SELECT skip_reason FROM deck_queue WHERE deck_id = @deckId", new { deckId }));
+        Assert.Equal(1, await repository.CountRefetchCandidatesAsync());
+        Assert.Equal(1, (await repository.RunRefetchMarkBatchAsync(500)).DecksMarked);
+        var row = await connection.QuerySingleAsync<(long Processed, long Skipped, string? Reason, string? Hash)>("SELECT processed, skipped, skip_reason AS Reason, retention_core_hash AS Hash FROM deck_queue WHERE deck_id = @deckId", new { deckId });
+        Assert.Equal((0L, 0L, (string?)null, "seeded-retention-hash"), row);
+        Assert.Equal(3L, await LiveRowCountAsync(connection, deckId));
     }
 
     private static async Task VerifyUnstoredAsync(DbConnection connection, CategoryKnowledgeRepository repository)
