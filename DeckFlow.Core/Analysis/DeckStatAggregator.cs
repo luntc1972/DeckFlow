@@ -133,7 +133,7 @@ public static class DeckStatAggregator
                 if (!frontTypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
                     && card.FaceOracleTexts is { Count: > 0 } faceOracleTexts)
                 {
-                    // Why: spell-front MDFCs intentionally count only as ramp, draw, interaction, closing power, counters, or wipes.
+                    // Why: spell-front MDFC fronts count only the roles TallySpellRoles tallies; recursion, fast mana, ramp-or-draw under 3 MV and creatures stay excluded by owner scope.
                     TallySpellRoles(frontTypeLine, faceOracleTexts[0], quantity);
                 }
 
