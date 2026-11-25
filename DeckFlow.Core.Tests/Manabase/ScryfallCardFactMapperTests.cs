@@ -164,7 +164,7 @@ public sealed class ScryfallCardFactMapperTests
     }
 
     [Fact]
-    public void ToCardFact_SingleFaceCard_PopulatesOneFaceOracleText()
+    public void ToCardFact_SingleFaceCard_LeavesFaceOracleTextsEmpty()
     {
         const string oracle = "Search your library for a card, put that card into your hand, then shuffle.";
         var card = new ScryfallCardData
@@ -177,7 +177,7 @@ public sealed class ScryfallCardFactMapperTests
         };
         CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
 
-        Assert.Equal([oracle], fact.FaceOracleTexts);
+        Assert.Empty(fact.FaceOracleTexts);
     }
 
     [Fact]

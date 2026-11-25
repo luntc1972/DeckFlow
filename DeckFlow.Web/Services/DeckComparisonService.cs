@@ -5,6 +5,7 @@ using System.Text.Json;
 using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
+using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
@@ -14,6 +15,7 @@ using Polly;
 using Polly.Registry;
 using RestSharp;
 using DeckFlow.Web.Models;
+using DeckFlow.Web.Services.Manabase;
 using DeckFlow.Web.Services.Packets;
 using DeckFlow.Web.Services.PromptBuilders.Comparison;
 using DeckFlow.Web.Services.PromptBuilders.FollowUp;
@@ -478,7 +480,7 @@ public sealed class DeckComparisonService : IDeckComparisonService
                 NormalizeOracleText(card),
                 card.ManaCost ?? string.Empty)
             {
-                FaceOracleTexts = DeckStatCardInputs.FaceOracleTextsFor(card)
+                FaceOracleTexts = CardFaceOracleTexts.From(ScryfallCardDataMapper.ToCardData(card))
             });
         }
 

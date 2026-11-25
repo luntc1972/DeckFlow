@@ -1,4 +1,5 @@
 using DeckFlow.Core.Analysis;
+using DeckFlow.Core.Manabase;
 
 namespace DeckFlow.Core.Tests;
 
@@ -109,6 +110,22 @@ public sealed class DeckStatAggregatorTests
         Assert.Equal(1, stats.ManaCurve["0-1"]);
         Assert.Equal(0, stats.ManaCurve["4"]);
         Assert.Equal(0m, stats.AverageManaValue);
+    }
+
+    [Fact]
+    public void Compute_SorceryFrontMdfcWithoutFaceData_CountsOnlyAsLand()
+    {
+        ScryfallCardData card = new() { Name = "Test MDFC", TypeLine = "Sorcery // Land", OracleText = "Investigate." };
+        CardFact fact = ScryfallCardFactMapper.ToCardFact(card, 1);
+        DeckStatCardInput input = Card(fact.Quantity, fact.TypeLine, fact.OracleText ?? string.Empty, fact.ManaCost ?? string.Empty) with
+        {
+            FaceOracleTexts = fact.FaceOracleTexts
+        };
+
+        DeckStatSummary stats = DeckStatAggregator.Compute([input]);
+
+        Assert.Equal(0, stats.Draw);
+        Assert.Equal(1, stats.Lands);
     }
 
     [Fact]

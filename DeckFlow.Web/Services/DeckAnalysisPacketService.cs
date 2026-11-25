@@ -9,6 +9,7 @@ using DeckFlow.Core.Bracket;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Knowledge;
 using DeckFlow.Core.Loading;
+using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -2005,7 +2006,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 matchingRequest.Quantity,
                 matchingRequest.IsCommander)
             {
-                FaceOracleTexts = DeckStatCardInputs.FaceOracleTextsFor(card)
+                FaceOracleTexts = CardFaceOracleTexts.From(ScryfallCardDataMapper.ToCardData(card))
             });
 
             foreach (var mechanicName in ExtractMechanicNames(card))
