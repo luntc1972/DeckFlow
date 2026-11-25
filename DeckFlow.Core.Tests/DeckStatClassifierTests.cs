@@ -107,6 +107,7 @@ public sealed class DeckStatClassifierTests
     [InlineData("destroy all artifacts and enchantments.", true)]   // "destroy all artifacts"
     [InlineData("destroy all enchantments.", true)]
     [InlineData("each creature gets -1/-1 until end of turn.", true)]  // each creature + gets -
+    [InlineData("Destroy all nonland permanents.", true)]
     [InlineData("exile all nonland permanents.", true)]
     [InlineData("All creatures get -X/-X until end of turn.", true)]
     [InlineData("Sickening Dreams deals X damage to each creature and each player.", true)]
@@ -314,7 +315,7 @@ public sealed class DeckStatClassifierTests
     [InlineData("Search your library for a nonland card, exile it, then shuffle.", true)]  // nonland tutor must not match the "land card" land-fetch exclusion
     public void IsTutorCard_TrueCases(string oracleText, bool expected)
     {
-        Assert.Equal(expected, DeckStatClassifier.IsTutorCard(oracleText));
+        Assert.Equal(expected, DeckStatClassifier.IsTutorCard("Sorcery", oracleText));
     }
 
     [Theory]
@@ -324,7 +325,102 @@ public sealed class DeckStatClassifierTests
     [InlineData("Draw a card.", false)]                                                                  // not a tutor
     public void IsTutorCard_FalseCases(string oracleText, bool expected)
     {
-        Assert.Equal(expected, DeckStatClassifier.IsTutorCard(oracleText));
+        Assert.Equal(expected, DeckStatClassifier.IsTutorCard("Sorcery", oracleText));
+    }
+
+    [Theory]
+    [InlineData("Polluted Delta", "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.")]
+    [InlineData("Krosan Verge", "Land", "This land enters tapped.\n{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for a Forest card and a Plains card, put them onto the battlefield tapped, then shuffle.")]
+    [InlineData("Evolving Wilds", "Land", "{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.")]
+    [InlineData("Myriad Landscape", "Land", "This land enters tapped.\n{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle.")]
+    [InlineData("Prismatic Vista", "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield, then shuffle.")]
+    [InlineData("Flooded Strand", "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.")]
+    [InlineData("Misty Rainforest", "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle.")]
+    public void IsTutorCard_LandFrontLandOnlyFetch_IsNotTutor(string name, string typeLine, string oracleText)
+    {
+        Assert.False(DeckStatClassifier.IsTutorCard(typeLine, oracleText), $"{name} ({typeLine})");
+    }
+
+    [Theory]
+    [InlineData("Lórien Revealed", "Sorcery", "Draw three cards.\nIslandcycling {1} ({1}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)")]
+    [InlineData("Monstrosity of the Lake", "Legendary Creature — Kraken", "When Monstrosity of the Lake enters, you may pay {5}. If you do, tap all creatures your opponents control, then put a stun counter on each of those creatures. (If a permanent with a stun counter would become untapped, remove one from it instead.)\nIslandcycling {2} ({2}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)")]
+    [InlineData("Demonic Tutor", "Sorcery", "Search your library for a card, put that card into your hand, then shuffle.")]
+    [InlineData("Mystical Tutor", "Instant", "Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.")]
+    [InlineData("Worldly Tutor", "Instant", "Search your library for a creature card, reveal it, then shuffle and put the card on top.")]
+    [InlineData("Urza's Saga", "Enchantment Land — Urza's Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — This Saga gains \"{T}: Add {C}.\"\nII — This Saga gains \"{2}, {T}: Create a 0/0 colorless Construct artifact creature token with 'This token gets +1/+1 for each artifact you control.'\"\nIII — Search your library for an artifact card with mana cost {0} or {1}, put it onto the battlefield, then shuffle.")]
+    [InlineData("Inventors' Fair", "Legendary Land", "At the beginning of your upkeep, if you control three or more artifacts, you gain 1 life.\n{T}: Add {C}.\n{4}, {T}, Sacrifice Inventors' Fair: Search your library for an artifact card, reveal it, put it into your hand, then shuffle. Activate only if you control three or more artifacts.")]
+    [InlineData("Tolaria West", "Land", "This land enters tapped.\n{T}: Add {U}.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with mana value 0, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)")]
+    [InlineData("Farseek", "Sorcery", "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.")]
+    [InlineData("Nature's Lore", "Sorcery", "Search your library for a Forest card, put that card onto the battlefield, then shuffle.")]
+    [InlineData("Three Visits", "Sorcery", "Search your library for a Forest card, put it onto the battlefield, then shuffle.")]
+    [InlineData("Troll of Khazad-dûm", "Creature — Troll", "This creature can't be blocked except by three or more creatures.\nSwampcycling {1} ({1}, Discard this card: Search your library for a Swamp card, reveal it, put it into your hand, then shuffle.)")]
+    public void IsTutorCard_TutorsAndLandSearchSpells_AreTutors(string name, string typeLine, string oracleText)
+    {
+        Assert.True(DeckStatClassifier.IsTutorCard(typeLine, oracleText), $"{name} ({typeLine})");
+    }
+
+    [Theory]
+    [InlineData("Finale of Devastation", "Sorcery", "Search your library and/or graveyard for a creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle. If X is 10 or more, creatures you control get +X/+X and gain haste until end of turn.")]
+    [InlineData("Invasion of Ikoria", "Battle — Siege", "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, search your library and/or graveyard for a non-Human creature card with mana value X or less and put it onto the battlefield. If you search your library this way, shuffle.")]
+    public void IsTutorCard_LibraryAndGraveyardSearch_IsTutor(string name, string typeLine, string oracle)
+    {
+        Assert.True(DeckStatClassifier.IsTutorCard(typeLine, oracle), name);
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_LandSearchOnOtherFaceDoesNotVetoTutor()
+    {
+        string[] faces = ["Search your library for a creature card, reveal it, put it into your hand, then shuffle.", "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle."];
+
+        Assert.True(DeckStatClassifier.IsTutorCard("Sorcery // Sorcery", faces));
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_AdventureTutorFace_IsTutor()
+    {
+        string[] faces = ["Double strike\nOther creatures you control get +1/+0 for each Aura and Equipment attached to Kellan.", "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle."];
+
+        Assert.True(DeckStatClassifier.IsTutorCard("Legendary Creature — Human Faerie // Sorcery — Adventure", faces));
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_LandOnlyFetchLand_IsNotTutor()
+    {
+        Assert.False(DeckStatClassifier.IsTutorCard("Land", ["{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle."]));
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_EmptyList_IsNotTutor()
+    {
+        Assert.False(DeckStatClassifier.IsTutorCard("Sorcery", Array.Empty<string>()));
+    }
+
+    [Fact]
+    public void IsTutorCard_Faces_NullList_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() => DeckStatClassifier.IsTutorCard("Sorcery", (IReadOnlyList<string>)null!));
+    }
+
+    [Theory]
+    [InlineData("Search your library for a card, put it into your hand, then shuffle.", "Draw a card.", true)]
+    [InlineData("Draw a card.", "Search your library for a card, put it into your hand, then shuffle.", false)]
+    public void IsTutorCard_NonemptyFaces_UsesFaces(string faceOracleText, string fallbackOracleText, bool expected)
+    {
+        Assert.Equal(expected, DeckStatClassifier.IsTutorCard("Sorcery", [faceOracleText], fallbackOracleText));
+    }
+
+    [Fact]
+    public void IsTutorCard_NullFaces_UsesFallback()
+    {
+        Assert.True(DeckStatClassifier.IsTutorCard(
+            "Sorcery", null, "Search your library for a card, put it into your hand, then shuffle."));
+    }
+
+    [Fact]
+    public void IsTutorCard_EmptyFaces_UsesFallback()
+    {
+        Assert.True(DeckStatClassifier.IsTutorCard(
+            "Sorcery", [], "Search your library for a card, put it into your hand, then shuffle."));
     }
 
     // -----------------------------------------------------------------------

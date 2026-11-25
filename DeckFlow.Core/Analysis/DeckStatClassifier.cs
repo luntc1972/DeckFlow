@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Text.RegularExpressions;
+using DeckFlow.Core.Manabase;
 
 namespace DeckFlow.Core.Analysis;
 
@@ -8,7 +9,7 @@ namespace DeckFlow.Core.Analysis;
 /// board wipes, recursion, closing power) in a deck's mainboard.  These are pure CPU domain
 /// logic; their inputs (typeLine, oracleText) come from Scryfall card data.
 /// </summary>
-public static class DeckStatClassifier
+public static partial class DeckStatClassifier
 {
     // A card-draw effect that benefits YOU (efficacy R2 M7). Matches "draw(s) a/N card(s)" or
     // "draw(s) cards equal to ..." (Greater Good) —
@@ -103,6 +104,7 @@ public static class DeckStatClassifier
         => oracleText.Contains("destroy all creatures", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("destroy all artifacts", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("destroy all enchantments", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("destroy all nonland permanents", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("each creature", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("gets -", StringComparison.OrdinalIgnoreCase)
             // Why: Toxic Deluge uses plural "get"; damage sweepers include opponent-only, but not self-only, effects.
             || oracleText.Contains("all creatures get -", StringComparison.OrdinalIgnoreCase)
@@ -318,19 +320,45 @@ public static class DeckStatClassifier
             || oracleText.Contains("combat damage to a player", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("draw", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("whenever this creature attacks", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("+X/+X", StringComparison.OrdinalIgnoreCase);
 
+    [GeneratedRegex(@"\bland cards?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex LandCardRegex();
+
     /// <summary>
-    /// Returns <see langword="true"/> when the card tutors a card from the library, excluding
-    /// land-fetch ramp (basic-land search, generic land-card search, or land onto the battlefield).
+    /// Returns <see langword="true"/> when the card's library search qualifies as a tutor.
     /// </summary>
+    /// <param name="typeLine">Card type line.</param>
     /// <param name="oracleText">Raw oracle text, including any reminder text.</param>
-    public static bool IsTutorCard(string oracleText)
-        => oracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase)
+    public static bool IsTutorCard(string typeLine, string oracleText)
+        // Why: Finale of Devastation's and/or-graveyard wording still includes a library search.
+        => (oracleText.Contains("search your library for", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("search your library and/or graveyard for", StringComparison.OrdinalIgnoreCase))
             && !oracleText.Contains("basic land", StringComparison.OrdinalIgnoreCase)
-            // Exclude land-fetch ramp ("a land card") but NOT nonland tutors: strip "nonland card"
-            // first so its trailing "land card" substring does not trip the land-fetch exclusion.
-            && !oracleText.Replace("nonland card", " ", StringComparison.OrdinalIgnoreCase)
-                .Contains("land card", StringComparison.OrdinalIgnoreCase)
-            && !oracleText.Contains("land onto the battlefield", StringComparison.OrdinalIgnoreCase);
+            // Why: the word boundary lets "nonland card" and "Island card" through.
+            && !LandCardRegex().IsMatch(oracleText)
+            && !oracleText.Contains("land onto the battlefield", StringComparison.OrdinalIgnoreCase)
+            && !LandSearchClassifier.IsLandOnlyFetchLand(typeLine, oracleText);
+
+    /// <summary>Returns true if any face qualifies as a tutor. An empty list returns false.</summary>
+    /// <param name="typeLine">Root or front-face type line. Only the front face is read for fetch-land detection.</param>
+    /// <param name="faceOracleTexts">Raw oracle text for each face.</param>
+    /// <exception cref="ArgumentNullException">The face list is null.</exception>
+    public static bool IsTutorCard(string typeLine, IReadOnlyList<string> faceOracleTexts)
+    {
+        ArgumentNullException.ThrowIfNull(faceOracleTexts);
+        // Why: reading each face finds back-face tutors and keeps a land search from vetoing another face.
+        return faceOracleTexts.Any(oracleText => IsTutorCard(typeLine, oracleText));
+    }
+
+    /// <summary>Returns whether any face qualifies as a tutor, using fallback text when no faces are available.</summary>
+    /// <param name="typeLine">Root or front-face type line.</param>
+    /// <param name="faceOracleTexts">Raw oracle text for each face, if available.</param>
+    /// <param name="fallbackOracleText">Raw oracle text to use when the face list is null or empty.</param>
+    public static bool IsTutorCard(string typeLine, IReadOnlyList<string>? faceOracleTexts, string fallbackOracleText)
+    {
+        return faceOracleTexts is { Count: > 0 }
+            ? IsTutorCard(typeLine, faceOracleTexts)
+            : IsTutorCard(typeLine, fallbackOracleText);
+    }
 
     /// <summary>
     /// Returns <see langword="true"/> when the card is fast mana: a zero-mana-value artifact that

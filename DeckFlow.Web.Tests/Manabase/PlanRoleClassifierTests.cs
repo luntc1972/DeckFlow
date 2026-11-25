@@ -15,6 +15,109 @@ namespace DeckFlow.Web.Tests;
 /// </summary>
 public sealed class PlanRoleClassifierTests
 {
+    [Theory]
+    [InlineData("Polluted Delta", "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.", null)]
+    [InlineData("Evolving Wilds", "Land", "{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", "Tutor")]
+    [InlineData("Evolving Wilds", "Land", "{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", null)]
+    [InlineData("Cabaretti Courtyard", "Land", "When this land enters, sacrifice it. When you do, search your library for a basic Mountain, Forest, or Plains card, put it onto the battlefield tapped, then shuffle and you gain 1 life.", null)]
+    [InlineData("Krosan Verge", "Land", "This land enters tapped.\n{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for a Forest card and a Plains card, put them onto the battlefield tapped, then shuffle.", null)]
+    [InlineData("Misty Rainforest", "Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle.", "Tutor")]
+    [InlineData("Myriad Landscape", "Land", "This land enters tapped.\n{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Search your library for up to two basic land cards that share a land type, put them onto the battlefield tapped, then shuffle.", "Tutor")]
+    public void Classify_LandOnlyFetchLand_DoesNotEarnTutorCombo(string name, string typeLine, string oracle, string? category)
+    {
+        CardFact fact = Fact(typeLine, oracle, name);
+        PlanRole roles = PlanRoleClassifier.Classify(fact, category is null ? [] : [category], isComboPiece: false, ManabaseMode.Cedh);
+
+        Assert.False(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
+    [Fact]
+    public void Classify_AdventureTutorFace_HasTutorCombo()
+    {
+        const string front = "Double strike\nOther creatures you control get +1/+0 for each Aura and Equipment attached to Kellan.";
+        const string back = "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle.";
+        var fact = new CardFact
+        {
+            Name = "Kellan, the Fae-Blooded // Birthright Boon",
+            Quantity = 1,
+            TypeLine = "Legendary Creature — Human Faerie",
+            OracleText = string.Join("\n", front, back),
+            FrontFaceOracleText = front,
+            FaceOracleTexts = [front, back]
+        };
+        PlanRole roles = PlanRoleClassifier.Classify(fact, [], isComboPiece: false, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
+    [Fact]
+    public void Classify_NoFaceOracleTextsWithJoinedTutorText_HasTutorCombo()
+    {
+        var fact = new CardFact
+        {
+            Name = "Draw // Search",
+            Quantity = 1,
+            TypeLine = "Sorcery // Sorcery",
+            FrontFaceOracleText = "Draw two cards.",
+            OracleText = "Draw two cards.\nSearch your library for a card, put it into your hand, then shuffle.",
+            FaceOracleTexts = []
+        };
+        PlanRole roles = PlanRoleClassifier.Classify(fact, [], isComboPiece: false, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
+    [Fact]
+    public void Classify_LandOnlyFetchLandComboPiece_KeepsTutorCombo()
+    {
+        CardFact fact = Fact("Land", "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.", "Polluted Delta");
+        PlanRole roles = PlanRoleClassifier.Classify(fact, [], isComboPiece: true, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
+    [Theory]
+    [InlineData("Demonic Tutor", "Sorcery", "Search your library for a card, put that card into your hand, then shuffle.")]
+    [InlineData("Farseek", "Sorcery", "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.")]
+    [InlineData("Nature's Lore", "Sorcery", "Search your library for a Forest card, put that card onto the battlefield, then shuffle.")]
+    [InlineData("Three Visits", "Sorcery", "Search your library for a Forest card, put it onto the battlefield, then shuffle.")]
+    [InlineData("Urza's Saga", "Enchantment Land — Urza's Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — This Saga gains \"{T}: Add {C}.\"\nII — This Saga gains \"{2}, {T}: Create a 0/0 colorless Construct artifact creature token with 'This token gets +1/+1 for each artifact you control.'\"\nIII — Search your library for an artifact card with mana cost {0} or {1}, put it onto the battlefield, then shuffle.")]
+    [InlineData("Tolaria West", "Land", "This land enters tapped.\n{T}: Add {U}.\nTransmute {1}{U}{U} ({1}{U}{U}, Discard this card: Search your library for a card with mana value 0, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)")]
+    [InlineData("Inventors' Fair", "Legendary Land", "At the beginning of your upkeep, if you control three or more artifacts, you gain 1 life.\n{T}: Add {C}.\n{4}, {T}, Sacrifice Inventors' Fair: Search your library for an artifact card, reveal it, put it into your hand, then shuffle. Activate only if you control three or more artifacts.")]
+    [InlineData("Sanctum of Ugin", "Land", "{T}: Add {C}.\nWhenever you cast a colorless spell with mana value 7 or greater, you may sacrifice this land. If you do, search your library for a colorless creature card, reveal it, put it into your hand, then shuffle.")]
+    public void Classify_TutorThatCanFindNonland_KeepsTutorCombo(string name, string typeLine, string oracle)
+    {
+        CardFact fact = Fact(typeLine, oracle, name);
+        PlanRole roles = PlanRoleClassifier.Classify(fact, [], isComboPiece: false, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
+    [Fact]
+    public void Classify_SpellFrontMdfcWithLandFace_KeepsTutorCombo()
+    {
+        const string front = "Search your library for an instant card or a card with flash, reveal it, put it into your hand, then shuffle.";
+        CardFact fact = Fact("Instant // Land", front + "\n\nThis land enters tapped.\n{T}: Add {U} or {B}.", "Waterlogged Teachings // Inundated Archive") with
+        {
+            FrontFaceOracleText = front,
+            HasLandFace = true,
+        };
+        PlanRole roles = PlanRoleClassifier.Classify(fact, [], isComboPiece: false, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
+    [Theory]
+    [InlineData("Lórien Revealed", "Sorcery", "Draw three cards.\nIslandcycling {1} ({1}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)")]
+    [InlineData("Monstrosity of the Lake", "Legendary Creature — Kraken", "When Monstrosity of the Lake enters, you may pay {5}. If you do, tap all creatures your opponents control, then put a stun counter on each of those creatures. (If a permanent with a stun counter would become untapped, remove one from it instead.)\nIslandcycling {2} ({2}, Discard this card: Search your library for an Island card, reveal it, put it into your hand, then shuffle.)")]
+    public void Classify_IslandcyclingCard_EarnsTutorCombo(string name, string typeLine, string oracle)
+    {
+        CardFact fact = Fact(typeLine, oracle, name);
+        PlanRole roles = PlanRoleClassifier.Classify(fact, [], isComboPiece: false, ManabaseMode.Cedh);
+
+        Assert.True(roles.HasFlag(PlanRole.TutorCombo));
+    }
+
     private static CardFact Fact(string typeLine, string? oracle = null, string name = "Card") => new()
     {
         Name = name,

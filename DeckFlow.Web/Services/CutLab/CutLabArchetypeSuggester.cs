@@ -23,9 +23,9 @@ public static class CutLabArchetypeSuggester
         IReadOnlyList<CutLabAnalyzedCard> nonCommanderCards = cards.Where(card => !card.IsCommander).ToArray();
         // Why: fast mana here deliberately means non-land ramp with mana value <= 1 (Sol Ring, mana dorks, rituals), not DeckStatClassifier.IsFastManaCard (zero-MV mana artifacts only), because the turbo-combo fastMana >= 8 threshold depends on this broader definition.
         int fastMana = Count(nonCommanderCards, card => !card.IsLand && HasRole(card, "ramp") && card.ManaValue <= 1);
-        int tutors = CountMatchingCategoryOrRole(nonCommanderCards, classification.CategoryDataAvailable, CutLabRoleKeys.Tutor,
-            card => HasCategory(card, "tutor"));
-        int staxPieces = CountStax(nonCommanderCards, classification.CategoryDataAvailable);
+        // Share the role panel's tutor and Stax signals so role edits reach the suggestion, and include the catalog's wider stax category family.
+        int tutors = Count(nonCommanderCards, card => HasRole(card, CutLabRoleKeys.Tutor));
+        int staxPieces = CountStax(nonCommanderCards);
         int stormCards = Count(nonCommanderCards, card => card.SemanticProfile?.Keywords?.Contains("Storm", StringComparer.OrdinalIgnoreCase) == true);
         int spells = Count(nonCommanderCards, card => HasType(card, "Instant") || HasType(card, "Sorcery"));
         int voltronCards = Count(nonCommanderCards, card => HasType(card, "Equipment") || HasType(card, "Aura"));
@@ -101,26 +101,16 @@ public static class CutLabArchetypeSuggester
     private static int Count(IEnumerable<CutLabAnalyzedCard> cards, Func<CutLabAnalyzedCard, bool> predicate)
         => cards.Where(predicate).Sum(card => Math.Max(0, card.Quantity));
 
-    private static int CountStax(IReadOnlyList<CutLabAnalyzedCard> cards, bool categoryDataAvailable)
+    private static int CountStax(IReadOnlyList<CutLabAnalyzedCard> cards)
     {
         if (!DeckPlanStrategyCatalog.TryGetBySlug("stax", out DeckPlanStrategyEntry stax))
         {
             return 0;
         }
 
-        return CountMatchingCategoryOrRole(cards, categoryDataAvailable, CutLabRoleKeys.Stax,
-            card => DeckPlanStrategyCatalog.MatchesCategories(stax, card.Categories));
+        return Count(cards, card => HasRole(card, CutLabRoleKeys.Stax)
+            || DeckPlanStrategyCatalog.MatchesCategories(stax, card.Categories));
     }
-
-    // Why: crowd categories take precedence when available for the card, and roles cover gaps in that data.
-    private static int CountMatchingCategoryOrRole(
-        IReadOnlyList<CutLabAnalyzedCard> cards,
-        bool categoryDataAvailable,
-        string role,
-        Func<CutLabAnalyzedCard, bool> matchesCategory)
-        => Count(cards, card => categoryDataAvailable && card.Categories.Count > 0
-            ? matchesCategory(card)
-            : HasRole(card, role));
 
     private static bool HasCompleteCombo(IReadOnlyList<CutLabAnalyzedCard> cards, CutLabClassificationContext classification)
         => cards.Any(card => classification.CardComboMembership.TryGetValue(CutLabCardNames.Normalize(card.Name), out CutLabCardComboMembership? membership)
@@ -128,9 +118,6 @@ public static class CutLabArchetypeSuggester
 
     private static bool HasRole(CutLabAnalyzedCard card, string role)
         => card.Roles.Contains(role, StringComparer.Ordinal);
-
-    private static bool HasCategory(CutLabAnalyzedCard card, string category)
-        => card.Categories.Any(value => value.Contains(category, StringComparison.OrdinalIgnoreCase));
 
     private static bool HasType(CutLabAnalyzedCard card, string type)
         => card.TypeLine.Contains(type, StringComparison.OrdinalIgnoreCase);

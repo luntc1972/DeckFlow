@@ -160,7 +160,7 @@ public sealed class CutLabArchetypeSuggesterTests
     [InlineData(false)]
     public void Suggest_Archetype_TutorsWithEmptyCategories_UsesTutorRole(bool categoryDataAvailable)
     {
-        var result = Suggest(TurboCards(useTutorRole: true),
+        var result = Suggest(TurboCards(withTutorCategory: false),
             Classification(categoryDataAvailable: categoryDataAvailable, comboNames: ["Tutor 1"]));
 
         Assert.Equal("turbo-combo", result.Slug);
@@ -180,11 +180,35 @@ public sealed class CutLabArchetypeSuggesterTests
     }
 
     [Fact]
-    public void Suggest_Archetype_StaxRoleWithNonMatchingCategories_UsesCategories()
+    public void Suggest_Archetype_StaxRoleWithNonMatchingCategories_CountsStaxRole()
     {
         var result = Suggest(Cards(5, roles: ["stax"], categories: ["ramp"]));
 
-        Assert.NotEqual("stax", result.Slug);
+        Assert.Equal("stax", result.Slug);
+    }
+
+    [Fact]
+    public void Suggest_Archetype_TutorRoleWithNonMatchingCategories_CountsTutorRole()
+    {
+        var cards = Enumerable.Range(1, 8)
+            .Select(index => Card($"Tutor {index}", 1, roles: ["ramp", "tutor"], categories: ["ramp"]))
+            .ToArray();
+
+        var result = Suggest(cards, Classification(comboNames: ["Tutor 1"]));
+
+        Assert.Equal("turbo-combo", result.Slug);
+    }
+
+    [Fact]
+    public void Suggest_Archetype_TutorCategoryWithoutTutorRole_DoesNotCountTutors()
+    {
+        var cards = Enumerable.Range(1, 8)
+            .Select(index => Card($"Tutor {index}", 1, roles: ["ramp"], categories: ["tutor"]))
+            .ToArray();
+
+        var result = Suggest(cards, Classification(comboNames: ["Tutor 1"]));
+
+        Assert.Equal("midrange-combo", result.Slug);
     }
 
     [Fact]
@@ -199,10 +223,10 @@ public sealed class CutLabArchetypeSuggesterTests
     private static CutLabArchetypeSuggestion Suggest(IReadOnlyList<CutLabAnalyzedCard> cards, CutLabClassificationContext? classification = null)
         => CutLabArchetypeSuggester.Suggest(cards, classification ?? Classification(), []);
 
-    private static CutLabAnalyzedCard[] TurboCards(bool useTutorRole = false)
+    private static CutLabAnalyzedCard[] TurboCards(bool withTutorCategory = true)
         => Enumerable.Range(1, 8)
-            .Select(index => Card($"Tutor {index}", 1, roles: useTutorRole ? ["ramp", "tutor"] : ["ramp"],
-                categories: useTutorRole ? [] : ["tutor"]))
+            .Select(index => Card($"Tutor {index}", 1, roles: ["ramp", "tutor"],
+                categories: withTutorCategory ? ["tutor"] : []))
             .ToArray();
 
     private static CutLabAnalyzedCard[] Cards(int count, IReadOnlyList<string>? roles = null, IReadOnlyList<string>? categories = null, string typeLine = "")

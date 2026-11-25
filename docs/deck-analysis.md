@@ -157,7 +157,7 @@ The service:
 - Parses both decklists, resolving cards via Scryfall `POST /cards/collection` in batches of 75.
 - Falls back to per-card Scryfall search when a submitted name is an alternate-art or Universes Beyond printing that does not round-trip through the collection endpoint cleanly, then labels rendered decklists as `resolved name [printed as: submitted name]`.
 - Queries Commander Spellbook for combos in each deck.
-- Builds a comparison context document with bracket definitions, role counts (ramp, draw, interaction, wipes, recursion, closing power), mana curves, color identity, category overlap, and combo gaps.
+- Builds a comparison context document with bracket definitions, role counts (ramp, draw, interaction, wipes, recursion, closing power), mana curves, color identity, category overlap, and combo gaps. A spell-front modal double-faced card (MDFC) such as Fell the Profane // Fell Mire still counts toward the land total and the 0-1 curve bucket. Its front face also contributes to the applicable ramp, draw, interaction, closing power, counter, and wipe counts (Fell the Profane adds one interaction, Sea Gate Restoration adds one draw, and Ondu Inversion adds one wipe), while the land back never counts as ramp and land-front MDFCs and Pathways count only as lands in these tallies. "Destroy all nonland permanents" counts as a wipe.
 - Generates a structured comparison prompt with `## TASK`, `## RULES`, `## COMPARISON AXES`, `## OUTPUT FORMAT`, deck sections, and comparison context. The prompt instructs your AI to produce both a human-readable comparison and a fenced `json` block matching a `deck_comparison` schema.
 - Generates a follow-up prompt for iterative refinement of the comparison.
 

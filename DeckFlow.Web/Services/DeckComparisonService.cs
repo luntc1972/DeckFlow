@@ -5,6 +5,7 @@ using System.Text.Json;
 using DeckFlow.Core.Analysis;
 using DeckFlow.Core.Integration;
 using DeckFlow.Core.Loading;
+using DeckFlow.Core.Manabase;
 using DeckFlow.Core.Models;
 using DeckFlow.Core.Parsing;
 using DeckFlow.Core.Reporting;
@@ -476,7 +477,10 @@ public sealed class DeckComparisonService : IDeckComparisonService
                 entry.Quantity,
                 card.TypeLine ?? string.Empty,
                 NormalizeOracleText(card),
-                card.ManaCost ?? string.Empty));
+                card.ManaCost ?? string.Empty)
+            {
+                FaceOracleTexts = CardFaceOracleTexts.From(card.CardFaces?.Select(face => face.OracleText))
+            });
         }
 
         var stats = DeckStatAggregator.Compute(statInputs);

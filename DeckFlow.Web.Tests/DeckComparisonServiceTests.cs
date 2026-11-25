@@ -406,6 +406,65 @@ Deck
     }
 
     [Fact]
+    public async Task BuildAsync_SpellFrontMdfc_CountsFrontFaceRolesAndStaysLand()
+    {
+        var seaGate = new ScryfallCard(
+            "Sea Gate Restoration // Sea Gate, Reborn", null, "Sorcery // Land", null,
+            null, null, [], ["U"], null, null, null,
+            [
+                new ScryfallCardFace("Sea Gate Restoration", "{4}{U}{U}{U}", "Sorcery", "Draw cards equal to the number of cards in your hand plus one. You have no maximum hand size for the rest of the game.", null, null),
+                new ScryfallCardFace("Sea Gate, Reborn", "", "Land", "As this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {U}.", null, null)
+            ],
+            Layout: "modal_dfc");
+
+        var service = CreateService(
+            executeCollectionAsync: (request, _) => Task.FromResult(CreateCollectionResponse(request)),
+            executeSearchAsync: (request, _) =>
+            {
+                var query = request.Parameters.FirstOrDefault(parameter => parameter.Name?.ToString() == "q")?.Value?.ToString() ?? string.Empty;
+                // Why: resolve the MDFC through search fallback while leaving the default cards on the shared fixture path.
+                var match = query.Contains("Sea Gate Restoration", StringComparison.OrdinalIgnoreCase) ? seaGate : FindDefaultCard(query);
+                return Task.FromResult(new RestResponse<ScryfallSearchResponse>(request)
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Data = new ScryfallSearchResponse(match is null ? [] : [match])
+                });
+            });
+
+        var result = await service.BuildAsync(new DeckComparisonRequest
+        {
+            WorkflowStep = 2,
+            DeckAName = "Sea Gate",
+            DeckABracket = "Upgraded",
+            DeckASource = """
+Commander
+1 Tymna the Weaver
+
+Deck
+1 Sea Gate Restoration // Sea Gate, Reborn
+1 Sol Ring
+""",
+            DeckBName = "Partners",
+            DeckBBracket = "Optimized",
+            DeckBSource = """
+Commander
+1 Tymna the Weaver
+
+Deck
+1 Sol Ring
+1 Counterspell
+"""
+        });
+
+        Assert.Contains("Sea Gate Restoration", result.DeckAListText);
+        Assert.Contains("Lands: 1  Ramp: 1  Draw: 1", result.InputSummary);
+        Assert.Contains("Lands: 0  Ramp: 1  Draw: 0", result.InputSummary);
+        Assert.Contains("  lands: 1", result.ComparisonContextText);
+        Assert.Contains("  mana_curve: 0-1=2, 2=0, 3=0, 4=0, 5+=0", result.ComparisonContextText);
+        Assert.Contains("  average_mana_value: 1.00", result.ComparisonContextText);
+    }
+
+    [Fact]
     public async Task BuildAsync_EmitsCommanderSection_WhenDeckHasNoExplicitCommanderHeader()
     {
         var service = CreateService();

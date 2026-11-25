@@ -1,3 +1,5 @@
+using DeckFlow.Core.Manabase;
+
 namespace DeckFlow.Core.Analysis;
 
 /// <summary>
@@ -8,7 +10,15 @@ namespace DeckFlow.Core.Analysis;
 /// <param name="TypeLine">Card type line (e.g. "Artifact — Treasure").</param>
 /// <param name="OracleText">Normalized oracle text.</param>
 /// <param name="ManaCost">Mana cost string (e.g. "{3}{B}{B}"); blank for lands.</param>
-public readonly record struct DeckStatCardInput(int Quantity, string TypeLine, string OracleText, string ManaCost);
+public readonly record struct DeckStatCardInput(int Quantity, string TypeLine, string OracleText, string ManaCost)
+{
+    /// <summary>
+    /// Raw oracle text in face order, with empty strings for blank faces so index zero is the front face.
+    /// The tutor tally reads every face and spell-front MDFC tallies read the front face.
+    /// A null or empty list uses <see cref="OracleText"/> for tutors and skips the spell-front tallies.
+    /// </summary>
+    public IReadOnlyList<string>? FaceOracleTexts { get; init; }
+}
 
 /// <summary>
 /// Pre-computed composition stats for a deck slot: counts the analysis prompt states as facts so the
@@ -105,10 +115,28 @@ public static class DeckStatAggregator
             var oracleText = card.OracleText ?? string.Empty;
             totalCards += quantity;
 
+            // Why: land tutors count as in Cut Lab, and IsTutorCard still excludes land-only fetches.
+            if (DeckStatClassifier.IsTutorCard(typeLine, card.FaceOracleTexts, oracleText))
+            {
+                tutors += quantity;
+            }
+
             if (typeLine.Contains("Land", StringComparison.OrdinalIgnoreCase))
             {
                 lands += quantity;
                 curveBuckets["0-1"] += quantity;
+
+                // Why: a spell-front MDFC is both a land drop and a castable spell. Use only the
+                // front face so the land type and back-face mana ability cannot count as ramp.
+                // Without face data, the joined text cannot isolate the spell.
+                var frontTypeLine = CardTypeLine.FrontFace(typeLine);
+                if (!frontTypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
+                    && card.FaceOracleTexts is { Count: > 0 } faceOracleTexts)
+                {
+                    // Why: spell-front MDFC fronts count only the roles TallySpellRoles tallies; recursion, fast mana, ramp-or-draw under 3 MV and creatures stay excluded by owner scope.
+                    TallySpellRoles(frontTypeLine, faceOracleTexts[0], quantity);
+                }
+
                 continue;
             }
 
@@ -142,39 +170,11 @@ public static class DeckStatAggregator
                 creatures += quantity;
             }
 
-            if (DeckStatClassifier.IsRampCard(typeLine, oracleText))
-            {
-                ramp += quantity;
-            }
-
-            if (DeckStatClassifier.IsDrawCard(oracleText))
-            {
-                draw += quantity;
-            }
-
-            if (DeckStatClassifier.IsInteractionCard(typeLine, oracleText))
-            {
-                interaction += quantity;
-            }
-
-            if (DeckStatClassifier.IsBoardWipeCard(oracleText))
-            {
-                wipes += quantity;
-            }
+            TallySpellRoles(typeLine, oracleText, quantity);
 
             if (DeckStatClassifier.IsRecursionCard(oracleText))
             {
                 recursion += quantity;
-            }
-
-            if (DeckStatClassifier.IsClosingPowerCard(typeLine, oracleText))
-            {
-                closingPower += quantity;
-            }
-
-            if (DeckStatClassifier.IsTutorCard(oracleText))
-            {
-                tutors += quantity;
             }
 
             if (DeckStatClassifier.IsFastManaCard(typeLine, oracleText, card.ManaCost))
@@ -185,11 +185,6 @@ public static class DeckStatAggregator
             if (DeckStatClassifier.IsRampOrDrawUnderThreeMv(typeLine, oracleText, card.ManaCost))
             {
                 rampDrawUnderThreeMv += quantity;
-            }
-
-            if (DeckStatClassifier.IsCounterspellCard(oracleText))
-            {
-                counters += quantity;
             }
         }
 
@@ -213,6 +208,34 @@ public static class DeckStatAggregator
             RampDrawUnderThreeMv = rampDrawUnderThreeMv,
             Counters = counters,
         };
+
+        void TallySpellRoles(string typeLine, string text, int quantity)
+        {
+            if (DeckStatClassifier.IsRampCard(typeLine, text))
+            {
+                ramp += quantity;
+            }
+            if (DeckStatClassifier.IsDrawCard(text))
+            {
+                draw += quantity;
+            }
+            if (DeckStatClassifier.IsInteractionCard(typeLine, text))
+            {
+                interaction += quantity;
+            }
+            if (DeckStatClassifier.IsClosingPowerCard(typeLine, text))
+            {
+                closingPower += quantity;
+            }
+            if (DeckStatClassifier.IsCounterspellCard(text))
+            {
+                counters += quantity;
+            }
+            if (DeckStatClassifier.IsBoardWipeCard(text))
+            {
+                wipes += quantity;
+            }
+        }
     }
 
     /// <summary>

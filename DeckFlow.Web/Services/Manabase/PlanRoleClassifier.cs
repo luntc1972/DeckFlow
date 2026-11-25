@@ -14,8 +14,9 @@ namespace DeckFlow.Web.Services.Manabase;
 /// <item>an oracle-text heuristic fallback (<see cref="DeckStatClassifier"/>).</item>
 /// </list>
 /// Ramp, lands, and filler card draw deliberately never earn a role — that is resource/velocity, a
-/// different axis already measured by keepable-% and on-curve castability. The <see cref="ManabaseMode"/>
-/// tunes one role: a pure counterspell counts as <see cref="PlanRole.Interaction"/> only in
+/// different axis already measured by keepable-% and on-curve castability. A fetch land whose searches
+/// find only lands loses <see cref="PlanRole.TutorCombo"/> unless it is a known combo piece.
+/// The <see cref="ManabaseMode"/> tunes one role: a pure counterspell counts as <see cref="PlanRole.Interaction"/> only in
 /// <see cref="ManabaseMode.Cedh"/> (it protects the combo turn); in Casual a counter is reactive
 /// insurance, not a card that advances the win plan, so it earns nothing, and the plural
 /// counters-synergy sense does not count as a counterspell tag in either mode. The classifier also
@@ -66,6 +67,12 @@ public static class PlanRoleClassifier
         else
         {
             roles = FromHeuristic(fact, mode);
+        }
+
+        // Why: the owner decision of 2026-11-23 treats fetch lands as mana fixing and preserves Spellbook combo membership.
+        if (!isComboPiece && roles.HasFlag(PlanRole.TutorCombo) && LandSearchClassifier.IsLandOnlyFetchLand(fact.TypeLine, fact.FrontOracleText))
+        {
+            roles &= ~PlanRole.TutorCombo;
         }
 
         interactionMeritPreGate = roles.HasFlag(PlanRole.Interaction);
@@ -177,6 +184,7 @@ public static class PlanRoleClassifier
 
         string typeLine = fact.TypeLine;
         string oracle = fact.FrontOracleText;
+        string joinedOracle = fact.OracleText ?? string.Empty;
 
         PlanRole roles = PlanRole.None;
 
@@ -185,7 +193,8 @@ public static class PlanRoleClassifier
             roles |= PlanRole.Payoff;
         }
 
-        if (DeckStatClassifier.IsTutorCard(oracle))
+        // Why: match deck stats by falling back to joined oracle text when per-face text is unavailable.
+        if (DeckStatClassifier.IsTutorCard(typeLine, fact.FaceOracleTexts, joinedOracle))
         {
             roles |= PlanRole.TutorCombo;
         }
