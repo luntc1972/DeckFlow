@@ -107,6 +107,7 @@ public sealed class DeckStatClassifierTests
     [InlineData("destroy all artifacts and enchantments.", true)]   // "destroy all artifacts"
     [InlineData("destroy all enchantments.", true)]
     [InlineData("each creature gets -1/-1 until end of turn.", true)]  // each creature + gets -
+    [InlineData("Destroy all nonland permanents.", true)]
     [InlineData("exile all nonland permanents.", true)]
     [InlineData("All creatures get -X/-X until end of turn.", true)]
     [InlineData("Sickening Dreams deals X damage to each creature and each player.", true)]

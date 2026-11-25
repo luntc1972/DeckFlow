@@ -133,7 +133,7 @@ public static class DeckStatAggregator
                 if (!frontTypeLine.Contains("Land", StringComparison.OrdinalIgnoreCase)
                     && card.FaceOracleTexts is { Count: > 0 } faceOracleTexts)
                 {
-                    // Why: spell-front MDFCs intentionally count only as ramp, draw, interaction, or closing power.
+                    // Why: spell-front MDFCs intentionally count only as ramp, draw, interaction, closing power, counters, or wipes.
                     TallySpellRoles(frontTypeLine, faceOracleTexts[0], quantity);
                 }
 
@@ -172,11 +172,6 @@ public static class DeckStatAggregator
 
             TallySpellRoles(typeLine, oracleText, quantity);
 
-            if (DeckStatClassifier.IsBoardWipeCard(oracleText))
-            {
-                wipes += quantity;
-            }
-
             if (DeckStatClassifier.IsRecursionCard(oracleText))
             {
                 recursion += quantity;
@@ -190,11 +185,6 @@ public static class DeckStatAggregator
             if (DeckStatClassifier.IsRampOrDrawUnderThreeMv(typeLine, oracleText, card.ManaCost))
             {
                 rampDrawUnderThreeMv += quantity;
-            }
-
-            if (DeckStatClassifier.IsCounterspellCard(oracleText))
-            {
-                counters += quantity;
             }
         }
 
@@ -236,6 +226,14 @@ public static class DeckStatAggregator
             if (DeckStatClassifier.IsClosingPowerCard(typeLine, text))
             {
                 closingPower += quantity;
+            }
+            if (DeckStatClassifier.IsCounterspellCard(text))
+            {
+                counters += quantity;
+            }
+            if (DeckStatClassifier.IsBoardWipeCard(text))
+            {
+                wipes += quantity;
             }
         }
     }

@@ -104,6 +104,7 @@ public static partial class DeckStatClassifier
         => oracleText.Contains("destroy all creatures", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("destroy all artifacts", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("destroy all enchantments", StringComparison.OrdinalIgnoreCase)
+            || oracleText.Contains("destroy all nonland permanents", StringComparison.OrdinalIgnoreCase)
             || oracleText.Contains("each creature", StringComparison.OrdinalIgnoreCase) && oracleText.Contains("gets -", StringComparison.OrdinalIgnoreCase)
             // Why: Toxic Deluge uses plural "get"; damage sweepers include opponent-only, but not self-only, effects.
             || oracleText.Contains("all creatures get -", StringComparison.OrdinalIgnoreCase)
