@@ -344,7 +344,9 @@ public sealed class ArchidektDeckCacheSession
                 tally.Skipped++;
                 _logger?.LogWarning(retireException, "Harvest.DeckNotFound deckId={DeckId} disposition={Disposition}", deckId, "marked_archive_failed");
                 // Why: Archidekt's not-found result is terminal even when the fold fails. The not_found mark takes the deck out of the Refetch cohort (07-23 C-F1).
-                await SkipDeckAsync(deckId, tally.Added, tally.Updated, progress, DeckSkipReasons.NotFound, cancellationToken);
+                // Why: 07-24 bypasses retention preservation only for this terminal fallback.
+                await _repository.MarkDecksProcessedAsync([deckId], skip: true, skipReason: DeckSkipReasons.NotFound, cancellationToken: cancellationToken);
+                progress?.Report(tally.Added + tally.Updated);
                 return;
             }
 
