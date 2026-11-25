@@ -21,6 +21,7 @@ Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags ar
 - A deck retention pruned earlier that hits the same failure is also marked not found, not retention, so Refetch does not requeue it.
 - Preview shows queued for refetch.
 - Retention-archived decks keep their retention reason when a fetch fails.
+- A request the browser abandons, such as reloading Admin/Harvest while its status call is in flight, is logged as 499 instead of a 500 error.
 
 ### Unreleased — Archidekt paste fixes (2026-11-23)
 
