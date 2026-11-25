@@ -431,6 +431,7 @@ public partial class Program
         app.UseRouting();
         app.UseAnalyticsMiddleware();   // D-12: after UseRouting (endpoint resolved), before MapControllers
         app.UseSerilogRequestLogging();
+        app.UseClientAbortHandling();
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
