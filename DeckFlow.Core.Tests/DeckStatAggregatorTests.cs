@@ -113,6 +113,44 @@ public sealed class DeckStatAggregatorTests
     }
 
     [Fact]
+    public void Compute_JwariDisruptionFrontMdfc_CountsAsLandInteractionAndCounter()
+    {
+        string[] faces = ["Counter target spell unless its controller pays {1}.", "Jwari Ruins enters the battlefield tapped.\n{T}: Add {U}."];
+        DeckStatCardInput card = Card(1, "Instant // Land", string.Join("\n", faces), "{1}{U}") with { FaceOracleTexts = faces };
+
+        DeckStatSummary stats = DeckStatAggregator.Compute([card]);
+
+        Assert.Equal(1, stats.Lands);
+        Assert.Equal(1, stats.Interaction);
+        Assert.Equal(1, stats.Counters);
+    }
+
+    [Fact]
+    public void Compute_OnduInversionFrontMdfc_CountsAsLandAndWipe()
+    {
+        string[] faces = ["Destroy all nonland permanents.", "Ondu Skyruins enters the battlefield tapped.\n{T}: Add {W}."];
+        DeckStatCardInput card = Card(1, "Sorcery // Land", string.Join("\n", faces), "{6}{W}{W}") with { FaceOracleTexts = faces };
+
+        DeckStatSummary stats = DeckStatAggregator.Compute([card]);
+
+        Assert.Equal(1, stats.Lands);
+        Assert.Equal(1, stats.Wipes);
+    }
+
+    [Fact]
+    public void Compute_JwariDisruptionFrontMdfcWithoutFaceData_CountsOnlyAsLand()
+    {
+        DeckStatCardInput card = Card(1, "Instant // Land", "Counter target spell unless its controller pays {1}.\nJwari Ruins enters the battlefield tapped.\n{T}: Add {U}.", "{1}{U}");
+
+        DeckStatSummary stats = DeckStatAggregator.Compute([card]);
+
+        Assert.Equal(1, stats.Lands);
+        Assert.Equal(0, stats.Counters);
+        Assert.Equal(0, stats.Wipes);
+        Assert.Equal(0, stats.Interaction);
+    }
+
+    [Fact]
     public void Compute_SorceryFrontMdfcWithoutFaceData_CountsOnlyAsLand()
     {
         ScryfallCardData card = new() { Name = "Test MDFC", TypeLine = "Sorcery // Land", OracleText = "Investigate." };
