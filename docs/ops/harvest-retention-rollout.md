@@ -74,7 +74,7 @@ To reset the backfill, keep harvest paused and wait until no maintenance run is 
 
 ## Step 3 — Preview, Purge, Drain
 
-Deploy the Retention maintenance card, then press Preview. Planning estimates are 341,656 total decks, about 187,000 decks over the cap, about 11,000 purge candidates, and about 16,000 refetch candidates; the live Preview counts are authoritative. Stop and report a difference of an order of magnitude.
+Deploy the Retention maintenance card, then press Preview. Planning estimates are 341,656 total decks, about 187,000 decks over the cap, about 11,000 purge candidates, and about 16,000 refetch candidates; the live Preview counts are authoritative, including queued for refetch. Stop and report a difference of an order of magnitude.
 
 Tick the confirmation box and run Purge. Wait for completion, then Preview again until purge candidates are 0. Next, tick the confirmation box and run Drain. The server refuses Drain while purge candidates remain. Repeat Preview and Drain after recoverable stops until the status shows completed and Preview shows 0 decks over the cap. With `MaintenanceMaxDecksPerRun=0`, if a Drain stopped with `Completed` and the over-cap count remains above 0, stop the rollout and report that it made no progress. A bounded pilot stops with `PerRunCapReached` (admin status `per-run-cap-reached`) at its configured cap when excess decks remain. This is an intentional bounded stop; review pilot measurements before another run. For `DiskFloor`, `DiskProbeUnavailable`, or `MaxDecksReached`, resolve the displayed stop reason, press Preview, and run Drain again before Refetch.
 
@@ -91,7 +91,16 @@ These are operator-run production gates. Record an explicit proceed or hold deci
 
 ## Step 4 — Refetch
 
-Tick the confirmation box and run Refetch. The server refuses Refetch until Preview shows purge candidates 0 and decks over the cap 0. When Refetch completes, Preview must show 0 refetch candidates. Refetch only queues those decks; update harvests fetch them after Step 5 and apply the legality gate.
+Tick the confirmation box and run Refetch. The server refuses Refetch until Preview shows purge candidates 0 and decks over the cap 0. Refetch only queues decks; the harvest drains them after Step 5 resumes the schedules, and then read the acceptance sentence below.
+
+Step 4 is complete when Preview shows refetch candidates: 0 and queued for refetch: 0 after the harvest has drained the queue.
+
+- A deck Archidekt reports as "Deck not found" is archived when fetched: card knowledge is kept, it drops out of commander counts, the Stats skip reason is `not_found`, and the log shows `Harvest.DeckNotFound` with disposition `archived` or `marked`.
+- Transient and other failures stay `fetch_failure` with their stored rows, and the next Refetch retries them.
+- A deck already in the retention archive keeps `retention`.
+- Report a `marked_archive_failed` disposition when the archive step fails. The deck is marked `not_found` and drops out of commander counts. Its card rows stay live, and Refetch does not requeue it. This holds even for a deck retention pruned earlier: it is marked `not_found`, not `retention`.
+- After the release containing the harvest changes is live, press Refetch once. This requeues the fetch_failure candidates that remain.
+- If refetch candidates remain once queued for refetch reaches 0, press Refetch once more and wait again. A remainder after that second drain is a non-"Deck not found" failure to investigate, and Step 4 is not complete.
 
 - Refetch marks decks in transactions of up to 500 decks, with at most `MaintenanceChunkDecks` decks per sweep-gate hold. The card shows decks, batches, rate, and remaining.
 - Stop takes effect before the next batch. The free-disk floor and Render probe are checked before every batch; follow "Watching a run" for stops.

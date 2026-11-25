@@ -302,6 +302,30 @@ public sealed class DeckRetentionRepositoryTests : IDisposable
         Assert.Equal(2, (await repository.GetRetentionCandidatesAsync("Atraxa")).Count);
     }
 
+    [Fact]
+    public async Task MarkDeckProcessedAsync_RetainedDeckWithoutPreservation_WritesNotFound()
+    {
+        var repository = CreateRepository();
+        await SeedStoredDeckAsync(repository, "singular-not-found", "Atraxa", null, ("Sol Ring", "Ramp"));
+        await RemoveAsync(repository, (await QueueIdAsync("singular-not-found"), DeckSkipReasons.Retention));
+
+        await repository.MarkDeckProcessedAsync("singular-not-found", null, skip: true, skipReason: DeckSkipReasons.NotFound, preserveRetention: false);
+
+        Assert.Equal(DeckSkipReasons.NotFound, (await ReadQueueAsync("singular-not-found")).SkipReason);
+    }
+
+    [Fact]
+    public async Task MarkDecksProcessedAsync_RetainedDeckWithDefaultPreservation_WritesRetention()
+    {
+        var repository = CreateRepository();
+        await SeedStoredDeckAsync(repository, "plural-not-found", "Atraxa", null, ("Sol Ring", "Ramp"));
+        await RemoveAsync(repository, (await QueueIdAsync("plural-not-found"), DeckSkipReasons.Retention));
+
+        await repository.MarkDecksProcessedAsync(["plural-not-found"], skip: true, skipReason: DeckSkipReasons.NotFound);
+
+        Assert.Equal(DeckSkipReasons.Retention, (await ReadQueueAsync("plural-not-found")).SkipReason);
+    }
+
     private CategoryKnowledgeRepository CreateRepository() => new(_databasePath);
 
     private CategoryKnowledgeRepository CreateUnusableRepository()

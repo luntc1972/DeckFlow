@@ -363,6 +363,52 @@ public sealed class CategoryKnowledgeStoreMaintenanceTests
     }
 
     [Fact]
+    public async Task GetMaintenancePreviewAsync_QueuedForRefetch_CountsPendingStoredMetadataLessOnly()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "marked-one", "Alpha", null, metadataLess: true);
+        await SeedStoredDeckAsync(repository, "marked-two", "Alpha", null, metadataLess: true);
+        await repository.RunRefetchMarkBatchAsync(500);
+
+        await SeedStoredDeckAsync(repository, "processed-metadata-less", "Alpha", null, metadataLess: true);
+        await SeedStoredDeckAsync(repository, "pending-with-metadata", "Alpha", 3);
+        await SetQueueStateAsync("pending-with-metadata", skipped: 0, skipReason: null);
+        await repository.AddDeckIdsAsync(["freshly-queued"]);
+        await SeedStoredDeckAsync(repository, "skipped-metadata-less", "Alpha", null, metadataLess: true);
+        await SetQueueStateAsync("skipped-metadata-less", skipped: 1, skipReason: "fetch_failure");
+
+        var preview = Assert.IsType<HarvestMaintenancePreview>(await store.GetMaintenancePreviewAsync());
+        Assert.Equal(2, preview.QueuedForRefetch);
+        Assert.Equal(2, preview.RefetchCandidates);
+
+        async Task SetQueueStateAsync(string deckId, int skipped, string? skipReason)
+        {
+            await using var connection = new SqliteConnection($"Data Source={Assert.IsType<string>(repository.DatabasePath)}");
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE deck_queue SET processed = 0, skipped = $skipped, skip_reason = $skipReason WHERE deck_id = $deckId;";
+            command.Parameters.AddWithValue("$skipped", skipped);
+            command.Parameters.AddWithValue("$skipReason", (object?)skipReason ?? DBNull.Value);
+            command.Parameters.AddWithValue("$deckId", deckId);
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
+    [Fact]
+    public async Task GetMaintenancePreviewAsync_MarkerPending_QueuedIsZero()
+    {
+        var store = CreateStore();
+        var repository = new CategoryKnowledgeRepository(Assert.IsType<string>(store.DatabasePath));
+        await SeedStoredDeckAsync(repository, "illegal", "Alpha", 7);
+        await MakeMarkerPendingAsync(store);
+
+        var preview = Assert.IsType<HarvestMaintenancePreview>(await store.GetMaintenancePreviewAsync());
+        Assert.True(preview.MarkerBackfillPending);
+        Assert.Equal(0, preview.QueuedForRefetch);
+    }
+
+    [Fact]
     public async Task GetMaintenancePreviewAsync_MarkerPending_ReturnsPendingWithoutCounts()
     {
         var store = CreateStore();

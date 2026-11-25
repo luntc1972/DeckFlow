@@ -22,6 +22,12 @@ internal sealed class FakeDeckConvertService : IDeckConvertService
         => throw new NotImplementedException();
 }
 
+internal sealed class ThrowingDeckConvertService(Exception exception) : IDeckConvertService
+{
+    public Task<DeckConvertResult> ConvertAsync(DeckConvertRequest request, CancellationToken cancellationToken = default)
+        => Task.FromException<DeckConvertResult>(exception);
+}
+
 /// <summary>
 /// Placeholder stub for controller tests that do not exercise the deck analysis path;
 /// throws <see cref="NotImplementedException"/> if called unexpectedly.

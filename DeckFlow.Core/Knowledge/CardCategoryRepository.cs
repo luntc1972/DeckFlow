@@ -549,7 +549,7 @@ internal sealed class CardCategoryRepository
         var reasons = new Dictionary<long, string>();
         foreach (var removal in removals)
         {
-            if (removal.SkipReason is not (DeckSkipReasons.Retention or DeckSkipReasons.NotCommanderFormat or DeckSkipReasons.NoCommander))
+            if (removal.SkipReason is not (DeckSkipReasons.Retention or DeckSkipReasons.NotCommanderFormat or DeckSkipReasons.NoCommander or DeckSkipReasons.NotFound))
             {
                 throw new ArgumentException($"Unsupported skip reason: {removal.SkipReason}", nameof(removals));
             }
@@ -574,9 +574,13 @@ internal sealed class CardCategoryRepository
             var candidates = (await connection.QueryAsync<StoredDeckRemovalRow>(new CommandDefinition(
                 $"SELECT q.id AS Id, q.commander_name AS CommanderName, {IntegerProjection("q.processed", "Processed", _connectionInfo.IsPostgres)}, {IntegerProjection("q.skipped", "Skipped", _connectionInfo.IsPostgres)} FROM deck_queue q WHERE q.id {membership} AND {DeckQueueRepository.StoredLiveRowsExistsSql};",
                 new { ids, livePrefix = ArchidektLiveSourcePrefix, livePrefixLength = ArchidektLiveSourcePrefix.Length }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false))
-                .Where(row => reasons[row.Id] == DeckSkipReasons.Retention
-                    ? row.Processed == 1 && row.Skipped == 0
-                    : !(row.Processed == 0 && row.Skipped == 0))
+                .Where(row => reasons[row.Id] switch
+                {
+                    DeckSkipReasons.Retention => row.Processed == 1 && row.Skipped == 0,
+                    // Why: the drain holds a terminal not-found deck pending while its live rows are archived.
+                    DeckSkipReasons.NotFound => true,
+                    _ => !(row.Processed == 0 && row.Skipped == 0)
+                })
                 .OrderBy(row => row.Id)
                 .ToArray();
             if (candidates.Length == 0)
@@ -588,7 +592,7 @@ internal sealed class CardCategoryRepository
 
             if (_connectionInfo.IsPostgres)
             {
-                foreach (var candidate in candidates.Where(row => reasons[row.Id] == DeckSkipReasons.Retention))
+                foreach (var candidate in candidates.Where(row => IsRetentionPreservingReason(reasons[row.Id])))
                 {
                     await connection.ExecuteAsync(new CommandDefinition(
                         "SELECT pg_advisory_xact_lock(@lockClass, @deckQueueId);",
@@ -621,7 +625,7 @@ internal sealed class CardCategoryRepository
             var sourcesByDeck = sourceRows.GroupBy(row => row.DeckQueueId).ToDictionary(group => group.Key, group => group.Select(row => row.SourceId).ToArray());
             var coreHashes = new Dictionary<long, string?>();
             var deltas = new CategoryWriteOrder();
-            foreach (var candidate in candidates.Where(row => reasons[row.Id] == DeckSkipReasons.Retention))
+            foreach (var candidate in candidates.Where(row => IsRetentionPreservingReason(reasons[row.Id])))
             {
                 var sourceIds = sourcesByDeck.GetValueOrDefault(candidate.Id) ?? [];
                 if (sourceIds.Length != 1)
@@ -697,10 +701,15 @@ internal sealed class CardCategoryRepository
             foreach (var candidate in candidates)
             {
                 var reason = reasons[candidate.Id];
-                var eligibility = reason == DeckSkipReasons.Retention ? "processed = 1 AND skipped = 0" : "NOT (processed = 0 AND skipped = 0)";
+                var sql = reason switch
+                {
+                    DeckSkipReasons.NotFound => $"UPDATE deck_queue SET processed = 1, skipped = 1, skip_reason = {DeckQueueRepository.RetentionPreservingSkipReasonSql}, content_hash = NULL, last_checked_utc = @now, refresh_requested_utc = NULL WHERE id = @id;",
+                    DeckSkipReasons.Retention => "UPDATE deck_queue SET processed = 1, skipped = 1, skip_reason = @skipReason, content_hash = NULL, retention_core_hash = @coreHash WHERE id = @id AND processed = 1 AND skipped = 0;",
+                    _ => "UPDATE deck_queue SET processed = 1, skipped = 1, skip_reason = @skipReason, content_hash = NULL, retention_core_hash = @coreHash WHERE id = @id AND NOT (processed = 0 AND skipped = 0);"
+                };
                 var changed = await connection.ExecuteAsync(new CommandDefinition(
-                    $"UPDATE deck_queue SET processed = 1, skipped = 1, skip_reason = @reason, content_hash = NULL, retention_core_hash = @coreHash WHERE id = @id AND {eligibility};",
-                    new { id = candidate.Id, reason, coreHash = reason == DeckSkipReasons.Retention ? coreHashes[candidate.Id] : null }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
+                    sql,
+                    new { id = candidate.Id, skipReason = reason, now = DateTime.UtcNow, coreHash = reason == DeckSkipReasons.Retention ? coreHashes[candidate.Id] : null }, transaction: transaction, cancellationToken: cancellationToken)).ConfigureAwait(false);
                 markedCount += changed;
                 if (changed == 0)
                 {
@@ -714,6 +723,9 @@ internal sealed class CardCategoryRepository
         }, _schema.Logger, cancellationToken);
         return markedCount;
     }
+
+    private static bool IsRetentionPreservingReason(string reason) =>
+        reason is DeckSkipReasons.Retention or DeckSkipReasons.NotFound;
 
     /// <summary>
     /// Persists observed categories for a specific card occurrence.

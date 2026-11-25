@@ -120,6 +120,34 @@ public sealed class DeckPurgeRefetchPostgresTests : IClassFixture<PostgresContai
     }
 
     [PostgresFact]
+    public async Task CountQueuedForRefetchAsync_Postgres_MatchesSqliteSeed()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var connectionString = database.ConnectionString;
+        var repository = await RepositoryAsync(connectionString);
+        await SeedStoredDeckAsync(repository, connectionString, "marked-one", "Alpha", metadata: null);
+        await SeedStoredDeckAsync(repository, connectionString, "marked-two", "Alpha", metadata: null);
+        Assert.Equal(2, await MarkAllRefetchCandidatesAsync(repository));
+
+        await SeedStoredDeckAsync(repository, connectionString, "processed-metadata-less", "Alpha", metadata: null);
+        await SeedStoredDeckAsync(repository, connectionString, "pending-with-metadata", "Alpha", format: 3);
+        await ExecuteAsync(connectionString, "UPDATE deck_queue SET processed = 0 WHERE deck_id = @id;", "pending-with-metadata");
+        await repository.AddDeckIdsAsync(["freshly-queued"]);
+        await SeedStoredDeckAsync(repository, connectionString, "skipped-metadata-less", "Alpha", metadata: null);
+        await ExecuteAsync(connectionString, "UPDATE deck_queue SET processed = 0, skipped = 1, skip_reason = 'fetch_failure' WHERE deck_id = @id;", "skipped-metadata-less");
+
+        var queued = await repository.CountQueuedForRefetchAsync();
+        Assert.Equal(2, queued);
+        Assert.Equal(queued, await ScalarAsync<int>(connectionString,
+            "SELECT COUNT(*) FROM deck_queue WHERE processed = 0 AND skipped = 0 AND archidekt_metadata_captured_utc IS NULL AND has_stored_live_rows = 1;"));
+        Assert.Equal(2, await repository.CountRefetchCandidatesAsync());
+        var skippedDeckQueuedSql = $"SELECT COUNT(*) FROM deck_queue q WHERE q.deck_id = @id AND {DeckQueueRepository.QueuedForRefetchSql};";
+        Assert.Equal(0, await ScalarAsync<int>(connectionString, skippedDeckQueuedSql, "id", "skipped-metadata-less"));
+        Assert.Equal(2, await MarkAllRefetchCandidatesAsync(repository));
+        Assert.Equal(1, await ScalarAsync<int>(connectionString, skippedDeckQueuedSql, "id", "skipped-metadata-less"));
+    }
+
+    [PostgresFact]
     public async Task RefetchMarkService_Postgres_BatchesCommitIndependently()
     {
         await using var database = await CreateDatabaseAsync();

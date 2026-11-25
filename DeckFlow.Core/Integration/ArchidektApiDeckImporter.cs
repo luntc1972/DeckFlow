@@ -58,12 +58,19 @@ public sealed class ArchidektApiDeckImporter : IArchidektDeckImporter
         var body = response.Content ?? string.Empty;
         if (!response.IsSuccessStatusCode)
         {
+            var message = $"Archidekt API deck {deckId} returned {(int)response.StatusCode} {response.StatusDescription}: {body[..Math.Min(body.Length, 500)]}";
             if ((int)response.StatusCode is 0 or >= 500 and <= 599)
             {
-                throw new ArchidektTransientFailureException($"Archidekt API deck {deckId} returned {(int)response.StatusCode} {response.StatusDescription}: {body[..Math.Min(body.Length, 500)]}", response.StatusCode);
+                throw new ArchidektTransientFailureException(message, response.StatusCode);
             }
 
-            throw new InvalidOperationException($"Archidekt API deck {deckId} returned {(int)response.StatusCode} {response.StatusDescription}: {body[..Math.Min(body.Length, 500)]}");
+            // Why: only the body-matched 404 is terminal; route and proxy 404s stay retryable (T-07-131).
+            if ((int)response.StatusCode == 404 && body.Contains("Deck not found", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArchidektDeckNotFoundException(deckId, message);
+            }
+
+            throw new InvalidOperationException(message);
         }
 
         using var document = JsonDocument.Parse(body);

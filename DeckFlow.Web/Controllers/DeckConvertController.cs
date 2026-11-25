@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using DeckFlow.Core.Models;
+using DeckFlow.Core.Parsing;
 using DeckFlow.Web.Infrastructure;
 using DeckFlow.Web.Models;
 using DeckFlow.Web.Services;
@@ -78,7 +79,7 @@ public sealed class DeckConvertController : DeckToolControllerBase
                 MissingCommander = result.CommanderMissing,
             });
         }
-        catch (Exception exception) when (exception is InvalidOperationException or HttpRequestException)
+        catch (Exception exception) when (exception is DeckParseException or InvalidOperationException or HttpRequestException)
         {
             _logger.LogInformation(exception, "Deck conversion failed.");
             return View("DeckConvert", new DeckConvertViewModel

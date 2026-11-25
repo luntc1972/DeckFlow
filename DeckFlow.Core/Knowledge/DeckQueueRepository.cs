@@ -26,13 +26,20 @@ internal sealed class DeckQueueRepository
     internal const string UnprocessedCountSql = "SELECT COUNT(1) FROM deck_queue WHERE processed = 0 AND skipped = 0;";
     internal const string StoredLiveRowsSql = "q.has_stored_live_rows = 1";
     internal const string StoredLiveRowsExistsSql = "EXISTS (SELECT 1 FROM sources s JOIN card_deck_totals t ON t.source_id = s.id WHERE s.deck_queue_id = q.id AND SUBSTR(s.source, 1, @livePrefixLength) = @livePrefix)";
+    // Why: retention identity lives in retention_core_hash while a requeued deck is pending (RC2).
+    internal const string RetentionPreservingSkipReasonSql =
+        "CASE WHEN retention_core_hash IS NOT NULL AND @skipReason IN ('" + DeckSkipReasons.FetchFailure + "', '" +
+        DeckSkipReasons.NotFound + "') THEN '" + DeckSkipReasons.Retention + "' ELSE @skipReason END";
     // Why: defense in depth on a cold cache, not the fix.
     internal const int MaintenanceCommandTimeoutSeconds = 120;
     private const string RetentionCandidateSql = "q.processed = 1 AND q.skipped = 0 AND q.commander_name IS NOT NULL AND " + StoredLiveRowsSql;
     private const string PurgeLegalitySql = "NOT (q.processed = 0 AND q.skipped = 0) AND q.archidekt_metadata_captured_utc IS NOT NULL AND (q.archidekt_deck_format IS NULL OR q.archidekt_deck_format <> 3 OR q.commander_name IS NULL)";
     private const string ArchivedRowsSql = "EXISTS (SELECT 1 FROM deck_category_archive_manifest m WHERE m.deck_queue_id = q.id)";
     private const string PurgeCandidateSql = PurgeLegalitySql + " AND " + StoredLiveRowsSql;
-    private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND " + StoredLiveRowsSql;
+    // Why: a not_found deck whose fold failed keeps live rows. Exclude it to stop the Refetch 404 loop (07-23 C-F2).
+    private const string RefetchCandidateSql = "q.archidekt_metadata_captured_utc IS NULL AND NOT (q.processed = 0 AND q.skipped = 0) AND (q.skip_reason IS NULL OR q.skip_reason <> '" + DeckSkipReasons.NotFound + "') AND " + StoredLiveRowsSql;
+    // Why: this is the pending half of the Refetch cohort, disjoint from RefetchCandidateSql (G16-U2).
+    internal const string QueuedForRefetchSql = "q.processed = 0 AND q.skipped = 0 AND q.archidekt_metadata_captured_utc IS NULL AND " + StoredLiveRowsSql;
     // Why: SQLite and PostgreSQL use opposite default null placement; explicit CASE keys keep page boundaries identical.
     private readonly RelationalDatabaseConnection _connectionInfo;
     private readonly CategoryCacheSchema _schema;
@@ -151,13 +158,7 @@ internal sealed class DeckQueueRepository
 
     internal async Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
     {
-        await _schema.EnsureSchemaAsync(cancellationToken);
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            $"SELECT COUNT(1) FROM deck_queue q WHERE {PurgeLegalitySql} AND ({StoredLiveRowsSql} OR {ArchivedRowsSql});",
-            commandTimeout: MaintenanceCommandTimeoutSeconds,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return await CountAsync($"{PurgeLegalitySql} AND ({StoredLiveRowsSql} OR {ArchivedRowsSql})", cancellationToken).ConfigureAwait(false);
     }
 
     internal async Task<int> CountRetentionExcessAsync(int perCommanderCap, CancellationToken cancellationToken = default)
@@ -206,11 +207,21 @@ internal sealed class DeckQueueRepository
 
     internal async Task<int> CountRefetchCandidatesAsync(CancellationToken cancellationToken = default)
     {
+        return await CountAsync(RefetchCandidateSql, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<int> CountQueuedForRefetchAsync(CancellationToken cancellationToken = default)
+    {
+        return await CountAsync(QueuedForRefetchSql, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<int> CountAsync(string whereSql, CancellationToken cancellationToken)
+    {
         await _schema.EnsureSchemaAsync(cancellationToken);
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            $"SELECT COUNT(1) FROM deck_queue q WHERE {RefetchCandidateSql};",
+            $"SELECT COUNT(1) FROM deck_queue q WHERE {whereSql};",
             commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
@@ -517,15 +528,15 @@ internal sealed class DeckQueueRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         var skipped = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            """
+            $"""
             UPDATE deck_queue
             SET transient_failure_count = transient_failure_count + 1,
                 skipped = CASE WHEN transient_failure_count + 1 >= 3 THEN 1 ELSE skipped END,
-                skip_reason = CASE WHEN transient_failure_count + 1 >= 3 THEN @fetchFailure ELSE skip_reason END
+                skip_reason = CASE WHEN transient_failure_count + 1 >= 3 THEN {RetentionPreservingSkipReasonSql} ELSE skip_reason END
             WHERE deck_id = @deckId AND processed = 0 AND skipped = 0
             RETURNING CASE WHEN transient_failure_count >= 3 THEN 1 ELSE 0 END;
             """,
-            new { deckId, fetchFailure = DeckSkipReasons.FetchFailure },
+            new { deckId, skipReason = DeckSkipReasons.FetchFailure },
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         return skipped == 1;
     }
@@ -667,6 +678,7 @@ internal sealed class DeckQueueRepository
     /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
     /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
     /// <param name="skipReason">Reason recorded when the deck is skipped.</param>
+    /// <param name="preserveRetention">Whether retained decks preserve their retention skip reason for fetch-failure and not-found marks.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     internal async Task MarkDeckProcessedAsync(
         string deckId,
@@ -674,6 +686,7 @@ internal sealed class DeckQueueRepository
         bool skip = false,
         ArchidektDeckMetadata? metadata = null,
         string? skipReason = null,
+        bool preserveRetention = true,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deckId);
@@ -697,26 +710,27 @@ internal sealed class DeckQueueRepository
         // harvest stats panel (top-10 commanders) can read deck_queue.commander_name without
         // a join into card_category_observations.
         var metadataParameters = metadata is null ? null : ArchidektDeckMetadataParameters.From(metadata);
+        var skipReasonSql = preserveRetention ? RetentionPreservingSkipReasonSql : "@skipReason";
         var sql = metadataParameters is null
-            ? """
+            ? $"""
             UPDATE deck_queue
                SET processed = 1,
                    skipped = @skipped,
                    transient_failure_count = CASE WHEN @skipped = 0 THEN 0 ELSE transient_failure_count END,
                    last_checked_utc = @now,
                    refresh_requested_utc = NULL,
-                   skip_reason = @skipReason,
+                   skip_reason = {skipReasonSql},
                    commander_name = COALESCE(@commanderName, deck_queue.commander_name)
              WHERE deck_id = @deckId;
             """
-            : """
+            : $"""
             UPDATE deck_queue
                SET processed = 1,
                    skipped = @skipped,
                    transient_failure_count = CASE WHEN @skipped = 0 THEN 0 ELSE transient_failure_count END,
                    last_checked_utc = @now,
                    refresh_requested_utc = NULL,
-                   skip_reason = @skipReason,
+                   skip_reason = {skipReasonSql},
                    commander_name = @commanderName,
                    archidekt_edh_bracket = @EdhBracket,
                    archidekt_deck_format = @DeckFormat,
@@ -754,6 +768,23 @@ internal sealed class DeckQueueRepository
             cancellationToken: cancellationToken)).ConfigureAwait(false);
         await RefreshCommanderSummaryAsync(connection, summaryTransaction, new[] { priorCommanderName, currentCommanderName }, _connectionInfo.IsPostgres, cancellationToken).ConfigureAwait(false);
         await summaryTransaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Gets the queue row identifier for a deck.
+    /// </summary>
+    /// <param name="deckId">The Archidekt deck identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The queue row identifier, or <see langword="null"/> when absent.</returns>
+    internal async Task<long?> GetDeckQueueIdAsync(string deckId, CancellationToken cancellationToken = default)
+    {
+        await _schema.EnsureSchemaAsync(cancellationToken);
+        await using var connection = CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        return await connection.ExecuteScalarAsync<long?>(new CommandDefinition(
+            "SELECT id FROM deck_queue WHERE deck_id = @deckId;",
+            new { deckId },
+            cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -925,7 +956,7 @@ internal sealed class DeckQueueRepository
     }
 
     internal Task MarkUrlDeckRejectedAsync(string deckId, string? commanderName, ArchidektDeckMetadata? metadata, string skipReason, CancellationToken cancellationToken = default)
-        => MarkDecksProcessedAsync([deckId], skip: true, skipReason, cancellationToken);
+        => MarkDecksProcessedAsync([deckId], skip: true, skipReason, cancellationToken: cancellationToken);
 
     /// <summary>
     /// Marks the provided deck IDs as processed, optionally skipping them.
@@ -933,8 +964,9 @@ internal sealed class DeckQueueRepository
     /// <param name="deckIds">Deck IDs to update.</param>
     /// <param name="skip">Whether the decks should be skipped after failure.</param>
     /// <param name="skipReason">Reason recorded when the decks are skipped.</param>
+    /// <param name="preserveRetention">Whether retained decks preserve their retention skip reason for fetch-failure and not-found marks.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    internal async Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, string? skipReason = null, CancellationToken cancellationToken = default)
+    internal async Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, string? skipReason = null, bool preserveRetention = true, CancellationToken cancellationToken = default)
     {
         if (!skip && skipReason is not null)
         {
@@ -957,15 +989,16 @@ internal sealed class DeckQueueRepository
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        var skipReasonSql = preserveRetention ? RetentionPreservingSkipReasonSql : "@skipReason";
 
         foreach (var deckId in unique)
         {
             await connection.ExecuteAsync(new CommandDefinition(
-                """
+                $"""
                 UPDATE deck_queue
                 SET processed = 1,
                     skipped = @skipped,
-                    skip_reason = @skipReason,
+                    skip_reason = {skipReasonSql},
                     last_checked_utc = @now,
                     refresh_requested_utc = NULL
                 WHERE deck_id = @deckId;

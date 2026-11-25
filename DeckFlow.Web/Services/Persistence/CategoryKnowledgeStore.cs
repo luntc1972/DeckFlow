@@ -173,7 +173,10 @@ public sealed class CategoryKnowledgeStore : ICategoryKnowledgeStore
         return new HarvestMaintenancePreview(
             await _repository.CountRetentionExcessAsync(_retentionOptions.PerCommanderCap, cancellationToken).ConfigureAwait(false),
             await _repository.CountPurgeCandidatesAsync(cancellationToken).ConfigureAwait(false),
-            await _repository.CountRefetchCandidatesAsync(cancellationToken).ConfigureAwait(false));
+            await _repository.CountRefetchCandidatesAsync(cancellationToken).ConfigureAwait(false))
+        {
+            QueuedForRefetch = await _repository.CountQueuedForRefetchAsync(cancellationToken).ConfigureAwait(false)
+        };
     }
 
     private static string ResolveArtifactsPath(IWebHostEnvironment environment)

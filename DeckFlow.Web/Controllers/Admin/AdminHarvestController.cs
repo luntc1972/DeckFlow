@@ -217,7 +217,7 @@ public sealed class AdminHarvestController : Controller
             ? $"Preview timed out after {((long)stopwatch.Elapsed.TotalSeconds).ToString(CultureInfo.InvariantCulture)} s."
             : preview is null ? "Maintenance counts are unavailable."
             : preview.MarkerBackfillPending ? "Maintenance counts wait for the marker backfill. Run Marker backfill first."
-            : $"Retention excess: {preview.RetentionExcessDecks}; purge candidates: {preview.PurgeCandidates}; refetch candidates: {preview.RefetchCandidates} (counts as of {asOf}).";
+            : $"Retention excess: {preview.RetentionExcessDecks}; purge candidates: {preview.PurgeCandidates}; refetch candidates: {preview.RefetchCandidates}; queued for refetch: {preview.QueuedForRefetch} (counts as of {asOf}).";
         SetBanner(message, preview is null || preview.MarkerBackfillPending);
         return RedirectToAction(nameof(Index));
     }

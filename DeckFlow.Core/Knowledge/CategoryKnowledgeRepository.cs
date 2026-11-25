@@ -185,6 +185,14 @@ public sealed class CategoryKnowledgeRepository
         => _deckQueue.CountRefetchCandidatesAsync(cancellationToken);
 
     /// <summary>
+    /// Counts pending stored decks without captured metadata.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of stored decks queued for refetch.</returns>
+    public Task<int> CountQueuedForRefetchAsync(CancellationToken cancellationToken = default)
+        => _deckQueue.CountQueuedForRefetchAsync(cancellationToken);
+
+    /// <summary>
     /// Gets normalized commander keys with more retained candidates than the supplied minimum.
     /// </summary>
     internal Task<IReadOnlyList<string>> GetRetentionCommanderKeysAsync(int minimum, CancellationToken cancellationToken = default)
@@ -403,6 +411,7 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="skip">Whether the deck should be marked as skipped after failure.</param>
     /// <param name="metadata">Captured Archidekt metadata, or null when no capture occurred.</param>
     /// <param name="skipReason">Reason recorded when the deck is skipped.</param>
+    /// <param name="preserveRetention">Whether retained decks preserve their retention skip reason for fetch-failure and not-found marks.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public Task MarkDeckProcessedAsync(
         string deckId,
@@ -410,6 +419,7 @@ public sealed class CategoryKnowledgeRepository
         bool skip = false,
         ArchidektDeckMetadata? metadata = null,
         string? skipReason = null,
+        bool preserveRetention = true,
         CancellationToken cancellationToken = default)
         => _deckQueue.MarkDeckProcessedAsync(
             deckId,
@@ -417,7 +427,32 @@ public sealed class CategoryKnowledgeRepository
             skip: skip,
             metadata: metadata,
             skipReason: skipReason,
+            preserveRetention: preserveRetention,
             cancellationToken: cancellationToken);
+
+    /// <summary>
+    /// Archives stored rows for a deck Archidekt confirms is absent, or marks an unstored row terminal.
+    /// </summary>
+    /// <param name="deckId">The Archidekt deck identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>One when live rows were archived; otherwise zero.</returns>
+    internal async Task<int> RetireNotFoundDeckAsync(string deckId, CancellationToken cancellationToken = default)
+    {
+        var deckQueueId = await _deckQueue.GetDeckQueueIdAsync(deckId, cancellationToken).ConfigureAwait(false);
+        if (deckQueueId is null)
+        {
+            return 0;
+        }
+
+        var archived = await _cardCategory.RemoveStoredDecksAsync([(deckQueueId.Value, DeckSkipReasons.NotFound)], cancellationToken).ConfigureAwait(false);
+        if (archived != 0)
+        {
+            return archived;
+        }
+
+        await _deckQueue.MarkDeckProcessedAsync(deckId, commanderName: null, skip: true, metadata: null, skipReason: DeckSkipReasons.NotFound, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return 0;
+    }
 
     /// <summary>
     /// Gets the stored canonical content hash for a queued Archidekt deck.
@@ -484,8 +519,9 @@ public sealed class CategoryKnowledgeRepository
     /// <param name="deckIds">Deck IDs to update.</param>
     /// <param name="skip">Whether the decks should be skipped after failure.</param>
     /// <param name="skipReason">Reason recorded when the decks are skipped.</param>
+    /// <param name="preserveRetention">Whether retained decks preserve their retention skip reason for fetch-failure and not-found marks.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    public Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, string? skipReason = null, CancellationToken cancellationToken = default)
-        => _deckQueue.MarkDecksProcessedAsync(deckIds, skip, skipReason, cancellationToken);
+    public Task MarkDecksProcessedAsync(IEnumerable<string> deckIds, bool skip = false, string? skipReason = null, bool preserveRetention = true, CancellationToken cancellationToken = default)
+        => _deckQueue.MarkDecksProcessedAsync(deckIds, skip, skipReason, preserveRetention, cancellationToken);
 
 }
