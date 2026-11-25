@@ -158,13 +158,7 @@ internal sealed class DeckQueueRepository
 
     internal async Task<int> CountPurgeCandidatesAsync(CancellationToken cancellationToken = default)
     {
-        await _schema.EnsureSchemaAsync(cancellationToken);
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            $"SELECT COUNT(1) FROM deck_queue q WHERE {PurgeLegalitySql} AND ({StoredLiveRowsSql} OR {ArchivedRowsSql});",
-            commandTimeout: MaintenanceCommandTimeoutSeconds,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return await CountAsync($"{PurgeLegalitySql} AND ({StoredLiveRowsSql} OR {ArchivedRowsSql})", cancellationToken).ConfigureAwait(false);
     }
 
     internal async Task<int> CountRetentionExcessAsync(int perCommanderCap, CancellationToken cancellationToken = default)
@@ -213,22 +207,21 @@ internal sealed class DeckQueueRepository
 
     internal async Task<int> CountRefetchCandidatesAsync(CancellationToken cancellationToken = default)
     {
-        await _schema.EnsureSchemaAsync(cancellationToken);
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            $"SELECT COUNT(1) FROM deck_queue q WHERE {RefetchCandidateSql};",
-            commandTimeout: MaintenanceCommandTimeoutSeconds,
-            cancellationToken: cancellationToken)).ConfigureAwait(false);
+        return await CountAsync(RefetchCandidateSql, cancellationToken).ConfigureAwait(false);
     }
 
     internal async Task<int> CountQueuedForRefetchAsync(CancellationToken cancellationToken = default)
+    {
+        return await CountAsync(QueuedForRefetchSql, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<int> CountAsync(string whereSql, CancellationToken cancellationToken)
     {
         await _schema.EnsureSchemaAsync(cancellationToken);
         await using var connection = CreateConnection();
         await connection.OpenAsync(cancellationToken);
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
-            $"SELECT COUNT(1) FROM deck_queue q WHERE {QueuedForRefetchSql};",
+            $"SELECT COUNT(1) FROM deck_queue q WHERE {whereSql};",
             commandTimeout: MaintenanceCommandTimeoutSeconds,
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
