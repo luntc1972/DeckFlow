@@ -2006,7 +2006,7 @@ public sealed partial class DeckAnalysisPacketService : IDeckAnalysisPacketServi
                 matchingRequest.Quantity,
                 matchingRequest.IsCommander)
             {
-                FaceOracleTexts = CardFaceOracleTexts.From(ScryfallCardDataMapper.ToCardData(card))
+                FaceOracleTexts = CardFaceOracleTexts.From(card.CardFaces?.Select(face => face.OracleText))
             });
 
             foreach (var mechanicName in ExtractMechanicNames(card))

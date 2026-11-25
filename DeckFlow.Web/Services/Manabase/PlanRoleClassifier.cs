@@ -184,6 +184,7 @@ public static class PlanRoleClassifier
 
         string typeLine = fact.TypeLine;
         string oracle = fact.FrontOracleText;
+        string joinedOracle = fact.OracleText ?? string.Empty;
 
         PlanRole roles = PlanRole.None;
 
@@ -193,7 +194,7 @@ public static class PlanRoleClassifier
         }
 
         // Why: match deck stats by falling back to joined oracle text when per-face text is unavailable.
-        if (DeckStatClassifier.IsTutorCard(typeLine, fact.FaceOracleTexts, fact.OracleText ?? string.Empty))
+        if (DeckStatClassifier.IsTutorCard(typeLine, fact.FaceOracleTexts, joinedOracle))
         {
             roles |= PlanRole.TutorCombo;
         }
