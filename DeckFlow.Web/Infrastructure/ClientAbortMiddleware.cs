@@ -8,11 +8,6 @@ namespace DeckFlow.Web.Infrastructure;
 /// </summary>
 public sealed class ClientAbortMiddleware
 {
-    /// <summary>
-    /// Status code used when the client closes the request before it completes.
-    /// </summary>
-    public const int ClientClosedRequestStatusCode = 499;
-
     private readonly RequestDelegate _next;
 
     /// <summary>
@@ -41,7 +36,7 @@ public sealed class ClientAbortMiddleware
         {
             if (!context.Response.HasStarted)
             {
-                context.Response.StatusCode = ClientClosedRequestStatusCode;
+                context.Response.StatusCode = StatusCodes.Status499ClientClosedRequest;
                 // Why: status-code pages would re-execute the request and turn a client abort into an error page.
                 var statusCodePages = context.Features.Get<IStatusCodePagesFeature>();
                 if (statusCodePages is not null)

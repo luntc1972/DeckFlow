@@ -17,7 +17,7 @@ public sealed class ClientAbortMiddlewareTests
 
         await middleware.InvokeAsync(context);
 
-        Assert.Equal(ClientAbortMiddleware.ClientClosedRequestStatusCode, context.Response.StatusCode);
+        Assert.Equal(StatusCodes.Status499ClientClosedRequest, context.Response.StatusCode);
     }
 
     [Theory]
