@@ -6,6 +6,15 @@ DeckFlow release history.
 
 Releases are tagged with CalVer (`YYYY.MM.PATCH`); the pre-CalVer `v1.x` tags are kept for history. Newest first.
 
+### Unreleased — Cut Lab and deck stats tutors (2026-11-25)
+
+- **Fetch lands:** Fetch lands such as Polluted Delta and Krosan Verge no longer count as tutors in Cut Lab or deck stats. They still count as lands.
+- **Land tutors:** Deck stats now count Urza's Saga, Inventors' Fair and Tolaria West as tutors, matching Cut Lab. They still count as lands.
+- **Double-faced tutors:** A card counts as a tutor when either face tutors, for example Kellan, the Fae-Blooded // Birthright Boon.
+- **More tutor text:** Islandcycling cards such as Lórien Revealed, and cards that "search your library and/or graveyard" such as Finale of Devastation, now count as tutors.
+- **Spell-front MDFCs:** In deck stats, a spell-front modal double-faced card such as Fell the Profane // Fell Mire still counts as a land. Its front face now also counts toward the matching ramp, draw, interaction, closing power, counter and wipe counts. The land total and the curve are unchanged.
+- **Board wipes:** Cards that "destroy all nonland permanents" now count as board wipes.
+
 ### Unreleased — Harvest refetch convergence
 
 - "Deck not found" decks are archived instead of returning as refetch candidates.
